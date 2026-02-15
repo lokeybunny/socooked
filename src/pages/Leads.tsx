@@ -13,12 +13,16 @@ import { toast } from 'sonner';
 const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 
+const PAGE_SIZE = 10;
+
 export default function Leads() {
   const [leads, setLeads] = useState<any[]>([]);
   const [prospects, setProspects] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [leadsPage, setLeadsPage] = useState(1);
+  const [prospectsPage, setProspectsPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -52,7 +56,7 @@ export default function Leads() {
     setProspects(data || []);
   };
 
-  const loadAll = () => { loadLeads(); loadProspects(); };
+  const loadAll = () => { setLeadsPage(1); setProspectsPage(1); loadLeads(); loadProspects(); };
 
   useEffect(() => { loadAll(); }, [search, filterSource]);
 
@@ -196,6 +200,29 @@ export default function Leads() {
       <div className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</div>
     </button>
   );
+  const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
+  const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
+  const pagedLeads = leads.slice((leadsPage - 1) * PAGE_SIZE, leadsPage * PAGE_SIZE);
+  const pagedProspects = prospects.slice((prospectsPage - 1) * PAGE_SIZE, prospectsPage * PAGE_SIZE);
+
+  const PaginationButtons = ({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) => {
+    if (total <= 1) return null;
+    return (
+      <div className="flex items-center justify-center gap-1 pt-2">
+        {Array.from({ length: total }, (_, i) => i + 1).map(p => (
+          <Button
+            key={p}
+            size="sm"
+            variant={p === current ? 'default' : 'outline'}
+            className="h-8 w-8 p-0 text-xs"
+            onClick={() => onChange(p)}
+          >
+            {p}
+          </Button>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <AppLayout>
@@ -206,8 +233,8 @@ export default function Leads() {
               <Bot className="h-6 w-6 text-primary" />
               Leads
             </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {leads.length} leads for review
+         <p className="text-muted-foreground text-sm mt-1">
+              {leads.length} leads · {prospects.length} prospects
             </p>
           </div>
           <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
@@ -246,7 +273,7 @@ export default function Leads() {
               <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{leads.length}</span>
             </div>
             <div className="space-y-3">
-              {leads.map(lead => (
+              {pagedLeads.map(lead => (
                 <ContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} />
               ))}
               {leads.length === 0 && !loading && (
@@ -256,6 +283,7 @@ export default function Leads() {
                 </div>
               )}
             </div>
+            <PaginationButtons current={leadsPage} total={leadsPageCount} onChange={setLeadsPage} />
           </div>
 
           {/* Prospects Column */}
@@ -266,7 +294,7 @@ export default function Leads() {
               <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
             </div>
             <div className="space-y-3">
-              {prospects.map(prospect => (
+              {pagedProspects.map(prospect => (
                 <ContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} isProspect />
               ))}
               {prospects.length === 0 && !loading && (
@@ -276,6 +304,7 @@ export default function Leads() {
                 </div>
               )}
             </div>
+            <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
           </div>
         </div>
 
