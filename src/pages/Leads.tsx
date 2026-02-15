@@ -196,9 +196,24 @@ export default function Leads() {
 
     if (!targetStatus || targetStatus === draggedContact.status) return;
 
-    await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
+    // Optimistically update local state immediately
+    const updatedContact = { ...draggedContact, status: targetStatus, updated_at: new Date().toISOString() };
+    const removeFromList = (list: any[]) => list.filter(c => c.id !== draggedId);
+    const addToList = (list: any[]) => [updatedContact, ...list];
+
+    const newLeads = targetStatus === 'lead' ? addToList(removeFromList(leads)) : removeFromList(leads);
+    const newProspects = targetStatus === 'prospect' ? addToList(removeFromList(prospects)) : removeFromList(prospects);
+    const newClients = targetStatus === 'client' ? addToList(removeFromList(clients)) : removeFromList(clients);
+
+    setLeads(newLeads);
+    setProspects(newProspects);
+    setClients(newClients);
+
     const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', client: 'Converted to client' };
     toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
+
+    // Then persist to DB and refresh
+    await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
     loadAll();
   };
 
