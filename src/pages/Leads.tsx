@@ -9,9 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin, rectIntersection, type CollisionDetection } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, rectIntersection } from '@dnd-kit/core';
+import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
 
 const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
@@ -30,8 +29,8 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
 
 // Draggable card
 function DraggableContactCard({ contact, onClick, isProspect }: { contact: any; onClick: () => void; isProspect?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: contact.id, data: { status: contact.status } });
-  const style = { transform: CSS.Transform.toString(transform), transition };
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
   return (
     <div
@@ -293,8 +292,7 @@ export default function Leads() {
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads</h2>
                 <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{leads.length}</span>
               </div>
-              <SortableContext items={pagedLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
-                <DroppableColumn id="leads-column">
+              <DroppableColumn id="leads-column">
                   {pagedLeads.map(lead => (
                     <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} />
                   ))}
@@ -305,7 +303,6 @@ export default function Leads() {
                     </div>
                   )}
                 </DroppableColumn>
-              </SortableContext>
               <PaginationButtons current={leadsPage} total={leadsPageCount} onChange={setLeadsPage} />
             </div>
 
@@ -316,8 +313,7 @@ export default function Leads() {
                 <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
               </div>
-              <SortableContext items={pagedProspects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                <DroppableColumn id="prospects-column">
+              <DroppableColumn id="prospects-column">
                   {pagedProspects.map(prospect => (
                     <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} isProspect />
                   ))}
@@ -328,7 +324,6 @@ export default function Leads() {
                     </div>
                   )}
                 </DroppableColumn>
-              </SortableContext>
               <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
             </div>
 
@@ -339,8 +334,7 @@ export default function Leads() {
                 <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">New Client</h2>
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{clients.length}</span>
               </div>
-              <SortableContext items={pagedClients.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                <DroppableColumn id="clients-column">
+              <DroppableColumn id="clients-column">
                   {pagedClients.map(client => (
                     <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} isProspect />
                   ))}
@@ -351,7 +345,6 @@ export default function Leads() {
                     </div>
                   )}
                 </DroppableColumn>
-              </SortableContext>
               <PaginationButtons current={clientsPage} total={clientsPageCount} onChange={setClientsPage} />
             </div>
           </div>
