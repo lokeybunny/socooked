@@ -212,9 +212,13 @@ export default function Leads() {
     const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', client: 'Converted to client' };
     toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
 
-    // Then persist to DB and refresh
-    await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
-    loadAll();
+    // Persist to DB (no reload needed — optimistic state is already correct)
+    const { error } = await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
+    if (error) {
+      // Revert on failure
+      toast.error('Failed to update status');
+      loadAll();
+    }
   };
 
   const activeContact = activeId ? [...leads, ...prospects, ...clients].find(c => c.id === activeId) : null;
