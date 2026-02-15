@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp } from 'lucide-react';
+import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -12,11 +12,14 @@ interface Stats {
   tasks: number;
   dealValue: number;
   activeTasks: number;
+  completedTasks: number;
+  completedDeals: number;
+  completedProjects: number;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [recentDeals, setRecentDeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,21 +28,25 @@ export default function Dashboard() {
     async function load() {
       const [c, d, p, t] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }),
-        supabase.from('deals').select('deal_value'),
-        supabase.from('projects').select('id', { count: 'exact', head: true }),
+        supabase.from('deals').select('deal_value, status'),
+        supabase.from('projects').select('status'),
         supabase.from('tasks').select('status'),
       ]);
 
       const deals = d.data || [];
       const tasks = t.data || [];
+      const projects = p.data || [];
 
       setStats({
         customers: c.count || 0,
         deals: deals.length,
-        projects: p.count || 0,
+        projects: projects.length,
         tasks: tasks.length,
         dealValue: deals.reduce((sum, deal) => sum + Number(deal.deal_value || 0), 0),
         activeTasks: tasks.filter(t => t.status === 'doing').length,
+        completedTasks: tasks.filter(t => t.status === 'done').length,
+        completedDeals: deals.filter(d => d.status === 'won').length,
+        completedProjects: projects.filter(p => (p as any).status === 'completed').length,
       });
 
       const [rc, rd] = await Promise.all([
@@ -125,6 +132,42 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+        {/* Completed Overview */}
+        <div className="glass-card p-6">
+          <h2 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <CircleCheckBig className="h-4 w-4 text-emerald-500" />
+            Completed
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="text-center space-y-1">
+              <p className="text-3xl font-bold text-foreground">{loading ? '—' : stats.completedTasks}</p>
+              <p className="text-xs text-muted-foreground">Tasks Done</p>
+              {stats.tasks > 0 && !loading && (
+                <div className="w-full bg-muted rounded-full h-1.5 mt-2">
+                  <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.round((stats.completedTasks / stats.tasks) * 100)}%` }} />
+                </div>
+              )}
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-3xl font-bold text-foreground">{loading ? '—' : stats.completedDeals}</p>
+              <p className="text-xs text-muted-foreground">Deals Won</p>
+              {stats.deals > 0 && !loading && (
+                <div className="w-full bg-muted rounded-full h-1.5 mt-2">
+                  <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.round((stats.completedDeals / stats.deals) * 100)}%` }} />
+                </div>
+              )}
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-3xl font-bold text-foreground">{loading ? '—' : stats.completedProjects}</p>
+              <p className="text-xs text-muted-foreground">Projects Completed</p>
+              {stats.projects > 0 && !loading && (
+                <div className="w-full bg-muted rounded-full h-1.5 mt-2">
+                  <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.round((stats.completedProjects / stats.projects) * 100)}%` }} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
