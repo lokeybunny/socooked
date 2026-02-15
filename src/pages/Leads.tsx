@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, MapPin, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck } from 'lucide-react';
+import { Search, MapPin, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
@@ -170,14 +170,20 @@ export default function Leads() {
   );
 
   const ContactCard = ({ contact, onClick, isProspect }: { contact: any; onClick: () => void; isProspect?: boolean }) => (
-    <button
-      onClick={onClick}
-      className={`w-full text-left glass-card p-4 space-y-3 hover:ring-2 transition-all rounded-xl ${isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30'}`}
+    <div
+      className={`w-full text-left glass-card p-4 space-y-3 hover:ring-2 transition-all rounded-xl relative ${isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30'}`}
     >
-      <div className="flex items-center justify-between">
+      <button
+        className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        title="View details"
+      >
+        <Maximize2 className="h-3.5 w-3.5" />
+      </button>
+      <div className="flex items-center gap-2 pr-8">
         <span className="font-semibold text-foreground truncate">{contact.full_name}</span>
         {contact.source && (
-          <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase">
+          <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase shrink-0">
             {contact.source}
           </span>
         )}
@@ -198,7 +204,7 @@ export default function Leads() {
         </div>
       )}
       <div className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</div>
-    </button>
+    </div>
   );
   const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
   const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
