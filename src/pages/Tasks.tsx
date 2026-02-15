@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Calendar } from 'lucide-react';
+import { Plus, Calendar, ChevronDown, ChevronRight, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const taskStatuses = ['todo', 'doing', 'blocked', 'done'] as const;
 const priorities = ['low', 'medium', 'high', 'urgent'] as const;
@@ -16,17 +17,21 @@ const priorities = ['low', 'medium', 'high', 'urgent'] as const;
 export default function Tasks() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [collapsedClients, setCollapsedClients] = useState<Set<string>>(new Set());
   const [form, setForm] = useState({ title: '', project_id: '', status: 'todo', priority: 'medium', due_date: '' });
 
   const load = async () => {
-    const [t, p] = await Promise.all([
-      supabase.from('tasks').select('*, projects(title)').order('created_at', { ascending: false }),
-      supabase.from('projects').select('id, title').order('title'),
+    const [t, p, c] = await Promise.all([
+      supabase.from('tasks').select('*, projects(title, customer_id)').order('created_at', { ascending: false }),
+      supabase.from('projects').select('id, title, customer_id').order('title'),
+      supabase.from('customers').select('id, full_name').order('full_name'),
     ]);
     setTasks(t.data || []);
     setProjects(p.data || []);
+    setCustomers(c.data || []);
     setLoading(false);
   };
 
@@ -53,11 +58,84 @@ export default function Tasks() {
     load();
   };
 
-  // Group by status for kanban
-  const grouped = taskStatuses.reduce((acc, s) => {
-    acc[s] = tasks.filter(t => t.status === s);
-    return acc;
-  }, {} as Record<string, any[]>);
+  const toggleClient = (clientId: string) => {
+    setCollapsedClients(prev => {
+      const next = new Set(prev);
+      if (next.has(clientId)) next.delete(clientId);
+      else next.add(clientId);
+      return next;
+    });
+  };
+
+  // Build customer map
+  const customerMap = new Map(customers.map(c => [c.id, c.full_name]));
+
+  // Group tasks by customer_id (via project)
+  const tasksByClient = new Map<string, { name: string; tasks: any[] }>();
+  const unassignedTasks: any[] = [];
+
+  tasks.forEach(task => {
+    const customerId = task.projects?.customer_id;
+    if (customerId && customerMap.has(customerId)) {
+      if (!tasksByClient.has(customerId)) {
+        tasksByClient.set(customerId, { name: customerMap.get(customerId)!, tasks: [] });
+      }
+      tasksByClient.get(customerId)!.tasks.push(task);
+    } else {
+      unassignedTasks.push(task);
+    }
+  });
+
+  // Sort client groups by name
+  const sortedClientGroups = [...tasksByClient.entries()].sort((a, b) =>
+    a[1].name.localeCompare(b[1].name)
+  );
+
+  // Add unassigned at the end if any
+  if (unassignedTasks.length > 0) {
+    sortedClientGroups.push(['unassigned', { name: 'No Client', tasks: unassignedTasks }]);
+  }
+
+  const StatusKanban = ({ clientTasks }: { clientTasks: any[] }) => {
+    const grouped = taskStatuses.reduce((acc, s) => {
+      acc[s] = clientTasks.filter(t => t.status === s);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    return (
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {taskStatuses.map(status => (
+          <div key={status} className="min-w-[220px] flex-1">
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <StatusBadge status={status} />
+              <span className="text-xs text-muted-foreground">({grouped[status]?.length || 0})</span>
+            </div>
+            <div className="space-y-2">
+              {(grouped[status] || []).map((task: any) => (
+                <div key={task.id} className="glass-card p-3 hover:shadow-md transition-shadow cursor-pointer">
+                  <p className="text-sm font-medium text-foreground mb-1">{task.title}</p>
+                  <p className="text-xs text-muted-foreground mb-2">{task.projects?.title || '—'}</p>
+                  <div className="flex items-center justify-between">
+                    <StatusBadge status={task.priority} className={`priority-${task.priority}`} />
+                    {task.due_date && (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3" />{new Date(task.due_date).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {(grouped[status] || []).length === 0 && (
+                <div className="border-2 border-dashed border-border rounded-xl p-4 text-center text-xs text-muted-foreground">
+                  No tasks
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <AppLayout>
@@ -65,7 +143,7 @@ export default function Tasks() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
-            <p className="text-muted-foreground text-sm mt-1">{tasks.length} tasks</p>
+            <p className="text-muted-foreground text-sm mt-1">{tasks.length} tasks · {sortedClientGroups.length} clients</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
@@ -98,37 +176,34 @@ export default function Tasks() {
           </Dialog>
         </div>
 
-        {/* Kanban */}
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {taskStatuses.map(status => (
-            <div key={status} className="min-w-[260px] flex-1">
-              <div className="flex items-center gap-2 mb-3 px-1">
-                <StatusBadge status={status} />
-                <span className="text-xs text-muted-foreground">({grouped[status]?.length || 0})</span>
-              </div>
-              <div className="space-y-2">
-                {(grouped[status] || []).map((task: any) => (
-                  <div key={task.id} className="glass-card p-4 hover:shadow-md transition-shadow cursor-pointer">
-                    <p className="text-sm font-medium text-foreground mb-1">{task.title}</p>
-                    <p className="text-xs text-muted-foreground mb-2">{task.projects?.title || '—'}</p>
-                    <div className="flex items-center justify-between">
-                      <StatusBadge status={task.priority} className={`priority-${task.priority}`} />
-                      {task.due_date && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="h-3 w-3" />{new Date(task.due_date).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {(grouped[status] || []).length === 0 && (
-                  <div className="border-2 border-dashed border-border rounded-xl p-6 text-center text-xs text-muted-foreground">
-                    No tasks
+        {/* Client-grouped kanban */}
+        <div className="space-y-4">
+          {sortedClientGroups.map(([clientId, { name, tasks: clientTasks }]) => {
+            const isCollapsed = collapsedClients.has(clientId);
+            return (
+              <div key={clientId} className="glass-card rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleClient(clientId)}
+                  className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-left"
+                >
+                  {isCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  <User className="h-4 w-4 text-primary" />
+                  <span className="font-semibold text-foreground">{name}</span>
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{clientTasks.length} tasks</span>
+                </button>
+                {!isCollapsed && (
+                  <div className="px-4 pb-4">
+                    <StatusKanban clientTasks={clientTasks} />
                   </div>
                 )}
               </div>
+            );
+          })}
+          {sortedClientGroups.length === 0 && !loading && (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No tasks yet. Create one to get started.</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </AppLayout>
