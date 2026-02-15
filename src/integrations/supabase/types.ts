@@ -152,6 +152,47 @@ export type Database = {
           },
         ]
       }
+      conversation_threads: {
+        Row: {
+          channel: string
+          created_at: string
+          customer_id: string
+          id: string
+          raw_transcript: string | null
+          status: string
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          customer_id: string
+          id?: string
+          raw_transcript?: string | null
+          status?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          customer_id?: string
+          id?: string
+          raw_transcript?: string | null
+          status?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_threads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           assigned_to: string | null
@@ -268,6 +309,57 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          created_at: string
+          customer_id: string
+          file_url: string | null
+          id: string
+          status: string
+          storage_path: string | null
+          thread_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          file_url?: string | null
+          id?: string
+          status?: string
+          storage_path?: string | null
+          thread_id?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          file_url?: string | null
+          id?: string
+          status?: string
+          storage_path?: string | null
+          thread_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interactions: {
         Row: {
           created_by: string | null
@@ -318,6 +410,66 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          customer_id: string
+          deal_id: string | null
+          id: string
+          invoice_url: string | null
+          paid_at: string | null
+          payment_url: string | null
+          provider: string
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          customer_id: string
+          deal_id?: string | null
+          id?: string
+          invoice_url?: string | null
+          paid_at?: string | null
+          payment_url?: string | null
+          provider?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          customer_id?: string
+          deal_id?: string | null
+          id?: string
+          invoice_url?: string | null
+          paid_at?: string | null
+          payment_url?: string | null
+          provider?: string
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
             referencedColumns: ["id"]
           },
         ]
@@ -403,6 +555,60 @@ export type Database = {
           },
         ]
       }
+      signatures: {
+        Row: {
+          customer_id: string
+          document_id: string
+          id: string
+          ip_address: string | null
+          signature_data: string
+          signature_type: string
+          signed_at: string
+          signer_email: string
+          signer_name: string
+          user_agent: string | null
+        }
+        Insert: {
+          customer_id: string
+          document_id: string
+          id?: string
+          ip_address?: string | null
+          signature_data: string
+          signature_type: string
+          signed_at?: string
+          signer_email: string
+          signer_name: string
+          user_agent?: string | null
+        }
+        Update: {
+          customer_id?: string
+          document_id?: string
+          id?: string
+          ip_address?: string | null
+          signature_data?: string
+          signature_type?: string
+          signed_at?: string
+          signer_email?: string
+          signer_name?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signatures_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signatures_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee_id: string | null
@@ -478,6 +684,33 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          processed: boolean
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+          source: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+          source?: string
         }
         Relationships: []
       }

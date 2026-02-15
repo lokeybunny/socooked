@@ -23,6 +23,18 @@ const statusStyles: Record<string, string> = {
   draft: 'bg-gray-500/15 text-gray-500',
   scheduled: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   published: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  // Thread statuses
+  collecting_info: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  ready_for_docs: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  docs_generated: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
+  sent_for_signature: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+  signed: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  invoiced: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
+  // Invoice statuses
+  sent: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  paid: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+  void: 'bg-red-500/15 text-red-600 dark:text-red-400',
+  final: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
 };
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
