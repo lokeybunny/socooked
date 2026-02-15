@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, ExternalLink, MapPin, Phone, Mail, User, StickyNote, Bot } from 'lucide-react';
+import { Search, MapPin, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
+const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 
 export default function Leads() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -16,6 +19,9 @@ export default function Leads() {
   const [filterSource, setFilterSource] = useState('all');
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState(emptyForm);
 
   const loadLeads = async () => {
     let q = supabase
@@ -34,19 +40,107 @@ export default function Leads() {
 
   useEffect(() => { loadLeads(); }, [search, filterSource]);
 
-  const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.full_name.trim()) return;
+    const { error } = await supabase.from('customers').insert({
+      full_name: form.full_name.trim(),
+      email: form.email || null,
+      phone: form.phone || null,
+      address: form.address || null,
+      company: form.company || null,
+      source: form.source || 'manual',
+      notes: form.notes || null,
+      status: 'lead',
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success('Lead added');
+    setForm(emptyForm);
+    setAddOpen(false);
+    loadLeads();
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selected || !form.full_name.trim()) return;
+    const { error } = await supabase.from('customers').update({
+      full_name: form.full_name.trim(),
+      email: form.email || null,
+      phone: form.phone || null,
+      address: form.address || null,
+      company: form.company || null,
+      source: form.source || null,
+      notes: form.notes || null,
+    }).eq('id', selected.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Lead updated');
+    setEditing(false);
+    setSelected(null);
+    setForm(emptyForm);
+    loadLeads();
+  };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from('customers').delete().eq('id', id);
+    toast.success('Lead deleted');
+    setSelected(null);
+    loadLeads();
+  };
 
   const promote = async (id: string) => {
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', id);
+    toast.success('Lead promoted to prospect');
     setSelected(null);
     loadLeads();
   };
 
   const dismiss = async (id: string) => {
     await supabase.from('customers').update({ status: 'inactive' }).eq('id', id);
+    toast.success('Lead dismissed');
     setSelected(null);
     loadLeads();
   };
+
+  const openEdit = (lead: any) => {
+    setForm({
+      full_name: lead.full_name || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      address: lead.address || '',
+      company: lead.company || '',
+      source: lead.source || '',
+      notes: lead.notes || '',
+    });
+    setEditing(true);
+  };
+
+  const LeadForm = ({ onSubmit, submitLabel }: { onSubmit: (e: React.FormEvent) => void; submitLabel: string }) => (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label>Full Name *</Label>
+        <Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} required />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+        <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2"><Label>Company</Label><Input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} /></div>
+        <div className="space-y-2"><Label>Source</Label>
+          <Select value={form.source || 'manual'} onValueChange={v => setForm({ ...form, source: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="manual">Manual</SelectItem>
+              {sources.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-2"><Label>Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
+      <div className="space-y-2"><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
+      <Button type="submit" className="w-full">{submitLabel}</Button>
+    </form>
+  );
 
   return (
     <AppLayout>
@@ -58,9 +152,18 @@ export default function Leads() {
               Leads
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              {leads.length} leads extracted by Clawd Bot for review
+              {leads.length} leads for review
             </p>
           </div>
+          <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
+            <DialogTrigger asChild>
+              <Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
+              <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Filters */}
@@ -83,7 +186,7 @@ export default function Leads() {
           {leads.map(lead => (
             <button
               key={lead.id}
-              onClick={() => setSelected(lead)}
+              onClick={() => { setSelected(lead); setEditing(false); }}
               className="text-left glass-card p-4 space-y-3 hover:ring-2 hover:ring-primary/30 transition-all rounded-xl"
             >
               <div className="flex items-center justify-between">
@@ -94,32 +197,23 @@ export default function Leads() {
                   </span>
                 )}
               </div>
-
               {lead.email && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{lead.email}</span>
+                  <Mail className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{lead.email}</span>
                 </div>
               )}
               {lead.phone && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5 shrink-0" />
-                  <span>{lead.phone}</span>
+                  <Phone className="h-3.5 w-3.5 shrink-0" /><span>{lead.phone}</span>
                 </div>
               )}
               {lead.address && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{lead.address}</span>
+                  <MapPin className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{lead.address}</span>
                 </div>
               )}
-              {lead.notes && (
-                <p className="text-xs text-muted-foreground line-clamp-2">{lead.notes}</p>
-              )}
-
-              <div className="text-[10px] text-muted-foreground">
-                {new Date(lead.created_at).toLocaleDateString()}
-              </div>
+              {lead.notes && <p className="text-xs text-muted-foreground line-clamp-2">{lead.notes}</p>}
+              <div className="text-[10px] text-muted-foreground">{new Date(lead.created_at).toLocaleDateString()}</div>
             </button>
           ))}
         </div>
@@ -127,68 +221,63 @@ export default function Leads() {
         {leads.length === 0 && !loading && (
           <div className="text-center py-16 text-muted-foreground">
             <Bot className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">No leads yet. Clawd Bot will populate them as it scans.</p>
+            <p className="text-sm">No leads yet. Add one manually or let Clawd Bot find them.</p>
           </div>
         )}
 
-        {/* Detail modal */}
+        {/* Detail / Edit modal */}
         {selected && (
-          <Dialog open onOpenChange={() => setSelected(null)}>
+          <Dialog open onOpenChange={() => { setSelected(null); setEditing(false); setForm(emptyForm); }}>
             <DialogContent className="max-w-lg">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <User className="h-5 w-5 text-primary" />
-                  {selected.full_name}
+                  {editing ? 'Edit Lead' : selected.full_name}
                 </DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                {selected.source && (
-                  <div className="flex items-center gap-2">
+
+              {editing ? (
+                <LeadForm onSubmit={handleUpdate} submitLabel="Save Changes" />
+              ) : (
+                <div className="space-y-4">
+                  {selected.source && (
                     <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>
-                  </div>
-                )}
+                  )}
 
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Email</Label>
-                    <p className="text-foreground">{selected.email || '—'}</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground">{selected.address || '—'}</p></div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Phone</Label>
-                    <p className="text-foreground">{selected.phone || '—'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Company</Label>
-                    <p className="text-foreground">{selected.company || '—'}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Address</Label>
-                    <p className="text-foreground">{selected.address || '—'}</p>
+
+                  {selected.notes && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Notes</Label>
+                      <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selected.notes}</p>
+                    </div>
+                  )}
+
+                  {selected.tags && selected.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {selected.tags.map((t: string) => (
+                        <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2 border-t border-border">
+                    <Button onClick={() => promote(selected.id)} className="flex-1">Promote</Button>
+                    <Button variant="outline" onClick={() => openEdit(selected)}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" />Edit
+                    </Button>
+                    <Button variant="outline" onClick={() => dismiss(selected.id)}>Dismiss</Button>
+                    <Button variant="destructive" size="icon" onClick={() => handleDelete(selected.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
-
-                {selected.notes && (
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                      <StickyNote className="h-3 w-3" /> Bot Notes
-                    </Label>
-                    <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selected.notes}</p>
-                  </div>
-                )}
-
-                {selected.tags && selected.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {selected.tags.map((t: string) => (
-                      <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-2 border-t border-border">
-                  <Button onClick={() => promote(selected.id)} className="flex-1">Promote to Prospect</Button>
-                  <Button variant="outline" onClick={() => dismiss(selected.id)} className="flex-1">Dismiss</Button>
-                </div>
-              </div>
+              )}
             </DialogContent>
           </Dialog>
         )}
