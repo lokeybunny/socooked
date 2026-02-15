@@ -11,6 +11,7 @@ import { Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
+const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '' };
 
 export default function Customers() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -18,7 +19,8 @@ export default function Customers() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '' });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
 
   const loadCustomers = async () => {
     let q = supabase.from('customers').select('*').order('created_at', { ascending: false });
@@ -33,12 +35,31 @@ export default function Customers() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('customers').insert([form]);
-    if (error) { toast.error(error.message); return; }
-    toast.success('Customer created');
-    setForm({ full_name: '', email: '', phone: '', company: '', status: 'lead', source: '' });
+    if (editingId) {
+      const { error } = await supabase.from('customers').update(form).eq('id', editingId);
+      if (error) { toast.error(error.message); return; }
+      toast.success('Customer updated');
+    } else {
+      const { error } = await supabase.from('customers').insert([form]);
+      if (error) { toast.error(error.message); return; }
+      toast.success('Customer created');
+    }
+    setForm(emptyForm);
+    setEditingId(null);
     setDialogOpen(false);
     loadCustomers();
+  };
+
+  const openEdit = (c: any) => {
+    setForm({ full_name: c.full_name, email: c.email || '', phone: c.phone || '', company: c.company || '', status: c.status, source: c.source || '' });
+    setEditingId(c.id);
+    setDialogOpen(true);
+  };
+
+  const openCreate = () => {
+    setForm(emptyForm);
+    setEditingId(null);
+    setDialogOpen(true);
   };
 
   return (
@@ -49,12 +70,12 @@ export default function Customers() {
             <h1 className="text-2xl font-bold text-foreground">Customers</h1>
             <p className="text-muted-foreground text-sm mt-1">{customers.length} total</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />Add Customer</Button>
+              <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Add Customer</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>New Customer</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editingId ? 'Edit Customer' : 'New Customer'}</DialogTitle></DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2"><Label>Full Name *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} required /></div>
                 <div className="grid grid-cols-2 gap-4">
@@ -72,7 +93,7 @@ export default function Customers() {
                     <SelectContent>{statuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <Button type="submit" className="w-full">Create Customer</Button>
+                <Button type="submit" className="w-full">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -108,7 +129,7 @@ export default function Customers() {
               </thead>
               <tbody>
                 {customers.map(c => (
-                  <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer">
+                  <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openEdit(c)}>
                     <td className="py-3 px-4 font-medium text-foreground">{c.full_name}</td>
                     <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">{c.email || '—'}</td>
                     <td className="py-3 px-4 text-muted-foreground hidden lg:table-cell">{c.company || '—'}</td>
