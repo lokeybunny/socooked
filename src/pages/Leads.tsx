@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, MapPin, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Search, MapPin, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
@@ -15,6 +15,7 @@ const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 
 
 export default function Leads() {
   const [leads, setLeads] = useState<any[]>([]);
+  const [prospects, setProspects] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -38,7 +39,22 @@ export default function Leads() {
     setLoading(false);
   };
 
-  useEffect(() => { loadLeads(); }, [search, filterSource]);
+  const loadProspects = async () => {
+    let q = supabase
+      .from('customers')
+      .select('*')
+      .eq('status', 'prospect')
+      .order('updated_at', { ascending: false });
+
+    if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
+
+    const { data } = await q;
+    setProspects(data || []);
+  };
+
+  const loadAll = () => { loadLeads(); loadProspects(); };
+
+  useEffect(() => { loadAll(); }, [search, filterSource]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +73,7 @@ export default function Leads() {
     toast.success('Lead added');
     setForm(emptyForm);
     setAddOpen(false);
-    loadLeads();
+    loadAll();
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -77,28 +93,35 @@ export default function Leads() {
     setEditing(false);
     setSelected(null);
     setForm(emptyForm);
-    loadLeads();
+    loadAll();
   };
 
   const handleDelete = async (id: string) => {
     await supabase.from('customers').delete().eq('id', id);
     toast.success('Lead deleted');
     setSelected(null);
-    loadLeads();
+    loadAll();
   };
 
   const promote = async (id: string) => {
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', id);
     toast.success('Lead promoted to prospect');
     setSelected(null);
-    loadLeads();
+    loadAll();
+  };
+
+  const demote = async (id: string) => {
+    await supabase.from('customers').update({ status: 'lead' }).eq('id', id);
+    toast.success('Prospect moved back to lead');
+    setSelected(null);
+    loadAll();
   };
 
   const dismiss = async (id: string) => {
     await supabase.from('customers').update({ status: 'inactive' }).eq('id', id);
-    toast.success('Lead dismissed');
+    toast.success('Dismissed');
     setSelected(null);
-    loadLeads();
+    loadAll();
   };
 
   const openEdit = (lead: any) => {
@@ -142,6 +165,38 @@ export default function Leads() {
     </form>
   );
 
+  const ContactCard = ({ contact, onClick, isProspect }: { contact: any; onClick: () => void; isProspect?: boolean }) => (
+    <button
+      onClick={onClick}
+      className={`w-full text-left glass-card p-4 space-y-3 hover:ring-2 transition-all rounded-xl ${isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30'}`}
+    >
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-foreground truncate">{contact.full_name}</span>
+        {contact.source && (
+          <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase">
+            {contact.source}
+          </span>
+        )}
+      </div>
+      {contact.email && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Mail className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.email}</span>
+        </div>
+      )}
+      {contact.phone && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Phone className="h-3.5 w-3.5 shrink-0" /><span>{contact.phone}</span>
+        </div>
+      )}
+      {contact.company && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.company}</span>
+        </div>
+      )}
+      <div className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</div>
+    </button>
+  );
+
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
@@ -181,49 +236,48 @@ export default function Leads() {
           </Select>
         </div>
 
-        {/* Cards grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {leads.map(lead => (
-            <button
-              key={lead.id}
-              onClick={() => { setSelected(lead); setEditing(false); }}
-              className="text-left glass-card p-4 space-y-3 hover:ring-2 hover:ring-primary/30 transition-all rounded-xl"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-foreground truncate">{lead.full_name}</span>
-                {lead.source && (
-                  <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase">
-                    {lead.source}
-                  </span>
-                )}
-              </div>
-              {lead.email && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{lead.email}</span>
+        {/* Two-column layout: Leads + Prospects */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Leads Column */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads</h2>
+              <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{leads.length}</span>
+            </div>
+            <div className="space-y-3">
+              {leads.map(lead => (
+                <ContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} />
+              ))}
+              {leads.length === 0 && !loading && (
+                <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                  <Bot className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">No leads yet</p>
                 </div>
               )}
-              {lead.phone && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5 shrink-0" /><span>{lead.phone}</span>
-                </div>
-              )}
-              {lead.address && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{lead.address}</span>
-                </div>
-              )}
-              {lead.notes && <p className="text-xs text-muted-foreground line-clamp-2">{lead.notes}</p>}
-              <div className="text-[10px] text-muted-foreground">{new Date(lead.created_at).toLocaleDateString()}</div>
-            </button>
-          ))}
-        </div>
-
-        {leads.length === 0 && !loading && (
-          <div className="text-center py-16 text-muted-foreground">
-            <Bot className="h-10 w-10 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">No leads yet. Add one manually or let Clawd Bot find them.</p>
+            </div>
           </div>
-        )}
+
+          {/* Prospects Column */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
+              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
+            </div>
+            <div className="space-y-3">
+              {prospects.map(prospect => (
+                <ContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} isProspect />
+              ))}
+              {prospects.length === 0 && !loading && (
+                <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                  <ArrowLeft className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">Promote leads to see them here</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Detail / Edit modal */}
         {selected && (
@@ -232,7 +286,7 @@ export default function Leads() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <User className="h-5 w-5 text-primary" />
-                  {editing ? 'Edit Lead' : selected.full_name}
+                  {editing ? `Edit ${selected.status === 'prospect' ? 'Prospect' : 'Lead'}` : selected.full_name}
                 </DialogTitle>
               </DialogHeader>
 
@@ -240,9 +294,14 @@ export default function Leads() {
                 <LeadForm onSubmit={handleUpdate} submitLabel="Save Changes" />
               ) : (
                 <div className="space-y-4">
-                  {selected.source && (
-                    <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {selected.source && (
+                      <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>
+                    )}
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      {selected.status}
+                    </span>
+                  </div>
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="space-y-1"><Label className="text-xs text-muted-foreground">Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
@@ -267,7 +326,15 @@ export default function Leads() {
                   )}
 
                   <div className="flex gap-2 pt-2 border-t border-border">
-                    <Button onClick={() => promote(selected.id)} className="flex-1">Promote</Button>
+                    {selected.status === 'lead' ? (
+                      <Button onClick={() => promote(selected.id)} className="flex-1">
+                        <ArrowRight className="h-3.5 w-3.5 mr-1" />Promote
+                      </Button>
+                    ) : (
+                      <Button variant="outline" onClick={() => demote(selected.id)} className="flex-1">
+                        <ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead
+                      </Button>
+                    )}
                     <Button variant="outline" onClick={() => openEdit(selected)}>
                       <Pencil className="h-3.5 w-3.5 mr-1" />Edit
                     </Button>
