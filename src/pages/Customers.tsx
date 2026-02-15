@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
 const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '' };
@@ -21,6 +22,16 @@ export default function Customers() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from('customers').delete().eq('id', deleteId);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Customer deleted');
+    setDeleteId(null);
+    loadCustomers();
+  };
 
   const loadCustomers = async () => {
     let q = supabase.from('customers').select('*').order('created_at', { ascending: false });
@@ -113,7 +124,14 @@ export default function Customers() {
                     <SelectContent>{statuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <Button type="submit" className="w-full">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
+                <div className="flex gap-2">
+                  <Button type="submit" className="flex-1">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
+                  {editingId && (
+                    <Button type="button" variant="destructive" size="icon" onClick={() => { setDialogOpen(false); setDeleteId(editingId); }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </form>
             </DialogContent>
           </Dialog>
@@ -188,6 +206,19 @@ export default function Customers() {
           if (metaKeys.length === 0) return null;
           return null; // Meta is shown inside the dialog below
         })()}
+        {/* Delete confirmation */}
+        <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+              <AlertDialogDescription>This action cannot be undone. This will permanently delete the customer and all associated data.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
