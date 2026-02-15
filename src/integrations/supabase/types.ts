@@ -514,6 +514,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          meta: Json
           notes: string | null
           phone: string | null
           source: string | null
@@ -529,6 +530,7 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          meta?: Json
           notes?: string | null
           phone?: string | null
           source?: string | null
@@ -544,6 +546,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          meta?: Json
           notes?: string | null
           phone?: string | null
           source?: string | null
