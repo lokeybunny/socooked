@@ -1,0 +1,1 @@
+ALTER TABLE public.customers ADD COLUMN meta jsonb NOT NULL DEFAULT '{}'::jsonb;

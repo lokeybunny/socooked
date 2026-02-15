@@ -74,8 +74,28 @@ export default function Customers() {
             <DialogTrigger asChild>
               <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Add Customer</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingId ? 'Edit Customer' : 'New Customer'}</DialogTitle></DialogHeader>
+              {/* Show meta info when editing */}
+              {editingId && (() => {
+                const customer = customers.find(c => c.id === editingId);
+                const meta = customer?.meta && typeof customer.meta === 'object' ? customer.meta : {};
+                const metaKeys = Object.keys(meta);
+                if (metaKeys.length === 0) return null;
+                return (
+                  <div className="space-y-2 pb-2 border-b border-border">
+                    <Label className="text-xs text-muted-foreground uppercase tracking-wider">Extra Info (from Clawd Bot)</Label>
+                    <div className="grid gap-2">
+                      {metaKeys.map(k => (
+                        <div key={k} className="flex gap-2 text-sm">
+                          <span className="font-medium text-foreground min-w-[100px] capitalize">{k.replace(/_/g, ' ')}:</span>
+                          <span className="text-muted-foreground break-all">{typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : String(meta[k])}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2"><Label>Full Name *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} required /></div>
                 <div className="grid grid-cols-2 gap-4">
@@ -125,25 +145,49 @@ export default function Customers() {
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden lg:table-cell">Company</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
                   <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden lg:table-cell">Source</th>
+                  <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden xl:table-cell">Extra Info</th>
                 </tr>
               </thead>
               <tbody>
-                {customers.map(c => (
-                  <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openEdit(c)}>
-                    <td className="py-3 px-4 font-medium text-foreground">{c.full_name}</td>
-                    <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">{c.email || '—'}</td>
-                    <td className="py-3 px-4 text-muted-foreground hidden lg:table-cell">{c.company || '—'}</td>
-                    <td className="py-3 px-4"><StatusBadge status={c.status} /></td>
-                    <td className="py-3 px-4 text-muted-foreground hidden lg:table-cell">{c.source || '—'}</td>
-                  </tr>
-                ))}
+                {customers.map(c => {
+                  const meta = c.meta && typeof c.meta === 'object' ? c.meta : {};
+                  const metaKeys = Object.keys(meta);
+                  return (
+                    <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openEdit(c)}>
+                      <td className="py-3 px-4 font-medium text-foreground">{c.full_name}</td>
+                      <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">{c.email || '—'}</td>
+                      <td className="py-3 px-4 text-muted-foreground hidden lg:table-cell">{c.company || '—'}</td>
+                      <td className="py-3 px-4"><StatusBadge status={c.status} /></td>
+                      <td className="py-3 px-4 text-muted-foreground hidden lg:table-cell">{c.source || '—'}</td>
+                      <td className="py-3 px-4 hidden xl:table-cell">
+                        {metaKeys.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {metaKeys.slice(0, 3).map(k => (
+                              <span key={k} className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">{k}</span>
+                            ))}
+                            {metaKeys.length > 3 && <span className="text-xs text-muted-foreground">+{metaKeys.length - 3}</span>}
+                          </div>
+                        ) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {customers.length === 0 && !loading && (
-                  <tr><td colSpan={5} className="py-12 text-center text-muted-foreground">No customers found. Add your first one!</td></tr>
+                  <tr><td colSpan={6} className="py-12 text-center text-muted-foreground">No customers found. Add your first one!</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
+
+        {/* Meta detail panel for selected customer */}
+        {editingId && (() => {
+          const customer = customers.find(c => c.id === editingId);
+          const meta = customer?.meta && typeof customer.meta === 'object' ? customer.meta : {};
+          const metaKeys = Object.keys(meta);
+          if (metaKeys.length === 0) return null;
+          return null; // Meta is shown inside the dialog below
+        })()}
       </div>
     </AppLayout>
   );
