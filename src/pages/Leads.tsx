@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { DndContext, closestCenter, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -91,11 +91,13 @@ function DraggableContactCard({ contact, onClick, isProspect }: { contact: any; 
 export default function Leads() {
   const [leads, setLeads] = useState<any[]>([]);
   const [prospects, setProspects] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('all');
   const [loading, setLoading] = useState(true);
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
+  const [clientsPage, setClientsPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -122,7 +124,14 @@ export default function Leads() {
     setProspects(data || []);
   };
 
-  const loadAll = () => { setLeadsPage(1); setProspectsPage(1); loadLeads(); loadProspects(); };
+  const loadClients = async () => {
+    let q = supabase.from('customers').select('*').eq('status', 'client').order('updated_at', { ascending: false });
+    if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
+    const { data } = await q;
+    setClients(data || []);
+  };
+
+  const loadAll = () => { setLeadsPage(1); setProspectsPage(1); setClientsPage(1); loadLeads(); loadProspects(); loadClients(); };
 
   useEffect(() => { loadAll(); }, [search, filterSource]);
 
@@ -171,39 +180,38 @@ export default function Leads() {
     if (!over) return;
 
     const draggedId = active.id as string;
-    const allContacts = [...leads, ...prospects];
+    const allContacts = [...leads, ...prospects, ...clients];
     const draggedContact = allContacts.find(c => c.id === draggedId);
     if (!draggedContact) return;
 
-    // Determine target column
     let targetStatus: string | null = null;
     const overId = over.id as string;
 
-    if (overId === 'leads-column') {
-      targetStatus = 'lead';
-    } else if (overId === 'prospects-column') {
-      targetStatus = 'prospect';
-    } else {
-      // Dropped on another card — check which column that card is in
+    if (overId === 'leads-column') targetStatus = 'lead';
+    else if (overId === 'prospects-column') targetStatus = 'prospect';
+    else if (overId === 'clients-column') targetStatus = 'client';
+    else {
       const overContact = allContacts.find(c => c.id === overId);
       if (overContact) targetStatus = overContact.status;
     }
 
     if (!targetStatus || targetStatus === draggedContact.status) return;
 
-    // Update status
     await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
-    toast.success(targetStatus === 'prospect' ? 'Promoted to prospect' : 'Moved back to lead');
+    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', client: 'Converted to client' };
+    toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
     loadAll();
   };
 
-  const activeContact = activeId ? [...leads, ...prospects].find(c => c.id === activeId) : null;
+  const activeContact = activeId ? [...leads, ...prospects, ...clients].find(c => c.id === activeId) : null;
 
   // Pagination
   const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
   const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
+  const clientsPageCount = Math.ceil(clients.length / PAGE_SIZE);
   const pagedLeads = leads.slice((leadsPage - 1) * PAGE_SIZE, leadsPage * PAGE_SIZE);
   const pagedProspects = prospects.slice((prospectsPage - 1) * PAGE_SIZE, prospectsPage * PAGE_SIZE);
+  const pagedClients = clients.slice((clientsPage - 1) * PAGE_SIZE, clientsPage * PAGE_SIZE);
 
   const PaginationButtons = ({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) => {
     if (total <= 1) return null;
@@ -249,7 +257,7 @@ export default function Leads() {
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Bot className="h-6 w-6 text-primary" />Leads
             </h1>
-            <p className="text-muted-foreground text-sm mt-1">{leads.length} leads · {prospects.length} prospects · Drag to promote or demote</p>
+            <p className="text-muted-foreground text-sm mt-1">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
           </div>
           <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
@@ -275,9 +283,9 @@ export default function Leads() {
           </Select>
         </div>
 
-        {/* Two-column drag layout */}
+        {/* Three-column drag layout */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-3">
             {/* Leads Column */}
             <div className="space-y-4">
               <div className="flex items-center gap-2">
@@ -323,6 +331,29 @@ export default function Leads() {
               </SortableContext>
               <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
             </div>
+
+            {/* New Client Column */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">New Client</h2>
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{clients.length}</span>
+              </div>
+              <SortableContext items={pagedClients.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                <DroppableColumn id="clients-column">
+                  {pagedClients.map(client => (
+                    <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} isProspect />
+                  ))}
+                  {clients.length === 0 && !loading && (
+                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                      <UserPlus className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm">Drag prospects here to convert</p>
+                    </div>
+                  )}
+                </DroppableColumn>
+              </SortableContext>
+              <PaginationButtons current={clientsPage} total={clientsPageCount} onChange={setClientsPage} />
+            </div>
           </div>
 
           <DragOverlay>
@@ -342,7 +373,7 @@ export default function Leads() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <User className="h-5 w-5 text-primary" />
-                  {editing ? `Edit ${selected.status === 'prospect' ? 'Prospect' : 'Lead'}` : selected.full_name}
+                  {editing ? `Edit ${selected.status}` : selected.full_name}
                 </DialogTitle>
               </DialogHeader>
               {editing ? (
@@ -351,7 +382,7 @@ export default function Leads() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
-                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status}</span>
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'client' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="space-y-1"><Label className="text-xs text-muted-foreground">Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
@@ -370,11 +401,18 @@ export default function Leads() {
                       {selected.tags.map((t: string) => <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>)}
                     </div>
                   )}
-                  <div className="flex gap-2 pt-2 border-t border-border">
-                    {selected.status === 'lead' ? (
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+                    {selected.status === 'lead' && (
                       <Button onClick={() => promote(selected.id)} className="flex-1"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
-                    ) : (
-                      <Button variant="outline" onClick={() => demote(selected.id)} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
+                    )}
+                    {selected.status === 'prospect' && (
+                      <>
+                        <Button variant="outline" onClick={() => demote(selected.id)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
+                        <Button onClick={async () => { await supabase.from('customers').update({ status: 'client' }).eq('id', selected.id); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
+                      </>
+                    )}
+                    {selected.status === 'client' && (
+                      <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
                     )}
                     <Button variant="outline" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
                     <Button variant="outline" onClick={() => dismiss(selected.id)}>Dismiss</Button>
