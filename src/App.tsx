@@ -19,6 +19,7 @@ import Invoices from "./pages/Invoices";
 import Signatures from "./pages/Signatures";
 import Boards from "./pages/Boards";
 import BoardView from "./pages/BoardView";
+import Leads from "./pages/Leads";
 import PortalSign from "./pages/portal/PortalSign";
 import NotFound from "./pages/NotFound";
 
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/documents" element={<Documents />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/signatures" element={<Signatures />} />
+            <Route path="/leads" element={<Leads />} />
             <Route path="/boards" element={<Boards />} />
             <Route path="/boards/:boardId" element={<BoardView />} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />

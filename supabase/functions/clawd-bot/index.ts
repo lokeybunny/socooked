@@ -201,6 +201,57 @@ Deno.serve(async (req) => {
       return json({ boards })
     }
 
+    // POST /lead — bot submits a lead
+    if (path === 'lead' && req.method === 'POST') {
+      const { full_name, email, phone, address, company, source, source_url, notes, tags } = body
+
+      if (!full_name) return json({ error: 'full_name is required' }, 400)
+
+      // Check if lead with same email already exists
+      let existingId: string | null = null
+      if (email) {
+        const { data: existing } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('email', email)
+          .eq('status', 'lead')
+          .maybeSingle()
+        existingId = existing?.id || null
+      }
+
+      if (existingId) {
+        // Update existing lead with any new info
+        const updates: Record<string, unknown> = {}
+        if (phone) updates.phone = phone
+        if (address) updates.address = address
+        if (company) updates.company = company
+        if (notes) updates.notes = notes
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('customers').update(updates).eq('id', existingId)
+        }
+        return json({ action: 'updated', customer_id: existingId })
+      }
+
+      const { data: customer, error: insertErr } = await supabase
+        .from('customers')
+        .insert({
+          full_name,
+          email: email || null,
+          phone: phone || null,
+          address: address || null,
+          company: company || null,
+          source: source || 'bot',
+          status: 'lead',
+          notes: notes || (source_url ? `Source: ${source_url}` : null),
+          tags: tags || [],
+        })
+        .select('id')
+        .single()
+
+      if (insertErr) return json({ error: insertErr.message }, 400)
+      return json({ action: 'created', customer_id: customer?.id })
+    }
+
     return json({ error: 'Unknown endpoint' }, 404)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
