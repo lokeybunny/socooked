@@ -739,13 +739,19 @@ export type Database = {
           currency: string
           customer_id: string
           deal_id: string | null
+          due_date: string | null
           id: string
+          invoice_number: string | null
           invoice_url: string | null
+          line_items: Json
+          notes: string | null
           paid_at: string | null
           payment_url: string | null
           provider: string
           sent_at: string | null
           status: string
+          subtotal: number
+          tax_rate: number
         }
         Insert: {
           amount?: number
@@ -753,13 +759,19 @@ export type Database = {
           currency?: string
           customer_id: string
           deal_id?: string | null
+          due_date?: string | null
           id?: string
+          invoice_number?: string | null
           invoice_url?: string | null
+          line_items?: Json
+          notes?: string | null
           paid_at?: string | null
           payment_url?: string | null
           provider?: string
           sent_at?: string | null
           status?: string
+          subtotal?: number
+          tax_rate?: number
         }
         Update: {
           amount?: number
@@ -767,13 +779,19 @@ export type Database = {
           currency?: string
           customer_id?: string
           deal_id?: string | null
+          due_date?: string | null
           id?: string
+          invoice_number?: string | null
           invoice_url?: string | null
+          line_items?: Json
+          notes?: string | null
           paid_at?: string | null
           payment_url?: string | null
           provider?: string
           sent_at?: string | null
           status?: string
+          subtotal?: number
+          tax_rate?: number
         }
         Relationships: [
           {
