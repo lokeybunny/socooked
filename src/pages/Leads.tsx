@@ -124,7 +124,7 @@ export default function Leads() {
   };
 
   const loadClients = async () => {
-    let q = supabase.from('customers').select('*').eq('status', 'client').order('updated_at', { ascending: false });
+    let q = supabase.from('customers').select('*').eq('status', 'active').order('updated_at', { ascending: false });
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
     const { data } = await q;
     setClients(data || []);
@@ -188,7 +188,7 @@ export default function Leads() {
 
     if (overId === 'leads-column') targetStatus = 'lead';
     else if (overId === 'prospects-column') targetStatus = 'prospect';
-    else if (overId === 'clients-column') targetStatus = 'client';
+    else if (overId === 'clients-column') targetStatus = 'active';
     else {
       const overContact = allContacts.find(c => c.id === overId);
       if (overContact) targetStatus = overContact.status;
@@ -203,13 +203,13 @@ export default function Leads() {
 
     const newLeads = targetStatus === 'lead' ? addToList(removeFromList(leads)) : removeFromList(leads);
     const newProspects = targetStatus === 'prospect' ? addToList(removeFromList(prospects)) : removeFromList(prospects);
-    const newClients = targetStatus === 'client' ? addToList(removeFromList(clients)) : removeFromList(clients);
+    const newClients = targetStatus === 'active' ? addToList(removeFromList(clients)) : removeFromList(clients);
 
     setLeads(newLeads);
     setProspects(newProspects);
     setClients(newClients);
 
-    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', client: 'Converted to client' };
+    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', active: 'Converted to client' };
     toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
 
     // Persist to DB (no reload needed — optimistic state is already correct)
@@ -394,7 +394,7 @@ export default function Leads() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
-                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'client' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status}</span>
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="space-y-1"><Label className="text-xs text-muted-foreground">Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
@@ -420,10 +420,10 @@ export default function Leads() {
                     {selected.status === 'prospect' && (
                       <>
                         <Button variant="outline" onClick={() => demote(selected.id)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
-                        <Button onClick={async () => { await supabase.from('customers').update({ status: 'client' }).eq('id', selected.id); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
+                        <Button onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
                       </>
                     )}
-                    {selected.status === 'client' && (
+                    {selected.status === 'active' && (
                       <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
                     )}
                     <Button variant="outline" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
