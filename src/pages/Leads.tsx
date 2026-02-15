@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,86 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, MapPin, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2 } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
+import { DndContext, closestCenter, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { cn } from '@/lib/utils';
 
 const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
-
 const PAGE_SIZE = 10;
+
+// Droppable column wrapper
+function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className={cn("space-y-3 min-h-[4rem] rounded-xl transition-colors p-1 -m-1", isOver && "bg-primary/5 ring-2 ring-primary/20 ring-dashed")}>
+      {children}
+    </div>
+  );
+}
+
+// Draggable card
+function DraggableContactCard({ contact, onClick, isProspect }: { contact: any; onClick: () => void; isProspect?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: contact.id, data: { status: contact.status } });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "w-full text-left glass-card p-4 space-y-3 hover:ring-2 transition-all rounded-xl relative",
+        isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
+        isDragging && 'opacity-40 shadow-lg'
+      )}
+    >
+      {/* Drag handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        className="absolute top-3 left-3 p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing"
+        onClick={e => e.stopPropagation()}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      {/* Maximize */}
+      <button
+        className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        title="View details"
+      >
+        <Maximize2 className="h-3.5 w-3.5" />
+      </button>
+      <div className="flex items-center gap-2 px-6">
+        <span className="font-semibold text-foreground truncate">{contact.full_name}</span>
+        {contact.source && (
+          <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase shrink-0">
+            {contact.source}
+          </span>
+        )}
+      </div>
+      {contact.email && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
+          <Mail className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.email}</span>
+        </div>
+      )}
+      {contact.phone && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
+          <Phone className="h-3.5 w-3.5 shrink-0" /><span>{contact.phone}</span>
+        </div>
+      )}
+      {contact.company && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
+          <User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.company}</span>
+        </div>
+      )}
+      <div className="text-[10px] text-muted-foreground pl-6">{new Date(contact.created_at).toLocaleDateString()}</div>
+    </div>
+  );
+}
 
 export default function Leads() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -27,31 +100,24 @@ export default function Leads() {
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   const loadLeads = async () => {
-    let q = supabase
-      .from('customers')
-      .select('*')
-      .eq('status', 'lead')
-      .order('created_at', { ascending: false });
-
+    let q = supabase.from('customers').select('*').eq('status', 'lead').order('created_at', { ascending: false });
     if (filterSource !== 'all') q = q.eq('source', filterSource);
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
-
     const { data } = await q;
     setLeads(data || []);
     setLoading(false);
   };
 
   const loadProspects = async () => {
-    let q = supabase
-      .from('customers')
-      .select('*')
-      .eq('status', 'prospect')
-      .order('updated_at', { ascending: false });
-
+    let q = supabase.from('customers').select('*').eq('status', 'prospect').order('updated_at', { ascending: false });
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
-
     const { data } = await q;
     setProspects(data || []);
   };
@@ -60,93 +126,99 @@ export default function Leads() {
 
   useEffect(() => { loadAll(); }, [search, filterSource]);
 
+  // --- CRUD handlers (unchanged) ---
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.full_name.trim()) return;
     const { error } = await supabase.from('customers').insert({
-      full_name: form.full_name.trim(),
-      email: form.email || null,
-      phone: form.phone || null,
-      address: form.address || null,
-      company: form.company || null,
-      source: form.source || 'manual',
-      notes: form.notes || null,
-      status: 'lead',
+      full_name: form.full_name.trim(), email: form.email || null, phone: form.phone || null,
+      address: form.address || null, company: form.company || null, source: form.source || 'manual',
+      notes: form.notes || null, status: 'lead',
     });
     if (error) { toast.error(error.message); return; }
     toast.success('Lead added');
-    setForm(emptyForm);
-    setAddOpen(false);
-    loadAll();
+    setForm(emptyForm); setAddOpen(false); loadAll();
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected || !form.full_name.trim()) return;
     const { error } = await supabase.from('customers').update({
-      full_name: form.full_name.trim(),
-      email: form.email || null,
-      phone: form.phone || null,
-      address: form.address || null,
-      company: form.company || null,
-      source: form.source || null,
-      notes: form.notes || null,
+      full_name: form.full_name.trim(), email: form.email || null, phone: form.phone || null,
+      address: form.address || null, company: form.company || null, source: form.source || null, notes: form.notes || null,
     }).eq('id', selected.id);
     if (error) { toast.error(error.message); return; }
     toast.success('Lead updated');
-    setEditing(false);
-    setSelected(null);
-    setForm(emptyForm);
-    loadAll();
+    setEditing(false); setSelected(null); setForm(emptyForm); loadAll();
   };
 
-  const handleDelete = async (id: string) => {
-    await supabase.from('customers').delete().eq('id', id);
-    toast.success('Lead deleted');
-    setSelected(null);
-    loadAll();
-  };
-
-  const promote = async (id: string) => {
-    await supabase.from('customers').update({ status: 'prospect' }).eq('id', id);
-    toast.success('Lead promoted to prospect');
-    setSelected(null);
-    loadAll();
-  };
-
-  const demote = async (id: string) => {
-    await supabase.from('customers').update({ status: 'lead' }).eq('id', id);
-    toast.success('Prospect moved back to lead');
-    setSelected(null);
-    loadAll();
-  };
-
-  const dismiss = async (id: string) => {
-    await supabase.from('customers').update({ status: 'inactive' }).eq('id', id);
-    toast.success('Dismissed');
-    setSelected(null);
-    loadAll();
-  };
+  const handleDelete = async (id: string) => { await supabase.from('customers').delete().eq('id', id); toast.success('Lead deleted'); setSelected(null); loadAll(); };
+  const promote = async (id: string) => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', id); toast.success('Promoted to prospect'); setSelected(null); loadAll(); };
+  const demote = async (id: string) => { await supabase.from('customers').update({ status: 'lead' }).eq('id', id); toast.success('Moved back to lead'); setSelected(null); loadAll(); };
+  const dismiss = async (id: string) => { await supabase.from('customers').update({ status: 'inactive' }).eq('id', id); toast.success('Dismissed'); setSelected(null); loadAll(); };
 
   const openEdit = (lead: any) => {
-    setForm({
-      full_name: lead.full_name || '',
-      email: lead.email || '',
-      phone: lead.phone || '',
-      address: lead.address || '',
-      company: lead.company || '',
-      source: lead.source || '',
-      notes: lead.notes || '',
-    });
+    setForm({ full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '', address: lead.address || '', company: lead.company || '', source: lead.source || '', notes: lead.notes || '' });
     setEditing(true);
+  };
+
+  // --- Drag handlers ---
+  const handleDragStart = (event: DragStartEvent) => setActiveId(event.active.id as string);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const draggedId = active.id as string;
+    const allContacts = [...leads, ...prospects];
+    const draggedContact = allContacts.find(c => c.id === draggedId);
+    if (!draggedContact) return;
+
+    // Determine target column
+    let targetStatus: string | null = null;
+    const overId = over.id as string;
+
+    if (overId === 'leads-column') {
+      targetStatus = 'lead';
+    } else if (overId === 'prospects-column') {
+      targetStatus = 'prospect';
+    } else {
+      // Dropped on another card — check which column that card is in
+      const overContact = allContacts.find(c => c.id === overId);
+      if (overContact) targetStatus = overContact.status;
+    }
+
+    if (!targetStatus || targetStatus === draggedContact.status) return;
+
+    // Update status
+    await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
+    toast.success(targetStatus === 'prospect' ? 'Promoted to prospect' : 'Moved back to lead');
+    loadAll();
+  };
+
+  const activeContact = activeId ? [...leads, ...prospects].find(c => c.id === activeId) : null;
+
+  // Pagination
+  const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
+  const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
+  const pagedLeads = leads.slice((leadsPage - 1) * PAGE_SIZE, leadsPage * PAGE_SIZE);
+  const pagedProspects = prospects.slice((prospectsPage - 1) * PAGE_SIZE, prospectsPage * PAGE_SIZE);
+
+  const PaginationButtons = ({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) => {
+    if (total <= 1) return null;
+    return (
+      <div className="flex items-center justify-center gap-1 pt-2">
+        {Array.from({ length: total }, (_, i) => i + 1).map(p => (
+          <Button key={p} size="sm" variant={p === current ? 'default' : 'outline'} className="h-8 w-8 p-0 text-xs" onClick={() => onChange(p)}>{p}</Button>
+        ))}
+      </div>
+    );
   };
 
   const LeadForm = ({ onSubmit, submitLabel }: { onSubmit: (e: React.FormEvent) => void; submitLabel: string }) => (
     <form onSubmit={onSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label>Full Name *</Label>
-        <Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} required />
-      </div>
+      <div className="space-y-2"><Label>Full Name *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} required /></div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
         <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
@@ -169,84 +241,18 @@ export default function Leads() {
     </form>
   );
 
-  const ContactCard = ({ contact, onClick, isProspect }: { contact: any; onClick: () => void; isProspect?: boolean }) => (
-    <div
-      className={`w-full text-left glass-card p-4 space-y-3 hover:ring-2 transition-all rounded-xl relative ${isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30'}`}
-    >
-      <button
-        className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
-        title="View details"
-      >
-        <Maximize2 className="h-3.5 w-3.5" />
-      </button>
-      <div className="flex items-center gap-2 pr-8">
-        <span className="font-semibold text-foreground truncate">{contact.full_name}</span>
-        {contact.source && (
-          <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase shrink-0">
-            {contact.source}
-          </span>
-        )}
-      </div>
-      {contact.email && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Mail className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.email}</span>
-        </div>
-      )}
-      {contact.phone && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Phone className="h-3.5 w-3.5 shrink-0" /><span>{contact.phone}</span>
-        </div>
-      )}
-      {contact.company && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.company}</span>
-        </div>
-      )}
-      <div className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</div>
-    </div>
-  );
-  const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
-  const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
-  const pagedLeads = leads.slice((leadsPage - 1) * PAGE_SIZE, leadsPage * PAGE_SIZE);
-  const pagedProspects = prospects.slice((prospectsPage - 1) * PAGE_SIZE, prospectsPage * PAGE_SIZE);
-
-  const PaginationButtons = ({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) => {
-    if (total <= 1) return null;
-    return (
-      <div className="flex items-center justify-center gap-1 pt-2">
-        {Array.from({ length: total }, (_, i) => i + 1).map(p => (
-          <Button
-            key={p}
-            size="sm"
-            variant={p === current ? 'default' : 'outline'}
-            className="h-8 w-8 p-0 text-xs"
-            onClick={() => onChange(p)}
-          >
-            {p}
-          </Button>
-        ))}
-      </div>
-    );
-  };
-
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Bot className="h-6 w-6 text-primary" />
-              Leads
+              <Bot className="h-6 w-6 text-primary" />Leads
             </h1>
-         <p className="text-muted-foreground text-sm mt-1">
-              {leads.length} leads · {prospects.length} prospects
-            </p>
+            <p className="text-muted-foreground text-sm mt-1">{leads.length} leads · {prospects.length} prospects · Drag to promote or demote</p>
           </div>
           <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button>
-            </DialogTrigger>
+            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
               <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
@@ -269,50 +275,65 @@ export default function Leads() {
           </Select>
         </div>
 
-        {/* Two-column layout: Leads + Prospects */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Leads Column */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads</h2>
-              <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{leads.length}</span>
+        {/* Two-column drag layout */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Leads Column */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Bot className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads</h2>
+                <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{leads.length}</span>
+              </div>
+              <SortableContext items={pagedLeads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+                <DroppableColumn id="leads-column">
+                  {pagedLeads.map(lead => (
+                    <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} />
+                  ))}
+                  {leads.length === 0 && !loading && (
+                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                      <Bot className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm">No leads yet</p>
+                    </div>
+                  )}
+                </DroppableColumn>
+              </SortableContext>
+              <PaginationButtons current={leadsPage} total={leadsPageCount} onChange={setLeadsPage} />
             </div>
-            <div className="space-y-3">
-              {pagedLeads.map(lead => (
-                <ContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} />
-              ))}
-              {leads.length === 0 && !loading && (
-                <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
-                  <Bot className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">No leads yet</p>
-                </div>
-              )}
+
+            {/* Prospects Column */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <UserCheck className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
+              </div>
+              <SortableContext items={pagedProspects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                <DroppableColumn id="prospects-column">
+                  {pagedProspects.map(prospect => (
+                    <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} isProspect />
+                  ))}
+                  {prospects.length === 0 && !loading && (
+                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                      <ArrowLeft className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                      <p className="text-sm">Promote leads to see them here</p>
+                    </div>
+                  )}
+                </DroppableColumn>
+              </SortableContext>
+              <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
             </div>
-            <PaginationButtons current={leadsPage} total={leadsPageCount} onChange={setLeadsPage} />
           </div>
 
-          {/* Prospects Column */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-primary" />
-              <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
-              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
-            </div>
-            <div className="space-y-3">
-              {pagedProspects.map(prospect => (
-                <ContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} isProspect />
-              ))}
-              {prospects.length === 0 && !loading && (
-                <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
-                  <ArrowLeft className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-sm">Promote leads to see them here</p>
-                </div>
-              )}
-            </div>
-            <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
-          </div>
-        </div>
+          <DragOverlay>
+            {activeContact && (
+              <div className="glass-card p-4 rounded-xl shadow-2xl opacity-90 w-80 border-l-2 border-l-primary">
+                <p className="font-semibold text-foreground">{activeContact.full_name}</p>
+                {activeContact.email && <p className="text-xs text-muted-foreground mt-1">{activeContact.email}</p>}
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
 
         {/* Detail / Edit modal */}
         {selected && (
@@ -324,59 +345,40 @@ export default function Leads() {
                   {editing ? `Edit ${selected.status === 'prospect' ? 'Prospect' : 'Lead'}` : selected.full_name}
                 </DialogTitle>
               </DialogHeader>
-
               {editing ? (
                 <LeadForm onSubmit={handleUpdate} submitLabel="Save Changes" />
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
-                    {selected.source && (
-                      <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>
-                    )}
-                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                      {selected.status}
-                    </span>
+                    {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status}</span>
                   </div>
-
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="space-y-1"><Label className="text-xs text-muted-foreground">Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
                     <div className="space-y-1"><Label className="text-xs text-muted-foreground">Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
                     <div className="space-y-1"><Label className="text-xs text-muted-foreground">Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
                     <div className="space-y-1"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground">{selected.address || '—'}</p></div>
                   </div>
-
                   {selected.notes && (
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Notes</Label>
                       <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selected.notes}</p>
                     </div>
                   )}
-
                   {selected.tags && selected.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {selected.tags.map((t: string) => (
-                        <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>
-                      ))}
+                      {selected.tags.map((t: string) => <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>)}
                     </div>
                   )}
-
                   <div className="flex gap-2 pt-2 border-t border-border">
                     {selected.status === 'lead' ? (
-                      <Button onClick={() => promote(selected.id)} className="flex-1">
-                        <ArrowRight className="h-3.5 w-3.5 mr-1" />Promote
-                      </Button>
+                      <Button onClick={() => promote(selected.id)} className="flex-1"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
                     ) : (
-                      <Button variant="outline" onClick={() => demote(selected.id)} className="flex-1">
-                        <ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead
-                      </Button>
+                      <Button variant="outline" onClick={() => demote(selected.id)} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
                     )}
-                    <Button variant="outline" onClick={() => openEdit(selected)}>
-                      <Pencil className="h-3.5 w-3.5 mr-1" />Edit
-                    </Button>
+                    <Button variant="outline" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
                     <Button variant="outline" onClick={() => dismiss(selected.id)}>Dismiss</Button>
-                    <Button variant="destructive" size="icon" onClick={() => handleDelete(selected.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <Button variant="destructive" size="icon" onClick={() => handleDelete(selected.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
               )}
