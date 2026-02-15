@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.clawd-bot]
 verify_jwt = false
+
+[functions.invoice-api]
+verify_jwt = false
