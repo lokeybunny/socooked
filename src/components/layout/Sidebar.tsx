@@ -10,6 +10,10 @@ import {
   LogOut,
   ChevronLeft,
   Menu,
+  MessageSquare,
+  File,
+  Receipt,
+  PenTool,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -19,9 +23,13 @@ const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/deals', icon: Handshake, label: 'Deals' },
+  { to: '/threads', icon: MessageSquare, label: 'Threads' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
   { to: '/content', icon: FileText, label: 'Content' },
+  { to: '/documents', icon: File, label: 'Documents' },
+  { to: '/signatures', icon: PenTool, label: 'Signatures' },
+  { to: '/invoices', icon: Receipt, label: 'Invoices' },
   { to: '/automations', icon: Zap, label: 'Automations' },
 ];
 

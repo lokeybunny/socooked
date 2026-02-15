@@ -13,6 +13,11 @@ import Projects from "./pages/Projects";
 import Tasks from "./pages/Tasks";
 import Content from "./pages/Content";
 import Automations from "./pages/Automations";
+import Threads from "./pages/Threads";
+import Documents from "./pages/Documents";
+import Invoices from "./pages/Invoices";
+import Signatures from "./pages/Signatures";
+import PortalSign from "./pages/portal/PortalSign";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +39,11 @@ const App = () => (
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/content" element={<Content />} />
             <Route path="/automations" element={<Automations />} />
+            <Route path="/threads" element={<Threads />} />
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/signatures" element={<Signatures />} />
+            <Route path="/portal/sign/:threadId" element={<PortalSign />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
