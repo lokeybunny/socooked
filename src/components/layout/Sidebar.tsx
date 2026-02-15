@@ -62,10 +62,10 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className={cn("flex items-center gap-3 p-4 border-b border-sidebar-border", collapsed && "justify-center")}>
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <span className="text-primary-foreground font-bold text-sm">SC</span>
+          <div className="h-8 w-8 rounded-md bg-foreground flex items-center justify-center shrink-0">
+            <span className="text-background font-semibold text-xs tracking-wide">SC</span>
           </div>
-          {!collapsed && <span className="font-semibold text-foreground text-sm tracking-tight">SOCooked CM</span>}
+          {!collapsed && <span className="font-medium text-foreground text-sm tracking-tight">SOCooked</span>}
         </div>
 
         {/* Nav */}
@@ -77,10 +77,10 @@ export function Sidebar() {
                 key={to}
                 to={to}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
                   isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    ? "bg-accent text-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
                 <Icon className="h-4.5 w-4.5 shrink-0" />
