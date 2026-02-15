@@ -7,6 +7,7 @@ import {
   CheckSquare,
   FileText,
   Zap,
+  LayoutGrid,
   LogOut,
   ChevronLeft,
   Menu,
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/documents', icon: File, label: 'Documents' },
   { to: '/signatures', icon: PenTool, label: 'Signatures' },
   { to: '/invoices', icon: Receipt, label: 'Invoices' },
+  { to: '/boards', icon: LayoutGrid, label: 'Boards' },
   { to: '/automations', icon: Zap, label: 'Automations' },
 ];
 

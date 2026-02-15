@@ -2,3 +2,6 @@ project_id = "mziuxsfxevjnmdwnrqjs"
 
 [functions.clawdbot]
 verify_jwt = false
+
+[functions.clawd-bot]
+verify_jwt = false
