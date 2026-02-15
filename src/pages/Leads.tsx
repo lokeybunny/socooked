@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
-import { DndContext, closestCenter, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin, rectIntersection, type CollisionDetection } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
@@ -22,7 +22,7 @@ const PAGE_SIZE = 10;
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
-    <div ref={setNodeRef} className={cn("space-y-3 min-h-[4rem] rounded-xl transition-colors p-1 -m-1", isOver && "bg-primary/5 ring-2 ring-primary/20 ring-dashed")}>
+    <div ref={setNodeRef} className={cn("space-y-3 min-h-[12rem] rounded-xl transition-colors p-1 -m-1", isOver && "bg-primary/5 ring-2 ring-primary/20 ring-dashed")}>
       {children}
     </div>
   );
@@ -284,7 +284,7 @@ export default function Leads() {
         </div>
 
         {/* Three-column drag layout */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={rectIntersection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="grid gap-6 lg:grid-cols-3">
             {/* Leads Column */}
             <div className="space-y-4">
