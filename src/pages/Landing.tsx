@@ -110,17 +110,17 @@ export default function Landing() {
       {/* Fixed viewport container */}
       <div className="fixed inset-0 z-10 flex flex-col">
         {/* Nav */}
-        <header className="flex items-center justify-between px-6 md:px-12 py-5 relative z-30">
+        <header className="flex items-center justify-between px-4 sm:px-6 md:px-12 py-4 md:py-5 relative z-30">
           <div className="flex items-center">
-            <span className="text-foreground/70 font-light text-lg md:text-xl tracking-[0.15em] uppercase">STU25</span>
+            <span className="text-foreground/70 font-light text-base sm:text-lg md:text-xl tracking-[0.15em] uppercase">STU25</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
             <button
               onClick={() => navigate('/auth')}
               className="text-muted-foreground/50 hover:text-foreground transition-colors duration-300"
             >
-              <DoorOpen className="h-5 w-5" />
+              <DoorOpen className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           </div>
         </header>
@@ -133,7 +133,7 @@ export default function Landing() {
             className="absolute inset-0 flex flex-col items-center justify-center"
             style={{ opacity: heroOpacity, scale: heroScale, y: heroY, pointerEvents: scrollProgress < 0.18 ? 'auto' : 'none' }}
           >
-            <div className="w-full h-[55vh] max-w-4xl">
+            <div className="w-full h-[40vh] sm:h-[50vh] md:h-[55vh] max-w-4xl px-4">
               <Suspense
                 fallback={
                   <div className="flex items-center justify-center h-full">
@@ -146,41 +146,41 @@ export default function Landing() {
             </div>
             {/* Scroll hint */}
             <motion.div
-              className="absolute bottom-12 flex flex-col items-center gap-2"
+              className="absolute bottom-8 sm:bottom-12 flex flex-col items-center gap-2"
               animate={{ y: [0, 8, 0] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             >
-              <div className="w-px h-10 bg-gradient-to-b from-transparent to-muted-foreground/70" />
-              <span className="text-xs tracking-[0.3em] uppercase text-muted-foreground/70">Scroll</span>
+              <div className="w-px h-8 sm:h-10 bg-gradient-to-b from-transparent to-muted-foreground/70" />
+              <span className="text-[10px] sm:text-xs tracking-[0.3em] uppercase text-muted-foreground/70">Scroll</span>
             </motion.div>
           </motion.div>
 
           {/* Layer 2: Tagline reveal */}
           <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center px-6"
+            className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6"
             style={{ opacity: revealOpacity, y: revealY, pointerEvents: (scrollProgress > 0.20 && scrollProgress < 0.45) ? 'auto' : 'none' }}
           >
-            <p className="text-[10px] md:text-xs tracking-[0.4em] uppercase text-muted-foreground/60 mb-4">
+            <p className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.3em] sm:tracking-[0.4em] uppercase text-muted-foreground/60 mb-3 sm:mb-4">
               SMM &amp; Web Services
             </p>
-            <h2 className="text-2xl md:text-4xl font-bold tracking-tight text-center max-w-lg leading-tight">
+            <h2 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight text-center max-w-lg leading-tight">
               Digital Infrastructure
               <br />
               <span className="text-muted-foreground">for Modern Brands</span>
             </h2>
-            <div className="w-12 h-px bg-border mt-8" />
+            <div className="w-10 sm:w-12 h-px bg-border mt-6 sm:mt-8" />
           </motion.div>
 
           {/* Layer 3: Services grid */}
           <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center px-6"
+            className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6"
             style={{ opacity: servicesOpacity, y: servicesY, pointerEvents: (scrollProgress > 0.47 && scrollProgress < 0.72) ? 'auto' : 'none' }}
           >
-             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 max-w-lg">
+             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 max-w-xs sm:max-w-md md:max-w-lg w-full">
               {services.map(({ icon: Icon, title }, i) => (
                 <motion.div
                   key={title}
-                  className="glass-card p-5 flex flex-col items-center gap-3 text-center group hover:bg-accent/50 transition-colors duration-300 cursor-pointer"
+                  className="glass-card p-3 sm:p-5 flex flex-col items-center gap-2 sm:gap-3 text-center group hover:bg-accent/50 transition-colors duration-300 cursor-pointer"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.08, duration: 0.4 }}
@@ -189,8 +189,8 @@ export default function Landing() {
                   whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.97 }}
                 >
-                  <Icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  <span className="text-[10px] md:text-xs tracking-wider uppercase text-muted-foreground group-hover:text-foreground transition-colors">
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                  <span className="text-[8px] sm:text-[10px] md:text-xs tracking-wider uppercase text-muted-foreground group-hover:text-foreground transition-colors leading-tight">
                     {title}
                   </span>
                 </motion.div>
@@ -213,7 +213,7 @@ export default function Landing() {
                 />
                 {/* Modal with nav arrows */}
                 <motion.div
-                  className="fixed inset-0 z-50 flex items-center justify-center px-16 md:px-24 pointer-events-none"
+                  className="fixed inset-0 z-50 flex items-center justify-center px-12 sm:px-16 md:px-24 pointer-events-none"
                   initial={{ opacity: 0, scale: 0.92, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -222,13 +222,13 @@ export default function Landing() {
                   {/* Left arrow */}
                   <button
                     onClick={() => setActiveService((activeService - 1 + services.length) % services.length)}
-                    className="pointer-events-auto absolute left-4 md:left-8 p-2 rounded-full bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all duration-300"
+                    className="pointer-events-auto absolute left-2 sm:left-4 md:left-8 p-1.5 sm:p-2 rounded-full bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all duration-300"
                   >
-                    <ChevronLeft className="h-5 w-5" />
+                    <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                   </button>
 
                   {/* Card */}
-                  <div className="glass-card p-8 md:p-10 max-w-md w-full pointer-events-auto relative">
+                  <div className="glass-card p-6 sm:p-8 md:p-10 max-w-sm sm:max-w-md w-full pointer-events-auto relative">
                     <button
                       onClick={() => setActiveService(null)}
                       className="absolute top-4 right-4 text-muted-foreground/40 hover:text-foreground transition-colors duration-300"
@@ -244,10 +244,10 @@ export default function Landing() {
                             <div className="p-3 rounded-lg bg-muted/50">
                               <Icon className="h-5 w-5 text-foreground/70" />
                             </div>
-                            <h3 className="text-sm tracking-[0.2em] uppercase font-light text-foreground">
+                            <h3 className="text-xs sm:text-sm tracking-[0.2em] uppercase font-light text-foreground">
                               {service.title}
                             </h3>
-                            <p className="text-sm text-muted-foreground/70 leading-relaxed font-light">
+                            <p className="text-xs sm:text-sm text-muted-foreground/70 leading-relaxed font-light">
                               {service.description}
                             </p>
                           </>
@@ -259,9 +259,9 @@ export default function Landing() {
                   {/* Right arrow */}
                   <button
                     onClick={() => setActiveService((activeService + 1) % services.length)}
-                    className="pointer-events-auto absolute right-4 md:right-8 p-2 rounded-full bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all duration-300"
+                    className="pointer-events-auto absolute right-2 sm:right-4 md:right-8 p-1.5 sm:p-2 rounded-full bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all duration-300"
                   >
-                    <ChevronRight className="h-5 w-5" />
+                    <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
                   </button>
                 </motion.div>
               </>
@@ -270,32 +270,32 @@ export default function Landing() {
 
           {/* Layer 4: CTA */}
           <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center px-6"
+            className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6"
             style={{ opacity: ctaOpacity, y: ctaY, pointerEvents: scrollProgress > 0.75 ? 'auto' : 'none' }}
           >
-            <span className="text-foreground/50 font-light text-sm md:text-base tracking-[0.25em] uppercase mb-4">STU25</span>
-            <h2 className="text-2xl md:text-3xl font-light tracking-tight text-center mb-2">
+            <span className="text-foreground/50 font-light text-xs sm:text-sm md:text-base tracking-[0.25em] uppercase mb-3 sm:mb-4">STU25</span>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-light tracking-tight text-center mb-1.5 sm:mb-2">
               Ready?
             </h2>
-            <p className="text-sm text-muted-foreground/40 mb-5 tracking-wide font-light">
+            <p className="text-xs sm:text-sm text-muted-foreground/40 mb-4 sm:mb-5 tracking-wide font-light">
               Build your digital imprint
             </p>
             <button
               onClick={() => navigate('/auth')}
-              className="group flex items-center gap-2 text-sm tracking-[0.2em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-500"
+              className="group flex items-center gap-2 text-xs sm:text-sm tracking-[0.2em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-500"
             >
               <span className="font-light">Enter</span>
-              <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform duration-300" />
+              <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 group-hover:translate-x-1 transition-transform duration-300" />
             </button>
           </motion.div>
         </div>
 
         {/* Footer */}
-        <footer className="px-6 md:px-12 py-4 flex items-center justify-between relative z-30">
-          <p className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground/30">
+        <footer className="px-4 sm:px-6 md:px-12 py-3 sm:py-4 flex items-center justify-between relative z-30">
+          <p className="text-[8px] sm:text-[9px] tracking-[0.2em] uppercase text-muted-foreground/30">
             STU25
           </p>
-          <p className="text-[9px] text-muted-foreground/30">
+          <p className="text-[8px] sm:text-[9px] text-muted-foreground/30">
             &copy; {new Date().getFullYear()}
           </p>
         </footer>

@@ -1,10 +1,12 @@
 import { useRef, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text3D, Center, Float, Environment, MeshTransmissionMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
 function GlassText() {
   const meshRef = useRef<THREE.Group>(null);
+  const { viewport } = useThree();
+  const scale = Math.min(1, viewport.width / 8);
 
   useFrame(({ clock }) => {
     if (meshRef.current) {
@@ -15,7 +17,7 @@ function GlassText() {
 
   return (
     <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
-      <group ref={meshRef}>
+      <group ref={meshRef} scale={scale}>
         <Center>
           <Text3D
             font="/fonts/inter-bold.json"
