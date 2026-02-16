@@ -17,6 +17,7 @@ export const SERVICE_CATEGORIES: CategoryInfo[] = [
   { id: 'digital-ecommerce', label: 'Digital E-Commerce', icon: ShoppingCart, description: 'Online stores, marketplaces & D2C brands' },
   { id: 'food-and-beverage', label: 'Food & Beverage', icon: UtensilsCrossed, description: 'Restaurants, cafés, catering & food brands' },
   { id: 'mobile-services', label: 'Mobile Services', icon: Smartphone, description: 'Mobile apps, on-demand & field services' },
+  { id: 'other', label: 'Other', icon: Monitor, description: 'Uncategorized or miscellaneous items' },
 ];
 
 // Placeholder notification counts per category — replace with real API data when connected
@@ -26,6 +27,7 @@ const CATEGORY_NOTIFICATIONS: Record<string, number> = {
   'digital-ecommerce': 0,
   'food-and-beverage': 0,
   'mobile-services': 0,
+  'other': 0,
 };
 
 interface CategoryGateProps {
