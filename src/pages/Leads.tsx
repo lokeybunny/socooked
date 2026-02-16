@@ -7,32 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Monitor, Store, ShoppingCart, UtensilsCrossed, Smartphone, ChevronLeft } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 const PAGE_SIZE = 10;
-
-const LEAD_CATEGORIES = [
-  { id: 'digital-services', label: 'Digital Services', icon: Monitor, description: 'SaaS, agencies, consulting & digital service providers' },
-  { id: 'brick-and-mortar', label: 'Brick and Mortar', icon: Store, description: 'Physical retail, offices & local businesses' },
-  { id: 'digital-ecommerce', label: 'Digital E-Commerce', icon: ShoppingCart, description: 'Online stores, marketplaces & D2C brands' },
-  { id: 'food-and-beverage', label: 'Food & Beverage', icon: UtensilsCrossed, description: 'Restaurants, cafés, catering & food brands' },
-  { id: 'mobile-services', label: 'Mobile Services', icon: Smartphone, description: 'Mobile apps, on-demand & field services' },
-] as const;
-
-// Placeholder for ClawBot notification counts per category — replace with real API data when connected
-const CATEGORY_NOTIFICATIONS: Record<string, number> = {
-  'digital-services': 0,
-  'brick-and-mortar': 0,
-  'digital-ecommerce': 0,
-  'food-and-beverage': 0,
-  'mobile-services': 0,
-};
 
 // Droppable column wrapper
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
@@ -114,6 +98,7 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { cont
 }
 
 export default function Leads() {
+  const categoryGate = useCategoryGate();
   const [leads, setLeads] = useState<any[]>([]);
   const [prospects, setProspects] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
@@ -128,7 +113,6 @@ export default function Leads() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -296,95 +280,42 @@ export default function Leads() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 animate-fade-in">
-        {!selectedCategory ? (
-          /* Category Selection Screen */
-          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
-            <div className="text-center space-y-2">
-              <h1 className="text-3xl font-bold text-foreground">Lead Categories</h1>
-              <p className="text-muted-foreground">Select a category to view and manage your leads</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
-              {LEAD_CATEGORIES.map((cat) => {
-                const Icon = cat.icon;
-                const notifCount = CATEGORY_NOTIFICATIONS[cat.id] || 0;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className="group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-primary/40 transition-all relative"
-                  >
-                    {notifCount > 0 && (
-                      <span className="absolute top-3 right-3 flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold animate-pulse">
-                        {notifCount}
-                      </span>
-                    )}
-                    {notifCount === 0 && (
-                      <span className="absolute top-3 right-3 flex items-center justify-center h-5 w-5 rounded-full bg-muted text-muted-foreground/50">
-                        <Bot className="h-3 w-3" />
-                      </span>
-                    )}
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <h3 className="font-semibold text-foreground">{cat.label}</h3>
-                    <p className="text-sm text-muted-foreground">{cat.description}</p>
-                  </button>
-                );
-              })}
-            </div>
+      <CategoryGate title="Leads" {...categoryGate} categoryTitle={`${SERVICE_CATEGORIES.find(c => c.id === categoryGate.selectedCategory)?.label || ''} Leads`}>
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
+            <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
+              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
+                <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
+              </DialogContent>
+            </Dialog>
           </div>
-        ) : (
-          /* Pipeline View */
-          <>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedCategory(null)}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                <Bot className="h-6 w-6 text-primary" />
-                {LEAD_CATEGORIES.find(c => c.id === selectedCategory)?.label} Leads
-              </h1>
-            </div>
-            <p className="text-muted-foreground text-sm ml-11">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
-          </div>
-          <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
-              <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
-            </DialogContent>
-          </Dialog>
-        </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search leads..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search leads..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <Select value={filterSource} onValueChange={setFilterSource}>
+              <SelectTrigger className="w-44"><SelectValue placeholder="All Sources" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sources</SelectItem>
+                {sources.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={filterSource} onValueChange={setFilterSource}>
-            <SelectTrigger className="w-44"><SelectValue placeholder="All Sources" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              {sources.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
 
-        {/* Three-column drag layout */}
-        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="grid gap-6 lg:grid-cols-3">
-            {/* Leads Column */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads</h2>
-                <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{leads.length}</span>
-              </div>
-              <DroppableColumn id="leads-column">
+          <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads</h2>
+                  <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{leads.length}</span>
+                </div>
+                <DroppableColumn id="leads-column">
                   {pagedLeads.map(lead => (
                     <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} />
                   ))}
@@ -395,17 +326,16 @@ export default function Leads() {
                     </div>
                   )}
                 </DroppableColumn>
-              <PaginationButtons current={leadsPage} total={leadsPageCount} onChange={setLeadsPage} />
-            </div>
-
-            {/* Prospects Column */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <UserCheck className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
+                <PaginationButtons current={leadsPage} total={leadsPageCount} onChange={setLeadsPage} />
               </div>
-              <DroppableColumn id="prospects-column">
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-primary" />
+                  <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
+                </div>
+                <DroppableColumn id="prospects-column">
                   {pagedProspects.map(prospect => (
                     <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect />
                   ))}
@@ -416,17 +346,16 @@ export default function Leads() {
                     </div>
                   )}
                 </DroppableColumn>
-              <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
-            </div>
-
-            {/* New Client Column */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <UserPlus className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">New Client</h2>
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{clients.length}</span>
+                <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
               </div>
-              <DroppableColumn id="clients-column">
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-4 w-4 text-primary" />
+                  <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">New Client</h2>
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{clients.length}</span>
+                </div>
+                <DroppableColumn id="clients-column">
                   {pagedClients.map(client => (
                     <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} isProspect />
                   ))}
@@ -437,80 +366,78 @@ export default function Leads() {
                     </div>
                   )}
                 </DroppableColumn>
-              <PaginationButtons current={clientsPage} total={clientsPageCount} onChange={setClientsPage} />
-            </div>
-          </div>
-
-          <DragOverlay>
-            {activeContact && (
-              <div className="glass-card p-4 rounded-xl shadow-2xl opacity-90 w-80 border-l-2 border-l-primary">
-                <p className="font-semibold text-foreground">{activeContact.full_name}</p>
-                {activeContact.email && <p className="text-xs text-muted-foreground mt-1">{activeContact.email}</p>}
+                <PaginationButtons current={clientsPage} total={clientsPageCount} onChange={setClientsPage} />
               </div>
-            )}
-          </DragOverlay>
-        </DndContext>
+            </div>
 
-        {/* Detail / Edit modal */}
-        {selected && (
-          <Dialog open onOpenChange={() => { setSelected(null); setEditing(false); setForm(emptyForm); }}>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-primary" />
-                  {editing ? `Edit ${selected.status}` : selected.full_name}
-                </DialogTitle>
-              </DialogHeader>
-              {editing ? (
-                <LeadForm onSubmit={handleUpdate} submitLabel="Save Changes" />
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
-                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground">{selected.address || '—'}</p></div>
-                  </div>
-                  {selected.notes && (
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Notes</Label>
-                      <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selected.notes}</p>
-                    </div>
-                  )}
-                  {selected.tags && selected.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {selected.tags.map((t: string) => <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>)}
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-                    {selected.status === 'lead' && (
-                      <Button onClick={() => promote(selected.id)} className="flex-1"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
-                    )}
-                    {selected.status === 'prospect' && (
-                      <>
-                        <Button variant="outline" onClick={() => demote(selected.id)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
-                        <Button onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
-                      </>
-                    )}
-                    {selected.status === 'active' && (
-                      <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
-                    )}
-                    <Button variant="outline" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
-                    <Button variant="outline" onClick={() => dismiss(selected.id)}>Dismiss</Button>
-                    <Button variant="destructive" size="icon" onClick={() => handleDelete(selected.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                  </div>
+            <DragOverlay>
+              {activeContact && (
+                <div className="glass-card p-4 rounded-xl shadow-2xl opacity-90 w-80 border-l-2 border-l-primary">
+                  <p className="font-semibold text-foreground">{activeContact.full_name}</p>
+                  {activeContact.email && <p className="text-xs text-muted-foreground mt-1">{activeContact.email}</p>}
                 </div>
               )}
-            </DialogContent>
-          </Dialog>
-        )}
-          </>
-        )}
-      </div>
+            </DragOverlay>
+          </DndContext>
+
+          {selected && (
+            <Dialog open onOpenChange={() => { setSelected(null); setEditing(false); setForm(emptyForm); }}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-primary" />
+                    {editing ? `Edit ${selected.status}` : selected.full_name}
+                  </DialogTitle>
+                </DialogHeader>
+                {editing ? (
+                  <LeadForm onSubmit={handleUpdate} submitLabel="Save Changes" />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
+                      <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="space-y-1"><Label className="text-xs text-muted-foreground">Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
+                      <div className="space-y-1"><Label className="text-xs text-muted-foreground">Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
+                      <div className="space-y-1"><Label className="text-xs text-muted-foreground">Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
+                      <div className="space-y-1"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground">{selected.address || '—'}</p></div>
+                    </div>
+                    {selected.notes && (
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Notes</Label>
+                        <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selected.notes}</p>
+                      </div>
+                    )}
+                    {selected.tags && selected.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {selected.tags.map((t: string) => <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>)}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+                      {selected.status === 'lead' && (
+                        <Button onClick={() => promote(selected.id)} className="flex-1"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
+                      )}
+                      {selected.status === 'prospect' && (
+                        <>
+                          <Button variant="outline" onClick={() => demote(selected.id)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
+                          <Button onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
+                        </>
+                      )}
+                      {selected.status === 'active' && (
+                        <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
+                      )}
+                      <Button variant="outline" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
+                      <Button variant="outline" onClick={() => dismiss(selected.id)}>Dismiss</Button>
+                      <Button variant="destructive" size="icon" onClick={() => handleDelete(selected.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      </CategoryGate>
     </AppLayout>
   );
 }
