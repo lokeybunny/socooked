@@ -73,7 +73,7 @@ export default function VideoPlayer() {
                 <div className="relative w-full rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl" style={{ aspectRatio: '16/9' }}>
                   <iframe
                     src={`https://player.vimeo.com/video/${VIMEO_VIDEO_ID}?autoplay=1&loop=1&title=0&byline=0&portrait=0&muted=0`}
-                    className="w-full h-full grayscale contrast-125"
+                    className="w-full h-full"
                     style={{ border: 'none' }}
                     allow="autoplay; fullscreen; picture-in-picture"
                     allowFullScreen
