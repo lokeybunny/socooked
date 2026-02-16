@@ -25,14 +25,14 @@ export default function Signatures() {
 
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setSignatures(allSignatures.filter(s => s.category === categoryGate.selectedCategory));
+      setSignatures(allSignatures.filter(s => (s.category || 'other') === categoryGate.selectedCategory));
     } else {
       setSignatures(allSignatures);
     }
   }, [categoryGate.selectedCategory, allSignatures]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allSignatures.filter(s => s.category === cat.id).length;
+    acc[cat.id] = allSignatures.filter(s => (s.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 

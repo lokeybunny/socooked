@@ -36,14 +36,14 @@ export default function Threads() {
 
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setThreads(allThreads.filter(t => t.category === categoryGate.selectedCategory));
+      setThreads(allThreads.filter(t => (t.category || 'other') === categoryGate.selectedCategory));
     } else {
       setThreads(allThreads);
     }
   }, [categoryGate.selectedCategory, allThreads]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allThreads.filter(t => t.category === cat.id).length;
+    acc[cat.id] = allThreads.filter(t => (t.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 

@@ -254,7 +254,7 @@ export default function Tasks() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Tasks" {...categoryGate} totalCount={botTasks.length + tasks.length} countLabel="tasks" categoryCounts={SERVICE_CATEGORIES.reduce((acc, cat) => { acc[cat.id] = tasks.filter(t => t.category === cat.id).length; return acc; }, {} as Record<string, number>)}>
+      <CategoryGate title="Tasks" {...categoryGate} totalCount={botTasks.length + tasks.length} countLabel="tasks" categoryCounts={SERVICE_CATEGORIES.reduce((acc, cat) => { acc[cat.id] = tasks.filter(t => (t.category || 'other') === cat.id).length; return acc; }, {} as Record<string, number>)}>
         <div className="space-y-6">
           <p className="text-muted-foreground text-sm">
             {botTasks.length} bot tasks · {tasks.length} manual tasks

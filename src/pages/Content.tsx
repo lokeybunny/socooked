@@ -41,14 +41,14 @@ export default function Content() {
 
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setContent(allContent.filter(c => c.category === categoryGate.selectedCategory));
+      setContent(allContent.filter(c => (c.category || 'other') === categoryGate.selectedCategory));
     } else {
       setContent(allContent);
     }
   }, [categoryGate.selectedCategory, allContent]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allContent.filter(c => c.category === cat.id).length;
+    acc[cat.id] = allContent.filter(c => (c.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 
