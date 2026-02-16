@@ -98,9 +98,9 @@ export default function MeetingVideoGate({ category, onComplete }: MeetingVideoG
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-3xl space-y-6 text-center animate-fade-in">
         <div className="space-y-2">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Required Viewing</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Before You Join</h1>
           <p className="text-sm text-muted-foreground">
-            Please watch the <span className="font-medium text-foreground">{categoryLabel}</span> briefing video before joining the meeting.
+            Here's a quick <span className="font-medium text-foreground">30-second</span> intro for <span className="font-medium text-foreground">{categoryLabel}</span> — grab a coffee and enjoy!
           </p>
         </div>
 
@@ -179,7 +179,7 @@ export default function MeetingVideoGate({ category, onComplete }: MeetingVideoG
           </motion.div>
         ) : (
           <p className="text-xs text-muted-foreground">
-            You must watch the full video before joining the call.
+            Almost there — just finish the short clip to continue.
           </p>
         )}
       </div>
