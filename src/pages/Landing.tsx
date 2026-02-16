@@ -191,7 +191,12 @@ export default function Landing() {
           {/* Layer 2: Tagline reveal */}
           <motion.div
             className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6"
-            style={{ opacity: revealOpacity, y: revealY, pointerEvents: (scrollProgress > 0.20 && scrollProgress < 0.45) ? 'auto' : 'none' }}
+            style={{ 
+              opacity: revealOpacity, 
+              y: revealY, 
+              pointerEvents: (scrollProgress > 0.20 && scrollProgress < 0.45) ? 'auto' : 'none',
+              visibility: (scrollProgress > 0.15 && scrollProgress < 0.50) ? 'visible' : 'hidden',
+            }}
           >
             <p className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.3em] sm:tracking-[0.4em] uppercase text-muted-foreground/60 mb-3 sm:mb-4">
               SMM &amp; Web Services
@@ -207,7 +212,12 @@ export default function Landing() {
           {/* Layer 3: Services grid */}
           <motion.div
             className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6"
-            style={{ opacity: servicesOpacity, y: servicesY, pointerEvents: (scrollProgress > 0.47 && scrollProgress < 0.72) ? 'auto' : 'none' }}
+            style={{ 
+              opacity: servicesOpacity, 
+              y: servicesY, 
+              pointerEvents: (scrollProgress > 0.47 && scrollProgress < 0.72) ? 'auto' : 'none',
+              visibility: (scrollProgress > 0.42 && scrollProgress < 0.77) ? 'visible' : 'hidden',
+            }}
           >
              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 max-w-xs sm:max-w-md md:max-w-lg w-full">
               {services.map(({ icon: Icon, title }, i) => (
@@ -301,10 +311,15 @@ export default function Landing() {
             )}
           </AnimatePresence>
 
-          {/* Layer 4: CTA */}
+          {/* Layer 4: CTA — only render after scene is ready and user has scrolled */}
           <motion.div
             className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6"
-            style={{ opacity: ctaOpacity, y: ctaY, pointerEvents: scrollProgress > 0.75 ? 'auto' : 'none' }}
+            style={{ 
+              opacity: ctaOpacity, 
+              y: ctaY, 
+              pointerEvents: scrollProgress > 0.75 ? 'auto' : 'none',
+              visibility: scrollProgress > 0.70 ? 'visible' : 'hidden',
+            }}
           >
             <span className="text-foreground/50 font-light text-xs sm:text-sm md:text-base tracking-[0.25em] uppercase mb-3 sm:mb-4">STU25</span>
             <h2 className="text-xl sm:text-2xl md:text-3xl font-light tracking-tight text-center mb-1.5 sm:mb-2">
