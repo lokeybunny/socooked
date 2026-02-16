@@ -108,22 +108,22 @@ export default function Landing() {
           <motion.div
             className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center gap-6"
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
+            transition={{ duration: 0.8, ease: 'easeOut' }}
           >
             <span className="text-foreground/30 font-light text-sm tracking-[0.3em] uppercase">STU25</span>
             <div className="w-32 h-px bg-muted overflow-hidden rounded-full">
               <motion.div
                 className="h-full bg-foreground/40 rounded-full"
-                initial={{ width: '0%' }}
-                animate={{ width: '100%' }}
-                transition={{ duration: 2.5, ease: 'easeInOut' }}
+                animate={{ x: ['-100%', '100%'] }}
+                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ width: '50%' }}
               />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '500vh' }}>
+    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '500vh', overflow: sceneReady ? undefined : 'hidden' }}>
       {/* Subtle grid — fixed */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.02] z-0">
         <div
