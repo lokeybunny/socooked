@@ -107,9 +107,9 @@ export function Sidebar() {
         {/* Logo */}
         <div className={cn("flex items-center gap-3 p-4 border-b border-sidebar-border", collapsed && "justify-center")}>
           <div className="h-8 w-8 rounded-md bg-foreground flex items-center justify-center shrink-0">
-            <span className="text-background font-semibold text-xs tracking-wide">SC</span>
+            <span className="text-background font-semibold text-xs tracking-wide">ST</span>
           </div>
-          {!collapsed && <span className="font-medium text-foreground text-sm tracking-tight">SOCooked</span>}
+          {!collapsed && <span className="font-medium text-foreground text-sm tracking-tight">STU25</span>}
         </div>
 
         {/* Nav */}
