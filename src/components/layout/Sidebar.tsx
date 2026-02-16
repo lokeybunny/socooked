@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -46,6 +47,44 @@ export function Sidebar() {
   const { signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const [hasNewNotification, setHasNewNotification] = useState(false);
+  const lastSeenRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    // Load last seen timestamp from localStorage
+    lastSeenRef.current = localStorage.getItem('notifications_last_seen');
+
+    // Check if there are newer entries
+    const checkNew = async () => {
+      const query = supabase.from('activity_log').select('created_at').order('created_at', { ascending: false }).limit(1);
+      const { data } = await query;
+      if (data?.[0] && (!lastSeenRef.current || data[0].created_at > lastSeenRef.current)) {
+        setHasNewNotification(true);
+      }
+    };
+    checkNew();
+
+    // Realtime: any new insert shows the dot
+    const channel = supabase
+      .channel('sidebar_notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_log' }, () => {
+        if (location.pathname !== '/notifications') {
+          setHasNewNotification(true);
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Clear dot when visiting notifications page
+  useEffect(() => {
+    if (location.pathname === '/notifications') {
+      setHasNewNotification(false);
+      localStorage.setItem('notifications_last_seen', new Date().toISOString());
+      lastSeenRef.current = new Date().toISOString();
+    }
+  }, [location.pathname]);
 
   return (
     <>
@@ -87,8 +126,13 @@ export function Sidebar() {
                     ? "bg-accent text-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
-              >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
+               >
+                <div className="relative">
+                  <Icon className="h-4.5 w-4.5 shrink-0" />
+                  {label === 'Notifications' && hasNewNotification && (
+                    <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-sidebar animate-pulse" />
+                  )}
+                </div>
                 {!collapsed && <span>{label}</span>}
               </NavLink>
             );
