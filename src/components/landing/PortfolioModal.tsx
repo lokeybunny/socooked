@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Briefcase, X, Globe, Share2, ExternalLink } from 'lucide-react';
+import { Briefcase, X, Globe, Pen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Web Dev images
@@ -27,25 +27,26 @@ const webProjects = [
   { img: web6, title: 'Agency Portfolio', desc: 'Minimalist creative agency site with editorial photography layout.' },
 ];
 
-const socialBrands = [
-  { img: brand1, name: 'Oro Roasters', link: 'https://instagram.com' },
-  { img: brand2, name: 'Lasilluny', link: 'https://instagram.com' },
-  { img: brand3, name: 'NovaTech', link: 'https://facebook.com' },
-  { img: brand4, name: 'Serene Spa', link: 'https://instagram.com' },
-  { img: brand5, name: 'FoodDash', link: 'https://facebook.com' },
-  { img: brand6, name: 'WaveStudio', link: 'https://instagram.com' },
+const logoDesigns = [
+  { img: brand1, name: 'Oro Roasters' },
+  { img: brand2, name: 'Lasilluny' },
+  { img: brand3, name: 'NovaTech' },
+  { img: brand4, name: 'Serene Spa' },
+  { img: brand5, name: 'FoodDash' },
+  { img: brand6, name: 'WaveStudio' },
 ];
 
-type TabId = 'web' | 'social';
+type TabId = 'web' | 'logos';
 
 export default function PortfolioModal() {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('web');
   const [detailProject, setDetailProject] = useState<typeof webProjects[0] | null>(null);
+  const [detailLogo, setDetailLogo] = useState<typeof logoDesigns[0] | null>(null);
 
   const tabs: { id: TabId; label: string; icon: typeof Globe }[] = [
     { id: 'web', label: 'Web Dev', icon: Globe },
-    { id: 'social', label: 'Social Media', icon: Share2 },
+    { id: 'logos', label: 'Logo Design', icon: Pen },
   ];
 
   return (
@@ -67,7 +68,7 @@ export default function PortfolioModal() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              onClick={() => { setOpen(false); setDetailProject(null); }}
+              onClick={() => { setOpen(false); setDetailProject(null); setDetailLogo(null); }}
             />
             <motion.div
               className="fixed inset-0 z-[70] flex items-center justify-center px-4 sm:px-8 pointer-events-none"
@@ -78,7 +79,7 @@ export default function PortfolioModal() {
             >
               <div className="glass-card p-5 sm:p-8 w-full max-w-md sm:max-w-2xl pointer-events-auto relative max-h-[85vh] overflow-y-auto">
                 <button
-                  onClick={() => { setOpen(false); setDetailProject(null); }}
+                  onClick={() => { setOpen(false); setDetailProject(null); setDetailLogo(null); }}
                   className="absolute top-4 right-4 text-muted-foreground/40 hover:text-foreground transition-colors duration-300 z-10"
                 >
                   <X className="h-4 w-4" />
@@ -96,7 +97,7 @@ export default function PortfolioModal() {
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => { setActiveTab(tab.id); setDetailProject(null); }}
+                        onClick={() => { setActiveTab(tab.id); setDetailProject(null); setDetailLogo(null); }}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-xs tracking-wider uppercase transition-all duration-300 ${
                           isActive
                             ? 'bg-foreground/10 text-foreground border border-foreground/20'
@@ -145,36 +146,35 @@ export default function PortfolioModal() {
                     </motion.div>
                   )}
 
-                  {activeTab === 'social' && (
+                  {activeTab === 'logos' && (
                     <motion.div
-                      key="social"
+                      key="logos"
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.2 }}
                       className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-3"
                     >
-                      {socialBrands.map((brand, i) => (
-                        <a
+                      {logoDesigns.map((logo, i) => (
+                        <motion.button
                           key={i}
-                          href={brand.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group relative rounded-lg overflow-hidden aspect-square bg-muted/20 border border-foreground/5 hover:border-foreground/20 transition-all duration-300 block"
+                          onClick={() => setDetailLogo(logo)}
+                          className="group relative rounded-lg overflow-hidden aspect-square bg-muted/20 border border-foreground/5 hover:border-foreground/20 transition-all duration-300"
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
                         >
                           <img
-                            src={brand.img}
-                            alt={brand.name}
+                            src={logo.img}
+                            alt={logo.name}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                             loading="lazy"
                           />
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-1">
-                            <ExternalLink className="h-3.5 w-3.5 text-white/80" />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                             <span className="text-[8px] sm:text-[9px] tracking-wider uppercase text-white/70 font-light">
-                              {brand.name}
+                              {logo.name}
                             </span>
                           </div>
-                        </a>
+                        </motion.button>
                       ))}
                     </motion.div>
                   )}
@@ -224,6 +224,43 @@ export default function PortfolioModal() {
                     {detailProject.desc}
                   </p>
                 </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Detail popup for logo designs */}
+      <AnimatePresence>
+        {detailLogo && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              onClick={() => setDetailLogo(null)}
+            />
+            <motion.div
+              className="fixed inset-0 z-[90] flex items-center justify-center px-4 sm:px-8 pointer-events-none"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+            >
+              <div className="pointer-events-auto relative">
+                <button
+                  onClick={() => setDetailLogo(null)}
+                  className="absolute -top-3 -right-3 z-10 p-1.5 rounded-full bg-black/40 backdrop-blur-sm text-white/70 hover:text-white transition-colors duration-300"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <img
+                  src={detailLogo.img}
+                  alt={detailLogo.name}
+                  className="max-w-[80vw] max-h-[80vh] rounded-lg shadow-2xl object-contain"
+                />
               </div>
             </motion.div>
           </>
