@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
 import previewReel from '@/assets/preview-reel.mp4';
+import videoPoster from '@/assets/video-poster.jpg';
 
 export default function VideoPlayer() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -50,6 +51,7 @@ export default function VideoPlayer() {
         <video
           ref={videoRef}
           src={previewReel}
+          poster={videoPoster}
           loop
           muted
           playsInline
