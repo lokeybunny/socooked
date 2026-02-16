@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig } from 'lucide-react';
+import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig, Mail, Phone, MessageSquareText } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -15,27 +15,34 @@ interface Stats {
   completedTasks: number;
   completedDeals: number;
   completedProjects: number;
+  emailsToday: number;
+  totalEmails: number;
+  totalCalls: number;
+  totalSms: number;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0, emailsToday: 0, totalEmails: 0, totalCalls: 0, totalSms: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [recentDeals, setRecentDeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [c, d, p, t] = await Promise.all([
+      const [c, d, p, t, comms] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }),
         supabase.from('deals').select('deal_value, status'),
         supabase.from('projects').select('status'),
         supabase.from('tasks').select('status'),
+        supabase.from('communications').select('type, created_at'),
       ]);
 
       const deals = d.data || [];
       const tasks = t.data || [];
       const projects = p.data || [];
+      const allComms = comms.data || [];
+      const today = new Date().toISOString().slice(0, 10);
 
       setStats({
         customers: c.count || 0,
@@ -47,6 +54,10 @@ export default function Dashboard() {
         completedTasks: tasks.filter(t => t.status === 'done').length,
         completedDeals: deals.filter(d => d.status === 'won').length,
         completedProjects: projects.filter(p => (p as any).status === 'completed').length,
+        emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
+        totalEmails: allComms.filter(c => c.type === 'email').length,
+        totalCalls: allComms.filter(c => c.type === 'call').length,
+        totalSms: allComms.filter(c => c.type === 'sms').length,
       });
 
       const [rc, rd] = await Promise.all([
@@ -68,6 +79,9 @@ export default function Dashboard() {
     { label: 'Projects', value: stats.projects, icon: FolderKanban, color: 'text-purple-500' },
     { label: 'Total Tasks', value: stats.tasks, icon: CheckSquare, color: 'text-cyan-500' },
     { label: 'In Progress', value: stats.activeTasks, icon: TrendingUp, color: 'text-orange-500' },
+    { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
+    { label: 'Total Calls', value: stats.totalCalls, icon: Phone, color: 'text-teal-500' },
+    { label: 'Total SMS', value: stats.totalSms, icon: MessageSquareText, color: 'text-indigo-500' },
   ];
 
   return (
@@ -79,7 +93,7 @@ export default function Dashboard() {
         </div>
 
         {/* Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {metricCards.map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="metric-card">
               <div className="flex items-center gap-3 mb-3">

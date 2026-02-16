@@ -408,6 +408,81 @@ export type Database = {
           },
         ]
       }
+      communications: {
+        Row: {
+          body: string | null
+          created_at: string
+          customer_id: string | null
+          direction: string
+          duration_seconds: number | null
+          external_id: string | null
+          from_address: string | null
+          id: string
+          metadata: Json
+          phone_number: string | null
+          provider: string | null
+          status: string
+          subject: string | null
+          to_address: string | null
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          customer_id?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          external_id?: string | null
+          from_address?: string | null
+          id?: string
+          metadata?: Json
+          phone_number?: string | null
+          provider?: string | null
+          status?: string
+          subject?: string | null
+          to_address?: string | null
+          type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          customer_id?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          external_id?: string | null
+          from_address?: string | null
+          id?: string
+          metadata?: Json
+          phone_number?: string | null
+          provider?: string | null
+          status?: string
+          subject?: string | null
+          to_address?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communications_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_assets: {
         Row: {
           body: string | null
