@@ -280,7 +280,7 @@ export default function Leads() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Leads" {...categoryGate} categoryTitle={`${SERVICE_CATEGORIES.find(c => c.id === categoryGate.selectedCategory)?.label || ''} Leads`}>
+      <CategoryGate title="Leads" {...categoryGate} categoryTitle={`${SERVICE_CATEGORIES.find(c => c.id === categoryGate.selectedCategory)?.label || ''} Leads`} totalCount={leads.length + prospects.length + clients.length} countLabel="contacts">
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>

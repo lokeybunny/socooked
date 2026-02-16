@@ -25,7 +25,7 @@ export default function Signatures() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Signatures" {...categoryGate}>
+      <CategoryGate title="Signatures" {...categoryGate} totalCount={signatures.length} countLabel="signatures">
         <div className="space-y-6">
           <p className="text-muted-foreground text-sm">{signatures.length} signatures collected</p>
           <div className="space-y-3">

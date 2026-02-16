@@ -24,7 +24,7 @@ export default function Documents() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Documents" {...categoryGate}>
+      <CategoryGate title="Documents" {...categoryGate} totalCount={documents.length} countLabel="documents">
         <div className="space-y-6">
           <p className="text-muted-foreground text-sm">{documents.length} documents</p>
           <div className="space-y-3">

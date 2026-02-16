@@ -39,7 +39,7 @@ export default function Boards() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Boards" {...categoryGate}>
+      <CategoryGate title="Boards" {...categoryGate} totalCount={boards.length} countLabel="boards">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{boards.length} boards</p>
