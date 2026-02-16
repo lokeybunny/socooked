@@ -48,7 +48,7 @@ export default function Projects() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Projects" {...categoryGate}>
+      <CategoryGate title="Projects" {...categoryGate} totalCount={projects.length} countLabel="projects">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{projects.length} projects</p>

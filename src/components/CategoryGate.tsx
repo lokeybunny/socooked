@@ -41,15 +41,25 @@ interface CategoryGateProps {
   children: React.ReactNode;
   /** Override page title when a category is selected */
   categoryTitle?: string;
+  /** Total count to display as overview on the category picker */
+  totalCount?: number;
+  /** Label for the total count (e.g. "customers", "deals") */
+  countLabel?: string;
 }
 
-export function CategoryGate({ title, selectedCategory, onSelect, onBack, children, categoryTitle }: CategoryGateProps) {
+export function CategoryGate({ title, selectedCategory, onSelect, onBack, children, categoryTitle, totalCount, countLabel }: CategoryGateProps) {
   if (!selectedCategory) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-fade-in">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-foreground">{title}</h1>
           <p className="text-muted-foreground">Select a category to continue</p>
+          {typeof totalCount === 'number' && (
+            <div className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full bg-muted/60 border border-border">
+              <span className="text-2xl font-bold text-foreground">{totalCount.toLocaleString()}</span>
+              <span className="text-sm text-muted-foreground">{countLabel || 'total'}</span>
+            </div>
+          )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
           {SERVICE_CATEGORIES.map((cat) => {

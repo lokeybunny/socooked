@@ -254,7 +254,7 @@ export default function Tasks() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Tasks" {...categoryGate}>
+      <CategoryGate title="Tasks" {...categoryGate} totalCount={botTasks.length + tasks.length} countLabel="tasks">
         <div className="space-y-6">
           <p className="text-muted-foreground text-sm">
             {botTasks.length} bot tasks · {tasks.length} manual tasks

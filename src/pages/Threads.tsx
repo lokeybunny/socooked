@@ -106,7 +106,7 @@ export default function Threads() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Conversation Threads" {...categoryGate}>
+      <CategoryGate title="Conversation Threads" {...categoryGate} totalCount={threads.length} countLabel="threads">
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{threads.length} threads</p>
