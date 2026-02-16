@@ -6,6 +6,7 @@ import { ArrowRight, ArrowLeft, Globe, BarChart3, Sparkles, Layers, Monitor, Zap
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import previewReel from '@/assets/preview-reel.mp4';
 
 const STU25Scene = lazy(() => import('@/components/three/STU25Scene'));
 
@@ -168,7 +169,18 @@ export default function Landing() {
               <br />
               <span className="text-muted-foreground">for Modern Brands</span>
             </h2>
-            <div className="w-10 sm:w-12 h-px bg-border mt-6 sm:mt-8" />
+            <div className="w-full max-w-xs sm:max-w-sm md:max-w-lg mt-6 sm:mt-8">
+              <div className="relative w-full rounded-xl sm:rounded-2xl overflow-hidden border border-border/30 shadow-lg" style={{ aspectRatio: '16/9' }}>
+                <video
+                  src={previewReel}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
           </motion.div>
 
           {/* Layer 3: Services grid */}
