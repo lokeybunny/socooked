@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
-const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '' };
+const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '' };
 
 export default function Customers() {
   const categoryGate = useCategoryGate();
@@ -49,14 +49,14 @@ export default function Customers() {
 
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setCustomers(allCustomers.filter(c => c.category === categoryGate.selectedCategory));
+      setCustomers(allCustomers.filter(c => (c.category || 'other') === categoryGate.selectedCategory));
     } else {
       setCustomers(allCustomers);
     }
   }, [categoryGate.selectedCategory, allCustomers]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allCustomers.filter(c => c.category === cat.id).length;
+    acc[cat.id] = allCustomers.filter(c => (c.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -72,7 +72,7 @@ export default function Customers() {
       address: form.address || null,
       notes: form.notes || null,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-      category: categoryGate.selectedCategory,
+      category: form.category || categoryGate.selectedCategory || 'other',
     };
     if (editingId) {
       const { error } = await supabase.from('customers').update(payload).eq('id', editingId);
@@ -100,13 +100,14 @@ export default function Customers() {
       address: c.address || '',
       notes: c.notes || '',
       tags: Array.isArray(c.tags) ? c.tags.join(', ') : '',
+      category: c.category || 'other',
     });
     setEditingId(c.id);
     setDialogOpen(true);
   };
 
   const openCreate = () => {
-    setForm(emptyForm);
+    setForm({ ...emptyForm, category: categoryGate.selectedCategory || 'other' });
     setEditingId(null);
     setDialogOpen(true);
   };
@@ -160,6 +161,17 @@ export default function Customers() {
                     <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>{statuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category *</Label>
+                    <Select value={form.category || categoryGate.selectedCategory || 'other'} onValueChange={v => setForm({ ...form, category: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {SERVICE_CATEGORIES.map(cat => (
+                          <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                   </div>
                   <div className="flex gap-2">
