@@ -105,11 +105,13 @@ export function Sidebar() {
         data-open={!collapsed || undefined}
       >
         {/* Logo */}
-        <div className={cn("flex items-center gap-3 p-4 border-b border-sidebar-border", collapsed && "justify-center")}>
-          <div className="h-8 w-8 rounded-md bg-foreground flex items-center justify-center shrink-0">
-            <span className="text-background font-semibold text-xs tracking-wide">ST</span>
-          </div>
-          {!collapsed && <span className="font-medium text-foreground text-sm tracking-tight">STU25</span>}
+        <div className={cn("flex items-center p-4 border-b border-sidebar-border", collapsed && "justify-center")}>
+          <span className={cn(
+            "text-foreground/70 font-light tracking-[0.15em] uppercase",
+            collapsed ? "text-[10px]" : "text-base"
+          )}>
+            {collapsed ? "ST" : "STU25"}
+          </span>
         </div>
 
         {/* Nav */}
