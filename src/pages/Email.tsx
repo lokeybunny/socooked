@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Mail, Send, FileEdit, Inbox, Trash2 } from 'lucide-react';
+import { Plus, Mail, Send, FileEdit, Inbox, Trash2, Filter } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 
@@ -31,6 +31,7 @@ export default function EmailPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [activeTab, setActiveTab] = useState('inbox');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('all');
 
   const load = async () => {
     const [c, cust] = await Promise.all([
@@ -73,12 +74,17 @@ export default function EmailPage() {
   };
 
   const filtered = (tab: string) => {
+    let items: any[];
     switch (tab) {
-      case 'inbox': return comms.filter(c => c.direction === 'inbound');
-      case 'sent': return comms.filter(c => c.direction === 'outbound' && c.status !== 'draft');
-      case 'drafts': return comms.filter(c => c.status === 'draft');
-      default: return comms;
+      case 'inbox': items = comms.filter(c => c.direction === 'inbound'); break;
+      case 'sent': items = comms.filter(c => c.direction === 'outbound' && c.status !== 'draft'); break;
+      case 'drafts': items = comms.filter(c => c.status === 'draft'); break;
+      default: items = comms;
     }
+    if (selectedCustomerId !== 'all') {
+      items = items.filter(c => c.customer_id === selectedCustomerId);
+    }
+    return items;
   };
 
   const renderList = (items: any[]) => (
@@ -176,6 +182,18 @@ export default function EmailPage() {
             <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
             <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
           </TabsList>
+          <div className="flex items-center gap-2 mt-4 sm:mt-0">
+            <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+            <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="All customers" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All customers</SelectItem>
+                {customers.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {['inbox', 'sent', 'drafts'].map(tab => (
             <TabsContent key={tab} value={tab}>
               {loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderList(filtered(tab))}
