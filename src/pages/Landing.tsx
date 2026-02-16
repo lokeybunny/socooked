@@ -68,10 +68,19 @@ export default function Landing() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
-  // Always start at the top (3D hero)
+  // Always start at the top & lock scroll until scene loads
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  useEffect(() => {
+    if (!sceneReady) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [sceneReady]);
 
   // Parallax transforms
   // Layer 1: 3D Hero — visible 0-20%, gone by 20%
@@ -114,16 +123,16 @@ export default function Landing() {
             <div className="w-32 h-px bg-muted overflow-hidden rounded-full">
               <motion.div
                 className="h-full bg-foreground/40 rounded-full"
-                animate={{ x: ['-100%', '100%'] }}
-                transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
-                style={{ width: '50%' }}
+                initial={{ width: '0%' }}
+                animate={{ width: '85%' }}
+                transition={{ duration: 3, ease: 'easeOut' }}
               />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '500vh', overflow: sceneReady ? undefined : 'hidden' }}>
+    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '500vh' }}>
       {/* Subtle grid — fixed */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.02] z-0">
         <div
