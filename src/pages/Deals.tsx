@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, DollarSign } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Plus, DollarSign, Trash2, Calendar, Percent, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import { format } from 'date-fns';
 
 const stages = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
 
@@ -20,6 +22,8 @@ export default function Deals() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDeal, setSelectedDeal] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [form, setForm] = useState({ title: '', customer_id: '', stage: 'new', deal_value: '0', probability: '10' });
 
   const loadAll = async () => {
@@ -62,6 +66,15 @@ export default function Deals() {
     toast.success('Deal created');
     setDialogOpen(false);
     setForm({ title: '', customer_id: '', stage: 'new', deal_value: '0', probability: '10' });
+    loadAll();
+  };
+
+  const handleDelete = async (dealId: string) => {
+    const { error } = await supabase.from('deals').delete().eq('id', dealId);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Deal deleted');
+    setDeleteTarget(null);
+    setSelectedDeal(null);
     loadAll();
   };
 
@@ -122,7 +135,7 @@ export default function Deals() {
                 </div>
                 <div className="space-y-2">
                   {(grouped[stage] || []).map((deal: any) => (
-                    <div key={deal.id} className="glass-card p-4 hover:shadow-md transition-shadow cursor-pointer">
+                    <div key={deal.id} className="glass-card p-4 hover:shadow-md transition-shadow cursor-pointer" onDoubleClick={() => setSelectedDeal(deal)}>
                       <p className="text-sm font-medium text-foreground mb-1">{deal.title}</p>
                       <p className="text-xs text-muted-foreground mb-2">{deal.customers?.full_name || 'Unknown'}</p>
                       <div className="flex items-center justify-between">
@@ -143,6 +156,61 @@ export default function Deals() {
             ))}
           </div>
         </div>
+
+        {/* Deal Detail Modal */}
+        <Dialog open={!!selectedDeal} onOpenChange={(open) => { if (!open) setSelectedDeal(null); }}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{selectedDeal?.title}</DialogTitle></DialogHeader>
+            {selectedDeal && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span>{selectedDeal.customers?.full_name || 'Unknown'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <span>${Number(selectedDeal.deal_value).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Percent className="h-4 w-4 text-muted-foreground" />
+                    <span>{selectedDeal.probability}% probability</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>{format(new Date(selectedDeal.created_at), 'MMM d, yyyy')}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Stage:</span>
+                  <StatusBadge status={selectedDeal.stage} />
+                </div>
+                {selectedDeal.expected_close_date && (
+                  <p className="text-sm text-muted-foreground">Expected close: {format(new Date(selectedDeal.expected_close_date), 'MMM d, yyyy')}</p>
+                )}
+                <div className="pt-2 border-t border-border">
+                  <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(selectedDeal)}>
+                    <Trash2 className="h-4 w-4 mr-2" />Delete Deal
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete "{deleteTarget?.title}"?</AlertDialogTitle>
+              <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => deleteTarget && handleDelete(deleteTarget.id)}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CategoryGate>
     </AppLayout>
   );
