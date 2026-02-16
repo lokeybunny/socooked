@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
-const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '' };
+const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '' };
 
 export default function Customers() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -46,12 +46,23 @@ export default function Customers() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = {
+      full_name: form.full_name,
+      email: form.email || null,
+      phone: form.phone || null,
+      company: form.company || null,
+      status: form.status,
+      source: form.source || null,
+      address: form.address || null,
+      notes: form.notes || null,
+      tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+    };
     if (editingId) {
-      const { error } = await supabase.from('customers').update(form).eq('id', editingId);
+      const { error } = await supabase.from('customers').update(payload).eq('id', editingId);
       if (error) { toast.error(error.message); return; }
       toast.success('Customer updated');
     } else {
-      const { error } = await supabase.from('customers').insert([form]);
+      const { error } = await supabase.from('customers').insert([payload]);
       if (error) { toast.error(error.message); return; }
       toast.success('Customer created');
     }
@@ -62,8 +73,17 @@ export default function Customers() {
   };
 
   const openEdit = (c: any) => {
-    setForm({ full_name: c.full_name, email: c.email || '', phone: c.phone || '', company: c.company || '', status: c.status, source: c.source || '' });
-    setEditingId(c.id);
+    setForm({
+      full_name: c.full_name,
+      email: c.email || '',
+      phone: c.phone || '',
+      company: c.company || '',
+      status: c.status,
+      source: c.source || '',
+      address: c.address || '',
+      notes: c.notes || '',
+      tags: Array.isArray(c.tags) ? c.tags.join(', ') : '',
+    });
     setDialogOpen(true);
   };
 
@@ -117,6 +137,9 @@ export default function Customers() {
                   <div className="space-y-2"><Label>Company</Label><Input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} /></div>
                   <div className="space-y-2"><Label>Source</Label><Input value={form.source} onChange={e => setForm({ ...form, source: e.target.value })} /></div>
                 </div>
+                <div className="space-y-2"><Label>Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Street, City, State..." /></div>
+                <div className="space-y-2"><Label>Tags</Label><Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="Comma-separated, e.g. VIP, Referral" /></div>
+                <div className="space-y-2"><Label>Notes</Label><textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes..." className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" /></div>
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
