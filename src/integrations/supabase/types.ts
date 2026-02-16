@@ -1030,6 +1030,47 @@ export type Database = {
           },
         ]
       }
+      meetings: {
+        Row: {
+          created_at: string
+          host_id: string | null
+          id: string
+          room_code: string
+          scheduled_at: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          host_id?: string | null
+          id?: string
+          room_code?: string
+          scheduled_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          host_id?: string | null
+          id?: string
+          room_code?: string
+          scheduled_at?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_host_id_fkey"
+            columns: ["host_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
