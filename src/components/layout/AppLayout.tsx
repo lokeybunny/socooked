@@ -9,7 +9,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="flex justify-end p-4 pb-0">
           <ThemeToggle />
         </div>
-        <div className="p-6 md:p-8 pt-2 max-w-[1600px] mx-auto">
+        <div className="p-4 sm:p-6 md:p-8 pt-2 max-w-[1600px] mx-auto">
           {children}
         </div>
       </main>
