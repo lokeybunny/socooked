@@ -1,4 +1,4 @@
-import { Suspense, lazy, useRef, useState } from 'react';
+import { Suspense, lazy, useRef, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
@@ -52,6 +52,19 @@ export default function Landing() {
 
   // Track scroll progress for pointer-events
   scrollYProgress.on('change', (v) => setScrollProgress(v));
+
+  // Keyboard navigation for service modals
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (activeService === null) return;
+    if (e.key === 'Escape') setActiveService(null);
+    if (e.key === 'ArrowRight') setActiveService((activeService + 1) % services.length);
+    if (e.key === 'ArrowLeft') setActiveService((activeService - 1 + services.length) % services.length);
+  }, [activeService]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   // Parallax transforms
   // Layer 1: 3D Hero — visible 0-20%, gone by 20%
@@ -209,9 +222,9 @@ export default function Landing() {
                   {/* Left arrow */}
                   <button
                     onClick={() => setActiveService((activeService - 1 + services.length) % services.length)}
-                    className="pointer-events-auto absolute left-4 md:left-8 text-muted-foreground/40 hover:text-foreground transition-colors duration-300"
+                    className="pointer-events-auto absolute left-4 md:left-8 p-2 rounded-full bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all duration-300"
                   >
-                    <ChevronLeft className="h-6 w-6" />
+                    <ChevronLeft className="h-5 w-5" />
                   </button>
 
                   {/* Card */}
@@ -246,9 +259,9 @@ export default function Landing() {
                   {/* Right arrow */}
                   <button
                     onClick={() => setActiveService((activeService + 1) % services.length)}
-                    className="pointer-events-auto absolute right-4 md:right-8 text-muted-foreground/40 hover:text-foreground transition-colors duration-300"
+                    className="pointer-events-auto absolute right-4 md:right-8 p-2 rounded-full bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all duration-300"
                   >
-                    <ChevronRight className="h-6 w-6" />
+                    <ChevronRight className="h-5 w-5" />
                   </button>
                 </motion.div>
               </>
