@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { ArrowLeft } from 'lucide-react';
 
 export default function Auth() {
   const { user, loading } = useAuth();
@@ -14,6 +15,7 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { signIn, signUp } = useAuth();
+  const navigate = useNavigate();
 
   if (loading) return <div className="flex items-center justify-center min-h-screen bg-background"><div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" /></div>;
   if (user) return <Navigate to="/dashboard" replace />;
@@ -40,14 +42,18 @@ export default function Auth() {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary/5 items-center justify-center p-12">
-        <div className="max-w-md space-y-6">
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">SC</span>
+      <div className="hidden lg:flex lg:w-1/2 bg-primary/5 items-center justify-center p-12 relative overflow-hidden">
+        {/* Ambient grid */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.03]">
+          <div className="w-full h-full" style={{ backgroundImage: 'linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        </div>
+        <div className="max-w-md space-y-6 relative z-10">
+          <div className="h-12 w-12 rounded-xl bg-foreground flex items-center justify-center">
+            <span className="text-background font-bold text-lg tracking-widest">ST</span>
           </div>
-          <h1 className="text-3xl font-bold text-foreground">SOCooked CM</h1>
+          <h1 className="text-3xl font-bold text-foreground">STU25</h1>
           <p className="text-muted-foreground text-lg leading-relaxed">
-            Your unified CRM, CMS, and project management platform. Track customers, deals, content, and tasks — all in one place.
+            AI-powered social media marketing &amp; web services platform. Manage campaigns, clients, and content — all in one place.
           </p>
         </div>
       </div>
@@ -56,18 +62,26 @@ export default function Auth() {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm space-y-8">
           <div className="lg:hidden flex items-center gap-3 mb-4">
-            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold">SC</span>
+            <div className="h-10 w-10 rounded-xl bg-foreground flex items-center justify-center">
+              <span className="text-background font-bold tracking-widest">ST</span>
             </div>
-            <span className="font-semibold text-foreground text-lg">SOCooked CM</span>
+            <span className="font-semibold text-foreground text-lg">STU25</span>
           </div>
+
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to home
+          </button>
 
           <div>
             <h2 className="text-2xl font-bold text-foreground">
               {isSignUp ? 'Create account' : 'Welcome back'}
             </h2>
             <p className="text-muted-foreground mt-1">
-              {isSignUp ? 'Get started with SOCooked CM' : 'Sign in to your account'}
+              {isSignUp ? 'Get started with STU25' : 'Sign in to your account'}
             </p>
           </div>
 
