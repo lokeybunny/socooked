@@ -16,6 +16,7 @@ import {
   Receipt,
   PenTool,
   Radar,
+  Mail,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,7 @@ const navItems = [
   { to: '/signatures', icon: PenTool, label: 'Signatures' },
   { to: '/invoices', icon: Receipt, label: 'Invoices' },
   { to: '/leads', icon: Radar, label: 'Leads' },
+  { to: '/email', icon: Mail, label: 'Email' },
   { to: '/boards', icon: LayoutGrid, label: 'Boards' },
   
 ];
