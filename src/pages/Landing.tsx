@@ -2,7 +2,7 @@ import { Suspense, lazy, useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, Globe, BarChart3, Sparkles, Layers, Monitor, Zap, X, DoorOpen, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Globe, BarChart3, Sparkles, Layers, Monitor, Zap, X, DoorOpen, ChevronLeft, ChevronRight, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
@@ -300,6 +300,22 @@ export default function Landing() {
             &copy; {new Date().getFullYear()}
           </p>
         </footer>
+
+        {/* Back to top */}
+        <AnimatePresence>
+          {scrollProgress > 0.15 && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.3 }}
+              onClick={() => containerRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              className="fixed bottom-6 right-4 sm:right-6 z-40 p-2.5 rounded-full border border-border/40 bg-background/60 backdrop-blur-sm text-muted-foreground/50 hover:text-foreground hover:border-border transition-colors duration-300"
+            >
+              <ArrowUp className="h-4 w-4" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
