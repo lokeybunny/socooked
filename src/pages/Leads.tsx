@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Monitor, Store, ShoppingCart, UtensilsCrossed, Smartphone, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
@@ -16,6 +16,14 @@ import { cn } from '@/lib/utils';
 const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 const PAGE_SIZE = 10;
+
+const LEAD_CATEGORIES = [
+  { id: 'digital-services', label: 'Digital Services', icon: Monitor, description: 'SaaS, agencies, consulting & digital service providers' },
+  { id: 'brick-and-mortar', label: 'Brick and Mortar', icon: Store, description: 'Physical retail, offices & local businesses' },
+  { id: 'digital-ecommerce', label: 'Digital E-Commerce', icon: ShoppingCart, description: 'Online stores, marketplaces & D2C brands' },
+  { id: 'food-and-beverage', label: 'Food & Beverage', icon: UtensilsCrossed, description: 'Restaurants, cafés, catering & food brands' },
+  { id: 'mobile-services', label: 'Mobile Services', icon: Smartphone, description: 'Mobile apps, on-demand & field services' },
+] as const;
 
 // Droppable column wrapper
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
@@ -102,6 +110,7 @@ export default function Leads() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -270,12 +279,47 @@ export default function Leads() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
+        {!selectedCategory ? (
+          /* Category Selection Screen */
+          <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl font-bold text-foreground">Lead Categories</h1>
+              <p className="text-muted-foreground">Select a category to view and manage your leads</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
+              {LEAD_CATEGORIES.map((cat) => {
+                const Icon = cat.icon;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className="group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-primary/40 transition-all"
+                  >
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <h3 className="font-semibold text-foreground">{cat.label}</h3>
+                    <p className="text-sm text-muted-foreground">{cat.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* Pipeline View */
+          <>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Bot className="h-6 w-6 text-primary" />Leads
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
+            <div className="flex items-center gap-3 mb-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedCategory(null)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <Bot className="h-6 w-6 text-primary" />
+                {LEAD_CATEGORIES.find(c => c.id === selectedCategory)?.label} Leads
+              </h1>
+            </div>
+            <p className="text-muted-foreground text-sm ml-11">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
           </div>
           <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
             <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
@@ -434,6 +478,8 @@ export default function Leads() {
               )}
             </DialogContent>
           </Dialog>
+        )}
+          </>
         )}
       </div>
     </AppLayout>
