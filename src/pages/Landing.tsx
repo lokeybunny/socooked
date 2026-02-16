@@ -78,6 +78,7 @@ export default function Landing() {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      window.scrollTo(0, 0);
     }
     return () => { document.body.style.overflow = ''; };
   }, [sceneReady]);
