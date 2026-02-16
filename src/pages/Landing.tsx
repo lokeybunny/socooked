@@ -49,6 +49,7 @@ export default function Landing() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeService, setActiveService] = useState<number | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [sceneReady, setSceneReady] = useState(false);
   const { scrollYProgress } = useScroll({ target: containerRef });
 
   // Track scroll progress for pointer-events
@@ -100,6 +101,28 @@ export default function Landing() {
   if (user) return <Navigate to="/dashboard" replace />;
 
   return (
+    <>
+      {/* Loading overlay until 3D scene is ready */}
+      <AnimatePresence>
+        {!sceneReady && (
+          <motion.div
+            className="fixed inset-0 z-[100] bg-background flex flex-col items-center justify-center gap-6"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+          >
+            <span className="text-foreground/30 font-light text-sm tracking-[0.3em] uppercase">STU25</span>
+            <div className="w-32 h-px bg-muted overflow-hidden rounded-full">
+              <motion.div
+                className="h-full bg-foreground/40 rounded-full"
+                initial={{ width: '0%' }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 2.5, ease: 'easeInOut' }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '500vh' }}>
       {/* Subtle grid — fixed */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.02] z-0">
@@ -140,14 +163,8 @@ export default function Landing() {
             style={{ opacity: heroOpacity, scale: heroScale, y: heroY, pointerEvents: scrollProgress < 0.18 ? 'auto' : 'none' }}
           >
             <div className="w-full h-[40vh] sm:h-[50vh] md:h-[55vh] max-w-4xl px-4">
-              <Suspense
-                fallback={
-                  <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin h-6 w-6 border border-primary border-t-transparent rounded-full" />
-                  </div>
-                }
-              >
-                <STU25Scene />
+              <Suspense fallback={<div className="h-full" />}>
+                <STU25Scene onReady={() => setSceneReady(true)} />
               </Suspense>
             </div>
             {/* Scroll hint */}
@@ -323,5 +340,6 @@ export default function Landing() {
         </AnimatePresence>
       </div>
     </div>
+    </>
   );
 }

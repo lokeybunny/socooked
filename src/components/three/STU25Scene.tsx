@@ -115,13 +115,16 @@ function Particles() {
   );
 }
 
-export default function STU25Scene() {
+export default function STU25Scene({ onReady }: { onReady?: () => void }) {
   return (
     <Canvas
       camera={{ position: [0, 0, 10], fov: 35 }}
       gl={{ antialias: true, alpha: true }}
       style={{ background: 'transparent' }}
       dpr={[1, 2]}
+      onCreated={() => {
+        setTimeout(() => onReady?.(), 300);
+      }}
     >
       <Environment preset="city" />
       <ambientLight intensity={0.3} />
