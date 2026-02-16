@@ -25,18 +25,22 @@ export default function Landing() {
   const { scrollYProgress } = useScroll({ target: containerRef });
 
   // Parallax transforms
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.25], [1, 0]);
-  const heroScale = useTransform(scrollYProgress, [0, 0.25], [1, 0.9]);
-  const heroY = useTransform(scrollYProgress, [0, 0.25], [0, -80]);
+  // Layer 1: 3D Hero — visible 0-20%, gone by 20%
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.18], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.18], [1, 0.92]);
+  const heroY = useTransform(scrollYProgress, [0, 0.18], [0, -60]);
 
-  const revealOpacity = useTransform(scrollYProgress, [0.15, 0.35], [0, 1]);
-  const revealY = useTransform(scrollYProgress, [0.15, 0.35], [60, 0]);
+  // Layer 2: Tagline — fades in 20-28%, holds, fades out 38-45%
+  const revealOpacity = useTransform(scrollYProgress, [0.20, 0.28, 0.38, 0.45], [0, 1, 1, 0]);
+  const revealY = useTransform(scrollYProgress, [0.20, 0.28, 0.38, 0.45], [40, 0, 0, -30]);
 
-  const servicesOpacity = useTransform(scrollYProgress, [0.4, 0.55], [0, 1]);
-  const servicesY = useTransform(scrollYProgress, [0.4, 0.55], [80, 0]);
+  // Layer 3: Services — fades in 47-55%, holds, fades out 65-72%
+  const servicesOpacity = useTransform(scrollYProgress, [0.47, 0.55, 0.65, 0.72], [0, 1, 1, 0]);
+  const servicesY = useTransform(scrollYProgress, [0.47, 0.55, 0.65, 0.72], [50, 0, 0, -30]);
 
-  const ctaOpacity = useTransform(scrollYProgress, [0.65, 0.8], [0, 1]);
-  const ctaY = useTransform(scrollYProgress, [0.65, 0.8], [60, 0]);
+  // Layer 4: CTA — fades in 75-83%, stays
+  const ctaOpacity = useTransform(scrollYProgress, [0.75, 0.83], [0, 1]);
+  const ctaY = useTransform(scrollYProgress, [0.75, 0.83], [40, 0]);
 
   if (loading)
     return (
@@ -48,7 +52,7 @@ export default function Landing() {
   if (user) return <Navigate to="/dashboard" replace />;
 
   return (
-    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '400vh' }}>
+    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '500vh' }}>
       {/* Subtle grid — fixed */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.02] z-0">
         <div
