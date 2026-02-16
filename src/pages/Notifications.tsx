@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Bell, ExternalLink, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Bell, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -17,22 +16,22 @@ interface ActivityEntry {
 }
 
 const ENTITY_ROUTE_MAP: Record<string, (id?: string) => string> = {
-  customer: (id) => '/customers',
-  deal: (id) => '/deals',
-  project: (id) => '/projects',
-  task: (id) => '/tasks',
+  customer: () => '/customers',
+  deal: () => '/deals',
+  project: () => '/projects',
+  task: () => '/tasks',
   board: (id) => id ? `/boards/${id}` : '/boards',
-  card: (id) => '/boards',
-  list: (id) => '/boards',
-  invoice: (id) => '/invoices',
-  document: (id) => '/documents',
-  signature: (id) => '/signatures',
-  thread: (id) => '/threads',
-  content: (id) => '/content',
-  lead: (id) => '/leads',
-  email: (id) => '/email',
-  phone: (id) => '/phone',
-  communication: (id) => '/email',
+  card: () => '/boards',
+  list: () => '/boards',
+  invoice: () => '/invoices',
+  document: () => '/documents',
+  signature: () => '/signatures',
+  thread: () => '/threads',
+  content: () => '/content',
+  lead: () => '/leads',
+  email: () => '/email',
+  phone: () => '/phone',
+  communication: () => '/email',
 };
 
 const getEntityIcon = (type: string) => {
@@ -65,18 +64,35 @@ export default function Notifications() {
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from('activity_log')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200);
-    setEntries((data as ActivityEntry[]) || []);
-    setLoading(false);
-  };
+  useEffect(() => {
+    // Initial load
+    const load = async () => {
+      const { data } = await supabase
+        .from('activity_log')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      setEntries((data as ActivityEntry[]) || []);
+      setLoading(false);
+    };
+    load();
 
-  useEffect(() => { load(); }, []);
+    // Realtime subscription
+    const channel = supabase
+      .channel('activity_log_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'activity_log' },
+        (payload) => {
+          setEntries((prev) => [payload.new as ActivityEntry, ...prev].slice(0, 200));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleClick = (entry: ActivityEntry) => {
     const routeFn = ENTITY_ROUTE_MAP[entry.entity_type];
@@ -98,15 +114,9 @@ export default function Notifications() {
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
-            <p className="text-sm text-muted-foreground">{entries.length} activities tracked</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+          <p className="text-sm text-muted-foreground">{entries.length} activities tracked · Live updates</p>
         </div>
 
         {Object.entries(grouped).map(([date, items]) => (
@@ -138,7 +148,7 @@ export default function Notifications() {
         {entries.length === 0 && !loading && (
           <div className="text-center py-20 text-muted-foreground">
             <Bell className="h-10 w-10 mx-auto mb-3 opacity-30" />
-            <p>No activity yet. Actions across the system will appear here.</p>
+            <p>No activity yet. Actions across the system will appear here in real-time.</p>
           </div>
         )}
       </div>
