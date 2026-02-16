@@ -77,8 +77,12 @@ export default function Landing() {
     if (!sceneReady) {
       document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = '';
+      // Reset scroll BEFORE re-enabling overflow so scrollYProgress reads 0
       window.scrollTo(0, 0);
+      // Small delay to let scroll position settle before allowing interaction
+      requestAnimationFrame(() => {
+        document.body.style.overflow = '';
+      });
     }
     return () => { document.body.style.overflow = ''; };
   }, [sceneReady]);
