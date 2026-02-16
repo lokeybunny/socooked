@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Plus, MessageSquare, FileText, Send, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
 
 export default function Threads() {
+  const categoryGate = useCategoryGate();
   const [threads, setThreads] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,6 @@ export default function Threads() {
   const analyzeThread = async (thread: any) => {
     setProcessing(thread.id);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke('clawdbot/analyze-thread', {
         body: { thread_id: thread.id, customer_id: thread.customer_id, transcript: thread.raw_transcript || '' },
       });
@@ -63,7 +64,7 @@ export default function Threads() {
   const generateDocs = async (thread: any) => {
     setProcessing(thread.id);
     try {
-      const [resumeRes, contractRes] = await Promise.all([
+      await Promise.all([
         supabase.functions.invoke('clawdbot/generate-resume', {
           body: { thread_id: thread.id, customer_id: thread.customer_id, resume_style: 'modern', transcript: thread.raw_transcript || '' },
         }),
@@ -71,13 +72,10 @@ export default function Threads() {
           body: { thread_id: thread.id, customer_id: thread.customer_id, contract_template: 'resume_service_v1', terms: { price: 400, deposit: 200, revisions_policy: '2 free revisions' }, transcript: thread.raw_transcript || '' },
         }),
       ]);
-
-      // Create document records
       await supabase.from('documents').insert([
         { customer_id: thread.customer_id, thread_id: thread.id, type: 'resume', title: 'Resume', status: 'final' },
         { customer_id: thread.customer_id, thread_id: thread.id, type: 'contract', title: 'Service Contract', status: 'final' },
       ]);
-
       await supabase.from('conversation_threads').update({ status: 'docs_generated' }).eq('id', thread.id);
       toast.success('Resume & Contract generated!');
       load();
@@ -108,93 +106,92 @@ export default function Threads() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Conversation Threads</h1>
-            <p className="text-muted-foreground text-sm mt-1">{threads.length} threads</p>
-          </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />New Thread</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Create Thread</DialogTitle></DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Customer *</Label>
-                  <Select value={form.customer_id} onValueChange={v => setForm({ ...form, customer_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
-                    <SelectContent>{customers.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Channel</Label>
-                  <Select value={form.channel} onValueChange={v => setForm({ ...form, channel: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {['chat', 'email', 'sms', 'call', 'dm'].map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Transcript</Label>
-                  <Textarea value={form.raw_transcript} onChange={e => setForm({ ...form, raw_transcript: e.target.value })} placeholder="Paste conversation transcript..." rows={6} />
-                </div>
-                <Button type="submit" className="w-full" disabled={!form.customer_id}>Create Thread</Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        <div className="space-y-3">
-          {threads.map(t => (
-            <div key={t.id} className="glass-card p-5">
-              <div className="flex items-start gap-4">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <MessageSquare className="h-4 w-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-foreground">{t.customers?.full_name || 'Unknown'}</p>
-                    <span className="text-xs text-muted-foreground capitalize">via {t.channel}</span>
-                    <StatusBadge status={t.status} />
+      <CategoryGate title="Conversation Threads" {...categoryGate}>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <p className="text-muted-foreground text-sm">{threads.length} threads</p>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="h-4 w-4 mr-2" />New Thread</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Create Thread</DialogTitle></DialogHeader>
+                <form onSubmit={handleCreate} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Customer *</Label>
+                    <Select value={form.customer_id} onValueChange={v => setForm({ ...form, customer_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
+                      <SelectContent>{customers.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
-                  {t.summary && <p className="text-xs text-muted-foreground mt-1">{t.summary}</p>}
-                  {t.raw_transcript && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.raw_transcript.substring(0, 200)}...</p>
-                  )}
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  {t.status === 'open' && (
-                    <Button size="sm" variant="outline" onClick={() => analyzeThread(t)} disabled={processing === t.id}>
-                      <RotateCw className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Analyze
-                    </Button>
-                  )}
-                  {t.status === 'collecting_info' && (
-                    <Button size="sm" variant="outline" onClick={() => analyzeThread(t)} disabled={processing === t.id}>
-                      <RotateCw className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Re-analyze
-                    </Button>
-                  )}
-                  {t.status === 'ready_for_docs' && (
-                    <Button size="sm" onClick={() => generateDocs(t)} disabled={processing === t.id}>
-                      <FileText className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Generate Docs
-                    </Button>
-                  )}
-                  {t.status === 'docs_generated' && (
-                    <Button size="sm" onClick={() => sendForSignature(t)} disabled={processing === t.id}>
-                      <Send className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Send for Signature
-                    </Button>
-                  )}
+                  <div className="space-y-2">
+                    <Label>Channel</Label>
+                    <Select value={form.channel} onValueChange={v => setForm({ ...form, channel: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['chat', 'email', 'sms', 'call', 'dm'].map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Transcript</Label>
+                    <Textarea value={form.raw_transcript} onChange={e => setForm({ ...form, raw_transcript: e.target.value })} placeholder="Paste conversation transcript..." rows={6} />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={!form.customer_id}>Create Thread</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="space-y-3">
+            {threads.map(t => (
+              <div key={t.id} className="glass-card p-5">
+                <div className="flex items-start gap-4">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-foreground">{t.customers?.full_name || 'Unknown'}</p>
+                      <span className="text-xs text-muted-foreground capitalize">via {t.channel}</span>
+                      <StatusBadge status={t.status} />
+                    </div>
+                    {t.summary && <p className="text-xs text-muted-foreground mt-1">{t.summary}</p>}
+                    {t.raw_transcript && (
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.raw_transcript.substring(0, 200)}...</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    {t.status === 'open' && (
+                      <Button size="sm" variant="outline" onClick={() => analyzeThread(t)} disabled={processing === t.id}>
+                        <RotateCw className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Analyze
+                      </Button>
+                    )}
+                    {t.status === 'collecting_info' && (
+                      <Button size="sm" variant="outline" onClick={() => analyzeThread(t)} disabled={processing === t.id}>
+                        <RotateCw className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Re-analyze
+                      </Button>
+                    )}
+                    {t.status === 'ready_for_docs' && (
+                      <Button size="sm" onClick={() => generateDocs(t)} disabled={processing === t.id}>
+                        <FileText className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Generate Docs
+                      </Button>
+                    )}
+                    {t.status === 'docs_generated' && (
+                      <Button size="sm" onClick={() => sendForSignature(t)} disabled={processing === t.id}>
+                        <Send className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Send for Signature
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {threads.length === 0 && !loading && (
-            <div className="text-center py-16 text-muted-foreground">No conversation threads yet.</div>
-          )}
+            ))}
+            {threads.length === 0 && !loading && (
+              <div className="text-center py-16 text-muted-foreground">No conversation threads yet.</div>
+            )}
+          </div>
         </div>
-      </div>
+      </CategoryGate>
     </AppLayout>
   );
 }

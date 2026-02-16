@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Plus, Calendar, ChevronDown, ChevronRight, User, Bot, Code, Share2, Headphones } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
 
 const BOT_AGENTS = [
   { id: 'receptionist', label: 'Receptionist Bot', icon: Headphones, description: 'Emails, follow-ups, texts & updates' },
@@ -26,6 +27,7 @@ const taskStatuses = ['todo', 'doing', 'blocked', 'done'] as const;
 const priorities = ['low', 'medium', 'high', 'urgent'] as const;
 
 export default function Tasks() {
+  const categoryGate = useCategoryGate();
   // Bot tasks
   const [botTasks, setBotTasks] = useState<any[]>([]);
   const [botDialogOpen, setBotDialogOpen] = useState(false);
@@ -252,17 +254,11 @@ export default function Tasks() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Bot className="h-6 w-6 text-primary" />Tasks
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {botTasks.length} bot tasks · {tasks.length} manual tasks
-            </p>
-          </div>
-        </div>
+      <CategoryGate title="Tasks" {...categoryGate}>
+        <div className="space-y-6">
+          <p className="text-muted-foreground text-sm">
+            {botTasks.length} bot tasks · {tasks.length} manual tasks
+          </p>
 
         <Tabs defaultValue="receptionist" className="w-full">
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -405,7 +401,8 @@ export default function Tasks() {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+        </div>
+      </CategoryGate>
     </AppLayout>
   );
 }
