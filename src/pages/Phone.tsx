@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Phone, MessageSquareText, Trash2 } from 'lucide-react';
+import { Plus, Phone, MessageSquareText, Trash2, Voicemail } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 
@@ -35,7 +35,7 @@ export default function PhonePage() {
 
   const load = async () => {
     const [c, cust] = await Promise.all([
-      supabase.from('communications').select('*').in('type', ['sms', 'call']).order('created_at', { ascending: false }),
+      supabase.from('communications').select('*').in('type', ['sms', 'call', 'voicemail']).order('created_at', { ascending: false }),
       supabase.from('customers').select('id, full_name, phone'),
     ]);
     setComms(c.data || []);
@@ -76,11 +76,13 @@ export default function PhonePage() {
   const filtered = (tab: string) => {
     if (tab === 'calls') return comms.filter(c => c.type === 'call');
     if (tab === 'sms') return comms.filter(c => c.type === 'sms');
+    if (tab === 'voicemail') return comms.filter(c => c.type === 'voicemail');
     return comms;
   };
 
   const getIcon = (type: string) => {
     if (type === 'sms') return <MessageSquareText className="h-4 w-4 text-blue-500" />;
+    if (type === 'voicemail') return <Voicemail className="h-4 w-4 text-amber-500" />;
     return <Phone className="h-4 w-4 text-emerald-500" />;
   };
 
@@ -180,8 +182,9 @@ export default function PhonePage() {
           <TabsList>
             <TabsTrigger value="calls" className="gap-1.5"><Phone className="h-3.5 w-3.5" /> Calls</TabsTrigger>
             <TabsTrigger value="sms" className="gap-1.5"><MessageSquareText className="h-3.5 w-3.5" /> SMS</TabsTrigger>
+            <TabsTrigger value="voicemail" className="gap-1.5"><Voicemail className="h-3.5 w-3.5" /> Voicemail</TabsTrigger>
           </TabsList>
-          {['calls', 'sms'].map(tab => (
+          {['calls', 'sms', 'voicemail'].map(tab => (
             <TabsContent key={tab} value={tab}>
               {loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderList(filtered(tab))}
             </TabsContent>
