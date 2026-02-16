@@ -137,8 +137,8 @@ export default function Landing() {
               animate={{ y: [0, 8, 0] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             >
-              <div className="w-px h-8 bg-gradient-to-b from-transparent to-muted-foreground/30" />
-              <span className="text-[9px] tracking-[0.3em] uppercase text-muted-foreground/30">Scroll</span>
+              <div className="w-px h-10 bg-gradient-to-b from-transparent to-muted-foreground/70" />
+              <span className="text-xs tracking-[0.3em] uppercase text-muted-foreground/70">Scroll</span>
             </motion.div>
           </motion.div>
 
