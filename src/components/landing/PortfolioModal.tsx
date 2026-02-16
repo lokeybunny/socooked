@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Briefcase, X, Globe, Pen } from 'lucide-react';
+import { Briefcase, X, Globe, Pen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -45,7 +45,7 @@ type TabId = 'web' | 'logos';
 export default function PortfolioModal() {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('web');
-  const [detailProject, setDetailProject] = useState<typeof webProjects[0] | null>(null);
+  const [detailIndex, setDetailIndex] = useState<number | null>(null);
   const [detailLogo, setDetailLogo] = useState<{ img: string; name: string } | null>(null);
   const { theme } = useTheme();
 
@@ -57,8 +57,8 @@ export default function PortfolioModal() {
     { id: 'logos', label: 'Logo Design', icon: Pen },
   ];
 
-  const closeAll = () => { setOpen(false); setDetailProject(null); setDetailLogo(null); };
-  const switchTab = (id: TabId) => { setActiveTab(id); setDetailProject(null); setDetailLogo(null); };
+  const closeAll = () => { setOpen(false); setDetailIndex(null); setDetailLogo(null); };
+  const switchTab = (id: TabId) => { setActiveTab(id); setDetailIndex(null); setDetailLogo(null); };
 
   return (
     <>
@@ -136,7 +136,7 @@ export default function PortfolioModal() {
                       {webProjects.map((project, i) => (
                         <motion.button
                           key={i}
-                          onClick={() => setDetailProject(project)}
+                          onClick={() => setDetailIndex(i)}
                           className="group relative rounded-lg overflow-hidden aspect-[3/2] bg-muted/20 border border-foreground/5 hover:border-foreground/20 transition-all duration-300"
                           whileHover={{ scale: 1.03 }}
                           whileTap={{ scale: 0.97 }}
@@ -198,7 +198,7 @@ export default function PortfolioModal() {
 
       {/* Full-screen detail popup for web projects */}
       <AnimatePresence>
-        {detailProject && (
+        {detailIndex !== null && (
           <>
             <motion.div
               className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-md"
@@ -206,36 +206,52 @@ export default function PortfolioModal() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
-              onClick={() => setDetailProject(null)}
+              onClick={() => setDetailIndex(null)}
             />
             <motion.div
-              className="fixed inset-0 z-[90] flex flex-col items-center justify-center p-4 sm:p-8 pointer-events-none"
+              className="fixed inset-0 z-[90] flex items-center justify-center p-4 sm:p-8 pointer-events-none"
               initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             >
+              {/* Left arrow */}
+              <button
+                onClick={() => setDetailIndex((detailIndex - 1 + webProjects.length) % webProjects.length)}
+                className="pointer-events-auto absolute left-2 sm:left-4 md:left-8 p-1.5 sm:p-2 rounded-full bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all duration-300"
+              >
+                <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+
               <div className="pointer-events-auto relative w-full max-w-5xl">
                 <button
-                  onClick={() => setDetailProject(null)}
+                  onClick={() => setDetailIndex(null)}
                   className="absolute -top-2 -right-2 sm:top-3 sm:right-3 z-10 p-2 rounded-full bg-black/50 backdrop-blur-sm text-white/70 hover:text-white transition-colors duration-300"
                 >
                   <X className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
                 <img
-                  src={detailProject.img}
-                  alt={detailProject.title}
+                  src={webProjects[detailIndex].img}
+                  alt={webProjects[detailIndex].title}
                   className="w-full rounded-lg shadow-2xl object-contain max-h-[70vh]"
                 />
                 <div className="mt-4 text-center space-y-1.5">
                   <h3 className="text-xs sm:text-sm tracking-[0.2em] uppercase font-light text-white">
-                    {detailProject.title}
+                    {webProjects[detailIndex].title}
                   </h3>
                   <p className="text-[10px] sm:text-xs text-white/50 leading-relaxed font-light max-w-md mx-auto">
-                    {detailProject.desc}
+                    {webProjects[detailIndex].desc}
                   </p>
                 </div>
               </div>
+
+              {/* Right arrow */}
+              <button
+                onClick={() => setDetailIndex((detailIndex + 1) % webProjects.length)}
+                className="pointer-events-auto absolute right-2 sm:right-4 md:right-8 p-1.5 sm:p-2 rounded-full bg-muted/30 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all duration-300"
+              >
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
             </motion.div>
           </>
         )}
