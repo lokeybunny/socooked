@@ -50,10 +50,15 @@ export default function Landing() {
   const [activeService, setActiveService] = useState<number | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [sceneReady, setSceneReady] = useState(false);
+  const [scrollEnabled, setScrollEnabled] = useState(false);
   const { scrollYProgress } = useScroll({ target: containerRef });
 
-  // Track scroll progress for pointer-events
-  scrollYProgress.on('change', (v) => setScrollProgress(v));
+  // Only track scroll progress AFTER scroll has been enabled (post-load)
+  useEffect(() => {
+    if (!scrollEnabled) return;
+    const unsub = scrollYProgress.on('change', (v) => setScrollProgress(v));
+    return () => unsub();
+  }, [scrollEnabled, scrollYProgress]);
 
   // Keyboard navigation for service modals
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -77,11 +82,15 @@ export default function Landing() {
     if (!sceneReady) {
       document.body.style.overflow = 'hidden';
     } else {
-      // Reset scroll BEFORE re-enabling overflow so scrollYProgress reads 0
+      // Force scroll to top, then enable overflow after it settles
       window.scrollTo(0, 0);
-      // Small delay to let scroll position settle before allowing interaction
+      setScrollProgress(0);
       requestAnimationFrame(() => {
-        document.body.style.overflow = '';
+        window.scrollTo(0, 0);
+        requestAnimationFrame(() => {
+          document.body.style.overflow = '';
+          setScrollEnabled(true);
+        });
       });
     }
     return () => { document.body.style.overflow = ''; };
