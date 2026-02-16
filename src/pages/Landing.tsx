@@ -70,7 +70,7 @@ export default function Landing() {
         {/* Nav */}
         <header className="flex items-center justify-between px-6 md:px-12 py-5 relative z-30">
           <div className="flex items-center">
-            <span className="text-foreground/70 font-light text-lg md:text-xl tracking-[0.25em] uppercase">STU '25</span>
+            <span className="text-foreground/70 font-light text-lg md:text-xl tracking-[0.15em] uppercase">STU25</span>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -160,19 +160,19 @@ export default function Landing() {
             className="absolute inset-0 flex flex-col items-center justify-center px-6"
             style={{ opacity: ctaOpacity, y: ctaY }}
           >
-            <span className="text-foreground/50 font-light text-xs tracking-[0.3em] uppercase mb-3">STU '25</span>
-            <h2 className="text-xl md:text-2xl font-light tracking-tight text-center mb-1.5">
+            <span className="text-foreground/50 font-light text-sm md:text-base tracking-[0.25em] uppercase mb-4">STU25</span>
+            <h2 className="text-2xl md:text-3xl font-light tracking-tight text-center mb-2">
               Ready?
             </h2>
-            <p className="text-xs text-muted-foreground/40 mb-4 tracking-wide font-light">
+            <p className="text-sm text-muted-foreground/40 mb-5 tracking-wide font-light">
               Build your digital imprint
             </p>
             <button
               onClick={() => navigate('/auth')}
-              className="group flex items-center gap-2 text-xs tracking-[0.2em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-500"
+              className="group flex items-center gap-2 text-sm tracking-[0.2em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-500"
             >
               <span className="font-light">Enter</span>
-              <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform duration-300" />
+              <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform duration-300" />
             </button>
           </motion.div>
         </div>
