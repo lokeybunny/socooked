@@ -45,7 +45,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
 }
 
 // Draggable card
-function DraggableContactCard({ contact, onClick, isProspect }: { contact: any; onClick: () => void; isProspect?: boolean }) {
+function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
@@ -99,7 +99,16 @@ function DraggableContactCard({ contact, onClick, isProspect }: { contact: any; 
           <User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.company}</span>
         </div>
       )}
-      <div className="text-[10px] text-muted-foreground pl-6">{new Date(contact.created_at).toLocaleDateString()}</div>
+      <div className="flex items-center justify-between pl-6">
+        <span className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</span>
+        <button
+          className="p-1 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+          onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }}
+          title="Delete lead"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -377,7 +386,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="leads-column">
                   {pagedLeads.map(lead => (
-                    <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} />
+                    <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} />
                   ))}
                   {leads.length === 0 && !loading && (
                     <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -398,7 +407,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="prospects-column">
                   {pagedProspects.map(prospect => (
-                    <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} isProspect />
+                    <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect />
                   ))}
                   {prospects.length === 0 && !loading && (
                     <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -419,7 +428,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="clients-column">
                   {pagedClients.map(client => (
-                    <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} isProspect />
+                    <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} isProspect />
                   ))}
                   {clients.length === 0 && !loading && (
                     <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
