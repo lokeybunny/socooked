@@ -19,13 +19,14 @@ function GlassText() {
         <Center>
           <Text3D
             font="/fonts/inter-bold.json"
-            size={1.8}
-            height={0.6}
+            size={1.4}
+            height={0.5}
             bevelEnabled
             bevelThickness={0.03}
             bevelSize={0.02}
             bevelSegments={8}
             curveSegments={32}
+            letterSpacing={0.05}
           >
             STU25
             <MeshTransmissionMaterial
@@ -115,7 +116,7 @@ function Particles() {
 export default function STU25Scene() {
   return (
     <Canvas
-      camera={{ position: [0, 0, 8], fov: 40 }}
+      camera={{ position: [0, 0, 10], fov: 35 }}
       gl={{ antialias: true, alpha: true }}
       style={{ background: 'transparent' }}
       dpr={[1, 2]}
