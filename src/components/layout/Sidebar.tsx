@@ -18,6 +18,7 @@ import {
   Radar,
   Mail,
   Phone,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -38,7 +39,7 @@ const navItems = [
   { to: '/email', icon: Mail, label: 'Email' },
   { to: '/phone', icon: Phone, label: 'Phone' },
   { to: '/boards', icon: LayoutGrid, label: 'Boards' },
-  
+  { to: '/notifications', icon: Bell, label: 'Notifications' },
 ];
 
 export function Sidebar() {

@@ -24,6 +24,7 @@ import Leads from "./pages/Leads";
 import EmailPage from "./pages/Email";
 import PhonePage from "./pages/Phone";
 import PortalSign from "./pages/portal/PortalSign";
+import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const App = () => (
             <Route path="/boards" element={<Boards />} />
             <Route path="/boards/:boardId" element={<BoardView />} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
