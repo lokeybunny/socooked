@@ -1,0 +1,1 @@
+ALTER TABLE public.meetings ADD COLUMN category text DEFAULT NULL;

@@ -9,6 +9,7 @@ import {
   Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Users,
 } from 'lucide-react';
 import MeetingChat from '@/components/meeting/MeetingChat';
+import MeetingVideoGate from '@/components/meeting/MeetingVideoGate';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -30,6 +31,7 @@ export default function MeetingRoom() {
   const navigate = useNavigate();
 
   const [joined, setJoined] = useState(false);
+  const [videoWatched, setVideoWatched] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [meeting, setMeeting] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -284,6 +286,16 @@ export default function MeetingRoom() {
           <Button variant="outline" onClick={() => navigate('/')}>Go Home</Button>
         </div>
       </div>
+    );
+  }
+
+  // Video gate: must watch before joining
+  if (!videoWatched && meeting.category) {
+    return (
+      <MeetingVideoGate
+        category={meeting.category}
+        onComplete={() => setVideoWatched(true)}
+      />
     );
   }
 
