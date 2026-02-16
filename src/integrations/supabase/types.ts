@@ -98,6 +98,7 @@ export type Database = {
       }
       boards: {
         Row: {
+          category: string | null
           created_at: string
           description: string | null
           id: string
@@ -106,6 +107,7 @@ export type Database = {
           visibility: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -114,6 +116,7 @@ export type Database = {
           visibility?: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -536,6 +539,7 @@ export type Database = {
       content_assets: {
         Row: {
           body: string | null
+          category: string | null
           created_at: string
           folder: string | null
           id: string
@@ -551,6 +555,7 @@ export type Database = {
         }
         Insert: {
           body?: string | null
+          category?: string | null
           created_at?: string
           folder?: string | null
           id?: string
@@ -566,6 +571,7 @@ export type Database = {
         }
         Update: {
           body?: string | null
+          category?: string | null
           created_at?: string
           folder?: string | null
           id?: string
@@ -591,6 +597,7 @@ export type Database = {
       }
       conversation_threads: {
         Row: {
+          category: string | null
           channel: string
           created_at: string
           customer_id: string
@@ -601,6 +608,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string | null
           channel?: string
           created_at?: string
           customer_id: string
@@ -611,6 +619,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string | null
           channel?: string
           created_at?: string
           customer_id?: string
@@ -634,6 +643,7 @@ export type Database = {
         Row: {
           address: string | null
           assigned_to: string | null
+          category: string | null
           company: string | null
           created_at: string
           email: string | null
@@ -650,6 +660,7 @@ export type Database = {
         Insert: {
           address?: string | null
           assigned_to?: string | null
+          category?: string | null
           company?: string | null
           created_at?: string
           email?: string | null
@@ -666,6 +677,7 @@ export type Database = {
         Update: {
           address?: string | null
           assigned_to?: string | null
+          category?: string | null
           company?: string | null
           created_at?: string
           email?: string | null
@@ -691,6 +703,7 @@ export type Database = {
       }
       deals: {
         Row: {
+          category: string | null
           created_at: string
           customer_id: string
           deal_value: number
@@ -706,6 +719,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           customer_id: string
           deal_value?: number
@@ -721,6 +735,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           customer_id?: string
           deal_value?: number
@@ -754,6 +769,7 @@ export type Database = {
       }
       documents: {
         Row: {
+          category: string | null
           created_at: string
           customer_id: string
           file_url: string | null
@@ -765,6 +781,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           customer_id: string
           file_url?: string | null
@@ -776,6 +793,7 @@ export type Database = {
           type: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           customer_id?: string
           file_url?: string | null
@@ -1022,6 +1040,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          category: string | null
           created_at: string
           customer_id: string | null
           description: string | null
@@ -1036,6 +1055,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           customer_id?: string | null
           description?: string | null
@@ -1050,6 +1070,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           customer_id?: string | null
           description?: string | null
@@ -1082,6 +1103,7 @@ export type Database = {
       }
       signatures: {
         Row: {
+          category: string | null
           customer_id: string
           document_id: string
           id: string
@@ -1094,6 +1116,7 @@ export type Database = {
           user_agent: string | null
         }
         Insert: {
+          category?: string | null
           customer_id: string
           document_id: string
           id?: string
@@ -1106,6 +1129,7 @@ export type Database = {
           user_agent?: string | null
         }
         Update: {
+          category?: string | null
           customer_id?: string
           document_id?: string
           id?: string
@@ -1137,6 +1161,7 @@ export type Database = {
       tasks: {
         Row: {
           assignee_id: string | null
+          category: string | null
           checklist: Json
           created_at: string
           description: string | null
@@ -1151,6 +1176,7 @@ export type Database = {
         }
         Insert: {
           assignee_id?: string | null
+          category?: string | null
           checklist?: Json
           created_at?: string
           description?: string | null
@@ -1165,6 +1191,7 @@ export type Database = {
         }
         Update: {
           assignee_id?: string | null
+          category?: string | null
           checklist?: Json
           created_at?: string
           description?: string | null

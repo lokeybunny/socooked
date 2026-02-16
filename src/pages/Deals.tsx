@@ -9,21 +9,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
-import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const stages = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
 
 export default function Deals() {
   const categoryGate = useCategoryGate();
   const [deals, setDeals] = useState<any[]>([]);
+  const [allDeals, setAllDeals] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ title: '', customer_id: '', stage: 'new', deal_value: '0', probability: '10' });
 
-  const loadDeals = async () => {
+  const loadAll = async () => {
     const { data } = await supabase.from('deals').select('*, customers(full_name)').order('created_at', { ascending: false });
-    setDeals(data || []);
+    setAllDeals(data || []);
     setLoading(false);
   };
 
@@ -32,7 +33,20 @@ export default function Deals() {
     setCustomers(data || []);
   };
 
-  useEffect(() => { loadDeals(); loadCustomers(); }, []);
+  useEffect(() => { loadAll(); loadCustomers(); }, []);
+
+  useEffect(() => {
+    if (categoryGate.selectedCategory) {
+      setDeals(allDeals.filter(d => d.category === categoryGate.selectedCategory));
+    } else {
+      setDeals(allDeals);
+    }
+  }, [categoryGate.selectedCategory, allDeals]);
+
+  const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = allDeals.filter(d => d.category === cat.id).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,12 +56,13 @@ export default function Deals() {
       stage: form.stage,
       deal_value: parseFloat(form.deal_value) || 0,
       probability: parseInt(form.probability) || 10,
+      category: categoryGate.selectedCategory,
     }]);
     if (error) { toast.error(error.message); return; }
     toast.success('Deal created');
     setDialogOpen(false);
     setForm({ title: '', customer_id: '', stage: 'new', deal_value: '0', probability: '10' });
-    loadDeals();
+    loadAll();
   };
 
   const grouped = stages.reduce((acc, stage) => {
@@ -57,7 +72,7 @@ export default function Deals() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Deals Pipeline" {...categoryGate} totalCount={deals.length} countLabel="deals">
+      <CategoryGate title="Deals Pipeline" {...categoryGate} totalCount={allDeals.length} countLabel="deals" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{deals.length} deals · ${deals.reduce((s, d) => s + Number(d.deal_value || 0), 0).toLocaleString()} total value</p>

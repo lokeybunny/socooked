@@ -3,28 +3,41 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { FileText, File } from 'lucide-react';
-import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 export default function Documents() {
   const categoryGate = useCategoryGate();
   const [documents, setDocuments] = useState<any[]>([]);
+  const [allDocuments, setAllDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const loadAll = async () => {
+    const { data } = await supabase
+      .from('documents')
+      .select('*, customers(full_name), conversation_threads(status, channel)')
+      .order('created_at', { ascending: false });
+    setAllDocuments(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadAll(); }, []);
+
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('documents')
-        .select('*, customers(full_name), conversation_threads(status, channel)')
-        .order('created_at', { ascending: false });
-      setDocuments(data || []);
-      setLoading(false);
-    };
-    load();
-  }, []);
+    if (categoryGate.selectedCategory) {
+      setDocuments(allDocuments.filter(d => d.category === categoryGate.selectedCategory));
+    } else {
+      setDocuments(allDocuments);
+    }
+  }, [categoryGate.selectedCategory, allDocuments]);
+
+  const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = allDocuments.filter(d => d.category === cat.id).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <AppLayout>
-      <CategoryGate title="Documents" {...categoryGate} totalCount={documents.length} countLabel="documents">
+      <CategoryGate title="Documents" {...categoryGate} totalCount={allDocuments.length} countLabel="documents" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <p className="text-muted-foreground text-sm">{documents.length} documents</p>
           <div className="space-y-3">

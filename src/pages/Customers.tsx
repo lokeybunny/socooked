@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
 const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '' };
@@ -18,6 +18,7 @@ const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'l
 export default function Customers() {
   const categoryGate = useCategoryGate();
   const [customers, setCustomers] = useState<any[]>([]);
+  const [allCustomers, setAllCustomers] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [loading, setLoading] = useState(true);
@@ -32,19 +33,32 @@ export default function Customers() {
     if (error) { toast.error(error.message); return; }
     toast.success('Customer deleted');
     setDeleteId(null);
-    loadCustomers();
+    loadAll();
   };
 
-  const loadCustomers = async () => {
+  const loadAll = async () => {
     let q = supabase.from('customers').select('*').order('created_at', { ascending: false });
     if (filterStatus !== 'all') q = q.eq('status', filterStatus);
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
     const { data } = await q;
-    setCustomers(data || []);
+    setAllCustomers(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { loadCustomers(); }, [search, filterStatus]);
+  useEffect(() => { loadAll(); }, [search, filterStatus]);
+
+  useEffect(() => {
+    if (categoryGate.selectedCategory) {
+      setCustomers(allCustomers.filter(c => c.category === categoryGate.selectedCategory));
+    } else {
+      setCustomers(allCustomers);
+    }
+  }, [categoryGate.selectedCategory, allCustomers]);
+
+  const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = allCustomers.filter(c => c.category === cat.id).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +72,7 @@ export default function Customers() {
       address: form.address || null,
       notes: form.notes || null,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      category: categoryGate.selectedCategory,
     };
     if (editingId) {
       const { error } = await supabase.from('customers').update(payload).eq('id', editingId);
@@ -71,7 +86,7 @@ export default function Customers() {
     setForm(emptyForm);
     setEditingId(null);
     setDialogOpen(false);
-    loadCustomers();
+    loadAll();
   };
 
   const openEdit = (c: any) => {
@@ -98,7 +113,7 @@ export default function Customers() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Customers" {...categoryGate} totalCount={customers.length} countLabel="customers">
+      <CategoryGate title="Customers" {...categoryGate} totalCount={allCustomers.length} countLabel="customers" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <p className="text-muted-foreground text-sm">{customers.length} total</p>

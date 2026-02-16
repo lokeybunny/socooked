@@ -10,37 +10,51 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Plus, MessageSquare, FileText, Send, RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 export default function Threads() {
   const categoryGate = useCategoryGate();
   const [threads, setThreads] = useState<any[]>([]);
+  const [allThreads, setAllThreads] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
   const [form, setForm] = useState({ customer_id: '', channel: 'chat', raw_transcript: '' });
 
-  const load = async () => {
+  const loadAll = async () => {
     const [{ data: t }, { data: c }] = await Promise.all([
       supabase.from('conversation_threads').select('*, customers(full_name, email)').order('created_at', { ascending: false }),
       supabase.from('customers').select('id, full_name, email'),
     ]);
-    setThreads(t || []);
+    setAllThreads(t || []);
     setCustomers(c || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadAll(); }, []);
+
+  useEffect(() => {
+    if (categoryGate.selectedCategory) {
+      setThreads(allThreads.filter(t => t.category === categoryGate.selectedCategory));
+    } else {
+      setThreads(allThreads);
+    }
+  }, [categoryGate.selectedCategory, allThreads]);
+
+  const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = allThreads.filter(t => t.category === cat.id).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('conversation_threads').insert([form]);
+    const { error } = await supabase.from('conversation_threads').insert([{ ...form, category: categoryGate.selectedCategory }]);
     if (error) { toast.error(error.message); return; }
     toast.success('Thread created');
     setDialogOpen(false);
     setForm({ customer_id: '', channel: 'chat', raw_transcript: '' });
-    load();
+    loadAll();
   };
 
   const analyzeThread = async (thread: any) => {
@@ -53,7 +67,7 @@ export default function Threads() {
       const result = res.data;
       await supabase.from('conversation_threads').update({ status: result.status, summary: result.summary }).eq('id', thread.id);
       toast.success(`Analysis complete: ${result.status.replace(/_/g, ' ')}`);
-      load();
+      loadAll();
     } catch (err: any) {
       toast.error(err.message || 'Analysis failed');
     } finally {
@@ -78,7 +92,7 @@ export default function Threads() {
       ]);
       await supabase.from('conversation_threads').update({ status: 'docs_generated' }).eq('id', thread.id);
       toast.success('Resume & Contract generated!');
-      load();
+      loadAll();
     } catch (err: any) {
       toast.error(err.message || 'Generation failed');
     } finally {
@@ -96,7 +110,7 @@ export default function Threads() {
       await supabase.from('conversation_threads').update({ status: 'sent_for_signature' }).eq('id', thread.id);
       toast.success('Sent for signature (email mock). Portal link copied.');
       navigator.clipboard.writeText(portalLink).catch(() => {});
-      load();
+      loadAll();
     } catch (err: any) {
       toast.error(err.message || 'Send failed');
     } finally {
@@ -106,7 +120,7 @@ export default function Threads() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Conversation Threads" {...categoryGate} totalCount={threads.length} countLabel="threads">
+      <CategoryGate title="Conversation Threads" {...categoryGate} totalCount={allThreads.length} countLabel="threads" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{threads.length} threads</p>

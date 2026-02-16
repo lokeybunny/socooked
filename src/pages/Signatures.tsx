@@ -4,28 +4,41 @@ import { supabase } from '@/integrations/supabase/client';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { PenTool } from 'lucide-react';
 import { format } from 'date-fns';
-import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 export default function Signatures() {
   const categoryGate = useCategoryGate();
   const [signatures, setSignatures] = useState<any[]>([]);
+  const [allSignatures, setAllSignatures] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const loadAll = async () => {
+    const { data } = await supabase
+      .from('signatures')
+      .select('*, documents(title, type), customers(full_name)')
+      .order('signed_at', { ascending: false });
+    setAllSignatures(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadAll(); }, []);
+
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('signatures')
-        .select('*, documents(title, type), customers(full_name)')
-        .order('signed_at', { ascending: false });
-      setSignatures(data || []);
-      setLoading(false);
-    };
-    load();
-  }, []);
+    if (categoryGate.selectedCategory) {
+      setSignatures(allSignatures.filter(s => s.category === categoryGate.selectedCategory));
+    } else {
+      setSignatures(allSignatures);
+    }
+  }, [categoryGate.selectedCategory, allSignatures]);
+
+  const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = allSignatures.filter(s => s.category === cat.id).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <AppLayout>
-      <CategoryGate title="Signatures" {...categoryGate} totalCount={signatures.length} countLabel="signatures">
+      <CategoryGate title="Signatures" {...categoryGate} totalCount={allSignatures.length} countLabel="signatures" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <p className="text-muted-foreground text-sm">{signatures.length} signatures collected</p>
           <div className="space-y-3">

@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Plus, Calendar, ChevronDown, ChevronRight, User, Bot, Code, Share2, Headphones } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const BOT_AGENTS = [
   { id: 'receptionist', label: 'Receptionist Bot', icon: Headphones, description: 'Emails, follow-ups, texts & updates' },
@@ -254,7 +254,7 @@ export default function Tasks() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Tasks" {...categoryGate} totalCount={botTasks.length + tasks.length} countLabel="tasks">
+      <CategoryGate title="Tasks" {...categoryGate} totalCount={botTasks.length + tasks.length} countLabel="tasks" categoryCounts={SERVICE_CATEGORIES.reduce((acc, cat) => { acc[cat.id] = tasks.filter(t => t.category === cat.id).length; return acc; }, {} as Record<string, number>)}>
         <div className="space-y-6">
           <p className="text-muted-foreground text-sm">
             {botTasks.length} bot tasks · {tasks.length} manual tasks
