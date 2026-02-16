@@ -2,7 +2,7 @@ import { Suspense, lazy, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, Zap, X } from 'lucide-react';
+import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, Zap, X, DoorOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
@@ -103,14 +103,12 @@ export default function Landing() {
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => navigate('/auth')}
-              className="text-muted-foreground text-xs"
+              className="text-muted-foreground/50 hover:text-foreground transition-colors duration-300"
             >
-              Sign In
-            </Button>
+              <DoorOpen className="h-5 w-5" />
+            </button>
           </div>
         </header>
 
