@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, ArrowLeft, GripVertical, MoreHorizontal, Tag, Calendar, User, Paperclip, MessageSquare, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { DndContext, closestCorners, DragEndEvent, DragOverEvent, DragStartEvent, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils';
 import { CardDetailModal } from '@/components/boards/CardDetailModal';
@@ -77,6 +78,16 @@ function SortableCard({ card, onClick }: { card: CardType; onClick: () => void }
         </div>
       </div>
     </div>
+  );
+}
+function DroppableList({ listId, cardIds, children }: { listId: string; cardIds: string[]; children: React.ReactNode }) {
+  const { setNodeRef } = useDroppable({ id: listId });
+  return (
+    <SortableContext items={cardIds} strategy={verticalListSortingStrategy} id={listId}>
+      <div ref={setNodeRef} className="flex-1 overflow-y-auto space-y-2 min-h-[2rem]">
+        {children}
+      </div>
+    </SortableContext>
   );
 }
 
@@ -217,13 +228,11 @@ export default function BoardView() {
                       <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{listCards.length}</span>
                     </div>
 
-                    <SortableContext items={listCards.map(c => c.id)} strategy={verticalListSortingStrategy} id={list.id}>
-                      <div className="flex-1 overflow-y-auto space-y-2 min-h-[2rem]" data-list-id={list.id}>
-                        {listCards.map(card => (
-                          <SortableCard key={card.id} card={card} onClick={() => setSelectedCard(card.id)} />
-                        ))}
-                      </div>
-                    </SortableContext>
+                    <DroppableList listId={list.id} cardIds={listCards.map(c => c.id)}>
+                      {listCards.map(card => (
+                        <SortableCard key={card.id} card={card} onClick={() => setSelectedCard(card.id)} />
+                      ))}
+                    </DroppableList>
 
                     {addingToList === list.id ? (
                       <div className="mt-2 space-y-2">
