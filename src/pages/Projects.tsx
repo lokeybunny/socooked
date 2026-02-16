@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
-import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const projectStatuses = ['planned', 'active', 'blocked', 'completed', 'archived'] as const;
 const priorities = ['low', 'medium', 'high', 'urgent'] as const;
@@ -18,17 +18,31 @@ const priorities = ['low', 'medium', 'high', 'urgent'] as const;
 export default function Projects() {
   const categoryGate = useCategoryGate();
   const [projects, setProjects] = useState<any[]>([]);
+  const [allProjects, setAllProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', status: 'planned', priority: 'medium', due_date: '' });
 
-  const load = async () => {
+  const loadAll = async () => {
     const { data } = await supabase.from('projects').select('*, customers(full_name)').order('created_at', { ascending: false });
-    setProjects(data || []);
+    setAllProjects(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadAll(); }, []);
+
+  useEffect(() => {
+    if (categoryGate.selectedCategory) {
+      setProjects(allProjects.filter(p => p.category === categoryGate.selectedCategory));
+    } else {
+      setProjects(allProjects);
+    }
+  }, [categoryGate.selectedCategory, allProjects]);
+
+  const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = allProjects.filter(p => p.category === cat.id).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,17 +52,18 @@ export default function Projects() {
       status: form.status,
       priority: form.priority,
       due_date: form.due_date || null,
+      category: categoryGate.selectedCategory,
     }]);
     if (error) { toast.error(error.message); return; }
     toast.success('Project created');
     setDialogOpen(false);
     setForm({ title: '', description: '', status: 'planned', priority: 'medium', due_date: '' });
-    load();
+    loadAll();
   };
 
   return (
     <AppLayout>
-      <CategoryGate title="Projects" {...categoryGate} totalCount={projects.length} countLabel="projects">
+      <CategoryGate title="Projects" {...categoryGate} totalCount={allProjects.length} countLabel="projects" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{projects.length} projects</p>

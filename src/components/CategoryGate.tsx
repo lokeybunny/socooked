@@ -29,25 +29,19 @@ const CATEGORY_NOTIFICATIONS: Record<string, number> = {
 };
 
 interface CategoryGateProps {
-  /** Page title shown above category cards */
   title: string;
-  /** Selected category ID, null = show picker */
   selectedCategory: string | null;
-  /** Called when user selects a category */
   onSelect: (id: string) => void;
-  /** Called when user clicks back */
   onBack: () => void;
-  /** Content to render when a category is selected */
   children: React.ReactNode;
-  /** Override page title when a category is selected */
   categoryTitle?: string;
-  /** Total count to display as overview on the category picker */
   totalCount?: number;
-  /** Label for the total count (e.g. "customers", "deals") */
   countLabel?: string;
+  /** Per-category item counts */
+  categoryCounts?: Record<string, number>;
 }
 
-export function CategoryGate({ title, selectedCategory, onSelect, onBack, children, categoryTitle, totalCount, countLabel }: CategoryGateProps) {
+export function CategoryGate({ title, selectedCategory, onSelect, onBack, children, categoryTitle, totalCount, countLabel, categoryCounts }: CategoryGateProps) {
   if (!selectedCategory) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-fade-in">
@@ -65,6 +59,7 @@ export function CategoryGate({ title, selectedCategory, onSelect, onBack, childr
           {SERVICE_CATEGORIES.map((cat) => {
             const Icon = cat.icon;
             const notifCount = CATEGORY_NOTIFICATIONS[cat.id] || 0;
+            const itemCount = categoryCounts?.[cat.id];
             return (
               <button
                 key={cat.id}
@@ -75,9 +70,9 @@ export function CategoryGate({ title, selectedCategory, onSelect, onBack, childr
                   <span className="absolute top-3 right-3 flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold animate-pulse">
                     {notifCount}
                   </span>
-                ) : typeof totalCount === 'number' ? (
+                ) : typeof itemCount === 'number' ? (
                   <span className="absolute top-3 right-3 flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
-                    {totalCount}
+                    {itemCount}
                   </span>
                 ) : (
                   <span className="absolute top-3 right-3 flex items-center justify-center h-5 w-5 rounded-full bg-muted text-muted-foreground/50">

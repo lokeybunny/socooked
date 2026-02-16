@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, FileText, Image, Video, Globe, File, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const contentTypes = ['article', 'image', 'video', 'landing_page', 'doc', 'post'] as const;
 const contentStatuses = ['draft', 'scheduled', 'published', 'archived'] as const;
@@ -21,22 +21,36 @@ const typeIcons: Record<string, any> = {
 export default function Content() {
   const categoryGate = useCategoryGate();
   const [content, setContent] = useState<any[]>([]);
+  const [allContent, setAllContent] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ title: '', type: 'article' as string, status: 'draft' as string, url: '', folder: '' });
 
-  const load = async () => {
+  const loadAll = async () => {
     let q = supabase.from('content_assets').select('*').order('created_at', { ascending: false });
     if (filterType !== 'all') q = q.eq('type', filterType);
     if (search) q = q.ilike('title', `%${search}%`);
     const { data } = await q;
-    setContent(data || []);
+    setAllContent(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [search, filterType]);
+  useEffect(() => { loadAll(); }, [search, filterType]);
+
+  useEffect(() => {
+    if (categoryGate.selectedCategory) {
+      setContent(allContent.filter(c => c.category === categoryGate.selectedCategory));
+    } else {
+      setContent(allContent);
+    }
+  }, [categoryGate.selectedCategory, allContent]);
+
+  const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = allContent.filter(c => c.category === cat.id).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,17 +60,18 @@ export default function Content() {
       status: form.status,
       url: form.url || null,
       folder: form.folder || null,
+      category: categoryGate.selectedCategory,
     }]);
     if (error) { toast.error(error.message); return; }
     toast.success('Content created');
     setDialogOpen(false);
     setForm({ title: '', type: 'article', status: 'draft', url: '', folder: '' });
-    load();
+    loadAll();
   };
 
   return (
     <AppLayout>
-      <CategoryGate title="Content Library" {...categoryGate} totalCount={content.length} countLabel="assets">
+      <CategoryGate title="Content Library" {...categoryGate} totalCount={allContent.length} countLabel="assets" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <p className="text-muted-foreground text-sm">{content.length} assets</p>

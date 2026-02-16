@@ -8,38 +8,57 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, LayoutGrid } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { CategoryGate, useCategoryGate } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 export default function Boards() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const categoryGate = useCategoryGate();
   const [boards, setBoards] = useState<any[]>([]);
+  const [allBoards, setAllBoards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
 
-  const load = async () => {
+  const loadAll = async () => {
     const { data } = await supabase.from('boards').select('*, lists(count)').order('created_at');
-    setBoards(data || []);
+    setAllBoards(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadAll(); }, []);
+
+  useEffect(() => {
+    if (categoryGate.selectedCategory) {
+      setBoards(allBoards.filter(b => b.category === categoryGate.selectedCategory));
+    } else {
+      setBoards(allBoards);
+    }
+  }, [categoryGate.selectedCategory, allBoards]);
+
+  const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
+    acc[cat.id] = allBoards.filter(b => b.category === cat.id).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('boards').insert({ name, owner_id: user?.id, visibility: 'team' });
+    const { error } = await supabase.from('boards').insert({
+      name,
+      owner_id: user?.id,
+      visibility: 'team',
+      category: categoryGate.selectedCategory,
+    });
     if (error) { toast.error(error.message); return; }
     toast.success('Board created');
     setDialogOpen(false);
     setName('');
-    load();
+    loadAll();
   };
 
   return (
     <AppLayout>
-      <CategoryGate title="Boards" {...categoryGate} totalCount={boards.length} countLabel="boards">
+      <CategoryGate title="Boards" {...categoryGate} totalCount={allBoards.length} countLabel="boards" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{boards.length} boards</p>
