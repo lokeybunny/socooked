@@ -47,7 +47,11 @@ export default function Landing() {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeService, setActiveService] = useState<number | null>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const { scrollYProgress } = useScroll({ target: containerRef });
+
+  // Track scroll progress for pointer-events
+  scrollYProgress.on('change', (v) => setScrollProgress(v));
 
   // Parallax transforms
   // Layer 1: 3D Hero — visible 0-20%, gone by 20%
@@ -116,7 +120,7 @@ export default function Landing() {
           {/* Layer 1: 3D Hero */}
           <motion.div
             className="absolute inset-0 flex flex-col items-center justify-center"
-            style={{ opacity: heroOpacity, scale: heroScale, y: heroY }}
+            style={{ opacity: heroOpacity, scale: heroScale, y: heroY, pointerEvents: scrollProgress < 0.18 ? 'auto' : 'none' }}
           >
             <div className="w-full h-[55vh] max-w-4xl">
               <Suspense
@@ -143,7 +147,7 @@ export default function Landing() {
           {/* Layer 2: Tagline reveal */}
           <motion.div
             className="absolute inset-0 flex flex-col items-center justify-center px-6"
-            style={{ opacity: revealOpacity, y: revealY }}
+            style={{ opacity: revealOpacity, y: revealY, pointerEvents: (scrollProgress > 0.20 && scrollProgress < 0.45) ? 'auto' : 'none' }}
           >
             <p className="text-[10px] md:text-xs tracking-[0.4em] uppercase text-muted-foreground/60 mb-4">
               SMM &amp; Web Services
@@ -159,7 +163,7 @@ export default function Landing() {
           {/* Layer 3: Services grid */}
           <motion.div
             className="absolute inset-0 flex flex-col items-center justify-center px-6"
-            style={{ opacity: servicesOpacity, y: servicesY }}
+            style={{ opacity: servicesOpacity, y: servicesY, pointerEvents: (scrollProgress > 0.47 && scrollProgress < 0.72) ? 'auto' : 'none' }}
           >
              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 max-w-lg">
               {services.map(({ icon: Icon, title }, i) => (
@@ -239,7 +243,7 @@ export default function Landing() {
           {/* Layer 4: CTA */}
           <motion.div
             className="absolute inset-0 flex flex-col items-center justify-center px-6"
-            style={{ opacity: ctaOpacity, y: ctaY }}
+            style={{ opacity: ctaOpacity, y: ctaY, pointerEvents: scrollProgress > 0.75 ? 'auto' : 'none' }}
           >
             <span className="text-foreground/50 font-light text-sm md:text-base tracking-[0.25em] uppercase mb-4">STU25</span>
             <h2 className="text-2xl md:text-3xl font-light tracking-tight text-center mb-2">
