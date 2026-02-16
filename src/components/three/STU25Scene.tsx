@@ -5,33 +5,28 @@ import * as THREE from 'three';
 
 function GlassText({ onLoaded }: { onLoaded?: () => void }) {
   const meshRef = useRef<THREE.Group>(null);
-  const centerRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
   const scale = Math.min(1, viewport.width / 8);
-  const [reported, setReported] = useState(false);
+  const reportedRef = useRef(false);
+  const frameCount = useRef(0);
 
   useFrame(({ clock }) => {
     if (meshRef.current) {
       meshRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.3) * 0.15;
       meshRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.2) * 0.05;
     }
-    // Detect when Text3D geometry is built by checking center group children
-    if (!reported && centerRef.current && centerRef.current.children.length > 0) {
-      const textMesh = centerRef.current.children[0] as THREE.Mesh;
-      if (textMesh?.geometry) {
-        const pos = textMesh.geometry.getAttribute('position');
-        if (pos && pos.count > 0) {
-          setReported(true);
-          onLoaded?.();
-        }
-      }
+    // Signal ready after a few frames have rendered (font is loaded by then)
+    frameCount.current++;
+    if (!reportedRef.current && frameCount.current > 10) {
+      reportedRef.current = true;
+      onLoaded?.();
     }
   });
 
   return (
     <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
       <group ref={meshRef} scale={scale}>
-        <Center ref={centerRef}>
+        <Center>
           <Text3D
             font="/fonts/inter-bold.json"
             size={1.4}
