@@ -25,6 +25,15 @@ const LEAD_CATEGORIES = [
   { id: 'mobile-services', label: 'Mobile Services', icon: Smartphone, description: 'Mobile apps, on-demand & field services' },
 ] as const;
 
+// Placeholder for ClawBot notification counts per category — replace with real API data when connected
+const CATEGORY_NOTIFICATIONS: Record<string, number> = {
+  'digital-services': 0,
+  'brick-and-mortar': 0,
+  'digital-ecommerce': 0,
+  'food-and-beverage': 0,
+  'mobile-services': 0,
+};
+
 // Droppable column wrapper
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -289,12 +298,23 @@ export default function Leads() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
               {LEAD_CATEGORIES.map((cat) => {
                 const Icon = cat.icon;
+                const notifCount = CATEGORY_NOTIFICATIONS[cat.id] || 0;
                 return (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
-                    className="group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-primary/40 transition-all"
+                    className="group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-primary/40 transition-all relative"
                   >
+                    {notifCount > 0 && (
+                      <span className="absolute top-3 right-3 flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold animate-pulse">
+                        {notifCount}
+                      </span>
+                    )}
+                    {notifCount === 0 && (
+                      <span className="absolute top-3 right-3 flex items-center justify-center h-5 w-5 rounded-full bg-muted text-muted-foreground/50">
+                        <Bot className="h-3 w-3" />
+                      </span>
+                    )}
                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                       <Icon className="h-5 w-5 text-primary" />
                     </div>
