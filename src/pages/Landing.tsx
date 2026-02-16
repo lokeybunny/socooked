@@ -67,6 +67,11 @@ export default function Landing() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
 
+  // Always start at the top (3D hero)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Parallax transforms
   // Layer 1: 3D Hero — visible 0-20%, gone by 20%
   const heroOpacity = useTransform(scrollYProgress, [0, 0.18], [1, 0]);
