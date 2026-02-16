@@ -177,7 +177,7 @@ export default function Landing() {
                   loop
                   muted
                   playsInline
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover grayscale contrast-125"
                 />
               </div>
             </div>
