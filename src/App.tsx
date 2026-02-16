@@ -13,7 +13,7 @@ import Deals from "./pages/Deals";
 import Projects from "./pages/Projects";
 import Tasks from "./pages/Tasks";
 import Content from "./pages/Content";
-import Automations from "./pages/Automations";
+
 import Threads from "./pages/Threads";
 import Documents from "./pages/Documents";
 import Invoices from "./pages/Invoices";
@@ -43,7 +43,7 @@ const App = () => (
             <Route path="/projects" element={<Projects />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/content" element={<Content />} />
-            <Route path="/automations" element={<Automations />} />
+            
             <Route path="/threads" element={<Threads />} />
             <Route path="/documents" element={<Documents />} />
             <Route path="/invoices" element={<Invoices />} />
