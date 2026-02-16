@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { toast } from 'sonner';
 import { Plus, Video, Copy, Trash2, ExternalLink } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,6 +22,7 @@ export default function Meetings() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [category, setCategory] = useState('');
 
   const load = async () => {
     const { data } = await supabase
@@ -38,11 +41,13 @@ export default function Meetings() {
       host_id: user?.id || null,
       title: title || 'Meeting',
       scheduled_at: scheduledAt || null,
+      category: category || null,
     }]).select().single();
     if (error) { toast.error(error.message); return; }
     toast.success('Meeting created');
     setTitle('');
     setScheduledAt('');
+    setCategory('');
     setDialogOpen(false);
     load();
   };
@@ -82,6 +87,19 @@ export default function Meetings() {
                 <div className="space-y-2">
                   <Label>Title</Label>
                   <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Team standup" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SERVICE_CATEGORIES.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Schedule For (optional)</Label>
