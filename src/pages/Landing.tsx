@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import VideoPlayer from '@/components/landing/VideoPlayer';
+import PortfolioModal from '@/components/landing/PortfolioModal';
 
 const STU25Scene = lazy(() => import('@/components/three/STU25Scene'));
 
@@ -353,9 +354,12 @@ export default function Landing() {
 
         {/* Footer */}
         <footer className="px-4 sm:px-6 md:px-12 py-3 sm:py-4 flex items-center justify-between relative z-30">
-          <p className="text-[8px] sm:text-[9px] tracking-[0.2em] uppercase text-muted-foreground/30">
-            STU25
-          </p>
+          <div className="flex flex-col items-start gap-1.5">
+            <PortfolioModal />
+            <p className="text-[8px] sm:text-[9px] tracking-[0.2em] uppercase text-muted-foreground/30">
+              STU25
+            </p>
+          </div>
           <p className="text-[8px] sm:text-[9px] text-muted-foreground/30">
             &copy; {new Date().getFullYear()}
           </p>
