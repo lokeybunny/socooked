@@ -7,10 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, LayoutGrid, User } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Plus, LayoutGrid, User, CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export default function Boards() {
   const { user } = useAuth();
@@ -23,6 +27,7 @@ export default function Boards() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('none');
+  const [deadline, setDeadline] = useState<Date | undefined>();
 
   const loadAll = async () => {
     const [boardsRes, customersRes] = await Promise.all([
@@ -57,13 +62,25 @@ export default function Boards() {
       visibility: 'team',
       category: categoryGate.selectedCategory,
       customer_id: selectedCustomerId === 'none' ? null : selectedCustomerId,
+      deadline: deadline ? format(deadline, 'yyyy-MM-dd') : null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success('Board created');
     setDialogOpen(false);
     setName('');
     setSelectedCustomerId('none');
+    setDeadline(undefined);
     loadAll();
+  };
+
+  const getDeadlineColor = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = d.getTime() - now.getTime();
+    const days = diff / (1000 * 60 * 60 * 24);
+    if (days < 0) return 'text-destructive';
+    if (days < 7) return 'text-orange-500';
+    return 'text-muted-foreground';
   };
 
   return (
@@ -72,7 +89,7 @@ export default function Boards() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{boards.length} boards</p>
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setName(''); setSelectedCustomerId('none'); } }}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setName(''); setSelectedCustomerId('none'); setDeadline(undefined); } }}>
               <DialogTrigger asChild>
                 <Button><Plus className="h-4 w-4 mr-2" />New Board</Button>
               </DialogTrigger>
@@ -95,6 +112,29 @@ export default function Boards() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>Deadline</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn("w-full justify-start text-left font-normal", !deadline && "text-muted-foreground")}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {deadline ? format(deadline, 'PPP') : <span>Pick a deadline</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={deadline}
+                          onSelect={setDeadline}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                   <Button type="submit" className="w-full">Create</Button>
                 </form>
               </DialogContent>
@@ -112,7 +152,7 @@ export default function Boards() {
                   <div className="p-2 rounded-lg bg-primary/10">
                     <LayoutGrid className="h-5 w-5 text-primary" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">{b.name}</h3>
                     {b.customers?.full_name && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -123,6 +163,12 @@ export default function Boards() {
                   </div>
                 </div>
                 {b.description && <p className="text-sm text-muted-foreground line-clamp-2">{b.description}</p>}
+                {b.deadline && (
+                  <p className={cn("text-xs flex items-center gap-1 mt-2", getDeadlineColor(b.deadline))}>
+                    <CalendarIcon className="h-3 w-3" />
+                    {format(new Date(b.deadline), 'MMM d, yyyy')}
+                  </p>
+                )}
               </button>
             ))}
             {boards.length === 0 && !loading && (

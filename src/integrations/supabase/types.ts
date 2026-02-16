@@ -101,6 +101,7 @@ export type Database = {
           category: string | null
           created_at: string
           customer_id: string | null
+          deadline: string | null
           description: string | null
           id: string
           name: string
@@ -111,6 +112,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           customer_id?: string | null
+          deadline?: string | null
           description?: string | null
           id?: string
           name: string
@@ -121,6 +123,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           customer_id?: string | null
+          deadline?: string | null
           description?: string | null
           id?: string
           name?: string
