@@ -48,24 +48,26 @@ export default function Auth() {
           <div className="w-full h-full" style={{ backgroundImage: 'linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
         </div>
         <div className="max-w-md space-y-6 relative z-10">
-          <div className="h-12 w-12 rounded-xl bg-foreground flex items-center justify-center">
-            <span className="text-background font-bold text-lg tracking-widest">ST</span>
-          </div>
-          <h1 className="text-3xl font-bold text-foreground">STU25</h1>
-          <p className="text-muted-foreground text-lg leading-relaxed">
-            AI-powered social media marketing &amp; web services platform. Manage campaigns, clients, and content — all in one place.
+          <span className="text-foreground/70 font-light text-xl tracking-[0.15em] uppercase">STU25</span>
+          <h1 className="text-3xl font-bold text-foreground leading-tight">
+            Excellent Service.<br />
+            <span className="text-muted-foreground">Built Different.</span>
+          </h1>
+          <p className="text-muted-foreground text-base leading-relaxed">
+            Digital marketing &amp; web services exclusively serving Las Vegas and Los Angeles. Founded in 2017, born in Burbank, California.
           </p>
+          <div className="pt-2 space-y-1.5">
+            <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground/60">Get in touch</p>
+            <p className="text-sm text-foreground/80 font-light tracking-wide">(818) 555-0125</p>
+          </div>
         </div>
       </div>
 
       {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-sm space-y-8">
-          <div className="lg:hidden flex items-center gap-3 mb-4">
-            <div className="h-10 w-10 rounded-xl bg-foreground flex items-center justify-center">
-              <span className="text-background font-bold tracking-widest">ST</span>
-            </div>
-            <span className="font-semibold text-foreground text-lg">STU25</span>
+          <div className="lg:hidden flex items-center mb-4">
+            <span className="text-foreground/70 font-light text-lg tracking-[0.15em] uppercase">STU25</span>
           </div>
 
           <button
