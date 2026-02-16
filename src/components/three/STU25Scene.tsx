@@ -124,12 +124,24 @@ function Particles() {
 }
 
 export default function STU25Scene({ onReady }: { onReady?: () => void }) {
+  const [visible, setVisible] = useState(false);
+
+  // Force a resize event after mount so the Canvas picks up its container size
+  useEffect(() => {
+    setVisible(true);
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <Canvas
       camera={{ position: [0, 0, 10], fov: 35 }}
       gl={{ antialias: true, alpha: true }}
-      style={{ background: 'transparent' }}
+      style={{ background: 'transparent', opacity: visible ? 1 : 0, transition: 'opacity 0.3s' }}
       dpr={[1, 2]}
+      resize={{ scroll: false, debounce: { scroll: 0, resize: 0 } }}
     >
       <Environment preset="city" />
       <ambientLight intensity={0.3} />
