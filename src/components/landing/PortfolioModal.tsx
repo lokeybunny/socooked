@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Briefcase, X, Globe, Pen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '@/hooks/useTheme';
 
 // Web Dev images
 import web1 from '@/assets/portfolio/web-1.jpg';
@@ -10,13 +11,21 @@ import web4 from '@/assets/portfolio/web-4.jpg';
 import web5 from '@/assets/portfolio/web-5.jpg';
 import web6 from '@/assets/portfolio/web-6.jpg';
 
-// Brand logos
-import brand1 from '@/assets/portfolio/brand-1.jpg';
-import brand2 from '@/assets/portfolio/brand-2.jpg';
-import brand3 from '@/assets/portfolio/brand-3.jpg';
-import brand4 from '@/assets/portfolio/brand-4.jpg';
-import brand5 from '@/assets/portfolio/brand-5.jpg';
-import brand6 from '@/assets/portfolio/brand-6.jpg';
+// Brand logos — dark
+import brand1Dark from '@/assets/portfolio/brand-1.jpg';
+import brand2Dark from '@/assets/portfolio/brand-2.jpg';
+import brand3Dark from '@/assets/portfolio/brand-3.jpg';
+import brand4Dark from '@/assets/portfolio/brand-4.jpg';
+import brand5Dark from '@/assets/portfolio/brand-5.jpg';
+import brand6Dark from '@/assets/portfolio/brand-6.jpg';
+
+// Brand logos — light
+import brand1Light from '@/assets/portfolio/brand-1-light.jpg';
+import brand2Light from '@/assets/portfolio/brand-2-light.jpg';
+import brand3Light from '@/assets/portfolio/brand-3-light.jpg';
+import brand4Light from '@/assets/portfolio/brand-4-light.jpg';
+import brand5Light from '@/assets/portfolio/brand-5-light.jpg';
+import brand6Light from '@/assets/portfolio/brand-6-light.jpg';
 
 const webProjects = [
   { img: web1, title: 'Luxury E-Commerce', desc: 'Premium storefront with editorial aesthetic and seamless checkout flow.' },
@@ -27,14 +36,9 @@ const webProjects = [
   { img: web6, title: 'Agency Portfolio', desc: 'Minimalist creative agency site with editorial photography layout.' },
 ];
 
-const logoDesigns = [
-  { img: brand1, name: 'Oro Roasters' },
-  { img: brand2, name: 'Lasilluny' },
-  { img: brand3, name: 'NovaTech' },
-  { img: brand4, name: 'Serene Spa' },
-  { img: brand5, name: 'FoodDash' },
-  { img: brand6, name: 'WaveStudio' },
-];
+const logoNames = ['Oro Roasters', 'Lasilluny', 'NovaTech', 'Serene Spa', 'FoodDash', 'WaveStudio'];
+const logoDark = [brand1Dark, brand2Dark, brand3Dark, brand4Dark, brand5Dark, brand6Dark];
+const logoLight = [brand1Light, brand2Light, brand3Light, brand4Light, brand5Light, brand6Light];
 
 type TabId = 'web' | 'logos';
 
@@ -42,12 +46,19 @@ export default function PortfolioModal() {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('web');
   const [detailProject, setDetailProject] = useState<typeof webProjects[0] | null>(null);
-  const [detailLogo, setDetailLogo] = useState<typeof logoDesigns[0] | null>(null);
+  const [detailLogo, setDetailLogo] = useState<{ img: string; name: string } | null>(null);
+  const { theme } = useTheme();
+
+  const logoImages = theme === 'dark' ? logoDark : logoLight;
+  const logoDesigns = logoNames.map((name, i) => ({ img: logoImages[i], name }));
 
   const tabs: { id: TabId; label: string; icon: typeof Globe }[] = [
     { id: 'web', label: 'Web Dev', icon: Globe },
     { id: 'logos', label: 'Logo Design', icon: Pen },
   ];
+
+  const closeAll = () => { setOpen(false); setDetailProject(null); setDetailLogo(null); };
+  const switchTab = (id: TabId) => { setActiveTab(id); setDetailProject(null); setDetailLogo(null); };
 
   return (
     <>
@@ -68,7 +79,7 @@ export default function PortfolioModal() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              onClick={() => { setOpen(false); setDetailProject(null); setDetailLogo(null); }}
+              onClick={closeAll}
             />
             <motion.div
               className="fixed inset-0 z-[70] flex items-center justify-center px-4 sm:px-8 pointer-events-none"
@@ -79,7 +90,7 @@ export default function PortfolioModal() {
             >
               <div className="glass-card p-5 sm:p-8 w-full max-w-md sm:max-w-2xl pointer-events-auto relative max-h-[85vh] overflow-y-auto">
                 <button
-                  onClick={() => { setOpen(false); setDetailProject(null); setDetailLogo(null); }}
+                  onClick={closeAll}
                   className="absolute top-4 right-4 text-muted-foreground/40 hover:text-foreground transition-colors duration-300 z-10"
                 >
                   <X className="h-4 w-4" />
@@ -97,7 +108,7 @@ export default function PortfolioModal() {
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => { setActiveTab(tab.id); setDetailProject(null); setDetailLogo(null); }}
+                        onClick={() => switchTab(tab.id)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-xs tracking-wider uppercase transition-all duration-300 ${
                           isActive
                             ? 'bg-foreground/10 text-foreground border border-foreground/20'
@@ -185,12 +196,12 @@ export default function PortfolioModal() {
         )}
       </AnimatePresence>
 
-      {/* Detail popup for web projects */}
+      {/* Full-screen detail popup for web projects */}
       <AnimatePresence>
         {detailProject && (
           <>
             <motion.div
-              className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm"
+              className="fixed inset-0 z-[80] bg-black/85 backdrop-blur-md"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -198,29 +209,29 @@ export default function PortfolioModal() {
               onClick={() => setDetailProject(null)}
             />
             <motion.div
-              className="fixed inset-0 z-[90] flex items-center justify-center px-4 sm:px-8 pointer-events-none"
-              initial={{ opacity: 0, scale: 0.9 }}
+              className="fixed inset-0 z-[90] flex flex-col items-center justify-center p-4 sm:p-8 pointer-events-none"
+              initial={{ opacity: 0, scale: 0.92 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
             >
-              <div className="glass-card p-0 w-full max-w-sm sm:max-w-lg pointer-events-auto relative overflow-hidden">
+              <div className="pointer-events-auto relative w-full max-w-5xl">
                 <button
                   onClick={() => setDetailProject(null)}
-                  className="absolute top-3 right-3 z-10 p-1.5 rounded-full bg-black/40 backdrop-blur-sm text-white/70 hover:text-white transition-colors duration-300"
+                  className="absolute -top-2 -right-2 sm:top-3 sm:right-3 z-10 p-2 rounded-full bg-black/50 backdrop-blur-sm text-white/70 hover:text-white transition-colors duration-300"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
                 <img
                   src={detailProject.img}
                   alt={detailProject.title}
-                  className="w-full aspect-[16/10] object-cover"
+                  className="w-full rounded-lg shadow-2xl object-contain max-h-[70vh]"
                 />
-                <div className="p-5 sm:p-6 space-y-2">
-                  <h3 className="text-xs sm:text-sm tracking-[0.2em] uppercase font-light text-foreground">
+                <div className="mt-4 text-center space-y-1.5">
+                  <h3 className="text-xs sm:text-sm tracking-[0.2em] uppercase font-light text-white">
                     {detailProject.title}
                   </h3>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground/60 leading-relaxed font-light">
+                  <p className="text-[10px] sm:text-xs text-white/50 leading-relaxed font-light max-w-md mx-auto">
                     {detailProject.desc}
                   </p>
                 </div>
@@ -230,7 +241,7 @@ export default function PortfolioModal() {
         )}
       </AnimatePresence>
 
-      {/* Detail popup for logo designs */}
+      {/* Full-screen detail popup for logo designs */}
       <AnimatePresence>
         {detailLogo && (
           <>
