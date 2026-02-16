@@ -750,6 +750,131 @@ Deno.serve(async (req) => {
       return json({ action: 'created', label_id: data?.id })
     }
 
+    // ─── AUTOMATIONS ─────────────────────────────────────────
+    if (path === 'automations' && req.method === 'GET') {
+      const trigger_table = params.get('trigger_table')
+      const enabled = params.get('enabled')
+      let q = supabase.from('automations').select('*').order('created_at', { ascending: false }).limit(100)
+      if (trigger_table) q = q.eq('trigger_table', trigger_table)
+      if (enabled === 'true') q = q.eq('is_enabled', true)
+      if (enabled === 'false') q = q.eq('is_enabled', false)
+      const { data, error } = await q
+      if (error) return json({ error: error.message }, 400)
+      return json({ automations: data })
+    }
+
+    if (path === 'automation' && req.method === 'POST') {
+      const { id, name, trigger_event, trigger_table: tt, conditions, actions, is_enabled } = body
+      if (id) {
+        const updates: Record<string, unknown> = {}
+        if (name) updates.name = name
+        if (trigger_event) updates.trigger_event = trigger_event
+        if (tt) updates.trigger_table = tt
+        if (conditions !== undefined) updates.conditions = conditions
+        if (actions !== undefined) updates.actions = actions
+        if (is_enabled !== undefined) updates.is_enabled = is_enabled
+        const { error } = await supabase.from('automations').update(updates).eq('id', id)
+        if (error) return json({ error: error.message }, 400)
+        return json({ action: 'updated', automation_id: id })
+      }
+      if (!name || !trigger_event || !tt) return json({ error: 'name, trigger_event, and trigger_table are required' }, 400)
+      const { data, error } = await supabase.from('automations').insert({
+        name, trigger_event, trigger_table: tt,
+        conditions: conditions || {}, actions: actions || [],
+        is_enabled: is_enabled !== undefined ? is_enabled : true,
+      }).select('id').single()
+      if (error) return json({ error: error.message }, 400)
+      return json({ action: 'created', automation_id: data?.id })
+    }
+
+    if (path === 'automation' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return json({ error: 'id is required' }, 400)
+      const { error } = await supabase.from('automations').delete().eq('id', id)
+      if (error) return json({ error: error.message }, 400)
+      return json({ success: true })
+    }
+
+    if (path === 'trigger' && req.method === 'POST') {
+      const { event, table, payload } = body
+      if (!event || !table) return json({ error: 'event and table are required' }, 400)
+
+      const { data: matches, error } = await supabase
+        .from('automations')
+        .select('*')
+        .eq('trigger_event', event)
+        .eq('trigger_table', table)
+        .eq('is_enabled', true)
+
+      if (error) return json({ error: error.message }, 400)
+      if (!matches || matches.length === 0) return json({ triggered: 0, message: 'No matching automations found' })
+
+      const results: { automation_id: string; name: string; actions_executed: number; results: unknown[] }[] = []
+
+      for (const auto of matches) {
+        const actionResults: unknown[] = []
+        const actions = Array.isArray(auto.actions) ? auto.actions : []
+
+        for (const act of actions as Array<{ type: string; [key: string]: unknown }>) {
+          try {
+            if (act.type === 'create_task') {
+              const { data } = await supabase.from('bot_tasks').insert({
+                title: (act.title as string) || `Auto: ${auto.name}`,
+                bot_agent: (act.bot_agent as string) || 'automation',
+                description: (act.description as string) || null,
+                priority: (act.priority as string) || 'medium',
+                meta: { automation_id: auto.id, trigger_payload: payload || {} },
+              }).select('id').single()
+              actionResults.push({ type: 'create_task', success: true, bot_task_id: data?.id })
+            } else if (act.type === 'update_status') {
+              const targetTable = (act.target_table as string) || table
+              const targetId = (act.target_id as string) || payload?.id
+              if (targetId) {
+                await supabase.from(targetTable).update({ status: act.new_status }).eq('id', targetId)
+                actionResults.push({ type: 'update_status', success: true, target: `${targetTable}/${targetId}` })
+              }
+            } else if (act.type === 'create_interaction') {
+              const customerId = (act.customer_id as string) || payload?.customer_id
+              if (customerId) {
+                await supabase.from('interactions').insert({
+                  customer_id: customerId,
+                  type: (act.interaction_type as string) || 'note',
+                  subject: (act.subject as string) || `Automation: ${auto.name}`,
+                  notes: (act.notes as string) || null,
+                }).select('id').single()
+                actionResults.push({ type: 'create_interaction', success: true })
+              }
+            } else if (act.type === 'create_card') {
+              const boardName = (act.board_name as string) || 'Clawd Bot Command Center'
+              let { data: board } = await supabase.from('boards').select('id').eq('name', boardName).maybeSingle()
+              if (board) {
+                let { data: inbox } = await supabase.from('lists').select('id').eq('board_id', board.id).eq('name', 'Inbox').maybeSingle()
+                if (inbox) {
+                  const { data: maxPos } = await supabase.from('cards').select('position').eq('list_id', inbox.id).order('position', { ascending: false }).limit(1).maybeSingle()
+                  await supabase.from('cards').insert({
+                    board_id: board.id, list_id: inbox.id,
+                    title: (act.title as string) || `Auto: ${auto.name}`,
+                    description: (act.description as string) || '',
+                    priority: (act.priority as string) || 'medium',
+                    position: (maxPos?.position ?? -1) + 1,
+                  })
+                  actionResults.push({ type: 'create_card', success: true })
+                }
+              }
+            } else {
+              actionResults.push({ type: act.type, success: false, reason: 'unknown action type' })
+            }
+          } catch (e) {
+            actionResults.push({ type: act.type, success: false, error: (e as Error).message })
+          }
+        }
+
+        results.push({ automation_id: auto.id, name: auto.name, actions_executed: actionResults.length, results: actionResults })
+      }
+
+      return json({ triggered: results.length, results })
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
       const [boards, customers, deals, projects] = await Promise.all([
