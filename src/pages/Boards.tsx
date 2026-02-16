@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Plus, LayoutGrid, User, CalendarIcon } from 'lucide-react';
+import { Plus, LayoutGrid, User, CalendarIcon, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
@@ -83,6 +84,13 @@ export default function Boards() {
     return 'text-muted-foreground';
   };
 
+  const handleDelete = async (boardId: string) => {
+    const { error } = await supabase.from('boards').delete().eq('id', boardId);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Board deleted');
+    loadAll();
+  };
+
   return (
     <AppLayout>
       <CategoryGate title="Boards" {...categoryGate} totalCount={allBoards.length} countLabel="boards" categoryCounts={categoryCounts}>
@@ -143,33 +151,59 @@ export default function Boards() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {boards.map(b => (
-              <button
+              <div
                 key={b.id}
-                onClick={() => navigate(`/boards/${b.id}`)}
-                className="glass-card p-6 text-left hover:shadow-md transition-all group"
+                className="glass-card p-6 text-left hover:shadow-md transition-all group relative"
               >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <LayoutGrid className="h-5 w-5 text-primary" />
+                <button
+                  onClick={() => navigate(`/boards/${b.id}`)}
+                  className="w-full text-left"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <LayoutGrid className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">{b.name}</h3>
+                      {b.customers?.full_name && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <User className="h-3 w-3" />
+                          {b.customers.full_name}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">{b.name}</h3>
-                    {b.customers?.full_name && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                        <User className="h-3 w-3" />
-                        {b.customers.full_name}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {b.description && <p className="text-sm text-muted-foreground line-clamp-2">{b.description}</p>}
-                {b.deadline && (
-                  <p className={cn("text-xs flex items-center gap-1 mt-2", getDeadlineColor(b.deadline))}>
-                    <CalendarIcon className="h-3 w-3" />
-                    {format(new Date(b.deadline), 'MMM d, yyyy')}
-                  </p>
-                )}
-              </button>
+                  {b.description && <p className="text-sm text-muted-foreground line-clamp-2">{b.description}</p>}
+                  {b.deadline && (
+                    <p className={cn("text-xs flex items-center gap-1 mt-2", getDeadlineColor(b.deadline))}>
+                      <CalendarIcon className="h-3 w-3" />
+                      {format(new Date(b.deadline), 'MMM d, yyyy')}
+                    </p>
+                  )}
+                </button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute bottom-3 right-3 p-1.5 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete board?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete "{b.name}" and all its lists and cards.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(b.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             ))}
             {boards.length === 0 && !loading && (
               <div className="col-span-full text-center py-16 text-muted-foreground">No boards yet. Create your first board or let Clawd Bot create one!</div>
