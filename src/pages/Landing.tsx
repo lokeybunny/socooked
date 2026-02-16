@@ -1,27 +1,52 @@
-import { Suspense, lazy, useRef } from 'react';
+import { Suspense, lazy, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, Zap } from 'lucide-react';
+import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, Zap, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 
 const STU25Scene = lazy(() => import('@/components/three/STU25Scene'));
 
 const services = [
-  { icon: Globe, title: 'Web Development' },
-  { icon: BarChart3, title: 'Social Media' },
-  { icon: Sparkles, title: 'AI Automation' },
-  { icon: Layers, title: 'Brand Identity' },
-  { icon: Monitor, title: 'UI/UX Design' },
-  { icon: Zap, title: 'Performance' },
+  {
+    icon: Globe,
+    title: 'Web Development',
+    description: 'We craft high-performance websites and applications that feel effortless. Clean code, thoughtful architecture, and experiences that just work — because your digital home should feel like home.',
+  },
+  {
+    icon: BarChart3,
+    title: 'Social Media',
+    description: 'Your story deserves to be heard. We build data-driven campaigns that grow your community authentically — real engagement, real connections, real results that compound over time.',
+  },
+  {
+    icon: Sparkles,
+    title: 'AI Automation',
+    description: 'Let intelligent systems handle the repetitive so you can focus on the creative. We design workflows that learn, adapt, and scale alongside your ambitions — quietly and reliably.',
+  },
+  {
+    icon: Layers,
+    title: 'Brand Identity',
+    description: 'More than a logo — we help you find the visual language that makes people remember you. Cohesive, intentional design systems that carry your essence across every touchpoint.',
+  },
+  {
+    icon: Monitor,
+    title: 'UI/UX Design',
+    description: 'Interfaces should feel invisible. We design minimal, intuitive experiences where every pixel earns its place — guiding users naturally toward what matters most.',
+  },
+  {
+    icon: Zap,
+    title: 'Performance',
+    description: 'Speed is a feature. We optimize every layer of your stack — from infrastructure to delivery — so your users never wait and your metrics never stop climbing.',
+  },
 ];
 
 export default function Landing() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [activeService, setActiveService] = useState<number | null>(null);
   const { scrollYProgress } = useScroll({ target: containerRef });
 
   // Parallax transforms
@@ -136,15 +161,18 @@ export default function Landing() {
             className="absolute inset-0 flex flex-col items-center justify-center px-6"
             style={{ opacity: servicesOpacity, y: servicesY }}
           >
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 max-w-lg">
+             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 max-w-lg">
               {services.map(({ icon: Icon, title }, i) => (
                 <motion.div
                   key={title}
-                  className="glass-card p-5 flex flex-col items-center gap-3 text-center group hover:bg-accent/50 transition-colors duration-300"
+                  className="glass-card p-5 flex flex-col items-center gap-3 text-center group hover:bg-accent/50 transition-colors duration-300 cursor-pointer"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.08, duration: 0.4 }}
                   viewport={{ once: true }}
+                  onClick={() => setActiveService(i)}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.97 }}
                 >
                   <Icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
                   <span className="text-[10px] md:text-xs tracking-wider uppercase text-muted-foreground group-hover:text-foreground transition-colors">
@@ -154,6 +182,59 @@ export default function Landing() {
               ))}
             </div>
           </motion.div>
+
+          {/* Service Detail Modal */}
+          <AnimatePresence>
+            {activeService !== null && (
+              <>
+                {/* Backdrop */}
+                <motion.div
+                  className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  onClick={() => setActiveService(null)}
+                />
+                {/* Modal */}
+                <motion.div
+                  className="fixed inset-0 z-50 flex items-center justify-center px-6 pointer-events-none"
+                  initial={{ opacity: 0, scale: 0.92, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                >
+                  <div className="glass-card p-8 md:p-10 max-w-md w-full pointer-events-auto relative">
+                    <button
+                      onClick={() => setActiveService(null)}
+                      className="absolute top-4 right-4 text-muted-foreground/40 hover:text-foreground transition-colors duration-300"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                    <div className="flex flex-col items-center text-center gap-5">
+                      {(() => {
+                        const service = services[activeService];
+                        const Icon = service.icon;
+                        return (
+                          <>
+                            <div className="p-3 rounded-lg bg-muted/50">
+                              <Icon className="h-5 w-5 text-foreground/70" />
+                            </div>
+                            <h3 className="text-sm tracking-[0.2em] uppercase font-light text-foreground">
+                              {service.title}
+                            </h3>
+                            <p className="text-sm text-muted-foreground/70 leading-relaxed font-light">
+                              {service.description}
+                            </p>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
 
           {/* Layer 4: CTA */}
           <motion.div
