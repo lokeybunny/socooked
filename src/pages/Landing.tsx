@@ -2,7 +2,7 @@ import { Suspense, lazy, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, Zap, X, DoorOpen } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Globe, BarChart3, Sparkles, Layers, Monitor, Zap, X, DoorOpen, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
@@ -198,14 +198,23 @@ export default function Landing() {
                   transition={{ duration: 0.4 }}
                   onClick={() => setActiveService(null)}
                 />
-                {/* Modal */}
+                {/* Modal with nav arrows */}
                 <motion.div
-                  className="fixed inset-0 z-50 flex items-center justify-center px-6 pointer-events-none"
+                  className="fixed inset-0 z-50 flex items-center justify-center px-16 md:px-24 pointer-events-none"
                   initial={{ opacity: 0, scale: 0.92, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 10 }}
                   transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
                 >
+                  {/* Left arrow */}
+                  <button
+                    onClick={() => setActiveService((activeService - 1 + services.length) % services.length)}
+                    className="pointer-events-auto absolute left-4 md:left-8 text-muted-foreground/40 hover:text-foreground transition-colors duration-300"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+
+                  {/* Card */}
                   <div className="glass-card p-8 md:p-10 max-w-md w-full pointer-events-auto relative">
                     <button
                       onClick={() => setActiveService(null)}
@@ -233,6 +242,14 @@ export default function Landing() {
                       })()}
                     </div>
                   </div>
+
+                  {/* Right arrow */}
+                  <button
+                    onClick={() => setActiveService((activeService + 1) % services.length)}
+                    className="pointer-events-auto absolute right-4 md:right-8 text-muted-foreground/40 hover:text-foreground transition-colors duration-300"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
                 </motion.div>
               </>
             )}
