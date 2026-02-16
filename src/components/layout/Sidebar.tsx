@@ -6,7 +6,7 @@ import {
   FolderKanban,
   CheckSquare,
   FileText,
-  Zap,
+  
   LayoutGrid,
   LogOut,
   ChevronLeft,
@@ -34,7 +34,7 @@ const navItems = [
   { to: '/invoices', icon: Receipt, label: 'Invoices' },
   { to: '/leads', icon: Radar, label: 'Leads' },
   { to: '/boards', icon: LayoutGrid, label: 'Boards' },
-  { to: '/automations', icon: Zap, label: 'Automations' },
+  
 ];
 
 export function Sidebar() {
