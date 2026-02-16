@@ -63,28 +63,27 @@ export default function Notifications() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(40);
 
   useEffect(() => {
-    // Initial load
     const load = async () => {
       const { data } = await supabase
         .from('activity_log')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(500);
       setEntries((data as ActivityEntry[]) || []);
       setLoading(false);
     };
     load();
 
-    // Realtime subscription
     const channel = supabase
       .channel('activity_log_realtime')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'activity_log' },
         (payload) => {
-          setEntries((prev) => [payload.new as ActivityEntry, ...prev].slice(0, 200));
+          setEntries((prev) => [payload.new as ActivityEntry, ...prev].slice(0, 500));
         }
       )
       .subscribe();
@@ -94,6 +93,9 @@ export default function Notifications() {
     };
   }, []);
 
+  const visibleEntries = entries.slice(0, visibleCount);
+  const hasMore = entries.length > visibleCount;
+
   const handleClick = (entry: ActivityEntry) => {
     const routeFn = ENTITY_ROUTE_MAP[entry.entity_type];
     if (routeFn) {
@@ -102,7 +104,7 @@ export default function Notifications() {
   };
 
   // Group by date
-  const grouped = entries.reduce((acc, entry) => {
+  const grouped = visibleEntries.reduce((acc, entry) => {
     const date = new Date(entry.created_at).toLocaleDateString('en-US', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
@@ -116,7 +118,9 @@ export default function Notifications() {
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
-          <p className="text-sm text-muted-foreground">{entries.length} activities tracked · Live updates</p>
+          <p className="text-sm text-muted-foreground">
+            Showing {visibleEntries.length} of {entries.length} activities · Live updates
+          </p>
         </div>
 
         {Object.entries(grouped).map(([date, items]) => (
@@ -144,6 +148,17 @@ export default function Notifications() {
             </div>
           </div>
         ))}
+
+        {hasMore && (
+          <div className="flex justify-center py-4">
+            <button
+              onClick={() => setVisibleCount((prev) => prev + 40)}
+              className="px-6 py-2.5 rounded-lg border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            >
+              Show More ({entries.length - visibleCount} remaining)
+            </button>
+          </div>
+        )}
 
         {entries.length === 0 && !loading && (
           <div className="text-center py-20 text-muted-foreground">
