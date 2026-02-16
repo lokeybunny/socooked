@@ -310,9 +310,9 @@ export default function Landing() {
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.3 }}
               onClick={() => containerRef.current?.scrollIntoView({ behavior: 'smooth' })}
-              className="fixed bottom-6 right-4 sm:right-6 z-40 p-2.5 rounded-full border border-border/40 bg-background/60 backdrop-blur-sm text-muted-foreground/50 hover:text-foreground hover:border-border transition-colors duration-300"
+              className="fixed bottom-6 right-4 sm:right-6 z-40 p-3.5 sm:p-4 rounded-full border-2 border-foreground/20 bg-foreground/10 backdrop-blur-md text-foreground/70 hover:text-foreground hover:bg-foreground/20 hover:border-foreground/40 transition-all duration-300 shadow-lg"
             >
-              <ArrowUp className="h-4 w-4" />
+              <ArrowUp className="h-5 w-5 sm:h-6 sm:w-6 stroke-[2.5]" />
             </motion.button>
           )}
         </AnimatePresence>
