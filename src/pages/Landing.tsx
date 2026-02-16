@@ -69,10 +69,8 @@ export default function Landing() {
       <div className="fixed inset-0 z-10 flex flex-col">
         {/* Nav */}
         <header className="flex items-center justify-between px-6 md:px-12 py-5 relative z-30">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center">
-              <span className="text-background font-bold text-[10px] tracking-[0.15em]">ST</span>
-            </div>
+          <div className="flex items-center">
+            <span className="text-foreground/70 font-light text-sm tracking-[0.25em] uppercase">STU '25</span>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -162,23 +160,20 @@ export default function Landing() {
             className="absolute inset-0 flex flex-col items-center justify-center px-6"
             style={{ opacity: ctaOpacity, y: ctaY }}
           >
-            <div className="w-8 h-8 rounded-lg bg-foreground flex items-center justify-center mb-6">
-              <span className="text-background font-bold text-[9px] tracking-[0.15em]">ST</span>
-            </div>
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-center mb-2">
+            <span className="text-foreground/50 font-light text-xs tracking-[0.3em] uppercase mb-8">STU '25</span>
+            <h2 className="text-xl md:text-2xl font-light tracking-tight text-center mb-2">
               Ready?
             </h2>
-            <p className="text-xs text-muted-foreground/60 mb-8 tracking-wide">
+            <p className="text-xs text-muted-foreground/40 mb-10 tracking-wide font-light">
               Build your digital imprint
             </p>
-            <Button
-              size="lg"
+            <button
               onClick={() => navigate('/auth')}
-              className="gap-2 px-10 rounded-full"
+              className="group flex items-center gap-2 text-xs tracking-[0.2em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-500"
             >
-              Enter
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
+              <span className="font-light">Enter</span>
+              <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform duration-300" />
+            </button>
           </motion.div>
         </div>
 
