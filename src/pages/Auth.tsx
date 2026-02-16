@@ -64,10 +64,23 @@ export default function Auth() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
         <div className="w-full max-w-sm space-y-8">
-          <div className="lg:hidden flex items-center mb-4">
+          {/* Mobile/tablet brand section */}
+          <div className="lg:hidden space-y-3 text-center">
             <span className="text-foreground/70 font-light text-lg tracking-[0.15em] uppercase">STU25</span>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">
+              Excellent Service.<br />
+              <span className="text-muted-foreground">Built Different.</span>
+            </h1>
+            <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed max-w-xs mx-auto">
+              Digital marketing &amp; web services exclusively serving Las Vegas and Los Angeles. Founded in 2017, born in Burbank, California.
+            </p>
+            <div className="pt-1 space-y-0.5">
+              <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground/60">Get in touch</p>
+              <p className="text-xs text-foreground/80 font-light tracking-wide">(818) 555-0125</p>
+            </div>
+            <div className="border-b border-border pt-2" />
           </div>
 
           <button
