@@ -71,12 +71,15 @@ export function CategoryGate({ title, selectedCategory, onSelect, onBack, childr
                 onClick={() => onSelect(cat.id)}
                 className="group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-primary/40 transition-all relative"
               >
-                {notifCount > 0 && (
+                {notifCount > 0 ? (
                   <span className="absolute top-3 right-3 flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold animate-pulse">
                     {notifCount}
                   </span>
-                )}
-                {notifCount === 0 && (
+                ) : typeof totalCount === 'number' ? (
+                  <span className="absolute top-3 right-3 flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
+                    {totalCount}
+                  </span>
+                ) : (
                   <span className="absolute top-3 right-3 flex items-center justify-center h-5 w-5 rounded-full bg-muted text-muted-foreground/50">
                     <Bot className="h-3 w-3" />
                   </span>
