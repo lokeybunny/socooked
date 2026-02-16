@@ -146,7 +146,7 @@ export default function Landing() {
         )}
       </AnimatePresence>
 
-    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '300vh' }}>
+    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '200vh' }}>
       {/* Subtle grid — fixed */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.02] z-0">
         <div
