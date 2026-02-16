@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Plus, Receipt, DollarSign, Hash, Calendar, Trash2, FileText, Send } from 'lucide-react';
+import { Plus, Receipt, DollarSign, Hash, Calendar, Trash2, FileText, Send, Download, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 interface LineItem {
   description: string;
@@ -96,6 +97,95 @@ export default function Invoices() {
 
   const paidTotal = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.amount), 0);
   const outstandingTotal = invoices.filter(i => i.status === 'sent').reduce((s, i) => s + Number(i.amount), 0);
+
+  // Export state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportRange, setExportRange] = useState('all');
+  const [exportFrom, setExportFrom] = useState('');
+  const [exportTo, setExportTo] = useState('');
+
+  const monthOptions = useMemo(() => {
+    const options: { label: string; value: string }[] = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = subMonths(now, i);
+      options.push({
+        label: format(d, 'MMMM yyyy'),
+        value: format(d, 'yyyy-MM'),
+      });
+    }
+    return options;
+  }, []);
+
+  const getExportData = useCallback(() => {
+    let filtered = [...invoices];
+
+    if (exportRange === 'month' && exportFrom) {
+      const [y, m] = exportFrom.split('-').map(Number);
+      const start = startOfMonth(new Date(y, m - 1));
+      const end = endOfMonth(new Date(y, m - 1));
+      filtered = filtered.filter(inv => {
+        const d = parseISO(inv.created_at);
+        return isWithinInterval(d, { start, end });
+      });
+    } else if (exportRange === 'range' && exportFrom && exportTo) {
+      const [y1, m1] = exportFrom.split('-').map(Number);
+      const [y2, m2] = exportTo.split('-').map(Number);
+      const start = startOfMonth(new Date(y1, m1 - 1));
+      const end = endOfMonth(new Date(y2, m2 - 1));
+      filtered = filtered.filter(inv => {
+        const d = parseISO(inv.created_at);
+        return isWithinInterval(d, { start, end });
+      });
+    }
+
+    return filtered.map(inv => ({
+      'Invoice #': inv.invoice_number || '—',
+      'Customer': inv.customers?.full_name || '—',
+      'Email': inv.customers?.email || '—',
+      'Status': inv.status,
+      'Currency': inv.currency,
+      'Subtotal': Number(inv.subtotal || 0).toFixed(2),
+      'Tax Rate (%)': Number(inv.tax_rate || 0),
+      'Total': Number(inv.amount).toFixed(2),
+      'Due Date': inv.due_date ? format(new Date(inv.due_date), 'yyyy-MM-dd') : '',
+      'Created': format(new Date(inv.created_at), 'yyyy-MM-dd'),
+      'Sent': inv.sent_at ? format(new Date(inv.sent_at), 'yyyy-MM-dd') : '',
+      'Paid': inv.paid_at ? format(new Date(inv.paid_at), 'yyyy-MM-dd') : '',
+      'Notes': inv.notes || '',
+    }));
+  }, [invoices, exportRange, exportFrom, exportTo]);
+
+  const exportCSV = useCallback(() => {
+    const data = getExportData();
+    if (data.length === 0) { toast.error('No invoices match the selected range'); return; }
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => {
+        const val = String((row as any)[h]).replace(/"/g, '""');
+        return `"${val}"`;
+      }).join(','))
+    ];
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invoices-${exportRange === 'all' ? 'all' : exportFrom}${exportTo ? `-to-${exportTo}` : ''}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${data.length} invoices as CSV`);
+  }, [getExportData, exportRange, exportFrom, exportTo]);
+
+  const exportExcel = useCallback(() => {
+    const data = getExportData();
+    if (data.length === 0) { toast.error('No invoices match the selected range'); return; }
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Invoices');
+    XLSX.writeFile(wb, `invoices-${exportRange === 'all' ? 'all' : exportFrom}${exportTo ? `-to-${exportTo}` : ''}.xlsx`);
+    toast.success(`Exported ${data.length} invoices as Excel`);
+  }, [getExportData, exportRange, exportFrom, exportTo]);
 
   return (
     <AppLayout>
@@ -206,6 +296,79 @@ export default function Invoices() {
             <p className="text-xs text-muted-foreground mb-1">Outstanding</p>
             <p className="text-xl font-bold text-destructive">${outstandingTotal.toFixed(2)}</p>
           </div>
+        </div>
+
+        {/* Export Section */}
+        <div className="glass-card p-5">
+          <button
+            onClick={() => setExportOpen(!exportOpen)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Download className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Export Invoices</h2>
+            </div>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${exportOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {exportOpen && (
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Date Range</Label>
+                  <Select value={exportRange} onValueChange={v => { setExportRange(v); setExportFrom(''); setExportTo(''); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
+                      <SelectItem value="month">Single Month</SelectItem>
+                      <SelectItem value="range">Month Range</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(exportRange === 'month' || exportRange === 'range') && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">{exportRange === 'range' ? 'From' : 'Month'}</Label>
+                    <Select value={exportFrom} onValueChange={setExportFrom}>
+                      <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map(o => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {exportRange === 'range' && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">To</Label>
+                    <Select value={exportTo} onValueChange={setExportTo}>
+                      <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map(o => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{getExportData().length} invoice{getExportData().length !== 1 ? 's' : ''} match</span>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={exportCSV} disabled={getExportData().length === 0}>
+                  <Download className="h-3.5 w-3.5 mr-1.5" />Export CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportExcel} disabled={getExportData().length === 0}>
+                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1.5" />Export Excel
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Invoice List */}
