@@ -86,28 +86,28 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-5 sm:space-y-8 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}.</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}.</p>
         </div>
 
         {/* Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {metricCards.map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="metric-card">
-              <div className="flex items-center gap-3 mb-3">
-                <div className={`p-2 rounded-lg bg-muted ${color}`}>
-                  <Icon className="h-4 w-4" />
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <div className={`p-1.5 sm:p-2 rounded-lg bg-muted ${color}`}>
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-foreground">{loading ? '—' : value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{label}</p>
+              <p className="text-lg sm:text-2xl font-bold text-foreground">{loading ? '—' : value}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{label}</p>
             </div>
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Recent Customers */}
           <div className="glass-card p-6">
             <h2 className="text-sm font-semibold text-foreground mb-4">Recent Customers</h2>
@@ -154,10 +154,10 @@ export default function Dashboard() {
             <CircleCheckBig className="h-4 w-4 text-emerald-500" />
             Completed
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-3 gap-3 sm:gap-6">
             <div className="text-center space-y-1">
-              <p className="text-3xl font-bold text-foreground">{loading ? '—' : stats.completedTasks}</p>
-              <p className="text-xs text-muted-foreground">Tasks Done</p>
+              <p className="text-xl sm:text-3xl font-bold text-foreground">{loading ? '—' : stats.completedTasks}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Tasks Done</p>
               {stats.tasks > 0 && !loading && (
                 <div className="w-full bg-muted rounded-full h-1.5 mt-2">
                   <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.round((stats.completedTasks / stats.tasks) * 100)}%` }} />
@@ -165,8 +165,8 @@ export default function Dashboard() {
               )}
             </div>
             <div className="text-center space-y-1">
-              <p className="text-3xl font-bold text-foreground">{loading ? '—' : stats.completedDeals}</p>
-              <p className="text-xs text-muted-foreground">Deals Won</p>
+              <p className="text-xl sm:text-3xl font-bold text-foreground">{loading ? '—' : stats.completedDeals}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Deals Won</p>
               {stats.deals > 0 && !loading && (
                 <div className="w-full bg-muted rounded-full h-1.5 mt-2">
                   <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.round((stats.completedDeals / stats.deals) * 100)}%` }} />
@@ -174,8 +174,8 @@ export default function Dashboard() {
               )}
             </div>
             <div className="text-center space-y-1">
-              <p className="text-3xl font-bold text-foreground">{loading ? '—' : stats.completedProjects}</p>
-              <p className="text-xs text-muted-foreground">Projects Completed</p>
+              <p className="text-xl sm:text-3xl font-bold text-foreground">{loading ? '—' : stats.completedProjects}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Projects Completed</p>
               {stats.projects > 0 && !loading && (
                 <div className="w-full bg-muted rounded-full h-1.5 mt-2">
                   <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.round((stats.completedProjects / stats.projects) * 100)}%` }} />
