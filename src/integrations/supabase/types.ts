@@ -100,6 +100,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          customer_id: string | null
           description: string | null
           id: string
           name: string
@@ -109,6 +110,7 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
+          customer_id?: string | null
           description?: string | null
           id?: string
           name: string
@@ -118,6 +120,7 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
+          customer_id?: string | null
           description?: string | null
           id?: string
           name?: string
@@ -125,6 +128,13 @@ export type Database = {
           visibility?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "boards_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "boards_owner_id_fkey"
             columns: ["owner_id"]
