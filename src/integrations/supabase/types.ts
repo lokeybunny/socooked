@@ -131,6 +131,56 @@ export type Database = {
           },
         ]
       }
+      bot_tasks: {
+        Row: {
+          bot_agent: string
+          created_at: string
+          customer_id: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          meta: Json
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          bot_agent: string
+          created_at?: string
+          customer_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          meta?: Json
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          bot_agent?: string
+          created_at?: string
+          customer_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          meta?: Json
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bot_tasks_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       card_attachments: {
         Row: {
           card_id: string
