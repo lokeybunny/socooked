@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import {
   Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Users,
 } from 'lucide-react';
+import MeetingChat from '@/components/meeting/MeetingChat';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -404,6 +405,7 @@ export default function MeetingRoom() {
         >
           <PhoneOff className="h-5 w-5" />
         </Button>
+        <MeetingChat channel={channelRef.current} myName={guestName} myPeerId={myPeerIdRef.current} />
       </div>
     </div>
   );
