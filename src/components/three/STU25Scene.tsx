@@ -1,24 +1,37 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text3D, Center, Float, Environment, MeshTransmissionMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
-function GlassText() {
+function GlassText({ onLoaded }: { onLoaded?: () => void }) {
   const meshRef = useRef<THREE.Group>(null);
+  const centerRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
   const scale = Math.min(1, viewport.width / 8);
+  const [reported, setReported] = useState(false);
 
   useFrame(({ clock }) => {
     if (meshRef.current) {
       meshRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.3) * 0.15;
       meshRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.2) * 0.05;
     }
+    // Detect when Text3D geometry is built by checking center group children
+    if (!reported && centerRef.current && centerRef.current.children.length > 0) {
+      const textMesh = centerRef.current.children[0] as THREE.Mesh;
+      if (textMesh?.geometry) {
+        const pos = textMesh.geometry.getAttribute('position');
+        if (pos && pos.count > 0) {
+          setReported(true);
+          onLoaded?.();
+        }
+      }
+    }
   });
 
   return (
     <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
       <group ref={meshRef} scale={scale}>
-        <Center>
+        <Center ref={centerRef}>
           <Text3D
             font="/fonts/inter-bold.json"
             size={1.4}
@@ -122,16 +135,13 @@ export default function STU25Scene({ onReady }: { onReady?: () => void }) {
       gl={{ antialias: true, alpha: true }}
       style={{ background: 'transparent' }}
       dpr={[1, 2]}
-      onCreated={() => {
-        setTimeout(() => onReady?.(), 300);
-      }}
     >
       <Environment preset="city" />
       <ambientLight intensity={0.3} />
       <directionalLight position={[5, 5, 5]} intensity={0.5} />
       <directionalLight position={[-5, -3, -5]} intensity={0.2} />
 
-      <GlassText />
+      <GlassText onLoaded={onReady} />
       <OrbitalRing radius={3.2} speed={0.15} opacity={0.12} />
       <OrbitalRing radius={3.8} speed={-0.1} opacity={0.08} />
       <Particles />
