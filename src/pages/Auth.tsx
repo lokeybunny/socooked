@@ -119,13 +119,6 @@ export default function Auth() {
               {submitting ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
             </Button>
           </form>
-
-          <p className="text-center text-sm text-muted-foreground">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button onClick={() => setIsSignUp(!isSignUp)} className="text-primary font-medium hover:underline">
-              {isSignUp ? 'Sign in' : 'Sign up'}
-            </button>
-          </p>
         </div>
       </div>
     </div>
