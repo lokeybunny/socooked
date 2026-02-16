@@ -24,14 +24,14 @@ export default function Documents() {
 
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setDocuments(allDocuments.filter(d => d.category === categoryGate.selectedCategory));
+      setDocuments(allDocuments.filter(d => (d.category || 'other') === categoryGate.selectedCategory));
     } else {
       setDocuments(allDocuments);
     }
   }, [categoryGate.selectedCategory, allDocuments]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allDocuments.filter(d => d.category === cat.id).length;
+    acc[cat.id] = allDocuments.filter(d => (d.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 

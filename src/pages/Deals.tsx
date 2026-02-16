@@ -37,14 +37,14 @@ export default function Deals() {
 
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setDeals(allDeals.filter(d => d.category === categoryGate.selectedCategory));
+      setDeals(allDeals.filter(d => (d.category || 'other') === categoryGate.selectedCategory));
     } else {
       setDeals(allDeals);
     }
   }, [categoryGate.selectedCategory, allDeals]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allDeals.filter(d => d.category === cat.id).length;
+    acc[cat.id] = allDeals.filter(d => (d.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 

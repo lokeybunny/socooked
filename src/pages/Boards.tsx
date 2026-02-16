@@ -30,14 +30,14 @@ export default function Boards() {
 
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setBoards(allBoards.filter(b => b.category === categoryGate.selectedCategory));
+      setBoards(allBoards.filter(b => (b.category || 'other') === categoryGate.selectedCategory));
     } else {
       setBoards(allBoards);
     }
   }, [categoryGate.selectedCategory, allBoards]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allBoards.filter(b => b.category === cat.id).length;
+    acc[cat.id] = allBoards.filter(b => (b.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 

@@ -33,14 +33,14 @@ export default function Projects() {
 
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setProjects(allProjects.filter(p => p.category === categoryGate.selectedCategory));
+      setProjects(allProjects.filter(p => (p.category || 'other') === categoryGate.selectedCategory));
     } else {
       setProjects(allProjects);
     }
   }, [categoryGate.selectedCategory, allProjects]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allProjects.filter(p => p.category === cat.id).length;
+    acc[cat.id] = allProjects.filter(p => (p.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 

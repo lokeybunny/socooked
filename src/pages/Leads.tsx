@@ -150,9 +150,9 @@ export default function Leads() {
   useEffect(() => {
     const cat = categoryGate.selectedCategory;
     if (cat) {
-      setLeads(allLeads.filter(c => c.category === cat));
-      setProspects(allProspects.filter(c => c.category === cat));
-      setClients(allClients.filter(c => c.category === cat));
+      setLeads(allLeads.filter(c => (c.category || 'other') === cat));
+      setProspects(allProspects.filter(c => (c.category || 'other') === cat));
+      setClients(allClients.filter(c => (c.category || 'other') === cat));
     } else {
       setLeads(allLeads);
       setProspects(allProspects);
@@ -162,7 +162,7 @@ export default function Leads() {
 
   const allContactsTotal = allLeads.length + allProspects.length + allClients.length;
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = [...allLeads, ...allProspects, ...allClients].filter(c => c.category === cat.id).length;
+    acc[cat.id] = [...allLeads, ...allProspects, ...allClients].filter(c => (c.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 
