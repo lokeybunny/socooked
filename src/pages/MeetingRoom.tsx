@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
-  Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Users,
+  Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Users, Minimize2,
 } from 'lucide-react';
 import MeetingChat from '@/components/meeting/MeetingChat';
 import MeetingVideoGate from '@/components/meeting/MeetingVideoGate';
@@ -39,6 +39,7 @@ export default function MeetingRoom() {
   const [camOn, setCamOn] = useState(true);
   const [screenOn, setScreenOn] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [fullscreenId, setFullscreenId] = useState<string | null>(null);
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
@@ -371,6 +372,45 @@ export default function MeetingRoom() {
         </div>
       </div>
 
+      {/* Fullscreen overlay */}
+      {fullscreenId && (
+        <div
+          className="fixed inset-0 z-50 bg-black flex items-center justify-center cursor-pointer"
+          onDoubleClick={() => setFullscreenId(null)}
+        >
+          {fullscreenId === 'local' ? (
+            <video
+              ref={el => { if (el) el.srcObject = screenStreamRef.current || localStreamRef.current; }}
+              autoPlay muted playsInline
+              className="w-full h-full object-contain"
+            />
+          ) : (
+            (() => {
+              const p = participants.find(p => p.peerId === fullscreenId);
+              return p?.stream ? (
+                <video
+                  autoPlay playsInline
+                  className="w-full h-full object-contain"
+                  ref={el => { if (el) el.srcObject = p.stream; }}
+                />
+              ) : null;
+            })()
+          )}
+          <button
+            onClick={() => setFullscreenId(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-background/30 backdrop-blur-sm text-white hover:bg-background/50 transition-colors"
+          >
+            <Minimize2 className="h-5 w-5" />
+          </button>
+          <div className="absolute bottom-4 left-4 bg-background/60 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-white">
+            {fullscreenId === 'local' ? `${guestName} (You)` : participants.find(p => p.peerId === fullscreenId)?.name}
+          </div>
+          <div className="absolute bottom-4 right-4 text-xs text-white/50">
+            Double-click to exit
+          </div>
+        </div>
+      )}
+
       {/* Video Grid */}
       <div className="flex-1 p-4 overflow-auto">
         <div className={`grid gap-4 h-full ${
@@ -380,12 +420,13 @@ export default function MeetingRoom() {
           'grid-cols-2 md:grid-cols-3'
         }`}>
           {/* Local video */}
-          <div className="relative bg-muted rounded-xl overflow-hidden aspect-video">
+          <div
+            className="relative bg-muted rounded-xl overflow-hidden aspect-video cursor-pointer"
+            onDoubleClick={() => setFullscreenId('local')}
+          >
             <video
               ref={localVideoRef}
-              autoPlay
-              muted
-              playsInline
+              autoPlay muted playsInline
               className="w-full h-full object-cover"
             />
             <div className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-foreground">
@@ -400,10 +441,13 @@ export default function MeetingRoom() {
 
           {/* Remote videos */}
           {participants.map(p => (
-            <div key={p.peerId} className="relative bg-muted rounded-xl overflow-hidden aspect-video">
+            <div
+              key={p.peerId}
+              className="relative bg-muted rounded-xl overflow-hidden aspect-video cursor-pointer"
+              onDoubleClick={() => setFullscreenId(p.peerId)}
+            >
               <video
-                autoPlay
-                playsInline
+                autoPlay playsInline
                 className="w-full h-full object-cover"
                 ref={el => { if (el && p.stream) el.srcObject = p.stream; }}
               />
