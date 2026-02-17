@@ -90,16 +90,19 @@ export default function MeetingRoom() {
 
   const createPeerConnection = useCallback((remotePeerId: string, remoteName: string) => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
-    const localStream = localStreamRef.current;
-    if (localStream) {
-      localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+    // Use screen stream if currently sharing, otherwise camera
+    const activeStream = screenStreamRef.current || localStreamRef.current;
+    if (activeStream) {
+      activeStream.getTracks().forEach(track => pc.addTrack(track, activeStream));
     }
 
     const participant: Participant = { peerId: remotePeerId, name: remoteName, pc, stream: null };
 
     pc.ontrack = (event) => {
-      participant.stream = event.streams[0];
-      peersRef.current.set(remotePeerId, { ...participant, stream: event.streams[0] });
+      const existing = peersRef.current.get(remotePeerId);
+      const updated = { ...(existing || participant), stream: event.streams[0] };
+      peersRef.current.set(remotePeerId, updated);
       setParticipants(Array.from(peersRef.current.values()));
     };
 
@@ -117,10 +120,32 @@ export default function MeetingRoom() {
       }
     };
 
+    pc.onnegotiationneeded = async () => {
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'offer',
+          payload: { offer, from: myPeerIdRef.current, name: guestName, to: remotePeerId },
+        });
+      } catch (err) {
+        console.error('Renegotiation failed:', err);
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`ICE state [${remoteName}]:`, pc.iceConnectionState);
+      if (pc.iceConnectionState === 'failed') {
+        console.warn('ICE connection failed, attempting restart');
+        pc.restartIce();
+      }
+    };
+
     peersRef.current.set(remotePeerId, participant);
     setParticipants(Array.from(peersRef.current.values()));
     return pc;
-  }, []);
+  }, [guestName]);
 
   const joinRoom = useCallback(async () => {
     if (!guestName.trim()) { toast.error('Enter your name'); return; }
@@ -215,25 +240,32 @@ export default function MeetingRoom() {
       screenStreamRef.current = null;
       // Revert to camera
       const camStream = localStreamRef.current;
-      if (camStream) {
-        const videoTrack = camStream.getVideoTracks()[0];
-        if (videoTrack) {
-          peersRef.current.forEach(p => {
-            const sender = p.pc.getSenders().find(s => s.track?.kind === 'video');
-            if (sender) sender.replaceTrack(videoTrack);
-          });
+      const videoTrack = camStream?.getVideoTracks()[0];
+      peersRef.current.forEach(p => {
+        const sender = p.pc.getSenders().find(s => s.track?.kind === 'video');
+        if (sender && videoTrack) {
+          sender.replaceTrack(videoTrack);
+        } else if (sender && !videoTrack) {
+          // No camera track, remove screen track
+          sender.replaceTrack(null);
         }
-      }
+      });
+      if (localVideoRef.current) localVideoRef.current.srcObject = camStream;
       setScreenOn(false);
     } else {
       try {
         const screen = await navigator.mediaDevices.getDisplayMedia({ video: true });
         screenStreamRef.current = screen;
         const screenTrack = screen.getVideoTracks()[0];
-        // Replace video track in all peer connections
+        // Replace or add video track in all peer connections
         peersRef.current.forEach(p => {
           const sender = p.pc.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) sender.replaceTrack(screenTrack);
+          if (sender) {
+            sender.replaceTrack(screenTrack);
+          } else {
+            // No video sender (audio-only) — add the screen track
+            p.pc.addTrack(screenTrack, screen);
+          }
         });
         if (localVideoRef.current) localVideoRef.current.srcObject = screen;
         screenTrack.onended = () => {
