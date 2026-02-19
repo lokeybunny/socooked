@@ -5,11 +5,57 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bot-secret',
 }
 
-const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+const API_VERSION = 'v1'
+
+// ─── Rate Limiter (in-memory, per-IP, 5 req/s) ──────────────
+const rateBuckets = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const bucket = rateBuckets.get(ip)
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + 1000 })
+    return true
+  }
+  bucket.count++
+  return bucket.count <= 5
+}
+
+// ─── Unified response helpers ────────────────────────────────
+function ok(data: unknown, status = 200) {
+  return new Response(JSON.stringify({ success: true, data, api_version: API_VERSION }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+function fail(error: string, status = 400) {
+  return new Response(JSON.stringify({ success: false, error, api_version: API_VERSION }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+// ─── Audit logger ────────────────────────────────────────────
+async function auditLog(supabase: any, endpoint: string, payload: unknown) {
+  try {
+    await supabase.from('webhook_events').insert({
+      source: 'spacebot',
+      event_type: endpoint,
+      payload: payload || {},
+      processed: true,
+    })
+  } catch (_) { /* non-blocking */ }
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
+
+  // Rate limit check
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('cf-connecting-ip') || 'unknown'
+  if (!checkRateLimit(clientIp)) {
+    return fail('Rate limit exceeded. Max 5 requests per second.', 429)
+  }
 
   const url = new URL(req.url)
   const path = url.pathname.split('/').pop()
@@ -18,10 +64,10 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization')
   const expectedSecret = Deno.env.get('BOT_SECRET')
 
-  const isBot = botSecret && expectedSecret && botSecret === expectedSecret
-  const isStaff = authHeader?.startsWith('Bearer ')
+  const isBot = !!(botSecret && expectedSecret && botSecret === expectedSecret)
+  const isStaff = !!authHeader?.startsWith('Bearer ')
 
-  if (!isBot && !isStaff) return json({ error: 'Unauthorized' }, 401)
+  if (!isBot && !isStaff) return fail('Unauthorized', 401)
 
   const supabase = isBot
     ? createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -32,12 +78,17 @@ Deno.serve(async (req) => {
   if (isStaff) {
     const token = authHeader!.replace('Bearer ', '')
     const { error } = await supabase.auth.getClaims(token)
-    if (error) return json({ error: 'Unauthorized' }, 401)
+    if (error) return fail('Unauthorized', 401)
   }
 
   try {
     const body = req.method !== 'GET' ? await req.json() : {}
     const params = url.searchParams
+
+    // Audit log for bot calls
+    if (isBot && path) {
+      await auditLog(supabase, path, body)
+    }
 
     // ─── CUSTOMERS ───────────────────────────────────────────
     if (path === 'customers' && req.method === 'GET') {
@@ -47,8 +98,8 @@ Deno.serve(async (req) => {
       if (status) q = q.eq('status', status)
       if (category) q = q.eq('category', category)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ customers: data })
+      if (error) return fail(error.message)
+      return ok({ customers: data })
     }
 
     if (path === 'customer' && req.method === 'POST') {
@@ -67,31 +118,31 @@ Deno.serve(async (req) => {
         if (category) updates.category = category
         if (meta) updates.meta = meta
         const { error } = await supabase.from('customers').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', customer_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', customer_id: id })
       }
-      if (!full_name) return json({ error: 'full_name is required' }, 400)
+      if (!full_name) return fail('full_name is required')
       const { data, error } = await supabase.from('customers').insert({
         full_name, email: email || null, phone: phone || null, address: address || null,
         company: company || null, source: source || 'bot', status: status || 'lead',
         notes: notes || null, tags: tags || [], category: category || null, meta: meta || {},
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', customer_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', customer_id: data?.id })
     }
 
     if (path === 'customer' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('customers').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', customer_id: id })
     }
 
     // ─── LEADS (shortcut) ────────────────────────────────────
     if (path === 'lead' && req.method === 'POST') {
       const { full_name, email, phone, address, company, source, source_url, notes, tags, category } = body
-      if (!full_name) return json({ error: 'full_name is required' }, 400)
+      if (!full_name) return fail('full_name is required')
       let existingId: string | null = null
       if (email) {
         const { data: existing } = await supabase.from('customers').select('id').eq('email', email).eq('status', 'lead').maybeSingle()
@@ -104,15 +155,15 @@ Deno.serve(async (req) => {
         if (company) updates.company = company
         if (notes) updates.notes = notes
         if (Object.keys(updates).length > 0) await supabase.from('customers').update(updates).eq('id', existingId)
-        return json({ action: 'updated', customer_id: existingId })
+        return ok({ action: 'updated', customer_id: existingId })
       }
       const { data, error } = await supabase.from('customers').insert({
         full_name, email: email || null, phone: phone || null, address: address || null,
         company: company || null, source: source || 'bot', status: 'lead',
         notes: notes || (source_url ? `Source: ${source_url}` : null), tags: tags || [], category: category || null,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', customer_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', customer_id: data?.id })
     }
 
     // ─── DEALS ───────────────────────────────────────────────
@@ -123,8 +174,8 @@ Deno.serve(async (req) => {
       if (category) q = q.eq('category', category)
       if (status) q = q.eq('status', status)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ deals: data })
+      if (error) return fail(error.message)
+      return ok({ deals: data })
     }
 
     if (path === 'deal' && req.method === 'POST') {
@@ -141,26 +192,26 @@ Deno.serve(async (req) => {
         if (tags) updates.tags = tags
         if (category) updates.category = category
         const { error } = await supabase.from('deals').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', deal_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', deal_id: id })
       }
-      if (!title || !customer_id) return json({ error: 'title and customer_id are required' }, 400)
+      if (!title || !customer_id) return fail('title and customer_id are required')
       const { data, error } = await supabase.from('deals').insert({
         title, customer_id, deal_value: deal_value || 0, stage: stage || 'new',
         pipeline: pipeline || 'default', probability: probability || 10,
         expected_close_date: expected_close_date || null, status: status || 'open',
         tags: tags || [], category: category || null,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', deal_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', deal_id: data?.id })
     }
 
     if (path === 'deal' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('deals').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', deal_id: id })
     }
 
     // ─── PROJECTS ────────────────────────────────────────────
@@ -171,8 +222,8 @@ Deno.serve(async (req) => {
       if (category) q = q.eq('category', category)
       if (status) q = q.eq('status', status)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ projects: data })
+      if (error) return fail(error.message)
+      return ok({ projects: data })
     }
 
     if (path === 'project' && req.method === 'POST') {
@@ -189,26 +240,26 @@ Deno.serve(async (req) => {
         if (tags) updates.tags = tags
         if (category) updates.category = category
         const { error } = await supabase.from('projects').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', project_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', project_id: id })
       }
-      if (!title) return json({ error: 'title is required' }, 400)
+      if (!title) return fail('title is required')
       const { data, error } = await supabase.from('projects').insert({
         title, description: description || null, customer_id: customer_id || null,
         status: status || 'planned', priority: priority || 'medium',
         start_date: start_date || null, due_date: due_date || null,
         tags: tags || [], category: category || null,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', project_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', project_id: data?.id })
     }
 
     if (path === 'project' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('projects').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', project_id: id })
     }
 
     // ─── TASKS (project tasks) ───────────────────────────────
@@ -219,8 +270,8 @@ Deno.serve(async (req) => {
       if (project_id) q = q.eq('project_id', project_id)
       if (category) q = q.eq('category', category)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ tasks: data })
+      if (error) return fail(error.message)
+      return ok({ tasks: data })
     }
 
     if (path === 'project-task' && req.method === 'POST') {
@@ -236,26 +287,26 @@ Deno.serve(async (req) => {
         if (category) updates.category = category
         if (checklist) updates.checklist = checklist
         const { error } = await supabase.from('tasks').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', task_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', task_id: id })
       }
-      if (!title || !project_id) return json({ error: 'title and project_id are required' }, 400)
+      if (!title || !project_id) return fail('title and project_id are required')
       const { data, error } = await supabase.from('tasks').insert({
         title, description: description || null, project_id,
         status: status || 'todo', priority: priority || 'medium',
         due_date: due_date || null, tags: tags || [], category: category || null,
         checklist: checklist || [],
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', task_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', task_id: data?.id })
     }
 
     if (path === 'project-task' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('tasks').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', task_id: id })
     }
 
     // ─── CONTENT ASSETS ──────────────────────────────────────
@@ -266,8 +317,8 @@ Deno.serve(async (req) => {
       if (category) q = q.eq('category', category)
       if (type) q = q.eq('type', type)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ content: data })
+      if (error) return fail(error.message)
+      return ok({ content: data })
     }
 
     if (path === 'content' && req.method === 'POST') {
@@ -284,25 +335,25 @@ Deno.serve(async (req) => {
         if (folder !== undefined) updates.folder = folder
         if (scheduled_for !== undefined) updates.scheduled_for = scheduled_for
         const { error } = await supabase.from('content_assets').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', content_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', content_id: id })
       }
-      if (!title || !type) return json({ error: 'title and type are required' }, 400)
+      if (!title || !type) return fail('title and type are required')
       const { data, error } = await supabase.from('content_assets').insert({
         title, type, body: assetBody || null, status: status || 'draft',
         tags: tags || [], category: category || null, url: url || null,
         folder: folder || null, scheduled_for: scheduled_for || null,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', content_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', content_id: data?.id })
     }
 
     if (path === 'content' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('content_assets').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', content_id: id })
     }
 
     // ─── CONVERSATION THREADS ────────────────────────────────
@@ -313,8 +364,8 @@ Deno.serve(async (req) => {
       if (customer_id) q = q.eq('customer_id', customer_id)
       if (category) q = q.eq('category', category)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ threads: data })
+      if (error) return fail(error.message)
+      return ok({ threads: data })
     }
 
     if (path === 'thread' && req.method === 'POST') {
@@ -327,24 +378,24 @@ Deno.serve(async (req) => {
         if (raw_transcript !== undefined) updates.raw_transcript = raw_transcript
         if (category) updates.category = category
         const { error } = await supabase.from('conversation_threads').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', thread_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', thread_id: id })
       }
-      if (!customer_id) return json({ error: 'customer_id is required' }, 400)
+      if (!customer_id) return fail('customer_id is required')
       const { data, error } = await supabase.from('conversation_threads').insert({
         customer_id, channel: channel || 'chat', status: status || 'open',
         summary: summary || null, raw_transcript: raw_transcript || null, category: category || null,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', thread_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', thread_id: data?.id })
     }
 
     if (path === 'thread' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('conversation_threads').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', thread_id: id })
     }
 
     // ─── DOCUMENTS ───────────────────────────────────────────
@@ -355,8 +406,8 @@ Deno.serve(async (req) => {
       if (customer_id) q = q.eq('customer_id', customer_id)
       if (category) q = q.eq('category', category)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ documents: data })
+      if (error) return fail(error.message)
+      return ok({ documents: data })
     }
 
     if (path === 'document' && req.method === 'POST') {
@@ -370,25 +421,25 @@ Deno.serve(async (req) => {
         if (storage_path !== undefined) updates.storage_path = storage_path
         if (category) updates.category = category
         const { error } = await supabase.from('documents').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', document_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', document_id: id })
       }
-      if (!title || !type || !customer_id) return json({ error: 'title, type, and customer_id are required' }, 400)
+      if (!title || !type || !customer_id) return fail('title, type, and customer_id are required')
       const { data, error } = await supabase.from('documents').insert({
         title, type, customer_id, thread_id: thread_id || null,
         status: status || 'draft', file_url: file_url || null,
         storage_path: storage_path || null, category: category || null,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', document_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', document_id: data?.id })
     }
 
     if (path === 'document' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('documents').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', document_id: id })
     }
 
     // ─── INVOICES ────────────────────────────────────────────
@@ -399,8 +450,8 @@ Deno.serve(async (req) => {
       if (customer_id) q = q.eq('customer_id', customer_id)
       if (status) q = q.eq('status', status)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ invoices: data })
+      if (error) return fail(error.message)
+      return ok({ invoices: data })
     }
 
     if (path === 'invoice' && req.method === 'POST') {
@@ -418,26 +469,26 @@ Deno.serve(async (req) => {
         if (status === 'sent') updates.sent_at = new Date().toISOString()
         if (status === 'paid') updates.paid_at = new Date().toISOString()
         const { error } = await supabase.from('invoices').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', invoice_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', invoice_id: id })
       }
-      if (!customer_id) return json({ error: 'customer_id is required' }, 400)
+      if (!customer_id) return fail('customer_id is required')
       const { data, error } = await supabase.from('invoices').insert({
         customer_id, deal_id: deal_id || null, line_items: line_items || [],
         tax_rate: tax_rate || 0, subtotal: subtotal || 0, amount: amount || 0,
         status: status || 'draft', due_date: due_date || null, notes: notes || null,
         currency: currency || 'USD',
       }).select('id, invoice_number').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', invoice_id: data?.id, invoice_number: data?.invoice_number })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', invoice_id: data?.id, invoice_number: data?.invoice_number })
     }
 
     if (path === 'invoice' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('invoices').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', invoice_id: id })
     }
 
     // ─── COMMUNICATIONS ─────────────────────────────────────
@@ -448,8 +499,8 @@ Deno.serve(async (req) => {
       if (customer_id) q = q.eq('customer_id', customer_id)
       if (type) q = q.eq('type', type)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ communications: data })
+      if (error) return fail(error.message)
+      return ok({ communications: data })
     }
 
     if (path === 'communication' && req.method === 'POST') {
@@ -461,10 +512,10 @@ Deno.serve(async (req) => {
         if (metadata) updates.metadata = metadata
         if (duration_seconds !== undefined) updates.duration_seconds = duration_seconds
         const { error } = await supabase.from('communications').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', communication_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', communication_id: id })
       }
-      if (!type) return json({ error: 'type is required' }, 400)
+      if (!type) return fail('type is required')
       const { data, error } = await supabase.from('communications').insert({
         type, customer_id: customer_id || null, direction: direction || 'outbound',
         subject: subject || null, body: commBody || null,
@@ -473,16 +524,16 @@ Deno.serve(async (req) => {
         provider: provider || null, duration_seconds: duration_seconds || null,
         metadata: metadata || {},
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', communication_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', communication_id: data?.id })
     }
 
     if (path === 'communication' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('communications').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', communication_id: id })
     }
 
     // ─── SIGNATURES (read-only) ──────────────────────────────
@@ -493,8 +544,8 @@ Deno.serve(async (req) => {
       if (customer_id) q = q.eq('customer_id', customer_id)
       if (document_id) q = q.eq('document_id', document_id)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ signatures: data })
+      if (error) return fail(error.message)
+      return ok({ signatures: data })
     }
 
     // ─── INTERACTIONS ────────────────────────────────────────
@@ -503,20 +554,20 @@ Deno.serve(async (req) => {
       let q = supabase.from('interactions').select('*').order('occurred_at', { ascending: false }).limit(100)
       if (customer_id) q = q.eq('customer_id', customer_id)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ interactions: data })
+      if (error) return fail(error.message)
+      return ok({ interactions: data })
     }
 
     if (path === 'interaction' && req.method === 'POST') {
       const { customer_id, type, direction, subject, notes, outcome, next_action } = body
-      if (!customer_id || !type) return json({ error: 'customer_id and type are required' }, 400)
+      if (!customer_id || !type) return fail('customer_id and type are required')
       const { data, error } = await supabase.from('interactions').insert({
         customer_id, type, direction: direction || 'outbound',
         subject: subject || null, notes: notes || null,
         outcome: outcome || null, next_action: next_action || null,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', interaction_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', interaction_id: data?.id })
     }
 
     // ─── BOARDS / LISTS / CARDS ──────────────────────────────
@@ -527,7 +578,7 @@ Deno.serve(async (req) => {
           cards:cards(id, title, status, priority, position, source, description)
         )
       `).order('created_at', { ascending: true })
-      return json({ boards: data })
+      return ok({ boards: data })
     }
 
     if (path === 'board' && req.method === 'POST') {
@@ -541,25 +592,25 @@ Deno.serve(async (req) => {
         if (visibility) updates.visibility = visibility
         if (customer_id !== undefined) updates.customer_id = customer_id
         const { error } = await supabase.from('boards').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', board_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', board_id: id })
       }
-      if (!name) return json({ error: 'name is required' }, 400)
+      if (!name) return fail('name is required')
       const { data, error } = await supabase.from('boards').insert({
         name, description: description || null, category: category || null,
         deadline: deadline || null, visibility: visibility || 'private',
         customer_id: customer_id || null,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', board_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', board_id: data?.id })
     }
 
     if (path === 'board' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('boards').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', board_id: id })
     }
 
     if (path === 'list' && req.method === 'POST') {
@@ -569,15 +620,15 @@ Deno.serve(async (req) => {
         if (name) updates.name = name
         if (position !== undefined) updates.position = position
         const { error } = await supabase.from('lists').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', list_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', list_id: id })
       }
-      if (!board_id || !name) return json({ error: 'board_id and name are required' }, 400)
+      if (!board_id || !name) return fail('board_id and name are required')
       const { data, error } = await supabase.from('lists').insert({
         board_id, name, position: position || 0,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', list_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', list_id: data?.id })
     }
 
     // ─── CARDS (board cards) ─────────────────────────────────
@@ -589,7 +640,7 @@ Deno.serve(async (req) => {
         const updates: Record<string, unknown> = {}
         if (source_url) updates.source_url = source_url
         if (Object.keys(updates).length > 0) await supabase.from('cards').update(updates).eq('id', existing.id)
-        return json({ action: 'updated', card_id: existing.id })
+        return ok({ action: 'updated', card_id: existing.id })
       }
       let { data: board } = await supabase.from('boards').select('id').eq('name', 'Clawd Bot Command Center').maybeSingle()
       if (!board) {
@@ -619,7 +670,7 @@ Deno.serve(async (req) => {
         const { data: label } = await supabase.from('labels').select('id').eq('board_id', board!.id).eq('name', labelName).maybeSingle()
         if (label) await supabase.from('card_labels').insert({ card_id: card.id, label_id: label.id })
       }
-      return json({ action: 'created', card_id: card?.id })
+      return ok({ action: 'created', card_id: card?.id })
     }
 
     if (path === 'card' && req.method === 'POST') {
@@ -635,10 +686,10 @@ Deno.serve(async (req) => {
         if (customer_id !== undefined) updates.customer_id = customer_id
         if (deal_id !== undefined) updates.deal_id = deal_id
         const { error } = await supabase.from('cards').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', card_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', card_id: id })
       }
-      if (!board_id || !list_id || !title) return json({ error: 'board_id, list_id, and title are required' }, 400)
+      if (!board_id || !list_id || !title) return fail('board_id, list_id, and title are required')
       const { data: maxPos } = await supabase.from('cards').select('position').eq('list_id', list_id).order('position', { ascending: false }).limit(1).maybeSingle()
       const { data, error } = await supabase.from('cards').insert({
         board_id, list_id, title, description: description || null,
@@ -647,37 +698,40 @@ Deno.serve(async (req) => {
         customer_id: customer_id || null, deal_id: deal_id || null,
         position: (maxPos?.position ?? -1) + 1,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', card_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', card_id: data?.id })
     }
 
     if (path === 'card' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('cards').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', card_id: id })
     }
 
     if (path === 'move' && req.method === 'POST') {
       const { card_id, to_list_id } = body
+      if (!card_id || !to_list_id) return fail('card_id and to_list_id are required')
       const { error } = await supabase.from('cards').update({ list_id: to_list_id }).eq('id', card_id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'moved', card_id })
     }
 
     if (path === 'comment' && req.method === 'POST') {
       const { card_id, comment } = body
+      if (!card_id || !comment) return fail('card_id and comment are required')
       const { error } = await supabase.from('card_comments').insert({ card_id, body: comment })
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', card_id })
     }
 
     if (path === 'attach' && req.method === 'POST') {
       const { card_id, type, title: attTitle, url: attUrl } = body
+      if (!card_id) return fail('card_id is required')
       const { error } = await supabase.from('card_attachments').insert({ card_id, type: type || 'url', title: attTitle, url: attUrl })
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', card_id })
     }
 
     // ─── BOT TASKS ───────────────────────────────────────────
@@ -686,8 +740,8 @@ Deno.serve(async (req) => {
       let q = supabase.from('bot_tasks').select('*').order('created_at', { ascending: false }).limit(100)
       if (status) q = q.eq('status', status)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ bot_tasks: data })
+      if (error) return fail(error.message)
+      return ok({ bot_tasks: data })
     }
 
     if (path === 'bot-task' && req.method === 'POST') {
@@ -701,25 +755,25 @@ Deno.serve(async (req) => {
         if (due_date !== undefined) updates.due_date = due_date
         if (meta) updates.meta = meta
         const { error } = await supabase.from('bot_tasks').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', bot_task_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', bot_task_id: id })
       }
-      if (!title || !bot_agent) return json({ error: 'title and bot_agent are required' }, 400)
+      if (!title || !bot_agent) return fail('title and bot_agent are required')
       const { data, error } = await supabase.from('bot_tasks').insert({
         title, description: description || null, bot_agent,
         customer_id: customer_id || null, status: status || 'queued',
         priority: priority || 'medium', due_date: due_date || null, meta: meta || {},
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', bot_task_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', bot_task_id: data?.id })
     }
 
     if (path === 'bot-task' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('bot_tasks').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', bot_task_id: id })
     }
 
     // ─── ACTIVITY LOG (read-only) ────────────────────────────
@@ -728,8 +782,8 @@ Deno.serve(async (req) => {
       let q = supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(100)
       if (entity_type) q = q.eq('entity_type', entity_type)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ activity: data })
+      if (error) return fail(error.message)
+      return ok({ activity: data })
     }
 
     // ─── LABELS ──────────────────────────────────────────────
@@ -738,16 +792,16 @@ Deno.serve(async (req) => {
       let q = supabase.from('labels').select('*')
       if (board_id) q = q.eq('board_id', board_id)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ labels: data })
+      if (error) return fail(error.message)
+      return ok({ labels: data })
     }
 
     if (path === 'label' && req.method === 'POST') {
       const { board_id, name, color } = body
-      if (!board_id || !name) return json({ error: 'board_id and name are required' }, 400)
+      if (!board_id || !name) return fail('board_id and name are required')
       const { data, error } = await supabase.from('labels').insert({ board_id, name, color: color || null }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', label_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', label_id: data?.id })
     }
 
     // ─── AUTOMATIONS ─────────────────────────────────────────
@@ -759,8 +813,8 @@ Deno.serve(async (req) => {
       if (enabled === 'true') q = q.eq('is_enabled', true)
       if (enabled === 'false') q = q.eq('is_enabled', false)
       const { data, error } = await q
-      if (error) return json({ error: error.message }, 400)
-      return json({ automations: data })
+      if (error) return fail(error.message)
+      return ok({ automations: data })
     }
 
     if (path === 'automation' && req.method === 'POST') {
@@ -774,30 +828,30 @@ Deno.serve(async (req) => {
         if (actions !== undefined) updates.actions = actions
         if (is_enabled !== undefined) updates.is_enabled = is_enabled
         const { error } = await supabase.from('automations').update(updates).eq('id', id)
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', automation_id: id })
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', automation_id: id })
       }
-      if (!name || !trigger_event || !tt) return json({ error: 'name, trigger_event, and trigger_table are required' }, 400)
+      if (!name || !trigger_event || !tt) return fail('name, trigger_event, and trigger_table are required')
       const { data, error } = await supabase.from('automations').insert({
         name, trigger_event, trigger_table: tt,
         conditions: conditions || {}, actions: actions || [],
         is_enabled: is_enabled !== undefined ? is_enabled : true,
       }).select('id').single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', automation_id: data?.id })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', automation_id: data?.id })
     }
 
     if (path === 'automation' && req.method === 'DELETE') {
       const { id } = body
-      if (!id) return json({ error: 'id is required' }, 400)
+      if (!id) return fail('id is required')
       const { error } = await supabase.from('automations').delete().eq('id', id)
-      if (error) return json({ error: error.message }, 400)
-      return json({ success: true })
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', automation_id: id })
     }
 
     if (path === 'trigger' && req.method === 'POST') {
       const { event, table, payload } = body
-      if (!event || !table) return json({ error: 'event and table are required' }, 400)
+      if (!event || !table) return fail('event and table are required')
 
       const { data: matches, error } = await supabase
         .from('automations')
@@ -806,8 +860,8 @@ Deno.serve(async (req) => {
         .eq('trigger_table', table)
         .eq('is_enabled', true)
 
-      if (error) return json({ error: error.message }, 400)
-      if (!matches || matches.length === 0) return json({ triggered: 0, message: 'No matching automations found' })
+      if (error) return fail(error.message)
+      if (!matches || matches.length === 0) return ok({ triggered: 0, message: 'No matching automations found' })
 
       const results: { automation_id: string; name: string; actions_executed: number; results: unknown[] }[] = []
 
@@ -872,51 +926,119 @@ Deno.serve(async (req) => {
         results.push({ automation_id: auto.id, name: auto.name, actions_executed: actionResults.length, results: actionResults })
       }
 
-      return json({ triggered: results.length, results })
+      return ok({ triggered: results.length, results })
     }
 
     // ─── MEETINGS ─────────────────────────────────────────────
-    if (path === 'meetings' && req.method === 'POST') {
+    if (path === 'meetings' && req.method === 'GET') {
       const { data } = await supabase.from('meetings').select('*').order('created_at', { ascending: false }).limit(100)
-      return json({ results: data })
+      return ok({ meetings: data })
     }
 
     if (path === 'meeting' && req.method === 'POST') {
-      const { id, ...rest } = body
+      const { id, title, host_id, scheduled_at, category, status } = body
       if (id && body._delete) {
         await supabase.from('meetings').delete().eq('id', id)
-        return json({ action: 'deleted', id })
+        return ok({ action: 'deleted', meeting_id: id })
       }
       if (id) {
-        const { data, error } = await supabase.from('meetings').update(rest).eq('id', id).select().single()
-        if (error) return json({ error: error.message }, 400)
-        return json({ action: 'updated', meeting: data, room_url: `/meet/${data.room_code}` })
+        const updates: Record<string, unknown> = {}
+        if (title) updates.title = title
+        if (host_id !== undefined) updates.host_id = host_id
+        if (scheduled_at !== undefined) updates.scheduled_at = scheduled_at
+        if (category !== undefined) updates.category = category
+        if (status) updates.status = status
+        const { data, error } = await supabase.from('meetings').update(updates).eq('id', id).select().single()
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', meeting: data, room_url: `/meet/${data.room_code}` })
       }
       const { data, error } = await supabase.from('meetings').insert({
-        title: rest.title || 'Meeting',
-        host_id: rest.host_id || null,
-        scheduled_at: rest.scheduled_at || null,
-        category: rest.category || null,
-        status: rest.status || 'waiting',
+        title: title || 'Meeting',
+        host_id: host_id || null,
+        scheduled_at: scheduled_at || null,
+        category: category || null,
+        status: status || 'waiting',
       }).select().single()
-      if (error) return json({ error: error.message }, 400)
-      return json({ action: 'created', meeting: data, room_url: `/meet/${data.room_code}` })
+      if (error) return fail(error.message)
+      return ok({ action: 'created', meeting: data, room_url: `/meet/${data.room_code}` })
+    }
+
+    if (path === 'meeting' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      const { error } = await supabase.from('meetings').delete().eq('id', id)
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', meeting_id: id })
+    }
+
+    // ─── GENERATE (mock AI services) ─────────────────────────
+    if (path === 'generate-resume' && req.method === 'POST') {
+      const resumeJson = {
+        name: body.name || 'Client Name',
+        email: body.email || 'client@example.com',
+        summary: 'Professional summary generated from conversation.',
+        experience: [{ title: 'Position', company: 'Company', duration: '2020-2024' }],
+        skills: ['Skill 1', 'Skill 2', 'Skill 3'],
+        style: body.resume_style || 'modern',
+      }
+      return ok({ pdf_base64: 'MOCK_PDF_BASE64_RESUME_PLACEHOLDER', resume_json: resumeJson })
+    }
+
+    if (path === 'generate-contract' && req.method === 'POST') {
+      const contractJson = {
+        parties: { provider: 'STU25', client: body.client_name || 'Client Name' },
+        terms: body.terms || { price: 400, deposit: 200, revisions_policy: '2 free revisions' },
+        template: body.contract_template || 'resume_service_v1',
+        clauses: [
+          'Services will be delivered within 7 business days.',
+          'Payment is due upon signing.',
+          'Two (2) free revisions included.',
+        ],
+      }
+      return ok({ pdf_base64: 'MOCK_PDF_BASE64_CONTRACT_PLACEHOLDER', contract_json: contractJson })
+    }
+
+    if (path === 'generate-email' && req.method === 'POST') {
+      const name = body.customer_name || 'Valued Customer'
+      const portalLink = body.portal_link || '#'
+      return ok({
+        subject: `Your documents are ready — ${name}`,
+        body_html: `<p>Hi ${name},</p><p>Your resume and contract are ready for review. Please click the link below to sign your contract:</p><p><a href="${portalLink}">${portalLink}</a></p><p>Best regards,<br/>STU25 Team</p>`,
+        body_text: `Hi ${name}, your documents are ready. Sign your contract here: ${portalLink}`,
+      })
+    }
+
+    if (path === 'analyze-thread' && req.method === 'POST') {
+      const transcript = (body.transcript || '').toLowerCase()
+      const hasName = transcript.includes('name')
+      const hasEmail = transcript.includes('email') || transcript.includes('@')
+      const hasPhone = transcript.includes('phone') || transcript.includes('call')
+      const missing: string[] = []
+      if (!hasName) missing.push('full_name')
+      if (!hasEmail) missing.push('email')
+      if (!hasPhone) missing.push('phone')
+      const analysisStatus = missing.length === 0 ? 'ready_for_docs' : 'collecting_info'
+      const summary = missing.length === 0
+        ? 'All required information collected. Ready to generate documents.'
+        : `Still collecting info. Missing: ${missing.join(', ')}`
+      return ok({ status: analysisStatus, missing_fields: missing, summary })
     }
 
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
-      const [boards, customers, deals, projects] = await Promise.all([
+      const [boards, customers, deals, projects, meetings] = await Promise.all([
         supabase.from('boards').select('id, name, lists:lists(id, name, position, cards:cards(id, title, status, priority, position, source))').order('created_at', { ascending: true }),
         supabase.from('customers').select('id, full_name, status, email, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('deals').select('id, title, stage, deal_value, status, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('projects').select('id, title, status, priority, category').order('created_at', { ascending: false }).limit(50),
+        supabase.from('meetings').select('id, title, room_code, status, scheduled_at, category').order('created_at', { ascending: false }).limit(50),
       ])
-      return json({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data })
+      return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data })
     }
 
-    return json({ error: 'Unknown endpoint' }, 404)
+    return fail('Unknown endpoint', 404)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
-    return json({ error: msg }, 500)
+    return fail(msg, 500)
   }
 })
