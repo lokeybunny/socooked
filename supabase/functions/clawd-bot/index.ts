@@ -77,8 +77,8 @@ Deno.serve(async (req) => {
 
   if (isStaff) {
     const token = authHeader!.replace('Bearer ', '')
-    const { error } = await supabase.auth.getClaims(token)
-    if (error) return fail('Unauthorized', 401)
+    const { data: { user }, error } = await supabase.auth.getUser(token)
+    if (error || !user) return fail('Unauthorized', 401)
   }
 
   try {
