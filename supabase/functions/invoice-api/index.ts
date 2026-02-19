@@ -84,8 +84,8 @@ Deno.serve(async (req) => {
         global: { headers: { Authorization: authHeader } },
       })
       const token = authHeader.replace('Bearer ', '')
-      const { data, error } = await userClient.auth.getClaims(token)
-      if (!error && data?.claims?.sub) authorized = true
+      const { data: { user }, error } = await userClient.auth.getUser(token)
+      if (!error && user) authorized = true
     }
 
     if (!authorized) return fail('Unauthorized', 401)
