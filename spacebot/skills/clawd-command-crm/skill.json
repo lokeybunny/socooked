@@ -1,5 +1,5 @@
 {
-  "skill_name": "clawd-command-crm",
+  "name": "clawd-command-crm",
   "version": "1.0.0",
   "description": "CRM integration for CLAWD Conductor via Supabase Edge Functions",
   "auth": {
@@ -22,70 +22,10 @@
       "path": "/clawd-bot/lead"
     },
     {
-      "name": "create_customer",
-      "description": "Create or update a customer record",
-      "method": "POST",
-      "path": "/clawd-bot/customer"
-    },
-    {
       "name": "create_deal",
       "description": "Create a new deal linked to a customer",
       "method": "POST",
       "path": "/clawd-bot/deal"
-    },
-    {
-      "name": "create_project",
-      "description": "Create or update a project",
-      "method": "POST",
-      "path": "/clawd-bot/project"
-    },
-    {
-      "name": "create_project_task",
-      "description": "Create or update a task within a project",
-      "method": "POST",
-      "path": "/clawd-bot/project-task"
-    },
-    {
-      "name": "create_bot_task",
-      "description": "Create a bot task for automated processing",
-      "method": "POST",
-      "path": "/clawd-bot/bot-task"
-    },
-    {
-      "name": "create_card",
-      "description": "Create a Kanban board card",
-      "method": "POST",
-      "path": "/clawd-bot/card"
-    },
-    {
-      "name": "move_card",
-      "description": "Move a card to a different list",
-      "method": "POST",
-      "path": "/clawd-bot/move"
-    },
-    {
-      "name": "comment_card",
-      "description": "Add a comment to a card",
-      "method": "POST",
-      "path": "/clawd-bot/comment"
-    },
-    {
-      "name": "attach_to_card",
-      "description": "Attach a file or link to a card",
-      "method": "POST",
-      "path": "/clawd-bot/attach"
-    },
-    {
-      "name": "create_meeting",
-      "description": "Schedule a meeting and get a room URL",
-      "method": "POST",
-      "path": "/clawd-bot/meeting"
-    },
-    {
-      "name": "generate_email",
-      "description": "Generate a client-facing email with a portal or meeting link",
-      "method": "POST",
-      "path": "/clawd-bot/generate-email"
     },
     {
       "name": "create_invoice",
