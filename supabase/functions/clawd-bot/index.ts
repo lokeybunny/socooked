@@ -875,6 +875,34 @@ Deno.serve(async (req) => {
       return json({ triggered: results.length, results })
     }
 
+    // ─── MEETINGS ─────────────────────────────────────────────
+    if (path === 'meetings' && req.method === 'POST') {
+      const { data } = await supabase.from('meetings').select('*').order('created_at', { ascending: false }).limit(100)
+      return json({ results: data })
+    }
+
+    if (path === 'meeting' && req.method === 'POST') {
+      const { id, ...rest } = body
+      if (id && body._delete) {
+        await supabase.from('meetings').delete().eq('id', id)
+        return json({ action: 'deleted', id })
+      }
+      if (id) {
+        const { data, error } = await supabase.from('meetings').update(rest).eq('id', id).select().single()
+        if (error) return json({ error: error.message }, 400)
+        return json({ action: 'updated', meeting: data, room_url: `/meet/${data.room_code}` })
+      }
+      const { data, error } = await supabase.from('meetings').insert({
+        title: rest.title || 'Meeting',
+        host_id: rest.host_id || null,
+        scheduled_at: rest.scheduled_at || null,
+        category: rest.category || null,
+        status: rest.status || 'waiting',
+      }).select().single()
+      if (error) return json({ error: error.message }, 400)
+      return json({ action: 'created', meeting: data, room_url: `/meet/${data.room_code}` })
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
       const [boards, customers, deals, projects] = await Promise.all([
