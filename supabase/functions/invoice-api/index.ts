@@ -5,6 +5,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bot-secret',
 }
 
+const API_VERSION = 'v1'
+
+// ─── Rate Limiter (in-memory, per-IP, 5 req/s) ──────────────
+const rateBuckets = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const bucket = rateBuckets.get(ip)
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + 1000 })
+    return true
+  }
+  bucket.count++
+  return bucket.count <= 5
+}
+
+function ok(data: unknown, status = 200) {
+  return new Response(JSON.stringify({ success: true, data, api_version: API_VERSION }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+function fail(error: string, status = 400) {
+  return new Response(JSON.stringify({ success: false, error, api_version: API_VERSION }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
 interface LineItem {
   description: string
   quantity: number
@@ -27,6 +57,12 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // Rate limit check
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('cf-connecting-ip') || 'unknown'
+  if (!checkRateLimit(clientIp)) {
+    return fail('Rate limit exceeded. Max 5 requests per second.', 429)
+  }
+
   try {
     // Auth: accept BOT_SECRET or standard JWT
     const botSecret = req.headers.get('x-bot-secret')
@@ -40,12 +76,8 @@ Deno.serve(async (req) => {
 
     if (botSecret) {
       const expectedSecret = Deno.env.get('BOT_SECRET')
-      if (!expectedSecret) {
-        return new Response(JSON.stringify({ error: 'BOT_SECRET not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
-      if (botSecret !== expectedSecret) {
-        return new Response(JSON.stringify({ error: 'Invalid bot secret' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
+      if (!expectedSecret) return fail('BOT_SECRET not configured', 500)
+      if (botSecret !== expectedSecret) return fail('Invalid bot secret', 401)
       authorized = true
     } else if (authHeader?.startsWith('Bearer ')) {
       const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
@@ -56,12 +88,23 @@ Deno.serve(async (req) => {
       if (!error && data?.claims?.sub) authorized = true
     }
 
-    if (!authorized) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
+    if (!authorized) return fail('Unauthorized', 401)
 
     const url = new URL(req.url)
     const path = url.pathname.split('/').pop()
+
+    // Audit log for bot calls
+    if (botSecret) {
+      try {
+        const bodyClone = req.method === 'POST' || req.method === 'PATCH' ? await req.clone().json() : {}
+        await supabase.from('webhook_events').insert({
+          source: 'spacebot',
+          event_type: `invoice-api/${path || req.method}`,
+          payload: bodyClone,
+          processed: true,
+        })
+      } catch (_) { /* non-blocking */ }
+    }
 
     // POST /invoice-api - Create invoice
     if (req.method === 'POST' && (!path || path === 'invoice-api')) {
@@ -79,13 +122,8 @@ Deno.serve(async (req) => {
         if (cust) customerId = cust.id
       }
 
-      if (!customerId) {
-        return new Response(JSON.stringify({ error: 'Customer not found. Provide customer_id or customer_email.' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
-
-      if (!body.line_items || body.line_items.length === 0) {
-        return new Response(JSON.stringify({ error: 'line_items required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
+      if (!customerId) return fail('Customer not found. Provide customer_id or customer_email.')
+      if (!body.line_items || body.line_items.length === 0) return fail('line_items required')
 
       const taxRate = body.tax_rate || 0
       const subtotal = body.line_items.reduce((s, li) => s + li.quantity * li.unit_price, 0)
@@ -114,11 +152,8 @@ Deno.serve(async (req) => {
         .select('*, customers(full_name, email)')
         .single()
 
-      if (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
-
-      return new Response(JSON.stringify({ success: true, invoice }), { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (error) return fail(error.message, 500)
+      return ok({ invoice }, 201)
     }
 
     // GET /invoice-api?customer_id=xxx - List invoices
@@ -129,19 +164,14 @@ Deno.serve(async (req) => {
       query = query.limit(50)
 
       const { data, error } = await query
-      if (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
-
-      return new Response(JSON.stringify({ invoices: data }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (error) return fail(error.message, 500)
+      return ok({ invoices: data })
     }
 
     // PATCH /invoice-api?id=xxx - Update status
     if (req.method === 'PATCH') {
       const invoiceId = url.searchParams.get('id')
-      if (!invoiceId) {
-        return new Response(JSON.stringify({ error: 'id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
+      if (!invoiceId) return fail('id required')
 
       const body = await req.json()
       const updates: Record<string, unknown> = {}
@@ -158,16 +188,13 @@ Deno.serve(async (req) => {
         .select()
         .single()
 
-      if (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
-
-      return new Response(JSON.stringify({ success: true, invoice: data }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (error) return fail(error.message, 500)
+      return ok({ invoice: data })
     }
 
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return fail('Method not allowed', 405)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    return new Response(JSON.stringify({ error: message }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return fail(message, 500)
   }
 })
