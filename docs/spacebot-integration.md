@@ -7,12 +7,10 @@
 
 ## Base URLs
 
-| Service     | URL                                                                      |
-|-------------|--------------------------------------------------------------------------|
-| CRM API     | `https://<PROJECT_REF>.supabase.co/functions/v1/clawd-bot/{endpoint}`    |
-| Invoice API | `https://<PROJECT_REF>.supabase.co/functions/v1/invoice-api`             |
-
-Replace `<PROJECT_REF>` with your Supabase project reference ID.
+| Service     | URL                                                                             |
+|-------------|---------------------------------------------------------------------------------|
+| CRM API     | `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/{endpoint}`   |
+| Invoice API | `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/invoice-api`            |
 
 ---
 
@@ -62,7 +60,7 @@ Both edge functions require these environment variables (set as Supabase secrets
 ```json
 {
   "success": true,
-  "data": { ... },
+  "data": { "..." : "..." },
   "api_version": "v1"
 }
 ```
@@ -96,7 +94,7 @@ Both edge functions require these environment variables (set as Supabase secrets
 {
   "source": "spacebot",
   "event_type": "<endpoint_name>",
-  "payload": { ...request body... },
+  "payload": { "...request body..." : "" },
   "processed": true
 }
 ```
@@ -105,24 +103,28 @@ Staff JWT calls are **not** audit-logged.
 
 ---
 
-## Happy Path Workflow
+## Happy Path: STORE FIRST, THEN ACT
+
+The recommended workflow is: **create the data record first**, then perform actions against it.
 
 ### 1. Create a Lead
 
-```bash
-curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/clawd-bot/lead \
-  -H "x-bot-secret: <BOT_SECRET>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "full_name": "Jane Doe",
-    "email": "jane@example.com",
-    "phone": "+1-818-555-0100",
-    "source": "instagram",
-    "category": "web_dev"
-  }'
+**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/lead`
+
+**Request:**
+
+```json
+{
+  "full_name": "Jane Doe",
+  "email": "jane@example.com",
+  "phone": "+1-818-555-0100",
+  "source": "instagram",
+  "category": "web_dev"
+}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -133,20 +135,22 @@ curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/clawd-bot/lead \
 
 ### 2. Create a Deal
 
-```bash
-curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/clawd-bot/deal \
-  -H "x-bot-secret: <BOT_SECRET>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Website Redesign",
-    "customer_id": "uuid-1234",
-    "deal_value": 5000,
-    "stage": "proposal",
-    "category": "web_dev"
-  }'
+**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/deal`
+
+**Request:**
+
+```json
+{
+  "title": "Website Redesign",
+  "customer_id": "uuid-1234",
+  "deal_value": 5000,
+  "stage": "proposal",
+  "category": "web_dev"
+}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -155,20 +159,73 @@ curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/clawd-bot/deal \
 }
 ```
 
-### 3. Create a Meeting
+### 3. Create a Project Task (optional)
 
-```bash
-curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/clawd-bot/meeting \
-  -H "x-bot-secret: <BOT_SECRET>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "Client Onboarding Call",
-    "scheduled_at": "2026-02-20T15:00:00Z",
-    "category": "web_dev"
-  }'
+**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/project-task`
+
+**Request:**
+
+```json
+{
+  "project_id": "uuid-proj",
+  "title": "Design mockups",
+  "priority": "high",
+  "status": "todo"
+}
 ```
 
 **Response:**
+
+```json
+{
+  "success": true,
+  "data": { "action": "created", "task_id": "uuid-task" },
+  "api_version": "v1"
+}
+```
+
+### 4. Create a Board Card (optional)
+
+**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/card`
+
+**Request:**
+
+```json
+{
+  "board_id": "uuid-board",
+  "list_id": "uuid-list",
+  "title": "Client onboarding checklist",
+  "priority": "high",
+  "customer_id": "uuid-1234"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": { "action": "created", "card_id": "uuid-card" },
+  "api_version": "v1"
+}
+```
+
+### 5. Create a Meeting
+
+**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/meeting`
+
+**Request:**
+
+```json
+{
+  "title": "Client Onboarding Call",
+  "scheduled_at": "2026-02-20T15:00:00Z",
+  "category": "web_dev"
+}
+```
+
+**Response:**
+
 ```json
 {
   "success": true,
@@ -181,19 +238,21 @@ curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/clawd-bot/meeting \
 }
 ```
 
-### 4. Generate Client Email
+### 6. Generate Client Email
 
-```bash
-curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/clawd-bot/generate-email \
-  -H "x-bot-secret: <BOT_SECRET>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_name": "Jane Doe",
-    "portal_link": "https://socooked.lovable.app/meet/a1b2c3d4e5f6"
-  }'
+**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/generate-email`
+
+**Request:**
+
+```json
+{
+  "customer_name": "Jane Doe",
+  "portal_link": "https://socooked.lovable.app/meet/a1b2c3d4e5f6"
+}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -206,26 +265,28 @@ curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/clawd-bot/generate-e
 }
 ```
 
-### 5. Create Invoice
+### 7. Create Invoice
 
-```bash
-curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/invoice-api \
-  -H "x-bot-secret: <BOT_SECRET>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_id": "uuid-1234",
-    "line_items": [
-      { "description": "Website Design", "quantity": 1, "unit_price": 2500 },
-      { "description": "SEO Setup", "quantity": 1, "unit_price": 500 }
-    ],
-    "tax_rate": 8.5,
-    "currency": "USD",
-    "due_date": "2026-03-15",
-    "auto_send": true
-  }'
+**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/invoice-api`
+
+**Request:**
+
+```json
+{
+  "customer_id": "uuid-1234",
+  "line_items": [
+    { "description": "Website Design", "quantity": 1, "unit_price": 2500 },
+    { "description": "SEO Setup", "quantity": 1, "unit_price": 500 }
+  ],
+  "tax_rate": 8.5,
+  "currency": "USD",
+  "due_date": "2026-03-15",
+  "auto_send": true
+}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -252,107 +313,3 @@ curl -X POST https://<PROJECT_REF>.supabase.co/functions/v1/invoice-api \
 | **404** Not Found | Unknown endpoint path | Check the endpoint path matches exactly (e.g., `/clawd-bot/lead`, not `/clawd-bot/leads`). Singular = write, plural = read. |
 | **400** Bad Request | Missing required fields | Check the error message — it tells you which field is missing (e.g., `"full_name is required"`). |
 | **500** Internal Error | Database or runtime failure | Check the `error` field in the response. Common causes: invalid UUID, foreign key violation. |
-
----
-
-## SpaceBot Custom Skill Manifest
-
-```json
-{
-  "skill_name": "clawd-command-crm",
-  "version": "1.0.0",
-  "description": "CRM integration for CLAWD-COMMAND via SpaceBot",
-  "auth": {
-    "type": "shared_secret",
-    "header": "x-bot-secret",
-    "secret_env": "BOT_SECRET"
-  },
-  "base_url": "https://<PROJECT_REF>.supabase.co/functions/v1",
-  "actions": [
-    {
-      "name": "get_state",
-      "description": "Get a full CRM snapshot: boards, customers, deals, projects, meetings",
-      "method": "GET",
-      "path": "/clawd-bot/state",
-      "params": {},
-      "response": {
-        "success": true,
-        "data": {
-          "boards": [],
-          "customers": [],
-          "deals": [],
-          "projects": [],
-          "meetings": []
-        }
-      }
-    },
-    {
-      "name": "create_or_update_lead",
-      "description": "Create a new lead or update an existing one (deduplicates by email)",
-      "method": "POST",
-      "path": "/clawd-bot/lead",
-      "params": {
-        "full_name": { "type": "string", "required": true },
-        "email": { "type": "string", "required": false },
-        "phone": { "type": "string", "required": false },
-        "source": { "type": "string", "required": false },
-        "category": { "type": "string", "required": false }
-      },
-      "response": {
-        "success": true,
-        "data": { "action": "created", "customer_id": "uuid" }
-      }
-    },
-    {
-      "name": "create_deal",
-      "description": "Create a new deal linked to a customer",
-      "method": "POST",
-      "path": "/clawd-bot/deal",
-      "params": {
-        "title": { "type": "string", "required": true },
-        "customer_id": { "type": "string", "required": true },
-        "deal_value": { "type": "number", "required": false },
-        "stage": { "type": "string", "required": false },
-        "category": { "type": "string", "required": false }
-      },
-      "response": {
-        "success": true,
-        "data": { "action": "created", "deal_id": "uuid" }
-      }
-    },
-    {
-      "name": "create_invoice",
-      "description": "Create and optionally send an invoice",
-      "method": "POST",
-      "path": "/invoice-api",
-      "params": {
-        "customer_id": { "type": "string", "required": true, "note": "Or use customer_email instead" },
-        "line_items": {
-          "type": "array",
-          "required": true,
-          "items": {
-            "description": { "type": "string" },
-            "quantity": { "type": "number" },
-            "unit_price": { "type": "number" }
-          }
-        },
-        "tax_rate": { "type": "number", "required": false },
-        "currency": { "type": "string", "required": false, "default": "USD" },
-        "due_date": { "type": "string", "required": false },
-        "auto_send": { "type": "boolean", "required": false, "default": false }
-      },
-      "response": {
-        "success": true,
-        "data": {
-          "invoice": {
-            "id": "uuid",
-            "invoice_number": "INV-XXXXX",
-            "amount": 0,
-            "status": "draft"
-          }
-        }
-      }
-    }
-  ]
-}
-```

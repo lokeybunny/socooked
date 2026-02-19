@@ -1,0 +1,97 @@
+{
+  "skill_name": "clawd-command-crm",
+  "version": "1.0.0",
+  "description": "CRM integration for CLAWD-COMMAND via SpaceBot",
+  "auth": {
+    "type": "shared_secret",
+    "header": "x-bot-secret",
+    "secret_env": "BOT_SECRET"
+  },
+  "base_url": "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1",
+  "actions": [
+    {
+      "name": "get_state",
+      "description": "Get a full CRM snapshot: boards, customers, deals, projects, meetings",
+      "method": "GET",
+      "path": "/clawd-bot/state",
+      "params": {},
+      "response": {
+        "success": true,
+        "data": {
+          "boards": [],
+          "customers": [],
+          "deals": [],
+          "projects": [],
+          "meetings": []
+        }
+      }
+    },
+    {
+      "name": "create_or_update_lead",
+      "description": "Create a new lead or update an existing one (deduplicates by email)",
+      "method": "POST",
+      "path": "/clawd-bot/lead",
+      "params": {
+        "full_name": { "type": "string", "required": true },
+        "email": { "type": "string", "required": false },
+        "phone": { "type": "string", "required": false },
+        "source": { "type": "string", "required": false },
+        "category": { "type": "string", "required": false }
+      },
+      "response": {
+        "success": true,
+        "data": { "action": "created", "customer_id": "uuid" }
+      }
+    },
+    {
+      "name": "create_deal",
+      "description": "Create a new deal linked to a customer",
+      "method": "POST",
+      "path": "/clawd-bot/deal",
+      "params": {
+        "title": { "type": "string", "required": true },
+        "customer_id": { "type": "string", "required": true },
+        "deal_value": { "type": "number", "required": false },
+        "stage": { "type": "string", "required": false },
+        "category": { "type": "string", "required": false }
+      },
+      "response": {
+        "success": true,
+        "data": { "action": "created", "deal_id": "uuid" }
+      }
+    },
+    {
+      "name": "create_invoice",
+      "description": "Create and optionally send an invoice",
+      "method": "POST",
+      "path": "/invoice-api",
+      "params": {
+        "customer_id": { "type": "string", "required": true, "note": "Or use customer_email instead" },
+        "line_items": {
+          "type": "array",
+          "required": true,
+          "items": {
+            "description": { "type": "string" },
+            "quantity": { "type": "number" },
+            "unit_price": { "type": "number" }
+          }
+        },
+        "tax_rate": { "type": "number", "required": false },
+        "currency": { "type": "string", "required": false, "default": "USD" },
+        "due_date": { "type": "string", "required": false },
+        "auto_send": { "type": "boolean", "required": false, "default": false }
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "invoice": {
+            "id": "uuid",
+            "invoice_number": "INV-XXXXX",
+            "amount": 0,
+            "status": "draft"
+          }
+        }
+      }
+    }
+  ]
+}
