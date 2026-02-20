@@ -95,6 +95,14 @@ export default function Invoices() {
     load();
   };
 
+  const deleteInvoice = async (id: string) => {
+    const { error } = await supabase.from('invoices').delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Invoice deleted');
+    setDetailInvoice(null);
+    load();
+  };
+
   const paidTotal = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.amount), 0);
   const outstandingTotal = invoices.filter(i => i.status === 'sent').reduce((s, i) => s + Number(i.amount), 0);
 
@@ -404,6 +412,7 @@ export default function Invoices() {
                 {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'sent')}><Send className="h-3 w-3 mr-1" />Send</Button>}
                 {inv.status === 'sent' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
                 {(inv.status === 'draft' || inv.status === 'sent') && <Button size="sm" variant="ghost" onClick={() => markAs(inv.id, 'void')}>Void</Button>}
+                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteInvoice(inv.id)}><Trash2 className="h-3 w-3" /></Button>
               </div>
             </div>
           ))}
@@ -494,6 +503,9 @@ export default function Invoices() {
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && (
                       <Button variant="ghost" onClick={() => markAs(detailInvoice.id, 'void')}>Void</Button>
                     )}
+                    <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteInvoice(detailInvoice.id)}>
+                      <Trash2 className="h-4 w-4 mr-2" />Delete
+                    </Button>
                   </div>
                 </div>
               </>
