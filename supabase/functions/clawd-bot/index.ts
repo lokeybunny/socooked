@@ -87,6 +87,13 @@ Deno.serve(async (req) => {
     if (error || !user) return fail('Unauthorized', 401)
   }
 
+  // Valid category IDs matching the UI
+  const VALID_CATEGORIES = ['digital-services', 'brick-and-mortar', 'digital-ecommerce', 'food-and-beverage', 'mobile-services', 'other']
+  const normalizeCategory = (cat: string | null | undefined): string => {
+    if (!cat) return 'other'
+    return VALID_CATEGORIES.includes(cat) ? cat : 'other'
+  }
+
   try {
     const body = req.method !== 'GET' ? await req.json() : {}
     const params = url.searchParams
@@ -121,7 +128,7 @@ Deno.serve(async (req) => {
         if (status) updates.status = status
         if (notes !== undefined) updates.notes = notes
         if (tags) updates.tags = tags
-        if (category) updates.category = category
+        if (category) updates.category = normalizeCategory(category)
         if (meta) updates.meta = meta
         const { error } = await supabase.from('customers').update(updates).eq('id', id)
         if (error) return fail(error.message)
@@ -131,7 +138,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase.from('customers').insert({
         full_name, email: email || null, phone: phone || null, address: address || null,
         company: company || null, source: source || 'bot', status: status || 'lead',
-        notes: notes || null, tags: tags || [], category: category || null, meta: meta || {},
+        notes: notes || null, tags: tags || [], category: normalizeCategory(category), meta: meta || {},
       }).select('id').single()
       if (error) return fail(error.message)
       return ok({ action: 'created', customer_id: data?.id })
@@ -166,7 +173,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase.from('customers').insert({
         full_name, email: email || null, phone: phone || null, address: address || null,
         company: company || null, source: source || 'bot', status: 'lead',
-        notes: notes || (source_url ? `Source: ${source_url}` : null), tags: tags || [], category: category || null,
+        notes: notes || (source_url ? `Source: ${source_url}` : null), tags: tags || [], category: normalizeCategory(category),
       }).select('id').single()
       if (error) return fail(error.message)
       return ok({ action: 'created', customer_id: data?.id })
