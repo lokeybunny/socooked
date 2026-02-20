@@ -57,6 +57,8 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 |------|--------|------|-------------|
 | `get_state` | GET | `/clawd-bot/state` | Get CRM snapshot |
 | `create_or_update_lead` | POST | `/clawd-bot/lead` | Create or update lead |
+| `create_or_update_customer` | POST | `/clawd-bot/customer` | Create or update customer (include `id` to update) |
+| `delete_customer` | DELETE | `/clawd-bot/customer` | Delete customer by `id` in body `{"id":"uuid"}` |
 | `create_deal` | POST | `/clawd-bot/deal` | Create deal |
 | `create_invoice` | POST | `/invoice-api` | Create invoice |
 

@@ -22,6 +22,18 @@
       "path": "/clawd-bot/lead"
     },
     {
+      "name": "create_or_update_customer",
+      "description": "Create or update a customer. Include 'id' in body to update an existing record.",
+      "method": "POST",
+      "path": "/clawd-bot/customer"
+    },
+    {
+      "name": "delete_customer",
+      "description": "Delete a customer by ID. Body: {\"id\": \"uuid\"}",
+      "method": "DELETE",
+      "path": "/clawd-bot/customer"
+    },
+    {
       "name": "create_deal",
       "description": "Create a new deal linked to a customer",
       "method": "POST",
