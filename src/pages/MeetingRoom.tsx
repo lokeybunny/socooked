@@ -74,7 +74,6 @@ export default function MeetingRoom() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       return stream;
     } catch {
       // fallback audio only
@@ -88,6 +87,13 @@ export default function MeetingRoom() {
       }
     }
   }, []);
+
+  // Attach local stream to video element once joined and ref is available
+  useEffect(() => {
+    if (joined && localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current;
+    }
+  }, [joined]);
 
   const createPeerConnection = useCallback((remotePeerId: string, remoteName: string) => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
