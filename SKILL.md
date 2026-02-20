@@ -14,31 +14,36 @@ Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, de
 
 | Type | Method |
 |------|--------|
-| `hmac_signature` | HMAC-SHA256 signed request headers |
+| `shared_secret` | Plain shared secret sent as HTTP header |
 
 ### How it works
 
-SpaceBot sends the shared secret via the `x-bot-secret` header on every request.
+Send the shared secret as the `x-bot-secret` header on **every** request. No HMAC signing, no timestamps, no nonces — just the raw secret value.
 
-### BOT_SECRET
+### Required Header
 
+| Header | Value |
+|--------|-------|
+| `x-bot-secret` | `XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f` |
+
+### Example cURL
+
+```bash
+curl -H "x-bot-secret: XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f" \
+     -H "Content-Type: application/json" \
+     https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/state
 ```
-XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f
+
+### Delete a customer
+
+```bash
+curl -X POST \
+     -H "x-bot-secret: XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f" \
+     -H "Content-Type: application/json" \
+     -d '{"id": "customer-uuid-here"}' \
+     https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/customer
 ```
-
-### Required Headers
-
-| Header | Description |
-|--------|-------------|
-| `x-bot-timestamp` | Unix epoch seconds (e.g. `1740100000`) |
-| `x-bot-nonce` | Random unique string per request (UUID recommended) |
-| `x-bot-signature` | HMAC-SHA256 hex digest of `<timestamp>.<nonce>` using `BOT_SECRET` |
-
-### Verification Rules
-
-- Signature: `HMAC-SHA256(timestamp + "." + nonce, BOT_SECRET)`
-- Requests older than **5 minutes** are rejected (replay protection)
-- Each nonce is single-use within the 5-minute window
+To delete, POST to `/clawd-bot/customer` with `{"id": "uuid"}` in the body.
 
 ## Base URL
 
