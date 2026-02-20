@@ -64,10 +64,16 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization')
   const expectedSecret = Deno.env.get('BOT_SECRET')
 
+  // Debug: log auth attempt (no secret values, just presence)
+  console.log(`[auth] path=${path} bot-secret-present=${!!botSecret} expected-present=${!!expectedSecret} match=${botSecret === expectedSecret} auth-header-present=${!!authHeader}`)
+
   const isBot = !!(botSecret && expectedSecret && botSecret === expectedSecret)
   const isStaff = !!authHeader?.startsWith('Bearer ')
 
-  if (!isBot && !isStaff) return fail('Unauthorized', 401)
+  if (!isBot && !isStaff) {
+    console.log(`[auth] REJECTED - isBot=${isBot} isStaff=${isStaff} bot-secret-length=${botSecret?.length} expected-length=${expectedSecret?.length}`)
+    return fail('Unauthorized', 401)
+  }
 
   const supabase = isBot
     ? createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
