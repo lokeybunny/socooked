@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
         due_date: body.due_date || null,
         notes: body.notes || null,
         status: body.auto_send ? 'sent' : 'draft',
-        provider: 'clawd-bot',
+        provider: 'manual',
       }
 
       if (body.auto_send) {
