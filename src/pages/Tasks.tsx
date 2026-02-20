@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Calendar, ChevronDown, ChevronRight, User, Bot, Code, Share2, Headphones } from 'lucide-react';
+import { Plus, Calendar, ChevronDown, ChevronRight, User, Bot, Code, Share2, Headphones, X } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
@@ -32,6 +33,7 @@ export default function Tasks() {
   const [botTasks, setBotTasks] = useState<any[]>([]);
   const [botDialogOpen, setBotDialogOpen] = useState(false);
   const [botForm, setBotForm] = useState({ title: '', description: '', bot_agent: 'receptionist', priority: 'medium', due_date: '' });
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: 'bot' | 'manual'; title: string } | null>(null);
 
   // Legacy tasks
   const [tasks, setTasks] = useState<any[]>([]);
@@ -81,6 +83,16 @@ export default function Tasks() {
   const updateBotStatus = async (id: string, status: string) => {
     await supabase.from('bot_tasks').update({ status }).eq('id', id);
     loadBotTasks();
+  };
+
+  const handleDeleteTask = async () => {
+    if (!deleteTarget) return;
+    const table = deleteTarget.type === 'bot' ? 'bot_tasks' : 'tasks';
+    const { error } = await supabase.from(table).delete().eq('id', deleteTarget.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Task deleted');
+    setDeleteTarget(null);
+    if (deleteTarget.type === 'bot') loadBotTasks(); else load();
   };
 
   // Legacy task CRUD
@@ -151,8 +163,14 @@ export default function Tasks() {
             </div>
             <div className="space-y-2">
               {(grouped[status] || []).map((task: any) => (
-                <div key={task.id} className="glass-card p-3 hover:shadow-md transition-shadow cursor-pointer">
-                  <p className="text-sm font-medium text-foreground mb-1">{task.title}</p>
+                <div key={task.id} className="glass-card p-3 hover:shadow-md transition-shadow cursor-pointer relative group/card">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: task.id, type: 'manual', title: task.title }); }}
+                    className="absolute top-2 right-2 h-5 w-5 rounded-full bg-destructive/10 text-destructive flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-destructive/20"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                  <p className="text-sm font-medium text-foreground mb-1 pr-6">{task.title}</p>
                   <p className="text-xs text-muted-foreground mb-2">{task.projects?.title || '—'}</p>
                   <div className="flex items-center justify-between">
                     <StatusBadge status={task.priority} className={`priority-${task.priority}`} />
@@ -208,8 +226,14 @@ export default function Tasks() {
               </div>
               <div className="space-y-2">
                 {(grouped[status] || []).map((task: any) => (
-                  <div key={task.id} className="glass-card p-3 hover:shadow-md transition-shadow space-y-2">
-                    <p className="text-sm font-medium text-foreground">{task.title}</p>
+                  <div key={task.id} className="glass-card p-3 hover:shadow-md transition-shadow space-y-2 relative group/card">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: task.id, type: 'bot', title: task.title }); }}
+                      className="absolute top-2 right-2 h-5 w-5 rounded-full bg-destructive/10 text-destructive flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity hover:bg-destructive/20"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    <p className="text-sm font-medium text-foreground pr-6">{task.title}</p>
                     {task.description && <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>}
                     <div className="flex items-center justify-between">
                       <span className={cn(
@@ -402,6 +426,21 @@ export default function Tasks() {
           </TabsContent>
         </Tabs>
         </div>
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Task</AlertDialogTitle>
+              <AlertDialogDescription>
+                Delete "{deleteTarget?.title}"? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CategoryGate>
     </AppLayout>
   );
