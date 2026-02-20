@@ -1,4 +1,4 @@
-# clawd-command-crm-skill
+# clawd-command-crm
 
 CRM integration for CLAWD Command via SpaceBot.
 
@@ -8,8 +8,7 @@ CRM integration for CLAWD Command via SpaceBot.
 
 ## Description
 
-Cortex Skill for safe CRM operations: customer lookup, create, update, delete, deals, and invoices.  
-Ensures lookup → update → create flow, respects rate limits, logs all actions, and returns consistent responses for Telegram or other frontends.
+Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, deal creation, invoicing, meetings, and full CRM state retrieval via Supabase Edge Functions.
 
 ## Auth
 
@@ -17,53 +16,68 @@ Ensures lookup → update → create flow, respects rate limits, logs all action
 |------|--------|
 | `shared_secret` | Plain shared secret sent as HTTP header |
 
+### How it works
+
+Send the shared secret as the `x-bot-secret` header on **every** request. No HMAC signing, no timestamps, no nonces — just the raw secret value.
+
 ### Required Header
 
 | Header | Value |
 |--------|-------|
-| `x-bot-secret` | Stored in secret manager; never hardcode in code |
+| `x-bot-secret` | `XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f` |
 
 ## Base URL
+
+```
+https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
+```
 
 ## Actions
 
 | Name | Method | Path | Description |
 |------|--------|------|-------------|
 | `get_state` | GET | `/clawd-bot/state` | Get CRM snapshot |
-| `list_customers` | GET | `/clawd-bot/lead/list` | Return all customers or filtered by email/name |
-| `create_or_update_lead` | POST | `/clawd-bot/lead` | Create or update lead after lookup |
+| `create_or_update_lead` | POST | `/clawd-bot/lead` | Create or update lead |
 | `create_or_update_customer` | POST | `/clawd-bot/customer` | Create or update customer (include `id` to update) |
 | `delete_customer` | DELETE | `/clawd-bot/customer` | Delete customer by `id` in body `{"id":"uuid"}` |
 | `create_deal` | POST | `/clawd-bot/deal` | Create deal |
 | `create_invoice` | POST | `/invoice-api` | Create invoice |
+| `create_meeting` | POST | `/clawd-bot/meeting` | Create a meeting room (returns `room_code` + `room_url`) |
+| `create_card` | POST | `/clawd-bot/card` | Create a board card |
 
-## Customer Lookup & Safe Create/Update Flow
+## Meeting + Card Workflow
 
-1. **Lookup**: Check if customer exists by email or full_name using `list_customers` endpoint.  
-2. **Decision**:
-   - If `customer_id` exists → PATCH `/clawd-bot/customer/{customer_id}` with updates.
-   - If not → POST `/clawd-bot/lead` to create a new customer.  
-3. **Rate Limiting**:
-   - Pause 10–15 seconds between requests if throttled.  
-   - Retry once on HTTP 429 errors, log reason.  
-4. **Logging**:
-   - Record timestamp, endpoint, request, response in Cortex memory.  
-   - Track last 50 actions to prevent duplicates.  
-5. **Security**:
-   - Always validate `x-bot-secret` is present.  
-   - Never execute CRM write without a valid secret.  
+When scheduling a meeting, Cortex should chain **two** API calls:
 
-## Input Example
+1. **Create the meeting room** → `POST /clawd-bot/meeting` with `{"title": "Meeting: Customer Name"}`
+   - Response includes `room_code` and `room_url` (e.g. `/meet/abc123`)
+2. **Create a board card** → `POST /clawd-bot/card` with:
+   ```json
+   {
+     "board_id": "561c6b68-e7bb-49c0-9c94-2182780d2030",
+     "list_id": "500589c6-bcb9-4949-8240-6630a47db30b",
+     "title": "Meeting: Customer Name",
+     "customer_id": "<customer_uuid>",
+     "source_url": "<room_url from step 1>"
+   }
+   ```
 
-```json
-{
-  "full_name": "Billy",
-  "email": "billy@example.com",
-  "category": "inbound",
-  "source": "telegram",
-  "notes": "Intake recorded via Telegram bot"
-}
+This ensures both a joinable video meeting **and** a trackable card are created together.
 
-| Name | Method | Path | Description |
-|------|--------|------|-------------|
-| `create_meeting` | POST | `/clawd-bot/card` | Create a CRM card/task for meetings, events, or follow-ups |
+## Customer Lookup & Safe Create/Update
+
+1. **Lookup**: `GET /clawd-bot/customers` (filter with `?status=lead` or search by name/email)
+2. **If found** → `POST /clawd-bot/customer` with `{"id": "uuid", ...updates}`
+3. **If not found** → `POST /clawd-bot/lead` to create new
+4. Respect rate limits (5 req/s). Pause 10–15s if throttled.
+5. Never execute writes without valid `x-bot-secret`.
+
+## Manifest
+
+See [`skill.json`](./skill.json) for the machine-readable skill definition.
+
+## Install
+
+```
+lokeybunny/clawd-command-crm-skill
+```

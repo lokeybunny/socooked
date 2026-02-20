@@ -44,6 +44,18 @@
       "description": "Create and optionally send an invoice",
       "method": "POST",
       "path": "/invoice-api"
+    },
+    {
+      "name": "create_meeting",
+      "description": "Create a meeting room. Returns room_code and room_url. Body: {\"title\": \"...\"}",
+      "method": "POST",
+      "path": "/clawd-bot/meeting"
+    },
+    {
+      "name": "create_card",
+      "description": "Create a board card. Body: {\"board_id\": \"uuid\", \"list_id\": \"uuid\", \"title\": \"...\", \"customer_id\": \"uuid\", \"source_url\": \"...\"}",
+      "method": "POST",
+      "path": "/clawd-bot/card"
     }
   ]
 }
