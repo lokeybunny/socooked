@@ -48,6 +48,18 @@ async function auditLog(supabase: any, endpoint: string, payload: unknown) {
   } catch (_) { /* non-blocking */ }
 }
 
+// ─── Activity logger (feeds real-time notifications) ─────────
+async function logActivity(supabase: any, entityType: string, entityId: string | null, action: string, name?: string) {
+  try {
+    await supabase.from('activity_log').insert({
+      entity_type: entityType,
+      entity_id: entityId,
+      action,
+      meta: { name: name || '' },
+    })
+  } catch (_) { /* non-blocking */ }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
@@ -132,6 +144,7 @@ Deno.serve(async (req) => {
         if (meta) updates.meta = meta
         const { error } = await supabase.from('customers').update(updates).eq('id', id)
         if (error) return fail(error.message)
+        await logActivity(supabase, 'customer', id, 'updated', full_name || updates.full_name as string)
         return ok({ action: 'updated', customer_id: id })
       }
       if (!full_name) return fail('full_name is required')
@@ -141,6 +154,7 @@ Deno.serve(async (req) => {
         notes: notes || null, tags: tags || [], category: normalizeCategory(category), meta: meta || {},
       }).select('id').single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'customer', data?.id, 'created', full_name)
       return ok({ action: 'created', customer_id: data?.id })
     }
 
@@ -149,6 +163,7 @@ Deno.serve(async (req) => {
       if (!id) return fail('id is required')
       const { error } = await supabase.from('customers').delete().eq('id', id)
       if (error) return fail(error.message)
+      await logActivity(supabase, 'customer', id, 'deleted')
       return ok({ action: 'deleted', customer_id: id })
     }
 
@@ -168,6 +183,7 @@ Deno.serve(async (req) => {
         if (company) updates.company = company
         if (notes) updates.notes = notes
         if (Object.keys(updates).length > 0) await supabase.from('customers').update(updates).eq('id', existingId)
+        await logActivity(supabase, 'lead', existingId, 'updated', full_name)
         return ok({ action: 'updated', customer_id: existingId })
       }
       const { data, error } = await supabase.from('customers').insert({
@@ -176,6 +192,7 @@ Deno.serve(async (req) => {
         notes: notes || (source_url ? `Source: ${source_url}` : null), tags: tags || [], category: normalizeCategory(category),
       }).select('id').single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'lead', data?.id, 'created', full_name)
       return ok({ action: 'created', customer_id: data?.id })
     }
 
@@ -206,6 +223,7 @@ Deno.serve(async (req) => {
         if (category) updates.category = category
         const { error } = await supabase.from('deals').update(updates).eq('id', id)
         if (error) return fail(error.message)
+        await logActivity(supabase, 'deal', id, 'updated', title)
         return ok({ action: 'updated', deal_id: id })
       }
       if (!title || !customer_id) return fail('title and customer_id are required')
@@ -216,6 +234,7 @@ Deno.serve(async (req) => {
         tags: tags || [], category: category || null,
       }).select('id').single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'deal', data?.id, 'created', title)
       return ok({ action: 'created', deal_id: data?.id })
     }
 
@@ -224,6 +243,7 @@ Deno.serve(async (req) => {
       if (!id) return fail('id is required')
       const { error } = await supabase.from('deals').delete().eq('id', id)
       if (error) return fail(error.message)
+      await logActivity(supabase, 'deal', id, 'deleted')
       return ok({ action: 'deleted', deal_id: id })
     }
 
@@ -254,6 +274,7 @@ Deno.serve(async (req) => {
         if (category) updates.category = category
         const { error } = await supabase.from('projects').update(updates).eq('id', id)
         if (error) return fail(error.message)
+        await logActivity(supabase, 'project', id, 'updated', title)
         return ok({ action: 'updated', project_id: id })
       }
       if (!title) return fail('title is required')
@@ -264,6 +285,7 @@ Deno.serve(async (req) => {
         tags: tags || [], category: category || null,
       }).select('id').single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'project', data?.id, 'created', title)
       return ok({ action: 'created', project_id: data?.id })
     }
 
@@ -272,6 +294,7 @@ Deno.serve(async (req) => {
       if (!id) return fail('id is required')
       const { error } = await supabase.from('projects').delete().eq('id', id)
       if (error) return fail(error.message)
+      await logActivity(supabase, 'project', id, 'deleted')
       return ok({ action: 'deleted', project_id: id })
     }
 
@@ -301,6 +324,7 @@ Deno.serve(async (req) => {
         if (checklist) updates.checklist = checklist
         const { error } = await supabase.from('tasks').update(updates).eq('id', id)
         if (error) return fail(error.message)
+        await logActivity(supabase, 'task', id, 'updated', title)
         return ok({ action: 'updated', task_id: id })
       }
       if (!title || !project_id) return fail('title and project_id are required')
@@ -311,6 +335,7 @@ Deno.serve(async (req) => {
         checklist: checklist || [],
       }).select('id').single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'task', data?.id, 'created', title)
       return ok({ action: 'created', task_id: data?.id })
     }
 
@@ -319,6 +344,7 @@ Deno.serve(async (req) => {
       if (!id) return fail('id is required')
       const { error } = await supabase.from('tasks').delete().eq('id', id)
       if (error) return fail(error.message)
+      await logActivity(supabase, 'task', id, 'deleted')
       return ok({ action: 'deleted', task_id: id })
     }
 
@@ -349,6 +375,7 @@ Deno.serve(async (req) => {
         if (scheduled_for !== undefined) updates.scheduled_for = scheduled_for
         const { error } = await supabase.from('content_assets').update(updates).eq('id', id)
         if (error) return fail(error.message)
+        await logActivity(supabase, 'content', id, 'updated', title)
         return ok({ action: 'updated', content_id: id })
       }
       if (!title || !type) return fail('title and type are required')
@@ -358,6 +385,7 @@ Deno.serve(async (req) => {
         folder: folder || null, scheduled_for: scheduled_for || null,
       }).select('id').single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'content', data?.id, 'created', title)
       return ok({ action: 'created', content_id: data?.id })
     }
 
@@ -366,6 +394,7 @@ Deno.serve(async (req) => {
       if (!id) return fail('id is required')
       const { error } = await supabase.from('content_assets').delete().eq('id', id)
       if (error) return fail(error.message)
+      await logActivity(supabase, 'content', id, 'deleted')
       return ok({ action: 'deleted', content_id: id })
     }
 
@@ -435,6 +464,7 @@ Deno.serve(async (req) => {
         if (category) updates.category = category
         const { error } = await supabase.from('documents').update(updates).eq('id', id)
         if (error) return fail(error.message)
+        await logActivity(supabase, 'document', id, 'updated', title)
         return ok({ action: 'updated', document_id: id })
       }
       if (!title || !type || !customer_id) return fail('title, type, and customer_id are required')
@@ -444,6 +474,7 @@ Deno.serve(async (req) => {
         storage_path: storage_path || null, category: category || null,
       }).select('id').single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'document', data?.id, 'created', title)
       return ok({ action: 'created', document_id: data?.id })
     }
 
@@ -452,6 +483,7 @@ Deno.serve(async (req) => {
       if (!id) return fail('id is required')
       const { error } = await supabase.from('documents').delete().eq('id', id)
       if (error) return fail(error.message)
+      await logActivity(supabase, 'document', id, 'deleted')
       return ok({ action: 'deleted', document_id: id })
     }
 
@@ -483,6 +515,7 @@ Deno.serve(async (req) => {
         if (status === 'paid') updates.paid_at = new Date().toISOString()
         const { error } = await supabase.from('invoices').update(updates).eq('id', id)
         if (error) return fail(error.message)
+        await logActivity(supabase, 'invoice', id, 'updated')
         return ok({ action: 'updated', invoice_id: id })
       }
       if (!customer_id) return fail('customer_id is required')
@@ -493,6 +526,7 @@ Deno.serve(async (req) => {
         currency: currency || 'USD',
       }).select('id, invoice_number').single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'invoice', data?.id, 'created', data?.invoice_number)
       return ok({ action: 'created', invoice_id: data?.id, invoice_number: data?.invoice_number })
     }
 
@@ -501,6 +535,7 @@ Deno.serve(async (req) => {
       if (!id) return fail('id is required')
       const { error } = await supabase.from('invoices').delete().eq('id', id)
       if (error) return fail(error.message)
+      await logActivity(supabase, 'invoice', id, 'deleted')
       return ok({ action: 'deleted', invoice_id: id })
     }
 
@@ -606,6 +641,7 @@ Deno.serve(async (req) => {
         if (customer_id !== undefined) updates.customer_id = customer_id
         const { error } = await supabase.from('boards').update(updates).eq('id', id)
         if (error) return fail(error.message)
+        await logActivity(supabase, 'board', id, 'updated', name)
         return ok({ action: 'updated', board_id: id })
       }
       if (!name) return fail('name is required')
@@ -615,6 +651,7 @@ Deno.serve(async (req) => {
         customer_id: customer_id || null,
       }).select('id').single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'board', data?.id, 'created', name)
       return ok({ action: 'created', board_id: data?.id })
     }
 
@@ -623,6 +660,7 @@ Deno.serve(async (req) => {
       if (!id) return fail('id is required')
       const { error } = await supabase.from('boards').delete().eq('id', id)
       if (error) return fail(error.message)
+      await logActivity(supabase, 'board', id, 'deleted')
       return ok({ action: 'deleted', board_id: id })
     }
 
@@ -952,6 +990,7 @@ Deno.serve(async (req) => {
       const { id, title, host_id, scheduled_at, category, status } = body
       if (id && body._delete) {
         await supabase.from('meetings').delete().eq('id', id)
+        await logActivity(supabase, 'meeting', id, 'deleted')
         return ok({ action: 'deleted', meeting_id: id })
       }
       if (id) {
@@ -963,6 +1002,7 @@ Deno.serve(async (req) => {
         if (status) updates.status = status
         const { data, error } = await supabase.from('meetings').update(updates).eq('id', id).select().single()
         if (error) return fail(error.message)
+        await logActivity(supabase, 'meeting', id, 'updated', title || data.title)
         return ok({ action: 'updated', meeting: data, room_url: `/meet/${data.room_code}` })
       }
       const { data, error } = await supabase.from('meetings').insert({
@@ -973,6 +1013,7 @@ Deno.serve(async (req) => {
         status: status || 'waiting',
       }).select().single()
       if (error) return fail(error.message)
+      await logActivity(supabase, 'meeting', data.id, 'created', data.title)
       return ok({ action: 'created', meeting: data, room_url: `/meet/${data.room_code}` })
     }
 
@@ -981,6 +1022,7 @@ Deno.serve(async (req) => {
       if (!id) return fail('id is required')
       const { error } = await supabase.from('meetings').delete().eq('id', id)
       if (error) return fail(error.message)
+      await logActivity(supabase, 'meeting', id, 'deleted')
       return ok({ action: 'deleted', meeting_id: id })
     }
 
