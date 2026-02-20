@@ -107,8 +107,23 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = req.method !== 'GET' ? await req.json() : {}
+    let body: Record<string, unknown> = {}
+    if (req.method !== 'GET') {
+      try {
+        const text = await req.text()
+        if (text && text.trim().length > 0) {
+          body = JSON.parse(text)
+        }
+      } catch (_) {
+        // Body may be empty for DELETE requests — fall through to query params
+      }
+    }
     const params = url.searchParams
+    // For DELETE requests, also check query param ?id=
+    if (req.method === 'DELETE' && !body.id) {
+      const qId = params.get('id')
+      if (qId) body.id = qId
+    }
 
     // Audit log for bot calls
     if (isBot && path) {
