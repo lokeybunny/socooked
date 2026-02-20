@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -17,6 +18,7 @@ const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'l
 
 export default function Customers() {
   const categoryGate = useCategoryGate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState<any[]>([]);
   const [allCustomers, setAllCustomers] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -26,6 +28,7 @@ export default function Customers() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deepLinkHandled, setDeepLinkHandled] = useState(false);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -46,6 +49,22 @@ export default function Customers() {
   };
 
   useEffect(() => { loadAll(); }, [search, filterStatus]);
+
+  // Deep-link: auto-open a customer from ?open=<id>
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (!openId || deepLinkHandled || loading) return;
+    const customer = allCustomers.find(c => c.id === openId);
+    if (customer) {
+      const cat = normalizeCategory(customer.category);
+      if (!categoryGate.selectedCategory) {
+        categoryGate.onSelect(cat);
+      }
+      openEdit(customer);
+      setDeepLinkHandled(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [allCustomers, loading, searchParams, deepLinkHandled]);
 
   const validCategoryIds = SERVICE_CATEGORIES.map(c => c.id);
   const normalizeCategory = (cat: string | null | undefined) => {
