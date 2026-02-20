@@ -235,10 +235,34 @@ All responses follow:
 | `/clawd-bot/lead/list` | `GET /clawd-bot/customers` |
 | `/clawd-bot/customer/{id}` | `POST /clawd-bot/customer` with `{"id":"uuid"}` in body |
 | `PATCH /clawd-bot/lead/{id}` | `POST /clawd-bot/customer` with `{"id":"uuid"}` in body |
+| `DELETE /clawd-bot/customer-delete` | `DELETE /clawd-bot/customer` with `{"id":"uuid"}` in body |
+| `DELETE /clawd-bot/deal-delete` | `DELETE /clawd-bot/deal` with `{"id":"uuid"}` in body |
 | `sdbpryzuhqberwgxiucg` | `mziuxsfxevjnmdwnrqjs` |
 | Path params for IDs | IDs always go in JSON body |
 | `/clawd-bot/customers/list` | `/clawd-bot/customers` |
 | `category: "inbound"` | `category: "other"` (use valid values only) |
+| Filtering by category by default | Omit `category` param to see ALL records |
+
+---
+
+## ⚠️ DELETE Pattern (CRITICAL)
+
+**ALL delete operations use the SAME path as create/update — the HTTP method determines the action.**
+
+```
+DELETE /clawd-bot/customer   ← CORRECT (same path as POST)
+DELETE /clawd-bot/customer-delete   ← WRONG (does not exist)
+```
+
+Body must contain: `{ "id": "uuid-of-record" }`
+
+This applies to ALL entities: `customer`, `deal`, `project`, `board`, `card`, `document`, etc.
+
+## Default Query Behavior
+
+- `GET /clawd-bot/customers` → returns ALL customers (no filters)
+- `GET /clawd-bot/customers?status=lead` → returns only leads
+- Do NOT add `category` filter unless the user explicitly asks for a specific category
 
 ---
 
