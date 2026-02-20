@@ -12,8 +12,56 @@ import { Plus, DollarSign, Trash2, Calendar, Percent, User } from 'lucide-react'
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { format } from 'date-fns';
+import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 
 const stages = ['new', 'qualified', 'proposal', 'negotiation', 'won', 'lost'] as const;
+
+function DealCard({ deal, onDoubleClick }: { deal: any; onDoubleClick: (d: any) => void }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: deal.id });
+  const style = transform ? { transform: `translate(${transform.x}px, ${transform.y}px)` } : undefined;
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes}
+      className={`glass-card p-4 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-50' : ''}`}
+      onDoubleClick={() => onDoubleClick(deal)}>
+      <p className="text-sm font-medium text-foreground mb-1">{deal.title}</p>
+      <p className="text-xs text-muted-foreground mb-2">{deal.customers?.full_name || 'Unknown'}</p>
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1 text-xs font-medium text-foreground">
+          <DollarSign className="h-3 w-3" />{Number(deal.deal_value).toLocaleString()}
+        </span>
+        <span className="text-xs text-muted-foreground">{deal.probability}%</span>
+      </div>
+    </div>
+  );
+}
+
+function StageColumn({ stage, deals, onDoubleClick }: { stage: string; deals: any[]; onDoubleClick: (d: any) => void }) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage });
+  return (
+    <div ref={setNodeRef} className={`min-w-[280px] flex-1 transition-colors rounded-xl ${isOver ? 'bg-accent/30' : ''}`}>
+      <div className="flex items-center justify-between mb-3 px-1">
+        <div className="flex items-center gap-2">
+          <StatusBadge status={stage} />
+          <span className="text-xs text-muted-foreground">({deals.length})</span>
+        </div>
+        <span className="text-xs font-medium text-muted-foreground">
+          ${deals.reduce((s: number, d: any) => s + Number(d.deal_value || 0), 0).toLocaleString()}
+        </span>
+      </div>
+      <div className="space-y-2 min-h-[80px]">
+        {deals.map((deal: any) => (
+          <DealCard key={deal.id} deal={deal} onDoubleClick={onDoubleClick} />
+        ))}
+        {deals.length === 0 && (
+          <div className="border-2 border-dashed border-border rounded-xl p-6 text-center text-xs text-muted-foreground">
+            No deals
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function Deals() {
   const categoryGate = useCategoryGate();
@@ -83,6 +131,34 @@ export default function Deals() {
     return acc;
   }, {} as Record<string, any[]>);
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const [activeDeal, setActiveDeal] = useState<any>(null);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const deal = deals.find(d => d.id === event.active.id);
+    setActiveDeal(deal || null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDeal(null);
+    const { active, over } = event;
+    if (!over) return;
+    const dealId = active.id as string;
+    const newStage = over.id as string;
+    const deal = deals.find(d => d.id === dealId);
+    if (!deal || deal.stage === newStage) return;
+
+    // Optimistic update
+    setAllDeals(prev => prev.map(d => d.id === dealId ? { ...d, stage: newStage } : d));
+    const { error } = await supabase.from('deals').update({ stage: newStage }).eq('id', dealId);
+    if (error) {
+      toast.error(error.message);
+      loadAll();
+    } else {
+      toast.success(`Moved to ${newStage}`);
+    }
+  };
+
   return (
     <AppLayout>
       <CategoryGate title="Deals Pipeline" {...categoryGate} totalCount={allDeals.length} countLabel="deals" categoryCounts={categoryCounts}>
@@ -121,40 +197,27 @@ export default function Deals() {
             </Dialog>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {stages.map(stage => (
-              <div key={stage} className="min-w-[280px] flex-1">
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={stage} />
-                    <span className="text-xs text-muted-foreground">({grouped[stage]?.length || 0})</span>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {stages.map(stage => (
+                <StageColumn key={stage} stage={stage} deals={grouped[stage] || []} onDoubleClick={setSelectedDeal} />
+              ))}
+            </div>
+            <DragOverlay>
+              {activeDeal && (
+                <div className="glass-card p-4 shadow-lg opacity-90 w-[280px]">
+                  <p className="text-sm font-medium text-foreground mb-1">{activeDeal.title}</p>
+                  <p className="text-xs text-muted-foreground mb-2">{activeDeal.customers?.full_name || 'Unknown'}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1 text-xs font-medium text-foreground">
+                      <DollarSign className="h-3 w-3" />{Number(activeDeal.deal_value).toLocaleString()}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{activeDeal.probability}%</span>
                   </div>
-                  <span className="text-xs font-medium text-muted-foreground">
-                    ${(grouped[stage] || []).reduce((s: number, d: any) => s + Number(d.deal_value || 0), 0).toLocaleString()}
-                  </span>
                 </div>
-                <div className="space-y-2">
-                  {(grouped[stage] || []).map((deal: any) => (
-                    <div key={deal.id} className="glass-card p-4 hover:shadow-md transition-shadow cursor-pointer" onDoubleClick={() => setSelectedDeal(deal)}>
-                      <p className="text-sm font-medium text-foreground mb-1">{deal.title}</p>
-                      <p className="text-xs text-muted-foreground mb-2">{deal.customers?.full_name || 'Unknown'}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-xs font-medium text-foreground">
-                          <DollarSign className="h-3 w-3" />{Number(deal.deal_value).toLocaleString()}
-                        </span>
-                        <span className="text-xs text-muted-foreground">{deal.probability}%</span>
-                      </div>
-                    </div>
-                  ))}
-                  {(grouped[stage] || []).length === 0 && (
-                    <div className="border-2 border-dashed border-border rounded-xl p-6 text-center text-xs text-muted-foreground">
-                      No deals
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              )}
+            </DragOverlay>
+          </DndContext>
         </div>
 
         {/* Deal Detail Modal */}
