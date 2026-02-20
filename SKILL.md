@@ -63,3 +63,7 @@ Ensures lookup → update → create flow, respects rate limits, logs all action
   "source": "telegram",
   "notes": "Intake recorded via Telegram bot"
 }
+
+| Name | Method | Path | Description |
+|------|--------|------|-------------|
+| `create_meeting` | POST | `/clawd-bot/card` | Create a CRM card/task for meetings, events, or follow-ups |
