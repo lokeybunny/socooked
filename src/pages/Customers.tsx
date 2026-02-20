@@ -47,16 +47,22 @@ export default function Customers() {
 
   useEffect(() => { loadAll(); }, [search, filterStatus]);
 
+  const validCategoryIds = SERVICE_CATEGORIES.map(c => c.id);
+  const normalizeCategory = (cat: string | null | undefined) => {
+    if (!cat) return 'other';
+    return validCategoryIds.includes(cat) ? cat : 'other';
+  };
+
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setCustomers(allCustomers.filter(c => (c.category || 'other') === categoryGate.selectedCategory));
+      setCustomers(allCustomers.filter(c => normalizeCategory(c.category) === categoryGate.selectedCategory));
     } else {
       setCustomers(allCustomers);
     }
   }, [categoryGate.selectedCategory, allCustomers]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allCustomers.filter(c => (c.category || 'other') === cat.id).length;
+    acc[cat.id] = allCustomers.filter(c => normalizeCategory(c.category) === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 

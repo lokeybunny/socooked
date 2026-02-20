@@ -12,7 +12,8 @@
 3. **No path params** — IDs are ALWAYS sent in the JSON body, never in the URL.
 4. **No trailing segments** — e.g. `/clawd-bot/customers` is correct, `/clawd-bot/customers/list` is WRONG.
 5. **Upsert pattern** — POST with `id` in body = update. POST without `id` = create.
-6. **Filters** — use query params: `?status=lead&category=inbound`
+6. **Filters** — use query params: `?status=lead&category=digital-services`
+7. **Categories** — MUST be one of: `digital-services`, `brick-and-mortar`, `digital-ecommerce`, `food-and-beverage`, `mobile-services`, `other`. Invalid values are auto-mapped to `other`.
 
 ---
 
@@ -237,8 +238,24 @@ All responses follow:
 | `sdbpryzuhqberwgxiucg` | `mziuxsfxevjnmdwnrqjs` |
 | Path params for IDs | IDs always go in JSON body |
 | `/clawd-bot/customers/list` | `/clawd-bot/customers` |
+| `category: "inbound"` | `category: "other"` (use valid values only) |
 
 ---
+
+## Valid Category Values
+
+When setting `category` on any entity, use ONLY these values:
+
+| Value | Description |
+|-------|-------------|
+| `digital-services` | SaaS, agencies, consulting & digital service providers |
+| `brick-and-mortar` | Physical retail, offices & local businesses |
+| `digital-ecommerce` | Online stores, marketplaces & D2C brands |
+| `food-and-beverage` | Restaurants, cafés, catering & food brands |
+| `mobile-services` | Mobile apps, on-demand & field services |
+| `other` | Uncategorized or miscellaneous (default) |
+
+Any unrecognized category value will be auto-mapped to `other`.
 
 ## Rate Limits
 
