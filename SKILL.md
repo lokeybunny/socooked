@@ -64,3 +64,37 @@ See [`skill.json`](./skill.json) for the machine-readable skill definition.
 ```
 lokeybunny/clawd-command-crm-skill
 ```
+
+
+# Customer Lookup & Safe Create/Update Skill
+
+## Description
+This skill handles safe customer creation or updating in the CRM. Cortex will:
+
+1. Lookup an existing customer by name/email.
+2. Return customer_id if found.
+3. If not found, create a new customer.
+4. Handle rate limits, retries, and logging automatically.
+
+---
+
+## Instructions for Cortex
+- Always check if a customer exists before creating.
+- Use `/clawd-bot/customers?filter=name_or_email` for lookup.
+- If `customer_id` exists → PATCH `/clawd-bot/customer/{customer_id}` with updates.
+- If not → POST `/clawd-bot/lead` to create new.
+- Respect API rate limits: pause 10–15 seconds between requests if throttled.
+- Log all requests in Cortex memory.
+- Never execute a create/update without valid BOT_SECRET.
+
+---
+
+## Input Example
+```json
+{
+  "full_name": "Billy",
+  "email": "billy@example.com",
+  "category": "inbound",
+  "source": "telegram",
+  "notes": "Intake recorded via Telegram bot"
+}
