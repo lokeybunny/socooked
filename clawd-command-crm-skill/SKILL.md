@@ -12,9 +12,27 @@ Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, de
 
 ## Auth
 
-| Type | Header | Secret Env |
-|------|--------|------------|
-| `shared_secret` | `x-bot-secret` | `BOT_SECRET` |
+| Type | Method |
+|------|--------|
+| `hmac_signature` | HMAC-SHA256 signed request headers |
+
+### How it works
+
+SpaceBot signs each request using the shared secret (`BOT_SECRET`) stored **only** in Supabase secrets. SpaceBot never transmits the raw secret — it sends a signature derived from it.
+
+### Required Headers
+
+| Header | Description |
+|--------|-------------|
+| `x-bot-timestamp` | Unix epoch seconds (e.g. `1740100000`) |
+| `x-bot-nonce` | Random unique string per request (UUID recommended) |
+| `x-bot-signature` | HMAC-SHA256 hex digest of `<timestamp>.<nonce>` using `BOT_SECRET` |
+
+### Verification Rules
+
+- Signature: `HMAC-SHA256(timestamp + "." + nonce, BOT_SECRET)`
+- Requests older than **5 minutes** are rejected (replay protection)
+- Each nonce is single-use within the 5-minute window
 
 ## Base URL
 
