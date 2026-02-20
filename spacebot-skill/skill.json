@@ -1,37 +1,148 @@
 {
   "skill_name": "clawd-command-crm",
-  "version": "1.0.0",
-  "description": "CRM integration for CLAWD Command via SpaceBot",
+  "version": "2.0.0",
+  "description": "Full CRM command console for CLAWD Command — 45 endpoints covering customers, leads, deals, projects, tasks, boards, cards, invoices, communications, documents, signatures, meetings, automations, and more.",
   "auth": {
-    "type": "shared_secret",
-    "header": "x-bot-secret",
-    "secret_env": "BOT_SECRET"
+    "type": "hmac_signature",
+    "algorithm": "HMAC-SHA256",
+    "secret_env": "BOT_SECRET",
+    "headers": {
+      "x-bot-timestamp": "Unix epoch seconds",
+      "x-bot-nonce": "UUID v4, single-use",
+      "x-bot-signature": "HMAC-SHA256 hex digest"
+    },
+    "signature_format": "<timestamp>.<nonce>.<METHOD>.<path>.<body_sha256>",
+    "body_sha256_rule": "SHA-256 hex of request body; if body is empty, hash the empty string",
+    "replay_protection": "Requests older than 300 seconds are rejected",
+    "nonce_rule": "Each nonce is single-use within the 5-minute window"
   },
   "base_url": "https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1",
+  "response_schema": {
+    "success": "boolean",
+    "data_or_error": "object — `data` on success, `error` string on failure",
+    "api_version": "string (currently 'v1')"
+  },
   "actions": [
+    { "name": "crm_state_get", "method": "GET", "path": "/clawd-bot/state", "description": "Full CRM snapshot — boards, customers, deals, projects, meetings" },
+
+    { "name": "crm_customers_list", "method": "GET", "path": "/clawd-bot/customers", "description": "List customers with optional ?status= and ?category= filters" },
+    { "name": "crm_customer_upsert", "method": "POST", "path": "/clawd-bot/customer", "description": "Create or update a customer (send id to update)" },
+    { "name": "crm_customer_delete", "method": "DELETE", "path": "/clawd-bot/customer", "description": "Delete a customer by id" },
+
+    { "name": "crm_lead_upsert", "method": "POST", "path": "/clawd-bot/lead", "description": "Create or update a lead — deduplicates by email" },
+
+    { "name": "crm_deals_list", "method": "GET", "path": "/clawd-bot/deals", "description": "List deals with optional ?category= and ?status= filters" },
+    { "name": "crm_deal_upsert", "method": "POST", "path": "/clawd-bot/deal", "description": "Create or update a deal (send id to update)" },
+    { "name": "crm_deal_delete", "method": "DELETE", "path": "/clawd-bot/deal", "description": "Delete a deal by id" },
+
+    { "name": "crm_projects_list", "method": "GET", "path": "/clawd-bot/projects", "description": "List projects with optional ?category= and ?status= filters" },
+    { "name": "crm_project_upsert", "method": "POST", "path": "/clawd-bot/project", "description": "Create or update a project (send id to update)" },
+    { "name": "crm_project_delete", "method": "DELETE", "path": "/clawd-bot/project", "description": "Delete a project by id" },
+
+    { "name": "crm_project_tasks_list", "method": "GET", "path": "/clawd-bot/project-tasks", "description": "List project tasks with optional ?project_id= and ?category= filters" },
+    { "name": "crm_project_task_upsert", "method": "POST", "path": "/clawd-bot/project-task", "description": "Create or update a project task (send id to update)" },
+    { "name": "crm_project_task_delete", "method": "DELETE", "path": "/clawd-bot/project-task", "description": "Delete a project task by id" },
+
+    { "name": "crm_content_list", "method": "GET", "path": "/clawd-bot/content", "description": "List content assets with optional ?category= and ?type= filters" },
+    { "name": "crm_content_upsert", "method": "POST", "path": "/clawd-bot/content", "description": "Create or update a content asset (send id to update)" },
+    { "name": "crm_content_delete", "method": "DELETE", "path": "/clawd-bot/content", "description": "Delete a content asset by id" },
+
+    { "name": "crm_threads_list", "method": "GET", "path": "/clawd-bot/threads", "description": "List conversation threads with optional ?customer_id= and ?category= filters" },
+    { "name": "crm_thread_upsert", "method": "POST", "path": "/clawd-bot/thread", "description": "Create or update a conversation thread" },
+    { "name": "crm_thread_delete", "method": "DELETE", "path": "/clawd-bot/thread", "description": "Delete a conversation thread by id" },
+
+    { "name": "crm_documents_list", "method": "GET", "path": "/clawd-bot/documents", "description": "List documents with optional ?customer_id= and ?category= filters" },
+    { "name": "crm_document_upsert", "method": "POST", "path": "/clawd-bot/document", "description": "Create or update a document" },
+    { "name": "crm_document_delete", "method": "DELETE", "path": "/clawd-bot/document", "description": "Delete a document by id" },
+
+    { "name": "crm_invoices_list", "method": "GET", "path": "/clawd-bot/invoices", "description": "List invoices with optional ?customer_id= and ?status= filters" },
+    { "name": "crm_invoice_upsert", "method": "POST", "path": "/clawd-bot/invoice", "description": "Create or update an invoice" },
+    { "name": "crm_invoice_delete", "method": "DELETE", "path": "/clawd-bot/invoice", "description": "Delete an invoice by id" },
+
+    { "name": "crm_invoice_api_create", "method": "POST", "path": "/invoice-api", "description": "Create invoice with line items, auto-calc totals, optional auto_send" },
+    { "name": "crm_invoice_api_list", "method": "GET", "path": "/invoice-api", "description": "List invoices via dedicated API — optional ?customer_id= filter" },
+    { "name": "crm_invoice_api_update", "method": "PATCH", "path": "/invoice-api", "description": "Update invoice status (e.g. paid, sent) — requires ?id= param" },
+
+    { "name": "crm_communications_list", "method": "GET", "path": "/clawd-bot/communications", "description": "List communications with optional ?customer_id= and ?type= filters" },
+    { "name": "crm_communication_upsert", "method": "POST", "path": "/clawd-bot/communication", "description": "Create or update a communication record" },
+    { "name": "crm_communication_delete", "method": "DELETE", "path": "/clawd-bot/communication", "description": "Delete a communication by id" },
+
+    { "name": "crm_signatures_list", "method": "GET", "path": "/clawd-bot/signatures", "description": "List signatures (read-only) with optional ?customer_id= and ?document_id= filters" },
+
+    { "name": "crm_interactions_list", "method": "GET", "path": "/clawd-bot/interactions", "description": "List interactions with optional ?customer_id= filter" },
+    { "name": "crm_interaction_create", "method": "POST", "path": "/clawd-bot/interaction", "description": "Log a customer interaction (call, email, meeting, etc.)" },
+
+    { "name": "crm_boards_list", "method": "GET", "path": "/clawd-bot/boards", "description": "List boards with nested lists and cards" },
+    { "name": "crm_board_upsert", "method": "POST", "path": "/clawd-bot/board", "description": "Create or update a board" },
+    { "name": "crm_board_delete", "method": "DELETE", "path": "/clawd-bot/board", "description": "Delete a board by id" },
+
+    { "name": "crm_list_create", "method": "POST", "path": "/clawd-bot/list", "description": "Create a list on a board" },
+
+    { "name": "crm_card_upsert", "method": "POST", "path": "/clawd-bot/card", "description": "Create or update a card on a board" },
+    { "name": "crm_card_delete", "method": "DELETE", "path": "/clawd-bot/card", "description": "Delete a card by id" },
+
+    { "name": "crm_card_move", "method": "POST", "path": "/clawd-bot/move", "description": "Move a card to a different list" },
+    { "name": "crm_card_comment", "method": "POST", "path": "/clawd-bot/comment", "description": "Add a comment to a card" },
+    { "name": "crm_card_attach", "method": "POST", "path": "/clawd-bot/attach", "description": "Attach a URL or file reference to a card" },
+
+    { "name": "crm_bot_tasks_list", "method": "GET", "path": "/clawd-bot/bot-tasks", "description": "List bot tasks with optional ?status= filter" },
+    { "name": "crm_bot_task_upsert", "method": "POST", "path": "/clawd-bot/bot-task", "description": "Create or update a bot task" },
+    { "name": "crm_bot_task_delete", "method": "DELETE", "path": "/clawd-bot/bot-task", "description": "Delete a bot task by id" },
+
+    { "name": "crm_activity_list", "method": "GET", "path": "/clawd-bot/activity", "description": "List activity log entries (read-only) with optional ?entity_type= filter" },
+
+    { "name": "crm_labels_list", "method": "GET", "path": "/clawd-bot/labels", "description": "List labels with optional ?board_id= filter" },
+    { "name": "crm_label_create", "method": "POST", "path": "/clawd-bot/label", "description": "Create a label on a board" },
+
+    { "name": "crm_automations_list", "method": "GET", "path": "/clawd-bot/automations", "description": "List automations with optional ?trigger_table= and ?enabled= filters" },
+    { "name": "crm_automation_upsert", "method": "POST", "path": "/clawd-bot/automation", "description": "Create or update an automation rule" },
+    { "name": "crm_automation_delete", "method": "DELETE", "path": "/clawd-bot/automation", "description": "Delete an automation by id" },
+
+    { "name": "crm_meetings_list", "method": "GET", "path": "/clawd-bot/meetings", "description": "List meetings with optional ?category= and ?status= filters" },
+    { "name": "crm_meeting_upsert", "method": "POST", "path": "/clawd-bot/meeting", "description": "Create or update a meeting (generates room_code)" },
+    { "name": "crm_meeting_delete", "method": "DELETE", "path": "/clawd-bot/meeting", "description": "Delete a meeting by id" },
+
+    { "name": "crm_email_generate", "method": "POST", "path": "/clawd-bot/generate-email", "description": "Generate a portal invitation email for a customer" },
+
     {
-      "name": "get_state",
-      "description": "Get CRM snapshot",
-      "method": "GET",
-      "path": "/clawd-bot/state"
+      "name": "crm_task_autocard",
+      "method": "POST",
+      "path": "/clawd-bot/task",
+      "description": "⚠️ Internal — auto-creates a card on the bot command board. Deduplicates by external_id.",
+      "internal": true,
+      "enabled": false
     },
     {
-      "name": "create_or_update_lead",
-      "description": "Create or update lead",
+      "name": "crm_automation_trigger",
       "method": "POST",
-      "path": "/clawd-bot/lead"
+      "path": "/clawd-bot/trigger",
+      "description": "⚠️ Internal — evaluate and execute matching automation rules",
+      "internal": true,
+      "enabled": false
     },
     {
-      "name": "create_deal",
-      "description": "Create deal",
+      "name": "crm_generate_resume",
       "method": "POST",
-      "path": "/clawd-bot/deal"
+      "path": "/clawd-bot/generate-resume",
+      "description": "⚠️ Mock — generate a resume PDF (returns mock data)",
+      "internal": true,
+      "enabled": false
     },
     {
-      "name": "create_invoice",
-      "description": "Create invoice",
+      "name": "crm_generate_contract",
       "method": "POST",
-      "path": "/invoice-api"
+      "path": "/clawd-bot/generate-contract",
+      "description": "⚠️ Mock — generate a contract PDF (returns mock data)",
+      "internal": true,
+      "enabled": false
+    },
+    {
+      "name": "crm_analyze_thread",
+      "method": "POST",
+      "path": "/clawd-bot/analyze-thread",
+      "description": "⚠️ Mock — analyze a conversation thread (returns mock data)",
+      "internal": true,
+      "enabled": false
     }
   ]
 }
