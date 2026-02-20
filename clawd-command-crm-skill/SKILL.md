@@ -18,7 +18,13 @@ Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, de
 
 ### How it works
 
-SpaceBot signs each request using the shared secret (`BOT_SECRET`) stored **only** in Supabase secrets. SpaceBot never transmits the raw secret — it sends a signature derived from it.
+SpaceBot sends the shared secret via the `x-bot-secret` header on every request.
+
+### BOT_SECRET
+
+```
+XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f
+```
 
 ### Required Headers
 
