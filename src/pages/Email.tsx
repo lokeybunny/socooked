@@ -176,6 +176,7 @@ export default function EmailPage() {
   const [igActiveConv, setIgActiveConv] = useState<IGConversation | null>(null);
   const [igReplyText, setIgReplyText] = useState('');
   const [igSending, setIgSending] = useState(false);
+  const [readCustomerEmailIds, setReadCustomerEmailIds] = useState<Set<string>>(new Set());
 
   const handleFileSelect = async (files: FileList | null, target: 'compose' | 'reply') => {
     if (!files) return;
@@ -395,6 +396,8 @@ export default function EmailPage() {
     }
 
     setViewEmail(email);
+    // Clear from notification count when a customer email is opened
+    setReadCustomerEmailIds((prev) => new Set(prev).add(email.id));
     setReplyOpen(false);
     setReplyBody('');
     setReplyAttachments([]);
@@ -451,8 +454,8 @@ export default function EmailPage() {
     return Array.from(customerEmailSet).some((ce) => fromAddr.includes(ce));
   };
 
-  // Count inbox emails from customers only
-  const customerEmailCount = emails.filter((e) => isFromCustomer(e)).length;
+  // Count inbox emails from customers that haven't been read in this session
+  const customerEmailCount = emails.filter((e) => isFromCustomer(e) && !readCustomerEmailIds.has(e.id)).length;
   // Pre-fill compose from customer select
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
