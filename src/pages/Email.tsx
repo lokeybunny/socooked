@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
-  Instagram, MessageSquareText, Voicemail, Filter, Trash2, Eye, Reply,
+  Instagram, MessageSquareText, Voicemail, Filter, Trash2, Eye, Reply, Paperclip, X,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,6 +28,13 @@ interface GmailEmail {
   date: string;
   labelIds: string[];
   isUnread: boolean;
+}
+
+interface Attachment {
+  filename: string;
+  mimeType: string;
+  data: string; // base64
+  size: number;
 }
 
 const GMAIL_FN = 'gmail-api';
@@ -98,6 +105,7 @@ export default function EmailPage() {
   const [composeOpen, setComposeOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [sending, setSending] = useState(false);
+  const [composeAttachments, setComposeAttachments] = useState<Attachment[]>([]);
 
   // View email
   const [viewEmail, setViewEmail] = useState<GmailEmail | null>(null);
@@ -106,9 +114,42 @@ export default function EmailPage() {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyBody, setReplyBody] = useState('');
   const [replying, setReplying] = useState(false);
+  const [replyAttachments, setReplyAttachments] = useState<Attachment[]>([]);
 
   // Legacy comms for non-email channels
   const [legacyComms, setLegacyComms] = useState<any[]>([]);
+
+  const handleFileSelect = async (files: FileList | null, target: 'compose' | 'reply') => {
+    if (!files) return;
+    const maxSize = 10 * 1024 * 1024; // 10MB per file
+    const newAttachments: Attachment[] = [];
+    for (const file of Array.from(files)) {
+      if (file.size > maxSize) {
+        toast.error(`${file.name} exceeds 10MB limit`);
+        continue;
+      }
+      const data = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // strip data:...;base64,
+        };
+        reader.readAsDataURL(file);
+      });
+      newAttachments.push({ filename: file.name, mimeType: file.type || 'application/octet-stream', data, size: file.size });
+    }
+    if (target === 'compose') {
+      setComposeAttachments((prev) => [...prev, ...newAttachments]);
+    } else {
+      setReplyAttachments((prev) => [...prev, ...newAttachments]);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
 
   const loadCustomers = useCallback(async () => {
     const { data } = await supabase.from('customers').select('id, full_name, email, phone');
@@ -174,10 +215,12 @@ export default function EmailPage() {
         to: form.to,
         subject: form.subject,
         body: form.body,
+        attachments: composeAttachments.length > 0 ? composeAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
       });
       toast.success('Email sent!');
       setComposeOpen(false);
       setForm(emptyForm);
+      setComposeAttachments([]);
       if (activeTab === 'sent') loadEmails('sent');
     } catch (e: any) {
       toast.error(e.message || 'Failed to send');
@@ -209,6 +252,7 @@ export default function EmailPage() {
     setViewEmail(email);
     setReplyOpen(false);
     setReplyBody('');
+    setReplyAttachments([]);
     // Mark as read
     if (email.isUnread && activeTab === 'inbox') {
       try {
@@ -225,14 +269,19 @@ export default function EmailPage() {
     setReplying(true);
     try {
       const replyTo = viewEmail.from.includes('warren@stu25.com') ? viewEmail.to : viewEmail.from;
-      // Extract just email address from "Name <email>" format
       const emailMatch = replyTo.match(/<(.+?)>/);
       const toAddr = emailMatch ? emailMatch[1] : replyTo;
       const subject = viewEmail.subject.startsWith('Re:') ? viewEmail.subject : `Re: ${viewEmail.subject}`;
-      await callGmailPost('send', { to: toAddr, subject, body: replyBody });
+      await callGmailPost('send', {
+        to: toAddr,
+        subject,
+        body: replyBody,
+        attachments: replyAttachments.length > 0 ? replyAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
+      });
       toast.success('Reply sent!');
       setReplyOpen(false);
       setReplyBody('');
+      setReplyAttachments([]);
     } catch (e: any) {
       toast.error(e.message || 'Failed to send reply');
     } finally {
@@ -381,13 +430,39 @@ export default function EmailPage() {
                   placeholder="Write your reply..."
                   className="min-h-[120px]"
                 />
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => { setReplyOpen(false); setReplyBody(''); }}>
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleReply} disabled={replying || !replyBody.trim()} className="gap-1.5">
-                    <Send className="h-4 w-4" /> {replying ? 'Sending...' : 'Send Reply'}
-                  </Button>
+                {/* Reply attachments */}
+                <div className="flex flex-wrap gap-2">
+                  {replyAttachments.map((att, i) => (
+                    <div key={i} className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1 text-xs text-foreground">
+                      <Paperclip className="h-3 w-3 text-muted-foreground" />
+                      <span className="truncate max-w-[150px]">{att.filename}</span>
+                      <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
+                      <button onClick={() => setReplyAttachments((prev) => prev.filter((_, j) => j !== i))} className="hover:text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => handleFileSelect(e.target.files, 'reply')}
+                    />
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      <Paperclip className="h-4 w-4" /> Attach files
+                    </div>
+                  </label>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => { setReplyOpen(false); setReplyBody(''); setReplyAttachments([]); }}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={handleReply} disabled={replying || !replyBody.trim()} className="gap-1.5">
+                      <Send className="h-4 w-4" /> {replying ? 'Sending...' : 'Send Reply'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -410,7 +485,7 @@ export default function EmailPage() {
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
             </Button>
             {channel === 'email' && (
-              <Button onClick={() => { setForm(emptyForm); setComposeOpen(true); }} className="gap-1.5">
+              <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setComposeOpen(true); }} className="gap-1.5">
                 <Plus className="h-4 w-4" /> Compose
               </Button>
             )}
@@ -525,6 +600,30 @@ export default function EmailPage() {
                 placeholder="Write your email..."
                 className="flex min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
+            </div>
+            {/* Compose attachments */}
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {composeAttachments.map((att, i) => (
+                  <div key={i} className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1 text-xs text-foreground">
+                    <Paperclip className="h-3 w-3 text-muted-foreground" />
+                    <span className="truncate max-w-[150px]">{att.filename}</span>
+                    <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
+                    <button onClick={() => setComposeAttachments((prev) => prev.filter((_, j) => j !== i))} className="hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <label className="cursor-pointer inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e.target.files, 'compose')}
+                />
+                <Paperclip className="h-4 w-4" /> Attach files
+              </label>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleSaveDraft} disabled={sending}>
