@@ -1,0 +1,1 @@
+ALTER TABLE public.customers ADD COLUMN instagram_handle text DEFAULT NULL;
