@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
+import JSZip from 'jszip';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
@@ -299,18 +300,47 @@ export default function Content() {
     }
   };
 
-  const downloadFolder = async (files: any[], folderName: string) => {
-    if (files.length === 0) { toast.error('No files to download'); return; }
-    const driveFiles = files.filter(f => {
-      const match = f.url?.match(/\/d\/([a-zA-Z0-9_-]+)/);
-      return !!match;
-    });
+  const downloadFolder = async (sources: { source: string; files: any[] }[], folderName: string) => {
+    const allFiles = sources.flatMap(s => s.files);
+    if (allFiles.length === 0) { toast.error('No files to download'); return; }
+    const driveFiles = allFiles.filter(f => f.url?.match(/\/d\/([a-zA-Z0-9_-]+)/));
     if (driveFiles.length === 0) { toast.error('No Drive files to download'); return; }
-    toast.info(`Downloading ${driveFiles.length} file(s) from "${folderName}"...`);
-    for (const f of driveFiles) {
-      await downloadFile(f.url, f.title);
+
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const zip = new JSZip();
+    let downloaded = 0;
+    toast.info(`Zipping ${driveFiles.length} file(s) from "${folderName}"...`);
+
+    for (const srcGroup of sources) {
+      const srcDriveFiles = srcGroup.files.filter(f => f.url?.match(/\/d\/([a-zA-Z0-9_-]+)/));
+      for (const f of srcDriveFiles) {
+        const match = f.url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (!match) continue;
+        try {
+          const res = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${match[1]}`,
+            { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } }
+          );
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          // Preserve folder structure: source subfolder / filename
+          const folderPath = srcGroup.source || 'Files';
+          zip.file(`${folderPath}/${f.title}`, blob);
+          downloaded++;
+        } catch { /* skip failed files */ }
+      }
     }
-    toast.success(`Downloaded ${driveFiles.length} file(s)`);
+
+    if (downloaded === 0) { toast.error('Could not download any files'); return; }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(zipBlob);
+    a.download = `${folderName}.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast.success(`Downloaded ${downloaded} file(s) as "${folderName}.zip"`);
   };
 
   const SourceBadge = ({ source }: { source: string }) => {
@@ -536,7 +566,7 @@ export default function Content() {
                                   <span className="text-xs text-muted-foreground ml-auto mr-2">{custFileCount}</span>
                                 </button>
                                 <button
-                                  onClick={() => downloadFolder(cust.sources.flatMap(s => s.files), cust.name)}
+                                  onClick={() => downloadFolder(cust.sources, cust.name)}
                                   className="text-muted-foreground hover:text-primary transition-colors p-1"
                                   title={`Download all files for ${cust.name}`}
                                 >
