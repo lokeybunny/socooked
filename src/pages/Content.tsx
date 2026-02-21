@@ -142,10 +142,27 @@ export default function Content() {
       const uploadData = await uploadRes.json();
       if (!uploadRes.ok) throw new Error(uploadData.error || 'Failed to upload');
 
-      // 3. Also create a content_assets record
+      // 3. Auto-detect content type from MIME
+      const mime = file.type || '';
+      let detectedType = 'doc';
+      if (mime.startsWith('image/')) detectedType = 'image';
+      else if (mime.startsWith('video/')) detectedType = 'video';
+      else if (mime.startsWith('audio/')) detectedType = 'video'; // group audio with video
+      else if (
+        mime === 'application/pdf' ||
+        mime.includes('word') ||
+        mime.includes('document') ||
+        mime.includes('spreadsheet') ||
+        mime.includes('presentation') ||
+        mime === 'text/plain' ||
+        mime === 'text/csv'
+      ) detectedType = 'doc';
+      else if (!mime || mime === 'application/octet-stream') detectedType = 'doc';
+
+      // 4. Create content_assets record with detected type
       await supabase.from('content_assets').insert([{
         title: file.name,
-        type: 'doc',
+        type: detectedType,
         status: 'published',
         url: uploadData.webViewLink || null,
         folder: `${category}/${customer.full_name}`,
