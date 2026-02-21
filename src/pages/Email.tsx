@@ -320,7 +320,12 @@ export default function EmailPage() {
       const data = await callInstagram('messages', `subscriber_id=${igActiveConv.participantId}`);
       setIgActiveConv({ ...igActiveConv, messages: data.messages || [] });
     } catch (e: any) {
-      toast.error(e.message || 'Failed to send message');
+      const msg = e.message || 'Failed to send message';
+      if (msg.includes('24h') || msg.includes('24H') || msg.includes('messaging window')) {
+        toast.error('⏳ 24h messaging window expired. The subscriber must DM you first before you can reply.', { duration: 6000 });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setIgSending(false);
     }
