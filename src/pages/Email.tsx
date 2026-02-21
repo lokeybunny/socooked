@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   Instagram, MessageSquareText, Voicemail, Filter, Trash2, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check, Users,
+  ChevronsUpDown, Check, Users, Search,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -151,6 +151,7 @@ export default function EmailPage() {
   const [channel, setChannel] = useState<'email' | 'instagram' | 'sms' | 'voicemail'>('email');
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [composeCustomerOpen, setComposeCustomerOpen] = useState(false);
 
   // Compose
@@ -438,13 +439,18 @@ export default function EmailPage() {
     }
   };
 
-  // Filter emails by customer email
-  const filteredEmails = selectedCustomerEmail === 'all'
-    ? emails
-    : emails.filter((e) => {
-        const addr = selectedCustomerEmail.toLowerCase();
-        return e.from.toLowerCase().includes(addr) || e.to.toLowerCase().includes(addr);
-      });
+  // Search filter helper
+  const matchesSearch = (text: string) =>
+    !searchQuery.trim() || text.toLowerCase().includes(searchQuery.trim().toLowerCase());
+
+  // Filter emails by customer email + search
+  const filteredEmails = emails.filter((e) => {
+    const customerMatch = selectedCustomerEmail === 'all' ||
+      e.from.toLowerCase().includes(selectedCustomerEmail.toLowerCase()) ||
+      e.to.toLowerCase().includes(selectedCustomerEmail.toLowerCase());
+    const searchMatch = matchesSearch(`${e.subject} ${e.from} ${e.to} ${e.snippet}`);
+    return customerMatch && searchMatch;
+  });
 
   // Customer email options for filter
   const customerEmailOptions = customers.filter((c) => c.email);
@@ -682,6 +688,17 @@ export default function EmailPage() {
           ))}
         </div>
 
+        {/* Search bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search messages..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
         {/* Email channel */}
         {channel === 'email' ? (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -761,12 +778,12 @@ export default function EmailPage() {
                   <span className="ml-2 text-sm text-muted-foreground">Loading emails...</span>
                 </div>
               ) : (
-                renderEmailList(emails.filter((e) => isFromCustomer(e)))
+                renderEmailList(emails.filter((e) => isFromCustomer(e) && matchesSearch(`${e.subject} ${e.from} ${e.to} ${e.snippet}`)))
               )}
             </TabsContent>
           </Tabs>
         ) : channel === 'sms' || channel === 'voicemail' ? (
-          <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderLegacyList(legacyComms)}</div>
+          <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderLegacyList(legacyComms.filter((c) => matchesSearch(`${c.subject || ''} ${c.phone_number || ''} ${c.body || ''}`)))}</div>
         ) : channel === 'instagram' ? (
           loading ? (
             <div className="flex items-center justify-center py-12">
