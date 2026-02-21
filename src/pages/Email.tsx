@@ -119,8 +119,8 @@ export default function EmailPage() {
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Email</h1>
-            <p className="text-muted-foreground mt-1">Manage your email communications.</p>
+            <h1 className="text-2xl font-bold text-foreground">Messages</h1>
+            <p className="text-muted-foreground mt-1">Manage your messages across all channels.</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
