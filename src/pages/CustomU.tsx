@@ -27,6 +27,8 @@ export default function CustomU() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [generating, setGenerating] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
 
   const load = async () => {
     let q = supabase.from('customers').select('id, full_name, category, upload_token, email, company').order('full_name');
@@ -36,7 +38,7 @@ export default function CustomU() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [search]);
+  useEffect(() => { setPage(0); load(); }, [search]);
 
   const getUploadUrl = (token: string) => {
     const base = window.location.origin;
@@ -93,46 +95,61 @@ export default function CustomU() {
         ) : customers.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">No customers found.</p>
         ) : (
-          <div className="space-y-3">
-            {customers.map(c => (
-              <div key={c.id} className="glass-card p-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground">{c.full_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {c.company || CATEGORY_LABELS[c.category || 'other'] || 'Other'}
-                    {c.email && ` · ${c.email}`}
-                  </p>
-                </div>
-
-                {c.upload_token ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5 bg-muted rounded-md px-3 py-1.5 text-xs font-mono text-muted-foreground max-w-[280px] truncate">
-                      <Link2 className="h-3 w-3 shrink-0 text-primary" />
-                      <span className="truncate">/u/{c.upload_token}</span>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => copyLink(c.upload_token)} className="gap-1.5">
-                      <Copy className="h-3.5 w-3.5" /> Copy
-                    </Button>
-                    <a href={getUploadUrl(c.upload_token)} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="sm" className="gap-1.5">
-                        <ExternalLink className="h-3.5 w-3.5" /> Open
-                      </Button>
-                    </a>
-                    <Button variant="outline" size="sm" onClick={() => handleRegenerate(c.id)} disabled={generating === c.id} className="gap-1.5">
-                      <RefreshCw className="h-3.5 w-3.5" /> New Link
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => handleRevoke(c.id)} className="text-muted-foreground hover:text-destructive gap-1.5">
-                      <Trash2 className="h-3.5 w-3.5" /> Revoke
-                    </Button>
+          <>
+            <div className="space-y-3">
+              {customers.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(c => (
+                <div key={c.id} className="glass-card p-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">{c.full_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {c.company || CATEGORY_LABELS[c.category || 'other'] || 'Other'}
+                      {c.email && ` · ${c.email}`}
+                    </p>
                   </div>
-                ) : (
-                  <Button variant="default" size="sm" onClick={() => handleGenerate(c.id)} disabled={generating === c.id} className="gap-1.5">
-                    <Link2 className="h-3.5 w-3.5" /> Generate Link
-                  </Button>
-                )}
+
+                  {c.upload_token ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 bg-muted rounded-md px-3 py-1.5 text-xs font-mono text-muted-foreground max-w-[280px] truncate">
+                        <Link2 className="h-3 w-3 shrink-0 text-primary" />
+                        <span className="truncate">/u/{c.upload_token}</span>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => copyLink(c.upload_token)} className="gap-1.5">
+                        <Copy className="h-3.5 w-3.5" /> Copy
+                      </Button>
+                      <a href={getUploadUrl(c.upload_token)} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" size="sm" className="gap-1.5">
+                          <ExternalLink className="h-3.5 w-3.5" /> Open
+                        </Button>
+                      </a>
+                      <Button variant="outline" size="sm" onClick={() => handleRegenerate(c.id)} disabled={generating === c.id} className="gap-1.5">
+                        <RefreshCw className="h-3.5 w-3.5" /> New Link
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleRevoke(c.id)} className="text-muted-foreground hover:text-destructive gap-1.5">
+                        <Trash2 className="h-3.5 w-3.5" /> Revoke
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button variant="default" size="sm" onClick={() => handleGenerate(c.id)} disabled={generating === c.id} className="gap-1.5">
+                      <Link2 className="h-3.5 w-3.5" /> Generate Link
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {customers.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-muted-foreground">
+                  Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, customers.length)} of {customers.length}
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Previous</Button>
+                  <Button variant="outline" size="sm" disabled={(page + 1) * PAGE_SIZE >= customers.length} onClick={() => setPage(p => p + 1)}>Next</Button>
+                </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </AppLayout>
