@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.google-drive]
 verify_jwt = false
+
+[functions.gmail-api]
+verify_jwt = false
