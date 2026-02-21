@@ -157,16 +157,55 @@ async function getMessages(
   }));
 }
 
-function buildRawEmail(to: string, from: string, subject: string, body: string): string {
+function buildRawEmail(to: string, from: string, subject: string, body: string, attachments?: { filename: string; mimeType: string; data: string }[]): string {
+  const boundary = `boundary_${crypto.randomUUID().replace(/-/g, '')}`;
+
+  if (!attachments || attachments.length === 0) {
+    const lines = [
+      `From: ${from}`,
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `MIME-Version: 1.0`,
+      "",
+      body,
+    ];
+    const raw = lines.join("\r\n");
+    return btoa(unescape(encodeURIComponent(raw)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  }
+
   const lines = [
     `From: ${from}`,
     `To: ${to}`,
     `Subject: ${subject}`,
-    `Content-Type: text/html; charset=UTF-8`,
     `MIME-Version: 1.0`,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: 7bit`,
     "",
     body,
   ];
+
+  for (const att of attachments) {
+    lines.push(`--${boundary}`);
+    lines.push(`Content-Type: ${att.mimeType}; name="${att.filename}"`);
+    lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
+    lines.push(`Content-Transfer-Encoding: base64`);
+    lines.push("");
+    // Break base64 into 76-char lines per MIME spec
+    const b64 = att.data;
+    for (let i = 0; i < b64.length; i += 76) {
+      lines.push(b64.substring(i, i + 76));
+    }
+  }
+
+  lines.push(`--${boundary}--`);
+
   const raw = lines.join("\r\n");
   return btoa(unescape(encodeURIComponent(raw)))
     .replace(/\+/g, "-")
@@ -309,10 +348,10 @@ serve(async (req) => {
     }
 
     if (action === "send") {
-      const { to, subject, body } = await req.json();
+      const { to, subject, body, attachments } = await req.json();
       if (!to || !subject) throw new Error("to and subject required");
 
-      const raw = buildRawEmail(to, IMPERSONATE_EMAIL, subject, body || "");
+      const raw = buildRawEmail(to, IMPERSONATE_EMAIL, subject, body || "", attachments);
       const sendRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
         method: "POST",
         headers: {
