@@ -10,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
-  Instagram, MessageSquareText, Voicemail, Filter, Trash2, Eye,
+  Instagram, MessageSquareText, Voicemail, Filter, Trash2, Eye, Reply,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -100,6 +101,11 @@ export default function EmailPage() {
 
   // View email
   const [viewEmail, setViewEmail] = useState<GmailEmail | null>(null);
+
+  // Reply
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyBody, setReplyBody] = useState('');
+  const [replying, setReplying] = useState(false);
 
   // Legacy comms for non-email channels
   const [legacyComms, setLegacyComms] = useState<any[]>([]);
@@ -201,6 +207,8 @@ export default function EmailPage() {
 
   const handleOpenEmail = async (email: GmailEmail) => {
     setViewEmail(email);
+    setReplyOpen(false);
+    setReplyBody('');
     // Mark as read
     if (email.isUnread && activeTab === 'inbox') {
       try {
@@ -209,6 +217,26 @@ export default function EmailPage() {
           prev.map((e) => (e.id === email.id ? { ...e, isUnread: false } : e))
         );
       } catch { /* ignore */ }
+    }
+  };
+
+  const handleReply = async () => {
+    if (!viewEmail || !replyBody.trim()) return;
+    setReplying(true);
+    try {
+      const replyTo = viewEmail.from.includes('warren@stu25.com') ? viewEmail.to : viewEmail.from;
+      // Extract just email address from "Name <email>" format
+      const emailMatch = replyTo.match(/<(.+?)>/);
+      const toAddr = emailMatch ? emailMatch[1] : replyTo;
+      const subject = viewEmail.subject.startsWith('Re:') ? viewEmail.subject : `Re: ${viewEmail.subject}`;
+      await callGmailPost('send', { to: toAddr, subject, body: replyBody });
+      toast.success('Reply sent!');
+      setReplyOpen(false);
+      setReplyBody('');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send reply');
+    } finally {
+      setReplying(false);
     }
   };
 
@@ -222,7 +250,12 @@ export default function EmailPage() {
 
   // Customer email options for filter
   const customerEmailOptions = customers.filter((c) => c.email);
+  const customerEmailSet = new Set(customers.filter((c) => c.email).map((c) => c.email!.toLowerCase()));
 
+  const isFromCustomer = (email: GmailEmail) => {
+    const fromAddr = email.from.toLowerCase();
+    return Array.from(customerEmailSet).some((ce) => fromAddr.includes(ce));
+  };
   // Pre-fill compose from customer select
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
@@ -242,30 +275,41 @@ export default function EmailPage() {
       <p className="text-sm text-muted-foreground py-8 text-center">Nothing here yet.</p>
     ) : (
       <div className="space-y-2">
-        {items.map((email) => (
-          <button
-            key={email.id}
-            onClick={() => handleOpenEmail(email)}
-            className={`w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors ${
-              email.isUnread ? 'border-l-2 border-l-primary' : ''
-            }`}
-          >
-            <div className="flex items-start gap-3 min-w-0">
-              <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <div className="min-w-0">
-                <p className={`text-sm truncate ${email.isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
-                  {email.subject || '(no subject)'}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {activeTab === 'sent' ? `To: ${email.to}` : `From: ${email.from}`}
-                </p>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet}</p>
-                <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
+        {items.map((email) => {
+          const fromClient = isFromCustomer(email);
+          const isDimmed = selectedCustomerEmail === 'all' && !fromClient;
+
+          return (
+            <button
+              key={email.id}
+              onClick={() => handleOpenEmail(email)}
+              className={`w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors ${
+                email.isUnread ? 'border-l-2 border-l-primary' : ''
+              } ${isDimmed ? 'opacity-50' : ''}`}
+            >
+              <div className="flex items-start gap-3 min-w-0">
+                <Mail className={`h-4 w-4 mt-0.5 shrink-0 ${isDimmed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
+                <div className="min-w-0">
+                  <p className={`text-sm truncate ${
+                    isDimmed
+                      ? 'font-normal text-muted-foreground'
+                      : email.isUnread
+                        ? 'font-semibold text-foreground'
+                        : 'font-medium text-foreground'
+                  }`}>
+                    {email.subject || '(no subject)'}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {activeTab === 'sent' ? `To: ${email.to}` : `From: ${email.from}`}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
+                </div>
               </div>
-            </div>
-            <Eye className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
-          </button>
-        ))}
+              <Eye className={`h-4 w-4 shrink-0 mt-1 ${isDimmed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
+            </button>
+          );
+        })}
       </div>
     );
 
@@ -318,6 +362,35 @@ export default function EmailPage() {
                 dangerouslySetInnerHTML={{ __html: viewEmail.body || '<p class="text-muted-foreground">No content</p>' }}
               />
             </div>
+
+            {/* Reply section */}
+            {!replyOpen ? (
+              <div className="border-t border-border pt-4">
+                <Button variant="outline" onClick={() => setReplyOpen(true)} className="gap-1.5">
+                  <Reply className="h-4 w-4" /> Reply
+                </Button>
+              </div>
+            ) : (
+              <div className="border-t border-border pt-4 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Replying to: {viewEmail.from.includes('warren@stu25.com') ? viewEmail.to : viewEmail.from}
+                </p>
+                <Textarea
+                  value={replyBody}
+                  onChange={(e) => setReplyBody(e.target.value)}
+                  placeholder="Write your reply..."
+                  className="min-h-[120px]"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" size="sm" onClick={() => { setReplyOpen(false); setReplyBody(''); }}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleReply} disabled={replying || !replyBody.trim()} className="gap-1.5">
+                    <Send className="h-4 w-4" /> {replying ? 'Sending...' : 'Send Reply'}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </AppLayout>
