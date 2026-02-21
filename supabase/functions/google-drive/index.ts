@@ -173,7 +173,15 @@ serve(async (req) => {
     if (!saJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured");
     if (!rootFolderId) throw new Error("GOOGLE_DRIVE_ROOT_FOLDER_ID not configured");
 
-    const sa = JSON.parse(saJson);
+    let sa: any;
+    try {
+      sa = JSON.parse(saJson);
+    } catch (parseErr) {
+      throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON. Make sure you pasted the entire service account key file contents.");
+    }
+    if (!sa.private_key) throw new Error("Service account JSON is missing 'private_key'. Ensure you pasted the full JSON key file.");
+    if (!sa.client_email) throw new Error("Service account JSON is missing 'client_email'. Ensure you pasted the full JSON key file.");
+
     const token = await getAccessToken(sa);
 
     const url = new URL(req.url);
