@@ -19,6 +19,7 @@ import {
   Phone,
   Video,
   Bot,
+  Link2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -39,6 +40,7 @@ const navItems = [
   { to: '/phone', icon: Phone, label: 'Phone' },
   { to: '/boards', icon: LayoutGrid, label: 'Boards' },
   { to: '/meetings', icon: Video, label: 'Meetings' },
+  { to: '/custom-u', icon: Link2, label: 'Custom-U' },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff' },
 ];
 

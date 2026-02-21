@@ -28,6 +28,8 @@ import Notifications from "./pages/Notifications";
 import Meetings from "./pages/Meetings";
 import MeetingRoom from "./pages/MeetingRoom";
 import AIStaff from "./pages/AIStaff";
+import CustomU from "./pages/CustomU";
+import ClientUpload from "./pages/portal/ClientUpload";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +66,8 @@ const App = () => (
             <Route path="/meetings" element={<Meetings />} />
             <Route path="/meet/:roomCode" element={<MeetingRoom />} />
             <Route path="/ai-staff" element={<AIStaff />} />
+            <Route path="/custom-u" element={<CustomU />} />
+            <Route path="/u/:token" element={<ClientUpload />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
