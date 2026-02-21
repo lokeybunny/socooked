@@ -665,7 +665,7 @@ export default function EmailPage() {
         <div className="flex items-center gap-2 border-b border-border pb-4">
           {[
             { key: 'email' as const, icon: Mail, label: 'Email', comingSoon: false },
-            { key: 'instagram' as const, icon: Instagram, label: 'Instagram', comingSoon: true },
+            { key: 'instagram' as const, icon: Instagram, label: 'Instagram', comingSoon: false },
             { key: 'sms' as const, icon: MessageSquareText, label: 'SMS', comingSoon: false },
             { key: 'voicemail' as const, icon: Voicemail, label: 'Voicemail', comingSoon: false },
           ].map(({ key, icon: Icon, label, comingSoon }) => (
