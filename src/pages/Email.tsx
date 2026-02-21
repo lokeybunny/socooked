@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   Instagram, MessageSquareText, Voicemail, Filter, Trash2, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check,
+  ChevronsUpDown, Check, Users,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -681,8 +681,11 @@ export default function EmailPage() {
               <TabsList>
                 <TabsTrigger value="inbox" className="gap-1.5">
                   <Inbox className="h-3.5 w-3.5" /> Inbox
+                </TabsTrigger>
+                <TabsTrigger value="customers" className="gap-1.5">
+                  <Users className="h-3.5 w-3.5" /> Customers
                   {customerEmailCount > 0 && (
-                    <span className="ml-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold leading-none">
+                    <span className="ml-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none">
                       {customerEmailCount}
                     </span>
                   )}
@@ -743,6 +746,16 @@ export default function EmailPage() {
                 )}
               </TabsContent>
             ))}
+            <TabsContent value="customers">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">Loading emails...</span>
+                </div>
+              ) : (
+                renderEmailList(emails.filter((e) => isFromCustomer(e)))
+              )}
+            </TabsContent>
           </Tabs>
         ) : channel === 'sms' || channel === 'voicemail' ? (
           <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderLegacyList(legacyComms)}</div>
