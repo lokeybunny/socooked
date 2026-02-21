@@ -1,16 +1,16 @@
+// Gmail API Edge Function
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
 const IMPERSONATE_EMAIL = "warren@stu25.com";
 
-// ─── JWT signing for service account with domain-wide delegation ───
 function base64url(data: Uint8Array): string {
   return btoa(String.fromCharCode(...data))
     .replace(/\+/g, "-")
@@ -27,7 +27,7 @@ async function getAccessToken(sa: any): Promise<string> {
     new TextEncoder().encode(
       JSON.stringify({
         iss: sa.client_email,
-        sub: IMPERSONATE_EMAIL, // domain-wide delegation
+        sub: IMPERSONATE_EMAIL,
         scope: "https://www.googleapis.com/auth/gmail.modify",
         aud: GOOGLE_TOKEN_URL,
         iat: now,
@@ -68,7 +68,6 @@ async function getAccessToken(sa: any): Promise<string> {
   return data.access_token;
 }
 
-// ─── Gmail helpers ───────────────────────────────────────────
 function parseHeader(headers: any[], name: string): string {
   return headers?.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || "";
 }
@@ -88,18 +87,14 @@ function decodeBase64Url(str: string): string {
 }
 
 function extractBody(payload: any): string {
-  // Try direct body
   if (payload.body?.data) {
     return decodeBase64Url(payload.body.data);
   }
-  // Try parts
   if (payload.parts) {
-    // Prefer text/html, fallback to text/plain
     const htmlPart = payload.parts.find((p: any) => p.mimeType === "text/html");
     if (htmlPart?.body?.data) return decodeBase64Url(htmlPart.body.data);
     const textPart = payload.parts.find((p: any) => p.mimeType === "text/plain");
     if (textPart?.body?.data) return decodeBase64Url(textPart.body.data);
-    // Nested multipart
     for (const part of payload.parts) {
       if (part.parts) {
         const nested = extractBody(part);
@@ -138,7 +133,6 @@ async function getMessages(
   const messages = listData.messages || [];
   if (messages.length === 0) return [];
 
-  // Fetch each message in parallel (batch)
   const details = await Promise.all(
     messages.map(async (m: any) => {
       const res = await fetch(
@@ -174,14 +168,12 @@ function buildRawEmail(to: string, from: string, subject: string, body: string):
     body,
   ];
   const raw = lines.join("\r\n");
-  // base64url encode
   return btoa(unescape(encodeURIComponent(raw)))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/, "");
 }
 
-// ─── Main handler ───────────────────────────────────────────
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
@@ -209,7 +201,6 @@ serve(async (req) => {
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
 
-    // ─── LIST INBOX ──────────────────────────────────────
     if (action === "inbox") {
       const emails = await getMessages(token, "in:inbox category:primary", 30);
       return new Response(JSON.stringify({ emails }), {
@@ -217,7 +208,6 @@ serve(async (req) => {
       });
     }
 
-    // ─── LIST SENT ───────────────────────────────────────
     if (action === "sent") {
       const emails = await getMessages(token, "in:sent", 30);
       return new Response(JSON.stringify({ emails }), {
@@ -225,7 +215,6 @@ serve(async (req) => {
       });
     }
 
-    // ─── LIST DRAFTS ─────────────────────────────────────
     if (action === "drafts") {
       const draftsUrl = `${GMAIL_API}/users/me/drafts?maxResults=30`;
       const draftsRes = await fetch(draftsUrl, {
@@ -272,7 +261,6 @@ serve(async (req) => {
       });
     }
 
-    // ─── GET SINGLE MESSAGE ──────────────────────────────
     if (action === "message") {
       const msgId = url.searchParams.get("id");
       if (!msgId) throw new Error("id required");
@@ -283,7 +271,6 @@ serve(async (req) => {
       const msg = await res.json();
       if (!res.ok) throw new Error(`Message error: ${JSON.stringify(msg)}`);
 
-      // Mark as read
       await fetch(`${GMAIL_API}/users/me/messages/${msgId}/modify`, {
         method: "POST",
         headers: {
@@ -311,7 +298,6 @@ serve(async (req) => {
       });
     }
 
-    // ─── SEND EMAIL ──────────────────────────────────────
     if (action === "send") {
       const { to, subject, body } = await req.json();
       if (!to || !subject) throw new Error("to and subject required");
@@ -333,7 +319,6 @@ serve(async (req) => {
       });
     }
 
-    // ─── SAVE DRAFT ──────────────────────────────────────
     if (action === "save-draft") {
       const { to, subject, body } = await req.json();
       const raw = buildRawEmail(to || "", IMPERSONATE_EMAIL, subject || "", body || "");
