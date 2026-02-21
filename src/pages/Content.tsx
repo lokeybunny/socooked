@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2 } from 'lucide-react';
+import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
@@ -266,6 +266,53 @@ export default function Content() {
     }
   };
 
+  const downloadFile = async (fileUrl: string, title: string) => {
+    if (!fileUrl) { toast.error('No file URL available'); return; }
+    // Extract Google Drive file ID from webViewLink
+    const match = fileUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) {
+      // Not a Drive link, just open it
+      window.open(fileUrl, '_blank');
+      return;
+    }
+    const fileId = match[1];
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    toast.info(`Downloading "${title}"...`);
+    try {
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${fileId}`,
+        { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Download failed');
+      }
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = title;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (err: any) {
+      toast.error(err.message || 'Download failed');
+    }
+  };
+
+  const downloadFolder = async (files: any[], folderName: string) => {
+    if (files.length === 0) { toast.error('No files to download'); return; }
+    const driveFiles = files.filter(f => {
+      const match = f.url?.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      return !!match;
+    });
+    if (driveFiles.length === 0) { toast.error('No Drive files to download'); return; }
+    toast.info(`Downloading ${driveFiles.length} file(s) from "${folderName}"...`);
+    for (const f of driveFiles) {
+      await downloadFile(f.url, f.title);
+    }
+    toast.success(`Downloaded ${driveFiles.length} file(s)`);
+  };
+
   const SourceBadge = ({ source }: { source: string }) => {
     const info = SOURCE_LABELS[source] || SOURCE_LABELS.other;
     const Icon = info.icon;
@@ -479,14 +526,23 @@ export default function Content() {
                           const custFileCount = cust.sources.reduce((s, src) => s + src.files.length, 0);
                           return (
                             <div key={custKey}>
-                              <button
-                                onClick={() => toggleCustomer(custKey)}
-                                className="w-full flex items-center gap-3 pl-10 pr-4 py-3 hover:bg-muted/30 transition-colors text-left border-b border-border/50"
-                              >
-                                {custCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
-                                <span className="text-sm font-medium text-foreground">{cust.name}</span>
-                                <span className="text-xs text-muted-foreground ml-auto">{custFileCount}</span>
-                              </button>
+                              <div className="flex items-center gap-3 pl-10 pr-4 border-b border-border/50">
+                                <button
+                                  onClick={() => toggleCustomer(custKey)}
+                                  className="flex-1 flex items-center gap-3 py-3 hover:bg-muted/30 transition-colors text-left"
+                                >
+                                  {custCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                                  <span className="text-sm font-medium text-foreground">{cust.name}</span>
+                                  <span className="text-xs text-muted-foreground ml-auto mr-2">{custFileCount}</span>
+                                </button>
+                                <button
+                                  onClick={() => downloadFolder(cust.sources.flatMap(s => s.files), cust.name)}
+                                  className="text-muted-foreground hover:text-primary transition-colors p-1"
+                                  title={`Download all files for ${cust.name}`}
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                               {!custCollapsed && (
                                 <div>
                                   {cust.sources.map(srcGroup => {
@@ -515,6 +571,11 @@ export default function Content() {
                                                     <span className="text-[10px] text-muted-foreground capitalize">{c.type.replace('_', ' ')}</span>
                                                   </div>
                                                   <StatusBadge status={c.status} />
+                                                  {c.url && (
+                                                    <button onClick={() => downloadFile(c.url, c.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                                                      <Download className="h-3.5 w-3.5" />
+                                                    </button>
+                                                  )}
                                                   {c.url && (
                                                     <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
                                                       <ExternalLink className="h-3.5 w-3.5" />
