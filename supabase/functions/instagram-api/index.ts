@@ -125,11 +125,15 @@ serve(async (req) => {
   }
 
   try {
-    const token = Deno.env.get("INSTAGRAM_ACCESS_TOKEN");
+    const rawToken = Deno.env.get("INSTAGRAM_ACCESS_TOKEN");
     const igAccountId = Deno.env.get("INSTAGRAM_ACCOUNT_ID");
 
-    if (!token) throw new Error("INSTAGRAM_ACCESS_TOKEN not configured");
+    if (!rawToken) throw new Error("INSTAGRAM_ACCESS_TOKEN not configured");
     if (!igAccountId) throw new Error("INSTAGRAM_ACCOUNT_ID not configured");
+
+    // Clean the token: remove quotes, whitespace, newlines
+    const token = rawToken.replace(/^["'\s]+|["'\s]+$/g, '').trim();
+    console.log("Token length:", token.length, "starts with:", token.substring(0, 6), "ends with:", token.substring(token.length - 4));
 
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
