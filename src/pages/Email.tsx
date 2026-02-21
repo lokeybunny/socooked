@@ -299,6 +299,15 @@ export default function EmailPage() {
             const newRow = payload.new as any;
             if (channel === 'instagram' && newRow.type === 'instagram') {
               loadInstagram();
+              // Auto-refresh active conversation if the message belongs to it
+              setIgActiveConv((prev) => {
+                if (prev && (newRow.external_id === prev.participantId || newRow.to_address === prev.participantId)) {
+                  callInstagram('messages', `subscriber_id=${prev.participantId}`).then((data) => {
+                    setIgActiveConv((curr) => curr ? { ...curr, messages: data.messages || [] } : null);
+                  }).catch(() => {});
+                }
+                return prev;
+              });
             } else if (channel === 'sms' && newRow.type === 'sms') {
               loadLegacy();
             } else if (channel === 'voicemail' && newRow.type === 'voicemail') {
