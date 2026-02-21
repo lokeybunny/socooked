@@ -77,7 +77,7 @@ async function findFolder(
 ): Promise<string | null> {
   const q = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
   const res = await fetch(
-    `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)`,
+    `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json();
@@ -89,7 +89,7 @@ async function createFolder(
   name: string,
   parentId: string
 ): Promise<string> {
-  const res = await fetch(`${DRIVE_API}/files`, {
+  const res = await fetch(`${DRIVE_API}/files?supportsAllDrives=true`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -122,7 +122,7 @@ async function listFiles(
 ): Promise<any[]> {
   const q = `'${folderId}' in parents and trashed=false`;
   const res = await fetch(
-    `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size,createdTime,webViewLink)&orderBy=createdTime desc`,
+    `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size,createdTime,webViewLink)&orderBy=createdTime desc&supportsAllDrives=true&includeItemsFromAllDrives=true`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
   const data = await res.json();
@@ -147,7 +147,7 @@ async function uploadFile(
   const fullBody = body + b64 + footer;
 
   const res = await fetch(
-    `${UPLOAD_API}/files?uploadType=multipart&fields=id,name,webViewLink`,
+    `${UPLOAD_API}/files?uploadType=multipart&fields=id,name,webViewLink&supportsAllDrives=true`,
     {
       method: "POST",
       headers: {
