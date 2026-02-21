@@ -683,6 +683,7 @@ export type Database = {
           status: string
           tags: string[]
           updated_at: string
+          upload_token: string | null
         }
         Insert: {
           address?: string | null
@@ -701,6 +702,7 @@ export type Database = {
           status?: string
           tags?: string[]
           updated_at?: string
+          upload_token?: string | null
         }
         Update: {
           address?: string | null
@@ -719,6 +721,7 @@ export type Database = {
           status?: string
           tags?: string[]
           updated_at?: string
+          upload_token?: string | null
         }
         Relationships: [
           {
