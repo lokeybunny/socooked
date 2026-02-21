@@ -644,20 +644,27 @@ export default function EmailPage() {
         {/* Channel switcher */}
         <div className="flex items-center gap-2 border-b border-border pb-4">
           {[
-            { key: 'email' as const, icon: Mail, label: 'Email' },
-            { key: 'instagram' as const, icon: Instagram, label: 'Instagram' },
-            { key: 'sms' as const, icon: MessageSquareText, label: 'SMS' },
-            { key: 'voicemail' as const, icon: Voicemail, label: 'Voicemail' },
-          ].map(({ key, icon: Icon, label }) => (
-            <Button
-              key={key}
-              variant={channel === key ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setChannel(key)}
-              className="gap-1.5"
-            >
-              <Icon className="h-4 w-4" /> {label}
-            </Button>
+            { key: 'email' as const, icon: Mail, label: 'Email', comingSoon: false },
+            { key: 'instagram' as const, icon: Instagram, label: 'Instagram', comingSoon: true },
+            { key: 'sms' as const, icon: MessageSquareText, label: 'SMS', comingSoon: false },
+            { key: 'voicemail' as const, icon: Voicemail, label: 'Voicemail', comingSoon: false },
+          ].map(({ key, icon: Icon, label, comingSoon }) => (
+            <div key={key} className="relative">
+              <Button
+                variant={channel === key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => !comingSoon && setChannel(key)}
+                className={cn("gap-1.5", comingSoon && "opacity-50 cursor-not-allowed")}
+                disabled={comingSoon}
+              >
+                <Icon className="h-4 w-4" /> {label}
+              </Button>
+              {comingSoon && (
+                <span className="absolute -top-2 -right-2 text-[9px] font-semibold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full leading-none">
+                  Soon
+                </span>
+              )}
+            </div>
           ))}
         </div>
 
