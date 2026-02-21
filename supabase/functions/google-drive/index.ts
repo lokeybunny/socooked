@@ -149,7 +149,14 @@ async function uploadFile(
     `--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n`;
   const footer = `\r\n--${boundary}--`;
 
-  const b64 = btoa(String.fromCharCode(...fileBytes));
+  // Convert bytes to base64 in chunks to avoid stack overflow
+  let b64 = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < fileBytes.length; i += chunkSize) {
+    const chunk = fileBytes.subarray(i, Math.min(i + chunkSize, fileBytes.length));
+    b64 += String.fromCharCode(...chunk);
+  }
+  b64 = btoa(b64);
   const fullBody = body + b64 + footer;
 
   const res = await fetch(
