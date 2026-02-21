@@ -287,6 +287,29 @@ export default function EmailPage() {
     } else if (channel === 'sms' || channel === 'voicemail') {
       loadLegacy();
     }
+
+    // Realtime: auto-refresh when new communications arrive
+    if (channel === 'instagram' || channel === 'sms' || channel === 'voicemail') {
+      const realtimeChannel = supabase
+        .channel('messages_page_realtime')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'communications' },
+          (payload) => {
+            const newRow = payload.new as any;
+            if (channel === 'instagram' && newRow.type === 'instagram') {
+              loadInstagram();
+            } else if (channel === 'sms' && newRow.type === 'sms') {
+              loadLegacy();
+            } else if (channel === 'voicemail' && newRow.type === 'voicemail') {
+              loadLegacy();
+            }
+          }
+        )
+        .subscribe();
+
+      return () => { supabase.removeChannel(realtimeChannel); };
+    }
   }, [channel, activeTab, loadEmails, loadLegacy, loadInstagram]);
 
   const handleRefresh = async () => {
