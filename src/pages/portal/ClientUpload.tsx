@@ -122,7 +122,7 @@ export default function ClientUpload() {
           status: 'published',
           url: uploadData.webViewLink || null,
           folder: `${category}/${customer.full_name}`,
-          category: customer.category || 'other',
+          category: 'other',
           source: 'client-direct',
           customer_id: customer.id,
         }]);
