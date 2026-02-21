@@ -1053,6 +1053,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          customer_id: string | null
           host_id: string | null
           id: string
           room_code: string
@@ -1064,6 +1065,7 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
+          customer_id?: string | null
           host_id?: string | null
           id?: string
           room_code?: string
@@ -1075,6 +1077,7 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
+          customer_id?: string | null
           host_id?: string | null
           id?: string
           room_code?: string
@@ -1084,6 +1087,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "meetings_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "meetings_host_id_fkey"
             columns: ["host_id"]
