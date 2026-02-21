@@ -55,7 +55,7 @@ const App = () => (
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/signatures" element={<Signatures />} />
             <Route path="/leads" element={<Leads />} />
-            <Route path="/email" element={<EmailPage />} />
+            <Route path="/messages" element={<EmailPage />} />
             <Route path="/phone" element={<PhonePage />} />
             <Route path="/boards" element={<Boards />} />
             <Route path="/boards/:boardId" element={<BoardView />} />

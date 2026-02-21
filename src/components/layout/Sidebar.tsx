@@ -37,7 +37,7 @@ const navItems = [
   { to: '/signatures', icon: PenTool, label: 'Signatures' },
   { to: '/invoices', icon: Receipt, label: 'Invoices' },
   { to: '/leads', icon: Radar, label: 'Leads' },
-  { to: '/email', icon: Mail, label: 'Email' },
+  { to: '/messages', icon: Mail, label: 'Messages' },
   { to: '/phone', icon: Phone, label: 'Phone' },
   { to: '/boards', icon: LayoutGrid, label: 'Boards' },
   { to: '/meetings', icon: Video, label: 'Meetings' },
