@@ -1,0 +1,2 @@
+ALTER TABLE public.communications DROP CONSTRAINT communications_type_check;
+ALTER TABLE public.communications ADD CONSTRAINT communications_type_check CHECK (type = ANY (ARRAY['email', 'sms', 'call', 'instagram', 'voicemail']));
