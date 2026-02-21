@@ -414,16 +414,21 @@ Deno.serve(async (req) => {
     if (path === 'content' && req.method === 'GET') {
       const category = params.get('category')
       const type = params.get('type')
-      let q = supabase.from('content_assets').select('*').order('created_at', { ascending: false }).limit(100)
+      const source = params.get('source')
+      const customer_id = params.get('customer_id')
+      let q = supabase.from('content_assets').select('*, customers(id, full_name, category)').order('created_at', { ascending: false }).limit(200)
       if (category) q = q.eq('category', category)
       if (type) q = q.eq('type', type)
+      if (source) q = q.eq('source', source)
+      if (customer_id) q = q.eq('customer_id', customer_id)
       const { data, error } = await q
       if (error) return fail(error.message)
       return ok({ content: data })
     }
 
     if (path === 'content' && req.method === 'POST') {
-      const { id, title, type, body: assetBody, status, tags, category, url, folder, scheduled_for } = body
+      const { id, title, type, body: assetBody, status, tags, category, url, folder, scheduled_for, source, customer_id } = body
+      const VALID_SOURCES = ['dashboard', 'google-drive', 'instagram', 'sms', 'client-direct', 'other']
       if (id) {
         const updates: Record<string, unknown> = {}
         if (title) updates.title = title
@@ -431,20 +436,24 @@ Deno.serve(async (req) => {
         if (assetBody !== undefined) updates.body = assetBody
         if (status) updates.status = status
         if (tags) updates.tags = tags
-        if (category) updates.category = category
+        if (category) updates.category = normalizeCategory(category)
         if (url !== undefined) updates.url = url
         if (folder !== undefined) updates.folder = folder
         if (scheduled_for !== undefined) updates.scheduled_for = scheduled_for
+        if (source) updates.source = VALID_SOURCES.includes(source as string) ? source : 'other'
+        if (customer_id !== undefined) updates.customer_id = customer_id || null
         const { error } = await supabase.from('content_assets').update(updates).eq('id', id)
         if (error) return fail(error.message)
         await logActivity(supabase, 'content', id, 'updated', title)
         return ok({ action: 'updated', content_id: id })
       }
       if (!title || !type) return fail('title and type are required')
+      const normalizedSource = source ? (VALID_SOURCES.includes(source as string) ? source : 'other') : 'dashboard'
       const { data, error } = await supabase.from('content_assets').insert({
         title, type, body: assetBody || null, status: status || 'draft',
-        tags: tags || [], category: category || null, url: url || null,
+        tags: tags || [], category: normalizeCategory(category), url: url || null,
         folder: folder || null, scheduled_for: scheduled_for || null,
+        source: normalizedSource, customer_id: customer_id || null,
       }).select('id').single()
       if (error) return fail(error.message)
       await logActivity(supabase, 'content', data?.id, 'created', title)
@@ -1190,15 +1199,16 @@ Deno.serve(async (req) => {
 
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
-      const [boards, customers, deals, projects, meetings, templates] = await Promise.all([
+      const [boards, customers, deals, projects, meetings, templates, content] = await Promise.all([
         supabase.from('boards').select('id, name, lists:lists(id, name, position, cards:cards(id, title, status, priority, position, source))').order('created_at', { ascending: true }),
         supabase.from('customers').select('id, full_name, status, email, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('deals').select('id, title, stage, deal_value, status, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('projects').select('id, title, status, priority, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('meetings').select('id, title, room_code, status, scheduled_at, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('templates').select('id, name, type, category, placeholders').order('created_at', { ascending: false }).limit(50),
+        supabase.from('content_assets').select('id, title, type, status, source, category, customer_id, folder, url').order('created_at', { ascending: false }).limit(100),
       ])
-      return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data, templates: templates.data })
+      return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data, templates: templates.data, content: content.data })
     }
 
     return fail('Unknown endpoint', 404)

@@ -1,7 +1,7 @@
 {
   "skill_name": "clawd-command-crm",
-  "version": "2.1.0",
-  "description": "Full CRM command console for CLAWD Command — 60 endpoints covering customers, leads, deals, projects, tasks, boards, cards, invoices, communications, documents, templates, signatures, meetings, automations, and more.",
+  "version": "2.2.0",
+  "description": "Full CRM command console for CLAWD Command — 60+ endpoints covering customers, leads, deals, projects, tasks, boards, cards, invoices, communications, documents, templates, content assets (with source tracking and customer linking), signatures, meetings, automations, and more.",
   "auth": {
     "type": "hmac_signature",
     "algorithm": "HMAC-SHA256",
@@ -43,8 +43,8 @@
     { "name": "crm_project_task_upsert", "method": "POST", "path": "/clawd-bot/project-task", "description": "Create or update a project task (send id to update)" },
     { "name": "crm_project_task_delete", "method": "DELETE", "path": "/clawd-bot/project-task", "description": "Delete a project task by id" },
 
-    { "name": "crm_content_list", "method": "GET", "path": "/clawd-bot/content", "description": "List content assets with optional ?category= and ?type= filters" },
-    { "name": "crm_content_upsert", "method": "POST", "path": "/clawd-bot/content", "description": "Create or update a content asset (send id to update)" },
+    { "name": "crm_content_list", "method": "GET", "path": "/clawd-bot/content", "description": "List content assets with optional ?category=, ?type=, ?source= (dashboard|google-drive|instagram|sms|client-direct|other), and ?customer_id= filters" },
+    { "name": "crm_content_upsert", "method": "POST", "path": "/clawd-bot/content", "description": "Create or update a content asset. Fields: title, type (article|image|video|landing_page|doc|post), status, source (dashboard|google-drive|instagram|sms|client-direct|other), customer_id, url, folder, tags, category, body, scheduled_for. Send id to update." },
     { "name": "crm_content_delete", "method": "DELETE", "path": "/clawd-bot/content", "description": "Delete a content asset by id" },
 
     { "name": "crm_threads_list", "method": "GET", "path": "/clawd-bot/threads", "description": "List conversation threads with optional ?customer_id= and ?category= filters" },

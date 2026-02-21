@@ -135,10 +135,15 @@ All responses follow:
 
 | Action | Method | URL | Body |
 |--------|--------|-----|------|
-| List | GET | `/clawd-bot/content?category=blog` | — |
-| Create | POST | `/clawd-bot/content` | `{ "title": "...", "type": "post" }` |
-| Update | POST | `/clawd-bot/content` | `{ "id": "uuid", "status": "published" }` |
+| List | GET | `/clawd-bot/content` | — |
+| List filtered | GET | `/clawd-bot/content?customer_id=uuid&source=instagram&type=image&category=digital-services` | — |
+| Create | POST | `/clawd-bot/content` | `{ "title": "...", "type": "post", "source": "instagram", "customer_id": "uuid" }` |
+| Update | POST | `/clawd-bot/content` | `{ "id": "uuid", "status": "published", "source": "client-direct" }` |
 | Delete | DELETE | `/clawd-bot/content` | `{ "id": "uuid" }` |
+
+> **Content types**: `article`, `image`, `video`, `landing_page`, `doc`, `post`
+> **Source values**: `dashboard`, `google-drive`, `instagram`, `sms`, `client-direct`, `other`
+> **Folder convention**: `{Category}/{Customer Name}/{Source Label}` — auto-set by the UI, can be overridden via API
 
 ### Threads (Conversations)
 
@@ -240,6 +245,8 @@ All responses follow:
 | Action | Method | URL |
 |--------|--------|-----|
 | Get all | GET | `/clawd-bot/state` |
+
+> Returns: `boards`, `customers`, `deals`, `projects`, `meetings`, `templates`, `content`
 
 ---
 

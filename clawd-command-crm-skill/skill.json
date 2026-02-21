@@ -1,7 +1,7 @@
 {
   "skill_name": "clawd-command-crm",
-  "version": "2.1.0",
-  "description": "CRM integration for CLAWD Command via SpaceBot — includes templates for contracts/proposals",
+  "version": "2.2.0",
+  "description": "CRM integration for CLAWD Command via SpaceBot — includes templates, content assets with source tracking and customer linking",
   "auth": {
     "type": "shared_secret",
     "header": "x-bot-secret",
@@ -11,7 +11,7 @@
   "actions": [
     {
       "name": "get_state",
-      "description": "Get CRM snapshot (boards, customers, deals, projects, meetings, templates)",
+      "description": "Get CRM snapshot (boards, customers, deals, projects, meetings, templates, content)",
       "method": "GET",
       "path": "/clawd-bot/state"
     },
@@ -74,6 +74,24 @@
       "description": "Delete a template by ID. Body: {\"id\": \"uuid\"}",
       "method": "DELETE",
       "path": "/clawd-bot/template"
+    },
+    {
+      "name": "list_content",
+      "description": "List content assets with optional ?customer_id=, ?source= (dashboard|google-drive|instagram|sms|client-direct|other), ?type=, ?category= filters",
+      "method": "GET",
+      "path": "/clawd-bot/content"
+    },
+    {
+      "name": "create_or_update_content",
+      "description": "Create or update a content asset. Fields: title, type (article|image|video|landing_page|doc|post), source (dashboard|google-drive|instagram|sms|client-direct|other), customer_id, status, url, folder, tags, body, scheduled_for. Send id to update.",
+      "method": "POST",
+      "path": "/clawd-bot/content"
+    },
+    {
+      "name": "delete_content",
+      "description": "Delete a content asset by ID. Body: {\"id\": \"uuid\"}",
+      "method": "DELETE",
+      "path": "/clawd-bot/content"
     }
   ]
 }
