@@ -19,6 +19,7 @@ import {
   Mail,
   Phone,
   Video,
+  Bot,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ const navItems = [
   { to: '/phone', icon: Phone, label: 'Phone' },
   { to: '/boards', icon: LayoutGrid, label: 'Boards' },
   { to: '/meetings', icon: Video, label: 'Meetings' },
+  { to: '/ai-staff', icon: Bot, label: 'AI Staff' },
 ];
 
 export function Sidebar() {
