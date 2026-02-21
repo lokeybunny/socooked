@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   Instagram, MessageSquareText, Voicemail, Filter, Trash2, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check, Users, Search,
+  ChevronsUpDown, Check, Users, Search, Info, Tag, Zap, UserPlus,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -57,6 +57,42 @@ interface IGMessage {
   text: string;
   createdTime: string;
   isFromMe: boolean;
+}
+
+interface MCSubscriberInfo {
+  id: number;
+  page_id: number;
+  status: string;
+  first_name: string;
+  last_name: string;
+  name: string;
+  gender: string;
+  profile_pic: string;
+  locale: string;
+  language: string;
+  timezone: string;
+  live_chat_url: string;
+  last_input_text: string;
+  subscribed: string;
+  last_interaction: string;
+  last_seen: string;
+  ig_username?: string;
+  ig_id?: number;
+  phone?: string;
+  email?: string;
+  tags: { id: number; name: string }[];
+  custom_fields: { id: number; name: string; value: any; type: string }[];
+}
+
+interface MCFlow {
+  ns: string;
+  name: string;
+  status: string;
+}
+
+interface MCTag {
+  id: number;
+  name: string;
 }
 
 const GMAIL_FN = 'gmail-api';
@@ -179,6 +215,19 @@ export default function EmailPage() {
   const [igSending, setIgSending] = useState(false);
   const [readCustomerEmailIds, setReadCustomerEmailIds] = useState<Set<string>>(new Set());
 
+  // ManyChat subscriber details
+  const [igSubscriberInfo, setIgSubscriberInfo] = useState<MCSubscriberInfo | null>(null);
+  const [igInfoLoading, setIgInfoLoading] = useState(false);
+  const [igShowInfo, setIgShowInfo] = useState(false);
+  const [igSearchName, setIgSearchName] = useState('');
+  const [igSearchResults, setIgSearchResults] = useState<any[]>([]);
+  const [igSearching, setIgSearching] = useState(false);
+  const [igFlows, setIgFlows] = useState<MCFlow[]>([]);
+  const [igTags, setIgTags] = useState<MCTag[]>([]);
+  const [igNewTagName, setIgNewTagName] = useState('');
+  const [igSelectedFlow, setIgSelectedFlow] = useState('');
+  const [igSendingFlow, setIgSendingFlow] = useState(false);
+
   const handleFileSelect = async (files: FileList | null, target: 'compose' | 'reply') => {
     if (!files) return;
     const maxSize = 10 * 1024 * 1024; // 10MB per file
@@ -276,6 +325,97 @@ export default function EmailPage() {
       setIgSending(false);
     }
   };
+
+  // ─── ManyChat: Load subscriber info ───
+  const loadSubscriberInfo = async (subscriberId: string) => {
+    setIgInfoLoading(true);
+    try {
+      const result = await callInstagram('subscriber', `subscriber_id=${subscriberId}`);
+      setIgSubscriberInfo(result.data || null);
+    } catch (e: any) {
+      console.error('Subscriber info error:', e);
+      setIgSubscriberInfo(null);
+    } finally {
+      setIgInfoLoading(false);
+    }
+  };
+
+  const loadFlows = async () => {
+    try {
+      const result = await callInstagram('flows');
+      setIgFlows(result.data || []);
+    } catch { setIgFlows([]); }
+  };
+
+  const loadTags = async () => {
+    try {
+      const result = await callInstagram('tags');
+      setIgTags(result.data || []);
+    } catch { setIgTags([]); }
+  };
+
+  const handleIgSearch = async () => {
+    if (!igSearchName.trim()) return;
+    setIgSearching(true);
+    try {
+      const result = await callInstagram('find', `name=${encodeURIComponent(igSearchName.trim())}`);
+      setIgSearchResults(result.data || []);
+    } catch (e: any) {
+      toast.error(e.message || 'Search failed');
+      setIgSearchResults([]);
+    } finally {
+      setIgSearching(false);
+    }
+  };
+
+  const handleAddTag = async (subscriberId: string, tagName: string) => {
+    try {
+      await callInstagramPost('add-tag', { subscriber_id: subscriberId, tag_name: tagName });
+      toast.success(`Tag "${tagName}" added`);
+      await loadSubscriberInfo(subscriberId);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to add tag');
+    }
+  };
+
+  const handleRemoveTag = async (subscriberId: string, tagName: string) => {
+    try {
+      await callInstagramPost('remove-tag', { subscriber_id: subscriberId, tag_name: tagName });
+      toast.success(`Tag "${tagName}" removed`);
+      await loadSubscriberInfo(subscriberId);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to remove tag');
+    }
+  };
+
+  const handleSendFlow = async (subscriberId: string, flowNs: string) => {
+    setIgSendingFlow(true);
+    try {
+      await callInstagramPost('send-flow', { subscriber_id: subscriberId, flow_ns: flowNs });
+      toast.success('Flow sent!');
+      setIgSelectedFlow('');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send flow');
+    } finally {
+      setIgSendingFlow(false);
+    }
+  };
+
+  useEffect(() => {
+    if (channel === 'instagram') {
+      loadFlows();
+      loadTags();
+    }
+  }, [channel]);
+
+  useEffect(() => {
+    if (igActiveConv) {
+      loadSubscriberInfo(igActiveConv.participantId);
+      setIgShowInfo(false);
+    } else {
+      setIgSubscriberInfo(null);
+    }
+  }, [igActiveConv]);
 
   useEffect(() => {
     loadCustomers();
@@ -793,67 +933,267 @@ export default function EmailPage() {
           ) : igActiveConv ? (
             /* ─── Instagram conversation detail ─── */
             <div className="space-y-4">
-              <Button variant="ghost" size="sm" onClick={() => setIgActiveConv(null)} className="gap-1.5">
-                <ArrowLeft className="h-4 w-4" /> Back to conversations
-              </Button>
-              <div className="glass-card p-4">
-                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
-                  <Instagram className="h-5 w-5 text-pink-500" />
-                  <span className="font-semibold text-foreground">@{igActiveConv.participantUsername}</span>
-                </div>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {[...igActiveConv.messages].reverse().map((msg) => (
-                    <div key={msg.id} className={cn("flex", msg.isFromMe ? "justify-end" : "justify-start")}>
-                      <div className={cn(
-                        "max-w-[70%] rounded-lg px-3 py-2 text-sm",
-                        msg.isFromMe
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
-                      )}>
-                        <p>{msg.text}</p>
-                        <p className={cn("text-[10px] mt-1", msg.isFromMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                          {formatDate(msg.createdTime)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {/* Reply input */}
-                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
-                  <Input
-                    value={igReplyText}
-                    onChange={(e) => setIgReplyText(e.target.value)}
-                    placeholder="Type a message..."
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleIgSendReply(); } }}
-                  />
-                  <Button size="sm" onClick={handleIgSendReply} disabled={igSending || !igReplyText.trim()} className="gap-1.5">
-                    <Send className="h-4 w-4" /> {igSending ? '...' : 'Send'}
+              <div className="flex items-center justify-between">
+                <Button variant="ghost" size="sm" onClick={() => setIgActiveConv(null)} className="gap-1.5">
+                  <ArrowLeft className="h-4 w-4" /> Back to conversations
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setIgShowInfo(!igShowInfo)} className="gap-1.5">
+                    <Info className="h-4 w-4" /> {igShowInfo ? 'Hide Info' : 'Subscriber Info'}
                   </Button>
                 </div>
               </div>
-            </div>
-          ) : igConversations.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">No Instagram conversations found.</p>
-          ) : (
-            /* ─── Instagram conversation list ─── */
-            <div className="space-y-2">
-              {igConversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => setIgActiveConv(conv)}
-                  className="w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <Instagram className="h-4 w-4 text-pink-500 mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">@{conv.participantUsername}</p>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">{conv.lastMessage}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{formatDate(conv.lastMessageTime)}</p>
-                    </div>
+
+              <div className={cn("grid gap-4", igShowInfo ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1")}>
+                {/* Chat panel */}
+                <div className={cn("glass-card p-4", igShowInfo ? "lg:col-span-2" : "")}>
+                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                    <Instagram className="h-5 w-5 text-pink-500" />
+                    <span className="font-semibold text-foreground">@{igActiveConv.participantUsername}</span>
+                    {igSubscriberInfo && (
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {igSubscriberInfo.name}
+                      </span>
+                    )}
                   </div>
-                  <Eye className="h-4 w-4 shrink-0 mt-1 text-muted-foreground" />
-                </button>
-              ))}
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {[...igActiveConv.messages].reverse().map((msg) => (
+                      <div key={msg.id} className={cn("flex", msg.isFromMe ? "justify-end" : "justify-start")}>
+                        <div className={cn(
+                          "max-w-[70%] rounded-lg px-3 py-2 text-sm",
+                          msg.isFromMe
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-foreground"
+                        )}>
+                          <p>{msg.text}</p>
+                          <p className={cn("text-[10px] mt-1", msg.isFromMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                            {formatDate(msg.createdTime)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Reply input */}
+                  <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
+                    <Input
+                      value={igReplyText}
+                      onChange={(e) => setIgReplyText(e.target.value)}
+                      placeholder="Type a message..."
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleIgSendReply(); } }}
+                    />
+                    <Button size="sm" onClick={handleIgSendReply} disabled={igSending || !igReplyText.trim()} className="gap-1.5">
+                      <Send className="h-4 w-4" /> {igSending ? '...' : 'Send'}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Subscriber info panel */}
+                {igShowInfo && (
+                  <div className="glass-card p-4 space-y-4">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                      <Users className="h-4 w-4" /> Subscriber Details
+                    </h3>
+                    {igInfoLoading ? (
+                      <div className="flex items-center gap-2 py-4">
+                        <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Loading...</span>
+                      </div>
+                    ) : igSubscriberInfo ? (
+                      <div className="space-y-3 text-sm">
+                        {igSubscriberInfo.profile_pic && (
+                          <img src={igSubscriberInfo.profile_pic} alt="" className="h-12 w-12 rounded-full" />
+                        )}
+                        <div className="space-y-1">
+                          <p className="text-foreground font-medium">{igSubscriberInfo.name}</p>
+                          {igSubscriberInfo.ig_username && <p className="text-muted-foreground text-xs">@{igSubscriberInfo.ig_username}</p>}
+                          {igSubscriberInfo.email && <p className="text-muted-foreground text-xs">{igSubscriberInfo.email}</p>}
+                          {igSubscriberInfo.phone && <p className="text-muted-foreground text-xs">{igSubscriberInfo.phone}</p>}
+                          <p className="text-muted-foreground text-xs">Status: {igSubscriberInfo.status}</p>
+                          {igSubscriberInfo.last_interaction && (
+                            <p className="text-muted-foreground text-xs">Last active: {formatDate(igSubscriberInfo.last_interaction)}</p>
+                          )}
+                          {igSubscriberInfo.subscribed && (
+                            <p className="text-muted-foreground text-xs">Subscribed: {formatDate(igSubscriberInfo.subscribed)}</p>
+                          )}
+                        </div>
+
+                        {/* Tags */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-foreground flex items-center gap-1">
+                            <Tag className="h-3 w-3" /> Tags
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {(igSubscriberInfo.tags || []).map((tag) => (
+                              <span key={tag.id} className="inline-flex items-center gap-1 bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-[10px]">
+                                {tag.name}
+                                <button onClick={() => handleRemoveTag(igActiveConv.participantId, tag.name)} className="hover:text-destructive">
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Select value={igNewTagName} onValueChange={setIgNewTagName}>
+                              <SelectTrigger className="h-7 text-xs flex-1">
+                                <SelectValue placeholder="Add tag..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {igTags.map((t) => (
+                                  <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2"
+                              disabled={!igNewTagName}
+                              onClick={() => { handleAddTag(igActiveConv.participantId, igNewTagName); setIgNewTagName(''); }}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Send Flow */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-foreground flex items-center gap-1">
+                            <Zap className="h-3 w-3" /> Send Flow
+                          </p>
+                          <div className="flex items-center gap-1">
+                            <Select value={igSelectedFlow} onValueChange={setIgSelectedFlow}>
+                              <SelectTrigger className="h-7 text-xs flex-1">
+                                <SelectValue placeholder="Select flow..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {igFlows.filter((f) => f.status === 'active' || f.status === 'published').map((f) => (
+                                  <SelectItem key={f.ns} value={f.ns}>{f.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2"
+                              disabled={!igSelectedFlow || igSendingFlow}
+                              onClick={() => handleSendFlow(igActiveConv.participantId, igSelectedFlow)}
+                            >
+                              <Send className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Custom Fields */}
+                        {igSubscriberInfo.custom_fields && igSubscriberInfo.custom_fields.length > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-foreground">Custom Fields</p>
+                            <div className="space-y-0.5">
+                              {igSubscriberInfo.custom_fields.filter((f) => f.value).map((f) => (
+                                <p key={f.id} className="text-[10px] text-muted-foreground">
+                                  <span className="font-medium">{f.name}:</span> {String(f.value)}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {igSubscriberInfo.live_chat_url && (
+                          <a
+                            href={igSubscriberInfo.live_chat_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Open in ManyChat →
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No subscriber data available</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* ─── Instagram conversation list + search ─── */
+            <div className="space-y-4">
+              {/* Search subscribers */}
+              <div className="flex items-center gap-2">
+                <Input
+                  value={igSearchName}
+                  onChange={(e) => setIgSearchName(e.target.value)}
+                  placeholder="Search subscribers by name..."
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleIgSearch(); }}
+                  className="flex-1"
+                />
+                <Button size="sm" variant="outline" onClick={handleIgSearch} disabled={igSearching} className="gap-1.5">
+                  <Search className="h-4 w-4" /> {igSearching ? '...' : 'Search'}
+                </Button>
+              </div>
+
+              {/* Search results */}
+              {igSearchResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">Search Results</p>
+                  {igSearchResults.map((sub: any) => (
+                    <button
+                      key={sub.id}
+                      onClick={() => {
+                        const newConv: IGConversation = {
+                          id: String(sub.id),
+                          participantUsername: sub.ig_username || sub.name || 'unknown',
+                          participantId: String(sub.id),
+                          lastMessage: sub.last_input_text || '',
+                          lastMessageTime: sub.last_interaction || '',
+                          messages: [],
+                        };
+                        setIgActiveConv(newConv);
+                        setIgSearchResults([]);
+                        setIgSearchName('');
+                        // Load messages
+                        callInstagram('messages', `subscriber_id=${sub.id}`).then((data) => {
+                          setIgActiveConv((prev) => prev ? { ...prev, messages: data.messages || [] } : null);
+                        }).catch(() => {});
+                      }}
+                      className="w-full text-left glass-card p-3 flex items-center gap-3 hover:bg-accent/50 transition-colors"
+                    >
+                      {sub.profile_pic && <img src={sub.profile_pic} alt="" className="h-8 w-8 rounded-full" />}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">{sub.name}</p>
+                        {sub.ig_username && <p className="text-xs text-muted-foreground">@{sub.ig_username}</p>}
+                      </div>
+                      <UserPlus className="h-4 w-4 shrink-0 text-muted-foreground ml-auto" />
+                    </button>
+                  ))}
+                  <Button variant="ghost" size="sm" onClick={() => setIgSearchResults([])} className="text-xs">Clear results</Button>
+                </div>
+              )}
+
+              {/* Conversation list */}
+              {igConversations.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No Instagram conversations found.</p>
+              ) : (
+                <div className="space-y-2">
+                  {igConversations.filter((conv) => matchesSearch(`${conv.participantUsername} ${conv.lastMessage}`)).map((conv) => (
+                    <button
+                      key={conv.id}
+                      onClick={() => setIgActiveConv(conv)}
+                      className="w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <Instagram className="h-4 w-4 text-pink-500 mt-0.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">@{conv.participantUsername}</p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{conv.lastMessage}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{formatDate(conv.lastMessageTime)}</p>
+                        </div>
+                      </div>
+                      <Eye className="h-4 w-4 shrink-0 mt-1 text-muted-foreground" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )
         ) : null}
