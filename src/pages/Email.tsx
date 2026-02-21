@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Mail, Send, FileEdit, Inbox, Trash2, Filter } from 'lucide-react';
+import { Plus, Mail, Send, FileEdit, Inbox, Trash2, Filter, Instagram } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 
@@ -31,6 +31,7 @@ export default function EmailPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [activeTab, setActiveTab] = useState('inbox');
+  const [channel, setChannel] = useState<'email' | 'instagram'>('email');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('all');
 
   const load = async () => {
@@ -176,32 +177,61 @@ export default function EmailPage() {
           </Dialog>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between gap-4">
-            <TabsList>
-              <TabsTrigger value="inbox" className="gap-1.5"><Inbox className="h-3.5 w-3.5" /> Inbox</TabsTrigger>
-              <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
-              <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
-            </TabsList>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-                <SelectTrigger className="w-[200px]"><SelectValue placeholder="All customers" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All customers</SelectItem>
-                  {customers.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        <div className="flex items-center gap-2 border-b border-border pb-4">
+          <Button
+            variant={channel === 'email' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setChannel('email')}
+            className="gap-1.5"
+          >
+            <Mail className="h-4 w-4" /> Email
+          </Button>
+          <Button
+            variant={channel === 'instagram' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setChannel('instagram')}
+            className="gap-1.5"
+          >
+            <Instagram className="h-4 w-4" /> Instagram
+          </Button>
+        </div>
+
+        {channel === 'email' ? (
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <div className="flex items-center justify-between gap-4">
+              <TabsList>
+                <TabsTrigger value="inbox" className="gap-1.5"><Inbox className="h-3.5 w-3.5" /> Inbox</TabsTrigger>
+                <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
+                <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
+              </TabsList>
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="All customers" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All customers</SelectItem>
+                    {customers.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {['inbox', 'sent', 'drafts'].map(tab => (
+              <TabsContent key={tab} value={tab}>
+                {loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderList(filtered(tab))}
+              </TabsContent>
+            ))}
+          </Tabs>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Instagram className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-1">Instagram DMs</h3>
+            <p className="text-sm text-muted-foreground max-w-md">
+              ManyChat integration coming soon. Once connected, your Instagram conversations will appear here.
+            </p>
           </div>
-          {['inbox', 'sent', 'drafts'].map(tab => (
-            <TabsContent key={tab} value={tab}>
-              {loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderList(filtered(tab))}
-            </TabsContent>
-          ))}
-        </Tabs>
+        )}
       </div>
     </AppLayout>
   );
