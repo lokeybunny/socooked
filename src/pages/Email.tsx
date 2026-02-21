@@ -41,7 +41,53 @@ interface Attachment {
   size: number;
 }
 
+interface IGConversation {
+  id: string;
+  participantUsername: string;
+  participantId: string;
+  lastMessage: string;
+  lastMessageTime: string;
+  messages: IGMessage[];
+}
+
+interface IGMessage {
+  id: string;
+  fromUsername: string;
+  fromId: string;
+  text: string;
+  createdTime: string;
+  isFromMe: boolean;
+}
+
 const GMAIL_FN = 'gmail-api';
+const IG_FN = 'instagram-api';
+
+async function callInstagram(action: string, params?: string): Promise<any> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const extra = params ? `&${params}` : '';
+  const url = `https://${projectId}.supabase.co/functions/v1/${IG_FN}?action=${action}${extra}`;
+  const res = await fetch(url, {
+    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Instagram API error');
+  return data;
+}
+
+async function callInstagramPost(action: string, body: any): Promise<any> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = `https://${projectId}.supabase.co/functions/v1/${IG_FN}?action=${action}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Instagram API error');
+  return data;
+}
 
 async function callGmail(action: string, body?: any): Promise<any> {
   if (body) {
@@ -125,6 +171,12 @@ export default function EmailPage() {
   // Legacy comms for non-email channels
   const [legacyComms, setLegacyComms] = useState<any[]>([]);
 
+  // Instagram DMs
+  const [igConversations, setIgConversations] = useState<IGConversation[]>([]);
+  const [igActiveConv, setIgActiveConv] = useState<IGConversation | null>(null);
+  const [igReplyText, setIgReplyText] = useState('');
+  const [igSending, setIgSending] = useState(false);
+
   const handleFileSelect = async (files: FileList | null, target: 'compose' | 'reply') => {
     if (!files) return;
     const maxSize = 10 * 1024 * 1024; // 10MB per file
@@ -188,6 +240,40 @@ export default function EmailPage() {
     setLoading(false);
   }, [channel]);
 
+  const loadInstagram = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await callInstagram('conversations');
+      setIgConversations(data.conversations || []);
+    } catch (e: any) {
+      console.error('Instagram load error:', e);
+      toast.error(e.message || 'Failed to load Instagram DMs');
+      setIgConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleIgSendReply = async () => {
+    if (!igActiveConv || !igReplyText.trim()) return;
+    setIgSending(true);
+    try {
+      await callInstagramPost('send', {
+        recipient_id: igActiveConv.participantId,
+        message: igReplyText.trim(),
+      });
+      toast.success('Message sent!');
+      setIgReplyText('');
+      // Reload messages for this conversation
+      const data = await callInstagram('messages', `conversation_id=${igActiveConv.id}`);
+      setIgActiveConv({ ...igActiveConv, messages: data.messages || [] });
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send message');
+    } finally {
+      setIgSending(false);
+    }
+  };
+
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
@@ -195,15 +281,21 @@ export default function EmailPage() {
   useEffect(() => {
     if (channel === 'email') {
       loadEmails(activeTab);
+    } else if (channel === 'instagram') {
+      loadInstagram();
+      setIgActiveConv(null);
     } else if (channel === 'sms' || channel === 'voicemail') {
       loadLegacy();
     }
-  }, [channel, activeTab, loadEmails, loadLegacy]);
+  }, [channel, activeTab, loadEmails, loadLegacy, loadInstagram]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     if (channel === 'email') {
       await loadEmails(activeTab);
+    } else if (channel === 'instagram') {
+      await loadInstagram();
+      setIgActiveConv(null);
     } else {
       await loadLegacy();
     }
@@ -602,15 +694,79 @@ export default function EmailPage() {
           </Tabs>
         ) : channel === 'sms' || channel === 'voicemail' ? (
           <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderLegacyList(legacyComms)}</div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <Instagram className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-1">Instagram DMs</h3>
-            <p className="text-sm text-muted-foreground max-w-md">
-              ManyChat integration coming soon.
-            </p>
-          </div>
-        )}
+        ) : channel === 'instagram' ? (
+          loading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading Instagram DMs...</span>
+            </div>
+          ) : igActiveConv ? (
+            /* ─── Instagram conversation detail ─── */
+            <div className="space-y-4">
+              <Button variant="ghost" size="sm" onClick={() => setIgActiveConv(null)} className="gap-1.5">
+                <ArrowLeft className="h-4 w-4" /> Back to conversations
+              </Button>
+              <div className="glass-card p-4">
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
+                  <Instagram className="h-5 w-5 text-pink-500" />
+                  <span className="font-semibold text-foreground">@{igActiveConv.participantUsername}</span>
+                </div>
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {[...igActiveConv.messages].reverse().map((msg) => (
+                    <div key={msg.id} className={cn("flex", msg.isFromMe ? "justify-end" : "justify-start")}>
+                      <div className={cn(
+                        "max-w-[70%] rounded-lg px-3 py-2 text-sm",
+                        msg.isFromMe
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground"
+                      )}>
+                        <p>{msg.text}</p>
+                        <p className={cn("text-[10px] mt-1", msg.isFromMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                          {formatDate(msg.createdTime)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Reply input */}
+                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
+                  <Input
+                    value={igReplyText}
+                    onChange={(e) => setIgReplyText(e.target.value)}
+                    placeholder="Type a message..."
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleIgSendReply(); } }}
+                  />
+                  <Button size="sm" onClick={handleIgSendReply} disabled={igSending || !igReplyText.trim()} className="gap-1.5">
+                    <Send className="h-4 w-4" /> {igSending ? '...' : 'Send'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : igConversations.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">No Instagram conversations found.</p>
+          ) : (
+            /* ─── Instagram conversation list ─── */
+            <div className="space-y-2">
+              {igConversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  onClick={() => setIgActiveConv(conv)}
+                  className="w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <Instagram className="h-4 w-4 text-pink-500 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">@{conv.participantUsername}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{conv.lastMessage}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{formatDate(conv.lastMessageTime)}</p>
+                    </div>
+                  </div>
+                  <Eye className="h-4 w-4 shrink-0 mt-1 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          )
+        ) : null}
       </div>
 
       {/* Compose Dialog */}
