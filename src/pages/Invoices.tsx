@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Plus, Receipt, DollarSign, Hash, Calendar, Trash2, FileText, Send, Download, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { Plus, Receipt, DollarSign, Hash, Calendar, Trash2, FileText, Send, Download, FileSpreadsheet, ChevronDown, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -93,6 +93,92 @@ export default function Invoices() {
     toast.success(`Invoice marked as ${status}`);
     setDetailInvoice(null);
     load();
+  };
+
+  const buildInvoiceHtml = (inv: any) => {
+    const lineItems = Array.isArray(inv.line_items) ? inv.line_items as LineItem[] : [];
+    const subtotalVal = Number(inv.subtotal || inv.amount);
+    const taxRate = Number(inv.tax_rate || 0);
+    const taxAmt = subtotalVal * taxRate / 100;
+    const totalVal = Number(inv.amount);
+    const customerName = inv.customers?.full_name || 'Customer';
+    const invNum = inv.invoice_number || 'Invoice';
+    const dueDateStr = inv.due_date ? format(new Date(inv.due_date), 'MMMM d, yyyy') : null;
+
+    return `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+        <h2 style="color:#1a1a1a;margin-bottom:4px;">${invNum}</h2>
+        <p style="color:#666;margin-top:0;">Dear ${customerName},</p>
+        <p>Please find your invoice details below:</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <thead>
+            <tr style="background:#f5f5f5;">
+              <th style="text-align:left;padding:8px;border-bottom:1px solid #ddd;">Item</th>
+              <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Qty</th>
+              <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Price</th>
+              <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lineItems.map(li => `
+              <tr>
+                <td style="padding:8px;border-bottom:1px solid #eee;">${li.description}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${li.quantity}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${Number(li.unit_price).toFixed(2)}</td>
+                <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${(li.quantity * li.unit_price).toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div style="text-align:right;margin-top:8px;">
+          <p style="margin:2px 0;color:#666;">Subtotal: <strong>$${subtotalVal.toFixed(2)}</strong></p>
+          ${taxRate > 0 ? `<p style="margin:2px 0;color:#666;">Tax (${taxRate}%): <strong>$${taxAmt.toFixed(2)}</strong></p>` : ''}
+          <p style="margin:8px 0 0;font-size:18px;font-weight:bold;color:#1a1a1a;">Total: $${totalVal.toFixed(2)} ${inv.currency}</p>
+        </div>
+        ${dueDateStr ? `<p style="margin-top:16px;color:#666;">Due Date: <strong>${dueDateStr}</strong></p>` : ''}
+        ${inv.notes ? `<div style="margin-top:16px;padding:12px;background:#f9f9f9;border-radius:6px;"><p style="margin:0;color:#666;font-size:13px;">${inv.notes}</p></div>` : ''}
+        <p style="margin-top:24px;color:#666;">Thank you for your business!</p>
+      </div>
+    `;
+  };
+
+  const sendInvoiceEmail = async (inv: any) => {
+    const email = inv.customers?.email;
+    if (!email) {
+      toast.error('Customer has no email address');
+      return;
+    }
+
+    const sending = toast.loading('Sending invoice email...');
+    try {
+      const subject = `Invoice ${inv.invoice_number || ''} from STU25`;
+      const body = buildInvoiceHtml(inv);
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = `https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ to: email, subject, body }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+
+      // Mark as sent
+      await supabase.from('invoices').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', inv.id);
+      toast.dismiss(sending);
+      toast.success(`Invoice emailed to ${email}`);
+      setDetailInvoice(null);
+      load();
+    } catch (e: any) {
+      toast.dismiss(sending);
+      toast.error(e.message || 'Failed to send invoice email');
+    }
   };
 
   const deleteInvoice = async (id: string) => {
@@ -409,7 +495,7 @@ export default function Invoices() {
               </div>
               <StatusBadge status={inv.status} />
               <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'sent')}><Send className="h-3 w-3 mr-1" />Send</Button>}
+                {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => sendInvoiceEmail(inv)}><Mail className="h-3 w-3 mr-1" />Send</Button>}
                 {inv.status === 'sent' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
                 {(inv.status === 'draft' || inv.status === 'sent') && <Button size="sm" variant="ghost" onClick={() => markAs(inv.id, 'void')}>Void</Button>}
                 <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteInvoice(inv.id)}><Trash2 className="h-3 w-3" /></Button>
@@ -498,7 +584,7 @@ export default function Invoices() {
                   </div>
 
                   <div className="flex gap-2">
-                    {detailInvoice.status === 'draft' && <Button className="flex-1" onClick={() => markAs(detailInvoice.id, 'sent')}><Send className="h-4 w-4 mr-2" />Send Invoice</Button>}
+                    {detailInvoice.status === 'draft' && <Button className="flex-1" onClick={() => sendInvoiceEmail(detailInvoice)}><Mail className="h-4 w-4 mr-2" />Send to Client</Button>}
                     {detailInvoice.status === 'sent' && <Button className="flex-1" onClick={() => markAs(detailInvoice.id, 'paid')}>Mark as Paid</Button>}
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && (
                       <Button variant="ghost" onClick={() => markAs(detailInvoice.id, 'void')}>Void</Button>
