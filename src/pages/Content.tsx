@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -7,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor } from 'lucide-react';
+import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
@@ -19,10 +20,11 @@ const typeIcons: Record<string, any> = {
 };
 
 const SOURCE_LABELS: Record<string, { label: string; icon: any }> = {
-  dashboard: { label: 'Dashboard', icon: Monitor },
-  'google-drive': { label: 'Google Drive', icon: FolderOpen },
-  instagram: { label: 'Instagram', icon: MessageSquare },
-  sms: { label: 'SMS', icon: Smartphone },
+  dashboard: { label: 'From Dashboard', icon: Monitor },
+  'google-drive': { label: 'From Google Drive', icon: FolderOpen },
+  instagram: { label: 'From Client Instagram', icon: MessageSquare },
+  sms: { label: 'From Client Text Messages', icon: Smartphone },
+  'client-direct': { label: 'From Client Directly', icon: File },
   other: { label: 'Other', icon: File },
 };
 
@@ -37,6 +39,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export default function Content() {
   const categoryGate = useCategoryGate();
+  const navigate = useNavigate();
   const [allContent, setAllContent] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -57,9 +60,13 @@ export default function Content() {
   const [driveLoading, setDriveLoading] = useState(false);
   const [showDrive, setShowDrive] = useState(false);
 
+  // Upload menu (customer list)
+  const [showUploadMenu, setShowUploadMenu] = useState(false);
+
   // Collapse state for grouped view
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [collapsedCustomers, setCollapsedCustomers] = useState<Set<string>>(new Set());
+  const [collapsedSources, setCollapsedSources] = useState<Set<string>>(new Set());
 
   const loadAll = async () => {
     let q = supabase.from('content_assets').select('*, customers(id, full_name, category)').order('created_at', { ascending: false });
@@ -86,20 +93,24 @@ export default function Content() {
     return allContent;
   }, [categoryGate.selectedCategory, allContent]);
 
-  // Group: Category → Customer → Files
+  // Group: Category → Customer → Source → Files
   const grouped = useMemo(() => {
-    const map: Record<string, Record<string, any[]>> = {};
+    const map: Record<string, Record<string, Record<string, any[]>>> = {};
     for (const item of content) {
       const cat = CATEGORY_LABELS[item.category || 'other'] || 'Other';
       const custName = item.customers?.full_name || 'Unassigned';
+      const src = SOURCE_LABELS[item.source || 'dashboard']?.label || 'Other';
       if (!map[cat]) map[cat] = {};
-      if (!map[cat][custName]) map[cat][custName] = [];
-      map[cat][custName].push(item);
+      if (!map[cat][custName]) map[cat][custName] = {};
+      if (!map[cat][custName][src]) map[cat][custName][src] = [];
+      map[cat][custName][src].push(item);
     }
-    // Sort categories and customers alphabetically
-    const sorted: { category: string; customers: { name: string; files: any[] }[] }[] = [];
+    const sorted: { category: string; customers: { name: string; sources: { source: string; files: any[] }[] }[] }[] = [];
     for (const cat of Object.keys(map).sort()) {
-      const custs = Object.keys(map[cat]).sort().map(name => ({ name, files: map[cat][name] }));
+      const custs = Object.keys(map[cat]).sort().map(name => ({
+        name,
+        sources: Object.keys(map[cat][name]).sort().map(src => ({ source: src, files: map[cat][name][src] })),
+      }));
       sorted.push({ category: cat, customers: custs });
     }
     return sorted;
@@ -120,6 +131,14 @@ export default function Content() {
 
   const toggleCustomer = (key: string) => {
     setCollapsedCustomers(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
+
+  const toggleSource = (key: string) => {
+    setCollapsedSources(prev => {
       const next = new Set(prev);
       next.has(key) ? next.delete(key) : next.add(key);
       return next;
@@ -258,6 +277,9 @@ export default function Content() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <p className="text-muted-foreground text-sm">{content.length} assets</p>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowUploadMenu(!showUploadMenu)} className="gap-1.5">
+                <Users className="h-4 w-4" /> Upload
+              </Button>
               <Button variant="outline" size="sm" onClick={browseDriveFiles} className="gap-1.5">
                 <FolderOpen className="h-4 w-4" /> Browse Drive
               </Button>
@@ -394,12 +416,43 @@ export default function Content() {
             </div>
           )}
 
-          {/* Grouped view: Category → Customer → Files */}
+          {/* Upload menu: customer list */}
+          {showUploadMenu && (
+            <div className="glass-card p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4" /> Upload for Customer
+                </h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowUploadMenu(false)}>Close</Button>
+              </div>
+              {customers.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No customers found.</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {customers.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => navigate(`/content/upload/${c.id}`)}
+                      className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left text-sm"
+                    >
+                      <Upload className="h-4 w-4 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <span className="truncate text-foreground block">{c.full_name}</span>
+                        <span className="text-[10px] text-muted-foreground">{CATEGORY_LABELS[c.category || 'other']}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Grouped view: Category → Customer → Source → Files */}
           {grouped.length > 0 ? (
             <div className="space-y-4">
               {grouped.map(group => {
                 const catCollapsed = collapsedCategories.has(group.category);
-                const totalFiles = group.customers.reduce((s, c) => s + c.files.length, 0);
+                const totalFiles = group.customers.reduce((s, c) => s + c.sources.reduce((ss, src) => ss + src.files.length, 0), 0);
                 return (
                   <div key={group.category} className="glass-card overflow-hidden">
                     <button
@@ -416,6 +469,7 @@ export default function Content() {
                         {group.customers.map(cust => {
                           const custKey = `${group.category}::${cust.name}`;
                           const custCollapsed = collapsedCustomers.has(custKey);
+                          const custFileCount = cust.sources.reduce((s, src) => s + src.files.length, 0);
                           return (
                             <div key={custKey}>
                               <button
@@ -424,27 +478,45 @@ export default function Content() {
                               >
                                 {custCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
                                 <span className="text-sm font-medium text-foreground">{cust.name}</span>
-                                <span className="text-xs text-muted-foreground ml-auto">{cust.files.length}</span>
+                                <span className="text-xs text-muted-foreground ml-auto">{custFileCount}</span>
                               </button>
                               {!custCollapsed && (
-                                <div className="divide-y divide-border/30">
-                                  {cust.files.map(c => {
-                                    const Icon = typeIcons[c.type] || File;
+                                <div>
+                                  {cust.sources.map(srcGroup => {
+                                    const srcKey = `${custKey}::${srcGroup.source}`;
+                                    const srcCollapsed = collapsedSources.has(srcKey);
                                     return (
-                                      <div key={c.id} className="flex items-center gap-3 pl-16 pr-4 py-2.5 hover:bg-muted/20 transition-colors">
-                                        <div className="p-1.5 rounded bg-muted"><Icon className="h-3.5 w-3.5 text-muted-foreground" /></div>
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-sm text-foreground truncate">{c.title}</p>
-                                          <div className="flex items-center gap-2 mt-0.5">
-                                            <span className="text-[10px] text-muted-foreground capitalize">{c.type.replace('_', ' ')}</span>
-                                            <SourceBadge source={c.source || 'dashboard'} />
+                                      <div key={srcKey}>
+                                        <button
+                                          onClick={() => toggleSource(srcKey)}
+                                          className="w-full flex items-center gap-3 pl-16 pr-4 py-2 hover:bg-muted/20 transition-colors text-left border-b border-border/30"
+                                        >
+                                          {srcCollapsed ? <ChevronRight className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                                          <FolderOpen className="h-3 w-3 text-muted-foreground" />
+                                          <span className="text-xs font-medium text-muted-foreground">{srcGroup.source}</span>
+                                          <span className="text-[10px] text-muted-foreground ml-auto">{srcGroup.files.length}</span>
+                                        </button>
+                                        {!srcCollapsed && (
+                                          <div className="divide-y divide-border/30">
+                                            {srcGroup.files.map(c => {
+                                              const Icon = typeIcons[c.type] || File;
+                                              return (
+                                                <div key={c.id} className="flex items-center gap-3 pl-24 pr-4 py-2.5 hover:bg-muted/20 transition-colors">
+                                                  <div className="p-1.5 rounded bg-muted"><Icon className="h-3.5 w-3.5 text-muted-foreground" /></div>
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="text-sm text-foreground truncate">{c.title}</p>
+                                                    <span className="text-[10px] text-muted-foreground capitalize">{c.type.replace('_', ' ')}</span>
+                                                  </div>
+                                                  <StatusBadge status={c.status} />
+                                                  {c.url && (
+                                                    <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
+                                                      <ExternalLink className="h-3.5 w-3.5" />
+                                                    </a>
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
                                           </div>
-                                        </div>
-                                        <StatusBadge status={c.status} />
-                                        {c.url && (
-                                          <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
-                                            <ExternalLink className="h-3.5 w-3.5" />
-                                          </a>
                                         )}
                                       </div>
                                     );

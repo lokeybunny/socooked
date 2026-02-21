@@ -13,6 +13,7 @@ import Deals from "./pages/Deals";
 import Projects from "./pages/Projects";
 import Tasks from "./pages/Tasks";
 import Content from "./pages/Content";
+import CustomerUpload from "./pages/CustomerUpload";
 
 import Threads from "./pages/Threads";
 import Invoices from "./pages/Invoices";
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="/projects" element={<Projects />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/content" element={<Content />} />
+            <Route path="/content/upload/:customerId" element={<CustomerUpload />} />
             
             <Route path="/threads" element={<Threads />} />
             <Route path="/invoices" element={<Invoices />} />
