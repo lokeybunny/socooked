@@ -31,6 +31,7 @@ import AIStaff from "./pages/AIStaff";
 import CustomU from "./pages/CustomU";
 import ClientUpload from "./pages/portal/ClientUpload";
 import NotFound from "./pages/NotFound";
+import Policy from "./pages/Policy";
 
 const queryClient = new QueryClient();
 
@@ -68,6 +69,7 @@ const App = () => (
             <Route path="/ai-staff" element={<AIStaff />} />
             <Route path="/custom-u" element={<CustomU />} />
             <Route path="/u/:token" element={<ClientUpload />} />
+            <Route path="/policy" element={<Policy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

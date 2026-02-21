@@ -360,9 +360,14 @@ export default function Landing() {
               STU25
             </p>
           </div>
-          <p className="text-[8px] sm:text-[9px] text-muted-foreground/30">
-            &copy; {new Date().getFullYear()}
-          </p>
+          <div className="flex items-center gap-3">
+            <a href="/policy" className="text-[8px] sm:text-[9px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+              Privacy Policy
+            </a>
+            <p className="text-[8px] sm:text-[9px] text-muted-foreground/30">
+              &copy; {new Date().getFullYear()}
+            </p>
+          </div>
         </footer>
 
         {/* Back to top */}
