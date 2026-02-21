@@ -15,9 +15,8 @@ import Tasks from "./pages/Tasks";
 import Content from "./pages/Content";
 
 import Threads from "./pages/Threads";
-import Documents from "./pages/Documents";
 import Invoices from "./pages/Invoices";
-import Signatures from "./pages/Signatures";
+import Templates from "./pages/Templates";
 import Boards from "./pages/Boards";
 import BoardView from "./pages/BoardView";
 import Leads from "./pages/Leads";
@@ -51,9 +50,8 @@ const App = () => (
             <Route path="/content" element={<Content />} />
             
             <Route path="/threads" element={<Threads />} />
-            <Route path="/documents" element={<Documents />} />
             <Route path="/invoices" element={<Invoices />} />
-            <Route path="/signatures" element={<Signatures />} />
+            <Route path="/templates" element={<Templates />} />
             <Route path="/leads" element={<Leads />} />
             <Route path="/messages" element={<EmailPage />} />
             <Route path="/phone" element={<PhonePage />} />
