@@ -6,7 +6,6 @@ import {
   FolderKanban,
   CheckSquare,
   FileText,
-  
   LayoutGrid,
   LogOut,
   ChevronLeft,
@@ -23,7 +22,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -48,6 +48,43 @@ export function Sidebar() {
   const { signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const lastSeenMessagesRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastSeenMessagesRef.current = localStorage.getItem('messages_last_seen');
+
+    const checkNew = async () => {
+      const { data } = await supabase
+        .from('communications')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (data?.[0] && (!lastSeenMessagesRef.current || data[0].created_at > lastSeenMessagesRef.current)) {
+        setHasNewMessages(true);
+      }
+    };
+    checkNew();
+
+    const channel = supabase
+      .channel('sidebar_messages_notif')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, () => {
+        if (location.pathname !== '/messages') {
+          setHasNewMessages(true);
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    if (location.pathname === '/messages') {
+      setHasNewMessages(false);
+      localStorage.setItem('messages_last_seen', new Date().toISOString());
+      lastSeenMessagesRef.current = new Date().toISOString();
+    }
+  }, [location.pathname]);
 
   return (
     <>
@@ -81,6 +118,7 @@ export function Sidebar() {
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navItems.map(({ to, icon: Icon, label }) => {
             const isActive = location.pathname === to;
+            const showDot = to === '/messages' && hasNewMessages;
             return (
               <NavLink
                 key={to}
@@ -92,7 +130,12 @@ export function Sidebar() {
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
                >
-                  <Icon className="h-4.5 w-4.5 shrink-0" />
+                  <span className="relative shrink-0">
+                    <Icon className="h-4.5 w-4.5" />
+                    {showDot && (
+                      <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-sidebar animate-pulse" />
+                    )}
+                  </span>
                 {!collapsed && <span>{label}</span>}
               </NavLink>
             );
