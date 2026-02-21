@@ -500,9 +500,16 @@ export default function EmailPage() {
                   }`}>
                     {email.subject || '(no subject)'}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {activeTab === 'sent' ? `To: ${email.to}` : `From: ${email.from}`}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-muted-foreground truncate">
+                      {activeTab === 'sent' ? `To: ${email.to}` : `From: ${email.from}`}
+                    </p>
+                    {fromClient && (
+                      <span className="shrink-0 inline-flex items-center rounded-full bg-primary/10 text-primary text-[10px] font-medium px-1.5 py-0.5 leading-none">
+                        Customer
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet}</p>
                   <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
                 </div>
