@@ -8,13 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2, Instagram } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
-const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '' };
+const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '' };
 
 export default function Customers() {
   const categoryGate = useCategoryGate();
@@ -107,6 +107,7 @@ export default function Customers() {
       notes: form.notes || null,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       category: form.category || categoryGate.selectedCategory || 'other',
+      instagram_handle: form.instagram_handle || null,
     };
     if (editingId) {
       const { error } = await supabase.from('customers').update(payload).eq('id', editingId);
@@ -135,6 +136,7 @@ export default function Customers() {
       notes: c.notes || '',
       tags: Array.isArray(c.tags) ? c.tags.join(', ') : '',
       category: c.category || 'other',
+      instagram_handle: c.instagram_handle || '',
     });
     setEditingId(c.id);
     setDialogOpen(true);
@@ -188,6 +190,10 @@ export default function Customers() {
                     <div className="space-y-2"><Label>Source</Label><Input value={form.source} onChange={e => setForm({ ...form, source: e.target.value })} /></div>
                   </div>
                   <div className="space-y-2"><Label>Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="Street, City, State..." /></div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5"><Instagram className="h-3.5 w-3.5" /> Instagram Handle</Label>
+                    <Input value={form.instagram_handle} onChange={e => setForm({ ...form, instagram_handle: e.target.value })} placeholder="@username (optional)" />
+                  </div>
                   <div className="space-y-2"><Label>Tags</Label><Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="Comma-separated, e.g. VIP, Referral" /></div>
                   <div className="space-y-2"><Label>Notes</Label><textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Any additional notes..." className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" /></div>
                   <div className="space-y-2">

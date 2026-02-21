@@ -675,6 +675,7 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          instagram_handle: string | null
           meta: Json
           notes: string | null
           phone: string | null
@@ -692,6 +693,7 @@ export type Database = {
           email?: string | null
           full_name: string
           id?: string
+          instagram_handle?: string | null
           meta?: Json
           notes?: string | null
           phone?: string | null
@@ -709,6 +711,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          instagram_handle?: string | null
           meta?: Json
           notes?: string | null
           phone?: string | null
