@@ -436,18 +436,21 @@ export default function EmailPage() {
       loadLegacy();
     }
 
-    // Realtime: auto-refresh when new communications arrive
-    if (channel === 'instagram' || channel === 'sms' || channel === 'voicemail') {
-      const realtimeChannel = supabase
-        .channel('messages_page_realtime')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'communications' },
-          (payload) => {
-            const newRow = payload.new as any;
-            if (channel === 'instagram' && newRow.type === 'instagram') {
+    // Realtime: auto-refresh when new communications arrive (always active)
+    const realtimeChannel = supabase
+      .channel('messages_page_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'communications' },
+        (payload) => {
+          const newRow = payload.new as any;
+          if (newRow.type === 'instagram' && newRow.direction === 'inbound') {
+            const fromUser = (newRow.from_address || (newRow.metadata as any)?.ig_username || 'Someone');
+            // Always show toast for new Instagram DMs
+            toast(`📩 New Instagram DM from ${fromUser}`, { duration: 5000 });
+            // Refresh Instagram data if currently viewing instagram
+            if (channel === 'instagram') {
               loadInstagram();
-              // Auto-refresh active conversation if the message belongs to it
               setIgActiveConv((prev) => {
                 if (prev && (newRow.external_id === prev.participantId || newRow.to_address === prev.participantId)) {
                   callInstagram('messages', `subscriber_id=${prev.participantId}`).then((data) => {
@@ -456,17 +459,17 @@ export default function EmailPage() {
                 }
                 return prev;
               });
-            } else if (channel === 'sms' && newRow.type === 'sms') {
-              loadLegacy();
-            } else if (channel === 'voicemail' && newRow.type === 'voicemail') {
-              loadLegacy();
             }
+          } else if (channel === 'sms' && newRow.type === 'sms') {
+            loadLegacy();
+          } else if (channel === 'voicemail' && newRow.type === 'voicemail') {
+            loadLegacy();
           }
-        )
-        .subscribe();
+        }
+      )
+      .subscribe();
 
-      return () => { supabase.removeChannel(realtimeChannel); };
-    }
+    return () => { supabase.removeChannel(realtimeChannel); };
   }, [channel, activeTab, loadEmails, loadLegacy, loadInstagram]);
 
   const handleRefresh = async () => {
