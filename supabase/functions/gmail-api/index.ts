@@ -183,18 +183,28 @@ serve(async (req) => {
     if (!saJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured");
 
     let sa: any;
-    try {
-      sa = JSON.parse(saJson);
-    } catch {
+    // Try multiple parsing strategies for the service account JSON
+    const parseAttempts = [
+      () => JSON.parse(saJson),
+      () => JSON.parse(saJson.replace(/\\n/g, "\n")),
+      () => JSON.parse(saJson.replace(/\\\\n/g, "\n")),
+      () => JSON.parse(JSON.parse(`"${saJson.replace(/"/g, '\\"')}"`)),
+      () => JSON.parse(saJson.trim()),
+    ];
+    
+    let parseError: any;
+    for (const attempt of parseAttempts) {
       try {
-        sa = JSON.parse(JSON.parse(`"${saJson.replace(/"/g, '\\"')}"`));
-      } catch {
-        try {
-          sa = JSON.parse(saJson.replace(/\\\\n/g, "\\n"));
-        } catch {
-          throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON");
-        }
+        sa = attempt();
+        break;
+      } catch (e) {
+        parseError = e;
       }
+    }
+    
+    if (!sa) {
+      console.error("JSON parse failed. First 200 chars:", saJson.substring(0, 200));
+      throw new Error(`GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON: ${parseError?.message}`);
     }
 
     const token = await getAccessToken(sa);
