@@ -161,15 +161,36 @@ serve(async (req) => {
       const { subscriber_id, message } = await req.json();
       if (!subscriber_id || !message) throw new Error("subscriber_id and message required");
 
-      const result = await mcFetch("/sending/sendContent", token, "POST", {
-        subscriber_id: Number(subscriber_id),
-        data: {
-          version: "v2",
-          content: {
-            messages: [{ type: "text", text: message }],
+      // Try sending normally first, fall back to message tag if 24h window expired
+      let result: any;
+      try {
+        result = await mcFetch("/sending/sendContent", token, "POST", {
+          subscriber_id: Number(subscriber_id),
+          data: {
+            version: "v2",
+            content: {
+              messages: [{ type: "text", text: message }],
+            },
           },
-        },
-      });
+        });
+      } catch (sendErr: any) {
+        // If 24h window error (code 3011), retry with HUMAN_AGENT message tag
+        if (sendErr.message?.includes("message tag") || sendErr.message?.includes("24 hours")) {
+          console.log("24h window expired, retrying with HUMAN_AGENT message tag");
+          result = await mcFetch("/sending/sendContent", token, "POST", {
+            subscriber_id: Number(subscriber_id),
+            data: {
+              version: "v2",
+              content: {
+                messages: [{ type: "text", text: message }],
+              },
+            },
+            message_tag: "HUMAN_AGENT",
+          });
+        } else {
+          throw sendErr;
+        }
+      }
 
       const sb = getSupabaseAdmin();
       await sb.from("communications").insert({
