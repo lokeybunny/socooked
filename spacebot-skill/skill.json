@@ -1,7 +1,7 @@
 {
   "skill_name": "clawd-command-crm",
-  "version": "2.0.0",
-  "description": "Full CRM command console for CLAWD Command — 45 endpoints covering customers, leads, deals, projects, tasks, boards, cards, invoices, communications, documents, signatures, meetings, automations, and more.",
+  "version": "2.1.0",
+  "description": "Full CRM command console for CLAWD Command — 60 endpoints covering customers, leads, deals, projects, tasks, boards, cards, invoices, communications, documents, templates, signatures, meetings, automations, and more.",
   "auth": {
     "type": "hmac_signature",
     "algorithm": "HMAC-SHA256",
@@ -23,7 +23,7 @@
     "api_version": "string (currently 'v1')"
   },
   "actions": [
-    { "name": "crm_state_get", "method": "GET", "path": "/clawd-bot/state", "description": "Full CRM snapshot — boards, customers, deals, projects, meetings" },
+    { "name": "crm_state_get", "method": "GET", "path": "/clawd-bot/state", "description": "Full CRM snapshot — boards, customers, deals, projects, meetings, templates" },
 
     { "name": "crm_customers_list", "method": "GET", "path": "/clawd-bot/customers", "description": "List customers with optional ?status= and ?category= filters" },
     { "name": "crm_customer_upsert", "method": "POST", "path": "/clawd-bot/customer", "description": "Create or update a customer (send id to update)" },
@@ -54,6 +54,10 @@
     { "name": "crm_documents_list", "method": "GET", "path": "/clawd-bot/documents", "description": "List documents with optional ?customer_id= and ?category= filters" },
     { "name": "crm_document_upsert", "method": "POST", "path": "/clawd-bot/document", "description": "Create or update a document" },
     { "name": "crm_document_delete", "method": "DELETE", "path": "/clawd-bot/document", "description": "Delete a document by id" },
+
+    { "name": "crm_templates_list", "method": "GET", "path": "/clawd-bot/templates", "description": "List templates with optional ?type= (contract|proposal|invoice|email) and ?category= filters" },
+    { "name": "crm_template_upsert", "method": "POST", "path": "/clawd-bot/template", "description": "Create or update a template. Supports placeholders: {{client_name}}, {{company_name}}, {{company_address}}, {{client_email}}, {{date}}" },
+    { "name": "crm_template_delete", "method": "DELETE", "path": "/clawd-bot/template", "description": "Delete a template by id" },
 
     { "name": "crm_invoices_list", "method": "GET", "path": "/clawd-bot/invoices", "description": "List invoices with optional ?customer_id= and ?status= filters" },
     { "name": "crm_invoice_upsert", "method": "POST", "path": "/clawd-bot/invoice", "description": "Create or update an invoice" },

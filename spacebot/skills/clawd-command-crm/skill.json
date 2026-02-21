@@ -1,7 +1,7 @@
 {
-  "name": "clawd-command-crm",
-  "version": "1.0.0",
-  "description": "CRM integration for CLAWD Conductor via Supabase Edge Functions",
+  "skill_name": "clawd-command-crm",
+  "version": "2.1.0",
+  "description": "CRM integration for CLAWD Command via SpaceBot — includes templates for contracts/proposals",
   "auth": {
     "type": "shared_secret",
     "header": "x-bot-secret",
@@ -11,19 +11,19 @@
   "actions": [
     {
       "name": "get_state",
-      "description": "Get a full CRM snapshot: boards, customers, deals, projects, meetings",
+      "description": "Get CRM snapshot (boards, customers, deals, projects, meetings, templates)",
       "method": "GET",
       "path": "/clawd-bot/state"
     },
     {
       "name": "create_or_update_lead",
-      "description": "Create a new lead or update an existing one (deduplicates by email)",
+      "description": "Create or update lead",
       "method": "POST",
       "path": "/clawd-bot/lead"
     },
     {
       "name": "create_or_update_customer",
-      "description": "Create or update a customer. Include 'id' in body to update an existing record.",
+      "description": "Create or update a customer. Include 'id' in body to update.",
       "method": "POST",
       "path": "/clawd-bot/customer"
     },
@@ -35,27 +35,45 @@
     },
     {
       "name": "create_deal",
-      "description": "Create a new deal linked to a customer",
+      "description": "Create deal",
       "method": "POST",
       "path": "/clawd-bot/deal"
     },
     {
       "name": "create_invoice",
-      "description": "Create and optionally send an invoice",
+      "description": "Create invoice",
       "method": "POST",
       "path": "/invoice-api"
     },
     {
       "name": "create_meeting",
-      "description": "Create a meeting room. Returns room_code and room_url. Body: {\"title\": \"...\"}",
+      "description": "Create a meeting room. Returns room_code and room_url.",
       "method": "POST",
       "path": "/clawd-bot/meeting"
     },
     {
       "name": "create_card",
-      "description": "Create a board card. Body: {\"board_id\": \"uuid\", \"list_id\": \"uuid\", \"title\": \"...\", \"customer_id\": \"uuid\", \"source_url\": \"...\"}",
+      "description": "Create a board card.",
       "method": "POST",
       "path": "/clawd-bot/card"
+    },
+    {
+      "name": "list_templates",
+      "description": "List templates with optional ?type= (contract|proposal|invoice|email) and ?category= filters",
+      "method": "GET",
+      "path": "/clawd-bot/templates"
+    },
+    {
+      "name": "create_or_update_template",
+      "description": "Create or update a template. Supports placeholders: {{client_name}}, {{company_name}}, {{company_address}}, {{client_email}}, {{date}}. Body: {\"name\": \"...\", \"type\": \"contract\", \"body_html\": \"...\"}",
+      "method": "POST",
+      "path": "/clawd-bot/template"
+    },
+    {
+      "name": "delete_template",
+      "description": "Delete a template by ID. Body: {\"id\": \"uuid\"}",
+      "method": "DELETE",
+      "path": "/clawd-bot/template"
     }
   ]
 }

@@ -1141,16 +1141,64 @@ Deno.serve(async (req) => {
       return ok({ status: analysisStatus, missing_fields: missing, summary })
     }
 
+    // ─── TEMPLATES ─────────────────────────────────────────────
+    if (path === 'templates' && req.method === 'GET') {
+      const category = params.get('category')
+      const type = params.get('type')
+      let q = supabase.from('templates').select('*').order('created_at', { ascending: false }).limit(100)
+      if (category) q = q.eq('category', category)
+      if (type) q = q.eq('type', type)
+      const { data, error } = await q
+      if (error) return fail(error.message)
+      return ok({ templates: data })
+    }
+
+    if (path === 'template' && req.method === 'POST') {
+      const { id, name, description, type, body_html, placeholders, category } = body
+      if (id) {
+        const updates: Record<string, unknown> = {}
+        if (name) updates.name = name
+        if (description !== undefined) updates.description = description
+        if (type) updates.type = type
+        if (body_html !== undefined) updates.body_html = body_html
+        if (placeholders) updates.placeholders = placeholders
+        if (category) updates.category = normalizeCategory(category)
+        const { error } = await supabase.from('templates').update(updates).eq('id', id as string)
+        if (error) return fail(error.message)
+        await logActivity(supabase, 'template', id as string, 'updated', name as string)
+        return ok({ action: 'updated', template_id: id })
+      }
+      if (!name) return fail('name is required')
+      const { data, error } = await supabase.from('templates').insert({
+        name, description: description || null, type: type || 'contract',
+        body_html: body_html || '', placeholders: placeholders || [],
+        category: normalizeCategory(category),
+      }).select('id').single()
+      if (error) return fail(error.message)
+      await logActivity(supabase, 'template', data?.id, 'created', name as string)
+      return ok({ action: 'created', template_id: data?.id })
+    }
+
+    if (path === 'template' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      const { error } = await supabase.from('templates').delete().eq('id', id as string)
+      if (error) return fail(error.message)
+      await logActivity(supabase, 'template', id as string, 'deleted')
+      return ok({ action: 'deleted', template_id: id })
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
-      const [boards, customers, deals, projects, meetings] = await Promise.all([
+      const [boards, customers, deals, projects, meetings, templates] = await Promise.all([
         supabase.from('boards').select('id, name, lists:lists(id, name, position, cards:cards(id, title, status, priority, position, source))').order('created_at', { ascending: true }),
         supabase.from('customers').select('id, full_name, status, email, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('deals').select('id, title, stage, deal_value, status, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('projects').select('id, title, status, priority, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('meetings').select('id, title, room_code, status, scheduled_at, category').order('created_at', { ascending: false }).limit(50),
+        supabase.from('templates').select('id, name, type, category, placeholders').order('created_at', { ascending: false }).limit(50),
       ])
-      return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data })
+      return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data, templates: templates.data })
     }
 
     return fail('Unknown endpoint', 404)
