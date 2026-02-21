@@ -260,6 +260,76 @@ serve(async (req) => {
       });
     }
 
+    // ─── DOWNLOAD SINGLE FILE ─────────────────────────────
+    if (action === "download") {
+      const fileId = url.searchParams.get("file_id");
+      if (!fileId) throw new Error("file_id required");
+
+      // Get file metadata first
+      const metaRes = await fetch(
+        `${DRIVE_API}/files/${fileId}?fields=name,mimeType&supportsAllDrives=true`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const meta = await metaRes.json();
+      if (!metaRes.ok) throw new Error(`File meta error: ${JSON.stringify(meta)}`);
+
+      // Check if it's a Google Workspace file (needs export)
+      const isGoogleDoc = (meta.mimeType || "").startsWith("application/vnd.google-apps.");
+      let downloadUrl: string;
+      let downloadMime: string;
+      let fileName = meta.name || "download";
+
+      if (isGoogleDoc) {
+        // Export Google Docs/Sheets/Slides as PDF
+        downloadMime = "application/pdf";
+        fileName = fileName.replace(/\.[^.]+$/, "") + ".pdf";
+        downloadUrl = `${DRIVE_API}/files/${fileId}/export?mimeType=${encodeURIComponent(downloadMime)}&supportsAllDrives=true`;
+      } else {
+        downloadMime = meta.mimeType || "application/octet-stream";
+        downloadUrl = `${DRIVE_API}/files/${fileId}?alt=media&supportsAllDrives=true`;
+      }
+
+      const fileRes = await fetch(downloadUrl, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!fileRes.ok) {
+        const errText = await fileRes.text();
+        throw new Error(`Download error: ${errText}`);
+      }
+
+      return new Response(fileRes.body, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": downloadMime,
+          "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+        },
+      });
+    }
+
+    // ─── LIST ALL FILES IN FOLDER (recursive for zip) ─────
+    if (action === "list-all") {
+      const folderId = url.searchParams.get("folder_id");
+      if (!folderId) throw new Error("folder_id required");
+      const files = await listFiles(token, folderId, rootFolderId);
+      // Also list subfolders' files
+      const allFiles: any[] = [];
+      for (const f of files) {
+        if (f.mimeType === "application/vnd.google-apps.folder") {
+          const subFiles = await listFiles(token, f.id, rootFolderId);
+          for (const sf of subFiles) {
+            if (sf.mimeType !== "application/vnd.google-apps.folder") {
+              allFiles.push({ ...sf, subfolder: f.name });
+            }
+          }
+        } else {
+          allFiles.push(f);
+        }
+      }
+      return new Response(JSON.stringify({ files: allFiles }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action. Use ?action=ensure-folder|upload|list|folders" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
