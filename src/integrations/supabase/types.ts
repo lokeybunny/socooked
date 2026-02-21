@@ -554,11 +554,13 @@ export type Database = {
           body: string | null
           category: string | null
           created_at: string
+          customer_id: string | null
           folder: string | null
           id: string
           owner_id: string | null
           published_at: string | null
           scheduled_for: string | null
+          source: string
           status: string
           tags: string[]
           title: string
@@ -570,11 +572,13 @@ export type Database = {
           body?: string | null
           category?: string | null
           created_at?: string
+          customer_id?: string | null
           folder?: string | null
           id?: string
           owner_id?: string | null
           published_at?: string | null
           scheduled_for?: string | null
+          source?: string
           status?: string
           tags?: string[]
           title: string
@@ -586,11 +590,13 @@ export type Database = {
           body?: string | null
           category?: string | null
           created_at?: string
+          customer_id?: string | null
           folder?: string | null
           id?: string
           owner_id?: string | null
           published_at?: string | null
           scheduled_for?: string | null
+          source?: string
           status?: string
           tags?: string[]
           title?: string
@@ -599,6 +605,13 @@ export type Database = {
           url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "content_assets_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "content_assets_owner_id_fkey"
             columns: ["owner_id"]
