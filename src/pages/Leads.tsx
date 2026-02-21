@@ -194,7 +194,18 @@ export default function Leads() {
     setEditing(false); setSelected(null); setForm(emptyForm); loadAll();
   };
 
-  const handleDelete = async (id: string) => { await supabase.from('customers').delete().eq('id', id); toast.success('Lead deleted'); setSelected(null); loadAll(); };
+  const handleDelete = async (id: string) => {
+    await supabase.from('cards').update({ customer_id: null }).eq('customer_id', id);
+    await supabase.from('signatures').delete().eq('customer_id', id);
+    await supabase.from('documents').delete().eq('customer_id', id);
+    await supabase.from('invoices').delete().eq('customer_id', id);
+    await supabase.from('interactions').delete().eq('customer_id', id);
+    await supabase.from('conversation_threads').delete().eq('customer_id', id);
+    await supabase.from('bot_tasks').delete().eq('customer_id', id);
+    await supabase.from('communications').delete().eq('customer_id', id);
+    await supabase.from('customers').delete().eq('id', id);
+    toast.success('Lead deleted'); setSelected(null); loadAll();
+  };
   const promote = async (id: string) => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', id); toast.success('Promoted to prospect'); setSelected(null); loadAll(); };
   const demote = async (id: string) => { await supabase.from('customers').update({ status: 'lead' }).eq('id', id); toast.success('Moved back to lead'); setSelected(null); loadAll(); };
   const dismiss = async (id: string) => { await supabase.from('customers').update({ status: 'inactive' }).eq('id', id); toast.success('Dismissed'); setSelected(null); loadAll(); };

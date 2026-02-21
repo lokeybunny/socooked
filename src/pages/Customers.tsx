@@ -32,6 +32,15 @@ export default function Customers() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
+    // Unlink/delete related records to avoid FK constraint errors
+    await supabase.from('cards').update({ customer_id: null }).eq('customer_id', deleteId);
+    await supabase.from('signatures').delete().eq('customer_id', deleteId);
+    await supabase.from('documents').delete().eq('customer_id', deleteId);
+    await supabase.from('invoices').delete().eq('customer_id', deleteId);
+    await supabase.from('interactions').delete().eq('customer_id', deleteId);
+    await supabase.from('conversation_threads').delete().eq('customer_id', deleteId);
+    await supabase.from('bot_tasks').delete().eq('customer_id', deleteId);
+    await supabase.from('communications').delete().eq('customer_id', deleteId);
     const { error } = await supabase.from('customers').delete().eq('id', deleteId);
     if (error) { toast.error(error.message); return; }
     toast.success('Customer deleted');
