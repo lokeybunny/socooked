@@ -192,6 +192,43 @@ Deno.serve(async (req) => {
       return ok({ action: 'deleted', customer_id: id })
     }
 
+    // ─── BULK DELETE CUSTOMERS ───────────────────────────────
+    if (path === 'bulk-delete' && req.method === 'POST') {
+      const ids = body.ids as string[] | undefined
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return fail('ids is required. Pass as JSON body {"ids":["uuid1","uuid2",...]}')
+      }
+      if (ids.length > 100) return fail('Maximum 100 IDs per bulk-delete call')
+
+      const deleted: string[] = []
+      const errors: { id: string; error: string }[] = []
+
+      for (const id of ids) {
+        try {
+          await supabase.from('cards').update({ customer_id: null }).eq('customer_id', id)
+          await supabase.from('deals').update({ customer_id: null as any }).eq('customer_id', id)
+          await supabase.from('signatures').delete().eq('customer_id', id)
+          await supabase.from('documents').delete().eq('customer_id', id)
+          await supabase.from('invoices').delete().eq('customer_id', id)
+          await supabase.from('interactions').delete().eq('customer_id', id)
+          await supabase.from('conversation_threads').delete().eq('customer_id', id)
+          await supabase.from('bot_tasks').delete().eq('customer_id', id)
+          await supabase.from('communications').delete().eq('customer_id', id)
+          const { error } = await supabase.from('customers').delete().eq('id', id)
+          if (error) {
+            errors.push({ id, error: error.message })
+          } else {
+            deleted.push(id)
+            await logActivity(supabase, 'customer', id, 'deleted')
+          }
+        } catch (e) {
+          errors.push({ id, error: String(e) })
+        }
+      }
+
+      return ok({ action: 'bulk-deleted', deleted_count: deleted.length, deleted, errors })
+    }
+
     // ─── LEADS (shortcut) ────────────────────────────────────
     if (path === 'lead' && req.method === 'POST') {
       const { full_name, email, phone, address, company, source, source_url, notes, tags, category } = body

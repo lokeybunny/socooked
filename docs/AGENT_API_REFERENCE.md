@@ -50,6 +50,9 @@ All responses follow:
 | Create | POST | `/clawd-bot/customer` | `{ "full_name": "..." }` |
 | Update | POST | `/clawd-bot/customer` | `{ "id": "uuid", "full_name": "New Name" }` |
 | Delete | DELETE | `/clawd-bot/customer` | `{ "id": "uuid" }` |
+| Bulk Delete | POST | `/clawd-bot/bulk-delete` | `{ "ids": ["uuid1", "uuid2", ...] }` |
+
+> **⚠️ DELETE vs POST**: To remove customers use `DELETE /clawd-bot/customer` or `POST /clawd-bot/bulk-delete`. **Never** use `POST /clawd-bot/customer` to delete — that creates/updates records.
 
 ### Leads (shortcut — creates customer with status=lead)
 
