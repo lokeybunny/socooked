@@ -11,11 +11,15 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   Instagram, MessageSquareText, Voicemail, Filter, Trash2, Eye, Reply, Paperclip, X,
+  ChevronsUpDown, Check,
 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 
 interface GmailEmail {
   id: string;
@@ -100,6 +104,8 @@ export default function EmailPage() {
   const [activeTab, setActiveTab] = useState('inbox');
   const [channel, setChannel] = useState<'email' | 'instagram' | 'sms' | 'voicemail'>('email');
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [composeCustomerOpen, setComposeCustomerOpen] = useState(false);
 
   // Compose
   const [composeOpen, setComposeOpen] = useState(false);
@@ -523,15 +529,43 @@ export default function EmailPage() {
               </TabsList>
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-                <Select value={selectedCustomerEmail} onValueChange={setSelectedCustomerEmail}>
-                  <SelectTrigger className="w-[200px]"><SelectValue placeholder="All customers" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All emails</SelectItem>
-                    {customerEmailOptions.map((c) => (
-                      <SelectItem key={c.id} value={c.email}>{c.full_name} ({c.email})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" aria-expanded={filterOpen} className="w-[220px] justify-between font-normal">
+                      {selectedCustomerEmail === 'all'
+                        ? 'All emails'
+                        : customerEmailOptions.find((c) => c.email === selectedCustomerEmail)?.full_name || selectedCustomerEmail}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[260px] p-0" align="end">
+                    <Command>
+                      <CommandInput placeholder="Search customers..." />
+                      <CommandList>
+                        <CommandEmpty>No customer found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="all"
+                            onSelect={() => { setSelectedCustomerEmail('all'); setFilterOpen(false); }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedCustomerEmail === 'all' ? "opacity-100" : "opacity-0")} />
+                            All emails
+                          </CommandItem>
+                          {customerEmailOptions.map((c) => (
+                            <CommandItem
+                              key={c.id}
+                              value={`${c.full_name} ${c.email}`}
+                              onSelect={() => { setSelectedCustomerEmail(c.email); setFilterOpen(false); }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", selectedCustomerEmail === c.email ? "opacity-100" : "opacity-0")} />
+                              {c.full_name} ({c.email})
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             {['inbox', 'sent', 'drafts'].map((tab) => (
@@ -567,14 +601,36 @@ export default function EmailPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Customer (optional)</Label>
-              <Select value={form.customer_id} onValueChange={handleCustomerSelect}>
-                <SelectTrigger><SelectValue placeholder="Select customer to auto-fill" /></SelectTrigger>
-                <SelectContent>
-                  {customers.filter((c) => c.email).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.full_name} ({c.email})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={composeCustomerOpen} onOpenChange={setComposeCustomerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {form.customer_id
+                      ? customers.find((c) => c.id === form.customer_id)?.full_name || 'Select customer'
+                      : 'Select customer to auto-fill'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search customers..." />
+                    <CommandList>
+                      <CommandEmpty>No customer found.</CommandEmpty>
+                      <CommandGroup>
+                        {customers.filter((c) => c.email).map((c) => (
+                          <CommandItem
+                            key={c.id}
+                            value={`${c.full_name} ${c.email}`}
+                            onSelect={() => { handleCustomerSelect(c.id); setComposeCustomerOpen(false); }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", form.customer_id === c.id ? "opacity-100" : "opacity-0")} />
+                            {c.full_name} ({c.email})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>To</Label>
