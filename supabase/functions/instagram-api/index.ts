@@ -8,19 +8,13 @@ const corsHeaders = {
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 
-interface IGConversation {
+interface SimplifiedMessage {
   id: string;
-  participants: { id: string; username: string }[];
-  messages: IGMessage[];
-  updatedTime: string;
-}
-
-interface IGMessage {
-  id: string;
-  from: { id: string; username: string };
-  to: { id: string; username: string }[];
-  message: string;
-  created_time: string;
+  fromUsername: string;
+  fromId: string;
+  text: string;
+  createdTime: string;
+  isFromMe: boolean;
 }
 
 interface SimplifiedConversation {
@@ -30,15 +24,6 @@ interface SimplifiedConversation {
   lastMessage: string;
   lastMessageTime: string;
   messages: SimplifiedMessage[];
-}
-
-interface SimplifiedMessage {
-  id: string;
-  fromUsername: string;
-  fromId: string;
-  text: string;
-  createdTime: string;
-  isFromMe: boolean;
 }
 
 async function getConversations(token: string, igAccountId: string): Promise<SimplifiedConversation[]> {
@@ -131,9 +116,8 @@ serve(async (req) => {
     if (!rawToken) throw new Error("INSTAGRAM_ACCESS_TOKEN not configured");
     if (!igAccountId) throw new Error("INSTAGRAM_ACCOUNT_ID not configured");
 
-    // Clean the token: remove quotes, whitespace, newlines
     const token = rawToken.replace(/^["'\s]+|["'\s]+$/g, '').trim();
-    console.log("Token length:", token.length, "starts with:", token.substring(0, 6), "ends with:", token.substring(token.length - 4));
+    console.log("Token length:", token.length, "starts with:", token.substring(0, 6));
 
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
