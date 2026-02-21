@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Plus, Receipt, DollarSign, Hash, Calendar, Trash2, FileText, Send, Download, FileSpreadsheet, ChevronDown, Mail } from 'lucide-react';
+import { Plus, Receipt, DollarSign, Hash, Calendar, Trash2, FileText, Send, Download, FileSpreadsheet, ChevronDown, Mail, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -191,6 +191,21 @@ export default function Invoices() {
 
   const paidTotal = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.amount), 0);
   const outstandingTotal = invoices.filter(i => i.status === 'sent').reduce((s, i) => s + Number(i.amount), 0);
+
+  // Preview state
+  const [previewInvoice, setPreviewInvoice] = useState<any>(null);
+  const [previewHtml, setPreviewHtml] = useState('');
+
+  const openPreview = (inv: any) => {
+    setPreviewHtml(buildInvoiceHtml(inv));
+    setPreviewInvoice(inv);
+  };
+
+  const confirmAndSend = async () => {
+    if (!previewInvoice) return;
+    setPreviewInvoice(null);
+    await sendInvoiceEmail(previewInvoice);
+  };
 
   // Export state
   const [exportOpen, setExportOpen] = useState(false);
@@ -495,7 +510,7 @@ export default function Invoices() {
               </div>
               <StatusBadge status={inv.status} />
               <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => sendInvoiceEmail(inv)}><Mail className="h-3 w-3 mr-1" />Send</Button>}
+                {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => openPreview(inv)}><Eye className="h-3 w-3 mr-1" />Preview & Send</Button>}
                 {inv.status === 'sent' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
                 {(inv.status === 'draft' || inv.status === 'sent') && <Button size="sm" variant="ghost" onClick={() => markAs(inv.id, 'void')}>Void</Button>}
                 <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteInvoice(inv.id)}><Trash2 className="h-3 w-3" /></Button>
@@ -584,7 +599,7 @@ export default function Invoices() {
                   </div>
 
                   <div className="flex gap-2">
-                    {detailInvoice.status === 'draft' && <Button className="flex-1" onClick={() => sendInvoiceEmail(detailInvoice)}><Mail className="h-4 w-4 mr-2" />Send to Client</Button>}
+                    {detailInvoice.status === 'draft' && <Button className="flex-1" onClick={() => { setDetailInvoice(null); openPreview(detailInvoice); }}><Eye className="h-4 w-4 mr-2" />Preview & Send</Button>}
                     {detailInvoice.status === 'sent' && <Button className="flex-1" onClick={() => markAs(detailInvoice.id, 'paid')}>Mark as Paid</Button>}
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && (
                       <Button variant="ghost" onClick={() => markAs(detailInvoice.id, 'void')}>Void</Button>
@@ -596,6 +611,36 @@ export default function Invoices() {
                 </div>
               </>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Invoice Email Preview */}
+        <Dialog open={!!previewInvoice} onOpenChange={(open) => !open && setPreviewInvoice(null)}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5 text-primary" />
+                Email Preview — {previewInvoice?.invoice_number || 'Invoice'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p><span className="font-medium text-foreground">To:</span> {previewInvoice?.customers?.email || 'No email'}</p>
+                <p><span className="font-medium text-foreground">Subject:</span> Invoice {previewInvoice?.invoice_number || ''} from STU25</p>
+              </div>
+              <div className="border border-border rounded-lg p-4 bg-background">
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setPreviewInvoice(null)}>Cancel</Button>
+                <Button onClick={confirmAndSend} disabled={!previewInvoice?.customers?.email} className="gap-1.5">
+                  <Send className="h-4 w-4" /> Send Invoice
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
