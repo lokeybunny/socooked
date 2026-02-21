@@ -218,7 +218,8 @@ export default function EmailPage() {
   const loadEmails = useCallback(async (tab: string) => {
     setLoading(true);
     try {
-      const data = await callGmail(tab);
+      const gmailAction = tab === 'customers' ? 'inbox' : tab;
+      const data = await callGmail(gmailAction);
       setEmails(data.emails || []);
     } catch (e: any) {
       console.error('Gmail load error:', e);
