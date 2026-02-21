@@ -157,6 +157,18 @@ All responses follow:
 | Create | POST | `/clawd-bot/document` | `{ "customer_id": "uuid", "title": "...", "type": "contract" }` |
 | Delete | DELETE | `/clawd-bot/document` | `{ "id": "uuid" }` |
 
+### Templates
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| List | GET | `/clawd-bot/templates?type=contract&category=digital-services` | — |
+| Create | POST | `/clawd-bot/template` | `{ "name": "...", "type": "contract", "body_html": "<h1>...</h1>", "placeholders": ["{{client_name}}"] }` |
+| Update | POST | `/clawd-bot/template` | `{ "id": "uuid", "body_html": "..." }` |
+| Delete | DELETE | `/clawd-bot/template` | `{ "id": "uuid" }` |
+
+> **Template types**: `contract`, `proposal`, `invoice`, `email`
+> **Supported placeholders**: `{{client_name}}`, `{{company_name}}`, `{{company_address}}`, `{{client_email}}`, `{{date}}`
+
 ### Communications
 
 | Action | Method | URL | Body |
@@ -291,4 +303,4 @@ Any unrecognized category value will be auto-mapped to `other`.
 
 ---
 
-*Last updated: 2026-02-20*
+*Last updated: 2026-02-21*
