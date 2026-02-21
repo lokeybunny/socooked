@@ -175,9 +175,21 @@ serve(async (req) => {
 
     let sa: any;
     try {
+      // Try parsing as-is first
       sa = JSON.parse(saJson);
-    } catch (parseErr) {
-      throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON. Make sure you pasted the entire service account key file contents.");
+    } catch {
+      try {
+        // Handle double-escaped JSON (e.g. the whole value was wrapped in extra quotes)
+        sa = JSON.parse(JSON.parse(`"${saJson.replace(/"/g, '\\"')}"`));
+      } catch {
+        try {
+          // Handle case where newlines were literally stored as \\n
+          sa = JSON.parse(saJson.replace(/\\\\n/g, '\\n'));
+        } catch (finalErr) {
+          console.error("JSON parse attempts failed. Raw length:", saJson.length, "First 80 chars:", saJson.substring(0, 80));
+          throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON. Make sure you pasted the entire JSON key file contents without extra quotes or escaping.");
+        }
+      }
     }
     if (!sa.private_key) throw new Error("Service account JSON is missing 'private_key'. Ensure you pasted the full JSON key file.");
     if (!sa.client_email) throw new Error("Service account JSON is missing 'client_email'. Ensure you pasted the full JSON key file.");
