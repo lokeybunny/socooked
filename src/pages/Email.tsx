@@ -60,32 +60,32 @@ interface IGMessage {
 }
 
 const GMAIL_FN = 'gmail-api';
-const MC_FN = 'manychat-api';
+const IG_FN = 'instagram-api';
 
-async function callManyChat(action: string, params?: string): Promise<any> {
+async function callInstagram(action: string, params?: string): Promise<any> {
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const extra = params ? `&${params}` : '';
-  const url = `https://${projectId}.supabase.co/functions/v1/${MC_FN}?action=${action}${extra}`;
+  const url = `https://${projectId}.supabase.co/functions/v1/${IG_FN}?action=${action}${extra}`;
   const res = await fetch(url, {
     headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'ManyChat API error');
+  if (!res.ok) throw new Error(data.error || 'Instagram API error');
   return data;
 }
 
-async function callManyChatPost(action: string, body: any): Promise<any> {
+async function callInstagramPost(action: string, body: any): Promise<any> {
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const url = `https://${projectId}.supabase.co/functions/v1/${MC_FN}?action=${action}`;
+  const url = `https://${projectId}.supabase.co/functions/v1/${IG_FN}?action=${action}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'ManyChat API error');
+  if (!res.ok) throw new Error(data.error || 'Instagram API error');
   return data;
 }
 
@@ -243,10 +243,10 @@ export default function EmailPage() {
   const loadInstagram = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await callManyChat('subscribers');
+      const data = await callInstagram('conversations');
       setIgConversations(data.conversations || []);
     } catch (e: any) {
-      console.error('ManyChat load error:', e);
+      console.error('Instagram load error:', e);
       toast.error(e.message || 'Failed to load Instagram DMs');
       setIgConversations([]);
     } finally {
@@ -258,14 +258,14 @@ export default function EmailPage() {
     if (!igActiveConv || !igReplyText.trim()) return;
     setIgSending(true);
     try {
-      await callManyChatPost('send', {
+      await callInstagramPost('send', {
         subscriber_id: igActiveConv.participantId,
         message: igReplyText.trim(),
       });
       toast.success('Message sent!');
       setIgReplyText('');
       // Reload messages for this subscriber
-      const data = await callManyChat('messages', `subscriber_id=${igActiveConv.participantId}`);
+      const data = await callInstagram('messages', `subscriber_id=${igActiveConv.participantId}`);
       setIgActiveConv({ ...igActiveConv, messages: data.messages || [] });
     } catch (e: any) {
       toast.error(e.message || 'Failed to send message');
