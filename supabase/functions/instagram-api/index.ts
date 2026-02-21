@@ -1,4 +1,4 @@
-// ManyChat-powered Instagram DM integration
+// ManyChat-powered Instagram DM integration — Full Swagger API coverage
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -33,6 +33,12 @@ function getSupabaseAdmin() {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
+}
+
+function jsonOk(body: any) {
+  return new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 serve(async (req) => {
@@ -74,9 +80,7 @@ serve(async (req) => {
         });
       }
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonOk({ success: true });
     }
 
     // ─── Get conversations from stored messages ───
@@ -116,10 +120,7 @@ serve(async (req) => {
         });
       }
 
-      const conversations = Object.values(grouped);
-      return new Response(JSON.stringify({ conversations }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonOk({ conversations: Object.values(grouped) });
     }
 
     // ─── Get messages for a specific subscriber ───
@@ -148,12 +149,10 @@ serve(async (req) => {
         isFromMe: m.direction === "outbound",
       }));
 
-      return new Response(JSON.stringify({ messages }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonOk({ messages });
     }
 
-    // ─── Send message via ManyChat ───
+    // ─── Send message via ManyChat (POST /fb/sending/sendContent) ───
     if (action === "send") {
       const { subscriber_id, message } = await req.json();
       if (!subscriber_id || !message) throw new Error("subscriber_id and message required");
@@ -180,33 +179,198 @@ serve(async (req) => {
         metadata: { manychat_subscriber_id: subscriber_id },
       });
 
-      return new Response(JSON.stringify({ success: true, ...result }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonOk({ success: true, ...result });
     }
 
-    // ─── Search subscriber by name ───
+    // ─── Send flow/automation to subscriber (POST /fb/sending/sendFlow) ───
+    if (action === "send-flow") {
+      const { subscriber_id, flow_ns } = await req.json();
+      if (!subscriber_id || !flow_ns) throw new Error("subscriber_id and flow_ns required");
+
+      const result = await mcFetch("/sending/sendFlow", token, "POST", {
+        subscriber_id: Number(subscriber_id),
+        flow_ns,
+      });
+
+      return jsonOk({ success: true, ...result });
+    }
+
+    // ─── Search subscriber by name (GET /fb/subscriber/findByName) ───
     if (action === "find") {
       const name = url.searchParams.get("name");
       if (!name) throw new Error("name required");
       const result = await mcFetch(`/subscriber/findByName?name=${encodeURIComponent(name)}`, token);
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonOk(result);
     }
 
-    // ─── Get subscriber info ───
+    // ─── Search subscriber by system field (GET /fb/subscriber/findBySystemField) ───
+    if (action === "find-by-field") {
+      const field_name = url.searchParams.get("field_name");
+      const field_value = url.searchParams.get("field_value");
+      if (!field_name || !field_value) throw new Error("field_name and field_value required");
+      const result = await mcFetch(
+        `/subscriber/findBySystemField?field_name=${encodeURIComponent(field_name)}&field_value=${encodeURIComponent(field_value)}`,
+        token
+      );
+      return jsonOk(result);
+    }
+
+    // ─── Search subscriber by custom field (GET /fb/subscriber/findByCustomField) ───
+    if (action === "find-by-custom-field") {
+      const field_id = url.searchParams.get("field_id");
+      const field_value = url.searchParams.get("field_value");
+      if (!field_id || !field_value) throw new Error("field_id and field_value required");
+      const result = await mcFetch(
+        `/subscriber/findByCustomField?field_id=${encodeURIComponent(field_id)}&field_value=${encodeURIComponent(field_value)}`,
+        token
+      );
+      return jsonOk(result);
+    }
+
+    // ─── Get subscriber info (GET /fb/subscriber/getInfo) ───
     if (action === "subscriber") {
       const subscriberId = url.searchParams.get("subscriber_id");
       if (!subscriberId) throw new Error("subscriber_id required");
       const result = await mcFetch(`/subscriber/getInfo?subscriber_id=${subscriberId}`, token);
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return jsonOk(result);
+    }
+
+    // ─── Create subscriber (POST /fb/subscriber/createSubscriber) ───
+    if (action === "create-subscriber") {
+      const body = await req.json();
+      const result = await mcFetch("/subscriber/createSubscriber", token, "POST", body);
+      return jsonOk(result);
+    }
+
+    // ─── Update subscriber (POST /fb/subscriber/updateSubscriber) ───
+    if (action === "update-subscriber") {
+      const body = await req.json();
+      const result = await mcFetch("/subscriber/updateSubscriber", token, "POST", body);
+      return jsonOk(result);
+    }
+
+    // ─── Add tag to subscriber (POST /fb/subscriber/addTagByName) ───
+    if (action === "add-tag") {
+      const { subscriber_id, tag_name } = await req.json();
+      if (!subscriber_id || !tag_name) throw new Error("subscriber_id and tag_name required");
+      const result = await mcFetch("/subscriber/addTagByName", token, "POST", {
+        subscriber_id: Number(subscriber_id),
+        tag_name,
       });
+      return jsonOk({ success: true, ...result });
+    }
+
+    // ─── Remove tag from subscriber (POST /fb/subscriber/removeTagByName) ───
+    if (action === "remove-tag") {
+      const { subscriber_id, tag_name } = await req.json();
+      if (!subscriber_id || !tag_name) throw new Error("subscriber_id and tag_name required");
+      const result = await mcFetch("/subscriber/removeTagByName", token, "POST", {
+        subscriber_id: Number(subscriber_id),
+        tag_name,
+      });
+      return jsonOk({ success: true, ...result });
+    }
+
+    // ─── Set custom field on subscriber (POST /fb/subscriber/setCustomFieldByName) ───
+    if (action === "set-custom-field") {
+      const { subscriber_id, field_name, field_value } = await req.json();
+      if (!subscriber_id || !field_name) throw new Error("subscriber_id and field_name required");
+      const result = await mcFetch("/subscriber/setCustomFieldByName", token, "POST", {
+        subscriber_id: Number(subscriber_id),
+        field_name,
+        field_value: field_value ?? "",
+      });
+      return jsonOk({ success: true, ...result });
+    }
+
+    // ─── Page Info (GET /fb/page/getInfo) ───
+    if (action === "page-info") {
+      const result = await mcFetch("/page/getInfo", token);
+      return jsonOk(result);
+    }
+
+    // ─── Get all tags (GET /fb/page/getTags) ───
+    if (action === "tags") {
+      const result = await mcFetch("/page/getTags", token);
+      return jsonOk(result);
+    }
+
+    // ─── Create tag (POST /fb/page/createTag) ───
+    if (action === "create-tag") {
+      const { name } = await req.json();
+      if (!name) throw new Error("name required");
+      const result = await mcFetch("/page/createTag", token, "POST", { name });
+      return jsonOk({ success: true, ...result });
+    }
+
+    // ─── Remove tag (POST /fb/page/removeTagByName) ───
+    if (action === "delete-tag") {
+      const { tag_name } = await req.json();
+      if (!tag_name) throw new Error("tag_name required");
+      const result = await mcFetch("/page/removeTagByName", token, "POST", { tag_name });
+      return jsonOk({ success: true, ...result });
+    }
+
+    // ─── Get all flows (GET /fb/page/getFlows) ───
+    if (action === "flows") {
+      const result = await mcFetch("/page/getFlows", token);
+      return jsonOk(result);
+    }
+
+    // ─── Get growth tools/widgets (GET /fb/page/getWidgets) ───
+    if (action === "widgets") {
+      const result = await mcFetch("/page/getWidgets", token);
+      return jsonOk(result);
+    }
+
+    // ─── Get custom fields (GET /fb/page/getCustomFields) ───
+    if (action === "custom-fields") {
+      const result = await mcFetch("/page/getCustomFields", token);
+      return jsonOk(result);
+    }
+
+    // ─── Get bot fields (GET /fb/page/getBotFields) ───
+    if (action === "bot-fields") {
+      const result = await mcFetch("/page/getBotFields", token);
+      return jsonOk(result);
+    }
+
+    // ─── Set bot field (POST /fb/page/setBotFieldByName) ───
+    if (action === "set-bot-field") {
+      const { field_name, field_value } = await req.json();
+      if (!field_name) throw new Error("field_name required");
+      const result = await mcFetch("/page/setBotFieldByName", token, "POST", {
+        field_name,
+        field_value: field_value ?? "",
+      });
+      return jsonOk({ success: true, ...result });
+    }
+
+    // ─── Get OTN topics (GET /fb/page/getOtnTopics) ───
+    if (action === "otn-topics") {
+      const result = await mcFetch("/page/getOtnTopics", token);
+      return jsonOk(result);
+    }
+
+    // ─── Get growth tools (GET /fb/page/getGrowthTools) ───
+    if (action === "growth-tools") {
+      const result = await mcFetch("/page/getGrowthTools", token);
+      return jsonOk(result);
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use ?action=conversations|messages|send|webhook|find|subscriber" }),
+      JSON.stringify({
+        error: "Unknown action",
+        available_actions: [
+          "webhook", "conversations", "messages", "send", "send-flow",
+          "find", "find-by-field", "find-by-custom-field",
+          "subscriber", "create-subscriber", "update-subscriber",
+          "add-tag", "remove-tag", "set-custom-field",
+          "page-info", "tags", "create-tag", "delete-tag",
+          "flows", "widgets", "custom-fields", "bot-fields",
+          "set-bot-field", "otn-topics", "growth-tools",
+        ],
+      }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
