@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.instagram-api]
 verify_jwt = false
+
+[functions.zapier-webhook]
+verify_jwt = false
