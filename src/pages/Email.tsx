@@ -450,6 +450,9 @@ export default function EmailPage() {
     const fromAddr = email.from.toLowerCase();
     return Array.from(customerEmailSet).some((ce) => fromAddr.includes(ce));
   };
+
+  // Count unread emails from customers only
+  const unreadCustomerCount = emails.filter((e) => e.isUnread && isFromCustomer(e)).length;
   // Pre-fill compose from customer select
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
@@ -673,7 +676,14 @@ export default function EmailPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <div className="flex items-center justify-between gap-4">
               <TabsList>
-                <TabsTrigger value="inbox" className="gap-1.5"><Inbox className="h-3.5 w-3.5" /> Inbox</TabsTrigger>
+                <TabsTrigger value="inbox" className="gap-1.5">
+                  <Inbox className="h-3.5 w-3.5" /> Inbox
+                  {unreadCustomerCount > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold leading-none">
+                      {unreadCustomerCount}
+                    </span>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
                 <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
               </TabsList>
