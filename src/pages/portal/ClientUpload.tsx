@@ -1,10 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Upload, Loader2, CheckCircle, FileUp, AlertCircle } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, FileUp, AlertCircle, X } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'digital-services': 'Digital Services',
@@ -22,6 +21,8 @@ export default function ClientUpload() {
   const [notFound, setNotFound] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,9 +40,40 @@ export default function ClientUpload() {
     load();
   }, [token]);
 
+  const addFiles = useCallback((incoming: FileList | File[]) => {
+    const arr = Array.from(incoming);
+    setSelectedFiles(prev => {
+      const names = new Set(prev.map(f => f.name + f.size));
+      const unique = arr.filter(f => !names.has(f.name + f.size));
+      return [...prev, ...unique];
+    });
+  }, []);
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
+  }, [addFiles]);
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) addFiles(e.target.files);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
   const handleUpload = async () => {
-    const files = fileRef.current?.files;
-    if (!files || files.length === 0) { toast.error('Please select at least one file'); return; }
+    if (selectedFiles.length === 0) { toast.error('Please select at least one file'); return; }
     if (!customer) return;
 
     setUploading(true);
@@ -51,7 +83,6 @@ export default function ClientUpload() {
     const newUploaded: string[] = [];
 
     try {
-      // 1. Ensure folder structure
       const folderRes = await fetch(
         `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
         {
@@ -63,8 +94,7 @@ export default function ClientUpload() {
       const folderData = await folderRes.json();
       if (!folderRes.ok) throw new Error(folderData.error || 'Failed to create folder');
 
-      // 2. Upload each file
-      for (const file of Array.from(files)) {
+      for (const file of selectedFiles) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('folder_id', folderData.folder_id);
@@ -80,14 +110,12 @@ export default function ClientUpload() {
         const uploadData = await uploadRes.json();
         if (!uploadRes.ok) throw new Error(uploadData.error || `Failed to upload ${file.name}`);
 
-        // 3. Detect type
         const mime = file.type || '';
         let detectedType = 'doc';
         if (mime.startsWith('image/')) detectedType = 'image';
         else if (mime.startsWith('video/')) detectedType = 'video';
         else if (mime.startsWith('audio/')) detectedType = 'video';
 
-        // 4. Create content_assets record
         await supabase.from('content_assets').insert([{
           title: file.name,
           type: detectedType,
@@ -103,8 +131,8 @@ export default function ClientUpload() {
       }
 
       setUploadedFiles(prev => [...prev, ...newUploaded]);
+      setSelectedFiles([]);
       toast.success(`${newUploaded.length} file(s) uploaded successfully!`);
-      if (fileRef.current) fileRef.current.value = '';
     } catch (err: any) {
       toast.error(err.message || 'Upload failed');
     } finally {
@@ -141,22 +169,65 @@ export default function ClientUpload() {
           </div>
           <h1 className="text-2xl font-bold text-foreground">Upload Files</h1>
           <p className="text-muted-foreground mt-2">
-            Welcome, <span className="font-medium text-foreground">{customer.full_name}</span>. Upload your photos, videos, and documents below.
+            Welcome, <span className="font-medium text-foreground">{customer.full_name}</span>. Drag & drop or browse to upload your files.
           </p>
         </div>
 
         <div className="glass-card p-6 space-y-5">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Select Files</label>
-            <Input ref={fileRef} type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
-            <p className="text-xs text-muted-foreground">Accepted: Photos, videos, PDFs, documents, spreadsheets</p>
+          {/* Drop zone */}
+          <div
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
+            onClick={() => fileRef.current?.click()}
+            className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 cursor-pointer transition-colors ${
+              dragActive
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50 hover:bg-muted/30'
+            }`}
+          >
+            <Upload className={`h-8 w-8 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`} />
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">
+                {dragActive ? 'Drop files here' : 'Drag & drop files here'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">or click to browse · Photos, videos, PDFs, documents</p>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv"
+              onChange={handleFileInput}
+              className="hidden"
+            />
           </div>
 
-          <Button onClick={handleUpload} disabled={uploading} className="w-full gap-2" size="lg">
+          {/* Selected files list */}
+          {selectedFiles.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">{selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected</p>
+              <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                {selectedFiles.map((file, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5 text-sm">
+                    <FileUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate flex-1 text-foreground">{file.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{(file.size / 1024).toFixed(0)}KB</span>
+                    <button onClick={(e) => { e.stopPropagation(); removeFile(i); }} className="text-muted-foreground hover:text-destructive shrink-0">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Button onClick={handleUpload} disabled={uploading || selectedFiles.length === 0} className="w-full gap-2" size="lg">
             {uploading ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
             ) : (
-              <><Upload className="h-4 w-4" /> Upload</>
+              <><Upload className="h-4 w-4" /> Upload {selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}` : ''}</>
             )}
           </Button>
         </div>
