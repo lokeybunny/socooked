@@ -255,6 +255,21 @@ export default function EmailPage() {
   };
 
   const handleOpenEmail = async (email: GmailEmail) => {
+    // If it's a draft, open in compose dialog for editing
+    if (activeTab === 'drafts') {
+      const toAddr = email.to || '';
+      const matchingCustomer = customers.find((c) => c.email && toAddr.toLowerCase().includes(c.email.toLowerCase()));
+      setForm({
+        to: toAddr,
+        subject: email.subject || '',
+        body: email.body || email.snippet || '',
+        customer_id: matchingCustomer?.id || '',
+      });
+      setComposeAttachments([]);
+      setComposeOpen(true);
+      return;
+    }
+
     setViewEmail(email);
     setReplyOpen(false);
     setReplyBody('');
@@ -361,7 +376,11 @@ export default function EmailPage() {
                   <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
                 </div>
               </div>
-              <Eye className={`h-4 w-4 shrink-0 mt-1 ${isDimmed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
+              {activeTab === 'drafts' ? (
+                <FileEdit className="h-4 w-4 shrink-0 mt-1 text-muted-foreground" />
+              ) : (
+                <Eye className={`h-4 w-4 shrink-0 mt-1 ${isDimmed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
+              )}
             </button>
           );
         })}
