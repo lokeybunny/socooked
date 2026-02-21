@@ -104,16 +104,10 @@ export default function Content() {
     setUploading(true);
 
     try {
-      // 1. Ensure folder structure exists
-      const ensureRes = await supabase.functions.invoke('google-drive', {
-        body: { category, customer_name: customer.full_name },
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      // Handle the response from ensure-folder - need to pass action via query
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+      // 1. Ensure folder structure exists
       const folderRes = await fetch(
         `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
         {
