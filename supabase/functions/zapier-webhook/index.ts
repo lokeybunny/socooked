@@ -46,13 +46,14 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Flexible field mapping — accepts ManyChat fields or custom Zapier fields
-    const subscriberId = payload.subscriber_id || payload.id || payload.user_id || "";
-    const name = payload.name || payload.full_name ||
-      [payload.first_name, payload.last_name].filter(Boolean).join(" ") || "Unknown";
-    const message = payload.last_input_text || payload.text || payload.message || payload.body || "";
-    const igUsername = payload.ig_username || payload.username || payload.instagram_handle || "";
-    const channel = payload.channel || "instagram";
+    // Flexible field mapping — accepts ManyChat/Zapier fields with user__ prefix or flat
+    const p = payload;
+    const subscriberId = p.subscriber_id || p.user__id || p.id || p.user_id || "";
+    const name = p.name || p.user__name || p.full_name ||
+      [p.first_name || p.user__first_name, p.last_name || p.user__last_name].filter(Boolean).join(" ") || "Unknown";
+    const message = p.last_input_text || p.user__last_input_text || p.text || p.message || p.body || "";
+    const igUsername = p.ig_username || p.user__ig_username || p.username || p.instagram_handle || "";
+    const channel = p.channel || "instagram";
 
     if (!message) {
       return new Response(JSON.stringify({ success: true, skipped: true, reason: "No message text" }), {
