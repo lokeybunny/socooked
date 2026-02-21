@@ -1022,7 +1022,7 @@ Deno.serve(async (req) => {
         const { data, error } = await supabase.from('meetings').update(updates).eq('id', id).select().single()
         if (error) return fail(error.message)
         await logActivity(supabase, 'meeting', id, 'updated', title || data.title)
-        return ok({ action: 'updated', meeting: data, room_url: `/meet/${data.room_code}` })
+        return ok({ action: 'updated', meeting: data, room_url: `https://socooked.lovable.app/meet/${data.room_code}` })
       }
       const { data, error } = await supabase.from('meetings').insert({
         title: title || 'Meeting',
@@ -1033,7 +1033,7 @@ Deno.serve(async (req) => {
       }).select().single()
       if (error) return fail(error.message)
       await logActivity(supabase, 'meeting', data.id, 'created', data.title)
-      return ok({ action: 'created', meeting: data, room_url: `/meet/${data.room_code}` })
+      return ok({ action: 'created', meeting: data, room_url: `https://socooked.lovable.app/meet/${data.room_code}` })
     }
 
     if (path === 'meeting' && req.method === 'DELETE') {
