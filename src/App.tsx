@@ -27,6 +27,7 @@ import PortalSign from "./pages/portal/PortalSign";
 import Notifications from "./pages/Notifications";
 import Meetings from "./pages/Meetings";
 import MeetingRoom from "./pages/MeetingRoom";
+import AIStaff from "./pages/AIStaff";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/meetings" element={<Meetings />} />
             <Route path="/meet/:roomCode" element={<MeetingRoom />} />
+            <Route path="/ai-staff" element={<AIStaff />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
