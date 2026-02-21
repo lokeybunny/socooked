@@ -161,10 +161,8 @@ serve(async (req) => {
       const { subscriber_id, message } = await req.json();
       if (!subscriber_id || !message) throw new Error("subscriber_id and message required");
 
-      // Try sending normally first, fall back to message tag if 24h window expired
-      let result: any;
       try {
-        result = await mcFetch("/sending/sendContent", token, "POST", {
+        const result = await mcFetch("/sending/sendContent", token, "POST", {
           subscriber_id: Number(subscriber_id),
           data: {
             version: "v2",
@@ -173,38 +171,32 @@ serve(async (req) => {
             },
           },
         });
+
+        const sb = getSupabaseAdmin();
+        await sb.from("communications").insert({
+          type: "instagram",
+          direction: "outbound",
+          to_address: String(subscriber_id),
+          body: message,
+          provider: "manychat",
+          external_id: String(subscriber_id),
+          status: "sent",
+          metadata: { manychat_subscriber_id: subscriber_id },
+        });
+
+        return jsonOk({ success: true, ...result });
       } catch (sendErr: any) {
-        // If 24h window error (code 3011), retry with HUMAN_AGENT message tag
         if (sendErr.message?.includes("message tag") || sendErr.message?.includes("24 hours")) {
-          console.log("24h window expired, retrying with HUMAN_AGENT message tag");
-          result = await mcFetch("/sending/sendContent", token, "POST", {
-            subscriber_id: Number(subscriber_id),
-            data: {
-              version: "v2",
-              content: {
-                messages: [{ type: "text", text: message }],
-              },
-            },
-            message_tag: "HUMAN_AGENT",
-          });
-        } else {
-          throw sendErr;
+          return new Response(
+            JSON.stringify({
+              error: "24h messaging window expired. The subscriber must message you first before you can reply.",
+              code: "24H_WINDOW_EXPIRED",
+            }),
+            { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
+        throw sendErr;
       }
-
-      const sb = getSupabaseAdmin();
-      await sb.from("communications").insert({
-        type: "instagram",
-        direction: "outbound",
-        to_address: String(subscriber_id),
-        body: message,
-        provider: "manychat",
-        external_id: String(subscriber_id),
-        status: "sent",
-        metadata: { manychat_subscriber_id: subscriber_id },
-      });
-
-      return jsonOk({ success: true, ...result });
     }
 
     // ─── Send flow/automation to subscriber (POST /fb/sending/sendFlow) ───
