@@ -23,7 +23,11 @@ async function mcFetch(path: string, token: string, method = "GET", body?: any) 
   const data = await res.json();
   if (!res.ok || data.status === "error") {
     console.error("ManyChat error:", JSON.stringify(data));
-    throw new Error(data.message || data.error || `ManyChat API error: ${res.status}`);
+    const msg = data.message || data.error || `ManyChat API error: ${res.status}`;
+    const err = new Error(msg) as any;
+    err.mcStatus = res.status;
+    err.mcDetails = data.details;
+    throw err;
   }
   return data;
 }
@@ -375,9 +379,10 @@ serve(async (req) => {
     );
   } catch (e) {
     console.error("Instagram/ManyChat API error:", e);
+    const status = (e as any).mcDetails ? 422 : 500;
     return new Response(
-      JSON.stringify({ error: e.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: e.message, details: (e as any).mcDetails || null }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

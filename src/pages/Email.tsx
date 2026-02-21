@@ -333,7 +333,7 @@ export default function EmailPage() {
       const result = await callInstagram('subscriber', `subscriber_id=${subscriberId}`);
       setIgSubscriberInfo(result.data || null);
     } catch (e: any) {
-      console.error('Subscriber info error:', e);
+      // Silently handle - subscriber may not exist in ManyChat
       setIgSubscriberInfo(null);
     } finally {
       setIgInfoLoading(false);
