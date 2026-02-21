@@ -43,7 +43,7 @@ export default function Content() {
   const [filterSource, setFilterSource] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', type: 'article' as string, status: 'draft' as string, url: '', folder: '' });
+  const [form, setForm] = useState({ title: '', type: 'article' as string, status: 'draft' as string, url: '', folder: '', customer_id: '' });
 
   // Drive upload state
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -133,11 +133,12 @@ export default function Content() {
       url: form.url || null, folder: form.folder || null,
       category: categoryGate.selectedCategory,
       source: 'dashboard',
+      customer_id: form.customer_id || null,
     }]);
     if (error) { toast.error(error.message); return; }
     toast.success('Content created');
     setDialogOpen(false);
-    setForm({ title: '', type: 'article', status: 'draft', url: '', folder: '' });
+    setForm({ title: '', type: 'article', status: 'draft', url: '', folder: '', customer_id: '' });
     loadAll();
   };
 
@@ -318,6 +319,17 @@ export default function Content() {
                           <SelectContent>{contentStatuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Customer (optional)</Label>
+                      <Select value={form.customer_id} onValueChange={v => setForm({ ...form, customer_id: v })}>
+                        <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                        <SelectContent>
+                          {customers.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2"><Label>URL</Label><Input value={form.url} onChange={e => setForm({ ...form, url: e.target.value })} /></div>
