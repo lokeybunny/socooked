@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users } from 'lucide-react';
+import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
@@ -158,6 +158,13 @@ export default function Content() {
     toast.success('Content created');
     setDialogOpen(false);
     setForm({ title: '', type: 'article', status: 'draft', url: '', folder: '', customer_id: '' });
+    loadAll();
+  };
+
+  const handleDeleteContent = async (id: string) => {
+    const { error } = await supabase.from('content_assets').delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Content deleted');
     loadAll();
   };
 
@@ -513,6 +520,9 @@ export default function Content() {
                                                       <ExternalLink className="h-3.5 w-3.5" />
                                                     </a>
                                                   )}
+                                                  <button onClick={() => handleDeleteContent(c.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                  </button>
                                                 </div>
                                               );
                                             })}
