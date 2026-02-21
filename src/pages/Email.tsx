@@ -451,8 +451,8 @@ export default function EmailPage() {
     return Array.from(customerEmailSet).some((ce) => fromAddr.includes(ce));
   };
 
-  // Count unread emails from customers only
-  const unreadCustomerCount = emails.filter((e) => e.isUnread && isFromCustomer(e)).length;
+  // Count inbox emails from customers only
+  const customerEmailCount = emails.filter((e) => isFromCustomer(e)).length;
   // Pre-fill compose from customer select
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
@@ -678,9 +678,9 @@ export default function EmailPage() {
               <TabsList>
                 <TabsTrigger value="inbox" className="gap-1.5">
                   <Inbox className="h-3.5 w-3.5" /> Inbox
-                  {unreadCustomerCount > 0 && (
+                  {customerEmailCount > 0 && (
                     <span className="ml-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold leading-none">
-                      {unreadCustomerCount}
+                      {customerEmailCount}
                     </span>
                   )}
                 </TabsTrigger>
