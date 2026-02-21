@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Mail, Send, FileEdit, Inbox, Trash2, Filter, Instagram } from 'lucide-react';
+import { Plus, Mail, Send, FileEdit, Inbox, Trash2, Filter, Instagram, MessageSquareText, Voicemail } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 
@@ -31,20 +31,21 @@ export default function EmailPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [activeTab, setActiveTab] = useState('inbox');
-  const [channel, setChannel] = useState<'email' | 'instagram'>('email');
+  const [channel, setChannel] = useState<'email' | 'instagram' | 'sms' | 'voicemail'>('email');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('all');
 
   const load = async () => {
+    const types = channel === 'sms' ? ['sms'] : channel === 'voicemail' ? ['voicemail'] : ['email'];
     const [c, cust] = await Promise.all([
-      supabase.from('communications').select('*').eq('type', 'email').order('created_at', { ascending: false }),
-      supabase.from('customers').select('id, full_name, email'),
+      supabase.from('communications').select('*').in('type', types).order('created_at', { ascending: false }),
+      supabase.from('customers').select('id, full_name, email, phone'),
     ]);
     setComms(c.data || []);
     setCustomers(cust.data || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { setLoading(true); load(); }, [channel]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +89,12 @@ export default function EmailPage() {
     return items;
   };
 
+  const getCommIcon = (item: any) => {
+    if (item.type === 'sms') return <MessageSquareText className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />;
+    if (item.type === 'voicemail') return <Voicemail className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />;
+    return <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />;
+  };
+
   const renderList = (items: any[]) => (
     items.length === 0 ? (
       <p className="text-sm text-muted-foreground py-8 text-center">Nothing here yet.</p>
@@ -96,11 +103,18 @@ export default function EmailPage() {
         {items.map(item => (
           <div key={item.id} className="glass-card p-4 flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0">
-              <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              {getCommIcon(item)}
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{item.subject || 'No subject'}</p>
-                <p className="text-xs text-muted-foreground truncate">{item.direction === 'inbound' ? `From: ${item.from_address || '—'}` : `To: ${item.to_address || '—'}`}</p>
-                <p className="text-xs text-muted-foreground mt-1">{format(new Date(item.created_at), 'MMM d, yyyy h:mm a')}</p>
+                <p className="text-sm font-medium text-foreground truncate">{item.subject || item.phone_number || 'No subject'}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {item.type === 'email'
+                    ? (item.direction === 'inbound' ? `From: ${item.from_address || '—'}` : `To: ${item.to_address || '—'}`)
+                    : (item.phone_number || item.body?.substring(0, 50) || '—')}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {format(new Date(item.created_at), 'MMM d, yyyy h:mm a')}
+                  {item.duration_seconds ? ` · ${Math.floor(item.duration_seconds / 60)}m ${item.duration_seconds % 60}s` : ''}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -194,6 +208,22 @@ export default function EmailPage() {
           >
             <Instagram className="h-4 w-4" /> Instagram
           </Button>
+          <Button
+            variant={channel === 'sms' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setChannel('sms')}
+            className="gap-1.5"
+          >
+            <MessageSquareText className="h-4 w-4" /> SMS
+          </Button>
+          <Button
+            variant={channel === 'voicemail' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setChannel('voicemail')}
+            className="gap-1.5"
+          >
+            <Voicemail className="h-4 w-4" /> Voicemail
+          </Button>
         </div>
 
         {channel === 'email' ? (
@@ -223,6 +253,14 @@ export default function EmailPage() {
               </TabsContent>
             ))}
           </Tabs>
+        ) : channel === 'sms' ? (
+          <div>
+            {loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderList(comms)}
+          </div>
+        ) : channel === 'voicemail' ? (
+          <div>
+            {loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderList(comms)}
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Instagram className="h-12 w-12 text-muted-foreground mb-4" />
