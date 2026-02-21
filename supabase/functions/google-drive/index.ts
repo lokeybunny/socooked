@@ -73,13 +73,16 @@ async function getAccessToken(sa: any): Promise<string> {
 async function findFolder(
   token: string,
   name: string,
-  parentId: string
+  parentId: string,
+  rootFolderId: string
 ): Promise<string | null> {
   const q = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-  const res = await fetch(
-    `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  // For Shared Drives, we must specify corpora=drive and driveId when querying the root
+  let url = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+  if (parentId === rootFolderId) {
+    url += `&corpora=drive&driveId=${rootFolderId}`;
+  }
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   const data = await res.json();
   return data.files?.[0]?.id || null;
 }
@@ -109,22 +112,25 @@ async function createFolder(
 async function getOrCreateFolder(
   token: string,
   name: string,
-  parentId: string
+  parentId: string,
+  rootFolderId: string
 ): Promise<string> {
-  const existing = await findFolder(token, name, parentId);
+  const existing = await findFolder(token, name, parentId, rootFolderId);
   if (existing) return existing;
   return createFolder(token, name, parentId);
 }
 
 async function listFiles(
   token: string,
-  folderId: string
+  folderId: string,
+  rootFolderId: string
 ): Promise<any[]> {
   const q = `'${folderId}' in parents and trashed=false`;
-  const res = await fetch(
-    `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size,createdTime,webViewLink)&orderBy=createdTime desc&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  let url = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,size,createdTime,webViewLink)&orderBy=createdTime desc&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+  if (folderId === rootFolderId) {
+    url += `&corpora=drive&driveId=${rootFolderId}`;
+  }
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   const data = await res.json();
   return data.files || [];
 }
@@ -206,8 +212,8 @@ serve(async (req) => {
       if (!category || !customer_name)
         throw new Error("category and customer_name required");
 
-      const categoryFolderId = await getOrCreateFolder(token, category, rootFolderId);
-      const customerFolderId = await getOrCreateFolder(token, customer_name, categoryFolderId);
+      const categoryFolderId = await getOrCreateFolder(token, category, rootFolderId, rootFolderId);
+      const customerFolderId = await getOrCreateFolder(token, customer_name, categoryFolderId, rootFolderId);
 
       return new Response(
         JSON.stringify({ folder_id: customerFolderId, category_folder_id: categoryFolderId }),
@@ -233,7 +239,7 @@ serve(async (req) => {
     // ─── LIST FILES IN FOLDER ─────────────────────────────
     if (action === "list") {
       const folderId = url.searchParams.get("folder_id") || rootFolderId;
-      const files = await listFiles(token, folderId);
+      const files = await listFiles(token, folderId, rootFolderId);
       return new Response(JSON.stringify({ files }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -241,7 +247,7 @@ serve(async (req) => {
 
     // ─── LIST CATEGORY FOLDERS ────────────────────────────
     if (action === "folders") {
-      const folders = await listFiles(token, rootFolderId);
+      const folders = await listFiles(token, rootFolderId, rootFolderId);
       return new Response(JSON.stringify({ folders }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
