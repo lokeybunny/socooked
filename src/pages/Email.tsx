@@ -221,12 +221,12 @@ export default function EmailPage() {
         return e.from.toLowerCase().includes(addr) || e.to.toLowerCase().includes(addr);
       });
 
+  const customerEmailOptions = customers.filter((c) => c.email);
+  const customerEmailSet = new Set(customers.filter((c) => c.email).map((c) => c.email!.toLowerCase()));
+
   const customerOnlyEmails = emails.filter((e) =>
     Array.from(customerEmailSet).some((ce) => e.from.toLowerCase().includes(ce) || e.to.toLowerCase().includes(ce))
   );
-
-  const customerEmailOptions = customers.filter((c) => c.email);
-  const customerEmailSet = new Set(customers.filter((c) => c.email).map((c) => c.email!.toLowerCase()));
   const isFromCustomer = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.from.toLowerCase().includes(ce));
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
