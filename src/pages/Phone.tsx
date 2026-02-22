@@ -69,12 +69,7 @@ export default function PhonePage() {
     const q = searchQuery.toLowerCase();
     return transcriptions.filter(t => {
       const customerName = t.customer_id ? customers.find(c => c.id === t.customer_id)?.full_name || '' : '';
-      return (
-        customerName.toLowerCase().includes(q) ||
-        (t.transcript || '').toLowerCase().includes(q) ||
-        (t.summary || '').toLowerCase().includes(q) ||
-        (t.source_type || '').toLowerCase().includes(q)
-      );
+      return customerName.toLowerCase().includes(q);
     });
   }, [transcriptions, customers, searchQuery]);
 
@@ -501,7 +496,7 @@ export default function PhonePage() {
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search transcripts..."
+                    placeholder="Search by customer name..."
                     value={searchQuery}
                     onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                     className="pl-9 h-9"
