@@ -9,7 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap } from 'lucide-react';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
@@ -27,6 +29,13 @@ export default function PhonePage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [transcriptions, setTranscriptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [leadsSearch, setLeadsSearch] = useState('');
+
+  // Promote to prospect dialog
+  const [promoteOpen, setPromoteOpen] = useState(false);
+  const [promoteCustomerId, setPromoteCustomerId] = useState<string | null>(null);
+  const [promoteCustomerName, setPromoteCustomerName] = useState('');
 
   // Transcription upload state
   const [dragOver, setDragOver] = useState(false);
@@ -52,16 +61,44 @@ export default function PhonePage() {
   const [newCustSaving, setNewCustSaving] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [custRes, transRes] = await Promise.all([
+    const [custRes, transRes, leadsRes] = await Promise.all([
       supabase.from('customers').select('id, full_name, phone, email'),
       supabase.from('transcriptions').select('*').order('created_at', { ascending: false }).limit(100),
+      supabase.from('customers').select('id, full_name, phone, email, company, source, created_at').eq('status', 'lead').order('created_at', { ascending: false }),
     ]);
     setCustomers(custRes.data || []);
     setTranscriptions(transRes.data || []);
+    setLeads(leadsRes.data || []);
     setLoading(false);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied — paste into dialer`);
+  };
+
+  const handlePromoteToProspect = async () => {
+    if (!promoteCustomerId) return;
+    const { error } = await supabase.from('customers').update({ status: 'prospect' }).eq('id', promoteCustomerId);
+    if (error) { toast.error('Failed to promote'); return; }
+    setLeads(prev => prev.filter(l => l.id !== promoteCustomerId));
+    toast.success(`${promoteCustomerName} moved to Prospects`);
+    setPromoteOpen(false);
+    setPromoteCustomerId(null);
+    setPromoteCustomerName('');
+  };
+
+  const filteredLeads = useMemo(() => {
+    if (!leadsSearch.trim()) return leads;
+    const q = leadsSearch.toLowerCase();
+    return leads.filter(l =>
+      l.full_name?.toLowerCase().includes(q) ||
+      l.phone?.toLowerCase().includes(q) ||
+      l.company?.toLowerCase().includes(q)
+    );
+  }, [leads, leadsSearch]);
 
   // Filter transcriptions by search query
   const filteredTranscriptions = useMemo(() => {
@@ -280,8 +317,15 @@ export default function PhonePage() {
         audio_url: r.driveLink || null,
       }));
       setTranscriptions(prev => [...newTranscriptions, ...prev]);
-      // Auto-expand the customer group to show the new transcription
       setExpandedCustomer(selectedCustomerId);
+
+      // After transcription, ask if user wants to promote to prospect
+      const customer = customers.find(c => c.id === selectedCustomerId);
+      if (customer) {
+        setPromoteCustomerId(selectedCustomerId);
+        setPromoteCustomerName(customer.full_name);
+        setPromoteOpen(true);
+      }
     }
   };
 
@@ -405,8 +449,91 @@ export default function PhonePage() {
 
         {/* Two-column layout: Left = Transcription, Right = RingCentral */}
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
-          {/* ─── Left Column: Transcription Tool + Recent ─── */}
+          {/* ─── Left Column: Warm Leads + Transcription Tool + Recent ─── */}
           <div className="space-y-6">
+
+            {/* ─── Warm Leads Quick-Dial Panel ─── */}
+            <div className="glass-card p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-amber-500" />
+                  <h2 className="text-lg font-semibold text-foreground">Warm Leads</h2>
+                  <Badge variant="secondary" className="text-[10px]">{leads.length}</Badge>
+                </div>
+                <div className="relative w-48">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search leads..."
+                    value={leadsSearch}
+                    onChange={e => setLeadsSearch(e.target.value)}
+                    className="pl-8 h-8 text-xs"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                SpaceBot-sourced leads ready for outreach. Copy phone to dialer, call, transcribe, then promote to Prospect.
+              </p>
+
+              {filteredLeads.length === 0 ? (
+                <div className="text-center py-6">
+                  <Phone className="h-6 w-6 mx-auto text-muted-foreground/40 mb-1.5" />
+                  <p className="text-xs text-muted-foreground">
+                    {leadsSearch ? 'No leads match your search.' : 'No leads yet. SpaceBot will bring them in.'}
+                  </p>
+                </div>
+              ) : (
+                <ScrollArea className="max-h-[280px]">
+                  <div className="space-y-1.5">
+                    {filteredLeads.map(lead => (
+                      <div
+                        key={lead.id}
+                        className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2.5 hover:bg-muted/50 transition-colors group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                            <User className="h-4 w-4 text-amber-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{lead.full_name}</p>
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              {lead.company && <span>{lead.company}</span>}
+                              {lead.source && <span>· via {lead.source}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {lead.phone ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1.5 border-amber-500/30 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
+                              onClick={() => copyToClipboard(lead.phone, lead.full_name)}
+                            >
+                              <Copy className="h-3 w-3" />
+                              {lead.phone}
+                            </Button>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground italic">No phone</span>
+                          )}
+                          {lead.email && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() => copyToClipboard(lead.email, 'Email')}
+                              title={lead.email}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+
             {/* Upload Card */}
             <div className="glass-card p-6 space-y-5">
               <div className="flex items-center gap-2">
@@ -806,6 +933,28 @@ export default function PhonePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Promote to Prospect Dialog */}
+      <AlertDialog open={promoteOpen} onOpenChange={setPromoteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Push to Prospects?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Transcription complete for <span className="font-semibold text-foreground">{promoteCustomerName}</span>. 
+              Would you like to move them from Leads to Prospects?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setPromoteOpen(false); setPromoteCustomerId(null); }}>
+              No, keep as Lead
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handlePromoteToProspect} className="gap-1.5">
+              <ArrowUpRight className="h-4 w-4" />
+              Yes, push to Prospects
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
