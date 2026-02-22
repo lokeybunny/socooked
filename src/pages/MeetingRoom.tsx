@@ -595,17 +595,13 @@ export default function MeetingRoom() {
         </div>
       )}
 
-      {/* Video Grid */}
-      <div className="flex-1 p-4 overflow-auto">
-        <div className={`grid gap-4 h-full ${
-          participants.length === 0 ? 'grid-cols-1' :
-          participants.length <= 1 ? 'grid-cols-1 md:grid-cols-2' :
-          participants.length <= 3 ? 'grid-cols-2' :
-          'grid-cols-2 md:grid-cols-3'
-        }`}>
+      {/* Video Grid — always 2 columns, Zoom-style */}
+      <div className="flex-1 p-4 md:p-6 overflow-auto flex items-center justify-center">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-5xl">
           {/* Local video */}
           <div
-            className="relative bg-muted rounded-xl overflow-hidden aspect-video cursor-pointer"
+            className="relative bg-muted overflow-hidden aspect-video cursor-pointer shadow-lg border border-border/50"
+            style={{ borderRadius: '2rem' }}
             onDoubleClick={() => setFullscreenId('local')}
           >
             <video
@@ -613,7 +609,7 @@ export default function MeetingRoom() {
               autoPlay muted playsInline
               className="w-full h-full object-cover"
             />
-            <div className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-foreground">
+            <div className="absolute bottom-3 left-4 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-foreground">
               {guestName} (You)
             </div>
             {!camOn && (
@@ -623,11 +619,41 @@ export default function MeetingRoom() {
             )}
           </div>
 
-          {/* Remote videos */}
-          {participants.map(p => (
+          {/* Second slot — first remote participant or empty placeholder */}
+          {participants.length > 0 ? (
+            <div
+              key={participants[0].peerId}
+              className="relative bg-muted overflow-hidden aspect-video cursor-pointer shadow-lg border border-border/50"
+              style={{ borderRadius: '2rem' }}
+              onDoubleClick={() => setFullscreenId(participants[0].peerId)}
+            >
+              <video
+                autoPlay playsInline
+                className="w-full h-full object-cover"
+                ref={el => { if (el && participants[0].stream) el.srcObject = participants[0].stream; }}
+              />
+              <div className="absolute bottom-3 left-4 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-foreground">
+                {participants[0].name}
+              </div>
+            </div>
+          ) : (
+            <div
+              className="relative bg-muted overflow-hidden aspect-video flex items-center justify-center shadow-lg border border-border/50"
+              style={{ borderRadius: '2rem' }}
+            >
+              <div className="text-center space-y-2">
+                <Users className="h-10 w-10 mx-auto text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground/60">Waiting for others…</p>
+              </div>
+            </div>
+          )}
+
+          {/* Additional remote participants (3+) */}
+          {participants.slice(1).map(p => (
             <div
               key={p.peerId}
-              className="relative bg-muted rounded-xl overflow-hidden aspect-video cursor-pointer"
+              className="relative bg-muted overflow-hidden aspect-video cursor-pointer shadow-lg border border-border/50"
+              style={{ borderRadius: '2rem' }}
               onDoubleClick={() => setFullscreenId(p.peerId)}
             >
               <video
@@ -635,7 +661,7 @@ export default function MeetingRoom() {
                 className="w-full h-full object-cover"
                 ref={el => { if (el && p.stream) el.srcObject = p.stream; }}
               />
-              <div className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-foreground">
+              <div className="absolute bottom-3 left-4 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-foreground">
                 {p.name}
               </div>
             </div>
