@@ -12,8 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const DEEPGRAM_API_KEY = Deno.env.get("DEEPGRAM_API_KEY");
+    if (!DEEPGRAM_API_KEY) throw new Error("DEEPGRAM_API_KEY not configured");
 
     const formData = await req.formData();
     const audioFile = formData.get("audio") as File;
@@ -22,91 +22,54 @@ serve(async (req) => {
 
     if (!audioFile) throw new Error("audio file is required");
 
-    // Convert audio to base64 for the AI model
     const audioBytes = new Uint8Array(await audioFile.arrayBuffer());
-    let base64 = "";
-    const chunkSize = 8192;
-    for (let i = 0; i < audioBytes.length; i += chunkSize) {
-      const chunk = audioBytes.subarray(i, Math.min(i + chunkSize, audioBytes.length));
-      base64 += String.fromCharCode(...chunk);
-    }
-    base64 = btoa(base64);
-
-    // Determine MIME type
     const mimeType = audioFile.type || "audio/mpeg";
 
-    // Use Gemini Flash for audio transcription (it supports audio natively)
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Transcribe the following audio file completely and accurately. Output ONLY the transcript text, nothing else. No headers, no labels, no explanations. Just the spoken words exactly as they are.`,
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64}`,
-                },
-              },
-            ],
-          },
-        ],
-        max_tokens: 16000,
-      }),
-    });
+    // Transcribe via Deepgram (nova-3 model, with diarization + punctuation + utterances)
+    const dgRes = await fetch(
+      "https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true&diarize=true&utterances=true&punctuate=true",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Token ${DEEPGRAM_API_KEY}`,
+          "Content-Type": mimeType,
+        },
+        body: audioBytes,
+      }
+    );
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error("AI transcription error:", errText);
-      throw new Error(`AI transcription failed: ${aiRes.status}`);
+    if (!dgRes.ok) {
+      const errText = await dgRes.text();
+      console.error("Deepgram error:", errText);
+      throw new Error(`Deepgram transcription failed: ${dgRes.status}`);
     }
 
-    const aiData = await aiRes.json();
-    const transcript = aiData.choices?.[0]?.message?.content || "";
+    const dgData = await dgRes.json();
+    const transcript = dgData.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
 
     if (!transcript.trim()) {
       throw new Error("No transcript generated. The audio may be too short or unclear.");
     }
 
-    // Generate a summary
-    const summaryRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          {
-            role: "user",
-            content: `Summarize this call/voicemail transcript in 2-3 sentences. Focus on the key points, action items, and who was involved:\n\n${transcript}`,
-          },
-        ],
-        max_tokens: 500,
-      }),
-    });
-
-    let summary = "";
-    if (summaryRes.ok) {
-      const summaryData = await summaryRes.json();
-      summary = summaryData.choices?.[0]?.message?.content || "";
+    // Build a diarized transcript if utterances are available
+    let formattedTranscript = transcript;
+    const utterances = dgData.results?.utterances;
+    if (utterances && utterances.length > 0) {
+      formattedTranscript = utterances
+        .map((u: any) => `[Speaker ${u.speaker}] ${u.transcript}`)
+        .join("\n");
     }
+
+    // Generate a simple summary from the first few sentences
+    const sentences = transcript.split(/[.!?]+/).filter((s: string) => s.trim().length > 10);
+    const summary = sentences.slice(0, 3).join(". ").trim() + (sentences.length > 3 ? "..." : "");
 
     // Store in transcriptions table
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const now = new Date().toISOString();
+
+    const duration = dgData.metadata?.duration ? Math.round(dgData.metadata.duration) : null;
 
     const insertRes = await fetch(`${supabaseUrl}/rest/v1/transcriptions`, {
       method: "POST",
@@ -119,10 +82,11 @@ serve(async (req) => {
       body: JSON.stringify({
         source_id: `upload_${Date.now()}`,
         source_type: "manual_upload",
-        transcript,
+        transcript: formattedTranscript,
         summary,
         customer_id: customerId || null,
         occurred_at: now,
+        duration_seconds: duration,
       }),
     });
 
@@ -136,11 +100,12 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        transcript,
+        transcript: formattedTranscript,
         summary,
         transcription_id: transcriptionRecord?.id || null,
         filename: audioFile.name,
         customer_name: customerName,
+        duration_seconds: duration,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
