@@ -127,7 +127,7 @@ serve(async (req) => {
           customer_id: customerId,
           channel: threadChannel,
           category,
-          status: "closed",
+          status: "open",
           summary: threadSummary,
           raw_transcript: formattedTranscript,
         }),
