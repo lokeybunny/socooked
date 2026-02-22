@@ -1510,7 +1510,69 @@ Deno.serve(async (req) => {
       return ok(v0Data.data || v0Data)
     }
 
-    // ─── PREVIEWS (SpaceBot can query all API-generated work) ─
+    // ─── PUBLISH WEBSITE (deploy v0 chat to Vercel production) ─
+    if (path === 'publish-website' && req.method === 'POST') {
+      const { chat_id } = body
+      if (!chat_id) return fail('chat_id is required')
+
+      const v0Key = Deno.env.get('V0_API_KEY')
+      if (!v0Key) return fail('V0_API_KEY not configured', 500)
+
+      // Step 1: Get chat details to find projectId and latest versionId
+      const chatRes = await fetch(`https://api.v0.dev/v1/chats/${chat_id}`, {
+        headers: { 'Authorization': `Bearer ${v0Key}` },
+      })
+      if (!chatRes.ok) {
+        const errText = await chatRes.text()
+        return fail(`Failed to fetch chat: ${chatRes.status} ${errText}`, 502)
+      }
+      const chatData = await chatRes.json()
+      const projectId = chatData.projectId
+      const versionId = chatData.latestVersion?.id
+      if (!projectId || !versionId) {
+        return fail(`Chat missing projectId or versionId. projectId=${projectId}, versionId=${versionId}`, 400)
+      }
+
+      // Step 2: Create deployment
+      const deployRes = await fetch(`https://api.v0.dev/v1/deployments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${v0Key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ projectId, chatId: chat_id, versionId }),
+      })
+
+      if (!deployRes.ok) {
+        const errText = await deployRes.text()
+        return fail(`Deployment failed: ${deployRes.status} ${errText}`, 502)
+      }
+
+      const deployData = await deployRes.json()
+      console.log(`[clawd-bot] Published website: ${JSON.stringify(deployData)}`)
+
+      // Step 3: Update api_previews with production URL
+      const prodUrl = deployData.webUrl || deployData.apiUrl || null
+      if (prodUrl) {
+        await supabase.from('api_previews')
+          .update({ preview_url: prodUrl, status: 'published', meta: { chat_id, deployment_id: deployData.id, inspector_url: deployData.inspectorUrl } })
+          .eq('source', 'v0-designer')
+          .filter('meta->>chat_id', 'eq', chat_id)
+      }
+
+      if (isBot) await auditLog(supabase, 'publish-website', { chat_id, deployment_id: deployData.id })
+      await logActivity(supabase, 'api_preview', null, 'v0_design_published', `Published: chat ${chat_id}`)
+
+      return ok({
+        deployment_id: deployData.id,
+        web_url: deployData.webUrl,
+        inspector_url: deployData.inspectorUrl,
+        chat_id,
+        project_id: projectId,
+        version_id: versionId,
+      })
+    }
+
     if (path === 'previews' && req.method === 'GET') {
       const customer_id = params.get('customer_id')
       const source = params.get('source')
