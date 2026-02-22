@@ -15,11 +15,18 @@ export interface RecordingStreams {
   remoteStreams: React.MutableRefObject<MediaStream[]>;
 }
 
+export interface RecordingResult {
+  videoBlob: Blob;
+  audioBlob: Blob;
+}
+
 export function useRecording() {
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const audioRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const audioChunksRef = useRef<Blob[]>([]);
   const animFrameRef = useRef<number>(0);
   const timerRef = useRef<number>(0);
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
@@ -77,15 +84,12 @@ export function useRecording() {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-      // Read live refs every frame
       const liveScreen = streams.screenStream.current;
       const liveLocal = streams.localStream.current;
       const liveRemotes = streams.remoteStreams.current;
 
-      // Connect any new remote audio tracks
       liveRemotes.forEach(s => connectAudio(s));
 
-      // Screen share takes priority for the "local" tile
       const activeLocal = liveScreen || liveLocal;
       const allStreams: { id: string; stream: MediaStream }[] = [];
 
@@ -127,7 +131,7 @@ export function useRecording() {
 
     drawFrame();
 
-    // Combine canvas video + mixed audio
+    // Combine canvas video + mixed audio for video recording
     const canvasStream = canvas.captureStream(FPS);
     const combined = new MediaStream([
       ...canvasStream.getVideoTracks(),
@@ -144,18 +148,34 @@ export function useRecording() {
     ];
     const mimeType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
 
+    // Video recorder
     const recorder = new MediaRecorder(combined, {
       mimeType,
       videoBitsPerSecond: 2_500_000,
     });
-
     chunksRef.current = [];
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };
-
     recorder.start(1000);
     recorderRef.current = recorder;
+
+    // Audio-only recorder (for MP3-equivalent audio file)
+    const audioOnlyStream = new MediaStream([...dest.stream.getAudioTracks()]);
+    const audioPreferred = [
+      'audio/mp4',
+      'audio/webm;codecs=opus',
+      'audio/webm',
+    ];
+    const audioMime = audioPreferred.find(t => MediaRecorder.isTypeSupported(t)) || 'audio/webm';
+    const audioRecorder = new MediaRecorder(audioOnlyStream, { mimeType: audioMime });
+    audioChunksRef.current = [];
+    audioRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunksRef.current.push(e.data);
+    };
+    audioRecorder.start(1000);
+    audioRecorderRef.current = audioRecorder;
+
     setRecording(true);
     setRecordingTime(0);
 
@@ -166,27 +186,46 @@ export function useRecording() {
     return true;
   }, [getOrCreateVideo]);
 
-  const stopRecording = useCallback((): Promise<{ blob: Blob; extension: string }> => {
+  const stopRecording = useCallback((): Promise<RecordingResult> => {
     return new Promise((resolve) => {
       const recorder = recorderRef.current;
+      const audioRecorder = audioRecorderRef.current;
+      let videoDone = false;
+      let audioDone = false;
 
-      if (!recorder || recorder.state === 'inactive') {
-        resolve({ blob: new Blob(chunksRef.current, { type: 'video/mp4' }), extension: 'mp4' });
-        return;
-      }
-
-      recorder.onstop = () => {
-        cancelAnimationFrame(animFrameRef.current);
-        clearInterval(timerRef.current);
-        videoElementsRef.current.forEach(v => { v.srcObject = null; });
-        videoElementsRef.current.clear();
-        audioCtxRef.current?.close().catch(() => {});
-        connectedTracksRef.current.clear();
-        setRecording(false);
-        resolve({ blob: new Blob(chunksRef.current, { type: 'video/mp4' }), extension: 'mp4' });
+      const tryResolve = () => {
+        if (videoDone && audioDone) {
+          cancelAnimationFrame(animFrameRef.current);
+          clearInterval(timerRef.current);
+          videoElementsRef.current.forEach(v => { v.srcObject = null; });
+          videoElementsRef.current.clear();
+          audioCtxRef.current?.close().catch(() => {});
+          connectedTracksRef.current.clear();
+          setRecording(false);
+          resolve({
+            videoBlob: new Blob(chunksRef.current, { type: 'video/mp4' }),
+            audioBlob: new Blob(audioChunksRef.current, { type: 'audio/mp3' }),
+          });
+        }
       };
 
-      recorder.stop();
+      // Stop video recorder
+      if (!recorder || recorder.state === 'inactive') {
+        videoDone = true;
+      } else {
+        recorder.onstop = () => { videoDone = true; tryResolve(); };
+        recorder.stop();
+      }
+
+      // Stop audio recorder
+      if (!audioRecorder || audioRecorder.state === 'inactive') {
+        audioDone = true;
+      } else {
+        audioRecorder.onstop = () => { audioDone = true; tryResolve(); };
+        audioRecorder.stop();
+      }
+
+      tryResolve();
     });
   }, []);
 

@@ -236,18 +236,8 @@ export default function MeetingRoom() {
       });
   }, [roomCode, guestName, getLocalStream, createPeerConnection]);
 
-  const uploadRecording = useCallback(async (blob: Blob, ext: string) => {
-    const mimeType = ext === 'mp4' ? 'video/mp4' : 'video/webm';
-    if (!meeting?.customer_id) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.${ext}`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success('Recording downloaded (no client linked for Drive upload)');
-      return;
-    }
+  const uploadFile = useCallback(async (blob: Blob, ext: string, assetType: 'Video' | 'Audio') => {
+    const mimeType = ext === 'mp4' ? 'video/mp4' : ext === 'mp3' ? 'audio/mpeg' : 'video/mp4';
 
     setUploading(true);
     try {
@@ -287,52 +277,99 @@ export default function MeetingRoom() {
 
       await supabase.from('content_assets').insert({
         title: fileName,
-        type: 'Video',
-        source: 'Dashboard',
+        type: assetType,
+        source: 'Meeting',
         status: 'published',
         category,
         customer_id: meeting.customer_id,
         url: uploadData?.file?.webViewLink || null,
       });
 
-      toast.success('Recording uploaded to client Drive folder');
+      return true;
     } catch (err: any) {
-      console.error('Upload failed:', err);
-      toast.error('Upload failed — downloading locally instead');
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.${ext}`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setUploading(false);
+      console.error(`Upload ${ext} failed:`, err);
+      return false;
     }
   }, [meeting]);
 
+  const uploadRecordings = useCallback(async (videoBlob: Blob, audioBlob: Blob) => {
+    if (!meeting?.customer_id) {
+      // No customer — download locally
+      const vUrl = URL.createObjectURL(videoBlob);
+      const a1 = document.createElement('a');
+      a1.href = vUrl;
+      a1.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.mp4`;
+      a1.click();
+      URL.revokeObjectURL(vUrl);
+
+      const aUrl = URL.createObjectURL(audioBlob);
+      const a2 = document.createElement('a');
+      a2.href = aUrl;
+      a2.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.mp3`;
+      a2.click();
+      URL.revokeObjectURL(aUrl);
+      toast.success('Recordings downloaded locally');
+      return;
+    }
+
+    setUploading(true);
+    const [videoOk, audioOk] = await Promise.all([
+      uploadFile(videoBlob, 'mp4', 'Video'),
+      uploadFile(audioBlob, 'mp3', 'Audio'),
+    ]);
+    setUploading(false);
+
+    if (videoOk && audioOk) {
+      toast.success('MP4 + MP3 uploaded to client Drive');
+    } else {
+      toast.error('Some uploads failed — check content library');
+    }
+  }, [meeting, uploadFile]);
+
+  const stopAndUpload = useCallback(async () => {
+    const { videoBlob, audioBlob } = await stopRecording();
+    await uploadRecordings(videoBlob, audioBlob);
+  }, [stopRecording, uploadRecordings]);
+
+  // Auto-start recording after joining
+  const autoRecordStarted = useRef(false);
+  useEffect(() => {
+    if (joined && !autoRecordStarted.current && localStreamRef.current) {
+      autoRecordStarted.current = true;
+      // Small delay to ensure stream is attached
+      setTimeout(() => {
+        remoteStreamsRef.current = Array.from(peersRef.current.values())
+          .map(p => p.stream)
+          .filter(Boolean) as MediaStream[];
+        const started = startRecording({
+          localStream: localStreamRef,
+          screenStream: screenStreamRef,
+          remoteStreams: remoteStreamsRef,
+        });
+        if (started) toast.success('Recording started automatically');
+      }, 1500);
+    }
+  }, [joined, startRecording]);
+
   const toggleRecord = useCallback(async () => {
     if (recording) {
-      const { blob, extension } = await stopRecording();
-      await uploadRecording(blob, extension);
+      await stopAndUpload();
     } else {
-      // Update remote streams ref before starting
       remoteStreamsRef.current = Array.from(peersRef.current.values())
         .map(p => p.stream)
         .filter(Boolean) as MediaStream[];
-
       const started = startRecording({
         localStream: localStreamRef,
         screenStream: screenStreamRef,
         remoteStreams: remoteStreamsRef,
       });
-
       if (started) {
         toast.success('Recording started');
       } else {
         toast.error('No media available to record');
       }
     }
-  }, [recording, stopRecording, startRecording, uploadRecording, meeting]);
+  }, [recording, stopAndUpload, startRecording]);
 
   const toggleMic = () => {
     const stream = localStreamRef.current;
@@ -395,7 +432,11 @@ export default function MeetingRoom() {
     }
   };
 
-  const leaveRoom = () => {
+  const leaveRoom = async () => {
+    // Auto-stop and upload recording before leaving
+    if (recording) {
+      await stopAndUpload();
+    }
     channelRef.current?.send({
       type: 'broadcast',
       event: 'leave',
