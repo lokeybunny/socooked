@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   )
 
   try {
-    const { prompt, customer_id, category, bot_task_id } = await req.json()
+    const { prompt, customer_id, category, bot_task_id, chat_id: existingChatId } = await req.json()
 
     if (!prompt) {
       return new Response(JSON.stringify({ success: false, error: 'prompt is required' }), {
@@ -47,21 +47,39 @@ Deno.serve(async (req) => {
       await supabase.from('bot_tasks').update({ status: 'in_progress' }).eq('id', bot_task_id)
     }
 
-    console.log(`[v0-designer] Creating async chat with prompt: ${prompt.substring(0, 100)}...`)
+    const isEdit = !!existingChatId
+    console.log(`[v0-designer] ${isEdit ? `Editing chat ${existingChatId}` : 'Creating new chat'} with prompt: ${prompt.substring(0, 100)}...`)
 
-    // Step 1: Create a v0 chat in ASYNC mode (returns immediately)
-    const chatRes = await fetch(`${V0_API_URL}/v1/chats`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${v0Key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: prompt,
-        system: 'You are an expert web designer. Build clean, modern, responsive websites using React and Tailwind CSS.',
-        responseMode: 'async',
-      }),
-    })
+    // Step 1: Create new chat OR send follow-up message to existing chat
+    let chatRes: Response
+    if (isEdit) {
+      // Send follow-up message to existing v0 chat
+      chatRes = await fetch(`${V0_API_URL}/v1/chats/${existingChatId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${v0Key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: prompt,
+          responseMode: 'async',
+        }),
+      })
+    } else {
+      // Create a brand new v0 chat
+      chatRes = await fetch(`${V0_API_URL}/v1/chats`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${v0Key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: prompt,
+          system: 'You are an expert web designer. Build clean, modern, responsive websites using React and Tailwind CSS.',
+          responseMode: 'async',
+        }),
+      })
+    }
 
     if (!chatRes.ok) {
       const errText = await chatRes.text()
@@ -80,12 +98,14 @@ Deno.serve(async (req) => {
     }
 
     const chatData = await chatRes.json()
-    console.log(`[v0-designer] Chat created (async):`, JSON.stringify(chatData).substring(0, 500))
+    console.log(`[v0-designer] ${isEdit ? 'Edit response' : 'Chat created'} (async):`, JSON.stringify(chatData).substring(0, 500))
 
-    const chatId = chatData.id
-    const webUrl = chatData.webUrl || `https://v0.dev/chat/${chatId}`
-    const versionStatus = chatData.latestVersion?.status || 'pending'
-    const demoUrl = chatData.latestVersion?.demoUrl || null
+    // For edits, chatData is a message object; for new chats, it's the chat object
+    const chatId = isEdit ? existingChatId : chatData.id
+    const webUrl = isEdit ? `https://v0.dev/chat/${existingChatId}` : (chatData.webUrl || `https://v0.dev/chat/${chatData.id}`)
+    const latestVersion = isEdit ? chatData.version : chatData.latestVersion
+    const versionStatus = latestVersion?.status || 'pending'
+    const demoUrl = latestVersion?.demoUrl || null
 
     // Step 2: If async and still pending, poll for completion (up to 90s)
     let finalDemoUrl = demoUrl
@@ -193,26 +213,40 @@ Deno.serve(async (req) => {
       }).eq('id', bot_task_id)
     }
 
-    // Step 6: Store in api_previews for the Previews page
-    await supabase.from('api_previews').insert({
-      customer_id: resolvedCustomerId,
-      source: 'v0-designer',
-      title: `V0 Design: ${prompt.substring(0, 120)}`,
-      prompt,
-      preview_url: finalDemoUrl,
-      edit_url: editUrl,
-      status: finalDemoUrl ? 'completed' : 'pending',
-      meta: { chat_id: chatId, version_status: finalVersion?.status || 'unknown' },
-      bot_task_id: bot_task_id || null,
-      thread_id: thread?.id || null,
-    })
+    // Step 6: Store/update in api_previews for the Previews page
+    if (isEdit) {
+      // Update existing preview record for this chat
+      await supabase.from('api_previews')
+        .update({
+          preview_url: finalDemoUrl,
+          edit_url: editUrl,
+          status: finalDemoUrl ? 'completed' : 'pending',
+          meta: { chat_id: chatId, version_status: finalVersion?.status || 'unknown', last_edit_prompt: prompt },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('source', 'v0-designer')
+        .filter('meta->>chat_id', 'eq', chatId)
+    } else {
+      await supabase.from('api_previews').insert({
+        customer_id: resolvedCustomerId,
+        source: 'v0-designer',
+        title: `V0 Design: ${prompt.substring(0, 120)}`,
+        prompt,
+        preview_url: finalDemoUrl,
+        edit_url: editUrl,
+        status: finalDemoUrl ? 'completed' : 'pending',
+        meta: { chat_id: chatId, version_status: finalVersion?.status || 'unknown' },
+        bot_task_id: bot_task_id || null,
+        thread_id: thread?.id || null,
+      })
+    }
 
     // Step 7: Log activity
     await supabase.from('activity_log').insert({
       entity_type: 'conversation_thread',
       entity_id: thread?.id || null,
-      action: 'v0_design_generated',
-      meta: { name: `V0 Design: ${prompt.substring(0, 80)}`, preview_url: finalDemoUrl },
+      action: isEdit ? 'v0_design_edited' : 'v0_design_generated',
+      meta: { name: `V0 ${isEdit ? 'Edit' : 'Design'}: ${prompt.substring(0, 80)}`, preview_url: finalDemoUrl, chat_id: chatId },
     })
 
     const result = {
@@ -221,6 +255,7 @@ Deno.serve(async (req) => {
       edit_url: editUrl,
       thread_id: thread?.id,
       status: finalVersion?.status || 'pending',
+      is_edit: isEdit,
     }
 
     console.log(`[v0-designer] Success:`, JSON.stringify(result))
