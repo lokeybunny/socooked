@@ -237,7 +237,8 @@ export default function MeetingRoom() {
   }, [roomCode, guestName, getLocalStream, createPeerConnection]);
 
   const uploadFile = useCallback(async (blob: Blob, ext: string, assetType: 'Video' | 'Audio') => {
-    const mimeType = ext === 'mp4' ? 'video/mp4' : ext === 'mp3' ? 'audio/mpeg' : 'video/mp4';
+    // Use the blob's actual MIME type for the upload
+    const mimeType = blob.type || (ext === 'mp4' ? 'video/mp4' : ext === 'webm' ? 'video/webm' : 'audio/webm');
 
     setUploading(true);
     try {
@@ -294,19 +295,23 @@ export default function MeetingRoom() {
   }, [meeting]);
 
   const uploadRecordings = useCallback(async (videoBlob: Blob, audioBlob: Blob) => {
+    // Determine correct file extensions from actual blob MIME types
+    const videoExt = videoBlob.type.includes('mp4') ? 'mp4' : 'webm';
+    const audioExt = audioBlob.type.includes('mp4') ? 'm4a' : audioBlob.type.includes('webm') ? 'webm' : 'mp3';
+
     if (!meeting?.customer_id) {
       // No customer — download locally
       const vUrl = URL.createObjectURL(videoBlob);
       const a1 = document.createElement('a');
       a1.href = vUrl;
-      a1.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.mp4`;
+      a1.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.${videoExt}`;
       a1.click();
       URL.revokeObjectURL(vUrl);
 
       const aUrl = URL.createObjectURL(audioBlob);
       const a2 = document.createElement('a');
       a2.href = aUrl;
-      a2.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.mp3`;
+      a2.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.${audioExt}`;
       a2.click();
       URL.revokeObjectURL(aUrl);
       toast.success('Recordings downloaded locally');
@@ -315,13 +320,13 @@ export default function MeetingRoom() {
 
     setUploading(true);
     const [videoOk, audioOk] = await Promise.all([
-      uploadFile(videoBlob, 'mp4', 'Video'),
-      uploadFile(audioBlob, 'mp3', 'Audio'),
+      uploadFile(videoBlob, videoExt, 'Video'),
+      uploadFile(audioBlob, audioExt, 'Audio'),
     ]);
     setUploading(false);
 
     if (videoOk && audioOk) {
-      toast.success('MP4 + MP3 uploaded to client Drive');
+      toast.success('Recordings uploaded to client Drive');
     } else {
       toast.error('Some uploads failed — check content library');
     }
