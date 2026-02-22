@@ -9,15 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2, Download } from 'lucide-react';
+import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2, Download, Play, Music } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
-const contentTypes = ['article', 'image', 'video', 'landing_page', 'doc', 'post'] as const;
+const contentTypes = ['article', 'image', 'video', 'audio', 'landing_page', 'doc', 'post'] as const;
 const contentStatuses = ['draft', 'scheduled', 'published', 'archived'] as const;
 
 const typeIcons: Record<string, any> = {
-  article: FileText, image: Image, video: Video, landing_page: Globe, doc: File, post: FileText,
+  article: FileText, image: Image, video: Video, audio: Music, landing_page: Globe, doc: File, post: FileText,
 };
 
 const SOURCE_LABELS: Record<string, { label: string; icon: any }> = {
@@ -68,6 +68,42 @@ export default function Content() {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [collapsedCustomers, setCollapsedCustomers] = useState<Set<string>>(new Set());
   const [collapsedSources, setCollapsedSources] = useState<Set<string>>(new Set());
+
+  // Video preview state
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const playVideo = async (fileUrl: string, title: string) => {
+    const match = fileUrl?.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) { window.open(fileUrl, '_blank'); return; }
+    const fileId = match[1];
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    setPreviewTitle(title);
+    setPreviewLoading(true);
+    setPreviewUrl(null);
+    try {
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${fileId}`,
+        { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
+      );
+      if (!res.ok) throw new Error('Failed to load video');
+      const blob = await res.blob();
+      setPreviewUrl(URL.createObjectURL(blob));
+    } catch {
+      toast.error('Could not load video preview');
+      setPreviewTitle('');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const closePreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setPreviewTitle('');
+  };
 
   const loadAll = async () => {
     let q = supabase.from('content_assets').select('*, customers(id, full_name, category)').order('created_at', { ascending: false });
@@ -593,6 +629,7 @@ export default function Content() {
                                           <div className="divide-y divide-border/30">
                                             {srcGroup.files.map(c => {
                                               const Icon = typeIcons[c.type] || File;
+                                              const isPlayable = (c.type === 'video' || c.type === 'audio') && c.url;
                                               return (
                                                 <div key={c.id} className="flex items-center gap-3 pl-24 pr-4 py-2.5 hover:bg-muted/20 transition-colors">
                                                   <div className="p-1.5 rounded bg-muted"><Icon className="h-3.5 w-3.5 text-muted-foreground" /></div>
@@ -601,15 +638,15 @@ export default function Content() {
                                                     <span className="text-[10px] text-muted-foreground capitalize">{c.type.replace('_', ' ')}</span>
                                                   </div>
                                                   <StatusBadge status={c.status} />
+                                                  {isPlayable && (
+                                                    <button onClick={() => playVideo(c.url, c.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
+                                                      <Play className="h-3.5 w-3.5" />
+                                                    </button>
+                                                  )}
                                                   {c.url && (
                                                     <button onClick={() => downloadFile(c.url, c.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
                                                       <Download className="h-3.5 w-3.5" />
                                                     </button>
-                                                  )}
-                                                  {c.url && (
-                                                    <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
-                                                      <ExternalLink className="h-3.5 w-3.5" />
-                                                    </a>
                                                   )}
                                                   <button onClick={() => handleDeleteContent(c.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                                                     <Trash2 className="h-3.5 w-3.5" />
@@ -636,6 +673,19 @@ export default function Content() {
           ) : !loading ? (
             <div className="text-center py-16 text-muted-foreground">No content yet. Start creating!</div>
           ) : null}
+          {/* Video/Audio Preview Dialog */}
+          <Dialog open={!!previewTitle} onOpenChange={(open) => { if (!open) closePreview(); }}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader><DialogTitle className="truncate">{previewTitle}</DialogTitle></DialogHeader>
+              {previewLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : previewUrl ? (
+                <video src={previewUrl} controls autoPlay className="w-full rounded-lg max-h-[70vh]" />
+              ) : null}
+            </DialogContent>
+          </Dialog>
         </div>
       </CategoryGate>
     </AppLayout>
