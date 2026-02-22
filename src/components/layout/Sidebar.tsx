@@ -36,7 +36,7 @@ const navItems = [
   { to: '/templates', icon: FileCode2, label: 'Templates' },
   { to: '/invoices', icon: Receipt, label: 'Invoices' },
   { to: '/leads', icon: Radar, label: 'Leads' },
-  { to: '/messages', icon: Mail, label: 'Messages' },
+  { to: '/messages', icon: Mail, label: 'Email' },
   { to: '/phone', icon: Phone, label: 'Phone' },
   { to: '/boards', icon: LayoutGrid, label: 'Boards' },
   { to: '/meetings', icon: Video, label: 'Meetings' },
