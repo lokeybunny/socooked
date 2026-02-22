@@ -62,10 +62,13 @@ export default function Meetings() {
   useEffect(() => { setPage(1); }, [search]);
 
   const getRecordingsForMeeting = (m: any) => {
-    return recordings.filter(r =>
-      (r.folder === m.id) ||
-      (r.title?.toLowerCase().includes((m.title || '').toLowerCase()) && r.customer_id === m.customer_id)
-    );
+    // Filter matching recordings and prioritize ones with Drive URLs
+    return recordings
+      .filter(r =>
+        (r.folder === m.id) ||
+        (r.title?.toLowerCase().includes((m.title || '').toLowerCase()) && r.customer_id === m.customer_id)
+      )
+      .sort((a, b) => (b.url ? 1 : 0) - (a.url ? 1 : 0));
   };
 
   const handleCreate = async (e: React.FormEvent) => {

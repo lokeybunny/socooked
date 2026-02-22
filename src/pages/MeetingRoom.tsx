@@ -379,13 +379,7 @@ export default function MeetingRoom() {
     downloadBlob(audioBlob, `${baseName}-${dateStr}.${audioExt}`);
     toast.success('Recordings downloaded locally');
 
-    // Always save to content_assets for later retrieval
-    await Promise.all([
-      saveToContentAssets(videoBlob, videoExt, 'video'),
-      saveToContentAssets(audioBlob, audioExt, 'audio'),
-    ]);
-
-    // Also upload to Google Drive if customer exists
+    // Upload to Google Drive if customer exists (also saves to content_assets with Drive URL)
     if (meeting?.customer_id) {
       setUploading(true);
       const [videoOk, audioOk] = await Promise.all([
