@@ -115,14 +115,17 @@ export default function PhonePage() {
       setDeleteLeadOpen(true);
       return;
     }
+    let newNotes = '';
     if (action === 'busy') {
-      await supabase.from('customers').update({ notes: `[BUSY] ${new Date().toLocaleDateString()} — Will try again` } as any).eq('id', leadId);
+      newNotes = `[BUSY] ${new Date().toLocaleDateString()} — Will try again`;
       toast('Marked as Busy — will show up for callback', { icon: '📞' });
     }
     if (action === 'call_back') {
-      await supabase.from('customers').update({ notes: `[CALL BACK] ${new Date().toLocaleDateString()}` } as any).eq('id', leadId);
+      newNotes = `[CALL BACK] ${new Date().toLocaleDateString()}`;
       toast('Marked for Call Back', { icon: '🔁' });
     }
+    await supabase.from('customers').update({ notes: newNotes } as any).eq('id', leadId);
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, notes: newNotes } : l));
   };
 
   const handleDeleteLead = async () => {
