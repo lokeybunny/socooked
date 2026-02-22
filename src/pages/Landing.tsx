@@ -77,6 +77,11 @@ export default function Landing() {
   // Always start at the top & lock scroll until scene loads
   useEffect(() => {
     window.scrollTo(0, 0);
+    // Fallback: if 3D scene never signals ready, unlock after 6s
+    const fallback = setTimeout(() => {
+      if (!sceneReady) setSceneReady(true);
+    }, 6000);
+    return () => clearTimeout(fallback);
   }, []);
 
   useEffect(() => {
