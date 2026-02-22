@@ -35,7 +35,7 @@ export default function Meetings() {
     const [meetingsRes, customersRes, recordingsRes] = await Promise.all([
       supabase.from('meetings').select('*, customers(full_name)').order('created_at', { ascending: false }),
       supabase.from('customers').select('id, full_name').order('full_name'),
-      supabase.from('content_assets').select('id, title, url, type, customer_id, category').in('type', ['Video', 'Audio']).eq('source', 'Meeting'),
+      supabase.from('content_assets').select('id, title, url, type, customer_id, category, folder').in('type', ['Video', 'Audio']).eq('source', 'Meeting'),
     ]);
     setMeetings(meetingsRes.data || []);
     setCustomers(customersRes.data || []);
@@ -62,10 +62,10 @@ export default function Meetings() {
   useEffect(() => { setPage(1); }, [search]);
 
   const getRecordingsForMeeting = (m: any) => {
-    // Match recordings by title pattern: "[Meeting Title] - YYYY-MM-DD"
-    const titlePrefix = m.title || 'Meeting';
+    // Match by meeting ID stored in folder field, or fall back to title prefix
     return recordings.filter(r =>
-      r.title?.startsWith(titlePrefix) && r.customer_id === m.customer_id
+      (r.folder === m.id) ||
+      (r.title?.startsWith(m.title || 'Meeting') && r.customer_id === m.customer_id)
     );
   };
 
