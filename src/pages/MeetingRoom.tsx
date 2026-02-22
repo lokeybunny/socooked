@@ -394,7 +394,7 @@ export default function MeetingRoom() {
         toast.error('Drive upload failed — local copies saved');
       }
     }
-  }, [meeting, uploadFile, saveToContentAssets]);
+  }, [meeting, uploadFile]);
 
   const stopAndUpload = useCallback(async () => {
     const { videoBlob, audioBlob } = await stopRecording();
