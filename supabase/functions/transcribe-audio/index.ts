@@ -19,6 +19,7 @@ serve(async (req) => {
     const audioFile = formData.get("audio") as File;
     const customerName = formData.get("customer_name") as string || "Unknown";
     const customerId = formData.get("customer_id") as string || null;
+    const sourceType = formData.get("source_type") as string || "manual_upload";
 
     if (!audioFile) throw new Error("audio file is required");
 
@@ -81,7 +82,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         source_id: `upload_${Date.now()}`,
-        source_type: "manual_upload",
+        source_type: sourceType,
         transcript: formattedTranscript,
         summary,
         customer_id: customerId || null,

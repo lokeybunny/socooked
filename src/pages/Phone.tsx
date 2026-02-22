@@ -1,16 +1,24 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const RC_EMBEDDABLE_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/adapter.js';
+
+const CALL_TYPES = [
+  { value: 'voicemail', label: 'Voicemail', icon: Voicemail },
+  { value: 'live_call', label: 'Live Call', icon: PhoneCall },
+] as const;
+
+type CallType = typeof CALL_TYPES[number]['value'];
 
 export default function PhonePage() {
   const { user } = useAuth();
@@ -22,10 +30,12 @@ export default function PhonePage() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [callType, setCallType] = useState<CallType>('voicemail');
   const [transcribing, setTranscribing] = useState(false);
   const [uploadingToDrive, setUploadingToDrive] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rcScriptRef = useRef<HTMLScriptElement | null>(null);
 
@@ -38,7 +48,6 @@ export default function PhonePage() {
     document.body.appendChild(script);
     rcScriptRef.current = script;
     return () => {
-      // Cleanup RC widget on unmount
       const widget = document.getElementById('rc-widget-adapter-frame');
       if (widget) widget.remove();
       if (rcScriptRef.current) {
@@ -51,7 +60,7 @@ export default function PhonePage() {
   const loadData = useCallback(async () => {
     const [custRes, transRes] = await Promise.all([
       supabase.from('customers').select('id, full_name, phone, email'),
-      supabase.from('transcriptions').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('transcriptions').select('*').order('created_at', { ascending: false }).limit(100),
     ]);
     setCustomers(custRes.data || []);
     setTranscriptions(transRes.data || []);
@@ -59,6 +68,30 @@ export default function PhonePage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Group transcriptions by customer
+  const groupedTranscriptions = useMemo(() => {
+    const groups: Record<string, { customer: any; items: any[] }> = {};
+    const ungrouped: any[] = [];
+
+    for (const t of transcriptions) {
+      if (t.customer_id) {
+        if (!groups[t.customer_id]) {
+          const customer = customers.find(c => c.id === t.customer_id);
+          groups[t.customer_id] = { customer: customer || { full_name: 'Unknown Customer' }, items: [] };
+        }
+        groups[t.customer_id].items.push(t);
+      } else {
+        ungrouped.push(t);
+      }
+    }
+
+    const sorted = Object.entries(groups).sort(
+      ([, a], [, b]) => new Date(b.items[0].created_at).getTime() - new Date(a.items[0].created_at).getTime()
+    );
+
+    return { grouped: sorted, ungrouped };
+  }, [transcriptions, customers]);
 
   // ─── Drag & drop handlers ─────────────────────────────
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); };
@@ -97,11 +130,11 @@ export default function PhonePage() {
 
     for (const file of uploadFiles) {
       try {
-        // 1. Transcribe via AI
         const formData = new FormData();
         formData.append('audio', file);
         formData.append('customer_name', customerName);
         formData.append('customer_id', selectedCustomerId);
+        formData.append('source_type', callType);
 
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -117,11 +150,10 @@ export default function PhonePage() {
         const transcribeData = await transcribeRes.json();
         if (!transcribeRes.ok) throw new Error(transcribeData.error || 'Transcription failed');
 
-        // 2. Upload original audio to Google Drive
+        // Upload original audio to Google Drive
         let driveResult = null;
         try {
           setUploadingToDrive(true);
-          // Ensure folder: Transcriptions / CustomerName
           const folderRes = await fetch(
             `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
             {
@@ -136,9 +168,9 @@ export default function PhonePage() {
           const folderData = await folderRes.json();
           if (!folderRes.ok) throw new Error(folderData.error || 'Folder creation failed');
 
-          // Upload the audio file
           const driveForm = new FormData();
-          const renamedFile = new File([file], `${dateStr}_${file.name}`, { type: file.type });
+          const typePrefix = callType === 'voicemail' ? 'VM' : 'CALL';
+          const renamedFile = new File([file], `${dateStr}_${typePrefix}_${file.name}`, { type: file.type });
           driveForm.append('file', renamedFile);
           driveForm.append('folder_id', folderData.folder_id);
 
@@ -154,7 +186,6 @@ export default function PhonePage() {
           if (!uploadRes.ok) throw new Error(driveResult.error || 'Drive upload failed');
         } catch (driveErr: any) {
           console.error('Drive upload error:', driveErr);
-          // Non-fatal - transcript was still saved
         } finally {
           setUploadingToDrive(false);
         }
@@ -165,6 +196,7 @@ export default function PhonePage() {
           transcript: transcribeData.transcript,
           summary: transcribeData.summary,
           driveLink: driveResult?.webViewLink || null,
+          callType,
           success: true,
         });
 
@@ -179,7 +211,7 @@ export default function PhonePage() {
     setResults(newResults);
     setTranscribing(false);
     setUploadFiles([]);
-    loadData(); // Refresh transcriptions list
+    loadData();
   };
 
   const copyTranscript = (text: string) => {
@@ -191,6 +223,12 @@ export default function PhonePage() {
     if (bytes < 1024) return `${bytes}B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  };
+
+  const getTypeBadge = (sourceType: string) => {
+    if (sourceType === 'voicemail') return <Badge variant="secondary" className="gap-1 text-[10px]"><Voicemail className="h-3 w-3" />Voicemail</Badge>;
+    if (sourceType === 'live_call') return <Badge variant="outline" className="gap-1 text-[10px]"><PhoneCall className="h-3 w-3" />Live Call</Badge>;
+    return <Badge variant="outline" className="text-[10px]">{sourceType}</Badge>;
   };
 
   return (
@@ -215,17 +253,35 @@ export default function PhonePage() {
                 Drop audio files to transcribe. Files are saved to Google Drive under Transcriptions / [Customer Name] and the transcript is stored in the CRM.
               </p>
 
-              {/* Customer select */}
-              <div className="space-y-2">
-                <Label>Customer</Label>
-                <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-                  <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
-                  <SelectContent>
-                    {customers.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Customer + Call Type selects */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Customer</Label>
+                  <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                    <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+                    <SelectContent>
+                      {customers.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Call Type</Label>
+                  <Select value={callType} onValueChange={(v) => setCallType(v as CallType)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CALL_TYPES.map(ct => (
+                        <SelectItem key={ct.value} value={ct.value}>
+                          <span className="flex items-center gap-2">
+                            <ct.icon className="h-3.5 w-3.5" />
+                            {ct.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Drag & Drop Zone */}
@@ -298,6 +354,7 @@ export default function PhonePage() {
                       <div className="flex items-center gap-2">
                         {r.success ? <Check className="h-4 w-4 text-emerald-500" /> : <X className="h-4 w-4 text-destructive" />}
                         <span className="text-sm font-medium text-foreground">{r.filename}</span>
+                        {r.success && r.callType && getTypeBadge(r.callType)}
                       </div>
                       <div className="flex items-center gap-1">
                         {r.driveLink && (
@@ -330,7 +387,7 @@ export default function PhonePage() {
             )}
           </div>
 
-          {/* ─── Right: Recent Transcriptions ─── */}
+          {/* ─── Right: Recent Transcriptions (grouped by customer) ─── */}
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-foreground">Recent Transcriptions</h2>
             {loading ? (
@@ -338,38 +395,107 @@ export default function PhonePage() {
             ) : transcriptions.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">No transcriptions yet.</p>
             ) : (
-              <div className="space-y-2">
-                {transcriptions.map((t) => {
-                  const customer = customers.find(c => c.id === t.customer_id);
-                  return (
-                    <div key={t.id} className="glass-card p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {customer?.full_name || 'Unknown Customer'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {t.source_type} · {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                          <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
-                            {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                          </button>
-                        </div>
+              <div className="space-y-3">
+                {groupedTranscriptions.grouped.map(([customerId, group]) => (
+                  <div key={customerId} className="glass-card overflow-hidden">
+                    {/* Customer header */}
+                    <button
+                      onClick={() => setExpandedCustomer(expandedCustomer === customerId ? null : customerId)}
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <User className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm font-medium text-foreground truncate">{group.customer?.full_name}</span>
+                        <Badge variant="secondary" className="text-[10px]">{group.items.length}</Badge>
                       </div>
-                      {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
-                      {expandedResult === t.id && (
-                        <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
-                          <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      {expandedCustomer === customerId ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+
+                    {/* Transcription items */}
+                    {expandedCustomer === customerId && (
+                      <div className="border-t border-border divide-y divide-border">
+                        {group.items.map((t) => (
+                          <div key={t.id} className="px-4 py-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                {getTypeBadge(t.source_type)}
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
+                                </span>
+                                {t.duration_seconds && (
+                                  <span className="text-xs text-muted-foreground">
+                                    · {Math.floor(t.duration_seconds / 60)}:{String(t.duration_seconds % 60).padStart(2, '0')}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
+                                  <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                                <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
+                                  {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                </button>
+                              </div>
+                            </div>
+                            {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
+                            {expandedResult === t.id && (
+                              <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
+                                <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Ungrouped (no customer) */}
+                {groupedTranscriptions.ungrouped.length > 0 && (
+                  <div className="glass-card overflow-hidden">
+                    <button
+                      onClick={() => setExpandedCustomer(expandedCustomer === '__ungrouped' ? null : '__ungrouped')}
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">Unassigned</span>
+                        <Badge variant="secondary" className="text-[10px]">{groupedTranscriptions.ungrouped.length}</Badge>
+                      </div>
+                      {expandedCustomer === '__ungrouped' ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+                    {expandedCustomer === '__ungrouped' && (
+                      <div className="border-t border-border divide-y divide-border">
+                        {groupedTranscriptions.ungrouped.map((t) => (
+                          <div key={t.id} className="px-4 py-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {getTypeBadge(t.source_type)}
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
+                                  <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                                <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
+                                  {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                </button>
+                              </div>
+                            </div>
+                            {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
+                            {expandedResult === t.id && (
+                              <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
+                                <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
