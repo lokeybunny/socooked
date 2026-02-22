@@ -277,7 +277,7 @@ export default function EmailPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('inbox');
-  const [channel, setChannel] = useState<'email' | 'sms' | 'voicemail' | 'transcriptions'>('email');
+  const [channel, setChannel] = useState<'email' | 'sms' | 'transcriptions'>('email');
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -298,7 +298,7 @@ export default function EmailPage() {
   const [replying, setReplying] = useState(false);
   const [replyAttachments, setReplyAttachments] = useState<Attachment[]>([]);
 
-  // RingCentral SMS/Voicemail
+  // RingCentral SMS
   const [rcMessages, setRcMessages] = useState<any[]>([]);
   const [smsComposeOpen, setSmsComposeOpen] = useState(false);
   const [smsForm, setSmsForm] = useState({ to: '', text: '', from: '' });
@@ -364,7 +364,7 @@ export default function EmailPage() {
   const loadRingCentral = useCallback(async () => {
     setLoading(true);
     try {
-      const action = channel === 'sms' ? 'sms-list' : 'voicemail-list';
+      const action = 'sms-list';
       const data = await callRC(action);
       setRcMessages(data.messages || []);
     } catch (e: any) {
@@ -383,7 +383,7 @@ export default function EmailPage() {
   useEffect(() => {
     if (channel === 'email') {
       loadEmails(activeTab);
-    } else if (channel === 'sms' || channel === 'voicemail') {
+    } else if (channel === 'sms') {
       loadRingCentral();
     }
 
@@ -394,7 +394,7 @@ export default function EmailPage() {
     setRefreshing(true);
     if (channel === 'email') {
       await loadEmails(activeTab);
-    } else if (channel === 'sms' || channel === 'voicemail') {
+    } else if (channel === 'sms') {
       await loadRingCentral();
     }
     setRefreshing(false);
@@ -749,7 +749,6 @@ export default function EmailPage() {
           {[
             { key: 'email' as const, icon: Mail, label: 'Email' },
             { key: 'sms' as const, icon: MessageSquareText, label: 'SMS' },
-            { key: 'voicemail' as const, icon: Voicemail, label: 'Voicemail' },
             { key: 'transcriptions' as const, icon: FileAudio, label: 'Transcriptions' },
           ].map(({ key, icon: Icon, label }) => (
             <Button
