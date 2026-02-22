@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   Filter, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check,
+  ChevronsUpDown, Check, User,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -84,7 +84,7 @@ export default function EmailPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('inbox');
+  const [activeTab, setActiveTab] = useState('customers');
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [composeCustomerOpen, setComposeCustomerOpen] = useState(false);
@@ -143,7 +143,11 @@ export default function EmailPage() {
   }, []);
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
-  useEffect(() => { loadEmails(activeTab); }, [activeTab, loadEmails]);
+  useEffect(() => {
+    // "customers" tab uses inbox data filtered to customer emails
+    const gmailTab = activeTab === 'customers' ? 'inbox' : activeTab;
+    loadEmails(gmailTab);
+  }, [activeTab, loadEmails]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -216,6 +220,10 @@ export default function EmailPage() {
         const addr = selectedCustomerEmail.toLowerCase();
         return e.from.toLowerCase().includes(addr) || e.to.toLowerCase().includes(addr);
       });
+
+  const customerOnlyEmails = emails.filter((e) =>
+    Array.from(customerEmailSet).some((ce) => e.from.toLowerCase().includes(ce) || e.to.toLowerCase().includes(ce))
+  );
 
   const customerEmailOptions = customers.filter((c) => c.email);
   const customerEmailSet = new Set(customers.filter((c) => c.email).map((c) => c.email!.toLowerCase()));
@@ -343,6 +351,7 @@ export default function EmailPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="flex items-center justify-between gap-4">
             <TabsList>
+              <TabsTrigger value="customers" className="gap-1.5"><User className="h-3.5 w-3.5" /> Customers</TabsTrigger>
               <TabsTrigger value="inbox" className="gap-1.5"><Inbox className="h-3.5 w-3.5" /> Inbox</TabsTrigger>
               <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
               <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
@@ -378,6 +387,16 @@ export default function EmailPage() {
               </Popover>
             </div>
           </div>
+          <TabsContent value="customers">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading emails...</span>
+              </div>
+            ) : customerOnlyEmails.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No customer emails found.</p>
+            ) : renderEmailList(customerOnlyEmails)}
+          </TabsContent>
           {['inbox', 'sent', 'drafts'].map((tab) => (
             <TabsContent key={tab} value={tab}>
               {loading ? (

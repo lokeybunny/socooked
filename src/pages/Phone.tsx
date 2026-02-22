@@ -227,7 +227,24 @@ export default function PhonePage() {
     setResults(newResults);
     setTranscribing(false);
     setUploadFiles([]);
-    loadData();
+
+    // Immediately add successful transcriptions to the list
+    const successfulResults = newResults.filter(r => r.success && r.id);
+    if (successfulResults.length > 0) {
+      const newTranscriptions = successfulResults.map(r => ({
+        id: r.id,
+        source_type: r.callType || callType,
+        transcript: r.transcript,
+        summary: r.summary || null,
+        customer_id: selectedCustomerId,
+        created_at: new Date().toISOString(),
+        duration_seconds: null,
+        source_id: `upload_${Date.now()}`,
+      }));
+      setTranscriptions(prev => [...newTranscriptions, ...prev]);
+      // Auto-expand the customer group to show the new transcription
+      setExpandedCustomer(selectedCustomerId);
+    }
   };
 
   const copyTranscript = (text: string) => {
