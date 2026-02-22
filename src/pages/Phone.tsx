@@ -820,6 +820,25 @@ export default function PhonePage() {
               </div>
             )}
 
+          </div>
+
+          {/* ─── Right Column: RingCentral Softphone ─── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Phone className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Softphone</h2>
+            </div>
+            <div className="glass-card overflow-hidden rounded-xl">
+              <iframe
+                src={RC_EMBED_URL}
+                title="RingCentral Softphone"
+                className="w-full border-0"
+                style={{ height: '600px' }}
+                allow="microphone; autoplay"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+              />
+            </div>
+
             {/* ─── Recent Transcriptions (grouped by customer) ─── */}
             <div className="space-y-4">
               <button
@@ -838,194 +857,108 @@ export default function PhonePage() {
 
               {transcriptionsOpen && (
                 <>
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by customer name..."
-                    value={searchQuery}
-                    onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                    className="pl-9 h-9"
-                  />
-                </div>
-              {loading ? (
-                <div className="glass-card p-8 text-center">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
-                </div>
-              ) : filteredTranscriptions.length === 0 ? (
-                <div className="glass-card p-8 text-center">
-                  <FileAudio className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    {searchQuery ? 'No transcriptions match your search.' : 'No transcriptions yet. Upload audio above to get started.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {paginatedGroups.map(([customerId, group]) => (
-                    <div key={customerId} className="glass-card overflow-hidden">
-                      <button
-                        onClick={() => setExpandedCustomer(expandedCustomer === customerId ? null : customerId)}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <User className="h-4 w-4 text-primary shrink-0" />
-                          <span className="text-sm font-medium text-foreground truncate">{group.customer?.full_name}</span>
-                          <Badge variant="secondary" className="text-[10px]">{group.items.length}</Badge>
-                        </div>
-                        {expandedCustomer === customerId ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                      </button>
-                      {expandedCustomer === customerId && (
-                        <div className="border-t border-border divide-y divide-border">
-                          {group.items.map((t) => (
-                            <div key={t.id} className="px-4 py-3 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  {getTypeBadge(t.source_type, t)}
-                                  <span className="text-xs text-muted-foreground">
-                                    {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
-                                  </span>
-                                  {t.duration_seconds && (
-                                    <span className="text-xs text-muted-foreground">
-                                      · {Math.floor(t.duration_seconds / 60)}:{String(t.duration_seconds % 60).padStart(2, '0')}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {t.audio_url && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className={cn("h-7 w-7 p-0", playingId === t.id ? "text-destructive hover:text-destructive" : "text-primary hover:text-primary")}
-                                      onClick={(e) => { e.stopPropagation(); handlePlayAudio(t); }}
-                                      disabled={downloadingId === t.id}
-                                      title={playingId === t.id ? "Stop" : "Play audio"}
-                                    >
-                                      {downloadingId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : playingId === t.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                                    </Button>
-                                  )}
-                                  <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
-                                    <Copy className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
-                                    {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                  </button>
-                                </div>
-                              </div>
-                              {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
-                              {expandedResult === t.id && (
-                                <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
-                                  <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                  <div className="relative w-full">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by customer name..."
+                      value={searchQuery}
+                      onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                      className="pl-9 h-9"
+                    />
+                  </div>
+                  {loading ? (
+                    <div className="glass-card p-8 text-center">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                     </div>
-                  ))}
-
-                  {showUngrouped && (
-                    <div className="glass-card overflow-hidden">
-                      <button
-                        onClick={() => setExpandedCustomer(expandedCustomer === '__ungrouped' ? null : '__ungrouped')}
-                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium text-muted-foreground">Unassigned</span>
-                          <Badge variant="secondary" className="text-[10px]">{groupedTranscriptions.ungrouped.length}</Badge>
-                        </div>
-                        {expandedCustomer === '__ungrouped' ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                      </button>
-                      {expandedCustomer === '__ungrouped' && (
-                        <div className="border-t border-border divide-y divide-border">
-                          {groupedTranscriptions.ungrouped.map((t) => (
-                            <div key={t.id} className="px-4 py-3 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  {getTypeBadge(t.source_type, t)}
-                                  <span className="text-xs text-muted-foreground">
-                                    {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {t.audio_url && (
-                                    <a href={t.audio_url} target="_blank" rel="noopener noreferrer" title="Play audio">
-                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary hover:text-primary">
-                                        <Play className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </a>
-                                  )}
-                                  <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
-                                    <Copy className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
-                                    {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                  </button>
-                                </div>
-                              </div>
-                              {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
-                              {expandedResult === t.id && (
-                                <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
-                                  <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-2">
-                      <p className="text-xs text-muted-foreground">
-                        Page {currentPage} of {totalPages}
+                  ) : filteredTranscriptions.length === 0 ? (
+                    <div className="glass-card p-8 text-center">
+                      <FileAudio className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {searchQuery ? 'No transcriptions match your search.' : 'No transcriptions yet.'}
                       </p>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={currentPage <= 1}
-                          onClick={() => setCurrentPage(p => p - 1)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={currentPage >= totalPages}
-                          onClick={() => setCurrentPage(p => p + 1)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {paginatedGroups.map(([customerId, group]) => (
+                        <div key={customerId} className="glass-card overflow-hidden">
+                          <button
+                            onClick={() => setExpandedCustomer(expandedCustomer === customerId ? null : customerId)}
+                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <User className="h-4 w-4 text-primary shrink-0" />
+                              <span className="text-sm font-medium text-foreground truncate">{group.customer?.full_name}</span>
+                              <Badge variant="secondary" className="text-[10px]">{group.items.length}</Badge>
+                            </div>
+                            {expandedCustomer === customerId ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          </button>
+                          {expandedCustomer === customerId && (
+                            <div className="border-t border-border divide-y divide-border">
+                              {group.items.map((t) => (
+                                <div key={t.id} className="px-4 py-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {getTypeBadge(t.source_type, t)}
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
+                                      </span>
+                                      {t.duration_seconds && (
+                                        <span className="text-xs text-muted-foreground">
+                                          · {Math.floor(t.duration_seconds / 60)}:{String(t.duration_seconds % 60).padStart(2, '0')}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {t.audio_url && (
+                                        <Button
+                                          variant="ghost" size="sm"
+                                          className={cn("h-7 w-7 p-0", playingId === t.id ? "text-destructive hover:text-destructive" : "text-primary hover:text-primary")}
+                                          onClick={(e) => { e.stopPropagation(); handlePlayAudio(t); }}
+                                          disabled={downloadingId === t.id}
+                                          title={playingId === t.id ? "Stop" : "Play audio"}
+                                        >
+                                          {downloadingId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : playingId === t.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                                        </Button>
+                                      )}
+                                      <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
+                                        <Copy className="h-3.5 w-3.5" />
+                                      </Button>
+                                      <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
+                                        {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
+                                  {expandedResult === t.id && (
+                                    <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
+                                      <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Pagination */}
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between pt-2">
+                          <p className="text-xs text-muted-foreground">Page {currentPage} of {totalPages}</p>
+                          <div className="flex items-center gap-1">
+                            <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)} className="h-8 w-8 p-0">
+                              <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)} className="h-8 w-8 p-0">
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
-              )}
                 </>
               )}
-            </div>
-          </div>
-
-          {/* ─── Right Column: RingCentral Softphone ─── */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Phone className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Softphone</h2>
-            </div>
-            <div className="glass-card overflow-hidden rounded-xl sticky top-4">
-              <iframe
-                src={RC_EMBED_URL}
-                title="RingCentral Softphone"
-                className="w-full border-0"
-                style={{ height: '600px' }}
-                allow="microphone; autoplay"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-              />
             </div>
           </div>
         </div>
