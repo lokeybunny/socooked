@@ -30,6 +30,19 @@ interface BotTask {
   meta: any;
 }
 
+interface ApiPreview {
+  id: string;
+  title: string;
+  status: string;
+  source: string;
+  customer_id: string | null;
+  preview_url: string | null;
+  edit_url: string | null;
+  created_at: string;
+  updated_at: string;
+  meta: any;
+}
+
 interface ActivityItem {
   id: string;
   entity_type: string;
@@ -232,17 +245,20 @@ function ActivityPanel({ agent, tasks, activities, navigate }: {
 export default function AIStaff() {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<BotTask[]>([]);
+  const [previews, setPreviews] = useState<ApiPreview[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<AgentId>('clawd-main');
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [bt, al] = await Promise.all([
+    const [bt, al, pv] = await Promise.all([
       supabase.from('bot_tasks').select('*').order('updated_at', { ascending: false }).limit(100),
       supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('api_previews').select('*').order('created_at', { ascending: false }).limit(50),
     ]);
     setTasks((bt.data || []) as BotTask[]);
     setActivities((al.data || []) as ActivityItem[]);
+    setPreviews((pv.data || []) as ApiPreview[]);
     setLoading(false);
   }, []);
 
@@ -254,12 +270,57 @@ export default function AIStaff() {
       .channel('ai-staff-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_tasks' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'api_previews' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
 
   const agentMeta = (id: string) => AGENTS.find(a => a.id === id);
-  const agentTasks = (id: string) => agentMeta(id)?.connected ? tasks.filter(t => t.bot_agent === id) : [];
+  
+  // Synthesize tasks from api_previews for web-designer, merge with bot_tasks
+  const agentTasks = (id: string): BotTask[] => {
+    if (!agentMeta(id)?.connected) return [];
+    const botTasks = tasks.filter(t => t.bot_agent === id);
+    
+    if (id === 'web-designer') {
+      const previewTasks: BotTask[] = previews.map(p => ({
+        id: p.id,
+        title: p.title,
+        status: p.status === 'completed' ? 'completed' : p.status === 'failed' ? 'failed' : 'in_progress',
+        priority: 'medium',
+        bot_agent: 'web-designer',
+        customer_id: p.customer_id,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+        description: null,
+        meta: p.meta,
+      }));
+      // Merge, dedup by id
+      const ids = new Set(botTasks.map(t => t.id));
+      return [...botTasks, ...previewTasks.filter(t => !ids.has(t.id))];
+    }
+    
+    if (id === 'clawd-main') {
+      // Show all activity as orchestrator
+      const previewTasks: BotTask[] = previews.map(p => ({
+        id: p.id,
+        title: p.title,
+        status: p.status === 'completed' ? 'completed' : p.status === 'failed' ? 'failed' : 'in_progress',
+        priority: 'medium',
+        bot_agent: 'clawd-main',
+        customer_id: p.customer_id,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+        description: null,
+        meta: p.meta,
+      }));
+      const ids = new Set(botTasks.map(t => t.id));
+      return [...botTasks, ...previewTasks.filter(t => !ids.has(t.id))];
+    }
+    
+    return botTasks;
+  };
+
   const agentActivities = (id: string) => {
     if (!agentMeta(id)?.connected) return [];
     if (id === 'web-designer') {
