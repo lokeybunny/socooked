@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
@@ -290,15 +290,74 @@ export default function PhonePage() {
     toast.success('Copied to clipboard');
   };
 
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownloadAudio = async (transcription: any) => {
+    if (!transcription.audio_url) { toast.error('No audio file linked'); return; }
+    // Extract Google Drive file ID from webViewLink
+    const match = transcription.audio_url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!match) {
+      // Fallback: just open the link
+      window.open(transcription.audio_url, '_blank');
+      return;
+    }
+    const fileId = match[1];
+    setDownloadingId(transcription.id);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${fileId}`,
+        { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } }
+      );
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${transcription.source_type}_${format(new Date(transcription.created_at), 'yyyy-MM-dd')}.mp3`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Audio downloaded');
+    } catch (err: any) {
+      console.error('Download error:', err);
+      toast.error('Failed to download audio');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes}B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   };
 
-  const getTypeBadge = (sourceType: string) => {
-    if (sourceType === 'voicemail') return <Badge variant="secondary" className="gap-1 text-[10px]"><Voicemail className="h-3 w-3" />Voicemail</Badge>;
-    if (sourceType === 'live_call') return <Badge variant="outline" className="gap-1 text-[10px]"><PhoneCall className="h-3 w-3" />Live Call</Badge>;
+  const getTypeBadge = (sourceType: string, transcription?: any) => {
+    const isClickable = transcription?.audio_url;
+    const isDownloading = transcription && downloadingId === transcription.id;
+    const clickProps = isClickable ? {
+      onClick: (e: React.MouseEvent) => { e.stopPropagation(); handleDownloadAudio(transcription); },
+      className: "gap-1 text-[10px] cursor-pointer hover:opacity-80 transition-opacity",
+      role: "button" as const,
+    } : { className: "gap-1 text-[10px]" };
+
+    if (sourceType === 'voicemail') return (
+      <Badge variant="secondary" {...clickProps}>
+        {isDownloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Voicemail className="h-3 w-3" />}
+        Voicemail
+        {isClickable && !isDownloading && <Download className="h-2.5 w-2.5 ml-0.5" />}
+      </Badge>
+    );
+    if (sourceType === 'live_call') return (
+      <Badge variant="outline" {...clickProps}>
+        {isDownloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <PhoneCall className="h-3 w-3" />}
+        Live Call
+        {isClickable && !isDownloading && <Download className="h-2.5 w-2.5 ml-0.5" />}
+      </Badge>
+    );
     return <Badge variant="outline" className="text-[10px]">{sourceType}</Badge>;
   };
 
@@ -535,7 +594,7 @@ export default function PhonePage() {
                             <div key={t.id} className="px-4 py-3 space-y-2">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  {getTypeBadge(t.source_type)}
+                                  {getTypeBadge(t.source_type, t)}
                                   <span className="text-xs text-muted-foreground">
                                     {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
                                   </span>
@@ -593,7 +652,7 @@ export default function PhonePage() {
                             <div key={t.id} className="px-4 py-3 space-y-2">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  {getTypeBadge(t.source_type)}
+                                  {getTypeBadge(t.source_type, t)}
                                   <span className="text-xs text-muted-foreground">
                                     {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
                                   </span>
