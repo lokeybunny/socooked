@@ -99,11 +99,44 @@ serve(async (req) => {
       console.error("Failed to save transcription:", await insertRes.text());
     }
 
+    // Create a conversation_thread for the customer so data lives on their profile
+    let threadRecord = null;
+    if (customerId) {
+      const threadChannel = sourceType === "voicemail" ? "voicemail" : "call";
+      const threadSummary = `[${sourceType === "voicemail" ? "Voicemail" : "Call"}] ${summary || "Audio transcription"}`;
+
+      const threadRes = await fetch(`${supabaseUrl}/rest/v1/conversation_threads`, {
+        method: "POST",
+        headers: {
+          "apikey": supabaseKey,
+          "Authorization": `Bearer ${supabaseKey}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=representation",
+        },
+        body: JSON.stringify({
+          customer_id: customerId,
+          channel: threadChannel,
+          category: "other",
+          status: "closed",
+          summary: threadSummary,
+          raw_transcript: formattedTranscript,
+        }),
+      });
+
+      if (threadRes.ok) {
+        const threadRecords = await threadRes.json();
+        threadRecord = threadRecords?.[0] || null;
+      } else {
+        console.error("Failed to create thread:", await threadRes.text());
+      }
+    }
+
     return new Response(
       JSON.stringify({
         transcript: formattedTranscript,
         summary,
         transcription_id: transcriptionRecord?.id || null,
+        thread_id: threadRecord?.id || null,
         filename: audioFile.name,
         customer_name: customerName,
         duration_seconds: duration,
