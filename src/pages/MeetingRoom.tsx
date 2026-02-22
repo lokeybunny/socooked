@@ -108,9 +108,22 @@ export default function MeetingRoom() {
   }, []);
 
   const createPeerConnection = useCallback((remotePeerId: string, remoteName: string) => {
+    // If this same peerId already has a connection, reuse it
+    const existing = peersRef.current.get(remotePeerId);
+    if (existing && existing.pc.connectionState !== 'closed' && existing.pc.connectionState !== 'failed') {
+      return existing.pc;
+    }
+
+    // If this person rejoined with a new peerId, remove their old entry by name
+    peersRef.current.forEach((p, key) => {
+      if (p.name === remoteName && key !== remotePeerId) {
+        p.pc.close();
+        peersRef.current.delete(key);
+      }
+    });
+
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
-    // Use screen stream if currently sharing, otherwise camera
     const activeStream = screenStreamRef.current || localStreamRef.current;
     if (activeStream) {
       activeStream.getTracks().forEach(track => pc.addTrack(track, activeStream));
@@ -119,8 +132,8 @@ export default function MeetingRoom() {
     const participant: Participant = { peerId: remotePeerId, name: remoteName, pc, stream: null };
 
     pc.ontrack = (event) => {
-      const existing = peersRef.current.get(remotePeerId);
-      const updated = { ...(existing || participant), stream: event.streams[0] };
+      const curr = peersRef.current.get(remotePeerId);
+      const updated = { ...(curr || participant), stream: event.streams[0] };
       peersRef.current.set(remotePeerId, updated);
       syncParticipants();
     };
@@ -154,10 +167,17 @@ export default function MeetingRoom() {
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log(`ICE state [${remoteName}]:`, pc.iceConnectionState);
       if (pc.iceConnectionState === 'failed') {
-        console.warn('ICE connection failed, attempting restart');
         pc.restartIce();
+      }
+      // Auto-cleanup disconnected peers
+      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
+        setTimeout(() => {
+          if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
+            peersRef.current.delete(remotePeerId);
+            syncParticipants();
+          }
+        }, 5000);
       }
     };
 
@@ -569,7 +589,7 @@ export default function MeetingRoom() {
         >
           {fullscreenId === 'local' ? (
             <video
-              ref={el => { if (el) el.srcObject = screenStreamRef.current || localStreamRef.current; }}
+              ref={el => { const s = screenStreamRef.current || localStreamRef.current; if (el && s && el.srcObject !== s) el.srcObject = s; }}
               autoPlay muted playsInline
               className="w-full h-full object-contain"
             />
@@ -580,7 +600,7 @@ export default function MeetingRoom() {
                 <video
                   autoPlay playsInline
                   className="w-full h-full object-contain"
-                  ref={el => { if (el) el.srcObject = p.stream; }}
+                  ref={el => { if (el && p.stream && el.srcObject !== p.stream) el.srcObject = p.stream; }}
                 />
               ) : null;
             })()
@@ -635,7 +655,7 @@ export default function MeetingRoom() {
               <video
                 autoPlay playsInline
                 className="w-full h-full object-cover"
-                ref={el => { if (el && participants[0].stream) el.srcObject = participants[0].stream; }}
+                ref={el => { if (el && participants[0].stream && el.srcObject !== participants[0].stream) el.srcObject = participants[0].stream; }}
               />
               <div className="absolute bottom-3 left-4 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-foreground">
                 {participants[0].name}
@@ -664,7 +684,7 @@ export default function MeetingRoom() {
               <video
                 autoPlay playsInline
                 className="w-full h-full object-cover"
-                ref={el => { if (el && p.stream) el.srcObject = p.stream; }}
+                ref={el => { if (el && p.stream && el.srcObject !== p.stream) el.srcObject = p.stream; }}
               />
               <div className="absolute bottom-3 left-4 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-foreground">
                 {p.name}
