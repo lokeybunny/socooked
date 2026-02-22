@@ -90,12 +90,28 @@ export function useRecording() {
       const liveLocal = streams.localStream.current;
       const liveRemotes = streams.remoteStreams.current;
 
+      // Keep mixing audio from all sources regardless
       liveRemotes.forEach(s => connectAudio(s));
 
-      const activeLocal = liveScreen || liveLocal;
-      const allStreams: { id: string; stream: MediaStream }[] = [];
+      // If screen share is active, record ONLY the screen share full-frame
+      if (liveScreen) {
+        const vid = getOrCreateVideo('screen', liveScreen);
+        if (vid.readyState >= 2) {
+          const vw = vid.videoWidth || WIDTH;
+          const vh = vid.videoHeight || HEIGHT;
+          const scale = Math.min(WIDTH / vw, HEIGHT / vh);
+          const dw = vw * scale;
+          const dh = vh * scale;
+          const dx = (WIDTH - dw) / 2;
+          const dy = (HEIGHT - dh) / 2;
+          ctx.drawImage(vid, 0, 0, vw, vh, dx, dy, dw, dh);
+        }
+        animFrameRef.current = requestAnimationFrame(drawFrame);
+        return;
+      }
 
-      if (activeLocal) allStreams.push({ id: 'local', stream: activeLocal });
+      const allStreams: { id: string; stream: MediaStream }[] = [];
+      if (liveLocal) allStreams.push({ id: 'local', stream: liveLocal });
       liveRemotes.forEach((s, i) => allStreams.push({ id: `remote-${i}`, stream: s }));
 
       const count = allStreams.length;
