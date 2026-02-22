@@ -152,11 +152,9 @@ export function useRecording() {
   const stopRecording = useCallback((): Promise<{ blob: Blob; extension: string }> => {
     return new Promise((resolve) => {
       const recorder = recorderRef.current;
-      const ext = recorder?.mimeType?.startsWith('video/mp4') ? 'mp4' : 'webm';
-      const mime = recorder?.mimeType?.startsWith('video/mp4') ? 'video/mp4' : 'video/webm';
 
       if (!recorder || recorder.state === 'inactive') {
-        resolve({ blob: new Blob(chunksRef.current, { type: mime }), extension: ext });
+        resolve({ blob: new Blob(chunksRef.current, { type: 'video/mp4' }), extension: 'mp4' });
         return;
       }
 
@@ -166,7 +164,7 @@ export function useRecording() {
         videoElementsRef.current.forEach(v => { v.srcObject = null; });
         videoElementsRef.current.clear();
         setRecording(false);
-        resolve({ blob: new Blob(chunksRef.current, { type: mime }), extension: ext });
+        resolve({ blob: new Blob(chunksRef.current, { type: 'video/mp4' }), extension: 'mp4' });
       };
 
       recorder.stop();
