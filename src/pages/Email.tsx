@@ -151,7 +151,8 @@ export default function EmailPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadEmails(activeTab);
+    const gmailTab = activeTab === 'customers' ? 'inbox' : activeTab;
+    await loadEmails(gmailTab);
     setRefreshing(false);
   };
 
