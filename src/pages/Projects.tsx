@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Calendar } from 'lucide-react';
+import { Plus, Calendar, User, Tag, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
@@ -21,10 +21,11 @@ export default function Projects() {
   const [allProjects, setAllProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [detailProject, setDetailProject] = useState<any | null>(null);
   const [form, setForm] = useState({ title: '', description: '', status: 'planned', priority: 'medium', due_date: '' });
 
   const loadAll = async () => {
-    const { data } = await supabase.from('projects').select('*, customers(full_name)').order('created_at', { ascending: false });
+    const { data } = await supabase.from('projects').select('*, customers(full_name, email, phone, company)').order('created_at', { ascending: false });
     setAllProjects(data || []);
     setLoading(false);
   };
@@ -63,6 +64,8 @@ export default function Projects() {
     setForm({ title: '', description: '', status: 'planned', priority: 'medium', due_date: '' });
     loadAll();
   };
+
+  const catLabel = (id: string | null) => SERVICE_CATEGORIES.find(c => c.id === id)?.label || id || 'Other';
 
   return (
     <AppLayout>
@@ -104,7 +107,11 @@ export default function Projects() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {projects.map(p => (
-              <div key={p.id} className="glass-card p-5 hover:shadow-md transition-shadow cursor-pointer space-y-3">
+              <div
+                key={p.id}
+                className="glass-card p-5 hover:shadow-md transition-shadow cursor-pointer space-y-3"
+                onDoubleClick={() => setDetailProject(p)}
+              >
                 <div className="flex items-start justify-between">
                   <h3 className="text-sm font-semibold text-foreground line-clamp-1">{p.title}</h3>
                   <StatusBadge status={p.priority} className={`priority-${p.priority}`} />
@@ -127,6 +134,96 @@ export default function Projects() {
           </div>
         </div>
       </CategoryGate>
+
+      {/* Project Detail Modal */}
+      <Dialog open={!!detailProject} onOpenChange={(open) => { if (!open) setDetailProject(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg">{detailProject?.title}</DialogTitle>
+          </DialogHeader>
+          {detailProject && (
+            <div className="space-y-4">
+              {/* Status & Priority */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <StatusBadge status={detailProject.status} />
+                <StatusBadge status={detailProject.priority} className={`priority-${detailProject.priority}`} />
+              </div>
+
+              {/* Description */}
+              {detailProject.description && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description</p>
+                  <p className="text-sm text-foreground">{detailProject.description}</p>
+                </div>
+              )}
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Created</p>
+                  <p className="text-sm text-foreground">{new Date(detailProject.created_at).toLocaleDateString()}</p>
+                </div>
+                {detailProject.due_date && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Due Date</p>
+                    <p className="text-sm text-foreground flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {new Date(detailProject.due_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+                {detailProject.start_date && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Date</p>
+                    <p className="text-sm text-foreground">{new Date(detailProject.start_date).toLocaleDateString()}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Category */}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <FolderOpen className="h-3.5 w-3.5" /> Category
+                </p>
+                <p className="text-sm text-foreground">{catLabel(detailProject.category)}</p>
+              </div>
+
+              {/* Client */}
+              {detailProject.customers && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                    <User className="h-3.5 w-3.5" /> Client
+                  </p>
+                  <p className="text-sm text-foreground">{detailProject.customers.full_name}</p>
+                  {detailProject.customers.email && (
+                    <p className="text-xs text-muted-foreground">{detailProject.customers.email}</p>
+                  )}
+                  {detailProject.customers.phone && (
+                    <p className="text-xs text-muted-foreground">{detailProject.customers.phone}</p>
+                  )}
+                  {detailProject.customers.company && (
+                    <p className="text-xs text-muted-foreground">{detailProject.customers.company}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Tags */}
+              {detailProject.tags?.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                    <Tag className="h-3.5 w-3.5" /> Tags
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {detailProject.tags.map((t: string) => (
+                      <span key={t} className="px-2 py-0.5 rounded-full bg-muted text-xs text-muted-foreground">{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
