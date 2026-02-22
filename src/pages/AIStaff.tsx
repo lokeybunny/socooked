@@ -9,9 +9,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 /* ── Agent definitions ───────────────────────────────────── */
 const AGENTS = [
   { id: 'clawd-main', label: 'CLAWD Main', role: 'SpaceBot.sh — Orchestrator', icon: Cpu, color: 'from-violet-500 to-purple-600', ring: 'ring-violet-500/30', bg: 'bg-violet-500/10', text: 'text-violet-400', pulse: 'bg-violet-500', connected: true, group: 'clawd' },
-  { id: 'web-designer', label: 'Web Designer', role: 'UI/UX Agent — Coming Soon', icon: Palette, color: 'from-cyan-500 to-blue-600', ring: 'ring-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', pulse: 'bg-cyan-500', connected: false, group: 'clawd' },
+  { id: 'web-designer', label: 'Web Designer', role: 'UI/UX Agent — LOVABLE.DEV API', icon: Palette, color: 'from-cyan-500 to-blue-600', ring: 'ring-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', pulse: 'bg-cyan-500', connected: false, group: 'clawd' },
   { id: 'social-media', label: 'Social Media', role: 'Social Agent — Coming Soon', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: false, group: 'clawd' },
-  { id: 'content-manager', label: 'Content Manager', role: 'Content Agent — Coming Soon', icon: Bot, color: 'from-amber-500 to-orange-600', ring: 'ring-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', pulse: 'bg-amber-500', connected: false, group: 'clawd' },
+  { id: 'content-manager', label: 'Content Manager', role: 'Content Agent — Higgsfield API', icon: Bot, color: 'from-amber-500 to-orange-600', ring: 'ring-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', pulse: 'bg-amber-500', connected: false, group: 'clawd' },
   { id: 'leads-finder', label: 'Leads Finder', role: 'Outreach Agent — Standalone', icon: Radar, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500', connected: false, group: 'standalone' },
 ] as const;
 
