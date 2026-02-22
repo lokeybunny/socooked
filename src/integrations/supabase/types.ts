@@ -1387,6 +1387,7 @@ export type Database = {
       transcriptions: {
         Row: {
           audio_url: string | null
+          category: string | null
           created_at: string
           customer_id: string | null
           direction: string | null
@@ -1402,6 +1403,7 @@ export type Database = {
         }
         Insert: {
           audio_url?: string | null
+          category?: string | null
           created_at?: string
           customer_id?: string | null
           direction?: string | null
@@ -1417,6 +1419,7 @@ export type Database = {
         }
         Update: {
           audio_url?: string | null
+          category?: string | null
           created_at?: string
           customer_id?: string | null
           direction?: string | null
