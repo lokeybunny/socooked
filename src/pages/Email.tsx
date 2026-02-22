@@ -6,12 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
-  Instagram, MessageSquareText, Voicemail, Filter, Trash2, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check, Users, Search, Info, Tag, Zap, UserPlus,
+  MessageSquareText, Voicemail, Filter, Eye, Reply, Paperclip, X,
+  ChevronsUpDown, Check, Users, Search,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -41,89 +40,7 @@ interface Attachment {
   size: number;
 }
 
-interface IGConversation {
-  id: string;
-  participantUsername: string;
-  participantId: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  messages: IGMessage[];
-}
-
-interface IGMessage {
-  id: string;
-  fromUsername: string;
-  fromId: string;
-  text: string;
-  createdTime: string;
-  isFromMe: boolean;
-}
-
-interface MCSubscriberInfo {
-  id: number;
-  page_id: number;
-  status: string;
-  first_name: string;
-  last_name: string;
-  name: string;
-  gender: string;
-  profile_pic: string;
-  locale: string;
-  language: string;
-  timezone: string;
-  live_chat_url: string;
-  last_input_text: string;
-  subscribed: string;
-  last_interaction: string;
-  last_seen: string;
-  ig_username?: string;
-  ig_id?: number;
-  phone?: string;
-  email?: string;
-  tags: { id: number; name: string }[];
-  custom_fields: { id: number; name: string; value: any; type: string }[];
-}
-
-interface MCFlow {
-  ns: string;
-  name: string;
-  status: string;
-}
-
-interface MCTag {
-  id: number;
-  name: string;
-}
-
 const GMAIL_FN = 'gmail-api';
-const IG_FN = 'instagram-api';
-
-async function callInstagram(action: string, params?: string): Promise<any> {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const extra = params ? `&${params}` : '';
-  const url = `https://${projectId}.supabase.co/functions/v1/${IG_FN}?action=${action}${extra}`;
-  const res = await fetch(url, {
-    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Instagram API error');
-  return data;
-}
-
-async function callInstagramPost(action: string, body: any): Promise<any> {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const url = `https://${projectId}.supabase.co/functions/v1/${IG_FN}?action=${action}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Instagram API error');
-  return data;
-}
 
 async function callGmail(action: string, body?: any): Promise<any> {
   if (body) {
@@ -133,10 +50,8 @@ async function callGmail(action: string, body?: any): Promise<any> {
       method: 'POST',
     });
     if (error) throw new Error(error.message || 'Gmail function error');
-    // supabase.functions.invoke with POST ignores query params, so pass action in body
     return data;
   }
-  // GET-style: use query param
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
   const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   const url = `https://${projectId}.supabase.co/functions/v1/${GMAIL_FN}?action=${action}`;
@@ -169,7 +84,6 @@ async function callGmailPost(action: string, body: any): Promise<any> {
   return data;
 }
 
-// ─── Legacy comms helpers for SMS/Voicemail/Instagram ────────
 const emptyForm = {
   to: '',
   subject: '',
@@ -184,7 +98,7 @@ export default function EmailPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('inbox');
-  const [channel, setChannel] = useState<'email' | 'instagram' | 'sms' | 'voicemail'>('email');
+  const [channel, setChannel] = useState<'email' | 'sms' | 'voicemail'>('email');
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -208,29 +122,11 @@ export default function EmailPage() {
   // Legacy comms for non-email channels
   const [legacyComms, setLegacyComms] = useState<any[]>([]);
 
-  // Instagram DMs
-  const [igConversations, setIgConversations] = useState<IGConversation[]>([]);
-  const [igActiveConv, setIgActiveConv] = useState<IGConversation | null>(null);
-  const [igReplyText, setIgReplyText] = useState('');
-  const [igSending, setIgSending] = useState(false);
   const [readCustomerEmailIds, setReadCustomerEmailIds] = useState<Set<string>>(new Set());
-
-  // ManyChat subscriber details
-  const [igSubscriberInfo, setIgSubscriberInfo] = useState<MCSubscriberInfo | null>(null);
-  const [igInfoLoading, setIgInfoLoading] = useState(false);
-  const [igShowInfo, setIgShowInfo] = useState(false);
-  const [igSearchName, setIgSearchName] = useState('');
-  const [igSearchResults, setIgSearchResults] = useState<any[]>([]);
-  const [igSearching, setIgSearching] = useState(false);
-  const [igFlows, setIgFlows] = useState<MCFlow[]>([]);
-  const [igTags, setIgTags] = useState<MCTag[]>([]);
-  const [igNewTagName, setIgNewTagName] = useState('');
-  const [igSelectedFlow, setIgSelectedFlow] = useState('');
-  const [igSendingFlow, setIgSendingFlow] = useState(false);
 
   const handleFileSelect = async (files: FileList | null, target: 'compose' | 'reply') => {
     if (!files) return;
-    const maxSize = 10 * 1024 * 1024; // 10MB per file
+    const maxSize = 10 * 1024 * 1024;
     const newAttachments: Attachment[] = [];
     for (const file of Array.from(files)) {
       if (file.size > maxSize) {
@@ -241,7 +137,7 @@ export default function EmailPage() {
         const reader = new FileReader();
         reader.onload = () => {
           const result = reader.result as string;
-          resolve(result.split(',')[1]); // strip data:...;base64,
+          resolve(result.split(',')[1]);
         };
         reader.readAsDataURL(file);
       });
@@ -292,136 +188,6 @@ export default function EmailPage() {
     setLoading(false);
   }, [channel]);
 
-  const loadInstagram = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await callInstagram('conversations');
-      setIgConversations(data.conversations || []);
-    } catch (e: any) {
-      console.error('Instagram load error:', e);
-      toast.error(e.message || 'Failed to load Instagram DMs');
-      setIgConversations([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const handleIgSendReply = async () => {
-    if (!igActiveConv || !igReplyText.trim()) return;
-    setIgSending(true);
-    try {
-      await callInstagramPost('send', {
-        subscriber_id: igActiveConv.participantId,
-        message: igReplyText.trim(),
-      });
-      toast.success('Message sent!');
-      setIgReplyText('');
-      // Reload messages for this subscriber
-      const data = await callInstagram('messages', `subscriber_id=${igActiveConv.participantId}`);
-      setIgActiveConv({ ...igActiveConv, messages: data.messages || [] });
-    } catch (e: any) {
-      const msg = e.message || 'Failed to send message';
-      if (msg.includes('24h') || msg.includes('24H') || msg.includes('messaging window')) {
-        toast.error('⏳ 24h messaging window expired. The subscriber must DM you first before you can reply.', { duration: 6000 });
-      } else {
-        toast.error(msg);
-      }
-    } finally {
-      setIgSending(false);
-    }
-  };
-
-  // ─── ManyChat: Load subscriber info ───
-  const loadSubscriberInfo = async (subscriberId: string) => {
-    setIgInfoLoading(true);
-    try {
-      const result = await callInstagram('subscriber', `subscriber_id=${subscriberId}`);
-      setIgSubscriberInfo(result.data || null);
-    } catch (e: any) {
-      // Silently handle - subscriber may not exist in ManyChat
-      setIgSubscriberInfo(null);
-    } finally {
-      setIgInfoLoading(false);
-    }
-  };
-
-  const loadFlows = async () => {
-    try {
-      const result = await callInstagram('flows');
-      setIgFlows(result.data || []);
-    } catch { setIgFlows([]); }
-  };
-
-  const loadTags = async () => {
-    try {
-      const result = await callInstagram('tags');
-      setIgTags(result.data || []);
-    } catch { setIgTags([]); }
-  };
-
-  const handleIgSearch = async () => {
-    if (!igSearchName.trim()) return;
-    setIgSearching(true);
-    try {
-      const result = await callInstagram('find', `name=${encodeURIComponent(igSearchName.trim())}`);
-      setIgSearchResults(result.data || []);
-    } catch (e: any) {
-      toast.error(e.message || 'Search failed');
-      setIgSearchResults([]);
-    } finally {
-      setIgSearching(false);
-    }
-  };
-
-  const handleAddTag = async (subscriberId: string, tagName: string) => {
-    try {
-      await callInstagramPost('add-tag', { subscriber_id: subscriberId, tag_name: tagName });
-      toast.success(`Tag "${tagName}" added`);
-      await loadSubscriberInfo(subscriberId);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to add tag');
-    }
-  };
-
-  const handleRemoveTag = async (subscriberId: string, tagName: string) => {
-    try {
-      await callInstagramPost('remove-tag', { subscriber_id: subscriberId, tag_name: tagName });
-      toast.success(`Tag "${tagName}" removed`);
-      await loadSubscriberInfo(subscriberId);
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to remove tag');
-    }
-  };
-
-  const handleSendFlow = async (subscriberId: string, flowNs: string) => {
-    setIgSendingFlow(true);
-    try {
-      await callInstagramPost('send-flow', { subscriber_id: subscriberId, flow_ns: flowNs });
-      toast.success('Flow sent!');
-      setIgSelectedFlow('');
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to send flow');
-    } finally {
-      setIgSendingFlow(false);
-    }
-  };
-
-  useEffect(() => {
-    if (channel === 'instagram') {
-      loadFlows();
-      loadTags();
-    }
-  }, [channel]);
-
-  useEffect(() => {
-    if (igActiveConv) {
-      loadSubscriberInfo(igActiveConv.participantId);
-      setIgShowInfo(false);
-    } else {
-      setIgSubscriberInfo(null);
-    }
-  }, [igActiveConv]);
-
   useEffect(() => {
     loadCustomers();
   }, [loadCustomers]);
@@ -429,14 +195,11 @@ export default function EmailPage() {
   useEffect(() => {
     if (channel === 'email') {
       loadEmails(activeTab);
-    } else if (channel === 'instagram') {
-      loadInstagram();
-      setIgActiveConv(null);
     } else if (channel === 'sms' || channel === 'voicemail') {
       loadLegacy();
     }
 
-    // Realtime: auto-refresh when new communications arrive (always active)
+    // Realtime: auto-refresh when new communications arrive
     const realtimeChannel = supabase
       .channel('messages_page_realtime')
       .on(
@@ -444,23 +207,7 @@ export default function EmailPage() {
         { event: 'INSERT', schema: 'public', table: 'communications' },
         (payload) => {
           const newRow = payload.new as any;
-          if (newRow.type === 'instagram' && newRow.direction === 'inbound') {
-            const fromUser = (newRow.from_address || (newRow.metadata as any)?.ig_username || 'Someone');
-            // Always show toast for new Instagram DMs
-            toast(`📩 New Instagram DM from ${fromUser}`, { duration: 5000 });
-            // Refresh Instagram data if currently viewing instagram
-            if (channel === 'instagram') {
-              loadInstagram();
-              setIgActiveConv((prev) => {
-                if (prev && (newRow.external_id === prev.participantId || newRow.to_address === prev.participantId)) {
-                  callInstagram('messages', `subscriber_id=${prev.participantId}`).then((data) => {
-                    setIgActiveConv((curr) => curr ? { ...curr, messages: data.messages || [] } : null);
-                  }).catch(() => {});
-                }
-                return prev;
-              });
-            }
-          } else if (channel === 'sms' && newRow.type === 'sms') {
+          if (channel === 'sms' && newRow.type === 'sms') {
             loadLegacy();
           } else if (channel === 'voicemail' && newRow.type === 'voicemail') {
             loadLegacy();
@@ -470,15 +217,12 @@ export default function EmailPage() {
       .subscribe();
 
     return () => { supabase.removeChannel(realtimeChannel); };
-  }, [channel, activeTab, loadEmails, loadLegacy, loadInstagram]);
+  }, [channel, activeTab, loadEmails, loadLegacy]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     if (channel === 'email') {
       await loadEmails(activeTab);
-    } else if (channel === 'instagram') {
-      await loadInstagram();
-      setIgActiveConv(null);
     } else {
       await loadLegacy();
     }
@@ -530,7 +274,6 @@ export default function EmailPage() {
   };
 
   const handleOpenEmail = async (email: GmailEmail) => {
-    // If it's a draft, open in compose dialog for editing
     if (activeTab === 'drafts') {
       const toAddr = email.to || '';
       const matchingCustomer = customers.find((c) => c.email && toAddr.toLowerCase().includes(c.email.toLowerCase()));
@@ -546,12 +289,10 @@ export default function EmailPage() {
     }
 
     setViewEmail(email);
-    // Clear from notification count when a customer email is opened
     setReadCustomerEmailIds((prev) => new Set(prev).add(email.id));
     setReplyOpen(false);
     setReplyBody('');
     setReplyAttachments([]);
-    // Mark as read
     if (email.isUnread && activeTab === 'inbox') {
       try {
         await callGmail(`message&id=${email.id}`);
@@ -587,11 +328,9 @@ export default function EmailPage() {
     }
   };
 
-  // Search filter helper
   const matchesSearch = (text: string) =>
     !searchQuery.trim() || text.toLowerCase().includes(searchQuery.trim().toLowerCase());
 
-  // Filter emails by customer email + search
   const filteredEmails = emails.filter((e) => {
     const customerMatch = selectedCustomerEmail === 'all' ||
       e.from.toLowerCase().includes(selectedCustomerEmail.toLowerCase()) ||
@@ -600,7 +339,6 @@ export default function EmailPage() {
     return customerMatch && searchMatch;
   });
 
-  // Customer email options for filter
   const customerEmailOptions = customers.filter((c) => c.email);
   const customerEmailSet = new Set(customers.filter((c) => c.email).map((c) => c.email!.toLowerCase()));
 
@@ -609,9 +347,8 @@ export default function EmailPage() {
     return Array.from(customerEmailSet).some((ce) => fromAddr.includes(ce));
   };
 
-  // Count inbox emails from customers that haven't been read in this session
   const customerEmailCount = emails.filter((e) => isFromCustomer(e) && !readCustomerEmailIds.has(e.id)).length;
-  // Pre-fill compose from customer select
+
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
     setForm({ ...form, customer_id: custId, to: cust?.email || '' });
@@ -729,7 +466,6 @@ export default function EmailPage() {
               />
             </div>
 
-            {/* Reply section */}
             {!replyOpen ? (
               <div className="border-t border-border pt-4">
                 <Button variant="outline" onClick={() => setReplyOpen(true)} className="gap-1.5">
@@ -747,7 +483,6 @@ export default function EmailPage() {
                   placeholder="Write your reply..."
                   className="min-h-[120px]"
                 />
-                {/* Reply attachments */}
                 <div className="flex flex-wrap gap-2">
                   {replyAttachments.map((att, i) => (
                     <div key={i} className="flex items-center gap-1.5 bg-muted rounded-md px-2 py-1 text-xs text-foreground">
@@ -812,27 +547,19 @@ export default function EmailPage() {
         {/* Channel switcher */}
         <div className="flex items-center gap-2 border-b border-border pb-4">
           {[
-            { key: 'email' as const, icon: Mail, label: 'Email', comingSoon: false },
-            { key: 'instagram' as const, icon: Instagram, label: 'Instagram', comingSoon: false },
-            { key: 'sms' as const, icon: MessageSquareText, label: 'SMS', comingSoon: false },
-            { key: 'voicemail' as const, icon: Voicemail, label: 'Voicemail', comingSoon: false },
-          ].map(({ key, icon: Icon, label, comingSoon }) => (
-            <div key={key} className="relative">
-              <Button
-                variant={channel === key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => !comingSoon && setChannel(key)}
-                className={cn("gap-1.5", comingSoon && "opacity-50 cursor-not-allowed")}
-                disabled={comingSoon}
-              >
-                <Icon className="h-4 w-4" /> {label}
-              </Button>
-              {comingSoon && (
-                <span className="absolute -top-2 -right-2 text-[9px] font-semibold bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full leading-none">
-                  Soon
-                </span>
-              )}
-            </div>
+            { key: 'email' as const, icon: Mail, label: 'Email' },
+            { key: 'sms' as const, icon: MessageSquareText, label: 'SMS' },
+            { key: 'voicemail' as const, icon: Voicemail, label: 'Voicemail' },
+          ].map(({ key, icon: Icon, label }) => (
+            <Button
+              key={key}
+              variant={channel === key ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setChannel(key)}
+              className="gap-1.5"
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </Button>
           ))}
         </div>
 
@@ -930,281 +657,9 @@ export default function EmailPage() {
               )}
             </TabsContent>
           </Tabs>
-        ) : channel === 'sms' || channel === 'voicemail' ? (
+        ) : (
           <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderLegacyList(legacyComms.filter((c) => matchesSearch(`${c.subject || ''} ${c.phone_number || ''} ${c.body || ''}`)))}</div>
-        ) : channel === 'instagram' ? (
-          loading ? (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Loading Instagram DMs...</span>
-            </div>
-          ) : igActiveConv ? (
-            /* ─── Instagram conversation detail ─── */
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Button variant="ghost" size="sm" onClick={() => setIgActiveConv(null)} className="gap-1.5">
-                  <ArrowLeft className="h-4 w-4" /> Back to conversations
-                </Button>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setIgShowInfo(!igShowInfo)} className="gap-1.5">
-                    <Info className="h-4 w-4" /> {igShowInfo ? 'Hide Info' : 'Subscriber Info'}
-                  </Button>
-                </div>
-              </div>
-
-              <div className={cn("grid gap-4", igShowInfo ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1")}>
-                {/* Chat panel */}
-                <div className={cn("glass-card p-4", igShowInfo ? "lg:col-span-2" : "")}>
-                  <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
-                    <Instagram className="h-5 w-5 text-pink-500" />
-                    <span className="font-semibold text-foreground">@{igActiveConv.participantUsername}</span>
-                    {igSubscriberInfo && (
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {igSubscriberInfo.name}
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                    {[...igActiveConv.messages].reverse().map((msg) => (
-                      <div key={msg.id} className={cn("flex", msg.isFromMe ? "justify-end" : "justify-start")}>
-                        <div className={cn(
-                          "max-w-[70%] rounded-lg px-3 py-2 text-sm",
-                          msg.isFromMe
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-foreground"
-                        )}>
-                          <p>{msg.text}</p>
-                          <p className={cn("text-[10px] mt-1", msg.isFromMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                            {formatDate(msg.createdTime)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Reply input */}
-                  <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
-                    <Input
-                      value={igReplyText}
-                      onChange={(e) => setIgReplyText(e.target.value)}
-                      placeholder="Type a message..."
-                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleIgSendReply(); } }}
-                    />
-                    <Button size="sm" onClick={handleIgSendReply} disabled={igSending || !igReplyText.trim()} className="gap-1.5">
-                      <Send className="h-4 w-4" /> {igSending ? '...' : 'Send'}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Subscriber info panel */}
-                {igShowInfo && (
-                  <div className="glass-card p-4 space-y-4">
-                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                      <Users className="h-4 w-4" /> Subscriber Details
-                    </h3>
-                    {igInfoLoading ? (
-                      <div className="flex items-center gap-2 py-4">
-                        <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Loading...</span>
-                      </div>
-                    ) : igSubscriberInfo ? (
-                      <div className="space-y-3 text-sm">
-                        {igSubscriberInfo.profile_pic && (
-                          <img src={igSubscriberInfo.profile_pic} alt="" className="h-12 w-12 rounded-full" />
-                        )}
-                        <div className="space-y-1">
-                          <p className="text-foreground font-medium">{igSubscriberInfo.name}</p>
-                          {igSubscriberInfo.ig_username && <p className="text-muted-foreground text-xs">@{igSubscriberInfo.ig_username}</p>}
-                          {igSubscriberInfo.email && <p className="text-muted-foreground text-xs">{igSubscriberInfo.email}</p>}
-                          {igSubscriberInfo.phone && <p className="text-muted-foreground text-xs">{igSubscriberInfo.phone}</p>}
-                          <p className="text-muted-foreground text-xs">Status: {igSubscriberInfo.status}</p>
-                          {igSubscriberInfo.last_interaction && (
-                            <p className="text-muted-foreground text-xs">Last active: {formatDate(igSubscriberInfo.last_interaction)}</p>
-                          )}
-                          {igSubscriberInfo.subscribed && (
-                            <p className="text-muted-foreground text-xs">Subscribed: {formatDate(igSubscriberInfo.subscribed)}</p>
-                          )}
-                        </div>
-
-                        {/* Tags */}
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-foreground flex items-center gap-1">
-                            <Tag className="h-3 w-3" /> Tags
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {(igSubscriberInfo.tags || []).map((tag) => (
-                              <span key={tag.id} className="inline-flex items-center gap-1 bg-accent text-accent-foreground rounded-full px-2 py-0.5 text-[10px]">
-                                {tag.name}
-                                <button onClick={() => handleRemoveTag(igActiveConv.participantId, tag.name)} className="hover:text-destructive">
-                                  <X className="h-2.5 w-2.5" />
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Select value={igNewTagName} onValueChange={setIgNewTagName}>
-                              <SelectTrigger className="h-7 text-xs flex-1">
-                                <SelectValue placeholder="Add tag..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {igTags.map((t) => (
-                                  <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2"
-                              disabled={!igNewTagName}
-                              onClick={() => { handleAddTag(igActiveConv.participantId, igNewTagName); setIgNewTagName(''); }}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Send Flow */}
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold text-foreground flex items-center gap-1">
-                            <Zap className="h-3 w-3" /> Send Flow
-                          </p>
-                          <div className="flex items-center gap-1">
-                            <Select value={igSelectedFlow} onValueChange={setIgSelectedFlow}>
-                              <SelectTrigger className="h-7 text-xs flex-1">
-                                <SelectValue placeholder="Select flow..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {igFlows.filter((f) => f.status === 'active' || f.status === 'published').map((f) => (
-                                  <SelectItem key={f.ns} value={f.ns}>{f.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2"
-                              disabled={!igSelectedFlow || igSendingFlow}
-                              onClick={() => handleSendFlow(igActiveConv.participantId, igSelectedFlow)}
-                            >
-                              <Send className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Custom Fields */}
-                        {igSubscriberInfo.custom_fields && igSubscriberInfo.custom_fields.length > 0 && (
-                          <div className="space-y-1">
-                            <p className="text-xs font-semibold text-foreground">Custom Fields</p>
-                            <div className="space-y-0.5">
-                              {igSubscriberInfo.custom_fields.filter((f) => f.value).map((f) => (
-                                <p key={f.id} className="text-[10px] text-muted-foreground">
-                                  <span className="font-medium">{f.name}:</span> {String(f.value)}
-                                </p>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {igSubscriberInfo.live_chat_url && (
-                          <a
-                            href={igSubscriberInfo.live_chat_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs text-primary hover:underline"
-                          >
-                            Open in ManyChat →
-                          </a>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">No subscriber data available</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            /* ─── Instagram conversation list + search ─── */
-            <div className="space-y-4">
-              {/* Search subscribers */}
-              <div className="flex items-center gap-2">
-                <Input
-                  value={igSearchName}
-                  onChange={(e) => setIgSearchName(e.target.value)}
-                  placeholder="Search subscribers by name..."
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleIgSearch(); }}
-                  className="flex-1"
-                />
-                <Button size="sm" variant="outline" onClick={handleIgSearch} disabled={igSearching} className="gap-1.5">
-                  <Search className="h-4 w-4" /> {igSearching ? '...' : 'Search'}
-                </Button>
-              </div>
-
-              {/* Search results */}
-              {igSearchResults.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground">Search Results</p>
-                  {igSearchResults.map((sub: any) => (
-                    <button
-                      key={sub.id}
-                      onClick={() => {
-                        const newConv: IGConversation = {
-                          id: String(sub.id),
-                          participantUsername: sub.ig_username || sub.name || 'unknown',
-                          participantId: String(sub.id),
-                          lastMessage: sub.last_input_text || '',
-                          lastMessageTime: sub.last_interaction || '',
-                          messages: [],
-                        };
-                        setIgActiveConv(newConv);
-                        setIgSearchResults([]);
-                        setIgSearchName('');
-                        // Load messages
-                        callInstagram('messages', `subscriber_id=${sub.id}`).then((data) => {
-                          setIgActiveConv((prev) => prev ? { ...prev, messages: data.messages || [] } : null);
-                        }).catch(() => {});
-                      }}
-                      className="w-full text-left glass-card p-3 flex items-center gap-3 hover:bg-accent/50 transition-colors"
-                    >
-                      {sub.profile_pic && <img src={sub.profile_pic} alt="" className="h-8 w-8 rounded-full" />}
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground">{sub.name}</p>
-                        {sub.ig_username && <p className="text-xs text-muted-foreground">@{sub.ig_username}</p>}
-                      </div>
-                      <UserPlus className="h-4 w-4 shrink-0 text-muted-foreground ml-auto" />
-                    </button>
-                  ))}
-                  <Button variant="ghost" size="sm" onClick={() => setIgSearchResults([])} className="text-xs">Clear results</Button>
-                </div>
-              )}
-
-              {/* Conversation list */}
-              {igConversations.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">No Instagram conversations found.</p>
-              ) : (
-                <div className="space-y-2">
-                  {igConversations.filter((conv) => matchesSearch(`${conv.participantUsername} ${conv.lastMessage}`)).map((conv) => (
-                    <button
-                      key={conv.id}
-                      onClick={() => setIgActiveConv(conv)}
-                      className="w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors"
-                    >
-                      <div className="flex items-start gap-3 min-w-0">
-                        <Instagram className="h-4 w-4 text-pink-500 mt-0.5 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground">@{conv.participantUsername}</p>
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">{conv.lastMessage}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{formatDate(conv.lastMessageTime)}</p>
-                        </div>
-                      </div>
-                      <Eye className="h-4 w-4 shrink-0 mt-1 text-muted-foreground" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        ) : null}
+        )}
       </div>
 
       {/* Compose Dialog */}
@@ -1270,7 +725,6 @@ export default function EmailPage() {
                 className="flex min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </div>
-            {/* Compose attachments */}
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {composeAttachments.map((att, i) => (
