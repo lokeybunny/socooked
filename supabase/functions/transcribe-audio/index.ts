@@ -6,6 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const VALID_CATEGORIES = [
+  "digital-services", "brick-and-mortar", "digital-ecommerce",
+  "food-and-beverage", "mobile-services", "other",
+];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -20,6 +25,10 @@ serve(async (req) => {
     const customerName = formData.get("customer_name") as string || "Unknown";
     const customerId = formData.get("customer_id") as string || null;
     const sourceType = formData.get("source_type") as string || "manual_upload";
+    const rawCategory = formData.get("category") as string || null;
+
+    // Normalize category
+    const category = rawCategory && VALID_CATEGORIES.includes(rawCategory) ? rawCategory : "other";
 
     if (!audioFile) throw new Error("audio file is required");
 
@@ -88,6 +97,7 @@ serve(async (req) => {
         customer_id: customerId || null,
         occurred_at: now,
         duration_seconds: duration,
+        category,
       }),
     });
 
@@ -116,7 +126,7 @@ serve(async (req) => {
         body: JSON.stringify({
           customer_id: customerId,
           channel: threadChannel,
-          category: "other",
+          category,
           status: "closed",
           summary: threadSummary,
           raw_transcript: formattedTranscript,
@@ -129,6 +139,31 @@ serve(async (req) => {
       } else {
         console.error("Failed to create thread:", await threadRes.text());
       }
+
+      // Also update the customer's category if not already set
+      const custCheckRes = await fetch(
+        `${supabaseUrl}/rest/v1/customers?id=eq.${customerId}&select=category`,
+        {
+          headers: {
+            "apikey": supabaseKey,
+            "Authorization": `Bearer ${supabaseKey}`,
+          },
+        }
+      );
+      if (custCheckRes.ok) {
+        const custData = await custCheckRes.json();
+        if (custData?.[0] && !custData[0].category) {
+          await fetch(`${supabaseUrl}/rest/v1/customers?id=eq.${customerId}`, {
+            method: "PATCH",
+            headers: {
+              "apikey": supabaseKey,
+              "Authorization": `Bearer ${supabaseKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ category }),
+          });
+        }
+      }
     }
 
     return new Response(
@@ -140,6 +175,7 @@ serve(async (req) => {
         filename: audioFile.name,
         customer_name: customerName,
         duration_seconds: duration,
+        category,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

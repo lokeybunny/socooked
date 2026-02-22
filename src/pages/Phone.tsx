@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const RC_EMBED_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html';
 const CALL_TYPES = [
@@ -32,6 +33,7 @@ export default function PhonePage() {
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [callType, setCallType] = useState<CallType>('voicemail');
+  const [selectedCategory, setSelectedCategory] = useState<string>('other');
   const [transcribing, setTranscribing] = useState(false);
   const [uploadingToDrive, setUploadingToDrive] = useState(false);
   const [results, setResults] = useState<any[]>([]);
@@ -183,6 +185,7 @@ export default function PhonePage() {
         formData.append('customer_name', customerName);
         formData.append('customer_id', selectedCustomerId);
         formData.append('source_type', callType);
+        formData.append('category', selectedCategory);
 
         const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
         const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -327,8 +330,8 @@ export default function PhonePage() {
                 Drop audio files to transcribe. Files are archived to Google Drive and transcripts stored in CRM.
               </p>
 
-              {/* Customer + Call Type selects */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Customer + Call Type + Category selects */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label>Customer</Label>
@@ -359,6 +362,22 @@ export default function PhonePage() {
                           <span className="flex items-center gap-2">
                             <ct.icon className="h-3.5 w-3.5" />
                             {ct.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SERVICE_CATEGORIES.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          <span className="flex items-center gap-2">
+                            <cat.icon className="h-3.5 w-3.5" />
+                            {cat.label}
                           </span>
                         </SelectItem>
                       ))}
