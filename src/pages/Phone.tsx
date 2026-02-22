@@ -30,7 +30,9 @@ export default function PhonePage() {
   const [transcriptions, setTranscriptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<any[]>([]);
-  const [leadsSearch, setLeadsSearch] = useState('');
+  const [leadsCategoryFilter, setLeadsCategoryFilter] = useState<string>('all');
+  const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
+  const [transcriptionsOpen, setTranscriptionsOpen] = useState(false);
 
   // Promote to prospect dialog
   const [promoteOpen, setPromoteOpen] = useState(false);
@@ -151,14 +153,17 @@ export default function PhonePage() {
   };
 
   const filteredLeads = useMemo(() => {
-    if (!leadsSearch.trim()) return leads;
-    const q = leadsSearch.toLowerCase();
-    return leads.filter(l =>
-      l.full_name?.toLowerCase().includes(q) ||
-      l.phone?.toLowerCase().includes(q) ||
-      l.company?.toLowerCase().includes(q)
-    );
-  }, [leads, leadsSearch]);
+    if (leadsCategoryFilter === 'all') return leads;
+    return leads.filter(l => (l.category || 'other') === leadsCategoryFilter);
+  }, [leads, leadsCategoryFilter]);
+
+  const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
+
+  const handleNextLead = () => {
+    if (filteredLeads.length <= 1) return;
+    const randomOffset = Math.floor(Math.random() * (filteredLeads.length - 1)) + 1;
+    setCurrentLeadIndex(prev => (prev + randomOffset) % filteredLeads.length);
+  };
 
   // Filter transcriptions by search query
   const filteredTranscriptions = useMemo(() => {
@@ -516,108 +521,134 @@ export default function PhonePage() {
             <div className="glass-card p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-blue-500" />
+                  <Zap className="h-5 w-5 text-primary" />
                   <h2 className="text-lg font-semibold text-foreground">Cold Leads</h2>
-                  <Badge variant="secondary" className="text-[10px]">{leads.length}</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{filteredLeads.length} of {leads.length}</Badge>
                 </div>
-                <div className="relative w-48">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Search leads..."
-                    value={leadsSearch}
-                    onChange={e => setLeadsSearch(e.target.value)}
-                    className="pl-8 h-8 text-xs"
-                  />
+                <div className="w-44">
+                  <Select value={leadsCategoryFilter} onValueChange={v => { setLeadsCategoryFilter(v); setCurrentLeadIndex(0); }}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {SERVICE_CATEGORIES.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          <span className="flex items-center gap-2">
+                            <cat.icon className="h-3.5 w-3.5" />
+                            {cat.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                SpaceBot-sourced leads. Copy phone → dial → transcribe → promote. Double-click a name for full details.
+                SpaceBot-sourced leads — one at a time. Copy phone → dial → transcribe → promote.
               </p>
 
-              {filteredLeads.length === 0 ? (
-                <div className="text-center py-6">
+              {!currentLead ? (
+                <div className="text-center py-8">
                   <Phone className="h-6 w-6 mx-auto text-muted-foreground/40 mb-1.5" />
-                  <p className="text-xs text-muted-foreground">
-                    {leadsSearch ? 'No leads match your search.' : 'No cold leads yet. SpaceBot will bring them in.'}
-                  </p>
+                  <p className="text-xs text-muted-foreground">No cold leads in this category.</p>
                 </div>
               ) : (
-                <ScrollArea className="max-h-[320px]">
-                  <div className="space-y-1.5">
-                    {filteredLeads.map(lead => {
-                      const noteTag = lead.notes?.startsWith('[BUSY]') ? 'busy' : lead.notes?.startsWith('[CALL BACK]') ? 'callback' : null;
-                      return (
-                        <div
-                          key={lead.id}
-                          className={cn(
-                            "flex items-center justify-between rounded-lg border bg-card px-3 py-2.5 hover:bg-muted/50 transition-colors group cursor-default",
-                            noteTag === 'busy' && "border-yellow-500/30",
-                            noteTag === 'callback' && "border-blue-500/30",
-                            !noteTag && "border-border"
-                          )}
-                          onDoubleClick={() => handleLeadDoubleClick(lead)}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={cn(
-                              "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
-                              noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
-                            )}>
-                              <User className={cn("h-4 w-4", noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground")} />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium text-foreground truncate">{lead.full_name}</p>
-                                {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy</Badge>}
-                                {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">Call Back</Badge>}
-                              </div>
-                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                {lead.company && <span>{lead.company}</span>}
-                                {lead.source && <span>· via {lead.source}</span>}
-                              </div>
-                            </div>
+                <div className="space-y-3">
+                  {/* Single lead card */}
+                  {(() => {
+                    const lead = currentLead;
+                    const noteTag = lead.notes?.startsWith('[BUSY]') ? 'busy' : lead.notes?.startsWith('[CALL BACK]') ? 'callback' : null;
+                    return (
+                      <div
+                        className={cn(
+                          "rounded-xl border bg-card p-4 space-y-3 transition-colors",
+                          noteTag === 'busy' && "border-yellow-500/30",
+                          noteTag === 'callback' && "border-blue-500/30",
+                          !noteTag && "border-border"
+                        )}
+                        onDoubleClick={() => handleLeadDoubleClick(lead)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+                            noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
+                          )}>
+                            <User className={cn("h-5 w-5", noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground")} />
                           </div>
-                          <div className="flex items-center gap-0.5 shrink-0">
-                            {/* Status action buttons */}
-                            <Button
-                              variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => { e.stopPropagation(); handleLeadStatus(lead.id, lead.full_name, 'busy'); }}
-                              title="Mark as Busy"
-                            >
-                              <PhoneOff className="h-3.5 w-3.5 text-yellow-600" />
-                            </Button>
-                            <Button
-                              variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => { e.stopPropagation(); handleLeadStatus(lead.id, lead.full_name, 'call_back'); }}
-                              title="Mark for Call Back"
-                            >
-                              <Clock className="h-3.5 w-3.5 text-blue-500" />
-                            </Button>
-                            <Button
-                              variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => { e.stopPropagation(); handleLeadStatus(lead.id, lead.full_name, 'not_interested'); }}
-                              title="Not Interested — remove from CRM"
-                            >
-                              <Ban className="h-3.5 w-3.5 text-destructive" />
-                            </Button>
-                            <div className="w-px h-5 bg-border mx-1" />
-                            {lead.phone ? (
-                              <Button
-                                variant="outline" size="sm"
-                                className="h-7 text-xs gap-1.5"
-                                onClick={() => copyToClipboard(lead.phone, lead.full_name)}
-                              >
-                                <Copy className="h-3 w-3" />
-                                {lead.phone}
-                              </Button>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground italic">No phone</span>
-                            )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-base font-semibold text-foreground truncate">{lead.full_name}</p>
+                              {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy</Badge>}
+                              {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">Call Back</Badge>}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                              {lead.company && <span>{lead.company}</span>}
+                              {lead.source && <span>· via {lead.source}</span>}
+                              {lead.category && <span>· {lead.category}</span>}
+                            </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
+
+                        {/* Phone / Email copy row */}
+                        <div className="flex items-center gap-2">
+                          {lead.phone ? (
+                            <Button
+                              variant="outline" size="sm"
+                              className="h-8 text-xs gap-1.5 flex-1"
+                              onClick={() => copyToClipboard(lead.phone, lead.full_name)}
+                            >
+                              <Copy className="h-3 w-3" />
+                              {lead.phone}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic flex-1">No phone on file</span>
+                          )}
+                          {lead.email && (
+                            <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5" onClick={() => copyToClipboard(lead.email, 'Email')}>
+                              <Mail className="h-3 w-3" />
+                              Copy Email
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Status actions */}
+                        <div className="flex items-center gap-1.5 pt-1 border-t border-border">
+                          <Button
+                            variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1"
+                            onClick={() => handleLeadStatus(lead.id, lead.full_name, 'busy')}
+                          >
+                            <PhoneOff className="h-3 w-3 text-yellow-600" /> Busy
+                          </Button>
+                          <Button
+                            variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1"
+                            onClick={() => handleLeadStatus(lead.id, lead.full_name, 'call_back')}
+                          >
+                            <Clock className="h-3 w-3 text-blue-500" /> Call Back
+                          </Button>
+                          <Button
+                            variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1"
+                            onClick={() => handleLeadStatus(lead.id, lead.full_name, 'not_interested')}
+                          >
+                            <Ban className="h-3 w-3 text-destructive" /> Not Interested
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Next button */}
+                  {filteredLeads.length > 1 && (
+                    <Button variant="secondary" className="w-full gap-2" onClick={handleNextLead}>
+                      <ChevronRight className="h-4 w-4" />
+                      Next Lead (random)
+                    </Button>
+                  )}
+
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    Double-click for full details · {filteredLeads.length} lead{filteredLeads.length !== 1 ? 's' : ''} available
+                  </p>
+                </div>
               )}
             </div>
 
@@ -791,7 +822,10 @@ export default function PhonePage() {
 
             {/* ─── Recent Transcriptions (grouped by customer) ─── */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-2">
+              <button
+                onClick={() => setTranscriptionsOpen(!transcriptionsOpen)}
+                className="w-full flex items-center justify-between glass-card px-4 py-3 hover:bg-muted/50 transition-colors rounded-xl"
+              >
                 <div className="flex items-center gap-2">
                   <User className="h-5 w-5 text-primary" />
                   <h2 className="text-lg font-semibold text-foreground">Recent Transcriptions</h2>
@@ -799,6 +833,11 @@ export default function PhonePage() {
                     <Badge variant="secondary" className="text-[10px]">{filteredTranscriptions.length}</Badge>
                   )}
                 </div>
+                {transcriptionsOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+              </button>
+
+              {transcriptionsOpen && (
+                <>
                 <div className="relative w-full sm:w-64">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -808,7 +847,6 @@ export default function PhonePage() {
                     className="pl-9 h-9"
                   />
                 </div>
-              </div>
               {loading ? (
                 <div className="glass-card p-8 text-center">
                   <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
@@ -967,6 +1005,8 @@ export default function PhonePage() {
                     </div>
                   )}
                 </div>
+              )}
+                </>
               )}
             </div>
           </div>
