@@ -41,6 +41,38 @@ interface Attachment {
 }
 
 const GMAIL_FN = 'gmail-api';
+const RC_FN = 'ringcentral-api';
+
+async function callRC(action: string, params?: Record<string, string>): Promise<any> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const qp = new URLSearchParams({ action, ...params });
+  const url = `https://${projectId}.supabase.co/functions/v1/${RC_FN}?${qp}`;
+  const res = await fetch(url, {
+    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'RingCentral API error');
+  return data;
+}
+
+async function callRCPost(action: string, body: any): Promise<any> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = `https://${projectId}.supabase.co/functions/v1/${RC_FN}?action=${action}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'apikey': anonKey,
+      'Authorization': `Bearer ${anonKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'RingCentral API error');
+  return data;
+}
 
 async function callGmail(action: string, body?: any): Promise<any> {
   if (body) {
@@ -119,6 +151,12 @@ export default function EmailPage() {
   const [replying, setReplying] = useState(false);
   const [replyAttachments, setReplyAttachments] = useState<Attachment[]>([]);
 
+  // RingCentral SMS/Voicemail
+  const [rcMessages, setRcMessages] = useState<any[]>([]);
+  const [smsComposeOpen, setSmsComposeOpen] = useState(false);
+  const [smsForm, setSmsForm] = useState({ to: '', text: '', from: '' });
+  const [smsSending, setSmsSending] = useState(false);
+
   // Legacy comms for non-email channels
   const [legacyComms, setLegacyComms] = useState<any[]>([]);
 
@@ -176,16 +214,19 @@ export default function EmailPage() {
     }
   }, []);
 
-  const loadLegacy = useCallback(async () => {
+  const loadRingCentral = useCallback(async () => {
     setLoading(true);
-    const types = channel === 'sms' ? ['sms'] : ['voicemail'];
-    const { data } = await supabase
-      .from('communications')
-      .select('*')
-      .in('type', types)
-      .order('created_at', { ascending: false });
-    setLegacyComms(data || []);
-    setLoading(false);
+    try {
+      const action = channel === 'sms' ? 'sms-list' : 'voicemail-list';
+      const data = await callRC(action);
+      setRcMessages(data.messages || []);
+    } catch (e: any) {
+      console.error('RingCentral load error:', e);
+      toast.error(e.message || 'Failed to load from RingCentral');
+      setRcMessages([]);
+    } finally {
+      setLoading(false);
+    }
   }, [channel]);
 
   useEffect(() => {
@@ -196,37 +237,39 @@ export default function EmailPage() {
     if (channel === 'email') {
       loadEmails(activeTab);
     } else if (channel === 'sms' || channel === 'voicemail') {
-      loadLegacy();
+      loadRingCentral();
     }
 
-    // Realtime: auto-refresh when new communications arrive
-    const realtimeChannel = supabase
-      .channel('messages_page_realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'communications' },
-        (payload) => {
-          const newRow = payload.new as any;
-          if (channel === 'sms' && newRow.type === 'sms') {
-            loadLegacy();
-          } else if (channel === 'voicemail' && newRow.type === 'voicemail') {
-            loadLegacy();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(realtimeChannel); };
-  }, [channel, activeTab, loadEmails, loadLegacy]);
+    return () => {};
+  }, [channel, activeTab, loadEmails, loadRingCentral]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     if (channel === 'email') {
       await loadEmails(activeTab);
-    } else {
-      await loadLegacy();
+    } else if (channel === 'sms' || channel === 'voicemail') {
+      await loadRingCentral();
     }
     setRefreshing(false);
+  };
+
+  const handleSendSms = async () => {
+    if (!smsForm.to || !smsForm.text) {
+      toast.error('Phone number and message are required');
+      return;
+    }
+    setSmsSending(true);
+    try {
+      await callRCPost('sms-send', { to: smsForm.to, text: smsForm.text, from: smsForm.from || undefined });
+      toast.success('SMS sent!');
+      setSmsComposeOpen(false);
+      setSmsForm({ to: '', text: '', from: '' });
+      if (channel === 'sms') loadRingCentral();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send SMS');
+    } finally {
+      setSmsSending(false);
+    }
   };
 
   const handleSend = async () => {
@@ -416,7 +459,7 @@ export default function EmailPage() {
       </div>
     );
 
-  const renderLegacyList = (items: any[]) =>
+  const renderRcList = (items: any[]) =>
     items.length === 0 ? (
       <p className="text-sm text-muted-foreground py-8 text-center">Nothing here yet.</p>
     ) : (
@@ -424,21 +467,26 @@ export default function EmailPage() {
         {items.map((item) => (
           <div key={item.id} className="glass-card p-4 flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0">
-              {item.type === 'sms' ? (
-                <MessageSquareText className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+              {item.type === 'SMS' ? (
+                <MessageSquareText className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               ) : (
-                <Voicemail className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                <Voicemail className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               )}
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{item.subject || item.phone_number || 'No subject'}</p>
-                <p className="text-xs text-muted-foreground truncate">{item.phone_number || item.body?.substring(0, 50) || '—'}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {format(new Date(item.created_at), 'MMM d, yyyy h:mm a')}
-                  {item.duration_seconds ? ` · ${Math.floor(item.duration_seconds / 60)}m ${item.duration_seconds % 60}s` : ''}
+                <p className="text-sm font-medium text-foreground truncate">
+                  {item.direction === 'inbound' ? item.from : item.to}
                 </p>
+                <p className="text-xs text-muted-foreground truncate">{item.subject || '—'}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {item.createdAt ? formatDate(item.createdAt) : '—'}
+                  {' · '}{item.direction}
+                </p>
+                {item.attachments?.length > 0 && item.type === 'VoiceMail' && (
+                  <p className="text-xs text-primary mt-1">🎵 Voicemail attachment</p>
+                )}
               </div>
             </div>
-            <StatusBadge status={item.status} />
+            <StatusBadge status={item.messageStatus || item.readStatus || 'unknown'} />
           </div>
         ))}
       </div>
@@ -539,6 +587,11 @@ export default function EmailPage() {
             {channel === 'email' && (
               <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setComposeOpen(true); }} className="gap-1.5">
                 <Plus className="h-4 w-4" /> Compose
+              </Button>
+            )}
+            {channel === 'sms' && (
+              <Button onClick={() => { setSmsForm({ to: '', text: '', from: '' }); setSmsComposeOpen(true); }} className="gap-1.5">
+                <Plus className="h-4 w-4" /> New SMS
               </Button>
             )}
           </div>
@@ -677,7 +730,7 @@ export default function EmailPage() {
             </div>
           </div>
         ) : (
-          <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderLegacyList(legacyComms.filter((c) => matchesSearch(`${c.subject || ''} ${c.phone_number || ''} ${c.body || ''}`)))}</div>
+          <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderRcList(rcMessages.filter((c) => matchesSearch(`${c.subject || ''} ${c.from || ''} ${c.to || ''}`)))}</div>
         )}
       </div>
 
@@ -775,6 +828,34 @@ export default function EmailPage() {
                 <Send className="h-4 w-4 mr-1" /> {sending ? 'Sending...' : 'Send'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* SMS Compose Dialog */}
+      <Dialog open={smsComposeOpen} onOpenChange={setSmsComposeOpen}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader><DialogTitle>Send SMS</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>To (Phone Number)</Label>
+              <Input
+                value={smsForm.to}
+                onChange={(e) => setSmsForm({ ...smsForm, to: e.target.value })}
+                placeholder="+1 555-0123"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea
+                value={smsForm.text}
+                onChange={(e) => setSmsForm({ ...smsForm, text: e.target.value })}
+                placeholder="Type your message..."
+                className="min-h-[120px]"
+              />
+            </div>
+            <Button onClick={handleSendSms} disabled={smsSending} className="w-full gap-1.5">
+              <Send className="h-4 w-4" /> {smsSending ? 'Sending...' : 'Send SMS'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
