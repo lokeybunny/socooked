@@ -879,8 +879,10 @@ Deno.serve(async (req) => {
     // ─── BOT TASKS ───────────────────────────────────────────
     if (path === 'bot-tasks' && req.method === 'GET') {
       const status = params.get('status')
+      const bot_agent = params.get('bot_agent')
       let q = supabase.from('bot_tasks').select('*').order('created_at', { ascending: false }).limit(100)
       if (status) q = q.eq('status', status)
+      if (bot_agent) q = q.eq('bot_agent', bot_agent)
       const { data, error } = await q
       if (error) return fail(error.message)
       return ok({ bot_tasks: data })

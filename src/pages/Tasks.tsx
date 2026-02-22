@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Plus, Calendar, ChevronDown, ChevronRight, User, Bot, Code, Share2, Headphones, X } from 'lucide-react';
+import { Plus, Calendar, ChevronDown, ChevronRight, User, Bot, Code, Share2, Headphones, Palette, X } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,7 @@ import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/
 
 const BOT_AGENTS = [
   { id: 'receptionist', label: 'Receptionist Bot', icon: Headphones, description: 'Emails, follow-ups, texts & updates' },
-  { id: 'web_dev', label: 'Web Dev Bot', icon: Code, description: 'Web development & app tasks' },
+  { id: 'web-designer', label: 'Web Designer Bot', icon: Palette, description: 'V0.DEV API — Website generation via CLAWD Main' },
   { id: 'social_media', label: 'Social Media Bot', icon: Share2, description: 'Content generation & posting' },
 ] as const;
 
