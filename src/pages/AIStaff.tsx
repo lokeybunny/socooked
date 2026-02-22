@@ -93,7 +93,7 @@ function AgentNode({ agent, tasks, activities, isSelected, onSelect }: {
     <motion.button
       onClick={onSelect}
       className={cn(
-        "relative flex flex-col items-center gap-3 p-5 rounded-xl border transition-all duration-300 min-w-[140px] md:min-w-[160px] cursor-pointer group",
+        "relative flex flex-col items-center gap-2 p-3 rounded-xl border transition-all duration-300 min-w-[100px] max-w-[130px] cursor-pointer group",
         isSelected
           ? `border-transparent ring-2 ${agent.ring} bg-card shadow-lg`
           : "border-border/50 bg-card/60 hover:bg-card hover:shadow-md hover:border-border"
@@ -102,26 +102,26 @@ function AgentNode({ agent, tasks, activities, isSelected, onSelect }: {
       whileTap={{ scale: 0.98 }}
     >
       {/* Status indicator */}
-      <div className="absolute top-3 right-3">
+      <div className="absolute top-2 right-2">
         <StatusPulse status={hasActivity ? 'in_progress' : 'idle'} pulseColor={agent.pulse} />
       </div>
 
       {/* Avatar */}
-      <div className={cn("p-3 rounded-xl bg-gradient-to-br", agent.color, "shadow-lg")}>
-        <Icon className="h-6 w-6 text-white" />
+      <div className={cn("p-2 rounded-lg bg-gradient-to-br", agent.color, "shadow-lg")}>
+        <Icon className="h-4 w-4 text-white" />
       </div>
 
       {/* Label */}
       <div className="text-center">
-        <p className="text-sm font-semibold text-foreground">{agent.label}</p>
-        <p className="text-[10px] text-muted-foreground mt-0.5">{agent.role}</p>
+        <p className="text-xs font-semibold text-foreground leading-tight">{agent.label}</p>
+        <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{agent.role}</p>
       </div>
 
       {/* Stats row */}
-      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-        {activeTasks > 0 && <span className={cn("flex items-center gap-1", agent.text)}><Activity className="h-3 w-3" />{activeTasks}</span>}
-        {queuedTasks > 0 && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{queuedTasks}</span>}
-        {completedTasks > 0 && <span className="flex items-center gap-1 text-emerald-500"><CheckCircle2 className="h-3 w-3" />{completedTasks}</span>}
+      <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+        {activeTasks > 0 && <span className={cn("flex items-center gap-0.5", agent.text)}><Activity className="h-2.5 w-2.5" />{activeTasks}</span>}
+        {queuedTasks > 0 && <span className="flex items-center gap-0.5"><Clock className="h-2.5 w-2.5" />{queuedTasks}</span>}
+        {completedTasks > 0 && <span className="flex items-center gap-0.5 text-emerald-500"><CheckCircle2 className="h-2.5 w-2.5" />{completedTasks}</span>}
         {tasks.length === 0 && <span className="italic">Idle</span>}
       </div>
     </motion.button>
@@ -281,12 +281,12 @@ export default function AIStaff() {
         {/* ── Flow diagram ────────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* BOT 1 — CLAWD Network */}
-          <div className="rounded-xl border border-border bg-card/40 p-5 relative overflow-x-auto">
+          <div className="rounded-xl border border-border bg-card/40 p-5 relative">
             <div className="flex items-center gap-2 mb-4">
               <div className="h-2.5 w-2.5 rounded-full bg-violet-500" />
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Bot 1 — CLAWD Network</span>
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Bot 1 — SpaceBot.SH</span>
             </div>
-            <div className="flex items-center justify-center min-w-[500px]">
+            <div className="flex items-center justify-center min-w-0">
               {/* Left children */}
               <div className="flex flex-col gap-3">
                 {clawdChildren.slice(0, 2).map(agent => (
