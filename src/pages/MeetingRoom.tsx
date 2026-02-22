@@ -259,7 +259,6 @@ export default function MeetingRoom() {
   const uploadFile = useCallback(async (blob: Blob, ext: string, assetType: 'Video' | 'Audio') => {
     const mimeType = blob.type || (ext === 'mp4' ? 'video/mp4' : ext === 'webm' ? 'video/webm' : 'audio/webm');
 
-    setUploading(true);
     try {
       const { data: customer } = await supabase
         .from('customers')
@@ -274,27 +273,44 @@ export default function MeetingRoom() {
       const dateStr = new Date().toISOString().slice(0, 10);
       const fileName = `${meeting.title || 'Meeting'} - ${dateStr}.${ext}`;
 
-      // ensure-folder expects action as query param, body as JSON with customer_name
-      const { data: folderData, error: folderErr } = await supabase.functions.invoke(
-        'google-drive?action=ensure-folder',
-        { body: { category, customer_name: customerName } },
-      );
-      if (folderErr) throw folderErr;
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers: Record<string, string> = {
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`,
+      };
 
+      // 1. Ensure folder
+      const folderRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
+        {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, customer_name: customerName }),
+        },
+      );
+      if (!folderRes.ok) throw new Error(await folderRes.text());
+      const folderData = await folderRes.json();
       const folderId = folderData?.folder_id;
       if (!folderId) throw new Error('Could not create Drive folder');
 
-      // upload expects action as query param, body as FormData
+      // 2. Upload file
       const formData = new FormData();
       formData.append('file', new File([blob], fileName, { type: mimeType }));
       formData.append('folder_id', folderId);
 
-      const { data: uploadData, error: uploadErr } = await supabase.functions.invoke(
-        'google-drive?action=upload',
-        { body: formData },
+      const uploadRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/google-drive?action=upload`,
+        {
+          method: 'POST',
+          headers,
+          body: formData,
+        },
       );
-      if (uploadErr) throw uploadErr;
+      if (!uploadRes.ok) throw new Error(await uploadRes.text());
+      const uploadData = await uploadRes.json();
 
+      // 3. Save to content_assets
       await supabase.from('content_assets').insert({
         title: fileName,
         type: assetType,
