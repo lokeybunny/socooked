@@ -123,6 +123,153 @@ const emptyForm = {
   customer_id: '',
 };
 
+const TRANSCRIBE_FN = 'transcribe-rc';
+
+async function callTranscribe(action: string): Promise<any> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = `https://${projectId}.supabase.co/functions/v1/${TRANSCRIBE_FN}?action=${action}`;
+  const res = await fetch(url, {
+    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Transcription API error');
+  return data;
+}
+
+function TranscriptionsTab({ searchQuery }: { searchQuery: string }) {
+  const [transcriptions, setTranscriptions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await callTranscribe('list');
+      setTranscriptions(data.transcriptions || []);
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to load transcriptions');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const result = await callTranscribe('sync');
+      toast.success(`Synced ${result.synced} new transcription(s)`);
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const filtered = transcriptions.filter((t) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (t.transcript || '').toLowerCase().includes(q) ||
+      (t.summary || '').toLowerCase().includes(q) ||
+      (t.phone_from || '').toLowerCase().includes(q) ||
+      (t.phone_to || '').toLowerCase().includes(q)
+    );
+  });
+
+  const formatDate = (dateStr: string) => {
+    try { return format(new Date(dateStr), 'MMM d, yyyy h:mm a'); } catch { return dateStr; }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading transcriptions...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {filtered.length} transcription{filtered.length !== 1 ? 's' : ''}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleSync}
+          disabled={syncing}
+          className="gap-1.5"
+        >
+          <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+          {syncing ? 'Syncing...' : 'Sync New'}
+        </Button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="glass-card p-8 text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <FileAudio className="h-8 w-8 text-primary" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-foreground">No Transcriptions Yet</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Click "Sync New" to pull in call recordings and voicemails from RingCentral and transcribe them.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
+              className="w-full text-left glass-card p-4 space-y-2 hover:bg-accent/50 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  {t.source_type === 'voicemail' ? (
+                    <Voicemail className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  ) : (
+                    <FileAudio className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {t.source_type === 'voicemail' ? 'Voicemail' : 'Call Recording'} — {t.phone_from || 'Unknown'}
+                    </p>
+                    {t.summary && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{t.summary}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t.occurred_at ? formatDate(t.occurred_at) : '—'}
+                      {t.direction ? ` · ${t.direction}` : ''}
+                      {t.duration_seconds ? ` · ${Math.floor(t.duration_seconds / 60)}m ${t.duration_seconds % 60}s` : ''}
+                    </p>
+                  </div>
+                </div>
+                <StatusBadge status={t.source_type} />
+              </div>
+              {expandedId === t.id && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EmailPage() {
   const { user } = useAuth();
   const [emails, setEmails] = useState<GmailEmail[]>([]);
@@ -712,23 +859,7 @@ export default function EmailPage() {
             </TabsContent>
           </Tabs>
         ) : channel === 'transcriptions' ? (
-          <div className="glass-card p-8 text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <FileAudio className="h-8 w-8 text-primary" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-foreground">Transcriptions</h3>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Voicemails and call recordings will be automatically transcribed here once the transcription API is connected.
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-1.5 bg-muted text-muted-foreground rounded-full px-3 py-1.5 text-xs font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              API not connected
-            </div>
-          </div>
+          <TranscriptionsTab searchQuery={searchQuery} />
         ) : (
           <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderRcList(rcMessages.filter((c) => matchesSearch(`${c.subject || ''} ${c.from || ''} ${c.to || ''}`)))}</div>
         )}
