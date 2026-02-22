@@ -337,41 +337,40 @@ export default function MeetingRoom() {
     }
   }, [meeting]);
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const uploadRecordings = useCallback(async (videoBlob: Blob, audioBlob: Blob) => {
-    // Determine correct file extensions from actual blob MIME types
     const videoExt = videoBlob.type.includes('mp4') ? 'mp4' : 'webm';
     const audioExt = audioBlob.type.includes('mp4') ? 'm4a' : audioBlob.type.includes('webm') ? 'webm' : 'mp3';
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const baseName = meeting?.title || 'recording';
 
-    if (!meeting?.customer_id) {
-      // No customer — download locally
-      const vUrl = URL.createObjectURL(videoBlob);
-      const a1 = document.createElement('a');
-      a1.href = vUrl;
-      a1.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.${videoExt}`;
-      a1.click();
-      URL.revokeObjectURL(vUrl);
+    // Always download locally
+    downloadBlob(videoBlob, `${baseName}-${dateStr}.${videoExt}`);
+    downloadBlob(audioBlob, `${baseName}-${dateStr}.${audioExt}`);
+    toast.success('Recordings downloaded locally');
 
-      const aUrl = URL.createObjectURL(audioBlob);
-      const a2 = document.createElement('a');
-      a2.href = aUrl;
-      a2.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.${audioExt}`;
-      a2.click();
-      URL.revokeObjectURL(aUrl);
-      toast.success('Recordings downloaded locally');
-      return;
-    }
+    // Also upload to Google Drive if customer exists
+    if (meeting?.customer_id) {
+      setUploading(true);
+      const [videoOk, audioOk] = await Promise.all([
+        uploadFile(videoBlob, videoExt, 'Video'),
+        uploadFile(audioBlob, audioExt, 'Audio'),
+      ]);
+      setUploading(false);
 
-    setUploading(true);
-    const [videoOk, audioOk] = await Promise.all([
-      uploadFile(videoBlob, videoExt, 'Video'),
-      uploadFile(audioBlob, audioExt, 'Audio'),
-    ]);
-    setUploading(false);
-
-    if (videoOk && audioOk) {
-      toast.success('Recordings uploaded to client Drive');
-    } else {
-      toast.error('Some uploads failed — check content library');
+      if (videoOk && audioOk) {
+        toast.success('Recordings also saved to client Drive');
+      } else {
+        toast.error('Drive upload failed — local copies saved');
+      }
     }
   }, [meeting, uploadFile]);
 
