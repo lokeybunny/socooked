@@ -4,11 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
 import {
   MessageSquare, Phone, Mail, MessageCircle, Search,
   Clock, User, ChevronDown, ChevronRight, Calendar,
-  Hash, FileAudio
+  Hash, FileAudio, Copy, Check
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -254,13 +256,27 @@ export default function Threads() {
                             {/* Full transcript */}
                             {t.raw_transcript && (
                               <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <FileAudio className="h-3.5 w-3.5 text-muted-foreground" />
-                                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Full Transcript</p>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <FileAudio className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Full Transcript</p>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-xs gap-1.5"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(t.raw_transcript);
+                                      toast.success('Transcript copied to clipboard');
+                                    }}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                    Copy
+                                  </Button>
                                 </div>
-                                <ScrollArea className="max-h-64">
+                                <ScrollArea className="max-h-96">
                                   <div className="bg-background/50 border border-border rounded-lg p-3">
-                                    <pre className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed">
+                                    <pre className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed select-all">
                                       {t.raw_transcript}
                                     </pre>
                                   </div>
