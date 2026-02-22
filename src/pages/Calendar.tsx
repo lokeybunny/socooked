@@ -66,6 +66,8 @@ export default function CalendarPage() {
   const [customers, setCustomers] = useState<{ id: string; full_name: string }[]>([]);
 
   // Form state
+  const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
+
   const [form, setForm] = useState({
     title: '', description: '', start_date: '', start_time: '09:00',
     end_date: '', end_time: '10:00', all_day: false,
@@ -287,12 +289,13 @@ export default function CalendarPage() {
     return (
       <button
         onClick={(e) => { e.stopPropagation(); openEdit(ev); }}
+        onDoubleClick={(e) => { e.stopPropagation(); setDetailEvent(ev); }}
         className={cn(
           "text-left w-full rounded px-1.5 py-0.5 text-[11px] font-medium truncate transition-opacity hover:opacity-80 group",
           compact ? "leading-tight" : "leading-normal"
         )}
         style={{ backgroundColor: ev.color, color: '#fff' }}
-        title={ev.title}
+        title="Click to edit · Double-click for details"
       >
         <span className="flex items-center gap-1">
           {SourceIcon && <SourceIcon className="h-3 w-3 shrink-0" />}
@@ -305,33 +308,36 @@ export default function CalendarPage() {
 
   // ─── MONTH VIEW ──────────────────────────────────────
   const MonthView = () => (
-    <div className="grid grid-cols-7 border border-border rounded-lg overflow-hidden">
+    <div className="grid grid-cols-7 border border-border rounded-lg overflow-hidden" style={{ gridAutoRows: 'minmax(0, 1fr)' }}>
       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-        <div key={d} className="text-center text-xs font-medium text-muted-foreground py-2 bg-muted/50 border-b border-border">{d}</div>
+        <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1.5 bg-muted/50 border-b border-border">{d}</div>
       ))}
       {monthDays.map((day, i) => {
         const dayEvents = getEventsForDay(day);
         const isToday = isSameDay(day, new Date());
         const isCurrentMonth = isSameMonth(day, currentDate);
+        const numWeeks = monthDays.length / 7;
+        const maxVisible = numWeeks > 5 ? 2 : 3;
         return (
           <div
             key={i}
             onClick={() => openCreate(day)}
             className={cn(
-              "min-h-[100px] p-1 border-b border-r border-border cursor-pointer hover:bg-muted/30 transition-colors",
+              "p-1 border-b border-r border-border cursor-pointer hover:bg-muted/30 transition-colors overflow-hidden",
               !isCurrentMonth && "bg-muted/20"
             )}
+            style={{ minHeight: numWeeks > 5 ? '72px' : '90px' }}
           >
             <div className={cn(
-              "text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full",
+              "text-[11px] font-medium mb-0.5 w-5 h-5 flex items-center justify-center rounded-full",
               isToday ? "bg-primary text-primary-foreground" : isCurrentMonth ? "text-foreground" : "text-muted-foreground/50"
             )}>
               {format(day, 'd')}
             </div>
-            <div className="space-y-0.5">
-              {dayEvents.slice(0, 3).map(ev => <EventPill key={ev.id} ev={ev} compact />)}
-              {dayEvents.length > 3 && (
-                <p className="text-[10px] text-muted-foreground pl-1">+{dayEvents.length - 3} more</p>
+            <div className="space-y-px">
+              {dayEvents.slice(0, maxVisible).map(ev => <EventPill key={ev.id} ev={ev} compact />)}
+              {dayEvents.length > maxVisible && (
+                <p className="text-[10px] text-muted-foreground pl-1">+{dayEvents.length - maxVisible} more</p>
               )}
             </div>
           </div>
@@ -643,8 +649,60 @@ export default function CalendarPage() {
               </div>
             </div>
           </DialogContent>
+      </Dialog>
+
+        {/* Detail View Dialog */}
+        <Dialog open={!!detailEvent} onOpenChange={(open) => { if (!open) setDetailEvent(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {detailEvent && (
+                  <>
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: detailEvent.color }} />
+                    {detailEvent.title}
+                  </>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+            {detailEvent && (
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-4 w-4 shrink-0" />
+                  <span>
+                    {detailEvent.all_day
+                      ? format(parseISO(detailEvent.start_time), 'MMMM d, yyyy') + ' · All day'
+                      : format(parseISO(detailEvent.start_time), 'MMMM d, yyyy · h:mm a') +
+                        (detailEvent.end_time ? ` – ${format(parseISO(detailEvent.end_time), 'h:mm a')}` : '')}
+                  </span>
+                </div>
+                {detailEvent.location && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-xs">📍</span>
+                    <span>{detailEvent.location}</span>
+                  </div>
+                )}
+                {detailEvent.description && (
+                  <div className="bg-muted/50 rounded-md p-3 text-foreground whitespace-pre-wrap">{detailEvent.description}</div>
+                )}
+                <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                  <span className="capitalize">Source: {detailEvent.source}</span>
+                  {detailEvent.category && <span>· {detailEvent.category}</span>}
+                </div>
+                {(detailEvent.source === 'manual' || detailEvent.source === 'google-calendar') && (
+                  <div className="flex gap-2 pt-2">
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailEvent(null); openEdit(detailEvent); }}>
+                      <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Edit
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => { handleDelete(detailEvent.id); setDetailEvent(null); }}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
         </Dialog>
-      </div>
-    </AppLayout>
+    </div>
+  </AppLayout>
   );
 }
