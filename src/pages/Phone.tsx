@@ -57,10 +57,12 @@ export default function PhonePage() {
     document.body.appendChild(script);
     rcScriptRef.current = script;
     return () => {
-      const widget = document.getElementById('rc-widget-adapter-frame');
-      if (widget) widget.remove();
-      if (rcScriptRef.current) {
-        document.body.removeChild(rcScriptRef.current);
+      // Remove all RC widget elements
+      document.querySelectorAll('[id^="rc-widget"], [id^="rc-"], .rc-widget-adapter-frame-container').forEach(el => el.remove());
+      // Remove any iframes injected by RC
+      document.querySelectorAll('iframe[src*="ringcentral"]').forEach(el => el.remove());
+      if (rcScriptRef.current && rcScriptRef.current.parentNode) {
+        rcScriptRef.current.parentNode.removeChild(rcScriptRef.current);
         rcScriptRef.current = null;
       }
     };
