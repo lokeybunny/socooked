@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,72 +7,43 @@ const corsHeaders = {
 
 const RC_SERVER = 'https://platform.ringcentral.com';
 
-async function getOAuthToken(authHeader: string): Promise<string> {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  );
+let cachedToken: { token: string; expiresAt: number } | null = null;
 
-  const jwt = authHeader.replace('Bearer ', '');
-  const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
-  if (userError || !user) throw new Error('Not authenticated');
-
-  const { data: tokenRow, error: dbError } = await supabase
-    .from('ringcentral_tokens')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (dbError || !tokenRow) {
-    throw new Error('RingCentral not connected. Please authorize via OAuth first.');
+async function getJWTToken(): Promise<string> {
+  if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) {
+    return cachedToken.token;
   }
 
-  // Check if token is expired (with 60s buffer)
-  const expiresAt = new Date(tokenRow.expires_at).getTime();
-  if (Date.now() > expiresAt - 60000) {
-    console.log('Token expired, refreshing...');
-    const clientId = Deno.env.get('RINGCENTRAL_CLIENT_ID')!;
-    const clientSecret = Deno.env.get('RINGCENTRAL_CLIENT_SECRET')!;
-    const basicAuth = btoa(`${clientId}:${clientSecret}`);
+  const clientId = Deno.env.get('RINGCENTRAL_CLIENT_ID')!;
+  const clientSecret = Deno.env.get('RINGCENTRAL_CLIENT_SECRET')!;
+  const jwtToken = Deno.env.get('RINGCENTRAL_JWT_TOKEN')!;
+  const basicAuth = btoa(`${clientId}:${clientSecret}`);
 
-    const res = await fetch(`${RC_SERVER}/restapi/oauth/token`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${basicAuth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: tokenRow.refresh_token,
-      }),
-    });
+  const res = await fetch(`${RC_SERVER}/restapi/oauth/token`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${basicAuth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwtToken,
+    }),
+  });
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error('Token refresh failed:', errBody);
-      // Delete stale tokens so user re-authorizes
-      await supabase.from('ringcentral_tokens').delete().eq('user_id', user.id);
-      throw new Error('RingCentral token expired. Please reconnect.');
-    }
-
-    const newTokens = await res.json();
-    const newExpiresAt = new Date(Date.now() + newTokens.expires_in * 1000).toISOString();
-
-    await supabase
-      .from('ringcentral_tokens')
-      .update({
-        access_token: newTokens.access_token,
-        refresh_token: newTokens.refresh_token,
-        expires_at: newExpiresAt,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id);
-
-    console.log('Token refreshed successfully');
-    return newTokens.access_token;
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error('JWT token exchange failed:', errBody);
+    throw new Error('RingCentral JWT auth failed');
   }
 
-  return tokenRow.access_token;
+  const data = await res.json();
+  cachedToken = {
+    token: data.access_token,
+    expiresAt: Date.now() + data.expires_in * 1000,
+  };
+  console.log('JWT token acquired successfully');
+  return data.access_token;
 }
 
 async function rcGet(path: string, token: string): Promise<any> {
@@ -153,14 +123,7 @@ serve(async (req) => {
     const action = url.searchParams.get('action');
     console.log('RC API called, action:', action);
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Not authenticated' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const token = await getOAuthToken(authHeader);
+    const token = await getJWTToken();
 
     switch (action) {
       case 'sms-list': {
