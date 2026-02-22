@@ -678,7 +678,19 @@ Deno.serve(async (req) => {
     }
 
     if (path === 'interaction' && req.method === 'POST') {
-      const { customer_id, type, direction, subject, notes, outcome, next_action } = body
+      const { id, customer_id, type, direction, subject, notes, outcome, next_action } = body
+      if (id) {
+        const updates: Record<string, unknown> = {}
+        if (type) updates.type = type
+        if (direction) updates.direction = direction
+        if (subject !== undefined) updates.subject = subject
+        if (notes !== undefined) updates.notes = notes
+        if (outcome !== undefined) updates.outcome = outcome
+        if (next_action !== undefined) updates.next_action = next_action
+        const { error } = await supabase.from('interactions').update(updates).eq('id', id)
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', interaction_id: id })
+      }
       if (!customer_id || !type) return fail('customer_id and type are required')
       const { data, error } = await supabase.from('interactions').insert({
         customer_id, type, direction: direction || 'outbound',
@@ -687,6 +699,14 @@ Deno.serve(async (req) => {
       }).select('id').single()
       if (error) return fail(error.message)
       return ok({ action: 'created', interaction_id: data?.id })
+    }
+
+    if (path === 'interaction' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      const { error } = await supabase.from('interactions').delete().eq('id', id)
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', interaction_id: id })
     }
 
     // ─── BOARDS / LISTS / CARDS ──────────────────────────────
@@ -1197,18 +1217,230 @@ Deno.serve(async (req) => {
       return ok({ action: 'deleted', template_id: id })
     }
 
+    // ─── TRANSCRIPTIONS ─────────────────────────────────────
+    if (path === 'transcriptions' && req.method === 'GET') {
+      const customer_id = params.get('customer_id')
+      const source_type = params.get('source_type')
+      let q = supabase.from('transcriptions').select('*, customers(full_name)').order('created_at', { ascending: false }).limit(100)
+      if (customer_id) q = q.eq('customer_id', customer_id)
+      if (source_type) q = q.eq('source_type', source_type)
+      const { data, error } = await q
+      if (error) return fail(error.message)
+      return ok({ transcriptions: data })
+    }
+
+    if (path === 'transcription' && req.method === 'POST') {
+      const { id, source_id, source_type, transcript, summary, customer_id, phone_from, phone_to, direction, duration_seconds, audio_url, occurred_at, category } = body
+      if (id) {
+        const updates: Record<string, unknown> = {}
+        if (transcript !== undefined) updates.transcript = transcript
+        if (summary !== undefined) updates.summary = summary
+        if (customer_id !== undefined) updates.customer_id = customer_id
+        if (category !== undefined) updates.category = category
+        const { error } = await supabase.from('transcriptions').update(updates).eq('id', id)
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', transcription_id: id })
+      }
+      if (!source_id || !source_type || !transcript) return fail('source_id, source_type, and transcript are required')
+      const { data, error } = await supabase.from('transcriptions').insert({
+        source_id, source_type, transcript, summary: summary || null,
+        customer_id: customer_id || null, phone_from: phone_from || null,
+        phone_to: phone_to || null, direction: direction || null,
+        duration_seconds: duration_seconds || null, audio_url: audio_url || null,
+        occurred_at: occurred_at || null, category: category || null,
+      }).select('id').single()
+      if (error) return fail(error.message)
+      await logActivity(supabase, 'transcription', data?.id, 'created')
+      return ok({ action: 'created', transcription_id: data?.id })
+    }
+
+    if (path === 'transcription' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      const { error } = await supabase.from('transcriptions').delete().eq('id', id)
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', transcription_id: id })
+    }
+
+    // ─── CHECKLISTS ──────────────────────────────────────────
+    if (path === 'checklists' && req.method === 'GET') {
+      const card_id = params.get('card_id')
+      if (!card_id) return fail('card_id query param is required')
+      const { data, error } = await supabase.from('checklists').select('*, checklist_items(*)').eq('card_id', card_id).order('created_at', { ascending: true })
+      if (error) return fail(error.message)
+      return ok({ checklists: data })
+    }
+
+    if (path === 'checklist' && req.method === 'POST') {
+      const { id, card_id, title } = body
+      if (id) {
+        const updates: Record<string, unknown> = {}
+        if (title) updates.title = title
+        const { error } = await supabase.from('checklists').update(updates).eq('id', id)
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', checklist_id: id })
+      }
+      if (!card_id) return fail('card_id is required')
+      const { data, error } = await supabase.from('checklists').insert({
+        card_id, title: title || 'Checklist',
+      }).select('id').single()
+      if (error) return fail(error.message)
+      return ok({ action: 'created', checklist_id: data?.id })
+    }
+
+    if (path === 'checklist' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      await supabase.from('checklist_items').delete().eq('checklist_id', id)
+      const { error } = await supabase.from('checklists').delete().eq('id', id)
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', checklist_id: id })
+    }
+
+    // ─── CHECKLIST ITEMS ─────────────────────────────────────
+    if (path === 'checklist-item' && req.method === 'POST') {
+      const { id, checklist_id, content, is_done, position } = body
+      if (id) {
+        const updates: Record<string, unknown> = {}
+        if (content !== undefined) updates.content = content
+        if (is_done !== undefined) updates.is_done = is_done
+        if (position !== undefined) updates.position = position
+        const { error } = await supabase.from('checklist_items').update(updates).eq('id', id)
+        if (error) return fail(error.message)
+        return ok({ action: 'updated', checklist_item_id: id })
+      }
+      if (!checklist_id || !content) return fail('checklist_id and content are required')
+      const { data, error } = await supabase.from('checklist_items').insert({
+        checklist_id, content, is_done: is_done || false, position: position || 0,
+      }).select('id').single()
+      if (error) return fail(error.message)
+      return ok({ action: 'created', checklist_item_id: data?.id })
+    }
+
+    if (path === 'checklist-item' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      const { error } = await supabase.from('checklist_items').delete().eq('id', id)
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', checklist_item_id: id })
+    }
+
+    // ─── CARD LABELS (assign/remove) ─────────────────────────
+    if (path === 'card-label' && req.method === 'POST') {
+      const { card_id, label_id } = body
+      if (!card_id || !label_id) return fail('card_id and label_id are required')
+      const { error } = await supabase.from('card_labels').insert({ card_id, label_id })
+      if (error) return fail(error.message)
+      return ok({ action: 'assigned', card_id, label_id })
+    }
+
+    if (path === 'card-label' && req.method === 'DELETE') {
+      const { card_id, label_id } = body
+      if (!card_id || !label_id) return fail('card_id and label_id are required')
+      const { error } = await supabase.from('card_labels').delete().eq('card_id', card_id).eq('label_id', label_id)
+      if (error) return fail(error.message)
+      return ok({ action: 'removed', card_id, label_id })
+    }
+
+    // ─── LIST (delete) ───────────────────────────────────────
+    if (path === 'list' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      await supabase.from('cards').delete().eq('list_id', id)
+      const { error } = await supabase.from('lists').delete().eq('id', id)
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', list_id: id })
+    }
+
+
+
+    // ─── CUSTOMER SEARCH ─────────────────────────────────────
+    if (path === 'search' && req.method === 'GET') {
+      const q = params.get('q')
+      if (!q) return fail('q query param is required')
+      const { data, error } = await supabase.from('customers').select('*')
+        .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,company.ilike.%${q}%`)
+        .order('created_at', { ascending: false }).limit(50)
+      if (error) return fail(error.message)
+      return ok({ customers: data })
+    }
+
+    // ─── UPLOAD TOKENS (Custom-U portal) ─────────────────────
+    if (path === 'upload-token' && req.method === 'POST') {
+      const { customer_id } = body
+      if (!customer_id) return fail('customer_id is required')
+      const token = crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+      const { error } = await supabase.from('customers').update({ upload_token: token }).eq('id', customer_id)
+      if (error) return fail(error.message)
+      return ok({ action: 'generated', customer_id, upload_token: token, portal_url: `https://stu25.com/u/${token}` })
+    }
+
+    if (path === 'upload-token' && req.method === 'DELETE') {
+      const { customer_id } = body
+      if (!customer_id) return fail('customer_id is required')
+      const { error } = await supabase.from('customers').update({ upload_token: null }).eq('id', customer_id)
+      if (error) return fail(error.message)
+      return ok({ action: 'revoked', customer_id })
+    }
+
+    // ─── LABEL (update/delete) ───────────────────────────────
+    if (path === 'label' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      await supabase.from('card_labels').delete().eq('label_id', id)
+      const { error } = await supabase.from('labels').delete().eq('id', id)
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', label_id: id })
+    }
+
+    // ─── COMMENTS (list/delete) ──────────────────────────────
+    if (path === 'comments' && req.method === 'GET') {
+      const card_id = params.get('card_id')
+      if (!card_id) return fail('card_id query param is required')
+      const { data, error } = await supabase.from('card_comments').select('*, profiles(full_name)').eq('card_id', card_id).order('created_at', { ascending: true })
+      if (error) return fail(error.message)
+      return ok({ comments: data })
+    }
+
+    if (path === 'comment' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      const { error } = await supabase.from('card_comments').delete().eq('id', id)
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', comment_id: id })
+    }
+
+    // ─── ATTACHMENTS (list/delete) ───────────────────────────
+    if (path === 'attachments' && req.method === 'GET') {
+      const card_id = params.get('card_id')
+      if (!card_id) return fail('card_id query param is required')
+      const { data, error } = await supabase.from('card_attachments').select('*').eq('card_id', card_id).order('created_at', { ascending: true })
+      if (error) return fail(error.message)
+      return ok({ attachments: data })
+    }
+
+    if (path === 'attach' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      const { error } = await supabase.from('card_attachments').delete().eq('id', id)
+      if (error) return fail(error.message)
+      return ok({ action: 'deleted', attachment_id: id })
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
-      const [boards, customers, deals, projects, meetings, templates, content] = await Promise.all([
+      const [boards, customers, deals, projects, meetings, templates, content, transcriptions, botTasks] = await Promise.all([
         supabase.from('boards').select('id, name, lists:lists(id, name, position, cards:cards(id, title, status, priority, position, source))').order('created_at', { ascending: true }),
-        supabase.from('customers').select('id, full_name, status, email, category').order('created_at', { ascending: false }).limit(50),
+        supabase.from('customers').select('id, full_name, status, email, phone, category, upload_token').order('created_at', { ascending: false }).limit(50),
         supabase.from('deals').select('id, title, stage, deal_value, status, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('projects').select('id, title, status, priority, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('meetings').select('id, title, room_code, status, scheduled_at, category').order('created_at', { ascending: false }).limit(50),
         supabase.from('templates').select('id, name, type, category, placeholders').order('created_at', { ascending: false }).limit(50),
         supabase.from('content_assets').select('id, title, type, status, source, category, customer_id, folder, url').order('created_at', { ascending: false }).limit(100),
+        supabase.from('transcriptions').select('id, source_type, customer_id, summary, direction, created_at').order('created_at', { ascending: false }).limit(50),
+        supabase.from('bot_tasks').select('id, title, bot_agent, status, priority, created_at').order('created_at', { ascending: false }).limit(50),
       ])
-      return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data, templates: templates.data, content: content.data })
+      return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data, templates: templates.data, content: content.data, transcriptions: transcriptions.data, bot_tasks: botTasks.data })
     }
 
     return fail('Unknown endpoint', 404)

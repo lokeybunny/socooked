@@ -1,4 +1,4 @@
-# CLAWD Command CRM — Agent API Reference
+# CLAWD Command CRM — Agent API Reference v3.0
 
 > **Paste this entire document into your agent's system prompt or knowledge base.**
 > It is the single source of truth for all CRM API calls.
@@ -39,20 +39,29 @@ All responses follow:
 
 ---
 
-## Endpoints Quick Reference
+## Complete Endpoints Reference
+
+### State (full snapshot)
+
+| Action | Method | URL |
+|--------|--------|-----|
+| Get all | GET | `/clawd-bot/state` |
+
+> Returns: `boards`, `customers`, `deals`, `projects`, `meetings`, `templates`, `content`, `transcriptions`, `bot_tasks`
+
+---
 
 ### Customers
 
 | Action | Method | URL | Body |
 |--------|--------|-----|------|
 | List | GET | `/clawd-bot/customers` | — |
-| List filtered | GET | `/clawd-bot/customers?status=lead&category=inbound` | — |
+| List filtered | GET | `/clawd-bot/customers?status=lead&category=digital-services` | — |
 | Create | POST | `/clawd-bot/customer` | `{ "full_name": "..." }` |
 | Update | POST | `/clawd-bot/customer` | `{ "id": "uuid", "full_name": "New Name" }` |
 | Delete | DELETE | `/clawd-bot/customer` | `{ "id": "uuid" }` |
 | Bulk Delete | POST | `/clawd-bot/bulk-delete` | `{ "ids": ["uuid1", "uuid2", ...] }` |
-
-> **⚠️ DELETE vs POST**: To remove customers use `DELETE /clawd-bot/customer` or `POST /clawd-bot/bulk-delete`. **Never** use `POST /clawd-bot/customer` to delete — that creates/updates records.
+| Search | GET | `/clawd-bot/search?q=term` | — |
 
 ### Leads (shortcut — creates customer with status=lead)
 
@@ -65,7 +74,6 @@ All responses follow:
 | Action | Method | URL | Body |
 |--------|--------|-----|------|
 | List | GET | `/clawd-bot/deals` | — |
-| List filtered | GET | `/clawd-bot/deals?status=open&category=web` | — |
 | Create | POST | `/clawd-bot/deal` | `{ "title": "...", "customer_id": "uuid" }` |
 | Update | POST | `/clawd-bot/deal` | `{ "id": "uuid", "stage": "negotiation" }` |
 | Delete | DELETE | `/clawd-bot/deal` | `{ "id": "uuid" }` |
@@ -119,6 +127,8 @@ All responses follow:
 | Action | Method | URL | Body |
 |--------|--------|-----|------|
 | Create | POST | `/clawd-bot/list` | `{ "board_id": "uuid", "name": "..." }` |
+| Update | POST | `/clawd-bot/list` | `{ "id": "uuid", "name": "..." }` |
+| Delete | DELETE | `/clawd-bot/list` | `{ "id": "uuid" }` |
 
 ### Cards
 
@@ -127,9 +137,55 @@ All responses follow:
 | Create | POST | `/clawd-bot/card` | `{ "board_id": "uuid", "list_id": "uuid", "title": "..." }` |
 | Update | POST | `/clawd-bot/card` | `{ "id": "uuid", "title": "Updated" }` |
 | Delete | DELETE | `/clawd-bot/card` | `{ "id": "uuid" }` |
-| Move | POST | `/clawd-bot/move` | `{ "card_id": "uuid", "list_id": "target_uuid" }` |
-| Comment | POST | `/clawd-bot/comment` | `{ "card_id": "uuid", "body": "..." }` |
-| Attach | POST | `/clawd-bot/attach` | `{ "card_id": "uuid", "url": "...", "type": "link" }` |
+| Move | POST | `/clawd-bot/move` | `{ "card_id": "uuid", "to_list_id": "target_uuid" }` |
+
+### Comments
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| List | GET | `/clawd-bot/comments?card_id=uuid` | — |
+| Create | POST | `/clawd-bot/comment` | `{ "card_id": "uuid", "comment": "..." }` |
+| Delete | DELETE | `/clawd-bot/comment` | `{ "id": "uuid" }` |
+
+### Attachments
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| List | GET | `/clawd-bot/attachments?card_id=uuid` | — |
+| Create | POST | `/clawd-bot/attach` | `{ "card_id": "uuid", "url": "...", "type": "link" }` |
+| Delete | DELETE | `/clawd-bot/attach` | `{ "id": "uuid" }` |
+
+### Labels
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| List | GET | `/clawd-bot/labels?board_id=uuid` | — |
+| Create | POST | `/clawd-bot/label` | `{ "board_id": "uuid", "name": "urgent", "color": "red" }` |
+| Delete | DELETE | `/clawd-bot/label` | `{ "id": "uuid" }` |
+
+### Card Labels (assign/remove)
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| Assign | POST | `/clawd-bot/card-label` | `{ "card_id": "uuid", "label_id": "uuid" }` |
+| Remove | DELETE | `/clawd-bot/card-label` | `{ "card_id": "uuid", "label_id": "uuid" }` |
+
+### Checklists
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| List | GET | `/clawd-bot/checklists?card_id=uuid` | — |
+| Create | POST | `/clawd-bot/checklist` | `{ "card_id": "uuid", "title": "..." }` |
+| Update | POST | `/clawd-bot/checklist` | `{ "id": "uuid", "title": "..." }` |
+| Delete | DELETE | `/clawd-bot/checklist` | `{ "id": "uuid" }` |
+
+### Checklist Items
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| Create | POST | `/clawd-bot/checklist-item` | `{ "checklist_id": "uuid", "content": "..." }` |
+| Update (toggle done) | POST | `/clawd-bot/checklist-item` | `{ "id": "uuid", "is_done": true }` |
+| Delete | DELETE | `/clawd-bot/checklist-item` | `{ "id": "uuid" }` |
 
 ### Content Assets
 
@@ -138,12 +194,23 @@ All responses follow:
 | List | GET | `/clawd-bot/content` | — |
 | List filtered | GET | `/clawd-bot/content?customer_id=uuid&source=instagram&type=image&category=digital-services` | — |
 | Create | POST | `/clawd-bot/content` | `{ "title": "...", "type": "post", "source": "instagram", "customer_id": "uuid" }` |
-| Update | POST | `/clawd-bot/content` | `{ "id": "uuid", "status": "published", "source": "client-direct" }` |
+| Update | POST | `/clawd-bot/content` | `{ "id": "uuid", "status": "published" }` |
 | Delete | DELETE | `/clawd-bot/content` | `{ "id": "uuid" }` |
 
 > **Content types**: `article`, `image`, `video`, `landing_page`, `doc`, `post`
 > **Source values**: `dashboard`, `google-drive`, `instagram`, `sms`, `client-direct`, `other`
-> **Folder convention**: `{Category}/{Customer Name}/{Source Label}` — auto-set by the UI, can be overridden via API
+
+### Templates
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| List | GET | `/clawd-bot/templates?type=contract&category=digital-services` | — |
+| Create | POST | `/clawd-bot/template` | `{ "name": "...", "type": "contract", "body_html": "<h1>...</h1>", "placeholders": ["{{client_name}}"] }` |
+| Update | POST | `/clawd-bot/template` | `{ "id": "uuid", "body_html": "..." }` |
+| Delete | DELETE | `/clawd-bot/template` | `{ "id": "uuid" }` |
+
+> **Template types**: `contract`, `proposal`, `invoice`, `email`
+> **Supported placeholders**: `{{client_name}}`, `{{company_name}}`, `{{company_address}}`, `{{client_email}}`, `{{date}}`
 
 ### Threads (Conversations)
 
@@ -160,19 +227,8 @@ All responses follow:
 |--------|--------|-----|------|
 | List | GET | `/clawd-bot/documents?customer_id=uuid` | — |
 | Create | POST | `/clawd-bot/document` | `{ "customer_id": "uuid", "title": "...", "type": "contract" }` |
+| Update | POST | `/clawd-bot/document` | `{ "id": "uuid", "status": "final" }` |
 | Delete | DELETE | `/clawd-bot/document` | `{ "id": "uuid" }` |
-
-### Templates
-
-| Action | Method | URL | Body |
-|--------|--------|-----|------|
-| List | GET | `/clawd-bot/templates?type=contract&category=digital-services` | — |
-| Create | POST | `/clawd-bot/template` | `{ "name": "...", "type": "contract", "body_html": "<h1>...</h1>", "placeholders": ["{{client_name}}"] }` |
-| Update | POST | `/clawd-bot/template` | `{ "id": "uuid", "body_html": "..." }` |
-| Delete | DELETE | `/clawd-bot/template` | `{ "id": "uuid" }` |
-
-> **Template types**: `contract`, `proposal`, `invoice`, `email`
-> **Supported placeholders**: `{{client_name}}`, `{{company_name}}`, `{{company_address}}`, `{{client_email}}`, `{{date}}`
 
 ### Communications
 
@@ -180,13 +236,8 @@ All responses follow:
 |--------|--------|-----|------|
 | List | GET | `/clawd-bot/communications?customer_id=uuid&type=email` | — |
 | Create | POST | `/clawd-bot/communication` | `{ "type": "email", "customer_id": "uuid", ... }` |
+| Update | POST | `/clawd-bot/communication` | `{ "id": "uuid", "status": "read" }` |
 | Delete | DELETE | `/clawd-bot/communication` | `{ "id": "uuid" }` |
-
-### Signatures (read-only)
-
-| Action | Method | URL |
-|--------|--------|-----|
-| List | GET | `/clawd-bot/signatures?customer_id=uuid` |
 
 ### Interactions
 
@@ -194,6 +245,23 @@ All responses follow:
 |--------|--------|-----|------|
 | List | GET | `/clawd-bot/interactions?customer_id=uuid` | — |
 | Create | POST | `/clawd-bot/interaction` | `{ "customer_id": "uuid", "type": "call" }` |
+| Update | POST | `/clawd-bot/interaction` | `{ "id": "uuid", "outcome": "interested" }` |
+| Delete | DELETE | `/clawd-bot/interaction` | `{ "id": "uuid" }` |
+
+### Signatures (read-only)
+
+| Action | Method | URL |
+|--------|--------|-----|
+| List | GET | `/clawd-bot/signatures?customer_id=uuid` |
+
+### Transcriptions
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| List | GET | `/clawd-bot/transcriptions?customer_id=uuid&source_type=recording` | — |
+| Create | POST | `/clawd-bot/transcription` | `{ "source_id": "...", "source_type": "recording", "transcript": "..." }` |
+| Update | POST | `/clawd-bot/transcription` | `{ "id": "uuid", "summary": "..." }` |
+| Delete | DELETE | `/clawd-bot/transcription` | `{ "id": "uuid" }` |
 
 ### Bot Tasks
 
@@ -204,21 +272,6 @@ All responses follow:
 | Update | POST | `/clawd-bot/bot-task` | `{ "id": "uuid", "status": "done" }` |
 | Delete | DELETE | `/clawd-bot/bot-task` | `{ "id": "uuid" }` |
 
-### Labels
-
-| Action | Method | URL | Body |
-|--------|--------|-----|------|
-| List | GET | `/clawd-bot/labels?board_id=uuid` | — |
-| Create | POST | `/clawd-bot/label` | `{ "board_id": "uuid", "name": "urgent", "color": "red" }` |
-
-### Automations
-
-| Action | Method | URL | Body |
-|--------|--------|-----|------|
-| List | GET | `/clawd-bot/automations?enabled=true` | — |
-| Create | POST | `/clawd-bot/automation` | `{ "name": "...", "trigger_table": "customers", "trigger_event": "insert", ... }` |
-| Delete | DELETE | `/clawd-bot/automation` | `{ "id": "uuid" }` |
-
 ### Meetings
 
 | Action | Method | URL | Body |
@@ -228,25 +281,39 @@ All responses follow:
 | Update | POST | `/clawd-bot/meeting` | `{ "id": "uuid", "status": "active" }` |
 | Delete | DELETE | `/clawd-bot/meeting` | `{ "id": "uuid" }` |
 
+### Automations
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| List | GET | `/clawd-bot/automations?enabled=true` | — |
+| Create | POST | `/clawd-bot/automation` | `{ "name": "...", "trigger_table": "customers", "trigger_event": "insert", ... }` |
+| Update | POST | `/clawd-bot/automation` | `{ "id": "uuid", "is_enabled": false }` |
+| Delete | DELETE | `/clawd-bot/automation` | `{ "id": "uuid" }` |
+| Trigger | POST | `/clawd-bot/trigger` | `{ "event": "INSERT", "table": "customers", "payload": {...} }` |
+
 ### Activity Log (read-only)
 
 | Action | Method | URL |
 |--------|--------|-----|
 | List | GET | `/clawd-bot/activity?entity_type=customers` |
 
+### Upload Tokens (Custom-U Portal)
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| Generate | POST | `/clawd-bot/upload-token` | `{ "customer_id": "uuid" }` |
+| Revoke | DELETE | `/clawd-bot/upload-token` | `{ "customer_id": "uuid" }` |
+
+> Generate returns `{ "upload_token": "...", "portal_url": "https://stu25.com/u/TOKEN" }`
+
 ### Email Generation
 
 | Action | Method | URL | Body |
 |--------|--------|-----|------|
-| Generate portal invite | POST | `/clawd-bot/generate-email` | `{ "customer_id": "uuid" }` |
-
-### CRM State (full snapshot)
-
-| Action | Method | URL |
-|--------|--------|-----|
-| Get all | GET | `/clawd-bot/state` |
-
-> Returns: `boards`, `customers`, `deals`, `projects`, `meetings`, `templates`, `content`
+| Generate portal invite | POST | `/clawd-bot/generate-email` | `{ "customer_name": "...", "portal_link": "..." }` |
+| Generate resume | POST | `/clawd-bot/generate-resume` | `{ "name": "...", "email": "..." }` |
+| Generate contract | POST | `/clawd-bot/generate-contract` | `{ "client_name": "...", "terms": {...} }` |
+| Analyze thread | POST | `/clawd-bot/analyze-thread` | `{ "transcript": "..." }` |
 
 ---
 
@@ -258,7 +325,6 @@ All responses follow:
 | `/clawd-bot/customer/{id}` | `POST /clawd-bot/customer` with `{"id":"uuid"}` in body |
 | `PATCH /clawd-bot/lead/{id}` | `POST /clawd-bot/customer` with `{"id":"uuid"}` in body |
 | `DELETE /clawd-bot/customer-delete` | `DELETE /clawd-bot/customer` with `{"id":"uuid"}` in body |
-| `DELETE /clawd-bot/deal-delete` | `DELETE /clawd-bot/deal` with `{"id":"uuid"}` in body |
 | `sdbpryzuhqberwgxiucg` | `mziuxsfxevjnmdwnrqjs` |
 | Path params for IDs | IDs always go in JSON body |
 | `/clawd-bot/customers/list` | `/clawd-bot/customers` |
@@ -276,21 +342,13 @@ DELETE /clawd-bot/customer   ← CORRECT (same path as POST)
 DELETE /clawd-bot/customer-delete   ← WRONG (does not exist)
 ```
 
-Body must contain: `{ "id": "uuid-of-record" }`
+Body must contain: `{ "id": "uuid" }`
 
-This applies to ALL entities: `customer`, `deal`, `project`, `board`, `card`, `document`, etc.
+This applies to ALL entities: `customer`, `deal`, `project`, `board`, `card`, `document`, `list`, `label`, `checklist`, `checklist-item`, `transcription`, `interaction`, `communication`, `bot-task`, `meeting`, `automation`, `template`, `thread`, `comment`, `attach`, `invoice`.
 
-## Default Query Behavior
-
-- `GET /clawd-bot/customers` → returns ALL customers (no filters)
-- `GET /clawd-bot/customers?status=lead` → returns only leads
-- Do NOT add `category` filter unless the user explicitly asks for a specific category
-
----
+Exception: `card-label` and `upload-token` use `{ "card_id": "uuid", "label_id": "uuid" }` and `{ "customer_id": "uuid" }` respectively.
 
 ## Valid Category Values
-
-When setting `category` on any entity, use ONLY these values:
 
 | Value | Description |
 |-------|-------------|
@@ -301,8 +359,6 @@ When setting `category` on any entity, use ONLY these values:
 | `mobile-services` | Mobile apps, on-demand & field services |
 | `other` | Uncategorized or miscellaneous (default) |
 
-Any unrecognized category value will be auto-mapped to `other`.
-
 ## Rate Limits
 
 - 5 requests per second per IP
@@ -310,4 +366,4 @@ Any unrecognized category value will be auto-mapped to `other`.
 
 ---
 
-*Last updated: 2026-02-21*
+*Version: 3.0.0 — Last updated: 2026-02-22*
