@@ -311,17 +311,25 @@ export default function MeetingRoom() {
       const uploadData = await uploadRes.json();
 
       // 3. Save to content_assets
-      await supabase.from('content_assets').insert({
+      const driveUrl = uploadData?.webViewLink || uploadData?.id ? `https://drive.google.com/file/d/${uploadData.id}/view` : null;
+      console.log('[MeetingRoom] Saving content_asset:', { fileName, assetType, driveUrl, meetingId: meeting.id, customerId: meeting.customer_id });
+      
+      const { error: insertErr } = await supabase.from('content_assets').insert({
         title: fileName,
         type: assetType,
         source: 'Meeting',
         status: 'published',
         category,
         customer_id: meeting.customer_id,
-        url: uploadData?.webViewLink || null,
+        url: driveUrl,
         folder: meeting.id,
       });
-
+      
+      if (insertErr) {
+        console.error('[MeetingRoom] content_assets insert failed:', insertErr);
+        return false;
+      }
+      console.log('[MeetingRoom] content_asset saved successfully for', assetType);
       return true;
     } catch (err: any) {
       console.error(`Upload ${ext} failed:`, err);
