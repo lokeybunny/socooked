@@ -31,16 +31,19 @@ export default function Projects() {
 
   useEffect(() => { loadAll(); }, []);
 
+  const validIds = SERVICE_CATEGORIES.map(c => c.id);
+  const normCat = (c: string | null) => (c && validIds.includes(c) ? c : 'other');
+
   useEffect(() => {
     if (categoryGate.selectedCategory) {
-      setProjects(allProjects.filter(p => (p.category || 'other') === categoryGate.selectedCategory));
+      setProjects(allProjects.filter(p => normCat(p.category) === categoryGate.selectedCategory));
     } else {
       setProjects(allProjects);
     }
   }, [categoryGate.selectedCategory, allProjects]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allProjects.filter(p => (p.category || 'other') === cat.id).length;
+    acc[cat.id] = allProjects.filter(p => normCat(p.category) === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 
