@@ -188,8 +188,8 @@ export default function Meetings() {
             <div className="space-y-2">
               {paginated.map(m => {
                 const meetingRecordings = getRecordingsForMeeting(m);
-                const videoRec = meetingRecordings.find(r => r.type === 'Video');
-                const audioRec = meetingRecordings.find(r => r.type === 'Audio');
+                const videoRec = meetingRecordings.find(r => r.type?.toLowerCase() === 'video');
+                const audioRec = meetingRecordings.find(r => r.type?.toLowerCase() === 'audio');
 
                 return (
                   <div key={m.id} className="glass-card p-4 space-y-2">

@@ -1,0 +1,2 @@
+ALTER TABLE public.content_assets DROP CONSTRAINT content_assets_type_check;
+ALTER TABLE public.content_assets ADD CONSTRAINT content_assets_type_check CHECK (type = ANY (ARRAY['article'::text, 'image'::text, 'video'::text, 'audio'::text, 'landing_page'::text, 'doc'::text, 'post'::text]));
