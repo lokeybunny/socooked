@@ -20,12 +20,13 @@ let cachedToken: { token: string; expiresAt: number } | null = null;
 function getCredentials() {
   const raw = Deno.env.get("RINGCENTRAL_CREDENTIALS");
   if (!raw) throw new Error("RINGCENTRAL_CREDENTIALS not configured");
-  return JSON.parse(raw) as {
-    client_id: string;
-    client_secret: string;
-    username: string;
-    password: string;
-    extension?: string;
+  const parsed: any = JSON.parse(raw);
+  return {
+    client_id: parsed.client_id || parsed.clientId || parsed.ClientId || parsed.CLIENT_ID || "",
+    client_secret: parsed.client_secret || parsed.clientSecret || parsed.ClientSecret || parsed.CLIENT_SECRET || "",
+    username: parsed.username || parsed.Username || parsed.phone || parsed.phoneNumber || "",
+    password: parsed.password || parsed.Password || parsed.PASSWORD || "",
+    extension: parsed.extension || parsed.Extension || undefined,
   };
 }
 
