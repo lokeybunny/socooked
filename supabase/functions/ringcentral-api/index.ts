@@ -15,20 +15,36 @@ interface TokenResponse {
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+function getCredentials() {
+  const raw = Deno.env.get('RINGCENTRAL_CREDENTIALS');
+  if (!raw) throw new Error('RINGCENTRAL_CREDENTIALS not configured');
+  try {
+    return JSON.parse(raw) as {
+      client_id: string;
+      client_secret: string;
+      username: string;
+      password: string;
+      extension?: string;
+    };
+  } catch {
+    throw new Error('RINGCENTRAL_CREDENTIALS is not valid JSON');
+  }
+}
+
 async function getAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60000) {
     return cachedToken.token;
   }
 
-  const clientId = Deno.env.get('RINGCENTRAL_CLIENT_ID');
-  const clientSecret = Deno.env.get('RINGCENTRAL_CLIENT_SECRET');
-  const jwtToken = Deno.env.get('RINGCENTRAL_JWT_TOKEN');
+  const creds = getCredentials();
+  const basicAuth = btoa(`${creds.client_id}:${creds.client_secret}`);
 
-  if (!clientId || !clientSecret || !jwtToken) {
-    throw new Error('RingCentral credentials not configured');
-  }
-
-  const basicAuth = btoa(`${clientId}:${clientSecret}`);
+  const body: Record<string, string> = {
+    grant_type: 'password',
+    username: creds.username,
+    password: creds.password,
+  };
+  if (creds.extension) body.extension = creds.extension;
 
   const res = await fetch(`${RC_SERVER}/restapi/oauth/token`, {
     method: 'POST',
@@ -36,10 +52,7 @@ async function getAccessToken(): Promise<string> {
       'Authorization': `Basic ${basicAuth}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwtToken,
-    }),
+    body: new URLSearchParams(body),
   });
 
   if (!res.ok) {
