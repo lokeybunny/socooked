@@ -13,8 +13,7 @@ import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDow
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-const RC_EMBEDDABLE_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/adapter.js';
-
+const RC_EMBED_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html';
 const CALL_TYPES = [
   { value: 'voicemail', label: 'Voicemail', icon: Voicemail },
   { value: 'live_call', label: 'Live Call', icon: PhoneCall },
@@ -39,7 +38,6 @@ export default function PhonePage() {
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const rcScriptRef = useRef<HTMLScriptElement | null>(null);
 
   // New customer dialog state
   const [newCustOpen, setNewCustOpen] = useState(false);
@@ -47,26 +45,6 @@ export default function PhonePage() {
   const [newCustPhone, setNewCustPhone] = useState('');
   const [newCustEmail, setNewCustEmail] = useState('');
   const [newCustSaving, setNewCustSaving] = useState(false);
-
-  // Load RingCentral Embeddable
-  useEffect(() => {
-    if (document.querySelector(`script[src="${RC_EMBEDDABLE_URL}"]`)) return;
-    const script = document.createElement('script');
-    script.src = RC_EMBEDDABLE_URL;
-    script.async = true;
-    document.body.appendChild(script);
-    rcScriptRef.current = script;
-    return () => {
-      // Remove all RC widget elements
-      document.querySelectorAll('[id^="rc-widget"], [id^="rc-"], .rc-widget-adapter-frame-container').forEach(el => el.remove());
-      // Remove any iframes injected by RC
-      document.querySelectorAll('iframe[src*="ringcentral"]').forEach(el => el.remove());
-      if (rcScriptRef.current && rcScriptRef.current.parentNode) {
-        rcScriptRef.current.parentNode.removeChild(rcScriptRef.current);
-        rcScriptRef.current = null;
-      }
-    };
-  }, []);
 
   const loadData = useCallback(async () => {
     const [custRes, transRes] = await Promise.all([
@@ -271,24 +249,25 @@ export default function PhonePage() {
 
   return (
     <AppLayout>
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-6 animate-fade-in">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-          <p className="text-muted-foreground mt-1">RingCentral softphone + audio transcription tool.</p>
+          <p className="text-muted-foreground mt-1">Softphone + audio transcription workspace.</p>
         </div>
 
-        {/* Two-column layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* ─── Left: Transcription Tool ─── */}
+        {/* Two-column layout: Left = Transcription, Right = RingCentral */}
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-6">
+          {/* ─── Left Column: Transcription Tool + Recent ─── */}
           <div className="space-y-6">
+            {/* Upload Card */}
             <div className="glass-card p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <FileAudio className="h-5 w-5 text-primary" />
                 <h2 className="text-lg font-semibold text-foreground">Audio Transcription</h2>
               </div>
               <p className="text-sm text-muted-foreground">
-                Drop audio files to transcribe. Files are saved to Google Drive under Transcriptions / [Customer Name] and the transcript is stored in the CRM.
+                Drop audio files to transcribe. Files are archived to Google Drive and transcripts stored in CRM.
               </p>
 
               {/* Customer + Call Type selects */}
@@ -338,12 +317,12 @@ export default function PhonePage() {
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
+                  "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
                   dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                 )}
               >
-                <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm text-foreground font-medium">Drag & drop audio files here</p>
+                <Upload className="h-7 w-7 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-foreground font-medium">Drag & drop audio files</p>
                 <p className="text-xs text-muted-foreground mt-1">MP3, WAV, M4A, OGG, FLAC, AAC, WebM</p>
                 <input
                   ref={fileInputRef}
@@ -399,7 +378,7 @@ export default function PhonePage() {
                   <div key={r.id} className={cn("glass-card p-4 space-y-2", r.success ? "" : "border-destructive/30")}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {r.success ? <Check className="h-4 w-4 text-emerald-500" /> : <X className="h-4 w-4 text-destructive" />}
+                        {r.success ? <Check className="h-4 w-4 text-primary" /> : <X className="h-4 w-4 text-destructive" />}
                         <span className="text-sm font-medium text-foreground">{r.filename}</span>
                         {r.success && r.callType && getTypeBadge(r.callType)}
                       </div>
@@ -432,119 +411,144 @@ export default function PhonePage() {
                 ))}
               </div>
             )}
-          </div>
 
-          {/* ─── Right: Recent Transcriptions (grouped by customer) ─── */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-foreground">Recent Transcriptions</h2>
-            {loading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            ) : transcriptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">No transcriptions yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {groupedTranscriptions.grouped.map(([customerId, group]) => (
-                  <div key={customerId} className="glass-card overflow-hidden">
-                    {/* Customer header */}
-                    <button
-                      onClick={() => setExpandedCustomer(expandedCustomer === customerId ? null : customerId)}
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <User className="h-4 w-4 text-primary shrink-0" />
-                        <span className="text-sm font-medium text-foreground truncate">{group.customer?.full_name}</span>
-                        <Badge variant="secondary" className="text-[10px]">{group.items.length}</Badge>
-                      </div>
-                      {expandedCustomer === customerId ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                    </button>
-
-                    {/* Transcription items */}
-                    {expandedCustomer === customerId && (
-                      <div className="border-t border-border divide-y divide-border">
-                        {group.items.map((t) => (
-                          <div key={t.id} className="px-4 py-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 min-w-0">
-                                {getTypeBadge(t.source_type)}
-                                <span className="text-xs text-muted-foreground">
-                                  {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
-                                </span>
-                                {t.duration_seconds && (
-                                  <span className="text-xs text-muted-foreground">
-                                    · {Math.floor(t.duration_seconds / 60)}:{String(t.duration_seconds % 60).padStart(2, '0')}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
-                                  <Copy className="h-3.5 w-3.5" />
-                                </Button>
-                                <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
-                                  {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                </button>
-                              </div>
-                            </div>
-                            {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
-                            {expandedResult === t.id && (
-                              <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
-                                <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-
-                {/* Ungrouped (no customer) */}
-                {groupedTranscriptions.ungrouped.length > 0 && (
-                  <div className="glass-card overflow-hidden">
-                    <button
-                      onClick={() => setExpandedCustomer(expandedCustomer === '__ungrouped' ? null : '__ungrouped')}
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium text-muted-foreground">Unassigned</span>
-                        <Badge variant="secondary" className="text-[10px]">{groupedTranscriptions.ungrouped.length}</Badge>
-                      </div>
-                      {expandedCustomer === '__ungrouped' ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                    </button>
-                    {expandedCustomer === '__ungrouped' && (
-                      <div className="border-t border-border divide-y divide-border">
-                        {groupedTranscriptions.ungrouped.map((t) => (
-                          <div key={t.id} className="px-4 py-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                {getTypeBadge(t.source_type)}
-                                <span className="text-xs text-muted-foreground">
-                                  {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
-                                  <Copy className="h-3.5 w-3.5" />
-                                </Button>
-                                <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
-                                  {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                </button>
-                              </div>
-                            </div>
-                            {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
-                            {expandedResult === t.id && (
-                              <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
-                                <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            {/* ─── Recent Transcriptions (grouped by customer) ─── */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Recent Transcriptions</h2>
+                {transcriptions.length > 0 && (
+                  <Badge variant="secondary" className="text-[10px]">{transcriptions.length}</Badge>
                 )}
               </div>
-            )}
+              {loading ? (
+                <div className="glass-card p-8 text-center">
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+                </div>
+              ) : transcriptions.length === 0 ? (
+                <div className="glass-card p-8 text-center">
+                  <FileAudio className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                  <p className="text-sm text-muted-foreground">No transcriptions yet. Upload audio above to get started.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {groupedTranscriptions.grouped.map(([customerId, group]) => (
+                    <div key={customerId} className="glass-card overflow-hidden">
+                      <button
+                        onClick={() => setExpandedCustomer(expandedCustomer === customerId ? null : customerId)}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <User className="h-4 w-4 text-primary shrink-0" />
+                          <span className="text-sm font-medium text-foreground truncate">{group.customer?.full_name}</span>
+                          <Badge variant="secondary" className="text-[10px]">{group.items.length}</Badge>
+                        </div>
+                        {expandedCustomer === customerId ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      </button>
+                      {expandedCustomer === customerId && (
+                        <div className="border-t border-border divide-y divide-border">
+                          {group.items.map((t) => (
+                            <div key={t.id} className="px-4 py-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {getTypeBadge(t.source_type)}
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
+                                  </span>
+                                  {t.duration_seconds && (
+                                    <span className="text-xs text-muted-foreground">
+                                      · {Math.floor(t.duration_seconds / 60)}:{String(t.duration_seconds % 60).padStart(2, '0')}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
+                                    {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                  </button>
+                                </div>
+                              </div>
+                              {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
+                              {expandedResult === t.id && (
+                                <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
+                                  <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {groupedTranscriptions.ungrouped.length > 0 && (
+                    <div className="glass-card overflow-hidden">
+                      <button
+                        onClick={() => setExpandedCustomer(expandedCustomer === '__ungrouped' ? null : '__ungrouped')}
+                        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium text-muted-foreground">Unassigned</span>
+                          <Badge variant="secondary" className="text-[10px]">{groupedTranscriptions.ungrouped.length}</Badge>
+                        </div>
+                        {expandedCustomer === '__ungrouped' ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      </button>
+                      {expandedCustomer === '__ungrouped' && (
+                        <div className="border-t border-border divide-y divide-border">
+                          {groupedTranscriptions.ungrouped.map((t) => (
+                            <div key={t.id} className="px-4 py-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  {getTypeBadge(t.source_type)}
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(new Date(t.created_at), 'MMM d, yyyy h:mm a')}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <button onClick={() => setExpandedResult(expandedResult === t.id ? null : t.id)} className="text-muted-foreground hover:text-foreground p-1">
+                                    {expandedResult === t.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                  </button>
+                                </div>
+                              </div>
+                              {t.summary && <p className="text-xs text-muted-foreground line-clamp-2">{t.summary}</p>}
+                              {expandedResult === t.id && (
+                                <div className="bg-muted rounded-md p-3 max-h-[200px] overflow-y-auto">
+                                  <p className="text-sm text-foreground whitespace-pre-wrap">{t.transcript}</p>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ─── Right Column: RingCentral Softphone ─── */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Phone className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">Softphone</h2>
+            </div>
+            <div className="glass-card overflow-hidden rounded-xl sticky top-4">
+              <iframe
+                src={RC_EMBED_URL}
+                title="RingCentral Softphone"
+                className="w-full border-0"
+                style={{ height: '600px' }}
+                allow="microphone; autoplay"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+              />
+            </div>
           </div>
         </div>
       </div>
