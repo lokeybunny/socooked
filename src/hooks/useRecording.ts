@@ -33,6 +33,8 @@ export function useRecording() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const connectedTracksRef = useRef<Set<string>>(new Set());
   const destRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const actualVideoMimeRef = useRef<string>('video/webm');
+  const actualAudioMimeRef = useRef<string>('audio/webm');
 
   const getOrCreateVideo = useCallback((id: string, stream: MediaStream): HTMLVideoElement => {
     let vid = videoElementsRef.current.get(id);
@@ -138,15 +140,18 @@ export function useRecording() {
       ...dest.stream.getAudioTracks(),
     ]);
 
+    // Prefer H264 codecs — natively playable on Windows, Mac, and mobile
     const preferredTypes = [
       'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
       'video/mp4;codecs=avc1,mp4a.40.2',
       'video/mp4',
       'video/webm;codecs=h264,opus',
+      'video/webm;codecs=h264',
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
     ];
     const mimeType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+    actualVideoMimeRef.current = mimeType;
 
     // Video recorder
     const recorder = new MediaRecorder(combined, {
@@ -168,6 +173,7 @@ export function useRecording() {
       'audio/webm',
     ];
     const audioMime = audioPreferred.find(t => MediaRecorder.isTypeSupported(t)) || 'audio/webm';
+    actualAudioMimeRef.current = audioMime;
     const audioRecorder = new MediaRecorder(audioOnlyStream, { mimeType: audioMime });
     audioChunksRef.current = [];
     audioRecorder.ondataavailable = (e) => {
@@ -202,9 +208,13 @@ export function useRecording() {
           audioCtxRef.current?.close().catch(() => {});
           connectedTracksRef.current.clear();
           setRecording(false);
+          // Use the actual recorded MIME type so the blob container matches the codec
+          // This ensures Windows players can decode the file correctly
+          const videoType = actualVideoMimeRef.current;
+          const audioType = actualAudioMimeRef.current;
           resolve({
-            videoBlob: new Blob(chunksRef.current, { type: 'video/mp4' }),
-            audioBlob: new Blob(audioChunksRef.current, { type: 'audio/mp3' }),
+            videoBlob: new Blob(chunksRef.current, { type: videoType }),
+            audioBlob: new Blob(audioChunksRef.current, { type: audioType }),
           });
         }
       };
