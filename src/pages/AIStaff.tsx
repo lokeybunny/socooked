@@ -260,7 +260,18 @@ export default function AIStaff() {
 
   const agentMeta = (id: string) => AGENTS.find(a => a.id === id);
   const agentTasks = (id: string) => agentMeta(id)?.connected ? tasks.filter(t => t.bot_agent === id) : [];
-  const agentActivities = (id: string) => agentMeta(id)?.connected ? activities : [];
+  const agentActivities = (id: string) => {
+    if (!agentMeta(id)?.connected) return [];
+    if (id === 'web-designer') {
+      return activities.filter(a => 
+        a.action.startsWith('v0_design') || 
+        a.action.startsWith('V0_design') ||
+        (a.entity_type === 'conversation_thread' && (a.meta as any)?.name?.toLowerCase().includes('v0')) ||
+        (a.entity_type === 'bot_task' && (a.meta as any)?.name?.toLowerCase().includes('web design'))
+      );
+    }
+    return activities;
+  };
 
   const selected = AGENTS.find(a => a.id === selectedAgent)!;
   const mainAgent = AGENTS[0];
