@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Phone, RefreshCw, PhoneIncoming, PhoneOutgoing, Search } from 'lucide-react';
+import { Phone as PhoneIcon, RefreshCw, PhoneIncoming, PhoneOutgoing, Search } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
 
@@ -27,6 +27,28 @@ export default function PhonePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showWidget, setShowWidget] = useState(true);
+  const widgetLoaded = useRef(false);
+
+  // Load RingCentral Embeddable widget
+  useEffect(() => {
+    if (widgetLoaded.current) return;
+    widgetLoaded.current = true;
+
+    const script = document.createElement('script');
+    script.src = 'https://ringcentral.github.io/ringcentral-embeddable/adapter.js?newAdapterUI=1';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      // Cleanup widget on unmount
+      const widget = document.getElementById('rc-widget-adapter-frame');
+      if (widget) widget.remove();
+      const widgetEl = document.querySelector('[id^="rc-widget"]');
+      if (widgetEl) widgetEl.remove();
+      widgetLoaded.current = false;
+    };
+  }, []);
 
   const loadCalls = useCallback(async () => {
     setLoading(true);
@@ -71,12 +93,31 @@ export default function PhonePage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-            <p className="text-muted-foreground mt-1">RingCentral call log — inbound & outbound calls.</p>
+            <p className="text-muted-foreground mt-1">RingCentral call log & embedded phone widget.</p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showWidget ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowWidget(!showWidget)}
+              className="gap-1.5"
+            >
+              <PhoneIcon className="h-4 w-4" />
+              {showWidget ? 'Hide Phone' : 'Show Phone'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+            </Button>
+          </div>
         </div>
+
+        {showWidget && (
+          <div className="rounded-lg border border-border bg-card p-4">
+            <p className="text-sm text-muted-foreground mb-2">
+              The RingCentral phone widget is loaded in the bottom-right corner. Log in with your RingCentral account to make and receive calls, send SMS, and more.
+            </p>
+          </div>
+        )}
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
