@@ -8,10 +8,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /* ── Agent definitions ───────────────────────────────────── */
 const AGENTS = [
-  { id: 'clawd-main', label: 'CLAWD Main', role: 'Orchestrator', icon: Cpu, color: 'from-violet-500 to-purple-600', ring: 'ring-violet-500/30', bg: 'bg-violet-500/10', text: 'text-violet-400', pulse: 'bg-violet-500' },
-  { id: 'web-designer', label: 'Web Designer', role: 'UI/UX Agent', icon: Palette, color: 'from-cyan-500 to-blue-600', ring: 'ring-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', pulse: 'bg-cyan-500' },
-  { id: 'social-media', label: 'Social Media', role: 'Content Agent', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500' },
-  { id: 'leads-finder', label: 'Leads Finder', role: 'Outreach Agent', icon: Radar, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500' },
+  { id: 'clawd-main', label: 'CLAWD Main', role: 'SpaceBot.sh — Orchestrator', icon: Cpu, color: 'from-violet-500 to-purple-600', ring: 'ring-violet-500/30', bg: 'bg-violet-500/10', text: 'text-violet-400', pulse: 'bg-violet-500', connected: true },
+  { id: 'web-designer', label: 'Web Designer', role: 'UI/UX Agent — Coming Soon', icon: Palette, color: 'from-cyan-500 to-blue-600', ring: 'ring-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', pulse: 'bg-cyan-500', connected: false },
+  { id: 'social-media', label: 'Social Media', role: 'Content Agent — Coming Soon', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: false },
+  { id: 'leads-finder', label: 'Leads Finder', role: 'Outreach Agent — Coming Soon', icon: Radar, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500', connected: false },
 ] as const;
 
 type AgentId = typeof AGENTS[number]['id'];
@@ -290,20 +290,14 @@ export default function AIStaff() {
             {/* Connector to split */}
             <div className="flex flex-col items-center mx-2">
               <svg width="48" height="120" viewBox="0 0 48 120" className="overflow-visible">
-                {childAgents.map((_, i) => {
+                {childAgents.map((agent, i) => {
                   const y = 20 + i * 40;
-                  const hasActivity = agentTasks(childAgents[i].id).some(t => t.status === 'in_progress' || t.status === 'queued');
                   return (
-                    <g key={i}>
-                      <line x1="0" y1="60" x2="24" y2="60" stroke="hsl(var(--border))" strokeWidth="1.5" />
-                      <line x1="24" y1="60" x2="24" y2={y} stroke="hsl(var(--border))" strokeWidth="1.5" />
-                      <line x1="24" y1={y} x2="48" y2={y} stroke="hsl(var(--border))" strokeWidth="1.5" />
+                    <g key={i} opacity={agent.connected ? 1 : 0.3}>
+                      <line x1="0" y1="60" x2="24" y2="60" stroke="hsl(var(--border))" strokeWidth="1.5" strokeDasharray={agent.connected ? "0" : "4 4"} />
+                      <line x1="24" y1="60" x2="24" y2={y} stroke="hsl(var(--border))" strokeWidth="1.5" strokeDasharray={agent.connected ? "0" : "4 4"} />
+                      <line x1="24" y1={y} x2="48" y2={y} stroke="hsl(var(--border))" strokeWidth="1.5" strokeDasharray={agent.connected ? "0" : "4 4"} />
                       <polygon points={`42,${y-3} 48,${y} 42,${y+3}`} fill="hsl(var(--muted-foreground))" opacity="0.4" />
-                      {hasActivity && (
-                        <circle r="2.5" fill="hsl(var(--primary))">
-                          <animateMotion dur="2s" repeatCount="indefinite" path={`M0,60 L24,60 L24,${y} L48,${y}`} />
-                        </circle>
-                      )}
                     </g>
                   );
                 })}
