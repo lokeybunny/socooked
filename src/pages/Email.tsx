@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   MessageSquareText, Voicemail, Filter, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check, Users, Search,
+  ChevronsUpDown, Check, Users, Search, FileAudio,
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -98,7 +98,7 @@ export default function EmailPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('inbox');
-  const [channel, setChannel] = useState<'email' | 'sms' | 'voicemail'>('email');
+  const [channel, setChannel] = useState<'email' | 'sms' | 'voicemail' | 'transcriptions'>('email');
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -550,6 +550,7 @@ export default function EmailPage() {
             { key: 'email' as const, icon: Mail, label: 'Email' },
             { key: 'sms' as const, icon: MessageSquareText, label: 'SMS' },
             { key: 'voicemail' as const, icon: Voicemail, label: 'Voicemail' },
+            { key: 'transcriptions' as const, icon: FileAudio, label: 'Transcriptions' },
           ].map(({ key, icon: Icon, label }) => (
             <Button
               key={key}
@@ -657,6 +658,24 @@ export default function EmailPage() {
               )}
             </TabsContent>
           </Tabs>
+        ) : channel === 'transcriptions' ? (
+          <div className="glass-card p-8 text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <FileAudio className="h-8 w-8 text-primary" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">Transcriptions</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Voicemails and call recordings will be automatically transcribed here once the transcription API is connected.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-1.5 bg-muted text-muted-foreground rounded-full px-3 py-1.5 text-xs font-medium">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              API not connected
+            </div>
+          </div>
         ) : (
           <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderLegacyList(legacyComms.filter((c) => matchesSearch(`${c.subject || ''} ${c.phone_number || ''} ${c.body || ''}`)))}</div>
         )}
