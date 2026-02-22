@@ -283,6 +283,7 @@ export default function MeetingRoom() {
         category,
         customer_id: meeting.customer_id,
         url: uploadData?.file?.webViewLink || null,
+        folder: meeting.id,
       });
 
       return true;
@@ -432,10 +433,7 @@ export default function MeetingRoom() {
     }
   };
 
-  const cleanupAndLeave = useCallback(async () => {
-    if (recording) {
-      await stopAndUpload();
-    }
+  const cleanupStreams = useCallback(() => {
     channelRef.current?.send({
       type: 'broadcast',
       event: 'leave',
@@ -446,20 +444,36 @@ export default function MeetingRoom() {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     screenStreamRef.current?.getTracks().forEach(t => t.stop());
     channelRef.current?.unsubscribe();
-  }, [recording, stopAndUpload]);
+  }, []);
 
   const leaveRoom = async () => {
-    await cleanupAndLeave();
+    // Stop recording first (before killing streams) so blobs are captured
+    if (recording) {
+      const { videoBlob, audioBlob } = await stopRecording();
+      cleanupStreams();
+      await uploadRecordings(videoBlob, audioBlob);
+    } else {
+      cleanupStreams();
+    }
     navigate('/meetings');
   };
 
   const endMeeting = async () => {
-    await cleanupAndLeave();
+    setUploading(true);
+    // Stop recording first (before killing streams) so blobs are captured
+    if (recording) {
+      const { videoBlob, audioBlob } = await stopRecording();
+      cleanupStreams();
+      await uploadRecordings(videoBlob, audioBlob);
+    } else {
+      cleanupStreams();
+    }
     // Mark meeting as ended in DB
     if (meeting?.id) {
       await supabase.from('meetings').update({ status: 'ended' }).eq('id', meeting.id);
     }
-    toast.success('Meeting ended');
+    setUploading(false);
+    toast.success('Meeting ended — recordings saved');
     window.location.href = 'https://stu25.com';
   };
 
