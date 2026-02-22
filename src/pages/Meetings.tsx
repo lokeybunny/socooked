@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Video, Copy, Trash2, ExternalLink, Search, ChevronLeft, ChevronRight, Download, FileVideo, FileAudio } from 'lucide-react';
+import { Plus, Video, Copy, Trash2, ExternalLink, Search, ChevronLeft, ChevronRight, Download, FileVideo, FileAudio, RefreshCw } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
@@ -114,10 +114,14 @@ export default function Meetings() {
             <h1 className="text-2xl font-bold text-foreground">Meetings</h1>
             <p className="text-muted-foreground mt-1">Create and manage video meetings.</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-1" /> New Meeting</Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => { setLoading(true); load(); }} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Fetch Rec
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="h-4 w-4 mr-1" /> New Meeting</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Create Meeting</DialogTitle></DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
@@ -158,7 +162,8 @@ export default function Meetings() {
                 <Button type="submit" className="w-full">Create Meeting</Button>
               </form>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
 
         {/* Search */}
