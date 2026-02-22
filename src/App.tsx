@@ -31,6 +31,7 @@ import AIStaff from "./pages/AIStaff";
 import CustomU from "./pages/CustomU";
 import ClientUpload from "./pages/portal/ClientUpload";
 import Previews from "./pages/Previews";
+import CalendarPage from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/meetings" element={<Meetings />} />
             <Route path="/meet/:roomCode" element={<MeetingRoom />} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/ai-staff" element={<AIStaff />} />
             <Route path="/custom-u" element={<CustomU />} />
             <Route path="/previews" element={<Previews />} />

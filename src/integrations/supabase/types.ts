@@ -270,6 +270,81 @@ export type Database = {
           },
         ]
       }
+      calendar_events: {
+        Row: {
+          all_day: boolean
+          category: string | null
+          color: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          description: string | null
+          end_time: string | null
+          id: string
+          location: string | null
+          recurrence: string | null
+          reminder_minutes: number | null
+          source: string
+          source_id: string | null
+          start_time: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          category?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          recurrence?: string | null
+          reminder_minutes?: number | null
+          source?: string
+          source_id?: string | null
+          start_time: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          category?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          description?: string | null
+          end_time?: string | null
+          id?: string
+          location?: string | null
+          recurrence?: string | null
+          reminder_minutes?: number | null
+          source?: string
+          source_id?: string | null
+          start_time?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       card_attachments: {
         Row: {
           card_id: string

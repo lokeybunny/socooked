@@ -1,25 +1,8 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Users,
-  Handshake,
-  FolderKanban,
-  CheckSquare,
-  FileText,
-  LayoutGrid,
-  LogOut,
-  ChevronLeft,
-  Menu,
-  MessageSquare,
-  Receipt,
-  FileCode2,
-  Radar,
-  Mail,
-  Phone,
-  Video,
-  Bot,
-  Link2,
-  Sparkles,
+  LayoutDashboard, Users, Handshake, FolderKanban, CheckSquare, FileText,
+  LayoutGrid, LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
+  Radar, Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -41,6 +24,7 @@ const navItems = [
   { to: '/phone', icon: Phone, label: 'Phone' },
   { to: '/boards', icon: LayoutGrid, label: 'Boards' },
   { to: '/meetings', icon: Video, label: 'Meetings' },
+  { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/custom-u', icon: Link2, label: 'Custom-U' },
   { to: '/previews', icon: Sparkles, label: 'Previews' },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff' },
