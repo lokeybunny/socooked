@@ -1,11 +1,12 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Phone as PhoneIcon, RefreshCw, PhoneIncoming, PhoneOutgoing, Search } from 'lucide-react';
+import { Phone as PhoneIcon, RefreshCw, PhoneIncoming, PhoneOutgoing, Search, List } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const RC_FN = 'ringcentral-api';
 
@@ -27,28 +28,6 @@ export default function PhonePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showWidget, setShowWidget] = useState(true);
-  const widgetLoaded = useRef(false);
-
-  // Load RingCentral Embeddable widget
-  useEffect(() => {
-    if (widgetLoaded.current) return;
-    widgetLoaded.current = true;
-
-    const script = document.createElement('script');
-    script.src = 'https://ringcentral.github.io/ringcentral-embeddable/adapter.js?newAdapterUI=1';
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      // Cleanup widget on unmount
-      const widget = document.getElementById('rc-widget-adapter-frame');
-      if (widget) widget.remove();
-      const widgetEl = document.querySelector('[id^="rc-widget"]');
-      if (widgetEl) widgetEl.remove();
-      widgetLoaded.current = false;
-    };
-  }, []);
 
   const loadCalls = useCallback(async () => {
     setLoading(true);
@@ -93,81 +72,84 @@ export default function PhonePage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-            <p className="text-muted-foreground mt-1">RingCentral call log & embedded phone widget.</p>
+            <p className="text-muted-foreground mt-1">Make calls & view history.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={showWidget ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowWidget(!showWidget)}
-              className="gap-1.5"
-            >
-              <PhoneIcon className="h-4 w-4" />
-              {showWidget ? 'Hide Phone' : 'Show Phone'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
-            </Button>
-          </div>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
         </div>
 
-        {showWidget && (
-          <div className="rounded-lg border border-border bg-card p-4">
-            <p className="text-sm text-muted-foreground mb-2">
-              The RingCentral phone widget is loaded in the bottom-right corner. Log in with your RingCentral account to make and receive calls, send SMS, and more.
-            </p>
-          </div>
-        )}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6">
+          {/* Call Log */}
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search calls..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search calls..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-sm text-muted-foreground">Loading call log...</span>
-          </div>
-        ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">No calls found.</p>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map(call => (
-              <div key={call.id} className="glass-card p-4 flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3 min-w-0">
-                  {call.direction === 'inbound' ? (
-                    <PhoneIncoming className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                  ) : (
-                    <PhoneOutgoing className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {call.direction === 'inbound' ? call.from : call.to}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {call.direction === 'inbound' ? `→ ${call.to}` : `← ${call.from}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {call.startTime ? format(new Date(call.startTime), 'MMM d, yyyy h:mm a') : '—'}
-                      {call.duration ? ` · ${formatDuration(call.duration)}` : ''}
-                      {' · '}{call.direction}
-                    </p>
-                    {call.recording && (
-                      <p className="text-xs text-primary mt-1">🎙️ Recording available</p>
-                    )}
-                  </div>
-                </div>
-                <StatusBadge status={call.result || 'unknown'} />
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading call log...</span>
               </div>
-            ))}
+            ) : filtered.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No calls found.</p>
+            ) : (
+              <div className="space-y-2 max-h-[calc(100vh-260px)] overflow-y-auto pr-1">
+                {filtered.map(call => (
+                  <div key={call.id} className="glass-card p-4 flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      {call.direction === 'inbound' ? (
+                        <PhoneIncoming className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                      ) : (
+                        <PhoneOutgoing className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {call.direction === 'inbound' ? call.from : call.to}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {call.direction === 'inbound' ? `→ ${call.to}` : `← ${call.from}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {call.startTime ? format(new Date(call.startTime), 'MMM d, yyyy h:mm a') : '—'}
+                          {call.duration ? ` · ${formatDuration(call.duration)}` : ''}
+                          {' · '}{call.direction}
+                        </p>
+                        {call.recording && (
+                          <p className="text-xs text-primary mt-1">🎙️ Recording available</p>
+                        )}
+                      </div>
+                    </div>
+                    <StatusBadge status={call.result || 'unknown'} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Embedded RingCentral Phone */}
+          <div className="glass-card rounded-2xl overflow-hidden flex flex-col items-center p-0 sticky top-6 self-start">
+            <div className="w-full px-4 py-3 border-b border-border/50 flex items-center gap-2">
+              <PhoneIcon className="h-4 w-4 text-foreground" />
+              <span className="text-sm font-medium text-foreground">RingCentral Phone</span>
+            </div>
+            <iframe
+              width="300"
+              height="560"
+              id="rc-widget"
+              allow="autoplay; microphone"
+              src="https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html"
+              className="border-0 bg-transparent"
+              style={{ colorScheme: 'auto' }}
+            />
+          </div>
+        </div>
       </div>
     </AppLayout>
   );
