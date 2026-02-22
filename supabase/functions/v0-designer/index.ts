@@ -193,7 +193,21 @@ Deno.serve(async (req) => {
       }).eq('id', bot_task_id)
     }
 
-    // Step 6: Log activity
+    // Step 6: Store in api_previews for the Previews page
+    await supabase.from('api_previews').insert({
+      customer_id: resolvedCustomerId,
+      source: 'v0-designer',
+      title: `V0 Design: ${prompt.substring(0, 120)}`,
+      prompt,
+      preview_url: finalDemoUrl,
+      edit_url: editUrl,
+      status: finalDemoUrl ? 'completed' : 'pending',
+      meta: { chat_id: chatId, version_status: finalVersion?.status || 'unknown' },
+      bot_task_id: bot_task_id || null,
+      thread_id: thread?.id || null,
+    })
+
+    // Step 7: Log activity
     await supabase.from('activity_log').insert({
       entity_type: 'conversation_thread',
       entity_id: thread?.id || null,

@@ -30,6 +30,7 @@ import MeetingRoom from "./pages/MeetingRoom";
 import AIStaff from "./pages/AIStaff";
 import CustomU from "./pages/CustomU";
 import ClientUpload from "./pages/portal/ClientUpload";
+import Previews from "./pages/Previews";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="/meet/:roomCode" element={<MeetingRoom />} />
             <Route path="/ai-staff" element={<AIStaff />} />
             <Route path="/custom-u" element={<CustomU />} />
+            <Route path="/previews" element={<Previews />} />
             <Route path="/u/:token" element={<ClientUpload />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

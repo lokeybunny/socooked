@@ -52,6 +52,79 @@ export type Database = {
           },
         ]
       }
+      api_previews: {
+        Row: {
+          bot_task_id: string | null
+          created_at: string
+          customer_id: string | null
+          edit_url: string | null
+          id: string
+          meta: Json
+          preview_url: string | null
+          prompt: string | null
+          source: string
+          status: string
+          thread_id: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          bot_task_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          edit_url?: string | null
+          id?: string
+          meta?: Json
+          preview_url?: string | null
+          prompt?: string | null
+          source?: string
+          status?: string
+          thread_id?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          bot_task_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          edit_url?: string | null
+          id?: string
+          meta?: Json
+          preview_url?: string | null
+          prompt?: string | null
+          source?: string
+          status?: string
+          thread_id?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_previews_bot_task_id_fkey"
+            columns: ["bot_task_id"]
+            isOneToOne: false
+            referencedRelation: "bot_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_previews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_previews_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automations: {
         Row: {
           actions: Json

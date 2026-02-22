@@ -19,6 +19,7 @@ import {
   Video,
   Bot,
   Link2,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -41,6 +42,7 @@ const navItems = [
   { to: '/boards', icon: LayoutGrid, label: 'Boards' },
   { to: '/meetings', icon: Video, label: 'Meetings' },
   { to: '/custom-u', icon: Link2, label: 'Custom-U' },
+  { to: '/previews', icon: Sparkles, label: 'Previews' },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff' },
 ];
 
