@@ -1,0 +1,1 @@
+ALTER TABLE public.transcriptions ADD COLUMN audio_url text DEFAULT NULL;

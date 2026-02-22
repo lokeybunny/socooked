@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +38,9 @@ export default function PhonePage() {
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // New customer dialog state
   const [newCustOpen, setNewCustOpen] = useState(false);
@@ -58,12 +61,27 @@ export default function PhonePage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Group transcriptions by customer
+  // Filter transcriptions by search query
+  const filteredTranscriptions = useMemo(() => {
+    if (!searchQuery.trim()) return transcriptions;
+    const q = searchQuery.toLowerCase();
+    return transcriptions.filter(t => {
+      const customerName = t.customer_id ? customers.find(c => c.id === t.customer_id)?.full_name || '' : '';
+      return (
+        customerName.toLowerCase().includes(q) ||
+        (t.transcript || '').toLowerCase().includes(q) ||
+        (t.summary || '').toLowerCase().includes(q) ||
+        (t.source_type || '').toLowerCase().includes(q)
+      );
+    });
+  }, [transcriptions, customers, searchQuery]);
+
+  // Group filtered transcriptions by customer
   const groupedTranscriptions = useMemo(() => {
     const groups: Record<string, { customer: any; items: any[] }> = {};
     const ungrouped: any[] = [];
 
-    for (const t of transcriptions) {
+    for (const t of filteredTranscriptions) {
       if (t.customer_id) {
         if (!groups[t.customer_id]) {
           const customer = customers.find(c => c.id === t.customer_id);
@@ -80,7 +98,21 @@ export default function PhonePage() {
     );
 
     return { grouped: sorted, ungrouped };
-  }, [transcriptions, customers]);
+  }, [filteredTranscriptions, customers]);
+
+  // Pagination
+  const totalGroups = groupedTranscriptions.grouped.length + (groupedTranscriptions.ungrouped.length > 0 ? 1 : 0);
+  const totalPages = Math.max(1, Math.ceil(totalGroups / ITEMS_PER_PAGE));
+  const paginatedGroups = useMemo(() => {
+    const allGroups = [...groupedTranscriptions.grouped];
+    // Add ungrouped as a virtual group at the end
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return allGroups.slice(start, end);
+  }, [groupedTranscriptions.grouped, currentPage, ITEMS_PER_PAGE]);
+  const showUngrouped = groupedTranscriptions.ungrouped.length > 0 && 
+    (currentPage - 1) * ITEMS_PER_PAGE + paginatedGroups.length < totalGroups &&
+    currentPage === totalPages;
 
   // ─── Drag & drop handlers ─────────────────────────────
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); };
@@ -206,12 +238,19 @@ export default function PhonePage() {
           setUploadingToDrive(false);
         }
 
+        // Save the drive link to the transcription record
+        const transcriptionId = transcribeData.transcription_id;
+        const driveLink = driveResult?.webViewLink || null;
+        if (transcriptionId && driveLink) {
+          await supabase.from('transcriptions').update({ audio_url: driveLink } as any).eq('id', transcriptionId);
+        }
+
         newResults.push({
-          id: transcribeData.transcription_id || file.name,
+          id: transcriptionId || file.name,
           filename: file.name,
           transcript: transcribeData.transcript,
           summary: transcribeData.summary,
-          driveLink: driveResult?.webViewLink || null,
+          driveLink,
           callType,
           success: true,
         });
@@ -240,6 +279,7 @@ export default function PhonePage() {
         created_at: new Date().toISOString(),
         duration_seconds: null,
         source_id: `upload_${Date.now()}`,
+        audio_url: r.driveLink || null,
       }));
       setTranscriptions(prev => [...newTranscriptions, ...prev]);
       // Auto-expand the customer group to show the new transcription
@@ -431,25 +471,38 @@ export default function PhonePage() {
 
             {/* ─── Recent Transcriptions (grouped by customer) ─── */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <User className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">Recent Transcriptions</h2>
-                {transcriptions.length > 0 && (
-                  <Badge variant="secondary" className="text-[10px]">{transcriptions.length}</Badge>
-                )}
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold text-foreground">Recent Transcriptions</h2>
+                  {filteredTranscriptions.length > 0 && (
+                    <Badge variant="secondary" className="text-[10px]">{filteredTranscriptions.length}</Badge>
+                  )}
+                </div>
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search transcripts..."
+                    value={searchQuery}
+                    onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                    className="pl-9 h-9"
+                  />
+                </div>
               </div>
               {loading ? (
                 <div className="glass-card p-8 text-center">
                   <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
                 </div>
-              ) : transcriptions.length === 0 ? (
+              ) : filteredTranscriptions.length === 0 ? (
                 <div className="glass-card p-8 text-center">
                   <FileAudio className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
-                  <p className="text-sm text-muted-foreground">No transcriptions yet. Upload audio above to get started.</p>
+                  <p className="text-sm text-muted-foreground">
+                    {searchQuery ? 'No transcriptions match your search.' : 'No transcriptions yet. Upload audio above to get started.'}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {groupedTranscriptions.grouped.map(([customerId, group]) => (
+                  {paginatedGroups.map(([customerId, group]) => (
                     <div key={customerId} className="glass-card overflow-hidden">
                       <button
                         onClick={() => setExpandedCustomer(expandedCustomer === customerId ? null : customerId)}
@@ -479,6 +532,13 @@ export default function PhonePage() {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
+                                  {t.audio_url && (
+                                    <a href={t.audio_url} target="_blank" rel="noopener noreferrer" title="Play audio">
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary hover:text-primary">
+                                        <Play className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </a>
+                                  )}
                                   <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
                                     <Copy className="h-3.5 w-3.5" />
                                   </Button>
@@ -500,7 +560,7 @@ export default function PhonePage() {
                     </div>
                   ))}
 
-                  {groupedTranscriptions.ungrouped.length > 0 && (
+                  {showUngrouped && (
                     <div className="glass-card overflow-hidden">
                       <button
                         onClick={() => setExpandedCustomer(expandedCustomer === '__ungrouped' ? null : '__ungrouped')}
@@ -525,6 +585,13 @@ export default function PhonePage() {
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
+                                  {t.audio_url && (
+                                    <a href={t.audio_url} target="_blank" rel="noopener noreferrer" title="Play audio">
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary hover:text-primary">
+                                        <Play className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </a>
+                                  )}
                                   <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
                                     <Copy className="h-3.5 w-3.5" />
                                   </Button>
@@ -543,6 +610,35 @@ export default function PhonePage() {
                           ))}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-2">
+                      <p className="text-xs text-muted-foreground">
+                        Page {currentPage} of {totalPages}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={currentPage <= 1}
+                          onClick={() => setCurrentPage(p => p - 1)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={currentPage >= totalPages}
+                          onClick={() => setCurrentPage(p => p + 1)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
