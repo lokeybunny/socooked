@@ -300,9 +300,9 @@ export default function AIStaff() {
                 {childAgents.slice(0, 2).map((agent, i) => {
                   const y = 30 + i * 60;
                   return (
-                    <g key={i} opacity={0.5}>
-                      <line x1="0" y1={y} x2="60" y2="60" stroke="hsl(var(--border))" strokeWidth="1.5" strokeDasharray="4 4" />
-                      <circle cx="30" cy={(y + 60) / 2} r="2" fill="hsl(var(--muted-foreground))" opacity="0.4" />
+                    <g key={i}>
+                      <line x1="0" y1={y} x2="60" y2="60" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
+                      <circle cx="30" cy={(y + 60) / 2} r="3" fill="hsl(var(--primary))" opacity="0.6" />
                     </g>
                   );
                 })}
@@ -324,9 +324,9 @@ export default function AIStaff() {
                 {childAgents.slice(2).map((agent, i) => {
                   const y = 30 + i * 60;
                   return (
-                    <g key={i} opacity={0.5}>
-                      <line x1="0" y1="60" x2="60" y2={y} stroke="hsl(var(--border))" strokeWidth="1.5" strokeDasharray="4 4" />
-                      <circle cx="30" cy={(y + 60) / 2} r="2" fill="hsl(var(--muted-foreground))" opacity="0.4" />
+                    <g key={i}>
+                      <line x1="0" y1="60" x2="60" y2={y} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
+                      <circle cx="30" cy={(y + 60) / 2} r="3" fill="hsl(var(--primary))" opacity="0.6" />
                     </g>
                   );
                 })}
