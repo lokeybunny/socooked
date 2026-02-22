@@ -256,7 +256,7 @@ export default function MeetingRoom() {
       });
   }, [roomCode, guestName, getLocalStream, createPeerConnection]);
 
-  const uploadFile = useCallback(async (blob: Blob, ext: string, assetType: 'Video' | 'Audio') => {
+  const uploadFile = useCallback(async (blob: Blob, ext: string, assetType: 'video' | 'audio') => {
     const mimeType = blob.type || (ext === 'mp4' ? 'video/mp4' : ext === 'webm' ? 'video/webm' : 'audio/webm');
 
     try {
@@ -346,7 +346,7 @@ export default function MeetingRoom() {
     URL.revokeObjectURL(url);
   };
 
-  const saveToContentAssets = useCallback(async (blob: Blob, ext: string, assetType: 'Video' | 'Audio') => {
+  const saveToContentAssets = useCallback(async (blob: Blob, ext: string, assetType: 'video' | 'audio') => {
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10);
     const timeStr = now.toTimeString().slice(0, 5).replace(':', '-');
@@ -381,16 +381,16 @@ export default function MeetingRoom() {
 
     // Always save to content_assets for later retrieval
     await Promise.all([
-      saveToContentAssets(videoBlob, videoExt, 'Video'),
-      saveToContentAssets(audioBlob, audioExt, 'Audio'),
+      saveToContentAssets(videoBlob, videoExt, 'video'),
+      saveToContentAssets(audioBlob, audioExt, 'audio'),
     ]);
 
     // Also upload to Google Drive if customer exists
     if (meeting?.customer_id) {
       setUploading(true);
       const [videoOk, audioOk] = await Promise.all([
-        uploadFile(videoBlob, videoExt, 'Video'),
-        uploadFile(audioBlob, audioExt, 'Audio'),
+        uploadFile(videoBlob, videoExt, 'video'),
+        uploadFile(audioBlob, audioExt, 'audio'),
       ]);
       setUploading(false);
 
