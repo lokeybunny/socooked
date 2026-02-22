@@ -17,12 +17,3 @@ verify_jwt = false
 
 [functions.instagram-api]
 verify_jwt = false
-
-[functions.zapier-webhook]
-verify_jwt = false
-
-[functions.ringcentral-api]
-verify_jwt = false
-
-[functions.transcribe-rc]
-verify_jwt = false

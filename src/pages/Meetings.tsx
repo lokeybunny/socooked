@@ -18,21 +18,18 @@ export default function Meetings() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [meetings, setMeetings] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [category, setCategory] = useState('');
-  const [customerId, setCustomerId] = useState('');
 
   const load = async () => {
-    const [meetingsRes, customersRes] = await Promise.all([
-      supabase.from('meetings').select('*').order('created_at', { ascending: false }),
-      supabase.from('customers').select('id, full_name, category').order('full_name'),
-    ]);
-    setMeetings(meetingsRes.data || []);
-    setCustomers(customersRes.data || []);
+    const { data } = await supabase
+      .from('meetings')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setMeetings(data || []);
     setLoading(false);
   };
 
@@ -45,14 +42,12 @@ export default function Meetings() {
       title: title || 'Meeting',
       scheduled_at: scheduledAt || null,
       category: category || null,
-      customer_id: customerId || null,
     }]).select().single();
     if (error) { toast.error(error.message); return; }
     toast.success('Meeting created');
     setTitle('');
     setScheduledAt('');
     setCategory('');
-    setCustomerId('');
     setDialogOpen(false);
     load();
   };
@@ -102,19 +97,6 @@ export default function Meetings() {
                     <SelectContent>
                       {SERVICE_CATEGORIES.map(cat => (
                         <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Customer (for auto-recording upload)</Label>
-                  <Select value={customerId} onValueChange={setCustomerId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

@@ -1,70 +1,111 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Phone as PhoneIcon, RefreshCw, PhoneIncoming, PhoneOutgoing, Search, List } from 'lucide-react';
+import { Plus, Phone, Trash2 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { format } from 'date-fns';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
-const RC_FN = 'ringcentral-api';
-
-async function callRC(action: string, params?: Record<string, string>): Promise<any> {
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  const qp = new URLSearchParams({ action, ...params });
-  const url = `https://${projectId}.supabase.co/functions/v1/${RC_FN}?${qp}`;
-  const res = await fetch(url, {
-    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'RingCentral API error');
-  return data;
-}
+const emptyForm = {
+  type: 'call' as 'call',
+  direction: 'outbound',
+  subject: '',
+  body: '',
+  phone_number: '',
+  status: 'sent',
+  customer_id: '',
+  duration_seconds: '',
+};
 
 export default function PhonePage() {
-  const [calls, setCalls] = useState<any[]>([]);
+  const { user } = useAuth();
+  const [comms, setComms] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [activeTab, setActiveTab] = useState('calls');
 
-  const loadCalls = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await callRC('call-log');
-      setCalls(data.calls || []);
-    } catch (e: any) {
-      console.error('RingCentral call log error:', e);
-      toast.error(e.message || 'Failed to load call log');
-      setCalls([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadCalls(); }, [loadCalls]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadCalls();
-    setRefreshing(false);
+  const load = async () => {
+    const [c, cust] = await Promise.all([
+      supabase.from('communications').select('*').eq('type', 'call').order('created_at', { ascending: false }),
+      supabase.from('customers').select('id, full_name, phone'),
+    ]);
+    setComms(c.data || []);
+    setCustomers(cust.data || []);
+    setLoading(false);
   };
 
-  const formatDuration = (seconds: number) => {
-    if (!seconds) return '0s';
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return m > 0 ? `${m}m ${s}s` : `${s}s`;
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload: any = {
+      type: form.type,
+      direction: form.direction,
+      subject: form.subject || null,
+      body: form.body || null,
+      phone_number: form.phone_number || null,
+      status: form.status,
+      customer_id: form.customer_id || null,
+      user_id: user?.id || null,
+      duration_seconds: form.type === 'call' && form.duration_seconds ? parseInt(form.duration_seconds) : null,
+    };
+    const { error } = await supabase.from('communications').insert([payload]);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Call logged');
+    setForm(emptyForm);
+    setDialogOpen(false);
+    load();
   };
 
-  const filtered = calls.filter(c => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (c.from || '').toLowerCase().includes(q) ||
-      (c.to || '').toLowerCase().includes(q) ||
-      (c.result || '').toLowerCase().includes(q);
-  });
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from('communications').delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Deleted');
+    load();
+  };
+
+  const getIcon = () => <Phone className="h-4 w-4 text-emerald-500" />;
+
+  const renderList = (items: any[]) => (
+    items.length === 0 ? (
+      <p className="text-sm text-muted-foreground py-8 text-center">Nothing here yet.</p>
+    ) : (
+      <div className="space-y-2">
+        {items.map(item => (
+          <div key={item.id} className="glass-card p-4 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              {getIcon()}
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {item.phone_number || item.subject || 'Unknown'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{item.body || '—'}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {format(new Date(item.created_at), 'MMM d, yyyy h:mm a')}
+                  {item.duration_seconds ? ` · ${Math.floor(item.duration_seconds / 60)}m ${item.duration_seconds % 60}s` : ''}
+                  {' · '}{item.direction}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <StatusBadge status={item.status} />
+              <button onClick={() => handleDelete(item.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  );
 
   return (
     <AppLayout>
@@ -72,84 +113,48 @@ export default function PhonePage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-            <p className="text-muted-foreground mt-1">Make calls & view history.</p>
+            <p className="text-muted-foreground mt-1">Call log and future RingCentral integration.</p>
           </div>
-          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6">
-          {/* Call Log */}
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search calls..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-                <span className="ml-2 text-sm text-muted-foreground">Loading call log...</span>
-              </div>
-            ) : filtered.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">No calls found.</p>
-            ) : (
-              <div className="space-y-2 max-h-[calc(100vh-260px)] overflow-y-auto pr-1">
-                {filtered.map(call => (
-                  <div key={call.id} className="glass-card p-4 flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 min-w-0">
-                      {call.direction === 'inbound' ? (
-                        <PhoneIncoming className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                      ) : (
-                        <PhoneOutgoing className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {call.direction === 'inbound' ? call.from : call.to}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {call.direction === 'inbound' ? `→ ${call.to}` : `← ${call.from}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {call.startTime ? format(new Date(call.startTime), 'MMM d, yyyy h:mm a') : '—'}
-                          {call.duration ? ` · ${formatDuration(call.duration)}` : ''}
-                          {' · '}{call.direction}
-                        </p>
-                        {call.recording && (
-                          <p className="text-xs text-primary mt-1">🎙️ Recording available</p>
-                        )}
-                      </div>
-                    </div>
-                    <StatusBadge status={call.result || 'unknown'} />
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setForm(emptyForm)}><Plus className="h-4 w-4 mr-1" /> Log</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Log Call</DialogTitle></DialogHeader>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Direction</Label>
+                    <Select value={form.direction} onValueChange={v => setForm({ ...form, direction: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inbound">Inbound</SelectItem>
+                        <SelectItem value="outbound">Outbound</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Embedded RingCentral Phone */}
-          <div className="glass-card rounded-2xl overflow-hidden flex flex-col items-center p-0 sticky top-6 self-start">
-            <div className="w-full px-4 py-3 border-b border-border/50 flex items-center gap-2">
-              <PhoneIcon className="h-4 w-4 text-foreground" />
-              <span className="text-sm font-medium text-foreground">RingCentral Phone</span>
-            </div>
-            <iframe
-              width="300"
-              height="560"
-              id="rc-widget"
-              allow="autoplay; microphone"
-              src="https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html"
-              className="border-0 bg-transparent"
-              style={{ colorScheme: 'auto' }}
-            />
-          </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Customer</Label>
+                  <Select value={form.customer_id} onValueChange={v => setForm({ ...form, customer_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                    <SelectContent>
+                      {customers.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Phone Number</Label><Input value={form.phone_number} onChange={e => setForm({ ...form, phone_number: e.target.value })} placeholder="+1 555-0123" /></div>
+                <div className="space-y-2"><Label>Duration (seconds)</Label><Input type="number" value={form.duration_seconds} onChange={e => setForm({ ...form, duration_seconds: e.target.value })} placeholder="120" /></div>
+                <div className="space-y-2"><Label>Notes</Label><textarea value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} placeholder="Call notes or message content..." className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" /></div>
+                <Button type="submit" className="w-full">Save</Button>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
+
+        {loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderList(comms)}
       </div>
     </AppLayout>
   );

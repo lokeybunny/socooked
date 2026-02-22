@@ -7,11 +7,9 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
   Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Users, Minimize2,
-  Circle, Square, Loader2,
 } from 'lucide-react';
 import MeetingChat from '@/components/meeting/MeetingChat';
 import MeetingVideoGate from '@/components/meeting/MeetingVideoGate';
-import { useMeetingRecorder } from '@/hooks/useMeetingRecorder';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -49,17 +47,6 @@ export default function MeetingRoom() {
   const peersRef = useRef<Map<string, Participant>>(new Map());
   const myPeerIdRef = useRef<string>(crypto.randomUUID());
   const channelRef = useRef<any>(null);
-
-  const { isRecording, uploading, startRecording, stopRecording } = useMeetingRecorder({
-    meetingId: meeting?.id || '',
-    meetingTitle: meeting?.title || 'Meeting',
-    customerId: meeting?.customer_id || null,
-    category: meeting?.category || null,
-    localVideoRef,
-    participants,
-    localStream: localStreamRef.current,
-    screenStream: screenStreamRef.current,
-  });
 
   // Load meeting info
   useEffect(() => {
@@ -299,7 +286,6 @@ export default function MeetingRoom() {
   };
 
   const leaveRoom = () => {
-    if (isRecording) stopRecording();
     channelRef.current?.send({
       type: 'broadcast',
       event: 'leave',
@@ -504,25 +490,6 @@ export default function MeetingRoom() {
           onClick={toggleScreen}
         >
           {screenOn ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
-        </Button>
-        <Button
-          variant={isRecording ? 'destructive' : 'secondary'}
-          size="icon"
-          className="h-12 w-12 rounded-full relative"
-          onClick={isRecording ? stopRecording : startRecording}
-          disabled={uploading}
-          title={isRecording ? 'Stop recording' : 'Start recording'}
-        >
-          {uploading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
-          ) : isRecording ? (
-            <Square className="h-4 w-4 fill-current" />
-          ) : (
-            <Circle className="h-5 w-5 fill-red-500 text-red-500" />
-          )}
-          {isRecording && (
-            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 animate-pulse" />
-          )}
         </Button>
         <Button
           variant="destructive"

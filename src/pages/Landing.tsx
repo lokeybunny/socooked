@@ -147,7 +147,7 @@ export default function Landing() {
         )}
       </AnimatePresence>
 
-    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '350vh' }}>
+    <div ref={containerRef} className="relative bg-background text-foreground" style={{ height: '200vh' }}>
       {/* Subtle grid — fixed */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.02] z-0">
         <div
@@ -360,14 +360,9 @@ export default function Landing() {
               STU25
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <a href="/policy" className="text-[8px] sm:text-[9px] text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-              Privacy Policy
-            </a>
-            <p className="text-[8px] sm:text-[9px] text-muted-foreground/30">
-              &copy; {new Date().getFullYear()}
-            </p>
-          </div>
+          <p className="text-[8px] sm:text-[9px] text-muted-foreground/30">
+            &copy; {new Date().getFullYear()}
+          </p>
         </footer>
 
         {/* Back to top */}

@@ -1053,7 +1053,6 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
-          customer_id: string | null
           host_id: string | null
           id: string
           room_code: string
@@ -1065,7 +1064,6 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
-          customer_id?: string | null
           host_id?: string | null
           id?: string
           room_code?: string
@@ -1077,7 +1075,6 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
-          customer_id?: string | null
           host_id?: string | null
           id?: string
           room_code?: string
@@ -1087,13 +1084,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "meetings_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "meetings_host_id_fkey"
             columns: ["host_id"]
@@ -1350,59 +1340,6 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      transcriptions: {
-        Row: {
-          created_at: string
-          customer_id: string | null
-          direction: string | null
-          duration_seconds: number | null
-          id: string
-          occurred_at: string | null
-          phone_from: string | null
-          phone_to: string | null
-          source_id: string
-          source_type: string
-          summary: string | null
-          transcript: string
-        }
-        Insert: {
-          created_at?: string
-          customer_id?: string | null
-          direction?: string | null
-          duration_seconds?: number | null
-          id?: string
-          occurred_at?: string | null
-          phone_from?: string | null
-          phone_to?: string | null
-          source_id: string
-          source_type: string
-          summary?: string | null
-          transcript: string
-        }
-        Update: {
-          created_at?: string
-          customer_id?: string | null
-          direction?: string | null
-          duration_seconds?: number | null
-          id?: string
-          occurred_at?: string | null
-          phone_from?: string | null
-          phone_to?: string | null
-          source_id?: string
-          source_type?: string
-          summary?: string | null
-          transcript?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "transcriptions_customer_id_fkey"
-            columns: ["customer_id"]
-            isOneToOne: false
-            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]
