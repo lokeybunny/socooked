@@ -346,6 +346,28 @@ export default function MeetingRoom() {
     URL.revokeObjectURL(url);
   };
 
+  const saveToContentAssets = useCallback(async (blob: Blob, ext: string, assetType: 'Video' | 'Audio') => {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+    const timeStr = now.toTimeString().slice(0, 5).replace(':', '-');
+    const baseName = meeting?.title || 'Meeting';
+    const fileName = `${baseName} - ${dateStr} ${timeStr}.${ext}`;
+    const folderPath = `Meetings/${dateStr} - ${baseName}`;
+
+    const { error } = await supabase.from('content_assets').insert({
+      title: fileName,
+      type: assetType,
+      source: 'Meeting',
+      status: 'published',
+      category: meeting?.category || 'other',
+      customer_id: meeting?.customer_id || null,
+      url: null,
+      folder: folderPath,
+    });
+    if (error) console.error('[MeetingRoom] content_assets insert failed:', error);
+    else console.log('[MeetingRoom] content_asset saved:', folderPath, fileName);
+  }, [meeting]);
+
   const uploadRecordings = useCallback(async (videoBlob: Blob, audioBlob: Blob) => {
     const videoExt = videoBlob.type.includes('mp4') ? 'mp4' : 'webm';
     const audioExt = audioBlob.type.includes('mp4') ? 'm4a' : audioBlob.type.includes('webm') ? 'webm' : 'mp3';
@@ -356,6 +378,12 @@ export default function MeetingRoom() {
     downloadBlob(videoBlob, `${baseName}-${dateStr}.${videoExt}`);
     downloadBlob(audioBlob, `${baseName}-${dateStr}.${audioExt}`);
     toast.success('Recordings downloaded locally');
+
+    // Always save to content_assets for later retrieval
+    await Promise.all([
+      saveToContentAssets(videoBlob, videoExt, 'Video'),
+      saveToContentAssets(audioBlob, audioExt, 'Audio'),
+    ]);
 
     // Also upload to Google Drive if customer exists
     if (meeting?.customer_id) {
@@ -372,7 +400,7 @@ export default function MeetingRoom() {
         toast.error('Drive upload failed — local copies saved');
       }
     }
-  }, [meeting, uploadFile]);
+  }, [meeting, uploadFile, saveToContentAssets]);
 
   const stopAndUpload = useCallback(async () => {
     const { videoBlob, audioBlob } = await stopRecording();
