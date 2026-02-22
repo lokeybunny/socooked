@@ -311,21 +311,8 @@ export default function AIStaff() {
     }
     
     if (id === 'clawd-main') {
-      const previewTasks: BotTask[] = previews.map(p => ({
-        id: p.id,
-        title: p.title,
-        status: p.status === 'completed' ? 'completed' : p.status === 'failed' ? 'failed' : 'in_progress',
-        priority: 'medium',
-        bot_agent: 'clawd-main',
-        customer_id: p.customer_id,
-        created_at: p.created_at,
-        updated_at: p.updated_at,
-        description: null,
-        meta: p.meta,
-      }));
-      const ids = new Set(botTasks.map(t => t.id));
-      const merged = [...botTasks, ...previewTasks.filter(t => !ids.has(t.id))];
-      return merged.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
+      // Clawd Main only shows its own bot_tasks (orchestrator tasks), not web-designer previews
+      return botTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
     }
     
     return botTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
