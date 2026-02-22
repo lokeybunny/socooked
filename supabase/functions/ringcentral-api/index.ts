@@ -138,7 +138,7 @@ serve(async (req) => {
       case 'sms-list': {
         const perPage = url.searchParams.get('perPage') || '25';
         const data = await rcGet(
-          `/restapi/v1.0/account/~/extension/~/message-store?messageType=SMS&perPage=${perPage}&direction=Both`,
+          `/restapi/v1.0/account/~/extension/~/message-store?messageType=SMS&perPage=${perPage}`,
           token
         );
         return new Response(JSON.stringify({
