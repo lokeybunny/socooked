@@ -16,22 +16,24 @@ interface TokenResponse {
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 function getCredentials() {
+  const clientId = Deno.env.get('RINGCENTRAL_CLIENT_ID');
+  const clientSecret = Deno.env.get('RINGCENTRAL_CLIENT_SECRET');
+  if (!clientId || !clientSecret) throw new Error('RINGCENTRAL_CLIENT_ID/SECRET not configured');
+
+  // Try JSON credentials for username/password, fall back to JWT
   const raw = Deno.env.get('RINGCENTRAL_CREDENTIALS');
-  if (!raw) throw new Error('RINGCENTRAL_CREDENTIALS not configured');
-  let parsed: any;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error('RINGCENTRAL_CREDENTIALS is not valid JSON');
+  let username = '', password = '', extension: string | undefined;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      username = parsed.username || parsed.phone || '';
+      password = parsed.password || '';
+      extension = parsed.extension || undefined;
+    } catch {
+      // Not valid JSON, ignore
+    }
   }
-  console.log('RC creds keys:', Object.keys(parsed));
-  return {
-    client_id: parsed.client_id || parsed.clientId || parsed.ClientId || parsed.CLIENT_ID || '',
-    client_secret: parsed.client_secret || parsed.clientSecret || parsed.ClientSecret || parsed.CLIENT_SECRET || '',
-    username: parsed.username || parsed.Username || parsed.phone || parsed.phoneNumber || '',
-    password: parsed.password || parsed.Password || parsed.PASSWORD || '',
-    extension: parsed.extension || parsed.Extension || undefined,
-  };
+  return { client_id: clientId, client_secret: clientSecret, username, password, extension };
 }
 
 async function getAccessToken(): Promise<string> {
@@ -42,12 +44,18 @@ async function getAccessToken(): Promise<string> {
   const creds = getCredentials();
   const basicAuth = btoa(`${creds.client_id}:${creds.client_secret}`);
 
-  const body: Record<string, string> = {
-    grant_type: 'password',
-    username: creds.username,
-    password: creds.password,
-  };
-  if (creds.extension) body.extension = creds.extension;
+  // Use password grant if username/password available, otherwise try JWT
+  const jwtToken = Deno.env.get('RINGCENTRAL_JWT_TOKEN');
+  let body: Record<string, string>;
+
+  if (creds.username && creds.password) {
+    body = { grant_type: 'password', username: creds.username, password: creds.password };
+    if (creds.extension) body.extension = creds.extension;
+  } else if (jwtToken) {
+    body = { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwtToken };
+  } else {
+    throw new Error('No RingCentral auth method available (need username/password or JWT token)');
+  }
 
   const res = await fetch(`${RC_SERVER}/restapi/oauth/token`, {
     method: 'POST',
