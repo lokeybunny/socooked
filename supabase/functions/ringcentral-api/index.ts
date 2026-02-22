@@ -48,10 +48,14 @@ async function getAccessToken(): Promise<string> {
   const jwtToken = Deno.env.get('RINGCENTRAL_JWT_TOKEN');
   let body: Record<string, string>;
 
+  console.log('Auth debug - has username:', !!creds.username, 'has password:', !!creds.password, 'has JWT:', !!jwtToken);
+
   if (creds.username && creds.password) {
+    console.log('Using password grant for user:', creds.username);
     body = { grant_type: 'password', username: creds.username, password: creds.password };
     if (creds.extension) body.extension = creds.extension;
   } else if (jwtToken) {
+    console.log('Using JWT grant');
     body = { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwtToken };
   } else {
     throw new Error('No RingCentral auth method available (need username/password or JWT token)');
@@ -155,6 +159,7 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const action = url.searchParams.get('action');
+    console.log('RC API called, action:', action);
     const token = await getAccessToken();
 
     switch (action) {
