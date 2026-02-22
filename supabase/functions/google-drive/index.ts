@@ -232,6 +232,29 @@ serve(async (req) => {
       });
     }
 
+    // ─── DIAGNOSE: Check specific drive/folder access ─────
+    if (action === "check-access") {
+      // Try as Shared Drive first
+      const driveRes = await fetch(`${DRIVE_API}/drives/${rootFolderId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const driveData = await driveRes.json();
+      
+      // Try as regular folder
+      const fileRes = await fetch(`${DRIVE_API}/files/${rootFolderId}?supportsAllDrives=true&fields=id,name,mimeType,driveId,capabilities`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const fileData = await fileRes.json();
+      
+      return new Response(JSON.stringify({
+        rootFolderId,
+        asSharedDrive: { status: driveRes.status, data: driveData },
+        asFile: { status: fileRes.status, data: fileData },
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ─── ENSURE FOLDER STRUCTURE ──────────────────────────
     // Returns the target folder ID for a given category + customer name
     if (action === "ensure-folder") {
