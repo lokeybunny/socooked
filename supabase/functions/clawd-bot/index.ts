@@ -1464,6 +1464,46 @@ Deno.serve(async (req) => {
       return ok(gmailData)
     }
 
+    // ─── V0 DESIGNER (proxy to v0-designer function) ────────
+    if (path === 'generate-website' && req.method === 'POST') {
+      const { prompt, customer_id, category } = body
+      if (!prompt) return fail('prompt is required')
+
+      // Create a bot_task for tracking
+      const { data: task } = await supabase.from('bot_tasks').insert({
+        title: `Web Design: ${(prompt as string).substring(0, 80)}`,
+        bot_agent: 'web-designer',
+        status: 'queued',
+        priority: 'high',
+        customer_id: customer_id || null,
+        meta: { prompt, assigned_by: 'clawd-main' },
+      }).select('id').single()
+
+      // Call v0-designer edge function
+      const baseUrl = Deno.env.get('SUPABASE_URL')
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      const v0Res = await fetch(`${baseUrl}/functions/v1/v0-designer`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+          'x-internal': 'true',
+        },
+        body: JSON.stringify({
+          prompt,
+          customer_id: customer_id || null,
+          category: category || 'digital-services',
+          bot_task_id: task?.id,
+        }),
+      })
+
+      const v0Data = await v0Res.json()
+      if (!v0Res.ok) return fail(v0Data.error || 'V0 Designer error', v0Res.status)
+      if (isBot) await auditLog(supabase, 'generate-website', { prompt, customer_id })
+      await logActivity(supabase, 'bot_task', task?.id || null, 'v0_design_requested', `Web Design: ${(prompt as string).substring(0, 80)}`)
+      return ok(v0Data.data || v0Data)
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
       const [boards, customers, deals, projects, meetings, templates, content, transcriptions, botTasks] = await Promise.all([

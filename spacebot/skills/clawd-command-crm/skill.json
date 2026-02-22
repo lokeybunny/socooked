@@ -120,6 +120,7 @@
     { "name": "crm_email_drafts", "description": "Get draft emails", "method": "GET", "path": "/clawd-bot/email?action=drafts" },
     { "name": "crm_email_read", "description": "Read a specific email by message ID", "method": "GET", "path": "/clawd-bot/email?action=message&id={msg_id}" },
     { "name": "crm_email_send", "description": "Send email from warren@stu25.com", "method": "POST", "path": "/clawd-bot/email" },
-    { "name": "crm_email_save_draft", "description": "Save email as draft", "method": "POST", "path": "/clawd-bot/email" }
+    { "name": "crm_email_save_draft", "description": "Save email as draft", "method": "POST", "path": "/clawd-bot/email" },
+    { "name": "crm_generate_website", "description": "Generate a website via V0.dev — stores preview URL in threads", "method": "POST", "path": "/clawd-bot/generate-website" }
   ]
 }
