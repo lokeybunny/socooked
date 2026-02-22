@@ -1,8 +1,9 @@
 # Spacebot (CLAWD-COMMAND) API Documentation
 
-> **Version:** v1
-> **Last Updated:** 2026-02-19
+> **Version:** v3.0.0
+> **Last Updated:** 2026-02-22
 > **Status:** Production
+> **Total Endpoints:** 103 actions across 29 modules
 
 ---
 
@@ -12,6 +13,7 @@ All requests must include the shared secret header:
 
 ```
 x-bot-secret: <BOT_SECRET>
+Content-Type: application/json
 ```
 
 Alternatively, authenticated staff can use a JWT:
@@ -34,8 +36,6 @@ Bot requests use the **service role** (full access). JWT requests are scoped to 
 ---
 
 ## Unified Response Format
-
-**Every** response follows this shape:
 
 ### Success
 
@@ -77,489 +77,259 @@ Every bot-authenticated request is automatically logged to `webhook_events`:
 {
   "source": "spacebot",
   "event_type": "<endpoint_name>",
-  "payload": { ... request body ... },
+  "payload": { ... },
   "processed": true
 }
 ```
 
 ---
 
-## Recommended Workflow
-
-```
-1. GET /clawd-bot/state        → Snapshot of boards, customers, deals, projects, meetings
-2. POST /clawd-bot/lead        → Create or update a lead
-3. POST /clawd-bot/deal        → Create a deal for the customer
-4. POST /clawd-bot/project     → Create a project
-5. POST /clawd-bot/meeting     → Schedule a meeting, get room_url
-6. POST /clawd-bot/generate-email → Generate email with meeting link
-7. POST /invoice-api           → Create and send invoice
-```
-
----
-
-## Endpoints — CRM API (`/clawd-bot/*`)
-
----
-
-### `GET /clawd-bot/state`
-
-**Purpose:** System-wide snapshot for context-first workflow.
-
-**Request:** No body required.
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "boards": [...],
-    "customers": [...],
-    "deals": [...],
-    "projects": [...],
-    "meetings": [...]
-  }
-}
-```
-
----
-
-### `POST /clawd-bot/customer`
-
-**Purpose:** Create or update a customer.
-
-**Required fields (create):** `full_name`
-
-**Request (create):**
-```json
-{
-  "full_name": "Jane Doe",
-  "email": "jane@example.com",
-  "phone": "+1-818-555-0100",
-  "status": "lead",
-  "category": "web_dev"
-}
-```
-
-**Request (update):**
-```json
-{
-  "id": "uuid",
-  "status": "active",
-  "phone": "+1-818-555-0200"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": { "action": "created", "customer_id": "uuid" }
-}
-```
-
----
-
-### `POST /clawd-bot/lead`
-
-**Purpose:** Shortcut to create or update a lead. Deduplicates by email.
-
-**Required fields:** `full_name`
-
-**Request:**
-```json
-{
-  "full_name": "John Smith",
-  "email": "john@example.com",
-  "phone": "+1-702-555-0100",
-  "source": "instagram",
-  "category": "branding"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": { "action": "created", "customer_id": "uuid" }
-}
-```
-
----
+## Complete Endpoint Reference
+
+### State & Search
 
-### `POST /clawd-bot/deal`
+| Endpoint | Method | Purpose | Query Params |
+|----------|--------|---------|--------------|
+| `/clawd-bot/state` | GET | Full CRM snapshot | — |
+| `/clawd-bot/search` | GET | Search customers | `?q=searchterm` |
 
-**Purpose:** Create or update a deal.
+### Customers
 
-**Required fields (create):** `title`, `customer_id`
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/customers` | GET | List (filters: `?status=`, `?category=`) |
+| `/clawd-bot/customer` | POST | Create/Update |
+| `/clawd-bot/customer` | DELETE | Delete |
+| `/clawd-bot/bulk-delete` | POST | Bulk delete (max 100) |
+| `/clawd-bot/lead` | POST | Create/update lead (dedup by email) |
 
-**Request (create):**
-```json
-{
-  "title": "Website Redesign",
-  "customer_id": "uuid",
-  "deal_value": 5000,
-  "stage": "proposal",
-  "category": "web_dev"
-}
-```
+### Deals
 
-**Request (update):**
-```json
-{
-  "id": "uuid",
-  "stage": "won",
-  "status": "closed"
-}
-```
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/deals` | GET | List |
+| `/clawd-bot/deal` | POST | Create/Update |
+| `/clawd-bot/deal` | DELETE | Delete |
 
----
+### Projects
 
-### `POST /clawd-bot/project`
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/projects` | GET | List |
+| `/clawd-bot/project` | POST | Create/Update |
+| `/clawd-bot/project` | DELETE | Delete |
 
-**Purpose:** Create or update a project.
+### Tasks
 
-**Required fields (create):** `title`
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/project-tasks` | GET | List (filter: `?project_id=`) |
+| `/clawd-bot/project-task` | POST | Create/Update |
+| `/clawd-bot/project-task` | DELETE | Delete |
 
-**Request:**
-```json
-{
-  "title": "Brand Identity Package",
-  "customer_id": "uuid",
-  "status": "planned",
-  "priority": "high",
-  "category": "branding"
-}
-```
+### Invoices
 
----
-
-### `POST /clawd-bot/project-task`
-
-**Purpose:** Create or update a project task.
-
-**Required fields (create):** `title`, `project_id`
-
-**Request:**
-```json
-{
-  "title": "Design logo concepts",
-  "project_id": "uuid",
-  "status": "todo",
-  "priority": "high",
-  "due_date": "2026-03-01"
-}
-```
-
----
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/invoices` | GET | List |
+| `/clawd-bot/invoice` | POST | Create/Update |
+| `/clawd-bot/invoice` | DELETE | Delete |
+| `/invoice-api` | POST | Create with line items + auto-calc |
+| `/invoice-api` | GET | List by customer |
+| `/invoice-api` | PATCH | Update status |
+
+### Boards
 
-### `POST /clawd-bot/card`
-
-**Purpose:** Create or update a Kanban card.
-
-**Required fields (create):** `board_id`, `list_id`, `title`
-
-**Request:**
-```json
-{
-  "board_id": "uuid",
-  "list_id": "uuid",
-  "title": "Follow up with client",
-  "priority": "high",
-  "description": "Discuss contract terms"
-}
-```
-
----
-
-### `POST /clawd-bot/move`
-
-**Purpose:** Move a card to a different list.
-
-**Required fields:** `card_id`, `to_list_id`
-
-**Request:**
-```json
-{
-  "card_id": "uuid",
-  "to_list_id": "uuid"
-}
-```
-
----
-
-### `POST /clawd-bot/document`
-
-**Purpose:** Create or update a document record.
-
-**Required fields (create):** `title`, `type`, `customer_id`
-
-**Request:**
-```json
-{
-  "title": "John Smith Resume",
-  "type": "resume",
-  "customer_id": "uuid",
-  "status": "draft"
-}
-```
-
----
-
-### `POST /clawd-bot/meeting`
-
-**Purpose:** Create, update, or delete a meeting. Returns `room_url` for video conferencing.
-
-**Required fields (create):** None (defaults to "Meeting")
-
-**Request (create):**
-```json
-{
-  "title": "Client Onboarding Call",
-  "scheduled_at": "2026-02-20T15:00:00Z",
-  "category": "web_dev"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "action": "created",
-    "meeting": {
-      "id": "uuid",
-      "title": "Client Onboarding Call",
-      "room_code": "a1b2c3d4e5f6",
-      "status": "waiting",
-      "scheduled_at": "2026-02-20T15:00:00Z",
-      "category": "web_dev"
-    },
-    "room_url": "/meet/a1b2c3d4e5f6"
-  }
-}
-```
-
-**Request (delete):**
-```json
-{ "id": "uuid", "_delete": true }
-```
-
----
-
-### `POST /clawd-bot/generate-resume`
-
-**Purpose:** Generate a resume (mock PDF).
-
-**Request:**
-```json
-{
-  "name": "Jane Doe",
-  "email": "jane@example.com",
-  "resume_style": "modern"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "pdf_base64": "MOCK_PDF_BASE64_RESUME_PLACEHOLDER",
-    "resume_json": { "name": "Jane Doe", "skills": [...] }
-  }
-}
-```
-
----
-
-### `POST /clawd-bot/generate-contract`
-
-**Purpose:** Generate a service contract (mock PDF).
-
-**Request:**
-```json
-{
-  "client_name": "Jane Doe",
-  "terms": { "price": 400, "deposit": 200 },
-  "contract_template": "resume_service_v1"
-}
-```
-
----
-
-### `POST /clawd-bot/generate-email`
-
-**Purpose:** Generate a client-facing email with portal/meeting link.
-
-**Request:**
-```json
-{
-  "customer_name": "Jane Doe",
-  "portal_link": "https://socooked.lovable.app/meet/a1b2c3d4e5f6"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "subject": "Your documents are ready — Jane Doe",
-    "body_html": "<p>Hi Jane Doe,</p>...",
-    "body_text": "Hi Jane Doe, your documents are ready..."
-  }
-}
-```
-
----
-
-### `POST /clawd-bot/analyze-thread`
-
-**Purpose:** Analyze a conversation transcript for missing client info.
-
-**Request:**
-```json
-{
-  "transcript": "My name is Jane, email jane@test.com, call me at 555-0100"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "status": "ready_for_docs",
-    "missing_fields": [],
-    "summary": "All required information collected."
-  }
-}
-```
-
----
-
-## Endpoints — Invoice API (`/invoice-api`)
-
----
-
-### `POST /invoice-api`
-
-**Purpose:** Create an invoice.
-
-**Required fields:** `line_items` + (`customer_id` OR `customer_email`)
-
-**Request:**
-```json
-{
-  "customer_id": "uuid",
-  "line_items": [
-    { "description": "Website Design", "quantity": 1, "unit_price": 2500 },
-    { "description": "SEO Setup", "quantity": 1, "unit_price": 500 }
-  ],
-  "tax_rate": 8.5,
-  "currency": "USD",
-  "due_date": "2026-03-15",
-  "auto_send": true
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "invoice": {
-      "id": "uuid",
-      "invoice_number": "INV-01005",
-      "amount": 3255,
-      "status": "sent"
-    }
-  }
-}
-```
-
----
-
-### `GET /invoice-api?customer_id=uuid`
-
-**Purpose:** List invoices for a customer (limit 50).
-
----
-
-### `PATCH /invoice-api?id=uuid`
-
-**Purpose:** Update invoice status.
-
-**Request:**
-```json
-{ "status": "paid" }
-```
-
----
-
-## Additional Read Endpoints (GET)
-
-| Endpoint | Purpose | Query Params |
-|----------|---------|--------------|
-| `GET /clawd-bot/customers` | List customers | `?status=lead&category=web_dev` |
-| `GET /clawd-bot/deals` | List deals | `?status=open&category=branding` |
-| `GET /clawd-bot/projects` | List projects | `?status=active&category=web_dev` |
-| `GET /clawd-bot/project-tasks` | List tasks | `?project_id=uuid&category=web_dev` |
-| `GET /clawd-bot/documents` | List documents | `?customer_id=uuid` |
-| `GET /clawd-bot/invoices` | List invoices | `?customer_id=uuid&status=draft` |
-| `GET /clawd-bot/communications` | List comms | `?customer_id=uuid&type=email` |
-| `GET /clawd-bot/signatures` | List signatures | `?customer_id=uuid` |
-| `GET /clawd-bot/interactions` | List interactions | `?customer_id=uuid` |
-| `GET /clawd-bot/boards` | List boards + lists + cards | — |
-| `GET /clawd-bot/bot-tasks` | List bot tasks | `?status=queued` |
-| `GET /clawd-bot/activity` | List activity log | `?entity_type=customer` |
-| `GET /clawd-bot/labels` | List labels | `?board_id=uuid` |
-| `GET /clawd-bot/automations` | List automations | `?trigger_table=customers&enabled=true` |
-| `GET /clawd-bot/meetings` | List meetings | — |
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/boards` | GET | List with lists+cards |
+| `/clawd-bot/board` | POST | Create/Update |
+| `/clawd-bot/board` | DELETE | Delete |
+
+### Lists
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/list` | POST | Create/Update |
+| `/clawd-bot/list` | DELETE | Delete (cascades cards) |
+
+### Cards
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/card` | POST | Create/Update |
+| `/clawd-bot/card` | DELETE | Delete |
+| `/clawd-bot/move` | POST | Move to list |
+
+### Comments
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/comments` | GET | List (filter: `?card_id=`) |
+| `/clawd-bot/comment` | POST | Create |
+| `/clawd-bot/comment` | DELETE | Delete |
+
+### Attachments
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/attachments` | GET | List (filter: `?card_id=`) |
+| `/clawd-bot/attach` | POST | Create |
+| `/clawd-bot/attach` | DELETE | Delete |
+
+### Labels
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/labels` | GET | List (filter: `?board_id=`) |
+| `/clawd-bot/label` | POST | Create |
+| `/clawd-bot/label` | DELETE | Delete |
+
+### Card Labels
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/card-label` | POST | Assign label to card |
+| `/clawd-bot/card-label` | DELETE | Remove label from card |
+
+### Checklists
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/checklists` | GET | List (filter: `?card_id=`) |
+| `/clawd-bot/checklist` | POST | Create/Update |
+| `/clawd-bot/checklist` | DELETE | Delete (cascades items) |
+
+### Checklist Items
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/checklist-item` | POST | Create/Update (toggle done) |
+| `/clawd-bot/checklist-item` | DELETE | Delete |
+
+### Content Assets
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/content` | GET | List (filters: `?customer_id=`, `?source=`, `?type=`, `?category=`) |
+| `/clawd-bot/content` | POST | Create/Update |
+| `/clawd-bot/content` | DELETE | Delete |
+
+### Templates
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/templates` | GET | List (filters: `?type=`, `?category=`) |
+| `/clawd-bot/template` | POST | Create/Update |
+| `/clawd-bot/template` | DELETE | Delete |
+
+### Threads
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/threads` | GET | List (filter: `?customer_id=`) |
+| `/clawd-bot/thread` | POST | Create/Update |
+| `/clawd-bot/thread` | DELETE | Delete |
+
+### Documents
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/documents` | GET | List (filter: `?customer_id=`) |
+| `/clawd-bot/document` | POST | Create/Update |
+| `/clawd-bot/document` | DELETE | Delete |
+
+### Communications
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/communications` | GET | List (filters: `?customer_id=`, `?type=`) |
+| `/clawd-bot/communication` | POST | Create/Update |
+| `/clawd-bot/communication` | DELETE | Delete |
+
+### Interactions
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/interactions` | GET | List (filter: `?customer_id=`) |
+| `/clawd-bot/interaction` | POST | Create/Update |
+| `/clawd-bot/interaction` | DELETE | Delete |
+
+### Signatures (read-only)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/signatures` | GET | List (filters: `?customer_id=`, `?document_id=`) |
+
+### Transcriptions
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/transcriptions` | GET | List (filters: `?customer_id=`, `?source_type=`) |
+| `/clawd-bot/transcription` | POST | Create/Update |
+| `/clawd-bot/transcription` | DELETE | Delete |
+
+### Bot Tasks
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/bot-tasks` | GET | List (filter: `?status=`) |
+| `/clawd-bot/bot-task` | POST | Create/Update |
+| `/clawd-bot/bot-task` | DELETE | Delete |
+
+### Meetings
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/meetings` | GET | List |
+| `/clawd-bot/meeting` | POST | Create/Update (returns `room_url`) |
+| `/clawd-bot/meeting` | DELETE | Delete |
+
+### Automations
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/automations` | GET | List (filters: `?trigger_table=`, `?enabled=`) |
+| `/clawd-bot/automation` | POST | Create/Update |
+| `/clawd-bot/automation` | DELETE | Delete |
+| `/clawd-bot/trigger` | POST | Evaluate and execute automations |
+
+### Activity Log (read-only)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/activity` | GET | List (filter: `?entity_type=`) |
+
+### Upload Tokens (Custom-U Portal)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/upload-token` | POST | Generate token (returns `portal_url`) |
+| `/clawd-bot/upload-token` | DELETE | Revoke token |
+
+### Generators
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/generate-resume` | POST | Generate resume mock |
+| `/clawd-bot/generate-contract` | POST | Generate contract mock |
+| `/clawd-bot/generate-email` | POST | Generate client email |
+| `/clawd-bot/analyze-thread` | POST | Analyze transcript for missing info |
 
 ---
 
 ## Delete Pattern
 
-All singular endpoints support DELETE via method:
+All singular endpoints support DELETE via HTTP method:
 
 ```
 DELETE /clawd-bot/customer   → { "id": "uuid" }
 DELETE /clawd-bot/deal       → { "id": "uuid" }
 DELETE /clawd-bot/project    → { "id": "uuid" }
-DELETE /clawd-bot/meeting    → { "id": "uuid" }
 ...etc
 ```
 
-Or via POST with `_delete` flag:
-
-```json
-POST /clawd-bot/meeting → { "id": "uuid", "_delete": true }
-```
-
----
-
-## Automation Engine
-
-### `POST /clawd-bot/trigger`
-
-**Purpose:** Evaluate automation rules and execute matching actions.
-
-**Request:**
-```json
-{
-  "event": "INSERT",
-  "table": "customers",
-  "payload": { "id": "uuid", "customer_id": "uuid" }
-}
-```
-
-**Supported action types:**
-- `create_task` — Creates a bot task
-- `update_status` — Updates a record's status
-- `create_interaction` — Logs an interaction
-- `create_card` — Adds a card to a board
+Exception: `card-label` uses `{ "card_id": "uuid", "label_id": "uuid" }`, `upload-token` uses `{ "customer_id": "uuid" }`
 
 ---
 
@@ -570,6 +340,9 @@ POST /clawd-bot/meeting → { "id": "uuid", "_delete": true }
 | 400 | Bad request / validation error |
 | 401 | Unauthorized (missing or invalid secret/JWT) |
 | 404 | Unknown endpoint |
-| 405 | Method not allowed |
 | 429 | Rate limit exceeded |
 | 500 | Internal server error |
+
+---
+
+*Version: 3.0.0 — Last updated: 2026-02-22*

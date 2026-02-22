@@ -1,7 +1,7 @@
 # SpaceBot (CLAWD-COMMAND) Integration Guide
 
-> **Version:** v1  
-> **Last Updated:** 2026-02-19
+> **Version:** v3.0.0  
+> **Last Updated:** 2026-02-22
 
 ---
 
@@ -52,8 +52,6 @@ Both edge functions require these environment variables (set as Supabase secrets
 ---
 
 ## Unified Response Format
-
-**Every** response follows this shape:
 
 ### Success
 
@@ -107,11 +105,13 @@ Staff JWT calls are **not** audit-logged.
 
 The recommended workflow is: **create the data record first**, then perform actions against it.
 
-### 1. Create a Lead
+### 1. Search for existing customer
 
-**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/lead`
+**GET** `/clawd-bot/search?q=Jane`
 
-**Request:**
+### 2. Create a Lead
+
+**POST** `/clawd-bot/lead`
 
 ```json
 {
@@ -119,25 +119,13 @@ The recommended workflow is: **create the data record first**, then perform acti
   "email": "jane@example.com",
   "phone": "+1-818-555-0100",
   "source": "instagram",
-  "category": "web_dev"
+  "category": "digital-services"
 }
 ```
 
-**Response:**
+### 3. Create a Deal
 
-```json
-{
-  "success": true,
-  "data": { "action": "created", "customer_id": "uuid-1234" },
-  "api_version": "v1"
-}
-```
-
-### 2. Create a Deal
-
-**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/deal`
-
-**Request:**
+**POST** `/clawd-bot/deal`
 
 ```json
 {
@@ -145,50 +133,26 @@ The recommended workflow is: **create the data record first**, then perform acti
   "customer_id": "uuid-1234",
   "deal_value": 5000,
   "stage": "proposal",
-  "category": "web_dev"
+  "category": "digital-services"
 }
 ```
 
-**Response:**
+### 4. Create a Project
+
+**POST** `/clawd-bot/project`
 
 ```json
 {
-  "success": true,
-  "data": { "action": "created", "deal_id": "uuid-5678" },
-  "api_version": "v1"
+  "title": "Brand Identity Package",
+  "customer_id": "uuid-1234",
+  "status": "planned",
+  "priority": "high"
 }
 ```
 
-### 3. Create a Project Task (optional)
+### 5. Create a Board Card
 
-**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/project-task`
-
-**Request:**
-
-```json
-{
-  "project_id": "uuid-proj",
-  "title": "Design mockups",
-  "priority": "high",
-  "status": "todo"
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": { "action": "created", "task_id": "uuid-task" },
-  "api_version": "v1"
-}
-```
-
-### 4. Create a Board Card (optional)
-
-**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/card`
-
-**Request:**
+**POST** `/clawd-bot/card`
 
 ```json
 {
@@ -200,107 +164,90 @@ The recommended workflow is: **create the data record first**, then perform acti
 }
 ```
 
-**Response:**
+### 6. Add Checklist to Card
 
-```json
-{
-  "success": true,
-  "data": { "action": "created", "card_id": "uuid-card" },
-  "api_version": "v1"
-}
-```
+**POST** `/clawd-bot/checklist` → `{ "card_id": "uuid-card", "title": "Onboarding Steps" }`
 
-### 5. Create a Meeting
+**POST** `/clawd-bot/checklist-item` → `{ "checklist_id": "uuid-cl", "content": "Send welcome email" }`
 
-**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/meeting`
+### 7. Create a Meeting
 
-**Request:**
+**POST** `/clawd-bot/meeting`
 
 ```json
 {
   "title": "Client Onboarding Call",
-  "scheduled_at": "2026-02-20T15:00:00Z",
-  "category": "web_dev"
+  "scheduled_at": "2026-02-20T15:00:00Z"
 }
 ```
 
-**Response:**
+### 8. Generate Upload Portal
 
-```json
-{
-  "success": true,
-  "data": {
-    "action": "created",
-    "meeting": { "id": "uuid-9012", "room_code": "a1b2c3d4e5f6" },
-    "room_url": "/meet/a1b2c3d4e5f6"
-  },
-  "api_version": "v1"
-}
-```
+**POST** `/clawd-bot/upload-token` → `{ "customer_id": "uuid-1234" }`
 
-### 6. Generate Client Email
+Returns: `{ "portal_url": "https://stu25.com/u/TOKEN" }`
 
-**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/clawd-bot/generate-email`
+### 9. Generate Client Email
 
-**Request:**
+**POST** `/clawd-bot/generate-email`
 
 ```json
 {
   "customer_name": "Jane Doe",
-  "portal_link": "https://socooked.lovable.app/meet/a1b2c3d4e5f6"
+  "portal_link": "https://stu25.com/meet/a1b2c3d4e5f6"
 }
 ```
 
-**Response:**
+### 10. Create Invoice
 
-```json
-{
-  "success": true,
-  "data": {
-    "subject": "Your documents are ready — Jane Doe",
-    "body_html": "<p>Hi Jane Doe,</p>...",
-    "body_text": "Hi Jane Doe, your documents are ready..."
-  },
-  "api_version": "v1"
-}
-```
-
-### 7. Create Invoice
-
-**POST** `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/invoice-api`
-
-**Request:**
+**POST** `/invoice-api`
 
 ```json
 {
   "customer_id": "uuid-1234",
   "line_items": [
-    { "description": "Website Design", "quantity": 1, "unit_price": 2500 },
-    { "description": "SEO Setup", "quantity": 1, "unit_price": 500 }
+    { "description": "Website Design", "quantity": 1, "unit_price": 2500 }
   ],
   "tax_rate": 8.5,
-  "currency": "USD",
-  "due_date": "2026-03-15",
   "auto_send": true
 }
 ```
 
-**Response:**
+---
 
-```json
-{
-  "success": true,
-  "data": {
-    "invoice": {
-      "id": "uuid-inv",
-      "invoice_number": "INV-01005",
-      "amount": 3255,
-      "status": "sent"
-    }
-  },
-  "api_version": "v1"
-}
-```
+## Module Coverage (v3.0.0)
+
+| Module | List | Create | Update | Delete | Notes |
+|--------|------|--------|--------|--------|-------|
+| Customers | ✅ | ✅ | ✅ | ✅ | + bulk delete, search |
+| Leads | — | ✅ | ✅ | — | Shortcut for customer with status=lead |
+| Deals | ✅ | ✅ | ✅ | ✅ | |
+| Projects | ✅ | ✅ | ✅ | ✅ | |
+| Tasks | ✅ | ✅ | ✅ | ✅ | |
+| Invoices | ✅ | ✅ | ✅ | ✅ | + invoice-api with line items |
+| Boards | ✅ | ✅ | ✅ | ✅ | |
+| Lists | — | ✅ | ✅ | ✅ | |
+| Cards | — | ✅ | ✅ | ✅ | + move |
+| Comments | ✅ | ✅ | — | ✅ | |
+| Attachments | ✅ | ✅ | — | ✅ | |
+| Labels | ✅ | ✅ | — | ✅ | |
+| Card Labels | — | ✅ | — | ✅ | Assign/remove |
+| Checklists | ✅ | ✅ | ✅ | ✅ | |
+| Checklist Items | — | ✅ | ✅ | ✅ | |
+| Content | ✅ | ✅ | ✅ | ✅ | |
+| Templates | ✅ | ✅ | ✅ | ✅ | |
+| Threads | ✅ | ✅ | ✅ | ✅ | |
+| Documents | ✅ | ✅ | ✅ | ✅ | |
+| Communications | ✅ | ✅ | ✅ | ✅ | |
+| Interactions | ✅ | ✅ | ✅ | ✅ | |
+| Signatures | ✅ | — | — | — | Read-only |
+| Transcriptions | ✅ | ✅ | ✅ | ✅ | NEW in v3 |
+| Bot Tasks | ✅ | ✅ | ✅ | ✅ | |
+| Meetings | ✅ | ✅ | ✅ | ✅ | |
+| Automations | ✅ | ✅ | ✅ | ✅ | + trigger |
+| Activity Log | ✅ | — | — | — | Read-only |
+| Upload Tokens | — | ✅ | — | ✅ | Generate/revoke |
+| Generators | — | ✅ | — | — | Resume, contract, email, analyze |
 
 ---
 
@@ -308,8 +255,12 @@ The recommended workflow is: **create the data record first**, then perform acti
 
 | Code | Cause | Fix |
 |------|-------|-----|
-| **401** Unauthorized | Missing or invalid `x-bot-secret` header, or expired JWT | Verify the `BOT_SECRET` secret matches. For JWT, ensure token is valid and not expired. |
-| **429** Rate Limited | More than 5 requests/sec from the same IP | Back off and retry after 1 second. Use exponential backoff for bursts. |
-| **404** Not Found | Unknown endpoint path | Check the endpoint path matches exactly (e.g., `/clawd-bot/lead`, not `/clawd-bot/leads`). Singular = write, plural = read. |
-| **400** Bad Request | Missing required fields | Check the error message — it tells you which field is missing (e.g., `"full_name is required"`). |
-| **500** Internal Error | Database or runtime failure | Check the `error` field in the response. Common causes: invalid UUID, foreign key violation. |
+| **401** Unauthorized | Missing or invalid `x-bot-secret` | Verify the `BOT_SECRET` secret matches |
+| **429** Rate Limited | >5 req/sec from same IP | Back off and retry after 1 second |
+| **404** Not Found | Unknown endpoint | Check path exactly (singular=write, plural=read) |
+| **400** Bad Request | Missing required fields | Check error message |
+| **500** Internal Error | DB or runtime failure | Check `error` field |
+
+---
+
+*Version: 3.0.0 — Last updated: 2026-02-22*
