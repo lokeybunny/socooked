@@ -247,6 +247,7 @@ Returns: `{ "portal_url": "https://stu25.com/u/TOKEN" }`
 | Automations | ✅ | ✅ | ✅ | ✅ | + trigger |
 | Activity Log | ✅ | — | — | — | Read-only |
 | Upload Tokens | — | ✅ | — | ✅ | Generate/revoke |
+| Email (Gmail) | ✅ | ✅ | — | — | Inbox, sent, drafts, send, save-draft |
 | Generators | — | ✅ | — | — | Resume, contract, email, analyze |
 
 ---
