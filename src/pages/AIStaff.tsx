@@ -198,13 +198,18 @@ function ActivityPanel({ agent, tasks, activities, navigate }: {
                 {statusIcon(task.status)}
                 <span className="text-xs text-foreground truncate">{task.title}</span>
               </div>
-              <span className={cn(
-                "text-[10px] px-2 py-0.5 rounded-full capitalize shrink-0",
-                task.status === 'in_progress' ? 'bg-amber-500/10 text-amber-500' :
-                task.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
-                task.status === 'failed' ? 'bg-red-500/10 text-red-500' :
-                'bg-muted text-muted-foreground'
-              )}>{task.status.replace('_', ' ')}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] text-muted-foreground/70">
+                  {new Date(task.updated_at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' })} PST
+                </span>
+                <span className={cn(
+                  "text-[10px] px-2 py-0.5 rounded-full capitalize shrink-0",
+                  task.status === 'in_progress' ? 'bg-amber-500/10 text-amber-500' :
+                  task.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
+                  task.status === 'failed' ? 'bg-red-500/10 text-red-500' :
+                  'bg-muted text-muted-foreground'
+                )}>{task.status.replace('_', ' ')}</span>
+              </div>
             </div>
           ))}
         </div>
