@@ -257,8 +257,9 @@ export default function AIStaff() {
     return () => { supabase.removeChannel(channel); };
   }, [load]);
 
-  const agentTasks = (id: string) => tasks.filter(t => t.bot_agent === id);
-  const agentActivities = (_id: string) => activities; // show all for now
+  const agentMeta = (id: string) => AGENTS.find(a => a.id === id);
+  const agentTasks = (id: string) => agentMeta(id)?.connected ? tasks.filter(t => t.bot_agent === id) : [];
+  const agentActivities = (id: string) => agentMeta(id)?.connected ? activities : [];
 
   const selected = AGENTS.find(a => a.id === selectedAgent)!;
   const mainAgent = AGENTS[0];
