@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
@@ -36,6 +36,17 @@ export default function PhonePage() {
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [promoteCustomerId, setPromoteCustomerId] = useState<string | null>(null);
   const [promoteCustomerName, setPromoteCustomerName] = useState('');
+
+  // Lead detail popup
+  const [leadDetailOpen, setLeadDetailOpen] = useState(false);
+  const [leadDetail, setLeadDetail] = useState<any>(null);
+  const [leadDetailLoading, setLeadDetailLoading] = useState(false);
+
+  // Not interested confirmation
+  const [deleteLeadOpen, setDeleteLeadOpen] = useState(false);
+  const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
+  const [deleteLeadName, setDeleteLeadName] = useState('');
+  const [deletingLead, setDeletingLead] = useState(false);
 
   // Transcription upload state
   const [dragOver, setDragOver] = useState(false);
@@ -64,7 +75,7 @@ export default function PhonePage() {
     const [custRes, transRes, leadsRes] = await Promise.all([
       supabase.from('customers').select('id, full_name, phone, email'),
       supabase.from('transcriptions').select('*').order('created_at', { ascending: false }).limit(100),
-      supabase.from('customers').select('id, full_name, phone, email, company, source, created_at').eq('status', 'lead').order('created_at', { ascending: false }),
+      supabase.from('customers').select('id, full_name, phone, email, company, source, created_at, address, notes, tags, category, instagram_handle, meta').eq('status', 'lead').order('created_at', { ascending: false }),
     ]);
     setCustomers(custRes.data || []);
     setTranscriptions(transRes.data || []);
@@ -88,6 +99,55 @@ export default function PhonePage() {
     setPromoteOpen(false);
     setPromoteCustomerId(null);
     setPromoteCustomerName('');
+  };
+
+  const handleLeadDoubleClick = async (lead: any) => {
+    setLeadDetail(lead);
+    setLeadDetailOpen(true);
+  };
+
+  const handleLeadStatus = async (leadId: string, leadName: string, action: 'busy' | 'not_interested' | 'call_back') => {
+    if (action === 'not_interested') {
+      setDeleteLeadId(leadId);
+      setDeleteLeadName(leadName);
+      setDeleteLeadOpen(true);
+      return;
+    }
+    if (action === 'busy') {
+      await supabase.from('customers').update({ notes: `[BUSY] ${new Date().toLocaleDateString()} — Will try again` } as any).eq('id', leadId);
+      toast('Marked as Busy — will show up for callback', { icon: '📞' });
+    }
+    if (action === 'call_back') {
+      await supabase.from('customers').update({ notes: `[CALL BACK] ${new Date().toLocaleDateString()}` } as any).eq('id', leadId);
+      toast('Marked for Call Back', { icon: '🔁' });
+    }
+  };
+
+  const handleDeleteLead = async () => {
+    if (!deleteLeadId) return;
+    setDeletingLead(true);
+    // Cascade delete related records
+    await Promise.all([
+      supabase.from('cards').delete().eq('customer_id', deleteLeadId),
+      supabase.from('signatures').delete().eq('customer_id', deleteLeadId),
+      supabase.from('documents').delete().eq('customer_id', deleteLeadId),
+      supabase.from('invoices').delete().eq('customer_id', deleteLeadId),
+      supabase.from('interactions').delete().eq('customer_id', deleteLeadId),
+      supabase.from('conversation_threads').delete().eq('customer_id', deleteLeadId),
+      supabase.from('bot_tasks').delete().eq('customer_id', deleteLeadId),
+      supabase.from('communications').delete().eq('customer_id', deleteLeadId),
+      supabase.from('deals').delete().eq('customer_id', deleteLeadId),
+      supabase.from('transcriptions').delete().eq('customer_id', deleteLeadId),
+    ]);
+    const { error } = await supabase.from('customers').delete().eq('id', deleteLeadId);
+    if (error) { toast.error('Failed to remove lead'); setDeletingLead(false); return; }
+    setLeads(prev => prev.filter(l => l.id !== deleteLeadId));
+    setCustomers(prev => prev.filter(c => c.id !== deleteLeadId));
+    toast.success(`${deleteLeadName} removed from CRM`);
+    setDeleteLeadOpen(false);
+    setDeleteLeadId(null);
+    setDeleteLeadName('');
+    setDeletingLead(false);
   };
 
   const filteredLeads = useMemo(() => {
@@ -452,12 +512,12 @@ export default function PhonePage() {
           {/* ─── Left Column: Warm Leads + Transcription Tool + Recent ─── */}
           <div className="space-y-6">
 
-            {/* ─── Warm Leads Quick-Dial Panel ─── */}
+            {/* ─── Cold Leads Quick-Dial Panel ─── */}
             <div className="glass-card p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-amber-500" />
-                  <h2 className="text-lg font-semibold text-foreground">Warm Leads</h2>
+                  <Zap className="h-5 w-5 text-blue-500" />
+                  <h2 className="text-lg font-semibold text-foreground">Cold Leads</h2>
                   <Badge variant="secondary" className="text-[10px]">{leads.length}</Badge>
                 </div>
                 <div className="relative w-48">
@@ -471,64 +531,91 @@ export default function PhonePage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                SpaceBot-sourced leads ready for outreach. Copy phone to dialer, call, transcribe, then promote to Prospect.
+                SpaceBot-sourced leads. Copy phone → dial → transcribe → promote. Double-click a name for full details.
               </p>
 
               {filteredLeads.length === 0 ? (
                 <div className="text-center py-6">
                   <Phone className="h-6 w-6 mx-auto text-muted-foreground/40 mb-1.5" />
                   <p className="text-xs text-muted-foreground">
-                    {leadsSearch ? 'No leads match your search.' : 'No leads yet. SpaceBot will bring them in.'}
+                    {leadsSearch ? 'No leads match your search.' : 'No cold leads yet. SpaceBot will bring them in.'}
                   </p>
                 </div>
               ) : (
-                <ScrollArea className="max-h-[280px]">
+                <ScrollArea className="max-h-[320px]">
                   <div className="space-y-1.5">
-                    {filteredLeads.map(lead => (
-                      <div
-                        key={lead.id}
-                        className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2.5 hover:bg-muted/50 transition-colors group"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
-                            <User className="h-4 w-4 text-amber-600" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{lead.full_name}</p>
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                              {lead.company && <span>{lead.company}</span>}
-                              {lead.source && <span>· via {lead.source}</span>}
+                    {filteredLeads.map(lead => {
+                      const noteTag = lead.notes?.startsWith('[BUSY]') ? 'busy' : lead.notes?.startsWith('[CALL BACK]') ? 'callback' : null;
+                      return (
+                        <div
+                          key={lead.id}
+                          className={cn(
+                            "flex items-center justify-between rounded-lg border bg-card px-3 py-2.5 hover:bg-muted/50 transition-colors group cursor-default",
+                            noteTag === 'busy' && "border-yellow-500/30",
+                            noteTag === 'callback' && "border-blue-500/30",
+                            !noteTag && "border-border"
+                          )}
+                          onDoubleClick={() => handleLeadDoubleClick(lead)}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={cn(
+                              "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
+                              noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
+                            )}>
+                              <User className={cn("h-4 w-4", noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground")} />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium text-foreground truncate">{lead.full_name}</p>
+                                {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy</Badge>}
+                                {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">Call Back</Badge>}
+                              </div>
+                              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                {lead.company && <span>{lead.company}</span>}
+                                {lead.source && <span>· via {lead.source}</span>}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {lead.phone ? (
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            {/* Status action buttons */}
                             <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 text-xs gap-1.5 border-amber-500/30 text-amber-600 hover:bg-amber-500/10 hover:text-amber-700"
-                              onClick={() => copyToClipboard(lead.phone, lead.full_name)}
+                              variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => { e.stopPropagation(); handleLeadStatus(lead.id, lead.full_name, 'busy'); }}
+                              title="Mark as Busy"
                             >
-                              <Copy className="h-3 w-3" />
-                              {lead.phone}
+                              <PhoneOff className="h-3.5 w-3.5 text-yellow-600" />
                             </Button>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground italic">No phone</span>
-                          )}
-                          {lead.email && (
                             <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
-                              onClick={() => copyToClipboard(lead.email, 'Email')}
-                              title={lead.email}
+                              variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => { e.stopPropagation(); handleLeadStatus(lead.id, lead.full_name, 'call_back'); }}
+                              title="Mark for Call Back"
                             >
-                              <Copy className="h-3 w-3" />
+                              <Clock className="h-3.5 w-3.5 text-blue-500" />
                             </Button>
-                          )}
+                            <Button
+                              variant="ghost" size="sm" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => { e.stopPropagation(); handleLeadStatus(lead.id, lead.full_name, 'not_interested'); }}
+                              title="Not Interested — remove from CRM"
+                            >
+                              <Ban className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                            <div className="w-px h-5 bg-border mx-1" />
+                            {lead.phone ? (
+                              <Button
+                                variant="outline" size="sm"
+                                className="h-7 text-xs gap-1.5"
+                                onClick={() => copyToClipboard(lead.phone, lead.full_name)}
+                              >
+                                <Copy className="h-3 w-3" />
+                                {lead.phone}
+                              </Button>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">No phone</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               )}
@@ -951,6 +1038,140 @@ export default function PhonePage() {
             <AlertDialogAction onClick={handlePromoteToProspect} className="gap-1.5">
               <ArrowUpRight className="h-4 w-4" />
               Yes, push to Prospects
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Lead Detail Dialog (double-click) */}
+      <Dialog open={leadDetailOpen} onOpenChange={setLeadDetailOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-primary" />
+              Lead Details
+            </DialogTitle>
+          </DialogHeader>
+          {leadDetail && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <User className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">{leadDetail.full_name}</h3>
+                  {leadDetail.company && <p className="text-sm text-muted-foreground">{leadDetail.company}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {leadDetail.phone && (
+                  <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                    <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Phone</p>
+                      <p className="text-sm text-foreground font-medium truncate">{leadDetail.phone}</p>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto shrink-0" onClick={() => copyToClipboard(leadDetail.phone, 'Phone')}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                {leadDetail.email && (
+                  <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                    <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Email</p>
+                      <p className="text-sm text-foreground font-medium truncate">{leadDetail.email}</p>
+                    </div>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto shrink-0" onClick={() => copyToClipboard(leadDetail.email, 'Email')}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                {leadDetail.address && (
+                  <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Address</p>
+                      <p className="text-sm text-foreground truncate">{leadDetail.address}</p>
+                    </div>
+                  </div>
+                )}
+                {leadDetail.instagram_handle && (
+                  <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
+                    <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Instagram</p>
+                      <p className="text-sm text-foreground truncate">@{leadDetail.instagram_handle}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                {leadDetail.source && (
+                  <div className="bg-muted rounded-lg px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Source</p>
+                    <p className="text-foreground font-medium mt-0.5">{leadDetail.source}</p>
+                  </div>
+                )}
+                {leadDetail.category && (
+                  <div className="bg-muted rounded-lg px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Category</p>
+                    <p className="text-foreground font-medium mt-0.5">{leadDetail.category}</p>
+                  </div>
+                )}
+                <div className="bg-muted rounded-lg px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Added</p>
+                  <p className="text-foreground font-medium mt-0.5">{format(new Date(leadDetail.created_at), 'MMM d, yyyy')}</p>
+                </div>
+                {leadDetail.tags?.length > 0 && (
+                  <div className="bg-muted rounded-lg px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tags</p>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {leadDetail.tags.map((t: string) => <Badge key={t} variant="secondary" className="text-[9px] h-4">{t}</Badge>)}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {leadDetail.notes && (
+                <div className="bg-muted rounded-lg px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Notes</p>
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{leadDetail.notes}</p>
+                </div>
+              )}
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                {leadDetail.phone && (
+                  <Button variant="outline" className="gap-1.5" onClick={() => { copyToClipboard(leadDetail.phone, leadDetail.full_name); setLeadDetailOpen(false); }}>
+                    <Copy className="h-3.5 w-3.5" /> Copy Phone & Dial
+                  </Button>
+                )}
+                <Button variant="destructive" size="sm" className="gap-1.5" onClick={() => { setLeadDetailOpen(false); handleLeadStatus(leadDetail.id, leadDetail.full_name, 'not_interested'); }}>
+                  <Ban className="h-3.5 w-3.5" /> Not Interested
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Lead Confirmation (Not Interested) */}
+      <AlertDialog open={deleteLeadOpen} onOpenChange={setDeleteLeadOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from CRM?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <span className="font-semibold text-foreground">{deleteLeadName}</span> and all associated data (deals, invoices, threads, etc.) from the entire CRM. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingLead}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLead} disabled={deletingLead} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5">
+              {deletingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
+              Yes, remove permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
