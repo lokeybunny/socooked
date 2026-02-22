@@ -1,0 +1,2 @@
+ALTER TABLE public.conversation_threads DROP CONSTRAINT conversation_threads_channel_check;
+ALTER TABLE public.conversation_threads ADD CONSTRAINT conversation_threads_channel_check CHECK (channel = ANY (ARRAY['chat'::text, 'email'::text, 'sms'::text, 'call'::text, 'dm'::text, 'v0-designer'::text]));
