@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.ringcentral-api]
 verify_jwt = false
+
+[functions.transcribe-rc]
+verify_jwt = false
