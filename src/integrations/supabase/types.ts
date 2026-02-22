@@ -1354,6 +1354,59 @@ export type Database = {
           },
         ]
       }
+      transcriptions: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          direction: string | null
+          duration_seconds: number | null
+          id: string
+          occurred_at: string | null
+          phone_from: string | null
+          phone_to: string | null
+          source_id: string
+          source_type: string
+          summary: string | null
+          transcript: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          direction?: string | null
+          duration_seconds?: number | null
+          id?: string
+          occurred_at?: string | null
+          phone_from?: string | null
+          phone_to?: string | null
+          source_id: string
+          source_type: string
+          summary?: string | null
+          transcript: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          direction?: string | null
+          duration_seconds?: number | null
+          id?: string
+          occurred_at?: string | null
+          phone_from?: string | null
+          phone_to?: string | null
+          source_id?: string
+          source_type?: string
+          summary?: string | null
+          transcript?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcriptions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
