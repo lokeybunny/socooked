@@ -279,10 +279,14 @@ export default function AIStaff() {
         </div>
 
         {/* ── Flow diagram ────────────────────────────────── */}
-        <div className="rounded-xl border border-border bg-card/40 p-6 overflow-x-auto">
-          <div className="flex items-center justify-center gap-8 min-w-[800px]">
-            {/* CLAWD Web */}
-            <div className="flex items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* BOT 1 — CLAWD Network */}
+          <div className="rounded-xl border border-border bg-card/40 p-5 relative overflow-x-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-2.5 w-2.5 rounded-full bg-violet-500" />
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Bot 1 — CLAWD Network</span>
+            </div>
+            <div className="flex items-center justify-center min-w-[500px]">
               {/* Left children */}
               <div className="flex flex-col gap-3">
                 {clawdChildren.slice(0, 2).map(agent => (
@@ -347,23 +351,26 @@ export default function AIStaff() {
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Separator */}
-            {standaloneAgents.length > 0 && (
-              <div className="h-32 w-px bg-border/50" />
-            )}
-
-            {/* Standalone agents */}
-            {standaloneAgents.map(agent => (
-              <AgentNode
-                key={agent.id}
-                agent={agent}
-                tasks={agentTasks(agent.id)}
-                activities={agentActivities(agent.id)}
-                isSelected={selectedAgent === agent.id}
-                onSelect={() => setSelectedAgent(agent.id)}
-              />
-            ))}
+          {/* BOT 2 — Leads Finder */}
+          <div className="rounded-xl border border-border bg-card/40 p-5 relative flex flex-col">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Bot 2 — Leads Engine</span>
+            </div>
+            <div className="flex items-center justify-center flex-1">
+              {standaloneAgents.map(agent => (
+                <AgentNode
+                  key={agent.id}
+                  agent={agent}
+                  tasks={agentTasks(agent.id)}
+                  activities={agentActivities(agent.id)}
+                  isSelected={selectedAgent === agent.id}
+                  onSelect={() => setSelectedAgent(agent.id)}
+                />
+              ))}
+            </div>
           </div>
         </div>
 
@@ -379,7 +386,7 @@ export default function AIStaff() {
         </AnimatePresence>
 
         {/* ── Summary stats ───────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {AGENTS.map(a => {
             const t = agentTasks(a.id);
             return (
