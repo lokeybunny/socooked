@@ -8,11 +8,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /* ── Agent definitions ───────────────────────────────────── */
 const AGENTS = [
-  { id: 'clawd-main', label: 'CLAWD Main', role: 'SpaceBot.sh — Orchestrator', icon: Cpu, color: 'from-violet-500 to-purple-600', ring: 'ring-violet-500/30', bg: 'bg-violet-500/10', text: 'text-violet-400', pulse: 'bg-violet-500', connected: true },
-  { id: 'web-designer', label: 'Web Designer', role: 'UI/UX Agent — Coming Soon', icon: Palette, color: 'from-cyan-500 to-blue-600', ring: 'ring-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', pulse: 'bg-cyan-500', connected: false },
-  { id: 'social-media', label: 'Social Media', role: 'Social Agent — Coming Soon', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: false },
-  { id: 'content-manager', label: 'Content Manager', role: 'Content Agent — Coming Soon', icon: Bot, color: 'from-amber-500 to-orange-600', ring: 'ring-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', pulse: 'bg-amber-500', connected: false },
-  { id: 'leads-finder', label: 'Leads Finder', role: 'Outreach Agent — Coming Soon', icon: Radar, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500', connected: false },
+  { id: 'clawd-main', label: 'CLAWD Main', role: 'SpaceBot.sh — Orchestrator', icon: Cpu, color: 'from-violet-500 to-purple-600', ring: 'ring-violet-500/30', bg: 'bg-violet-500/10', text: 'text-violet-400', pulse: 'bg-violet-500', connected: true, group: 'clawd' },
+  { id: 'web-designer', label: 'Web Designer', role: 'UI/UX Agent — Coming Soon', icon: Palette, color: 'from-cyan-500 to-blue-600', ring: 'ring-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', pulse: 'bg-cyan-500', connected: false, group: 'clawd' },
+  { id: 'social-media', label: 'Social Media', role: 'Social Agent — Coming Soon', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: false, group: 'clawd' },
+  { id: 'content-manager', label: 'Content Manager', role: 'Content Agent — Coming Soon', icon: Bot, color: 'from-amber-500 to-orange-600', ring: 'ring-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', pulse: 'bg-amber-500', connected: false, group: 'clawd' },
+  { id: 'leads-finder', label: 'Leads Finder', role: 'Outreach Agent — Standalone', icon: Radar, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500', connected: false, group: 'standalone' },
 ] as const;
 
 type AgentId = typeof AGENTS[number]['id'];
@@ -264,7 +264,8 @@ export default function AIStaff() {
 
   const selected = AGENTS.find(a => a.id === selectedAgent)!;
   const mainAgent = AGENTS[0];
-  const childAgents = AGENTS.slice(1);
+  const clawdChildren = AGENTS.filter(a => a.group === 'clawd' && a.id !== 'clawd-main');
+  const standaloneAgents = AGENTS.filter(a => a.group === 'standalone');
 
   return (
     <AppLayout>
@@ -279,73 +280,90 @@ export default function AIStaff() {
 
         {/* ── Flow diagram ────────────────────────────────── */}
         <div className="rounded-xl border border-border bg-card/40 p-6 overflow-x-auto">
-          <div className="flex items-center justify-center min-w-[700px]">
-            {/* Left child agents */}
-            <div className="flex flex-col gap-3">
-              {childAgents.slice(0, 2).map(agent => (
-                <AgentNode
-                  key={agent.id}
-                  agent={agent}
-                  tasks={agentTasks(agent.id)}
-                  activities={agentActivities(agent.id)}
-                  isSelected={selectedAgent === agent.id}
-                  onSelect={() => setSelectedAgent(agent.id)}
-                />
-              ))}
+          <div className="flex items-center justify-center gap-8 min-w-[800px]">
+            {/* CLAWD Web */}
+            <div className="flex items-center">
+              {/* Left children */}
+              <div className="flex flex-col gap-3">
+                {clawdChildren.slice(0, 2).map(agent => (
+                  <AgentNode
+                    key={agent.id}
+                    agent={agent}
+                    tasks={agentTasks(agent.id)}
+                    activities={agentActivities(agent.id)}
+                    isSelected={selectedAgent === agent.id}
+                    onSelect={() => setSelectedAgent(agent.id)}
+                  />
+                ))}
+              </div>
+
+              {/* Left connectors */}
+              <div className="flex flex-col items-center mx-2 shrink-0">
+                <svg width="60" height="120" viewBox="0 0 60 120" className="overflow-visible">
+                  {clawdChildren.slice(0, 2).map((_agent, i) => {
+                    const y = 30 + i * 60;
+                    return (
+                      <g key={i}>
+                        <line x1="0" y1={y} x2="60" y2="60" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
+                        <circle cx="30" cy={(y + 60) / 2} r="3" fill="hsl(var(--primary))" opacity="0.6" />
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+
+              {/* Main node */}
+              <AgentNode
+                agent={mainAgent}
+                tasks={agentTasks(mainAgent.id)}
+                activities={agentActivities(mainAgent.id)}
+                isSelected={selectedAgent === mainAgent.id}
+                onSelect={() => setSelectedAgent(mainAgent.id)}
+              />
+
+              {/* Right connector */}
+              {clawdChildren.length > 2 && (
+                <div className="flex flex-col items-center mx-2 shrink-0">
+                  <svg width="60" height="60" viewBox="0 0 60 60" className="overflow-visible">
+                    <line x1="0" y1="30" x2="60" y2="30" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
+                    <circle cx="30" cy="30" r="3" fill="hsl(var(--primary))" opacity="0.6" />
+                  </svg>
+                </div>
+              )}
+
+              {/* Right child */}
+              {clawdChildren.length > 2 && (
+                <div className="flex flex-col gap-3">
+                  {clawdChildren.slice(2).map(agent => (
+                    <AgentNode
+                      key={agent.id}
+                      agent={agent}
+                      tasks={agentTasks(agent.id)}
+                      activities={agentActivities(agent.id)}
+                      isSelected={selectedAgent === agent.id}
+                      onSelect={() => setSelectedAgent(agent.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Left connectors */}
-            <div className="flex flex-col items-center mx-2 shrink-0">
-              <svg width="60" height="120" viewBox="0 0 60 120" className="overflow-visible">
-                {childAgents.slice(0, 2).map((agent, i) => {
-                  const y = 30 + i * 60;
-                  return (
-                    <g key={i}>
-                      <line x1="0" y1={y} x2="60" y2="60" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
-                      <circle cx="30" cy={(y + 60) / 2} r="3" fill="hsl(var(--primary))" opacity="0.6" />
-                    </g>
-                  );
-                })}
-              </svg>
-            </div>
+            {/* Separator */}
+            {standaloneAgents.length > 0 && (
+              <div className="h-32 w-px bg-border/50" />
+            )}
 
-            {/* Main node center */}
-            <AgentNode
-              agent={mainAgent}
-              tasks={agentTasks(mainAgent.id)}
-              activities={agentActivities(mainAgent.id)}
-              isSelected={selectedAgent === mainAgent.id}
-              onSelect={() => setSelectedAgent(mainAgent.id)}
-            />
-
-            {/* Right connectors */}
-            <div className="flex flex-col items-center mx-2 shrink-0">
-              <svg width="60" height="120" viewBox="0 0 60 120" className="overflow-visible">
-                {childAgents.slice(2).map((agent, i) => {
-                  const y = 30 + i * 60;
-                  return (
-                    <g key={i}>
-                      <line x1="0" y1="60" x2="60" y2={y} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
-                      <circle cx="30" cy={(y + 60) / 2} r="3" fill="hsl(var(--primary))" opacity="0.6" />
-                    </g>
-                  );
-                })}
-              </svg>
-            </div>
-
-            {/* Right child agents */}
-            <div className="flex flex-col gap-3">
-              {childAgents.slice(2).map(agent => (
-                <AgentNode
-                  key={agent.id}
-                  agent={agent}
-                  tasks={agentTasks(agent.id)}
-                  activities={agentActivities(agent.id)}
-                  isSelected={selectedAgent === agent.id}
-                  onSelect={() => setSelectedAgent(agent.id)}
-                />
-              ))}
-            </div>
+            {/* Standalone agents */}
+            {standaloneAgents.map(agent => (
+              <AgentNode
+                key={agent.id}
+                agent={agent}
+                tasks={agentTasks(agent.id)}
+                activities={agentActivities(agent.id)}
+                isSelected={selectedAgent === agent.id}
+                onSelect={() => setSelectedAgent(agent.id)}
+              />
+            ))}
           </div>
         </div>
 
