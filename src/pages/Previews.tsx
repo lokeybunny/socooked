@@ -68,8 +68,7 @@ export default function Previews() {
     if (!error && data) {
       setPreviews(data as unknown as ApiPreview[]);
       // Auto-expand all clients on first load
-      const clientIds = new Set(data.map((p: any) => p.customer_id || '__uncategorized'));
-      setExpandedClients(clientIds as Set<string>);
+      // Keep all clients collapsed by default
     }
     setLoading(false);
   }
