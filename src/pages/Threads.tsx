@@ -1,207 +1,294 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Plus, MessageSquare, FileText, Send, RotateCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  MessageSquare, Phone, Mail, MessageCircle, Search,
+  Clock, User, ChevronDown, ChevronRight, Calendar,
+  Hash, FileAudio
+} from 'lucide-react';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import { format, formatDistanceToNow } from 'date-fns';
+
+const channelIcons: Record<string, any> = {
+  call: Phone,
+  email: Mail,
+  sms: MessageCircle,
+  chat: MessageSquare,
+  dm: MessageCircle,
+};
+
+const channelColors: Record<string, string> = {
+  call: 'bg-green-500/10 text-green-400 border-green-500/20',
+  email: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  sms: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  chat: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  dm: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
+};
 
 export default function Threads() {
   const categoryGate = useCategoryGate();
-  const [threads, setThreads] = useState<any[]>([]);
   const [allThreads, setAllThreads] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [processing, setProcessing] = useState<string | null>(null);
-  const [form, setForm] = useState({ customer_id: '', channel: 'chat', raw_transcript: '' });
+  const [search, setSearch] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const loadAll = async () => {
-    const [{ data: t }, { data: c }] = await Promise.all([
-      supabase.from('conversation_threads').select('*, customers(full_name, email)').order('created_at', { ascending: false }),
-      supabase.from('customers').select('id, full_name, email'),
-    ]);
-    setAllThreads(t || []);
-    setCustomers(c || []);
+    const { data } = await supabase
+      .from('conversation_threads')
+      .select('*, customers(full_name, email, phone)')
+      .order('created_at', { ascending: false });
+    setAllThreads(data || []);
     setLoading(false);
   };
 
   useEffect(() => { loadAll(); }, []);
 
-  useEffect(() => {
+  const filtered = useMemo(() => {
+    let list = allThreads;
     if (categoryGate.selectedCategory) {
-      setThreads(allThreads.filter(t => (t.category || 'other') === categoryGate.selectedCategory));
-    } else {
-      setThreads(allThreads);
+      list = list.filter(t => (t.category || 'other') === categoryGate.selectedCategory);
     }
-  }, [categoryGate.selectedCategory, allThreads]);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(t => {
+        const name = (t.customers?.full_name || '').toLowerCase();
+        const summary = (t.summary || '').toLowerCase();
+        const channel = (t.channel || '').toLowerCase();
+        return name.includes(q) || summary.includes(q) || channel.includes(q);
+      });
+    }
+    return list;
+  }, [allThreads, categoryGate.selectedCategory, search]);
+
+  // Group by date
+  const grouped = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    filtered.forEach(t => {
+      const day = format(new Date(t.created_at), 'yyyy-MM-dd');
+      if (!groups[day]) groups[day] = [];
+      groups[day].push(t);
+    });
+    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+  }, [filtered]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
     acc[cat.id] = allThreads.filter(t => (t.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { error } = await supabase.from('conversation_threads').insert([{ ...form, category: categoryGate.selectedCategory }]);
-    if (error) { toast.error(error.message); return; }
-    toast.success('Thread created');
-    setDialogOpen(false);
-    setForm({ customer_id: '', channel: 'chat', raw_transcript: '' });
-    loadAll();
-  };
-
-  const analyzeThread = async (thread: any) => {
-    setProcessing(thread.id);
-    try {
-      const res = await supabase.functions.invoke('clawdbot/analyze-thread', {
-        body: { thread_id: thread.id, customer_id: thread.customer_id, transcript: thread.raw_transcript || '' },
-      });
-      if (res.error) throw res.error;
-      const result = res.data;
-      await supabase.from('conversation_threads').update({ status: result.status, summary: result.summary }).eq('id', thread.id);
-      toast.success(`Analysis complete: ${result.status.replace(/_/g, ' ')}`);
-      loadAll();
-    } catch (err: any) {
-      toast.error(err.message || 'Analysis failed');
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const generateDocs = async (thread: any) => {
-    setProcessing(thread.id);
-    try {
-      await Promise.all([
-        supabase.functions.invoke('clawdbot/generate-resume', {
-          body: { thread_id: thread.id, customer_id: thread.customer_id, resume_style: 'modern', transcript: thread.raw_transcript || '' },
-        }),
-        supabase.functions.invoke('clawdbot/generate-contract', {
-          body: { thread_id: thread.id, customer_id: thread.customer_id, contract_template: 'resume_service_v1', terms: { price: 400, deposit: 200, revisions_policy: '2 free revisions' }, transcript: thread.raw_transcript || '' },
-        }),
-      ]);
-      await supabase.from('documents').insert([
-        { customer_id: thread.customer_id, thread_id: thread.id, type: 'resume', title: 'Resume', status: 'final' },
-        { customer_id: thread.customer_id, thread_id: thread.id, type: 'contract', title: 'Service Contract', status: 'final' },
-      ]);
-      await supabase.from('conversation_threads').update({ status: 'docs_generated' }).eq('id', thread.id);
-      toast.success('Resume & Contract generated!');
-      loadAll();
-    } catch (err: any) {
-      toast.error(err.message || 'Generation failed');
-    } finally {
-      setProcessing(null);
-    }
-  };
-
-  const sendForSignature = async (thread: any) => {
-    setProcessing(thread.id);
-    try {
-      const portalLink = `${window.location.origin}/portal/sign/${thread.id}`;
-      await supabase.functions.invoke('clawdbot/generate-email', {
-        body: { customer_name: thread.customers?.full_name, customer_email: thread.customers?.email, context: 'contract_ready', portal_link: portalLink },
-      });
-      await supabase.from('conversation_threads').update({ status: 'sent_for_signature' }).eq('id', thread.id);
-      toast.success('Sent for signature (email mock). Portal link copied.');
-      navigator.clipboard.writeText(portalLink).catch(() => {});
-      loadAll();
-    } catch (err: any) {
-      toast.error(err.message || 'Send failed');
-    } finally {
-      setProcessing(null);
-    }
+  const formatDuration = (seconds: number | null) => {
+    if (!seconds) return null;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   return (
     <AppLayout>
-      <CategoryGate title="Conversation Threads" {...categoryGate} totalCount={allThreads.length} countLabel="threads" categoryCounts={categoryCounts}>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <p className="text-muted-foreground text-sm">{threads.length} threads</p>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="h-4 w-4 mr-2" />New Thread</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Create Thread</DialogTitle></DialogHeader>
-                <form onSubmit={handleCreate} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Customer *</Label>
-                    <Select value={form.customer_id} onValueChange={v => setForm({ ...form, customer_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
-                      <SelectContent>{customers.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Channel</Label>
-                    <Select value={form.channel} onValueChange={v => setForm({ ...form, channel: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {['chat', 'email', 'sms', 'call', 'dm'].map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Transcript</Label>
-                    <Textarea value={form.raw_transcript} onChange={e => setForm({ ...form, raw_transcript: e.target.value })} placeholder="Paste conversation transcript..." rows={6} />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={!form.customer_id}>Create Thread</Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+      <CategoryGate
+        title="Transcript Library"
+        {...categoryGate}
+        totalCount={allThreads.length}
+        countLabel="transcripts"
+        categoryCounts={categoryCounts}
+      >
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-muted-foreground text-sm">
+                {filtered.length} transcript{filtered.length !== 1 ? 's' : ''}
+                {search && ` matching "${search}"`}
+              </p>
+            </div>
+            <div className="relative w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search by customer, channel..."
+                className="pl-9"
+              />
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {threads.map(t => (
-              <div key={t.id} className="glass-card p-5">
-                <div className="flex items-start gap-4">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <MessageSquare className="h-4 w-4 text-primary" />
+          {/* Timeline */}
+          <div className="space-y-6">
+            {grouped.map(([day, items]) => (
+              <div key={day}>
+                {/* Date header */}
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-foreground">
+                      {format(new Date(day), 'EEEE, MMM d, yyyy')}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-foreground">{t.customers?.full_name || 'Unknown'}</p>
-                      <span className="text-xs text-muted-foreground capitalize">via {t.channel}</span>
-                      <StatusBadge status={t.status} />
-                    </div>
-                    {t.summary && <p className="text-xs text-muted-foreground mt-1">{t.summary}</p>}
-                    {t.raw_transcript && (
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{t.raw_transcript.substring(0, 200)}...</p>
-                    )}
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    {t.status === 'open' && (
-                      <Button size="sm" variant="outline" onClick={() => analyzeThread(t)} disabled={processing === t.id}>
-                        <RotateCw className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Analyze
-                      </Button>
-                    )}
-                    {t.status === 'collecting_info' && (
-                      <Button size="sm" variant="outline" onClick={() => analyzeThread(t)} disabled={processing === t.id}>
-                        <RotateCw className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Re-analyze
-                      </Button>
-                    )}
-                    {t.status === 'ready_for_docs' && (
-                      <Button size="sm" onClick={() => generateDocs(t)} disabled={processing === t.id}>
-                        <FileText className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Generate Docs
-                      </Button>
-                    )}
-                    {t.status === 'docs_generated' && (
-                      <Button size="sm" onClick={() => sendForSignature(t)} disabled={processing === t.id}>
-                        <Send className={`h-3 w-3 mr-1 ${processing === t.id ? 'animate-spin' : ''}`} />Send for Signature
-                      </Button>
-                    )}
-                  </div>
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground">{items.length} entries</span>
+                </div>
+
+                {/* Thread cards for this day */}
+                <div className="space-y-2 ml-2 border-l-2 border-border/50 pl-4">
+                  {items.map(t => {
+                    const isExpanded = expandedId === t.id;
+                    const ChannelIcon = channelIcons[t.channel] || MessageSquare;
+                    const colorClass = channelColors[t.channel] || channelColors.chat;
+                    const customerName = t.customers?.full_name || 'Unknown';
+                    const timeStr = format(new Date(t.created_at), 'h:mm a');
+                    const relativeTime = formatDistanceToNow(new Date(t.created_at), { addSuffix: true });
+
+                    return (
+                      <div
+                        key={t.id}
+                        className="glass-card overflow-hidden transition-all duration-200 hover:border-primary/20"
+                      >
+                        {/* Main row — always visible */}
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : t.id)}
+                          className="w-full flex items-center gap-3 p-4 text-left"
+                        >
+                          {/* Timeline dot */}
+                          <div className="relative -ml-[1.65rem]">
+                            <div className="w-3 h-3 rounded-full bg-primary border-2 border-background" />
+                          </div>
+
+                          {/* Channel icon */}
+                          <div className={`p-2 rounded-lg border ${colorClass}`}>
+                            <ChannelIcon className="h-4 w-4" />
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-foreground truncate">
+                                {customerName}
+                              </span>
+                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 capitalize ${colorClass}`}>
+                                {t.channel}
+                              </Badge>
+                            </div>
+                            {t.summary && (
+                              <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-lg">
+                                {t.summary}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Meta */}
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {timeStr}
+                            </span>
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </div>
+                        </button>
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div className="border-t border-border bg-muted/20 px-4 py-4 space-y-4">
+                            {/* Metadata grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              <div className="space-y-1">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Customer</p>
+                                <div className="flex items-center gap-1.5">
+                                  <User className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-foreground">{customerName}</span>
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Channel</p>
+                                <div className="flex items-center gap-1.5">
+                                  <ChannelIcon className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-foreground capitalize">{t.channel}</span>
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Category</p>
+                                <div className="flex items-center gap-1.5">
+                                  <Hash className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-foreground capitalize">{(t.category || 'other').replace(/-/g, ' ')}</span>
+                                </div>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Recorded</p>
+                                <div className="flex items-center gap-1.5">
+                                  <Calendar className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-foreground">{relativeTime}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Contact info */}
+                            {(t.customers?.email || t.customers?.phone) && (
+                              <div className="flex gap-4 text-xs text-muted-foreground">
+                                {t.customers?.email && (
+                                  <span className="flex items-center gap-1">
+                                    <Mail className="h-3 w-3" /> {t.customers.email}
+                                  </span>
+                                )}
+                                {t.customers?.phone && (
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="h-3 w-3" /> {t.customers.phone}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Summary */}
+                            {t.summary && (
+                              <div className="space-y-1">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Summary</p>
+                                <p className="text-xs text-foreground leading-relaxed">{t.summary}</p>
+                              </div>
+                            )}
+
+                            {/* Full transcript */}
+                            {t.raw_transcript && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <FileAudio className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Full Transcript</p>
+                                </div>
+                                <ScrollArea className="max-h-64">
+                                  <div className="bg-background/50 border border-border rounded-lg p-3">
+                                    <pre className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed">
+                                      {t.raw_transcript}
+                                    </pre>
+                                  </div>
+                                </ScrollArea>
+                              </div>
+                            )}
+
+                            {/* Thread ID for bot reference */}
+                            <div className="pt-2 border-t border-border/50">
+                              <p className="text-[10px] text-muted-foreground font-mono">
+                                Thread ID: {t.id}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
-            {threads.length === 0 && !loading && (
-              <div className="text-center py-16 text-muted-foreground">No conversation threads yet.</div>
+
+            {filtered.length === 0 && !loading && (
+              <div className="text-center py-16 text-muted-foreground">
+                <FileAudio className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm">No transcripts found.</p>
+                <p className="text-xs mt-1">Upload audio on the Phone page to get started.</p>
+              </div>
             )}
           </div>
         </div>
