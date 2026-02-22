@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.transcribe-rc]
 verify_jwt = false
+
+[functions.ringcentral-oauth]
+verify_jwt = false
