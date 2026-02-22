@@ -48,10 +48,13 @@ export default function Threads() {
 
   useEffect(() => { loadAll(); }, []);
 
+  const validCategories = new Set(SERVICE_CATEGORIES.map(c => c.id));
+  const normalizeCategory = (cat: string | null) => (cat && validCategories.has(cat)) ? cat : 'other';
+
   const filtered = useMemo(() => {
     let list = allThreads;
     if (categoryGate.selectedCategory) {
-      list = list.filter(t => (t.category || 'other') === categoryGate.selectedCategory);
+      list = list.filter(t => normalizeCategory(t.category) === categoryGate.selectedCategory);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -77,7 +80,7 @@ export default function Threads() {
   }, [filtered]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = allThreads.filter(t => (t.category || 'other') === cat.id).length;
+    acc[cat.id] = allThreads.filter(t => normalizeCategory(t.category) === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
 
