@@ -257,7 +257,6 @@ export default function MeetingRoom() {
   }, [roomCode, guestName, getLocalStream, createPeerConnection]);
 
   const uploadFile = useCallback(async (blob: Blob, ext: string, assetType: 'Video' | 'Audio') => {
-    // Use the blob's actual MIME type for the upload
     const mimeType = blob.type || (ext === 'mp4' ? 'video/mp4' : ext === 'webm' ? 'video/webm' : 'audio/webm');
 
     setUploading(true);
@@ -275,26 +274,26 @@ export default function MeetingRoom() {
       const dateStr = new Date().toISOString().slice(0, 10);
       const fileName = `${meeting.title || 'Meeting'} - ${dateStr}.${ext}`;
 
-      const { data: folderData } = await supabase.functions.invoke('google-drive', {
-        body: { action: 'ensure-folder', category, customerName },
-      });
-
-      if (!folderData?.folderId) throw new Error('Could not create Drive folder');
-
-      const arrayBuffer = await blob.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      // ensure-folder expects action as query param, body as JSON with customer_name
+      const { data: folderData, error: folderErr } = await supabase.functions.invoke(
+        'google-drive?action=ensure-folder',
+        { body: { category, customer_name: customerName } },
       );
+      if (folderErr) throw folderErr;
 
-      const { data: uploadData } = await supabase.functions.invoke('google-drive', {
-        body: {
-          action: 'upload',
-          folderId: folderData.folderId,
-          fileName,
-          mimeType,
-          fileBase64: base64,
-        },
-      });
+      const folderId = folderData?.folder_id;
+      if (!folderId) throw new Error('Could not create Drive folder');
+
+      // upload expects action as query param, body as FormData
+      const formData = new FormData();
+      formData.append('file', new File([blob], fileName, { type: mimeType }));
+      formData.append('folder_id', folderId);
+
+      const { data: uploadData, error: uploadErr } = await supabase.functions.invoke(
+        'google-drive?action=upload',
+        { body: formData },
+      );
+      if (uploadErr) throw uploadErr;
 
       await supabase.from('content_assets').insert({
         title: fileName,
@@ -303,7 +302,7 @@ export default function MeetingRoom() {
         status: 'published',
         category,
         customer_id: meeting.customer_id,
-        url: uploadData?.file?.webViewLink || null,
+        url: uploadData?.webViewLink || null,
         folder: meeting.id,
       });
 
