@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Download } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
@@ -291,17 +291,47 @@ export default function PhonePage() {
   };
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [audioBlobUrls, setAudioBlobUrls] = useState<Record<string, string>>({});
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const handleDownloadAudio = async (transcription: any) => {
+  const extractDriveFileId = (url: string) => {
+    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  };
+
+  const handlePlayAudio = async (transcription: any) => {
     if (!transcription.audio_url) { toast.error('No audio file linked'); return; }
-    // Extract Google Drive file ID from webViewLink
-    const match = transcription.audio_url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (!match) {
-      // Fallback: just open the link
+
+    // If already playing this one, stop it
+    if (playingId === transcription.id) {
+      audioRef.current?.pause();
+      setPlayingId(null);
+      return;
+    }
+
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    // If we already have the blob cached, play it
+    if (audioBlobUrls[transcription.id]) {
+      const audio = new Audio(audioBlobUrls[transcription.id]);
+      audio.onended = () => setPlayingId(null);
+      audioRef.current = audio;
+      setPlayingId(transcription.id);
+      audio.play();
+      return;
+    }
+
+    const fileId = extractDriveFileId(transcription.audio_url);
+    if (!fileId) {
       window.open(transcription.audio_url, '_blank');
       return;
     }
-    const fileId = match[1];
+
     setDownloadingId(transcription.id);
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
@@ -312,18 +342,17 @@ export default function PhonePage() {
       );
       if (!res.ok) throw new Error('Download failed');
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${transcription.source_type}_${format(new Date(transcription.created_at), 'yyyy-MM-dd')}.mp3`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('Audio downloaded');
+      const blobUrl = URL.createObjectURL(blob);
+      setAudioBlobUrls(prev => ({ ...prev, [transcription.id]: blobUrl }));
+
+      const audio = new Audio(blobUrl);
+      audio.onended = () => setPlayingId(null);
+      audioRef.current = audio;
+      setPlayingId(transcription.id);
+      audio.play();
     } catch (err: any) {
-      console.error('Download error:', err);
-      toast.error('Failed to download audio');
+      console.error('Play error:', err);
+      toast.error('Failed to load audio');
     } finally {
       setDownloadingId(null);
     }
@@ -336,26 +365,30 @@ export default function PhonePage() {
   };
 
   const getTypeBadge = (sourceType: string, transcription?: any) => {
-    const isClickable = transcription?.audio_url;
-    const isDownloading = transcription && downloadingId === transcription.id;
-    const clickProps = isClickable ? {
-      onClick: (e: React.MouseEvent) => { e.stopPropagation(); handleDownloadAudio(transcription); },
-      className: "gap-1 text-[10px] cursor-pointer hover:opacity-80 transition-opacity",
+    const hasAudio = transcription?.audio_url;
+    const isPlaying = transcription && playingId === transcription.id;
+    const isLoading = transcription && downloadingId === transcription.id;
+
+    const clickProps = hasAudio ? {
+      onClick: (e: React.MouseEvent) => { e.stopPropagation(); handlePlayAudio(transcription); },
+      className: cn("gap-1 text-[10px] cursor-pointer hover:opacity-80 transition-opacity", isPlaying && "ring-2 ring-primary/50"),
       role: "button" as const,
     } : { className: "gap-1 text-[10px]" };
 
     if (sourceType === 'voicemail') return (
       <Badge variant="secondary" {...clickProps}>
-        {isDownloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Voicemail className="h-3 w-3" />}
+        {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : isPlaying ? <Square className="h-3 w-3" /> : <Voicemail className="h-3 w-3" />}
         Voicemail
-        {isClickable && !isDownloading && <Download className="h-2.5 w-2.5 ml-0.5" />}
+        {hasAudio && !isLoading && !isPlaying && <Play className="h-2.5 w-2.5 ml-0.5" />}
+        {isPlaying && <span className="ml-0.5 text-[9px]">Playing</span>}
       </Badge>
     );
     if (sourceType === 'live_call') return (
       <Badge variant="outline" {...clickProps}>
-        {isDownloading ? <Loader2 className="h-3 w-3 animate-spin" /> : <PhoneCall className="h-3 w-3" />}
+        {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : isPlaying ? <Square className="h-3 w-3" /> : <PhoneCall className="h-3 w-3" />}
         Live Call
-        {isClickable && !isDownloading && <Download className="h-2.5 w-2.5 ml-0.5" />}
+        {hasAudio && !isLoading && !isPlaying && <Play className="h-2.5 w-2.5 ml-0.5" />}
+        {isPlaying && <span className="ml-0.5 text-[9px]">Playing</span>}
       </Badge>
     );
     return <Badge variant="outline" className="text-[10px]">{sourceType}</Badge>;
@@ -606,11 +639,16 @@ export default function PhonePage() {
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
                                   {t.audio_url && (
-                                    <a href={t.audio_url} target="_blank" rel="noopener noreferrer" title="Play audio">
-                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary hover:text-primary">
-                                        <Play className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </a>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className={cn("h-7 w-7 p-0", playingId === t.id ? "text-destructive hover:text-destructive" : "text-primary hover:text-primary")}
+                                      onClick={(e) => { e.stopPropagation(); handlePlayAudio(t); }}
+                                      disabled={downloadingId === t.id}
+                                      title={playingId === t.id ? "Stop" : "Play audio"}
+                                    >
+                                      {downloadingId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : playingId === t.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                                    </Button>
                                   )}
                                   <Button variant="ghost" size="sm" onClick={() => copyTranscript(t.transcript)} className="h-7 w-7 p-0">
                                     <Copy className="h-3.5 w-3.5" />
