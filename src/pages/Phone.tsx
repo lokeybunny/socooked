@@ -581,7 +581,7 @@ export default function PhonePage() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <p className="text-base font-semibold text-foreground truncate">{lead.full_name}</p>
+                              <button onClick={() => handleLeadDoubleClick(lead)} className="text-base font-semibold text-primary hover:underline truncate cursor-pointer text-left">{lead.full_name}</button>
                               {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy</Badge>}
                               {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">Call Back</Badge>}
                             </div>
