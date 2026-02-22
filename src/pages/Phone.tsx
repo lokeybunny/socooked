@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +40,13 @@ export default function PhonePage() {
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rcScriptRef = useRef<HTMLScriptElement | null>(null);
+
+  // New customer dialog state
+  const [newCustOpen, setNewCustOpen] = useState(false);
+  const [newCustName, setNewCustName] = useState('');
+  const [newCustPhone, setNewCustPhone] = useState('');
+  const [newCustEmail, setNewCustEmail] = useState('');
+  const [newCustSaving, setNewCustSaving] = useState(false);
 
   // Load RingCentral Embeddable
   useEffect(() => {
@@ -114,6 +123,33 @@ export default function PhonePage() {
   };
 
   const removeFile = (idx: number) => setUploadFiles(prev => prev.filter((_, i) => i !== idx));
+
+  // ─── Create new customer (lead) ───────────────────────
+  const handleCreateCustomer = async () => {
+    if (!newCustName.trim()) { toast.error('Name is required'); return; }
+    setNewCustSaving(true);
+    const { data, error } = await supabase.from('customers').insert({
+      full_name: newCustName.trim(),
+      phone: newCustPhone.trim() || null,
+      email: newCustEmail.trim() || null,
+      status: 'lead',
+    }).select('id, full_name, phone, email').single();
+
+    if (error) {
+      toast.error('Failed to create customer');
+      setNewCustSaving(false);
+      return;
+    }
+
+    setCustomers(prev => [data, ...prev]);
+    setSelectedCustomerId(data.id);
+    setNewCustOpen(false);
+    setNewCustName('');
+    setNewCustPhone('');
+    setNewCustEmail('');
+    setNewCustSaving(false);
+    toast.success(`Created lead: ${data.full_name}`);
+  };
 
   // ─── Transcribe + upload to Drive ─────────────────────
   const handleTranscribe = async () => {
@@ -256,7 +292,16 @@ export default function PhonePage() {
               {/* Customer + Call Type selects */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Customer</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Customer</Label>
+                    <button
+                      type="button"
+                      onClick={() => setNewCustOpen(true)}
+                      className="text-xs text-primary hover:underline flex items-center gap-1"
+                    >
+                      <UserPlus className="h-3 w-3" /> New
+                    </button>
+                  </div>
                   <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
                     <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
                     <SelectContent>
@@ -501,6 +546,36 @@ export default function PhonePage() {
           </div>
         </div>
       </div>
+
+      {/* New Customer Dialog */}
+      <Dialog open={newCustOpen} onOpenChange={setNewCustOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Lead</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name *</Label>
+              <Input value={newCustName} onChange={e => setNewCustName(e.target.value)} placeholder="Full name" />
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input value={newCustPhone} onChange={e => setNewCustPhone(e.target.value)} placeholder="Phone number" />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={newCustEmail} onChange={e => setNewCustEmail(e.target.value)} placeholder="Email address" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewCustOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateCustomer} disabled={newCustSaving || !newCustName.trim()} className="gap-2">
+              {newCustSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+              Create Lead
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
