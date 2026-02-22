@@ -77,15 +77,13 @@ async function findFolder(
   rootFolderId: string
 ): Promise<string | null> {
   const q = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  // For Shared Drives, we must specify corpora=drive and driveId when querying the root
   let url = `${DRIVE_API}/files?q=${encodeURIComponent(q)}&fields=files(id)&supportsAllDrives=true&includeItemsFromAllDrives=true`;
-  // For Shared Drives, specify corpora=drive and driveId
-  url += `&corpora=drive&driveId=${rootFolderId}`;
+  if (parentId === rootFolderId) {
+    url += `&corpora=drive&driveId=${rootFolderId}`;
+  }
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   const data = await res.json();
-  if (!res.ok) {
-    console.error("findFolder error:", JSON.stringify(data));
-    return null;
-  }
   return data.files?.[0]?.id || null;
 }
 
@@ -94,23 +92,19 @@ async function createFolder(
   name: string,
   parentId: string
 ): Promise<string> {
-  console.log("createFolder called:", { name, parentId });
-  const body: any = {
-    name,
-    mimeType: "application/vnd.google-apps.folder",
-    parents: [parentId],
-  };
-  // For Shared Drives, we need supportsAllDrives in the query
   const res = await fetch(`${DRIVE_API}/files?supportsAllDrives=true`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      name,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [parentId],
+    }),
   });
   const data = await res.json();
-  console.log("createFolder response:", res.status, JSON.stringify(data));
   if (!res.ok) throw new Error(`Create folder error: ${JSON.stringify(data)}`);
   return data.id;
 }
@@ -214,46 +208,9 @@ serve(async (req) => {
     if (!sa.client_email) throw new Error("Service account JSON is missing 'client_email'. Ensure you pasted the full JSON key file.");
 
     const token = await getAccessToken(sa);
-    console.log("Root folder ID:", rootFolderId);
-    console.log("Service account:", sa.client_email);
 
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
-
-    // ─── DIAGNOSE: List shared drives ─────────────────────
-    if (action === "list-drives") {
-      const res = await fetch(`${DRIVE_API.replace('/drive/v3', '/drive/v3')}/drives?pageSize=100`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      console.log("Shared drives:", JSON.stringify(data));
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // ─── DIAGNOSE: Check specific drive/folder access ─────
-    if (action === "check-access") {
-      // Try as Shared Drive first
-      const driveRes = await fetch(`${DRIVE_API}/drives/${rootFolderId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const driveData = await driveRes.json();
-      
-      // Try as regular folder
-      const fileRes = await fetch(`${DRIVE_API}/files/${rootFolderId}?supportsAllDrives=true&fields=id,name,mimeType,driveId,capabilities`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const fileData = await fileRes.json();
-      
-      return new Response(JSON.stringify({
-        rootFolderId,
-        asSharedDrive: { status: driveRes.status, data: driveData },
-        asFile: { status: fileRes.status, data: fileData },
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     // ─── ENSURE FOLDER STRUCTURE ──────────────────────────
     // Returns the target folder ID for a given category + customer name

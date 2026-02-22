@@ -18,7 +18,7 @@ serve(async (req) => {
     const action = url.searchParams.get('action');
     const clientId = Deno.env.get('RINGCENTRAL_CLIENT_ID')!;
     const clientSecret = Deno.env.get('RINGCENTRAL_CLIENT_SECRET')!;
-    const redirectUri = 'https://stu25.com/phone';
+    const redirectUri = Deno.env.get('RINGCENTRAL_REDIRECT_URI') || 'https://socooked.lovable.app/phone';
 
     console.log('RC OAuth action:', action);
 

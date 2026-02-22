@@ -28,6 +28,7 @@ async function getOAuthToken(authHeader: string): Promise<string> {
     throw new Error('RingCentral not connected. Please authorize via OAuth first.');
   }
 
+  // Check if token is expired (with 60s buffer)
   const expiresAt = new Date(tokenRow.expires_at).getTime();
   if (Date.now() > expiresAt - 60000) {
     console.log('Token expired, refreshing...');
@@ -50,6 +51,7 @@ async function getOAuthToken(authHeader: string): Promise<string> {
     if (!res.ok) {
       const errBody = await res.text();
       console.error('Token refresh failed:', errBody);
+      // Delete stale tokens so user re-authorizes
       await supabase.from('ringcentral_tokens').delete().eq('user_id', user.id);
       throw new Error('RingCentral token expired. Please reconnect.');
     }
