@@ -1427,6 +1427,43 @@ Deno.serve(async (req) => {
       return ok({ action: 'deleted', attachment_id: id })
     }
 
+    // ─── EMAIL (proxy to gmail-api) ─────────────────────────
+    if (path === 'email' && req.method === 'GET') {
+      const action = params.get('action') || 'inbox'
+      const msgId = params.get('id')
+      const baseUrl = Deno.env.get('SUPABASE_URL')
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      let gmailUrl = `${baseUrl}/functions/v1/gmail-api?action=${action}`
+      if (msgId) gmailUrl += `&id=${msgId}`
+      const gmailRes = await fetch(gmailUrl, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+      })
+      const gmailData = await gmailRes.json()
+      if (!gmailRes.ok) return fail(gmailData.error || 'Gmail API error', gmailRes.status)
+      if (isBot) await auditLog(supabase, 'email-read', { action, id: msgId })
+      return ok(gmailData)
+    }
+
+    if (path === 'email' && req.method === 'POST') {
+      const { to, subject, body: emailBody, action: emailAction } = body
+      const act = emailAction || 'send'
+      if (act === 'send' && (!to || !subject)) return fail('to and subject are required')
+      const baseUrl = Deno.env.get('SUPABASE_URL')
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      const gmailUrl = `${baseUrl}/functions/v1/gmail-api?action=${act}`
+      const gmailRes = await fetch(gmailUrl, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, subject, body: emailBody }),
+      })
+      const gmailData = await gmailRes.json()
+      if (!gmailRes.ok) return fail(gmailData.error || 'Gmail send error', gmailRes.status)
+      if (isBot) await auditLog(supabase, 'email-send', { to, subject, action: act })
+      await logActivity(supabase, 'email', null, act === 'save-draft' ? 'draft_saved' : 'sent', `Email to ${to}`)
+      return ok(gmailData)
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
       const [boards, customers, deals, projects, meetings, templates, content, transcriptions, botTasks] = await Promise.all([

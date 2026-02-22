@@ -114,6 +114,12 @@
     { "name": "crm_generate_resume", "description": "Generate resume mock", "method": "POST", "path": "/clawd-bot/generate-resume" },
     { "name": "crm_generate_contract", "description": "Generate contract mock", "method": "POST", "path": "/clawd-bot/generate-contract" },
     { "name": "crm_generate_email", "description": "Generate client email", "method": "POST", "path": "/clawd-bot/generate-email" },
-    { "name": "crm_analyze_thread", "description": "Analyze transcript for missing info", "method": "POST", "path": "/clawd-bot/analyze-thread" }
+    { "name": "crm_analyze_thread", "description": "Analyze transcript for missing info", "method": "POST", "path": "/clawd-bot/analyze-thread" },
+    { "name": "crm_email_inbox", "description": "Get inbox emails (warren@stu25.com)", "method": "GET", "path": "/clawd-bot/email?action=inbox" },
+    { "name": "crm_email_sent", "description": "Get sent emails", "method": "GET", "path": "/clawd-bot/email?action=sent" },
+    { "name": "crm_email_drafts", "description": "Get draft emails", "method": "GET", "path": "/clawd-bot/email?action=drafts" },
+    { "name": "crm_email_read", "description": "Read a specific email by message ID", "method": "GET", "path": "/clawd-bot/email?action=message&id={msg_id}" },
+    { "name": "crm_email_send", "description": "Send email from warren@stu25.com", "method": "POST", "path": "/clawd-bot/email" },
+    { "name": "crm_email_save_draft", "description": "Save email as draft", "method": "POST", "path": "/clawd-bot/email" }
   ]
 }

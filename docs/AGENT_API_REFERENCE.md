@@ -272,6 +272,19 @@ All responses follow:
 | Update | POST | `/clawd-bot/bot-task` | `{ "id": "uuid", "status": "done" }` |
 | Delete | DELETE | `/clawd-bot/bot-task` | `{ "id": "uuid" }` |
 
+### Email (Gmail — warren@stu25.com)
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| Inbox | GET | `/clawd-bot/email?action=inbox` | — |
+| Sent | GET | `/clawd-bot/email?action=sent` | — |
+| Drafts | GET | `/clawd-bot/email?action=drafts` | — |
+| Read message | GET | `/clawd-bot/email?action=message&id=MSG_ID` | — |
+| Send | POST | `/clawd-bot/email` | `{ "to": "jane@example.com", "subject": "Hello", "body": "<p>Hi!</p>" }` |
+| Save draft | POST | `/clawd-bot/email` | `{ "action": "save-draft", "to": "...", "subject": "...", "body": "..." }` |
+
+> Sends from `warren@stu25.com` via Google Workspace service account. Body supports HTML.
+
 ### Meetings
 
 | Action | Method | URL | Body |
