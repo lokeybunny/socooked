@@ -95,6 +95,33 @@ export default function Meetings() {
     load();
   };
 
+  const downloadRecording = async (rec: any) => {
+    // Extract file ID from Drive URL like https://drive.google.com/file/d/FILE_ID/view...
+    const match = rec.url?.match(/\/file\/d\/([^/]+)/);
+    if (!match) { toast.error('No valid Drive file link'); return; }
+    const fileId = match[1];
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    toast.info('Downloading…');
+    try {
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${fileId}`,
+        { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
+      );
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = rec.title || 'download';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error('Download failed:', err);
+      toast.error('Download failed');
+    }
+  };
+
   const copyLink = (roomCode: string) => {
     const url = `${window.location.origin}/meet/${roomCode}`;
     navigator.clipboard.writeText(url);
@@ -210,18 +237,14 @@ export default function Meetings() {
                       <div className="flex items-center gap-2 shrink-0">
                         <StatusBadge status={m.status} />
                         {videoRec?.url && (
-                          <a href={videoRec.url} target="_blank" rel="noopener noreferrer" title="Download MP4">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
-                              <FileVideo className="h-4 w-4" />
-                            </Button>
-                          </a>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Download MP4" onClick={() => downloadRecording(videoRec)}>
+                            <FileVideo className="h-4 w-4" />
+                          </Button>
                         )}
                         {audioRec?.url && (
-                          <a href={audioRec.url} target="_blank" rel="noopener noreferrer" title="Download MP3">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary">
-                              <FileAudio className="h-4 w-4" />
-                            </Button>
-                          </a>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Download MP3" onClick={() => downloadRecording(audioRec)}>
+                            <FileAudio className="h-4 w-4" />
+                          </Button>
                         )}
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(m.room_code)} title="Copy link">
                           <Copy className="h-4 w-4" />
