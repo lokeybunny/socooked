@@ -152,13 +152,21 @@ export default function PhonePage() {
       const dateStr = format(new Date(), 'yyyy-MM-dd');
       const phoneLabel = customer.phone || 'no-phone';
 
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       // Step 1: Ensure Google Drive folder: Transcriptions / [date] / [phone]
       setUploadStep('Creating Drive folder…');
-      const { data: folderData, error: folderErr } = await supabase.functions.invoke(
-        'google-drive?action=ensure-folder',
-        { body: { category: 'Transcriptions', customer_name: `${dateStr} — ${phoneLabel}` } }
+      const folderRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+          body: JSON.stringify({ category: 'Transcriptions', customer_name: `${dateStr} — ${phoneLabel}` }),
+        }
       );
-      if (folderErr) throw new Error(folderErr.message || 'Folder creation failed');
+      const folderData = await folderRes.json();
+      if (!folderRes.ok) throw new Error(folderData.error || 'Folder creation failed');
 
       const folderId = folderData?.folder_id;
       if (!folderId) throw new Error('No folder ID returned');
@@ -169,11 +177,16 @@ export default function PhonePage() {
       formData.append('file', droppedFile);
       formData.append('folder_id', folderId);
 
-      const { data: uploadResult, error: uploadErr } = await supabase.functions.invoke(
-        'google-drive?action=upload',
-        { body: formData }
+      const uploadRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/google-drive?action=upload`,
+        {
+          method: 'POST',
+          headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+          body: formData,
+        }
       );
-      if (uploadErr) throw new Error(uploadErr.message || 'Upload failed');
+      const uploadResult = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadResult.error || 'Upload failed');
 
       const driveUrl = uploadResult?.webViewLink || uploadResult?.id || '';
 
