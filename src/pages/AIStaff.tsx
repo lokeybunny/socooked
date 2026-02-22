@@ -305,13 +305,12 @@ export default function AIStaff() {
         description: null,
         meta: p.meta,
       }));
-      // Merge, dedup by id
       const ids = new Set(botTasks.map(t => t.id));
-      return [...botTasks, ...previewTasks.filter(t => !ids.has(t.id))];
+      const merged = [...botTasks, ...previewTasks.filter(t => !ids.has(t.id))];
+      return merged.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
     }
     
     if (id === 'clawd-main') {
-      // Show all activity as orchestrator
       const previewTasks: BotTask[] = previews.map(p => ({
         id: p.id,
         title: p.title,
@@ -325,10 +324,11 @@ export default function AIStaff() {
         meta: p.meta,
       }));
       const ids = new Set(botTasks.map(t => t.id));
-      return [...botTasks, ...previewTasks.filter(t => !ids.has(t.id))];
+      const merged = [...botTasks, ...previewTasks.filter(t => !ids.has(t.id))];
+      return merged.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
     }
     
-    return botTasks;
+    return botTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
   };
 
   const agentActivities = (id: string) => {
