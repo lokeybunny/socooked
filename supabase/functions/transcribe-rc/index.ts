@@ -17,45 +17,23 @@ interface TokenResponse {
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-function getCredentials() {
-  const clientId = Deno.env.get("RINGCENTRAL_CLIENT_ID");
-  const clientSecret = Deno.env.get("RINGCENTRAL_CLIENT_SECRET");
-  if (!clientId || !clientSecret) throw new Error("RINGCENTRAL_CLIENT_ID/SECRET not configured");
-  const raw = Deno.env.get("RINGCENTRAL_CREDENTIALS");
-  let username = "", password = "", extension: string | undefined;
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      username = parsed.username || parsed.phone || "";
-      password = parsed.password || "";
-      extension = parsed.extension || undefined;
-    } catch { /* ignore */ }
-  }
-  return { client_id: clientId, client_secret: clientSecret, username, password, extension };
-}
-
 async function getRCToken(): Promise<string> {
   if (cachedToken && Date.now() < cachedToken.expiresAt - 60_000) {
     return cachedToken.token;
   }
-  const creds = getCredentials();
-  const jwtToken = Deno.env.get("RINGCENTRAL_JWT_TOKEN");
-  let body: Record<string, string>;
-  if (creds.username && creds.password) {
-    body = { grant_type: "password", username: creds.username, password: creds.password };
-    if (creds.extension) body.extension = creds.extension;
-  } else if (jwtToken) {
-    body = { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwtToken };
-  } else {
-    throw new Error("No RC auth method available");
-  }
+  const clientId = Deno.env.get("RINGCENTRAL_CLIENT_ID")!;
+  const clientSecret = Deno.env.get("RINGCENTRAL_CLIENT_SECRET")!;
+  const jwtToken = Deno.env.get("RINGCENTRAL_JWT_TOKEN")!;
   const res = await fetch(`${RC_SERVER}/restapi/oauth/token`, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${btoa(`${creds.client_id}:${creds.client_secret}`)}`,
+      Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams(body),
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwtToken,
+    }),
   });
   if (!res.ok) throw new Error(`RC auth failed: ${res.status}`);
   const data: TokenResponse = await res.json();
@@ -117,23 +95,8 @@ serve(async (req) => {
     const sb = createClient(supabaseUrl, serviceKey);
 
     if (action === "sync") {
+      // Fetch call recordings and voicemails from RingCentral, transcribe new ones
       const rcToken = await getRCToken();
-
-      // Load all customers with phone numbers for matching
-      const { data: customers } = await sb
-        .from("customers")
-        .select("id, phone, full_name")
-        .not("phone", "is", null);
-      
-      const normalizePhone = (p: string) => p.replace(/[^0-9+]/g, "").replace(/^\+?1/, "");
-      const phoneMap = new Map<string, string>();
-      for (const c of customers || []) {
-        if (c.phone) phoneMap.set(normalizePhone(c.phone), c.id);
-      }
-      const findCustomer = (phone: string | null): string | null => {
-        if (!phone) return null;
-        return phoneMap.get(normalizePhone(phone)) || null;
-      };
 
       // 1. Get call log with recordings
       const callData = await rcGet(
@@ -175,23 +138,19 @@ serve(async (req) => {
 
         try {
           const aiResult = await transcribeText(transcriptText);
-          const fromPhone = call.from?.phoneNumber || call.from?.name || null;
-          const toPhone = call.to?.phoneNumber || call.to?.name || null;
-          const customerId = findCustomer(fromPhone) || findCustomer(toPhone);
           const { error } = await sb.from("transcriptions").insert({
             source_type: "recording",
             source_id: recId,
-            phone_from: fromPhone,
-            phone_to: toPhone,
+            phone_from: call.from?.phoneNumber || call.from?.name || null,
+            phone_to: call.to?.phoneNumber || call.to?.name || null,
             direction: call.direction?.toLowerCase() || null,
             duration_seconds: call.duration || null,
             transcript: aiResult.transcript,
             summary: aiResult.summary || null,
             occurred_at: call.startTime || null,
-            customer_id: customerId,
           });
           if (error) console.error("Insert error:", error);
-          else results.push({ type: "recording", id: recId, status: "transcribed", customerId });
+          else results.push({ type: "recording", id: recId, status: "transcribed" });
         } catch (e: any) {
           console.error(`Failed to transcribe recording ${recId}:`, e.message);
         }
@@ -207,22 +166,19 @@ serve(async (req) => {
         try {
           const aiResult = await transcribeText(transcriptText);
           const toList = (vm.to || []).map((t: any) => t.phoneNumber || t.name).join(", ");
-          const fromPhone = vm.from?.phoneNumber || vm.from?.name || null;
-          const customerId = findCustomer(fromPhone) || findCustomer(toList);
           const { error } = await sb.from("transcriptions").insert({
             source_type: "voicemail",
             source_id: vmId,
-            phone_from: fromPhone,
+            phone_from: vm.from?.phoneNumber || vm.from?.name || null,
             phone_to: toList || null,
             direction: vm.direction?.toLowerCase() || null,
             duration_seconds: null,
             transcript: aiResult.transcript,
             summary: aiResult.summary || null,
             occurred_at: vm.creationTime || vm.lastModifiedTime || null,
-            customer_id: customerId,
           });
           if (error) console.error("Insert error:", error);
-          else results.push({ type: "voicemail", id: vmId, status: "transcribed", customerId });
+          else results.push({ type: "voicemail", id: vmId, status: "transcribed" });
         } catch (e: any) {
           console.error(`Failed to transcribe voicemail ${vmId}:`, e.message);
         }
