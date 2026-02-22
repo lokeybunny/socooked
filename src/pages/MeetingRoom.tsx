@@ -48,6 +48,7 @@ export default function MeetingRoom() {
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamsRef = useRef<MediaStream[]>([]);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const peersRef = useRef<Map<string, Participant>>(new Map());
   const myPeerIdRef = useRef<string>(crypto.randomUUID());
@@ -100,6 +101,12 @@ export default function MeetingRoom() {
     }
   }, [joined]);
 
+  const syncParticipants = useCallback(() => {
+    const list = Array.from(peersRef.current.values());
+    setParticipants(list);
+    remoteStreamsRef.current = list.map(p => p.stream).filter(Boolean) as MediaStream[];
+  }, []);
+
   const createPeerConnection = useCallback((remotePeerId: string, remoteName: string) => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
@@ -115,7 +122,7 @@ export default function MeetingRoom() {
       const existing = peersRef.current.get(remotePeerId);
       const updated = { ...(existing || participant), stream: event.streams[0] };
       peersRef.current.set(remotePeerId, updated);
-      setParticipants(Array.from(peersRef.current.values()));
+      syncParticipants();
     };
 
     pc.onicecandidate = (event) => {
@@ -155,9 +162,9 @@ export default function MeetingRoom() {
     };
 
     peersRef.current.set(remotePeerId, participant);
-    setParticipants(Array.from(peersRef.current.values()));
+    syncParticipants();
     return pc;
-  }, [guestName]);
+  }, [guestName, syncParticipants]);
 
   const joinRoom = useCallback(async () => {
     if (!guestName.trim()) { toast.error('Enter your name'); return; }
@@ -216,7 +223,7 @@ export default function MeetingRoom() {
         if (peer) {
           peer.pc.close();
           peersRef.current.delete(payload.peerId);
-          setParticipants(Array.from(peersRef.current.values()));
+          syncParticipants();
         }
       })
       .subscribe(() => {
@@ -308,15 +315,15 @@ export default function MeetingRoom() {
       const { blob, extension } = await stopRecording();
       await uploadRecording(blob, extension);
     } else {
-      const remoteStreams = Array.from(peersRef.current.values())
+      // Update remote streams ref before starting
+      remoteStreamsRef.current = Array.from(peersRef.current.values())
         .map(p => p.stream)
         .filter(Boolean) as MediaStream[];
 
       const started = startRecording({
-        localStream: localStreamRef.current,
-        screenStream: screenStreamRef.current,
-        remoteStreams,
-        meetingTitle: meeting?.title || 'Meeting',
+        localStream: localStreamRef,
+        screenStream: screenStreamRef,
+        remoteStreams: remoteStreamsRef,
       });
 
       if (started) {
