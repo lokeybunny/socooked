@@ -1506,9 +1506,21 @@ Deno.serve(async (req) => {
       return ok(v0Data.data || v0Data)
     }
 
+    // ─── PREVIEWS (SpaceBot can query all API-generated work) ─
+    if (path === 'previews' && req.method === 'GET') {
+      const customer_id = params.get('customer_id')
+      const source = params.get('source')
+      let q = supabase.from('api_previews').select('*, customers(full_name, email)').order('created_at', { ascending: false }).limit(100)
+      if (customer_id) q = q.eq('customer_id', customer_id)
+      if (source) q = q.eq('source', source)
+      const { data, error } = await q
+      if (error) return fail(error.message, 500)
+      return ok({ previews: data })
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
-      const [boards, customers, deals, projects, meetings, templates, content, transcriptions, botTasks] = await Promise.all([
+      const [boards, customers, deals, projects, meetings, templates, content, transcriptions, botTasks, apiPreviews] = await Promise.all([
         supabase.from('boards').select('id, name, lists:lists(id, name, position, cards:cards(id, title, status, priority, position, source))').order('created_at', { ascending: true }),
         supabase.from('customers').select('id, full_name, status, email, phone, category, upload_token').order('created_at', { ascending: false }).limit(50),
         supabase.from('deals').select('id, title, stage, deal_value, status, category').order('created_at', { ascending: false }).limit(50),
@@ -1518,8 +1530,9 @@ Deno.serve(async (req) => {
         supabase.from('content_assets').select('id, title, type, status, source, category, customer_id, folder, url').order('created_at', { ascending: false }).limit(100),
         supabase.from('transcriptions').select('id, source_type, customer_id, summary, direction, created_at').order('created_at', { ascending: false }).limit(50),
         supabase.from('bot_tasks').select('id, title, bot_agent, status, priority, created_at').order('created_at', { ascending: false }).limit(50),
+        supabase.from('api_previews').select('id, title, source, status, customer_id, preview_url, edit_url, created_at').order('created_at', { ascending: false }).limit(50),
       ])
-      return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data, templates: templates.data, content: content.data, transcriptions: transcriptions.data, bot_tasks: botTasks.data })
+      return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data, templates: templates.data, content: content.data, transcriptions: transcriptions.data, bot_tasks: botTasks.data, api_previews: apiPreviews.data })
     }
 
     return fail('Unknown endpoint', 404)
