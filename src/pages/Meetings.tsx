@@ -18,18 +18,21 @@ export default function Meetings() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [meetings, setMeetings] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [category, setCategory] = useState('');
+  const [customerId, setCustomerId] = useState('');
 
   const load = async () => {
-    const { data } = await supabase
-      .from('meetings')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setMeetings(data || []);
+    const [meetingsRes, customersRes] = await Promise.all([
+      supabase.from('meetings').select('*, customers(full_name)').order('created_at', { ascending: false }),
+      supabase.from('customers').select('id, full_name').order('full_name'),
+    ]);
+    setMeetings(meetingsRes.data || []);
+    setCustomers(customersRes.data || []);
     setLoading(false);
   };
 
@@ -42,12 +45,14 @@ export default function Meetings() {
       title: title || 'Meeting',
       scheduled_at: scheduledAt || null,
       category: category || null,
+      customer_id: customerId || null,
     }]).select().single();
     if (error) { toast.error(error.message); return; }
     toast.success('Meeting created');
     setTitle('');
     setScheduledAt('');
     setCategory('');
+    setCustomerId('');
     setDialogOpen(false);
     load();
   };
@@ -102,6 +107,19 @@ export default function Meetings() {
                   </Select>
                 </div>
                 <div className="space-y-2">
+                  <Label>Client (for recording uploads)</Label>
+                  <Select value={customerId} onValueChange={setCustomerId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map(c => (
+                        <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label>Schedule For (optional)</Label>
                   <Input type="datetime-local" value={scheduledAt} onChange={e => setScheduledAt(e.target.value)} />
                 </div>
@@ -130,6 +148,7 @@ export default function Meetings() {
                     <p className="text-sm font-medium text-foreground truncate">{m.title}</p>
                     <p className="text-xs text-muted-foreground">
                       Room: {m.room_code}
+                      {m.customers?.full_name && ` · ${m.customers.full_name}`}
                       {m.scheduled_at && ` · ${format(new Date(m.scheduled_at), 'MMM d, yyyy h:mm a')}`}
                     </p>
                   </div>

@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
   Mic, MicOff, Video, VideoOff, Monitor, MonitorOff, PhoneOff, Users, Minimize2,
+  Circle, Square,
 } from 'lucide-react';
 import MeetingChat from '@/components/meeting/MeetingChat';
 import MeetingVideoGate from '@/components/meeting/MeetingVideoGate';
+import { useRecording } from '@/hooks/useRecording';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -40,6 +42,9 @@ export default function MeetingRoom() {
   const [screenOn, setScreenOn] = useState(false);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [fullscreenId, setFullscreenId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const { recording, recordingTime, startRecording, stopRecording, formatTime } = useRecording();
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
@@ -223,6 +228,109 @@ export default function MeetingRoom() {
         });
       });
   }, [roomCode, guestName, getLocalStream, createPeerConnection]);
+
+  const uploadRecording = useCallback(async (blob: Blob) => {
+    if (!meeting?.customer_id) {
+      // No customer linked — just download locally
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Recording downloaded (no client linked for Drive upload)');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Get customer info for folder path
+      const { data: customer } = await supabase
+        .from('customers')
+        .select('full_name, category')
+        .eq('id', meeting.customer_id)
+        .single();
+
+      if (!customer) throw new Error('Customer not found');
+
+      const category = customer.category || 'other';
+      const customerName = customer.full_name;
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const fileName = `${meeting.title || 'Meeting'} - ${dateStr}.webm`;
+
+      // Ensure folder structure: [Category] / [Customer Name]
+      const { data: folderData } = await supabase.functions.invoke('google-drive', {
+        body: { action: 'ensure-folder', category, customerName },
+      });
+
+      if (!folderData?.folderId) throw new Error('Could not create Drive folder');
+
+      // Upload recording
+      const arrayBuffer = await blob.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+
+      const { data: uploadData } = await supabase.functions.invoke('google-drive', {
+        body: {
+          action: 'upload',
+          folderId: folderData.folderId,
+          fileName,
+          mimeType: 'video/webm',
+          fileBase64: base64,
+        },
+      });
+
+      // Register in content_assets
+      await supabase.from('content_assets').insert({
+        title: fileName,
+        type: 'Video',
+        source: 'Dashboard',
+        status: 'published',
+        category,
+        customer_id: meeting.customer_id,
+        url: uploadData?.file?.webViewLink || null,
+      });
+
+      toast.success('Recording uploaded to client Drive folder');
+    } catch (err: any) {
+      console.error('Upload failed:', err);
+      toast.error('Upload failed — downloading locally instead');
+      // Fallback: download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setUploading(false);
+    }
+  }, [meeting]);
+
+  const toggleRecord = useCallback(async () => {
+    if (recording) {
+      const blob = await stopRecording();
+      await uploadRecording(blob);
+    } else {
+      const remoteStreams = Array.from(peersRef.current.values())
+        .map(p => p.stream)
+        .filter(Boolean) as MediaStream[];
+
+      const started = startRecording({
+        localStream: localStreamRef.current,
+        screenStream: screenStreamRef.current,
+        remoteStreams,
+        meetingTitle: meeting?.title || 'Meeting',
+      });
+
+      if (started) {
+        toast.success('Recording started');
+      } else {
+        toast.error('No media available to record');
+      }
+    }
+  }, [recording, stopRecording, startRecording, uploadRecording, meeting]);
 
   const toggleMic = () => {
     const stream = localStreamRef.current;
@@ -465,6 +573,19 @@ export default function MeetingRoom() {
         </div>
       </div>
 
+      {/* Recording indicator */}
+      {recording && (
+        <div className="flex items-center justify-center gap-2 py-1 bg-destructive/10 text-destructive text-sm font-medium">
+          <Circle className="h-3 w-3 fill-destructive animate-pulse" />
+          Recording {formatTime(recordingTime)}
+        </div>
+      )}
+      {uploading && (
+        <div className="flex items-center justify-center gap-2 py-1 bg-primary/10 text-primary text-sm font-medium">
+          Uploading recording to Drive...
+        </div>
+      )}
+
       {/* Controls */}
       <div className="flex items-center justify-center gap-3 p-4 border-t border-border">
         <Button
@@ -490,6 +611,16 @@ export default function MeetingRoom() {
           onClick={toggleScreen}
         >
           {screenOn ? <MonitorOff className="h-5 w-5" /> : <Monitor className="h-5 w-5" />}
+        </Button>
+        <Button
+          variant={recording ? 'destructive' : 'secondary'}
+          size="icon"
+          className="h-12 w-12 rounded-full"
+          onClick={toggleRecord}
+          disabled={uploading}
+          title={recording ? 'Stop recording' : 'Start recording'}
+        >
+          {recording ? <Square className="h-5 w-5 fill-current" /> : <Circle className="h-5 w-5 fill-destructive text-destructive" />}
         </Button>
         <Button
           variant="destructive"
