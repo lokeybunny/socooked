@@ -220,18 +220,23 @@ function ActivityPanel({ agent, tasks, activities, navigate }: {
             const link = entityLinks[a.entity_type];
             const name = (a.meta as any)?.name || a.entity_type;
             return (
-              <div key={a.id} className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors">
+                <div key={a.id} className="flex items-center justify-between gap-2 p-2 rounded-lg hover:bg-muted/40 transition-colors">
                 <div className="flex items-center gap-2 min-w-0">
                   <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                   <span className="text-xs text-muted-foreground">
                     <span className="capitalize">{a.action}</span> <span className="text-foreground font-medium">{name}</span>
                   </span>
                 </div>
-                {link && (
-                  <button onClick={() => navigate(link)} className="text-muted-foreground hover:text-foreground transition-colors">
-                    <ExternalLink className="h-3 w-3" />
-                  </button>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] text-muted-foreground/70">
+                    {new Date(a.created_at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' })} PST
+                  </span>
+                  {link && (
+                    <button onClick={() => navigate(link)} className="text-muted-foreground hover:text-foreground transition-colors">
+                      <ExternalLink className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
