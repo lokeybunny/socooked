@@ -277,7 +277,7 @@ export default function EmailPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('inbox');
-  const [channel, setChannel] = useState<'email' | 'sms' | 'transcriptions'>('email');
+  const [channel, setChannel] = useState<'email'>('email');
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -381,43 +381,16 @@ export default function EmailPage() {
   }, [loadCustomers]);
 
   useEffect(() => {
-    if (channel === 'email') {
-      loadEmails(activeTab);
-    } else if (channel === 'sms') {
-      loadRingCentral();
-    }
-
+    loadEmails(activeTab);
     return () => {};
-  }, [channel, activeTab, loadEmails, loadRingCentral]);
+  }, [activeTab, loadEmails]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    if (channel === 'email') {
-      await loadEmails(activeTab);
-    } else if (channel === 'sms') {
-      await loadRingCentral();
-    }
+    await loadEmails(activeTab);
     setRefreshing(false);
   };
 
-  const handleSendSms = async () => {
-    if (!smsForm.to || !smsForm.text) {
-      toast.error('Phone number and message are required');
-      return;
-    }
-    setSmsSending(true);
-    try {
-      await callRCPost('sms-send', { to: smsForm.to, text: smsForm.text, from: smsForm.from || undefined });
-      toast.success('SMS sent!');
-      setSmsComposeOpen(false);
-      setSmsForm({ to: '', text: '', from: '' });
-      if (channel === 'sms') loadRingCentral();
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to send SMS');
-    } finally {
-      setSmsSending(false);
-    }
-  };
 
   const handleSend = async () => {
     if (!form.to || !form.subject) {
@@ -724,8 +697,8 @@ export default function EmailPage() {
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Messages</h1>
-            <p className="text-muted-foreground mt-1">Manage your messages across all channels.</p>
+            <h1 className="text-2xl font-bold text-foreground">Email</h1>
+            <p className="text-muted-foreground mt-1">Manage your emails.</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
@@ -736,32 +709,9 @@ export default function EmailPage() {
                 <Plus className="h-4 w-4" /> Compose
               </Button>
             )}
-            {channel === 'sms' && (
-              <Button onClick={() => { setSmsForm({ to: '', text: '', from: '' }); setSmsComposeOpen(true); }} className="gap-1.5">
-                <Plus className="h-4 w-4" /> New SMS
-              </Button>
-            )}
           </div>
         </div>
 
-        {/* Channel switcher */}
-        <div className="flex items-center gap-2 border-b border-border pb-4">
-          {[
-            { key: 'email' as const, icon: Mail, label: 'Email' },
-            { key: 'sms' as const, icon: MessageSquareText, label: 'SMS' },
-            { key: 'transcriptions' as const, icon: FileAudio, label: 'Transcriptions' },
-          ].map(({ key, icon: Icon, label }) => (
-            <Button
-              key={key}
-              variant={channel === key ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setChannel(key)}
-              className="gap-1.5"
-            >
-              <Icon className="h-4 w-4" /> {label}
-            </Button>
-          ))}
-        </div>
 
         {/* Search bar */}
         <div className="relative">
@@ -774,94 +724,88 @@ export default function EmailPage() {
           />
         </div>
 
-        {/* Email channel */}
-        {channel === 'email' ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="flex items-center justify-between gap-4">
-              <TabsList>
-                <TabsTrigger value="inbox" className="gap-1.5">
-                  <Inbox className="h-3.5 w-3.5" /> Inbox
-                </TabsTrigger>
-                <TabsTrigger value="customers" className="gap-1.5">
-                  <Users className="h-3.5 w-3.5" /> Customers
-                  {customerEmailCount > 0 && (
-                    <span className="ml-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none">
-                      {customerEmailCount}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
-                <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
-              </TabsList>
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-                <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" aria-expanded={filterOpen} className="w-[220px] justify-between font-normal">
-                      {selectedCustomerEmail === 'all'
-                        ? 'All emails'
-                        : customerEmailOptions.find((c) => c.email === selectedCustomerEmail)?.full_name || selectedCustomerEmail}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[260px] p-0" align="end">
-                    <Command>
-                      <CommandInput placeholder="Search customers..." />
-                      <CommandList>
-                        <CommandEmpty>No customer found.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="all"
-                            onSelect={() => { setSelectedCustomerEmail('all'); setFilterOpen(false); }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", selectedCustomerEmail === 'all' ? "opacity-100" : "opacity-0")} />
-                            All emails
-                          </CommandItem>
-                          {customerEmailOptions.map((c) => (
-                            <CommandItem
-                              key={c.id}
-                              value={`${c.full_name} ${c.email}`}
-                              onSelect={() => { setSelectedCustomerEmail(c.email); setFilterOpen(false); }}
-                            >
-                              <Check className={cn("mr-2 h-4 w-4", selectedCustomerEmail === c.email ? "opacity-100" : "opacity-0")} />
-                              {c.full_name} ({c.email})
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-            {['inbox', 'sent', 'drafts'].map((tab) => (
-              <TabsContent key={tab} value={tab}>
-                {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-sm text-muted-foreground">Loading emails...</span>
-                  </div>
-                ) : (
-                  renderEmailList(filteredEmails)
+        {/* Email content */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <div className="flex items-center justify-between gap-4">
+            <TabsList>
+              <TabsTrigger value="inbox" className="gap-1.5">
+                <Inbox className="h-3.5 w-3.5" /> Inbox
+              </TabsTrigger>
+              <TabsTrigger value="customers" className="gap-1.5">
+                <Users className="h-3.5 w-3.5" /> Customers
+                {customerEmailCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold leading-none">
+                    {customerEmailCount}
+                  </span>
                 )}
-              </TabsContent>
-            ))}
-            <TabsContent value="customers">
+              </TabsTrigger>
+              <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
+              <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
+            </TabsList>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" aria-expanded={filterOpen} className="w-[220px] justify-between font-normal">
+                    {selectedCustomerEmail === 'all'
+                      ? 'All emails'
+                      : customerEmailOptions.find((c) => c.email === selectedCustomerEmail)?.full_name || selectedCustomerEmail}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[260px] p-0" align="end">
+                  <Command>
+                    <CommandInput placeholder="Search customers..." />
+                    <CommandList>
+                      <CommandEmpty>No customer found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="all"
+                          onSelect={() => { setSelectedCustomerEmail('all'); setFilterOpen(false); }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", selectedCustomerEmail === 'all' ? "opacity-100" : "opacity-0")} />
+                          All emails
+                        </CommandItem>
+                        {customerEmailOptions.map((c) => (
+                          <CommandItem
+                            key={c.id}
+                            value={`${c.full_name} ${c.email}`}
+                            onSelect={() => { setSelectedCustomerEmail(c.email); setFilterOpen(false); }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedCustomerEmail === c.email ? "opacity-100" : "opacity-0")} />
+                            {c.full_name} ({c.email})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          {['inbox', 'sent', 'drafts'].map((tab) => (
+            <TabsContent key={tab} value={tab}>
               {loading ? (
                 <div className="flex items-center justify-center py-12">
                   <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
                   <span className="ml-2 text-sm text-muted-foreground">Loading emails...</span>
                 </div>
               ) : (
-                renderEmailList(emails.filter((e) => isFromCustomer(e) && matchesSearch(`${e.subject} ${e.from} ${e.to} ${e.snippet}`)))
+                renderEmailList(filteredEmails)
               )}
             </TabsContent>
-          </Tabs>
-        ) : channel === 'transcriptions' ? (
-          <TranscriptionsTab searchQuery={searchQuery} />
-        ) : (
-          <div>{loading ? <p className="text-sm text-muted-foreground">Loading...</p> : renderRcList(rcMessages.filter((c) => matchesSearch(`${c.subject || ''} ${c.from || ''} ${c.to || ''}`)))}</div>
-        )}
+          ))}
+          <TabsContent value="customers">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading emails...</span>
+              </div>
+            ) : (
+              renderEmailList(emails.filter((e) => isFromCustomer(e) && matchesSearch(`${e.subject} ${e.from} ${e.to} ${e.snippet}`)))
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Compose Dialog */}
@@ -958,34 +902,6 @@ export default function EmailPage() {
                 <Send className="h-4 w-4 mr-1" /> {sending ? 'Sending...' : 'Send'}
               </Button>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      {/* SMS Compose Dialog */}
-      <Dialog open={smsComposeOpen} onOpenChange={setSmsComposeOpen}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader><DialogTitle>Send SMS</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>To (Phone Number)</Label>
-              <Input
-                value={smsForm.to}
-                onChange={(e) => setSmsForm({ ...smsForm, to: e.target.value })}
-                placeholder="+1 555-0123"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Message</Label>
-              <Textarea
-                value={smsForm.text}
-                onChange={(e) => setSmsForm({ ...smsForm, text: e.target.value })}
-                placeholder="Type your message..."
-                className="min-h-[120px]"
-              />
-            </div>
-            <Button onClick={handleSendSms} disabled={smsSending} className="w-full gap-1.5">
-              <Send className="h-4 w-4" /> {smsSending ? 'Sending...' : 'Send SMS'}
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
