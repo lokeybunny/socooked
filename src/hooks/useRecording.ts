@@ -4,22 +4,28 @@ const WIDTH = 1280;
 const HEIGHT = 720;
 const FPS = 30;
 
-interface RecordingOptions {
-  localStream: MediaStream | null;
-  screenStream: MediaStream | null;
-  remoteStreams: MediaStream[];
-  meetingTitle: string;
+/**
+ * Live stream sources — the MeetingRoom updates these refs so the
+ * compositor always draws the current streams (including mid-recording
+ * screen shares).
+ */
+export interface RecordingStreams {
+  localStream: React.MutableRefObject<MediaStream | null>;
+  screenStream: React.MutableRefObject<MediaStream | null>;
+  remoteStreams: React.MutableRefObject<MediaStream[]>;
 }
 
 export function useRecording() {
   const [recording, setRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const animFrameRef = useRef<number>(0);
   const timerRef = useRef<number>(0);
   const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const connectedTracksRef = useRef<Set<string>>(new Set());
+  const destRef = useRef<MediaStreamAudioDestinationNode | null>(null);
 
   const getOrCreateVideo = useCallback((id: string, stream: MediaStream): HTMLVideoElement => {
     let vid = videoElementsRef.current.get(id);
@@ -34,42 +40,57 @@ export function useRecording() {
     return vid;
   }, []);
 
-  const startRecording = useCallback((opts: RecordingOptions): boolean => {
-    const { localStream, screenStream, remoteStreams } = opts;
-    if (!localStream && !screenStream) return false;
+  const startRecording = useCallback((streams: RecordingStreams): boolean => {
+    const local = streams.localStream.current;
+    const screen = streams.screenStream.current;
+    if (!local && !screen) return false;
 
     // Create offscreen canvas
     const canvas = document.createElement('canvas');
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
-    canvasRef.current = canvas;
     const ctx = canvas.getContext('2d')!;
 
-    // Collect all audio tracks into a single destination
+    // Audio mixing
     const audioCtx = new AudioContext();
+    audioCtxRef.current = audioCtx;
     const dest = audioCtx.createMediaStreamDestination();
+    destRef.current = dest;
+    connectedTracksRef.current = new Set();
 
-    const addAudioFrom = (stream: MediaStream) => {
+    const connectAudio = (stream: MediaStream) => {
       stream.getAudioTracks().forEach(track => {
-        const src = audioCtx.createMediaStreamSource(new MediaStream([track]));
-        src.connect(dest);
+        if (!connectedTracksRef.current.has(track.id)) {
+          const src = audioCtx.createMediaStreamSource(new MediaStream([track]));
+          src.connect(dest);
+          connectedTracksRef.current.add(track.id);
+        }
       });
     };
 
-    if (localStream) addAudioFrom(localStream);
-    remoteStreams.forEach(s => addAudioFrom(s));
+    if (local) connectAudio(local);
+    const remotes = streams.remoteStreams.current;
+    remotes.forEach(s => connectAudio(s));
 
-    // Compositor: draw all streams onto canvas
+    // Compositor — reads from REFS each frame so it always has current streams
     const drawFrame = () => {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
-      // Determine active video stream (screen share takes priority)
-      const activeStream = screenStream || localStream;
+      // Read live refs every frame
+      const liveScreen = streams.screenStream.current;
+      const liveLocal = streams.localStream.current;
+      const liveRemotes = streams.remoteStreams.current;
+
+      // Connect any new remote audio tracks
+      liveRemotes.forEach(s => connectAudio(s));
+
+      // Screen share takes priority for the "local" tile
+      const activeLocal = liveScreen || liveLocal;
       const allStreams: { id: string; stream: MediaStream }[] = [];
 
-      if (activeStream) allStreams.push({ id: 'local', stream: activeStream });
-      remoteStreams.forEach((s, i) => allStreams.push({ id: `remote-${i}`, stream: s }));
+      if (activeLocal) allStreams.push({ id: 'local', stream: activeLocal });
+      liveRemotes.forEach((s, i) => allStreams.push({ id: `remote-${i}`, stream: s }));
 
       const count = allStreams.length;
       if (count === 0) {
@@ -77,7 +98,6 @@ export function useRecording() {
         return;
       }
 
-      // Grid layout
       const cols = count <= 1 ? 1 : count <= 4 ? 2 : 3;
       const rows = Math.ceil(count / cols);
       const cellW = WIDTH / cols;
@@ -91,7 +111,6 @@ export function useRecording() {
         const y = row * cellH;
 
         if (vid.readyState >= 2) {
-          // Cover-fit within cell
           const vw = vid.videoWidth || cellW;
           const vh = vid.videoHeight || cellH;
           const scale = Math.max(cellW / vw, cellH / vh);
@@ -115,7 +134,6 @@ export function useRecording() {
       ...dest.stream.getAudioTracks(),
     ]);
 
-    // Prefer MP4 (H.264/AAC) if supported, fallback to WebM
     const preferredTypes = [
       'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
       'video/mp4;codecs=avc1,mp4a.40.2',
@@ -125,7 +143,6 @@ export function useRecording() {
       'video/webm;codecs=vp8,opus',
     ];
     const mimeType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
-    const isMp4 = mimeType.startsWith('video/mp4');
 
     const recorder = new MediaRecorder(combined, {
       mimeType,
@@ -163,6 +180,8 @@ export function useRecording() {
         clearInterval(timerRef.current);
         videoElementsRef.current.forEach(v => { v.srcObject = null; });
         videoElementsRef.current.clear();
+        audioCtxRef.current?.close().catch(() => {});
+        connectedTracksRef.current.clear();
         setRecording(false);
         resolve({ blob: new Blob(chunksRef.current, { type: 'video/mp4' }), extension: 'mp4' });
       };
