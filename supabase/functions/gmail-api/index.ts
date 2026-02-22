@@ -157,8 +157,28 @@ async function getMessages(
   }));
 }
 
+const EMAIL_SIGNATURE = `
+<br/><br/>
+<div style="margin-top:20px;padding-top:12px;border-top:1px solid #ccc;font-family:Arial,sans-serif;font-size:13px;color:#555;">
+  <strong style="color:#111;">Warren Thompson</strong><br/>
+  CEO of <a href="https://stu25.com" style="color:#2754C5;text-decoration:none;">STU25.com</a><br/>
+  <a href="tel:+17029976750" style="color:#555;text-decoration:none;">(702) 997-6750</a>
+</div>`;
+
+function appendSignature(html: string): string {
+  // Insert before closing </body> or </html>, or just append
+  if (html.toLowerCase().includes('</body>')) {
+    return html.replace(/<\/body>/i, `${EMAIL_SIGNATURE}</body>`);
+  }
+  if (html.toLowerCase().includes('</html>')) {
+    return html.replace(/<\/html>/i, `${EMAIL_SIGNATURE}</html>`);
+  }
+  return html + EMAIL_SIGNATURE;
+}
+
 function buildRawEmail(to: string, from: string, subject: string, body: string, attachments?: { filename: string; mimeType: string; data: string }[]): string {
   const boundary = `boundary_${crypto.randomUUID().replace(/-/g, '')}`;
+  const signedBody = appendSignature(body);
 
   if (!attachments || attachments.length === 0) {
     const lines = [
@@ -168,7 +188,7 @@ function buildRawEmail(to: string, from: string, subject: string, body: string, 
       `Content-Type: text/html; charset=UTF-8`,
       `MIME-Version: 1.0`,
       "",
-      body,
+      signedBody,
     ];
     const raw = lines.join("\r\n");
     return btoa(unescape(encodeURIComponent(raw)))
@@ -188,7 +208,7 @@ function buildRawEmail(to: string, from: string, subject: string, body: string, 
     `Content-Type: text/html; charset=UTF-8`,
     `Content-Transfer-Encoding: 7bit`,
     "",
-    body,
+    signedBody,
   ];
 
   for (const att of attachments) {
