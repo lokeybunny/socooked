@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   Phone as PhoneIcon, Search, RefreshCw, ChevronRight,
   FileText, Clock, CheckCircle2, Loader2, PhoneIncoming,
-  PhoneOutgoing, Upload, X, AudioLines
+  PhoneOutgoing, Upload, X, AudioLines, UserPlus, ArrowLeft
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -65,6 +65,11 @@ export default function PhonePage() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadStep, setUploadStep] = useState('');
+  const [showNewCustomer, setShowNewCustomer] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
 
   useEffect(() => {
     loadTranscriptions();
@@ -512,36 +517,114 @@ export default function PhonePage() {
               </div>
             )}
 
-            {/* Customer search & select */}
-            <div className="space-y-2">
-              <Label className="text-sm">Customer</Label>
-              <Input
-                placeholder="Search customers…"
-                value={customerSearch}
-                onChange={e => setCustomerSearch(e.target.value)}
-                className="h-9 text-sm"
-              />
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-border divide-y divide-border">
-                {filteredCustomers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground p-3 text-center">No customers found</p>
-                ) : (
-                  filteredCustomers.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedCustomerId(c.id)}
-                      className={`w-full text-left px-3 py-2.5 hover:bg-accent/50 transition-colors ${
-                        selectedCustomerId === c.id ? 'bg-accent' : ''
-                      }`}
-                    >
-                      <p className="text-sm font-medium text-foreground">{c.full_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {c.phone || c.email || '—'}
-                      </p>
-                    </button>
-                  ))
-                )}
+            {/* Customer search & select OR new customer form */}
+            {showNewCustomer ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowNewCustomer(false)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
+                  <Label className="text-sm font-medium">New Customer</Label>
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Full name *"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                  <Input
+                    placeholder="Phone number"
+                    value={newPhone}
+                    onChange={e => setNewPhone(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                  <Input
+                    placeholder="Email"
+                    type="email"
+                    value={newEmail}
+                    onChange={e => setNewEmail(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  className="w-full gap-1.5"
+                  disabled={!newName.trim() || creatingCustomer}
+                  onClick={async () => {
+                    setCreatingCustomer(true);
+                    try {
+                      const { data, error } = await supabase
+                        .from('customers')
+                        .insert({
+                          full_name: newName.trim(),
+                          phone: newPhone.trim() || null,
+                          email: newEmail.trim() || null,
+                        })
+                        .select('id, full_name, phone, email')
+                        .single();
+                      if (error) throw error;
+                      setCustomers(prev => [data, ...prev]);
+                      setSelectedCustomerId(data.id);
+                      setShowNewCustomer(false);
+                      setNewName('');
+                      setNewPhone('');
+                      setNewEmail('');
+                      toast.success(`Created ${data.full_name}`);
+                    } catch (e: any) {
+                      toast.error(e.message || 'Failed to create customer');
+                    } finally {
+                      setCreatingCustomer(false);
+                    }
+                  }}
+                >
+                  {creatingCustomer ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+                  Create & Select
+                </Button>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Customer</Label>
+                  <button
+                    onClick={() => setShowNewCustomer(true)}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <UserPlus className="h-3 w-3" />
+                    Add new
+                  </button>
+                </div>
+                <Input
+                  placeholder="Search customers…"
+                  value={customerSearch}
+                  onChange={e => setCustomerSearch(e.target.value)}
+                  className="h-9 text-sm"
+                />
+                <div className="max-h-48 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+                  {filteredCustomers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-3 text-center">No customers found</p>
+                  ) : (
+                    filteredCustomers.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => setSelectedCustomerId(c.id)}
+                        className={`w-full text-left px-3 py-2.5 hover:bg-accent/50 transition-colors ${
+                          selectedCustomerId === c.id ? 'bg-accent' : ''
+                        }`}
+                      >
+                        <p className="text-sm font-medium text-foreground">{c.full_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {c.phone || c.email || '—'}
+                        </p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Upload progress */}
             {uploading && uploadStep && (
