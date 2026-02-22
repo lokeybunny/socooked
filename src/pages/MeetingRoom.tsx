@@ -432,8 +432,7 @@ export default function MeetingRoom() {
     }
   };
 
-  const leaveRoom = async () => {
-    // Auto-stop and upload recording before leaving
+  const cleanupAndLeave = useCallback(async () => {
     if (recording) {
       await stopAndUpload();
     }
@@ -447,7 +446,21 @@ export default function MeetingRoom() {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     screenStreamRef.current?.getTracks().forEach(t => t.stop());
     channelRef.current?.unsubscribe();
+  }, [recording, stopAndUpload]);
+
+  const leaveRoom = async () => {
+    await cleanupAndLeave();
     navigate('/meetings');
+  };
+
+  const endMeeting = async () => {
+    await cleanupAndLeave();
+    // Mark meeting as ended in DB
+    if (meeting?.id) {
+      await supabase.from('meetings').update({ status: 'ended' }).eq('id', meeting.id);
+    }
+    toast.success('Meeting ended');
+    window.location.href = 'https://stu25.com';
   };
 
   useEffect(() => {
@@ -670,8 +683,18 @@ export default function MeetingRoom() {
           size="icon"
           className="h-12 w-12 rounded-full"
           onClick={leaveRoom}
+          title="Leave meeting"
         >
           <PhoneOff className="h-5 w-5" />
+        </Button>
+        <Button
+          variant="destructive"
+          className="h-12 rounded-full px-5 font-semibold"
+          onClick={endMeeting}
+          disabled={uploading}
+          title="End meeting for all"
+        >
+          End Meeting
         </Button>
         <MeetingChat channel={channelRef.current} myName={guestName} myPeerId={myPeerIdRef.current} />
       </div>
