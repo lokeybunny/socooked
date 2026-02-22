@@ -229,13 +229,13 @@ export default function MeetingRoom() {
       });
   }, [roomCode, guestName, getLocalStream, createPeerConnection]);
 
-  const uploadRecording = useCallback(async (blob: Blob) => {
+  const uploadRecording = useCallback(async (blob: Blob, ext: string) => {
+    const mimeType = ext === 'mp4' ? 'video/mp4' : 'video/webm';
     if (!meeting?.customer_id) {
-      // No customer linked — just download locally
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.webm`;
+      a.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success('Recording downloaded (no client linked for Drive upload)');
@@ -244,7 +244,6 @@ export default function MeetingRoom() {
 
     setUploading(true);
     try {
-      // Get customer info for folder path
       const { data: customer } = await supabase
         .from('customers')
         .select('full_name, category')
@@ -256,16 +255,14 @@ export default function MeetingRoom() {
       const category = customer.category || 'other';
       const customerName = customer.full_name;
       const dateStr = new Date().toISOString().slice(0, 10);
-      const fileName = `${meeting.title || 'Meeting'} - ${dateStr}.webm`;
+      const fileName = `${meeting.title || 'Meeting'} - ${dateStr}.${ext}`;
 
-      // Ensure folder structure: [Category] / [Customer Name]
       const { data: folderData } = await supabase.functions.invoke('google-drive', {
         body: { action: 'ensure-folder', category, customerName },
       });
 
       if (!folderData?.folderId) throw new Error('Could not create Drive folder');
 
-      // Upload recording
       const arrayBuffer = await blob.arrayBuffer();
       const base64 = btoa(
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
@@ -276,12 +273,11 @@ export default function MeetingRoom() {
           action: 'upload',
           folderId: folderData.folderId,
           fileName,
-          mimeType: 'video/webm',
+          mimeType,
           fileBase64: base64,
         },
       });
 
-      // Register in content_assets
       await supabase.from('content_assets').insert({
         title: fileName,
         type: 'Video',
@@ -296,11 +292,10 @@ export default function MeetingRoom() {
     } catch (err: any) {
       console.error('Upload failed:', err);
       toast.error('Upload failed — downloading locally instead');
-      // Fallback: download
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.webm`;
+      a.download = `${meeting?.title || 'recording'}-${new Date().toISOString().slice(0, 10)}.${ext}`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -310,8 +305,8 @@ export default function MeetingRoom() {
 
   const toggleRecord = useCallback(async () => {
     if (recording) {
-      const blob = await stopRecording();
-      await uploadRecording(blob);
+      const { blob, extension } = await stopRecording();
+      await uploadRecording(blob, extension);
     } else {
       const remoteStreams = Array.from(peersRef.current.values())
         .map(p => p.stream)

@@ -115,8 +115,20 @@ export function useRecording() {
       ...dest.stream.getAudioTracks(),
     ]);
 
+    // Prefer MP4 (H.264/AAC) if supported, fallback to WebM
+    const preferredTypes = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4',
+      'video/webm;codecs=h264,opus',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+    ];
+    const mimeType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+    const isMp4 = mimeType.startsWith('video/mp4');
+
     const recorder = new MediaRecorder(combined, {
-      mimeType: 'video/webm;codecs=vp8,opus',
+      mimeType,
       videoBitsPerSecond: 2_500_000,
     });
 
@@ -137,11 +149,14 @@ export function useRecording() {
     return true;
   }, [getOrCreateVideo]);
 
-  const stopRecording = useCallback((): Promise<Blob> => {
+  const stopRecording = useCallback((): Promise<{ blob: Blob; extension: string }> => {
     return new Promise((resolve) => {
       const recorder = recorderRef.current;
+      const ext = recorder?.mimeType?.startsWith('video/mp4') ? 'mp4' : 'webm';
+      const mime = recorder?.mimeType?.startsWith('video/mp4') ? 'video/mp4' : 'video/webm';
+
       if (!recorder || recorder.state === 'inactive') {
-        resolve(new Blob(chunksRef.current, { type: 'video/webm' }));
+        resolve({ blob: new Blob(chunksRef.current, { type: mime }), extension: ext });
         return;
       }
 
@@ -151,7 +166,7 @@ export function useRecording() {
         videoElementsRef.current.forEach(v => { v.srcObject = null; });
         videoElementsRef.current.clear();
         setRecording(false);
-        resolve(new Blob(chunksRef.current, { type: 'video/webm' }));
+        resolve({ blob: new Blob(chunksRef.current, { type: mime }), extension: ext });
       };
 
       recorder.stop();
