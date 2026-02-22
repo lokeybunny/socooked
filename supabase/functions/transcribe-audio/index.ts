@@ -112,7 +112,7 @@ serve(async (req) => {
     // Create a conversation_thread for the customer so data lives on their profile
     let threadRecord = null;
     if (customerId) {
-      const threadChannel = sourceType === "voicemail" ? "voicemail" : "call";
+      const threadChannel = "call";
       const threadSummary = `[${sourceType === "voicemail" ? "Voicemail" : "Call"}] ${summary || "Audio transcription"}`;
 
       const threadRes = await fetch(`${supabaseUrl}/rest/v1/conversation_threads`, {
