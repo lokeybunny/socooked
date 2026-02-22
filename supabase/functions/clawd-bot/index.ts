@@ -1467,18 +1467,21 @@ Deno.serve(async (req) => {
     }
 
     // ─── V0 DESIGNER (proxy to v0-designer function) ────────
-    if (path === 'generate-website' && req.method === 'POST') {
-      const { prompt, customer_id, category } = body
+    if ((path === 'generate-website' || path === 'edit-website' || path === 'v0-designer') && req.method === 'POST') {
+      const { prompt, customer_id, category, chat_id } = body
       if (!prompt) return fail('prompt is required')
+
+      const isEdit = !!chat_id
+      const actionLabel = isEdit ? 'Web Design Edit' : 'Web Design'
 
       // Create a bot_task for tracking
       const { data: task } = await supabase.from('bot_tasks').insert({
-        title: `Web Design: ${(prompt as string).substring(0, 80)}`,
+        title: `${actionLabel}: ${(prompt as string).substring(0, 80)}`,
         bot_agent: 'web-designer',
         status: 'queued',
         priority: 'high',
         customer_id: customer_id || null,
-        meta: { prompt, assigned_by: 'clawd-main' },
+        meta: { prompt, assigned_by: 'clawd-main', ...(chat_id ? { chat_id } : {}) },
       }).select('id').single()
 
       // Call v0-designer edge function
@@ -1496,13 +1499,14 @@ Deno.serve(async (req) => {
           customer_id: customer_id || null,
           category: category || 'digital-services',
           bot_task_id: task?.id,
+          ...(chat_id ? { chat_id } : {}),
         }),
       })
 
       const v0Data = await v0Res.json()
       if (!v0Res.ok) return fail(v0Data.error || 'V0 Designer error', v0Res.status)
-      if (isBot) await auditLog(supabase, 'generate-website', { prompt, customer_id })
-      await logActivity(supabase, 'bot_task', task?.id || null, 'v0_design_requested', `Web Design: ${(prompt as string).substring(0, 80)}`)
+      if (isBot) await auditLog(supabase, isEdit ? 'edit-website' : 'generate-website', { prompt, customer_id, chat_id })
+      await logActivity(supabase, 'bot_task', task?.id || null, isEdit ? 'v0_design_edit_requested' : 'v0_design_requested', `${actionLabel}: ${(prompt as string).substring(0, 80)}`)
       return ok(v0Data.data || v0Data)
     }
 
