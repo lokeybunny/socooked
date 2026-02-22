@@ -79,7 +79,7 @@ export default function PhonePage() {
   const [smsSending, setSmsSending] = useState(false);
   const [smsDialogOpen, setSmsDialogOpen] = useState(false);
 
-  // Check for OAuth callback code in URL
+  // Check for OAuth callback code in URL or from popup
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
@@ -105,6 +105,7 @@ export default function PhonePage() {
     setConnecting(true);
     try {
       const data = await callOAuth('auth-url', { state: 'rc-oauth' });
+      // Redirect directly — after auth, RC redirects to redirect.html which bounces back with ?code=
       window.location.href = data.url;
     } catch (e: any) {
       toast.error(e.message || 'Failed to start OAuth');
