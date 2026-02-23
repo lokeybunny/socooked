@@ -144,10 +144,17 @@ export default function PhonePage() {
     if (existingDeal) {
       // Update existing deal to qualified
       await supabase.from('deals').update({ stage: 'qualified' }).eq('id', existingDeal.id);
+      // Log stage transition
+      await supabase.from('activity_log').insert({
+        entity_type: 'deal',
+        entity_id: existingDeal.id,
+        action: 'updated',
+        meta: { title: `${leadName}`, customer_name: leadName, from_stage: 'new', to_stage: 'qualified' },
+      });
     } else {
       // Create a new deal at qualified stage
       const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
-      await supabase.from('deals').insert({
+      const { data: newDeal } = await supabase.from('deals').insert({
         title: `${leadName} — ${catLabel}`,
         customer_id: leadId,
         category: leadCategory || 'other',
@@ -156,7 +163,15 @@ export default function PhonePage() {
         pipeline: 'default',
         deal_value: 0,
         probability: 30,
-      });
+      }).select('id').single();
+      if (newDeal) {
+        await supabase.from('activity_log').insert({
+          entity_type: 'deal',
+          entity_id: newDeal.id,
+          action: 'updated',
+          meta: { title: `${leadName} — ${catLabel}`, customer_name: leadName, from_stage: 'new', to_stage: 'qualified' },
+        });
+      }
     }
 
     // Also update customer status to prospect
