@@ -91,12 +91,12 @@ Deno.serve(async (req) => {
           })
           .eq('id', event.id)
 
-        // Log activity
+        // Log activity (triggers Telegram notification via DB trigger)
         await supabase.from('activity_log').insert({
           entity_type: 'scheduled-email',
           entity_id: event.id,
           action: 'sent',
-          meta: { to: emailMeta.to, subject: emailMeta.subject },
+          meta: { name: `📧 ${emailMeta.subject} → ${emailMeta.to}` },
         })
 
         sentCount++
