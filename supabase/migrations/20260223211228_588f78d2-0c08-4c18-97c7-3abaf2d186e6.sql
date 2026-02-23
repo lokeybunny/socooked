@@ -1,0 +1,1 @@
+ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS meeting_type text NOT NULL DEFAULT 'video';

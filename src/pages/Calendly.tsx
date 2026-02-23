@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Clock, Plus, Trash2, Copy, ExternalLink, CalendarX, CalendarClock, User, Mail, Phone } from 'lucide-react';
+import { Clock, Plus, Trash2, Copy, ExternalLink, CalendarX, CalendarClock, User, Mail, Phone, Video } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -34,6 +34,7 @@ interface Booking {
   room_code: string | null;
   status: string;
   meeting_id: string | null;
+  meeting_type: string;
   created_at: string;
 }
 
@@ -184,6 +185,10 @@ export default function Calendly() {
                         <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                         <span className="text-sm font-medium text-foreground">{b.guest_name}</span>
                         <Badge variant="outline" className="text-xs">{b.duration_minutes} min</Badge>
+                        <Badge variant={b.meeting_type === 'phone' ? 'secondary' : 'outline'} className="text-xs flex items-center gap-1">
+                          {b.meeting_type === 'phone' ? <Phone className="h-2.5 w-2.5" /> : <Video className="h-2.5 w-2.5" />}
+                          {b.meeting_type === 'phone' ? 'Phone' : 'Video'}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Mail className="h-3 w-3" />

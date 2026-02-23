@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
-  ChevronLeft, ChevronRight, Clock, CalendarDays, Check, Loader2,
+  ChevronLeft, ChevronRight, Clock, CalendarDays, Check, Loader2, Video, Phone,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth,
@@ -33,6 +33,7 @@ export default function LetsMeet() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [meetingType, setMeetingType] = useState<'video' | 'phone'>('video');
   const [duration, setDuration] = useState(30);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -102,6 +103,10 @@ export default function LetsMeet() {
       toast.error('Please fill in all required fields');
       return;
     }
+    if (meetingType === 'phone' && !phone) {
+      toast.error('Phone number is required for phone call meetings');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await supabase.functions.invoke('book-meeting', {
@@ -112,6 +117,7 @@ export default function LetsMeet() {
           booking_date: format(selectedDate, 'yyyy-MM-dd'),
           start_time: selectedTime,
           duration_minutes: duration,
+          meeting_type: meetingType,
         },
       });
 
@@ -146,11 +152,16 @@ export default function LetsMeet() {
             <p className="text-sm"><strong>📅</strong> {booked.date}</p>
             <p className="text-sm"><strong>🕐</strong> {booked.time} (Las Vegas / PST)</p>
             <p className="text-sm"><strong>⏱</strong> {duration} minutes</p>
+            <p className="text-sm"><strong>{meetingType === 'phone' ? '📞' : '🎥'}</strong> {meetingType === 'phone' ? 'Phone Call' : 'Video Call'}</p>
           </div>
-          <p className="text-xs text-muted-foreground">A confirmation email with the meeting link has been sent to your inbox.</p>
-          <Button className="w-full" onClick={() => window.open(booked.room_url, '_blank')}>
-            Open Meeting Room
-          </Button>
+          <p className="text-xs text-muted-foreground">A confirmation email has been sent to your inbox.</p>
+          {meetingType === 'video' ? (
+            <Button className="w-full" onClick={() => window.open(booked.room_url, '_blank')}>
+              Open Meeting Room
+            </Button>
+          ) : (
+            <p className="text-sm text-muted-foreground">We'll call you at the scheduled time.</p>
+          )}
           <div className="flex gap-2 pt-2">
             <Button variant="outline" className="flex-1" onClick={() => window.location.href = '/'}>
               Back to Home
@@ -177,6 +188,19 @@ export default function LetsMeet() {
         <div className="grid md:grid-cols-2 gap-4">
           {/* Left: Calendar + Duration */}
           <Card className="p-4 space-y-4">
+            {/* Meeting type selector */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Meeting Type</Label>
+              <div className="flex gap-2">
+                <Button size="sm" variant={meetingType === 'video' ? 'default' : 'outline'} onClick={() => setMeetingType('video')}>
+                  <Video className="h-3.5 w-3.5 mr-1" /> Video Call
+                </Button>
+                <Button size="sm" variant={meetingType === 'phone' ? 'default' : 'outline'} onClick={() => setMeetingType('phone')}>
+                  <Phone className="h-3.5 w-3.5 mr-1" /> Phone Call
+                </Button>
+              </div>
+            </div>
+
             {/* Duration selector */}
             <div>
               <Label className="text-xs text-muted-foreground mb-1.5 block">Duration</Label>
@@ -274,8 +298,8 @@ export default function LetsMeet() {
                       <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" className="h-9 mt-1" />
                     </div>
                     <div>
-                      <Label className="text-xs">Phone</Label>
-                      <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" className="h-9 mt-1" />
+                      <Label className="text-xs">Phone {meetingType === 'phone' ? '*' : ''}</Label>
+                      <Input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" className="h-9 mt-1" required={meetingType === 'phone'} />
                     </div>
                     <Button className="w-full" onClick={handleBook} disabled={submitting}>
                       {submitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Booking...</> : 'Book Meeting'}
