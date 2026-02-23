@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           iss: sa.client_email,
           sub: IMPERSONATE_EMAIL,
-          scope: "https://www.googleapis.com/auth/gmail.readonly",
+          scope: "https://www.googleapis.com/auth/gmail.modify",
           aud: GOOGLE_TOKEN_URL,
           iat: now,
           exp: now + 3600,
