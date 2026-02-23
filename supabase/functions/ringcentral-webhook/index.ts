@@ -35,7 +35,7 @@ function formatEvent(body: any): string | null {
     const msg = body.body;
     const from = msg.from?.phoneNumber || msg.from?.name || "Unknown";
     const duration = msg.vmDuration ? `${msg.vmDuration}s` : "N/A";
-    return `🎙️ *Voicemail Received*\nFrom: ${from}\nDuration: ${duration}\n🕐 ${time} PST`;
+    return `📞 You have a *Voicemail* in your Business Phone from *${from}*\nDuration: ${duration}\n🕐 ${time} PST`;
   }
 
   // Fax
@@ -92,8 +92,8 @@ function formatEvent(body: any): string | null {
   if (event.includes("/message-store")) {
     const msg = body.body;
     const type = msg?.type || "Message";
-    const from = msg?.from?.phoneNumber || "Unknown";
-    return `📩 *${type} Received*\nFrom: ${from}\n🕐 ${time} PST`;
+    const from = msg?.from?.phoneNumber || msg?.from?.name || "Unknown";
+    return `📞 You have a *${type}* in your Business Phone from *${from}*\n🕐 ${time} PST`;
   }
 
   return `📌 *RingCentral Event*\n${event}\n🕐 ${time} PST`;
