@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import {
   MessageSquare, Phone, Mail, MessageCircle, Search,
   Clock, User, ChevronDown, ChevronRight, Calendar,
-  Hash, FileAudio, Copy, Check
+  Hash, FileAudio, Copy, Check, Brain
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { format, formatDistanceToNow } from 'date-fns';
+import { AnalyzeModal } from '@/components/script-ai/AnalyzeModal';
 
 const channelIcons: Record<string, any> = {
   call: Phone,
@@ -36,6 +37,7 @@ export default function Threads() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [analyzeOpen, setAnalyzeOpen] = useState(false);
 
   const loadAll = async () => {
     const { data } = await supabase
@@ -94,7 +96,7 @@ export default function Threads() {
   return (
     <AppLayout>
       <CategoryGate
-        title="Transcript Library"
+        title="Script AI"
         {...categoryGate}
         totalCount={allThreads.length}
         countLabel="transcripts"
@@ -109,14 +111,19 @@ export default function Threads() {
                 {search && ` matching "${search}"`}
               </p>
             </div>
-            <div className="relative w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search by customer, channel..."
-                className="pl-9"
-              />
+            <div className="flex items-center gap-3">
+              <Button onClick={() => setAnalyzeOpen(true)} className="gap-2">
+                <Brain className="h-4 w-4" /> AI Analyze
+              </Button>
+              <div className="relative w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search by customer, channel..."
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
 
@@ -312,6 +319,7 @@ export default function Threads() {
           </div>
         </div>
       </CategoryGate>
+      <AnalyzeModal open={analyzeOpen} onClose={() => setAnalyzeOpen(false)} />
     </AppLayout>
   );
 }
