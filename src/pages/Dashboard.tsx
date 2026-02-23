@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig, Mail, Phone, MessageSquareText } from 'lucide-react';
+import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig, Mail, Phone, MessageSquareText, Clock, RefreshCw } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -27,6 +27,40 @@ export default function Dashboard() {
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [recentDeals, setRecentDeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vegasTime, setVegasTime] = useState('');
+  const [cronCountdown, setCronCountdown] = useState(0);
+
+  // Las Vegas clock (server time = PST)
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      setVegasTime(now.toLocaleString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      }));
+      // Cron runs every 3 min (*/3 * * * *), countdown = seconds until next 3-min mark
+      const vegasNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      const minutes = vegasNow.getMinutes();
+      const seconds = vegasNow.getSeconds();
+      const totalSeconds = minutes * 60 + seconds;
+      const intervalSeconds = 3 * 60; // 3 minutes
+      const secondsIntoInterval = totalSeconds % intervalSeconds;
+      const remaining = intervalSeconds - secondsIntoInterval;
+      setCronCountdown(remaining);
+    };
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatCountdown = useCallback((s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -87,9 +121,29 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="space-y-5 sm:space-y-8 animate-fade-in">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm sm:text-base text-muted-foreground mt-1">Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}.</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">Welcome back{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name}` : ''}.</p>
+          </div>
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Las Vegas Clock */}
+            <div className="flex items-center gap-1.5 text-right">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              <div>
+                <p className="text-xs font-mono font-semibold text-foreground leading-tight">{vegasTime}</p>
+                <p className="text-[9px] text-muted-foreground leading-tight">Las Vegas</p>
+              </div>
+            </div>
+            {/* Cron Countdown */}
+            <div className="flex items-center gap-1.5 text-right">
+              <RefreshCw className={`h-3.5 w-3.5 ${cronCountdown <= 10 ? 'text-emerald-500 animate-spin' : 'text-muted-foreground'}`} style={cronCountdown <= 10 ? { animationDuration: '2s' } : {}} />
+              <div>
+                <p className="text-xs font-mono font-semibold text-foreground leading-tight">{formatCountdown(cronCountdown)}</p>
+                <p className="text-[9px] text-muted-foreground leading-tight">Gmail Poll</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Metrics */}
