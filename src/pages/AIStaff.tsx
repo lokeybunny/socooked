@@ -38,6 +38,7 @@ interface ApiPreview {
   customer_id: string | null;
   preview_url: string | null;
   edit_url: string | null;
+  bot_task_id: string | null;
   created_at: string;
   updated_at: string;
   meta: any;
@@ -142,10 +143,11 @@ function AgentNode({ agent, tasks, activities, isSelected, onSelect }: {
 }
 
 /* ── Activity feed panel ─────────────────────────────────── */
-function ActivityPanel({ agent, tasks, activities, navigate }: {
+function ActivityPanel({ agent, tasks, activities, previews, navigate }: {
   agent: typeof AGENTS[number];
   tasks: BotTask[];
   activities: ActivityItem[];
+  previews: ApiPreview[];
   navigate: (path: string) => void;
 }) {
   const entityLinks: Record<string, string> = {
@@ -199,6 +201,14 @@ function ActivityPanel({ agent, tasks, activities, navigate }: {
                 <span className="text-xs text-foreground truncate">{task.title}</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {(() => {
+                  const previewUrl = (task.meta as any)?.preview_url || previews.find(p => p.bot_task_id === task.id)?.preview_url;
+                  return previewUrl ? (
+                    <a href={previewUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-primary hover:text-primary/80 transition-colors" title="View preview">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : null;
+                })()}
                 <span className="text-[10px] text-muted-foreground/70">
                   {new Date(task.updated_at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', hour12: true, month: 'short', day: 'numeric' })} PST
                 </span>
@@ -303,7 +313,7 @@ export default function AIStaff() {
         created_at: p.created_at,
         updated_at: p.updated_at,
         description: null,
-        meta: p.meta,
+        meta: { ...(p.meta as object), preview_url: p.preview_url, edit_url: p.edit_url },
       }));
       const ids = new Set(botTasks.map(t => t.id));
       const merged = [...botTasks, ...previewTasks.filter(t => !ids.has(t.id))];
@@ -450,6 +460,7 @@ export default function AIStaff() {
             agent={selected}
             tasks={agentTasks(selected.id)}
             activities={agentActivities(selected.id)}
+            previews={previews}
             navigate={navigate}
           />
         </AnimatePresence>
