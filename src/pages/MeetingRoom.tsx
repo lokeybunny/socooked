@@ -644,6 +644,7 @@ export default function MeetingRoom() {
               ref={localVideoRef}
               autoPlay muted playsInline
               className="w-full h-full object-cover"
+              style={{ transform: screenOn ? 'none' : 'scaleX(-1)' }}
             />
             <div className="absolute bottom-3 left-4 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-medium text-foreground">
               {guestName} (You)
