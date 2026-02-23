@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Handshake, FolderKanban, CheckSquare, FileText,
   LayoutGrid, LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
-  Radar, Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays,
+  Radar, Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,7 @@ const navItems = [
   { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/custom-u', icon: Link2, label: 'Custom-U' },
   { to: '/previews', icon: Sparkles, label: 'Previews' },
+  { to: '/calendly', icon: CalendarClock, label: 'Calendly' },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff' },
 ];
 

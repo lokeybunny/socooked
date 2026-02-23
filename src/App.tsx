@@ -34,7 +34,8 @@ import Previews from "./pages/Previews";
 import CalendarPage from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 import PromptMachine from "./pages/PromptMachine";
-
+import Calendly from "./pages/Calendly";
+import LetsMeet from "./pages/LetsMeet";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -74,6 +75,8 @@ const App = () => (
             <Route path="/previews" element={<Previews />} />
             <Route path="/u/:token" element={<ClientUpload />} />
             <Route path="/prompt-machine" element={<PromptMachine />} />
+            <Route path="/calendly" element={<Calendly />} />
+            <Route path="/letsmeet" element={<LetsMeet />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
