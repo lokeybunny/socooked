@@ -1422,6 +1422,50 @@ export type Database = {
           },
         ]
       }
+      site_configs: {
+        Row: {
+          content: Json
+          created_at: string
+          customer_id: string | null
+          id: string
+          is_published: boolean
+          section: string
+          site_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          is_published?: boolean
+          section: string
+          site_id: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          is_published?: boolean
+          section?: string
+          site_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_configs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee_id: string | null
