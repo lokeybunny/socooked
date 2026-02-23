@@ -11,8 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/projects', icon: FolderKanban, label: 'Projects' },
-  { to: '/customers', icon: Users, label: 'Customers' },
+  { to: '/projects', icon: FolderKanban, label: 'Projects', botIcon: true },
+  { to: '/customers', icon: Users, label: 'Customers', botIcon: true },
   { to: '/deals', icon: Handshake, label: 'Deals', botIcon: true },
   { to: '/boards', icon: LayoutGrid, label: 'Boards', botIcon: true },
   { to: '/threads', icon: MessageSquare, label: 'Script AI' },
