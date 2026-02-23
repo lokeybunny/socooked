@@ -18,6 +18,25 @@ const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 const PAGE_SIZE = 10;
 
+const STATUS_LABELS: Record<string, string> = { lead: 'Lead', prospect: 'Prospect', active: 'Client', inactive: 'Dismissed' };
+
+async function logStatusMove(contactName: string, contactId: string, fromStatus: string, toStatus: string, category?: string) {
+  const from = STATUS_LABELS[fromStatus] || fromStatus;
+  const to = STATUS_LABELS[toStatus] || toStatus;
+  await supabase.from('activity_log').insert({
+    entity_type: 'customer',
+    entity_id: contactId,
+    action: 'moved',
+    meta: {
+      name: contactName,
+      message: `*${contactName}* moved from *${from}* → *${to}*`,
+      from_status: fromStatus,
+      to_status: toStatus,
+      category: category || 'other',
+    },
+  });
+}
+
 // Droppable column wrapper
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -206,9 +225,24 @@ export default function Leads() {
     await supabase.from('customers').delete().eq('id', id);
     toast.success('Lead deleted'); setSelected(null); loadAll();
   };
-  const promote = async (id: string) => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', id); toast.success('Promoted to prospect'); setSelected(null); loadAll(); };
-  const demote = async (id: string) => { await supabase.from('customers').update({ status: 'lead' }).eq('id', id); toast.success('Moved back to lead'); setSelected(null); loadAll(); };
-  const dismiss = async (id: string) => { await supabase.from('customers').update({ status: 'inactive' }).eq('id', id); toast.success('Dismissed'); setSelected(null); loadAll(); };
+  const promote = async (id: string) => {
+    const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
+    await supabase.from('customers').update({ status: 'prospect' }).eq('id', id);
+    if (contact) await logStatusMove(contact.full_name, id, contact.status, 'prospect', contact.category);
+    toast.success('Promoted to prospect'); setSelected(null); loadAll();
+  };
+  const demote = async (id: string) => {
+    const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
+    await supabase.from('customers').update({ status: 'lead' }).eq('id', id);
+    if (contact) await logStatusMove(contact.full_name, id, contact.status, 'lead', contact.category);
+    toast.success('Moved back to lead'); setSelected(null); loadAll();
+  };
+  const dismiss = async (id: string) => {
+    const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
+    await supabase.from('customers').update({ status: 'inactive' }).eq('id', id);
+    if (contact) await logStatusMove(contact.full_name, id, contact.status, 'inactive', contact.category);
+    toast.success('Dismissed'); setSelected(null); loadAll();
+  };
 
   const openEdit = (lead: any) => {
     setForm({ full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '', address: lead.address || '', company: lead.company || '', source: lead.source || '', notes: lead.notes || '' });
@@ -263,6 +297,9 @@ export default function Leads() {
       // Revert on failure
       toast.error('Failed to update status');
       loadAll();
+    } else {
+      // Log the move for Telegram notification
+      await logStatusMove(draggedContact.full_name, draggedId, draggedContact.status, targetStatus, draggedContact.category);
     }
   };
 
@@ -455,11 +492,11 @@ export default function Leads() {
                       {selected.status === 'prospect' && (
                         <>
                           <Button variant="outline" onClick={() => demote(selected.id)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
-                          <Button onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
+                          <Button onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'prospect', 'active', selected.category); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
                         </>
                       )}
                       {selected.status === 'active' && (
-                        <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
+                        <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'prospect', selected.category); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
                       )}
                       <Button variant="outline" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
                       <Button variant="outline" onClick={() => dismiss(selected.id)}>Dismiss</Button>
