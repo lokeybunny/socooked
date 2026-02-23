@@ -30,7 +30,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   const [events, setEvents] = useState<any[]>([]);
   const [threads, setThreads] = useState<any[]>([]);
   const [transcriptions, setTranscriptions] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [botTasks, setBotTasks] = useState<any[]>([]);
   const [previews, setPreviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,7 +54,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
         supabase.from('calendar_events').select('*').eq('customer_id', customerId).order('start_time', { ascending: false }).limit(20),
         supabase.from('conversation_threads').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
         supabase.from('transcriptions').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*').eq('project_id', project.id).order('created_at', { ascending: false }),
+        supabase.from('bot_tasks').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
         supabase.from('api_previews').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
       ]);
 
@@ -66,7 +66,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
       setEvents(ev || []);
       setThreads(th || []);
       setTranscriptions(tr || []);
-      setTasks(tk || []);
+      setBotTasks(tk || []);
       setPreviews(pr || []);
       setLoading(false);
     };
@@ -129,15 +129,18 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
           <ScrollArea className="h-[340px] mt-2">
             {/* Tasks */}
             <TabsContent value="tasks" className="space-y-2 m-0">
-              <SectionCount items={tasks} label="tasks" />
-              {tasks.length === 0 && <EmptyState label="tasks" />}
-              {tasks.map(t => (
+              <SectionCount items={botTasks} label="API tasks" />
+              {botTasks.length === 0 && <EmptyState label="API-generated tasks" />}
+              {botTasks.map(t => (
                 <div key={t.id} className="glass-card p-3 space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{t.title}</span>
                     <StatusBadge status={t.status} />
                   </div>
-                  {t.description && <p className="text-xs text-muted-foreground line-clamp-1">{t.description}</p>}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground capitalize">{t.bot_agent?.replace('-', ' ')}</span>
+                    {t.description && <span className="text-xs text-muted-foreground line-clamp-1">· {t.description}</span>}
+                  </div>
                 </div>
               ))}
             </TabsContent>
