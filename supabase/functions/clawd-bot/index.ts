@@ -628,6 +628,25 @@ Deno.serve(async (req) => {
       return ok({ action: 'deleted', invoice_id: id })
     }
 
+    // POST /clawd-bot/send-invoice — builds styled HTML invoice & emails via gmail-api
+    if (path === 'send-invoice' && req.method === 'POST') {
+      const { invoice_id } = body
+      if (!invoice_id) return fail('invoice_id is required')
+
+      const invoiceApiUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/invoice-api?action=send-invoice`
+      const res = await fetch(invoiceApiUrl, {
+        method: 'POST',
+        headers: {
+          'x-bot-secret': Deno.env.get('BOT_SECRET') || '',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ invoice_id }),
+      })
+      const result = await res.json()
+      if (!res.ok) return fail(result.error || 'Failed to send invoice email', res.status)
+      return ok(result.data || result)
+    }
+
     // ─── COMMUNICATIONS ─────────────────────────────────────
     if (path === 'communications' && req.method === 'GET') {
       const customer_id = params.get('customer_id')

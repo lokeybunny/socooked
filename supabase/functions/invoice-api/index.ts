@@ -209,6 +209,104 @@ Deno.serve(async (req) => {
       return ok({ invoice: data })
     }
 
+    // POST /invoice-api?action=send-invoice — build styled HTML & email via gmail-api
+    if (req.method === 'POST' && url.searchParams.get('action') === 'send-invoice') {
+      const { invoice_id } = await req.json()
+      if (!invoice_id) return fail('invoice_id required')
+
+      // Fetch invoice + customer
+      const { data: inv, error: invErr } = await supabase
+        .from('invoices')
+        .select('*, customers(full_name, email)')
+        .eq('id', invoice_id)
+        .single()
+
+      if (invErr || !inv) return fail(invErr?.message || 'Invoice not found', 404)
+
+      const customerEmail = (inv as any).customers?.email
+      if (!customerEmail) return fail('Customer has no email address')
+
+      const customerName = (inv as any).customers?.full_name || 'Customer'
+      const lineItems: { description: string; quantity: number; unit_price: number }[] =
+        Array.isArray(inv.line_items) ? inv.line_items as any : []
+      const subtotalVal = Number(inv.subtotal || inv.amount)
+      const taxRate = Number(inv.tax_rate || 0)
+      const taxAmt = subtotalVal * taxRate / 100
+      const totalVal = Number(inv.amount)
+      const invNum = inv.invoice_number || 'Invoice'
+      const dueDateStr = inv.due_date
+        ? new Date(inv.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        : null
+
+      const emailBody = `
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+          <h2 style="color:#1a1a1a;margin-bottom:4px;">${invNum}</h2>
+          <p style="color:#666;margin-top:0;">Dear ${customerName},</p>
+          <p>Please find your invoice details below:</p>
+          <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+            <thead>
+              <tr style="background:#f5f5f5;">
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #ddd;">Item</th>
+                <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Qty</th>
+                <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Price</th>
+                <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lineItems.map(li => `
+                <tr>
+                  <td style="padding:8px;border-bottom:1px solid #eee;">${li.description}</td>
+                  <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${li.quantity}</td>
+                  <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${Number(li.unit_price).toFixed(2)}</td>
+                  <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${(li.quantity * li.unit_price).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div style="text-align:right;margin-top:8px;">
+            <p style="margin:2px 0;color:#666;">Subtotal: <strong>$${subtotalVal.toFixed(2)}</strong></p>
+            ${taxRate > 0 ? `<p style="margin:2px 0;color:#666;">Tax (${taxRate}%): <strong>$${taxAmt.toFixed(2)}</strong></p>` : ''}
+            <p style="margin:8px 0 0;font-size:18px;font-weight:bold;color:#1a1a1a;">Total: $${totalVal.toFixed(2)} ${inv.currency}</p>
+          </div>
+          ${dueDateStr ? `<p style="margin-top:16px;color:#666;">Due Date: <strong>${dueDateStr}</strong></p>` : ''}
+          ${inv.notes ? `<div style="margin-top:16px;padding:12px;background:#f9f9f9;border-radius:6px;"><p style="margin:0;color:#666;font-size:13px;">${inv.notes}</p></div>` : ''}
+          <p style="margin-top:24px;color:#666;">Thank you for your business!</p>
+        </div>
+      `
+
+      // Send via gmail-api
+      const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
+      const gmailRes = await fetch(gmailUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: customerEmail,
+          subject: `Invoice ${invNum} from STU25`,
+          body: emailBody,
+        }),
+      })
+      const gmailData = await gmailRes.json()
+      if (!gmailRes.ok) return fail(gmailData.error || 'Failed to send email', gmailRes.status)
+
+      // Mark invoice as sent
+      await supabase.from('invoices').update({
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+      }).eq('id', invoice_id)
+
+      return ok({
+        message: `Invoice ${invNum} emailed to ${customerEmail}`,
+        gmail_id: gmailData.id,
+        invoice_number: invNum,
+        customer_email: customerEmail,
+        amount: totalVal,
+      }, 200)
+    }
+
     return fail('Method not allowed', 405)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
