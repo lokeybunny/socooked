@@ -65,6 +65,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Auto-enrich: append image generation best-practice block if prompt is light on detail
+    let enrichedPrompt = prompt
+    if (!isEdit) {
+      const sectionKeywords = ['hero', 'features', 'about', 'gallery', 'services', 'contact', 'footer']
+      const describedSections = sectionKeywords.filter(s => prompt.toLowerCase().includes(s))
+      const hasDetailedImageDescriptions = (prompt.match(/image[:\s]/gi) || []).length >= 3
+
+      if (describedSections.length < 4 || !hasDetailedImageDescriptions) {
+        const enrichmentBlock = `
+
+IMPORTANT IMAGE GENERATION RULES (auto-appended):
+- Every visual section MUST have a unique, descriptive image prompt. Do NOT use placeholder images, stock photo URLs, unsplash links, or empty src attributes.
+- Hero section: Generate a striking, high-resolution hero image that matches the brand's industry and mood. Full-width, cinematic lighting.
+- Features/Services section: Generate individual images for each feature or service card. Each must be visually distinct.
+- About section: Generate a professional interior, team, or workspace photo that conveys trust and expertise.
+- Gallery section: Generate 4-6 unique portfolio/showcase images with varied compositions and subjects relevant to the business.
+- All images must be AI-generated with rich detail, proper lighting, and professional quality. Zero placeholders.`
+        enrichedPrompt = prompt + enrichmentBlock
+        console.log(`[v0-designer] Auto-enriched prompt (${describedSections.length} sections detected, ${(prompt.match(/image[:\s]/gi) || []).length} image refs)`)
+      }
+    }
+
     // Update bot_task to in_progress if provided
     if (bot_task_id) {
       await supabase.from('bot_tasks').update({ status: 'in_progress' }).eq('id', bot_task_id)
@@ -84,7 +106,7 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: prompt,
+          message: enrichedPrompt,
           responseMode: 'async',
         }),
       })
@@ -97,7 +119,7 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: prompt,
+          message: enrichedPrompt,
           system: 'You are an expert web designer. Build clean, modern, responsive websites using React and Tailwind CSS.',
           responseMode: 'async',
         }),
@@ -201,7 +223,7 @@ Deno.serve(async (req) => {
       .from('conversation_threads')
       .insert({
         channel: 'v0-designer',
-        status: finalDemoUrl ? 'resolved' : 'open',
+        status: 'open',
         summary: `V0 Design: ${prompt.substring(0, 200)}`,
         raw_transcript: JSON.stringify({
           prompt,
