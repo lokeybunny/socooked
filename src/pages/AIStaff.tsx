@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Bot, Cpu, Palette, Share2, Radar, ArrowRight, Activity, CheckCircle2, Clock, AlertCircle, ExternalLink } from 'lucide-react';
+import { Bot, Cpu, Palette, Share2, Radar, ArrowRight, Activity, CheckCircle2, Clock, AlertCircle, ExternalLink, Search, Wrench } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,7 +12,8 @@ const AGENTS = [
   { id: 'web-designer', label: 'Web Designer', role: 'UI/UX Agent — V0.DEV API', icon: Palette, color: 'from-cyan-500 to-blue-600', ring: 'ring-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', pulse: 'bg-cyan-500', connected: true, group: 'clawd' },
   { id: 'social-media', label: 'Social Media', role: 'Social Agent — Coming Soon', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: false, group: 'clawd' },
   { id: 'content-manager', label: 'Content Manager', role: 'Content Agent — Higgsfield API', icon: Bot, color: 'from-amber-500 to-orange-600', ring: 'ring-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', pulse: 'bg-amber-500', connected: false, group: 'clawd' },
-  { id: 'leads-finder', label: 'Research Finder', role: 'Leads — Standalone', icon: Radar, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500', connected: false, group: 'standalone' },
+  { id: 'research-finder', label: 'Research Finder', role: 'Research Agent — Coming Soon', icon: Search, color: 'from-teal-500 to-emerald-600', ring: 'ring-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', pulse: 'bg-teal-500', connected: false, group: 'clawd' },
+  { id: 'crm-maintenance', label: 'CRM Maintenance Bot', role: 'Maintenance — Standalone', icon: Wrench, color: 'from-slate-400 to-zinc-600', ring: 'ring-slate-400/30', bg: 'bg-slate-400/10', text: 'text-slate-400', pulse: 'bg-slate-400', connected: false, group: 'standalone' },
 ] as const;
 
 type AgentId = typeof AGENTS[number]['id'];
@@ -428,12 +429,19 @@ export default function AIStaff() {
                 onSelect={() => setSelectedAgent(mainAgent.id)}
               />
 
-              {/* Right connector */}
+              {/* Right connectors */}
               {clawdChildren.length > 2 && (
                 <div className="flex flex-col items-center mx-2 shrink-0">
-                  <svg width="60" height="60" viewBox="0 0 60 60" className="overflow-visible">
-                    <line x1="0" y1="30" x2="60" y2="30" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
-                    <circle cx="30" cy="30" r="3" fill="hsl(var(--primary))" opacity="0.6" />
+                  <svg width="60" height="120" viewBox="0 0 60 120" className="overflow-visible">
+                    {clawdChildren.slice(2).map((_agent, i) => {
+                      const y = 30 + i * 60;
+                      return (
+                        <g key={i}>
+                          <line x1="0" y1="60" x2="60" y2={y} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
+                          <circle cx="30" cy={(y + 60) / 2} r="3" fill="hsl(var(--primary))" opacity="0.6" />
+                        </g>
+                      );
+                    })}
                   </svg>
                 </div>
               )}
@@ -456,11 +464,11 @@ export default function AIStaff() {
             </div>
           </div>
 
-          {/* BOT 2 — Leads Finder */}
+          {/* BOT 2 — CRM Maintenance */}
           <div className="rounded-xl border border-border bg-card/40 p-5 relative flex flex-col">
             <div className="flex items-center gap-2 mb-4">
-              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Bot 2 — Leads Engine</span>
+              <div className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Bot 2 — Maintenance Bot</span>
             </div>
             <div className="flex items-center justify-center flex-1">
               {standaloneAgents.map(agent => (
