@@ -328,6 +328,53 @@ All responses follow:
 | Generate contract | POST | `/clawd-bot/generate-contract` | `{ "client_name": "...", "terms": {...} }` |
 | Analyze thread | POST | `/clawd-bot/analyze-thread` | `{ "transcript": "..." }` |
 
+### Web Design (v0 Designer)
+
+| Action | Method | URL | Body |
+|--------|--------|-----|------|
+| Generate website | POST | `/clawd-bot/generate-website` | `{ "prompt": "...", "customer_id": "uuid", "category": "..." }` |
+| Edit website | POST | `/clawd-bot/edit-website` | `{ "chat_id": "v0_chat_id", "prompt": "edit instructions...", "customer_id": "uuid" }` |
+| Generic v0 call | POST | `/clawd-bot/v0-designer` | `{ "prompt": "...", "customer_id": "uuid", "chat_id": "optional" }` |
+| Publish website | POST | `/clawd-bot/publish-website` | `{ "chat_id": "v0_chat_id" }` |
+
+> `generate-website` creates a new v0 site. `edit-website` sends follow-up edits to an existing chat. `publish-website` deploys to Vercel (requires manual Vercel linking first).
+> **Preferred approach**: Use Site Configs (below) for content changes instead of v0 API edits.
+
+### Site Configs (Headless CMS for Client Websites)
+
+| Action | Method | URL | Body / Params |
+|--------|--------|-----|---------------|
+| Read all sections | GET | `/clawd-bot/site-configs?site_id=slug&published=true` | **No auth required** — public endpoint for v0 sites |
+| Create/Update section | POST | `/clawd-bot/site-config` | `{ "site_id": "slug", "section": "hero", "content": {...}, "customer_id": "uuid" }` |
+| Delete section | DELETE | `/clawd-bot/site-config` | `{ "site_id": "slug", "section": "hero" }` or `{ "id": "uuid" }` |
+
+> **Site Config sections**: `hero`, `about`, `services`, `gallery`, `contact`, `footer`, `meta`
+> **site_id format**: kebab-case slug like `terrion-barber`, `jane-photography`
+> Content is auto-versioned. Defaults to `is_published: true`.
+> V0 sites fetch this on page load — updating a section = instant site update, no deploy needed.
+
+#### Example: Update hero section
+```json
+POST /clawd-bot/site-config
+{
+  "site_id": "terrion-barber",
+  "section": "hero",
+  "content": {
+    "headline": "Precision Cuts & Fades",
+    "subheadline": "Atlanta's Premier Barbershop",
+    "image_url": "https://example.com/hero.jpg",
+    "cta_text": "Book Now",
+    "cta_url": "https://calendly.com/terrion"
+  }
+}
+```
+
+### Previews (API-generated work)
+
+| Action | Method | URL |
+|--------|--------|-----|
+| List | GET | `/clawd-bot/previews?customer_id=uuid&source=v0-designer` |
+
 ---
 
 ## Common Mistakes to AVOID
@@ -343,6 +390,7 @@ All responses follow:
 | `/clawd-bot/customers/list` | `/clawd-bot/customers` |
 | `category: "inbound"` | `category: "other"` (use valid values only) |
 | Filtering by category by default | Omit `category` param to see ALL records |
+| Editing v0 site via API for content | Use `POST /clawd-bot/site-config` instead |
 
 ---
 
@@ -357,9 +405,9 @@ DELETE /clawd-bot/customer-delete   ← WRONG (does not exist)
 
 Body must contain: `{ "id": "uuid" }`
 
-This applies to ALL entities: `customer`, `deal`, `project`, `board`, `card`, `document`, `list`, `label`, `checklist`, `checklist-item`, `transcription`, `interaction`, `communication`, `bot-task`, `meeting`, `automation`, `template`, `thread`, `comment`, `attach`, `invoice`.
+This applies to ALL entities: `customer`, `deal`, `project`, `board`, `card`, `document`, `list`, `label`, `checklist`, `checklist-item`, `transcription`, `interaction`, `communication`, `bot-task`, `meeting`, `automation`, `template`, `thread`, `comment`, `attach`, `invoice`, `site-config`.
 
-Exception: `card-label` and `upload-token` use `{ "card_id": "uuid", "label_id": "uuid" }` and `{ "customer_id": "uuid" }` respectively.
+Exception: `card-label` and `upload-token` use `{ "card_id": "uuid", "label_id": "uuid" }` and `{ "customer_id": "uuid" }` respectively. `site-config` DELETE accepts either `{ "id": "uuid" }` or `{ "site_id": "slug", "section": "hero" }`.
 
 ## Valid Category Values
 
@@ -379,4 +427,4 @@ Exception: `card-label` and `upload-token` use `{ "card_id": "uuid", "label_id":
 
 ---
 
-*Version: 3.0.0 — Last updated: 2026-02-22*
+*Version: 3.1.0 — Last updated: 2026-02-23*

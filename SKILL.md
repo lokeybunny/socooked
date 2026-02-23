@@ -4,11 +4,11 @@ CRM integration for CLAWD Command via SpaceBot.
 
 ## Version
 
-1.1.0
+3.1.0
 
 ## Description
 
-Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, deal creation, invoicing, meetings, and full CRM state retrieval via Supabase Edge Functions.
+Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, deal creation, invoicing, meetings, web design generation, headless CMS site configs, and full CRM state retrieval via Supabase Edge Functions.
 
 ## Auth
 
@@ -44,6 +44,30 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 | `create_invoice` | POST | `/invoice-api` | Create invoice |
 | `create_meeting` | POST | `/clawd-bot/meeting` | Create a meeting room (returns `room_code` + `room_url`) |
 | `create_card` | POST | `/clawd-bot/card` | Create a board card |
+| `generate_website` | POST | `/clawd-bot/generate-website` | Generate a new v0 website |
+| `edit_website` | POST | `/clawd-bot/edit-website` | Edit existing v0 website (requires `chat_id`) |
+| `publish_website` | POST | `/clawd-bot/publish-website` | Deploy v0 site to Vercel (requires Vercel linking) |
+| `get_site_configs` | GET | `/clawd-bot/site-configs?site_id=slug` | Read site content (PUBLIC — no auth needed) |
+| `upsert_site_config` | POST | `/clawd-bot/site-config` | Create/update a site content section |
+| `delete_site_config` | DELETE | `/clawd-bot/site-config` | Delete a site content section |
+| `list_previews` | GET | `/clawd-bot/previews` | List API-generated work |
+
+## Web Design Workflow
+
+### Option A: v0 API (initial generation only)
+1. `POST /clawd-bot/generate-website` → creates a new v0 site
+2. `POST /clawd-bot/edit-website` → sends edits to existing chat (requires `chat_id`)
+
+### Option B: Site Configs (preferred for ongoing edits)
+1. Generate site once with v0 (include config-fetching hook in prompt)
+2. Use `POST /clawd-bot/site-config` to update content sections
+3. Site auto-reflects changes on next page load — no deploy needed
+
+### Site Config Sections
+`hero`, `about`, `services`, `gallery`, `contact`, `footer`, `meta`
+
+### site_id Format
+Kebab-case: `terrion-barber`, `jane-photography`, `atlanta-fitness`
 
 ## Meeting + Card Workflow
 
@@ -61,8 +85,6 @@ When scheduling a meeting, Cortex should chain **two** API calls:
      "source_url": "<room_url from step 1>"
    }
    ```
-
-This ensures both a joinable video meeting **and** a trackable card are created together.
 
 ## Customer Lookup & Safe Create/Update
 
