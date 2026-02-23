@@ -227,6 +227,7 @@ export default function CalendarPage() {
   };
 
   const handleDelete = async (id: string) => {
+    // Allow deleting manual, google-calendar, and booking events
     if (!id.startsWith('meeting-') && !id.startsWith('deal-') && !id.startsWith('task-') && !id.startsWith('invoice-')) {
       const { error } = await supabase.from('calendar_events').delete().eq('id', id);
       if (error) { toast.error(error.message); return; }
@@ -469,11 +470,13 @@ export default function CalendarPage() {
                       </p>
                     </div>
                     {SourceIcon && <SourceIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                    {ev.source === 'manual' && (
+                    {(ev.source === 'manual' || ev.source === 'booking') && (
                       <div className="flex items-center gap-1">
-                        <button onClick={() => openEdit(ev)} className="text-muted-foreground hover:text-primary">
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
+                        {ev.source === 'manual' && (
+                          <button onClick={() => openEdit(ev)} className="text-muted-foreground hover:text-primary">
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button onClick={() => handleDelete(ev.id)} className="text-muted-foreground hover:text-destructive">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -683,13 +686,15 @@ export default function CalendarPage() {
                   <span className="capitalize">Source: {detailEvent.source}</span>
                   {detailEvent.category && <span>· {detailEvent.category}</span>}
                 </div>
-                {(detailEvent.source === 'manual' || detailEvent.source === 'google-calendar') && (
+                {(detailEvent.source === 'manual' || detailEvent.source === 'google-calendar' || detailEvent.source === 'booking') && (
                   <div className="flex gap-2 pt-2">
-                    <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailEvent(null); openEdit(detailEvent); }}>
-                      <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Edit
-                    </Button>
+                    {detailEvent.source !== 'booking' && (
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailEvent(null); openEdit(detailEvent); }}>
+                        <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Edit
+                      </Button>
+                    )}
                     <Button size="sm" variant="destructive" onClick={() => { handleDelete(detailEvent.id); setDetailEvent(null); }}>
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
                     </Button>
                   </div>
                 )}

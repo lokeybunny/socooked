@@ -2181,6 +2181,16 @@ Deno.serve(async (req) => {
       return fail('event_ids array or cancel_all_for email required')
     }
 
+    // ─── DELETE CALENDAR EVENT ────────────────────────────
+    if (path === 'calendar-event' && req.method === 'DELETE') {
+      const { id } = body
+      if (!id) return fail('id is required')
+      const { error } = await supabase.from('calendar_events').delete().eq('id', id)
+      if (error) return fail(error.message)
+      await logActivity(supabase, 'calendar_event', id, 'deleted')
+      return ok({ action: 'deleted', event_id: id })
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
       const [boards, customers, deals, projects, meetings, templates, content, transcriptions, botTasks, apiPreviews, soulConfig] = await Promise.all([
