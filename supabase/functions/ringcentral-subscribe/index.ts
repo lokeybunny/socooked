@@ -48,10 +48,11 @@ Deno.serve(async (req) => {
       (s: any) => s.deliveryMode?.address === webhookUrl && s.status === "Active"
     );
 
-    if (existing.length > 0) {
-      return new Response(
-        JSON.stringify({ success: true, message: "Webhook already active", id: existing[0].id }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    // Delete existing subscriptions to re-register with updated filters
+    for (const sub of existing) {
+      await fetch(
+        `https://platform.ringcentral.com/restapi/v1.0/subscription/${sub.id}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } }
       );
     }
 
