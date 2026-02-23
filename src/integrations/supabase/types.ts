@@ -811,6 +811,7 @@ export type Database = {
           owner_id: string | null
           published_at: string | null
           scheduled_for: string | null
+          share_token: string | null
           source: string
           status: string
           tags: string[]
@@ -829,6 +830,7 @@ export type Database = {
           owner_id?: string | null
           published_at?: string | null
           scheduled_for?: string | null
+          share_token?: string | null
           source?: string
           status?: string
           tags?: string[]
@@ -847,6 +849,7 @@ export type Database = {
           owner_id?: string | null
           published_at?: string | null
           scheduled_for?: string | null
+          share_token?: string | null
           source?: string
           status?: string
           tags?: string[]

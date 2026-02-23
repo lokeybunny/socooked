@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2, Download, Play, Music } from 'lucide-react';
+import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2, Download, Play, Music, Share2, Link2, Copy, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { uploadToStorage, detectContentType, downloadFromUrl } from '@/lib/storage';
@@ -26,6 +26,7 @@ const SOURCE_LABELS: Record<string, { label: string; icon: any }> = {
   instagram: { label: 'From Client Instagram', icon: MessageSquare },
   sms: { label: 'From Client Text Messages', icon: Smartphone },
   'client-direct': { label: 'From Client Directly', icon: File },
+  higgsfield: { label: 'Higgsfield AI', icon: Sparkles },
   other: { label: 'Other', icon: File },
 };
 
@@ -225,6 +226,25 @@ export default function Content() {
   const downloadFile = (fileUrl: string, title: string) => {
     if (!fileUrl) { toast.error('No file URL available'); return; }
     downloadFromUrl(fileUrl, title);
+  };
+
+  const handleShare = async (assetId: string) => {
+    // Generate a unique share token
+    const token = crypto.randomUUID();
+    const { error } = await supabase.from('content_assets').update({ share_token: token } as any).eq('id', assetId);
+    if (error) { toast.error(error.message); return; }
+
+    const shareUrl = `${window.location.origin}/shared/${token}`;
+    await navigator.clipboard.writeText(shareUrl);
+    toast.success('Share link copied to clipboard!');
+    loadAll();
+  };
+
+  const handleRevokeShare = async (assetId: string) => {
+    const { error } = await supabase.from('content_assets').update({ share_token: null } as any).eq('id', assetId);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Share link revoked');
+    loadAll();
   };
 
   const downloadFolder = async (sources: { source: string; files: any[] }[], folderName: string) => {
@@ -498,6 +518,17 @@ export default function Content() {
                                                       <Download className="h-3.5 w-3.5" />
                                                     </button>
                                                   )}
+                                                  {c.url && (
+                                                    c.share_token ? (
+                                                      <button onClick={() => handleRevokeShare(c.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
+                                                        <Link2 className="h-3.5 w-3.5" />
+                                                      </button>
+                                                    ) : (
+                                                      <button onClick={() => handleShare(c.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
+                                                        <Share2 className="h-3.5 w-3.5" />
+                                                      </button>
+                                                    )
+                                                  )}
                                                   <button onClick={() => handleDeleteContent(c.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                                                     <Trash2 className="h-3.5 w-3.5" />
                                                   </button>
@@ -523,6 +554,16 @@ export default function Content() {
           ) : !loading ? (
             <div className="text-center py-16 text-muted-foreground">No content yet. Start creating!</div>
           ) : null}
+          {/* Higgsfield AI Section */}
+          <HiggsFieldSection
+            categoryId={categoryGate.selectedCategory}
+            onPlay={playVideo}
+            onDownload={downloadFile}
+            onDelete={handleDeleteContent}
+            onShare={handleShare}
+            onRevokeShare={handleRevokeShare}
+          />
+
           {/* Customer Meetings Section */}
           <CustomerMeetingsSection 
             categoryId={categoryGate.selectedCategory} 
@@ -671,6 +712,111 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
                 ))}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ─── Higgsfield AI Sub-Section ──────────────────────── */
+function HiggsFieldSection({ categoryId, onPlay, onDownload, onDelete, onShare, onRevokeShare }: {
+  categoryId: string | null;
+  onPlay: (url: string, title: string) => void;
+  onDownload: (url: string, title: string) => void;
+  onDelete: (id: string) => void;
+  onShare: (id: string) => void;
+  onRevokeShare: (id: string) => void;
+}) {
+  const [assets, setAssets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      let q = supabase.from('content_assets')
+        .select('*, customers(full_name)')
+        .eq('source', 'higgsfield')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (categoryId) q = q.eq('category', categoryId);
+      const { data } = await q;
+      setAssets(data || []);
+      setLoading(false);
+    };
+    load();
+  }, [categoryId]);
+
+  if (loading || assets.length === 0) return null;
+
+  return (
+    <>
+      {!expanded && (
+        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-40">
+          <button
+            onClick={() => setExpanded(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground shadow-lg hover:bg-accent/80 transition-all text-sm font-medium border border-border"
+          >
+            <Sparkles className="h-4 w-4" />
+            Higgsfield AI
+            <span className="ml-1 px-1.5 py-0.5 rounded bg-primary/20 text-[10px] font-bold">{assets.length}</span>
+          </button>
+        </div>
+      )}
+
+      {expanded && (
+        <div className="glass-card overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <div className="flex items-center gap-3">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Higgsfield AI</span>
+              <span className="text-xs text-muted-foreground">{assets.length} asset{assets.length !== 1 ? 's' : ''}</span>
+            </div>
+            <button onClick={() => setExpanded(false)} className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-muted">
+              Collapse
+            </button>
+          </div>
+
+          <div className="divide-y divide-border">
+            {assets.map(a => {
+              const Icon = typeIcons[a.type] || File;
+              const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
+              return (
+                <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
+                  <div className="p-1.5 rounded bg-primary/10"><Icon className="h-3.5 w-3.5 text-primary" /></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">{a.title}</p>
+                    <span className="text-[10px] text-muted-foreground">
+                      {a.customers?.full_name || 'No client'} · {new Date(a.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {isPlayable && (
+                    <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
+                      <Play className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {a.url && (
+                    <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  {a.url && (
+                    a.share_token ? (
+                      <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
+                        <Link2 className="h-3.5 w-3.5" />
+                      </button>
+                    ) : (
+                      <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
+                        <Share2 className="h-3.5 w-3.5" />
+                      </button>
+                    )
+                  )}
+                  <button onClick={() => onDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
