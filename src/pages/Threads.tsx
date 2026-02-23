@@ -31,6 +31,8 @@ const channelColors: Record<string, string> = {
   dm: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
 };
 
+const ITEMS_PER_PAGE = 10;
+
 export default function Threads() {
   const categoryGate = useCategoryGate();
   const [allThreads, setAllThreads] = useState<any[]>([]);
@@ -38,6 +40,8 @@ export default function Threads() {
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
 
   const loadAll = async () => {
     const { data } = await supabase
@@ -80,6 +84,33 @@ export default function Threads() {
     });
     return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
   }, [filtered]);
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedFiltered = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
+
+  const paginatedGrouped = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    paginatedFiltered.forEach(t => {
+      const day = format(new Date(t.created_at), 'yyyy-MM-dd');
+      if (!groups[day]) groups[day] = [];
+      groups[day].push(t);
+    });
+    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+  }, [paginatedFiltered]);
+
+  useEffect(() => { setCurrentPage(1); }, [categoryGate.selectedCategory, search]);
+
+  const toggleDay = (day: string) => {
+    setExpandedDays(prev => {
+      const next = new Set(prev);
+      if (next.has(day)) next.delete(day); else next.add(day);
+      return next;
+    });
+  };
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
     acc[cat.id] = allThreads.filter(t => normalizeCategory(t.category) === cat.id).length;
@@ -128,186 +159,135 @@ export default function Threads() {
           </div>
 
           {/* Timeline */}
-          <div className="space-y-6">
-            {grouped.map(([day, items]) => (
-              <div key={day}>
-                {/* Date header */}
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border">
-                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-foreground">
-                      {format(new Date(day), 'EEEE, MMM d, yyyy')}
-                    </span>
-                  </div>
-                  <div className="flex-1 h-px bg-border" />
-                  <span className="text-xs text-muted-foreground">{items.length} entries</span>
-                </div>
+          <div className="space-y-4">
+            {paginatedGrouped.map(([day, items]) => {
+              const isDayExpanded = expandedDays.has(day);
+              return (
+                <div key={day}>
+                  {/* Date header — clickable to expand/collapse */}
+                  <button
+                    onClick={() => toggleDay(day)}
+                    className="w-full flex items-center gap-3 mb-2 group"
+                  >
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 border border-border group-hover:border-primary/30 transition-colors">
+                      {isDayExpanded ? (
+                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-foreground">
+                        {format(new Date(day), 'EEEE, MMM d, yyyy')}
+                      </span>
+                    </div>
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-xs text-muted-foreground">{items.length} entries</span>
+                  </button>
 
-                {/* Thread cards for this day */}
-                <div className="space-y-2 ml-2 border-l-2 border-border/50 pl-4">
-                  {items.map(t => {
-                    const isExpanded = expandedId === t.id;
-                    const ChannelIcon = channelIcons[t.channel] || MessageSquare;
-                    const colorClass = channelColors[t.channel] || channelColors.chat;
-                    const customerName = t.customers?.full_name || 'Unknown';
-                    const timeStr = format(new Date(t.created_at), 'h:mm a');
-                    const relativeTime = formatDistanceToNow(new Date(t.created_at), { addSuffix: true });
+                  {/* Thread cards — only when expanded */}
+                  {isDayExpanded && (
+                    <div className="space-y-2 ml-2 border-l-2 border-border/50 pl-4">
+                      {items.map(t => {
+                        const isExpanded = expandedId === t.id;
+                        const ChannelIcon = channelIcons[t.channel] || MessageSquare;
+                        const colorClass = channelColors[t.channel] || channelColors.chat;
+                        const customerName = t.customers?.full_name || 'Unknown';
+                        const timeStr = format(new Date(t.created_at), 'h:mm a');
+                        const relativeTime = formatDistanceToNow(new Date(t.created_at), { addSuffix: true });
 
-                    return (
-                      <div
-                        key={t.id}
-                        className="glass-card overflow-hidden transition-all duration-200 hover:border-primary/20"
-                      >
-                        {/* Main row — always visible */}
-                        <button
-                          onClick={() => setExpandedId(isExpanded ? null : t.id)}
-                          className="w-full flex items-center gap-3 p-4 text-left"
-                        >
-                          {/* Timeline dot */}
-                          <div className="relative -ml-[1.65rem]">
-                            <div className="w-3 h-3 rounded-full bg-primary border-2 border-background" />
-                          </div>
-
-                          {/* Channel icon */}
-                          <div className={`p-2 rounded-lg border ${colorClass}`}>
-                            <ChannelIcon className="h-4 w-4" />
-                          </div>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground truncate">
-                                {customerName}
-                              </span>
-                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 capitalize ${colorClass}`}>
-                                {t.channel}
-                              </Badge>
-                            </div>
-                            {t.summary && (
-                              <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-lg">
-                                {t.summary}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Meta */}
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {timeStr}
-                            </span>
-                            {isExpanded ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                          </div>
-                        </button>
-
-                        {/* Expanded detail */}
-                        {isExpanded && (
-                          <div className="border-t border-border bg-muted/20 px-4 py-4 space-y-4">
-                            {/* Metadata grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                              <div className="space-y-1">
-                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Customer</p>
-                                <div className="flex items-center gap-1.5">
-                                  <User className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-foreground">{customerName}</span>
-                                </div>
+                        return (
+                          <div
+                            key={t.id}
+                            className="glass-card overflow-hidden transition-all duration-200 hover:border-primary/20"
+                          >
+                            <button
+                              onClick={() => setExpandedId(isExpanded ? null : t.id)}
+                              className="w-full flex items-center gap-3 p-4 text-left"
+                            >
+                              <div className="relative -ml-[1.65rem]">
+                                <div className="w-3 h-3 rounded-full bg-primary border-2 border-background" />
                               </div>
-                              <div className="space-y-1">
-                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Channel</p>
-                                <div className="flex items-center gap-1.5">
-                                  <ChannelIcon className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-foreground capitalize">{t.channel}</span>
-                                </div>
+                              <div className={`p-2 rounded-lg border ${colorClass}`}>
+                                <ChannelIcon className="h-4 w-4" />
                               </div>
-                              <div className="space-y-1">
-                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Category</p>
-                                <div className="flex items-center gap-1.5">
-                                  <Hash className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-foreground capitalize">{(t.category || 'other').replace(/-/g, ' ')}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-foreground truncate">{customerName}</span>
+                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 capitalize ${colorClass}`}>{t.channel}</Badge>
                                 </div>
-                              </div>
-                              <div className="space-y-1">
-                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Recorded</p>
-                                <div className="flex items-center gap-1.5">
-                                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-foreground">{relativeTime}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Contact info */}
-                            {(t.customers?.email || t.customers?.phone) && (
-                              <div className="flex gap-4 text-xs text-muted-foreground">
-                                {t.customers?.email && (
-                                  <span className="flex items-center gap-1">
-                                    <Mail className="h-3 w-3" /> {t.customers.email}
-                                  </span>
-                                )}
-                                {t.customers?.phone && (
-                                  <span className="flex items-center gap-1">
-                                    <Phone className="h-3 w-3" /> {t.customers.phone}
-                                  </span>
+                                {t.summary && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-lg">{t.summary}</p>
                                 )}
                               </div>
-                            )}
-
-                            {/* Summary */}
-                            {t.summary && (
-                              <div className="space-y-1">
-                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Summary</p>
-                                <p className="text-xs text-foreground leading-relaxed">{t.summary}</p>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                                <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{timeStr}</span>
+                                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                               </div>
-                            )}
+                            </button>
 
-                            {/* Full transcript */}
-                            {t.raw_transcript && (
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <FileAudio className="h-3.5 w-3.5 text-muted-foreground" />
-                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Full Transcript</p>
+                            {isExpanded && (
+                              <div className="border-t border-border bg-muted/20 px-4 py-4 space-y-4">
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Customer</p>
+                                    <div className="flex items-center gap-1.5"><User className="h-3 w-3 text-muted-foreground" /><span className="text-xs text-foreground">{customerName}</span></div>
                                   </div>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-7 text-xs gap-1.5"
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(t.raw_transcript);
-                                      toast.success('Transcript copied to clipboard');
-                                    }}
-                                  >
-                                    <Copy className="h-3 w-3" />
-                                    Copy
-                                  </Button>
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Channel</p>
+                                    <div className="flex items-center gap-1.5"><ChannelIcon className="h-3 w-3 text-muted-foreground" /><span className="text-xs text-foreground capitalize">{t.channel}</span></div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Category</p>
+                                    <div className="flex items-center gap-1.5"><Hash className="h-3 w-3 text-muted-foreground" /><span className="text-xs text-foreground capitalize">{(t.category || 'other').replace(/-/g, ' ')}</span></div>
+                                  </div>
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Recorded</p>
+                                    <div className="flex items-center gap-1.5"><Calendar className="h-3 w-3 text-muted-foreground" /><span className="text-xs text-foreground">{relativeTime}</span></div>
+                                  </div>
                                 </div>
-                                <ScrollArea className="max-h-96">
-                                  <div className="bg-background/50 border border-border rounded-lg p-3">
-                                    <pre className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed select-all">
-                                      {t.raw_transcript}
-                                    </pre>
+                                {(t.customers?.email || t.customers?.phone) && (
+                                  <div className="flex gap-4 text-xs text-muted-foreground">
+                                    {t.customers?.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {t.customers.email}</span>}
+                                    {t.customers?.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {t.customers.phone}</span>}
                                   </div>
-                                </ScrollArea>
+                                )}
+                                {t.summary && (
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Summary</p>
+                                    <p className="text-xs text-foreground leading-relaxed">{t.summary}</p>
+                                  </div>
+                                )}
+                                {t.raw_transcript && (
+                                  <div className="space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <FileAudio className="h-3.5 w-3.5 text-muted-foreground" />
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Full Transcript</p>
+                                      </div>
+                                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1.5" onClick={() => { navigator.clipboard.writeText(t.raw_transcript); toast.success('Transcript copied to clipboard'); }}>
+                                        <Copy className="h-3 w-3" /> Copy
+                                      </Button>
+                                    </div>
+                                    <ScrollArea className="max-h-96">
+                                      <div className="bg-background/50 border border-border rounded-lg p-3">
+                                        <pre className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed select-all">{t.raw_transcript}</pre>
+                                      </div>
+                                    </ScrollArea>
+                                  </div>
+                                )}
+                                <div className="pt-2 border-t border-border/50">
+                                  <p className="text-[10px] text-muted-foreground font-mono">Thread ID: {t.id}</p>
+                                </div>
                               </div>
                             )}
-
-                            {/* Thread ID for bot reference */}
-                            <div className="pt-2 border-t border-border/50">
-                              <p className="text-[10px] text-muted-foreground font-mono">
-                                Thread ID: {t.id}
-                              </p>
-                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {filtered.length === 0 && !loading && (
               <div className="text-center py-16 text-muted-foreground">
@@ -317,6 +297,33 @@ export default function Threads() {
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                Page {currentPage} of {totalPages} · {filtered.length} total
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage(p => p - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage(p => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </CategoryGate>
       <AnalyzeModal open={analyzeOpen} onClose={() => setAnalyzeOpen(false)} />
