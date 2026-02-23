@@ -4,7 +4,7 @@ CRM integration for CLAWD Command via SpaceBot.
 
 ## Version
 
-3.3.1
+3.3.2
 
 ## Description
 
@@ -50,7 +50,7 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 
 ---
 
-## v0 Internal Image Generation Strategy (v3.3.1)
+## v0 Internal Image Generation Strategy (v3.3.2)
 
 ### WHY this approach
 
@@ -74,6 +74,7 @@ The `/v0-designer` edge function automatically:
 3. **No `unsplash.com` / `pexels.com` / stock-photo language** — rejected at the gateway level
 4. **No `import "tailwindcss"`** — Tailwind CDN only
 5. **Design-intent language only** — describe visuals as creative direction, not as "generate" commands
+6. **Every prompt MUST end with:** `Replace all image placeholders with real people smiling within this niche.`
 
 ### Agent Prompt Crafting Rules
 
@@ -96,7 +97,7 @@ When Cortex writes a prompt for `/v0-designer`:
 ```json
 POST /v0-designer
 {
-  "prompt": "Build a premium barbershop website for 'Elite Cuts' in Atlanta. Dark charcoal and gold color scheme.\n\nHero: Full-width cinematic scene of a luxury barbershop interior — leather barber chairs, warm Edison bulb lighting, exposed brick walls, vintage mirrors. Bold headline 'Elite Cuts' with a 'Book Now' CTA.\n\nServices (3 cards): Each with its own distinct professional scene:\n1. 'Precision Fade' — close-up of a barber performing a crisp taper fade, shallow depth of field\n2. 'Hot Towel Shave' — steam rising from a hot towel on a client's face, warm amber tones\n3. 'Beard Sculpting' — detailed beard trim in progress, professional lighting\n\nAbout: Team portrait of 3 barbers standing confidently in the shop, arms crossed, warm overhead lighting, professional but approachable.\n\nGallery: 6 portfolio images with varied compositions — before/after haircuts, styled pompadours, classic cuts from different angles, shop atmosphere shots.\n\nContact: Map embed placeholder, hours, phone, address. Dark footer with gold accents.",
+  "prompt": "Build a premium barbershop website for 'Elite Cuts' in Atlanta. Dark charcoal and gold color scheme.\n\nHero: Full-width cinematic scene of a luxury barbershop interior — leather barber chairs, warm Edison bulb lighting, exposed brick walls, vintage mirrors. Bold headline 'Elite Cuts' with a 'Book Now' CTA.\n\nServices (3 cards): Each with its own distinct professional scene:\n1. 'Precision Fade' — close-up of a barber performing a crisp taper fade, shallow depth of field\n2. 'Hot Towel Shave' — steam rising from a hot towel on a client's face, warm amber tones\n3. 'Beard Sculpting' — detailed beard trim in progress, professional lighting\n\nAbout: Team portrait of 3 barbers standing confidently in the shop, arms crossed, warm overhead lighting, professional but approachable.\n\nGallery: 6 portfolio images with varied compositions — before/after haircuts, styled pompadours, classic cuts from different angles, shop atmosphere shots.\n\nContact: Map embed placeholder, hours, phone, address. Dark footer with gold accents.\n\nReplace all image placeholders with real people smiling within this niche.",
   "customer_id": "abc-123",
   "category": "brick-and-mortar"
 }
@@ -111,7 +112,7 @@ If v0 renders without images despite design-intent prompts:
 
 ---
 
-## Web Design Workflow (v3.3.1)
+## Web Design Workflow (v3.3.2)
 
 ### New Site Generation
 1. Craft prompt with design-intent visual descriptions for every section
