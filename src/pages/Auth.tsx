@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,7 +58,7 @@ export default function Auth() {
           </p>
           <div className="pt-2 space-y-1.5">
             <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground/60">Get in touch</p>
-            <p className="text-sm text-foreground/80 font-light tracking-wide">(818) 555-0125</p>
+            <Link to="/letsmeet" className="text-sm text-primary hover:underline font-medium">Book a Meeting →</Link>
           </div>
         </div>
       </div>
@@ -78,7 +78,7 @@ export default function Auth() {
             </p>
             <div className="pt-1 space-y-0.5">
               <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground/60">Get in touch</p>
-              <p className="text-xs text-foreground/80 font-light tracking-wide">(818) 555-0125</p>
+              <Link to="/letsmeet" className="text-xs text-primary hover:underline font-medium">Book a Meeting →</Link>
             </div>
             <div className="border-b border-border pt-2" />
           </div>
