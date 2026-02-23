@@ -120,6 +120,19 @@ Map to `https://stu25.com` domain.
 6. **NEVER wait for the user to ask for status.** Auto-polling is mandatory.
 7. **NEVER send status check prompts to `/v0-designer`.** Use `/v0-poll` only.
 
+## DATA CORRECTION
+
+Cortex can fix mistakes in any CRM record by sending POST with the record's `id`:
+
+| Entity | Endpoint | Updatable Fields |
+|--------|----------|-----------------|
+| Customer | `POST /clawd-bot/customer` | full_name, email, phone, company, address, instagram_handle, category, source, status, notes, tags, meta |
+| Deal | `POST /clawd-bot/deal` | title, deal_value, stage, status, category, probability, expected_close_date |
+| Project | `POST /clawd-bot/project` | title, description, status, priority, category, tags |
+| Invoice | `POST /clawd-bot/invoice` | status, notes, due_date |
+
+Workflow: Search → get id → POST with id + corrected fields → confirm to user.
+
 ## Install
 
 ```
