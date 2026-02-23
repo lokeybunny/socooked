@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Handshake, FolderKanban, CheckSquare, FileText,
+  LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LayoutGrid, LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
   Radar, Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock,
 } from 'lucide-react';
@@ -15,7 +15,6 @@ const navItems = [
   { to: '/deals', icon: Handshake, label: 'Deals' },
   { to: '/threads', icon: MessageSquare, label: 'Threads' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
-  { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
   { to: '/content', icon: FileText, label: 'Content' },
   { to: '/templates', icon: FileCode2, label: 'Templates' },
   { to: '/invoices', icon: Receipt, label: 'Invoices' },
