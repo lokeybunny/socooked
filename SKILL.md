@@ -117,7 +117,7 @@ If v0 renders without images despite design-intent prompts:
 ### New Site Generation — INSTANT LINK DELIVERY
 1. `POST /v0-designer` with `{ prompt, customer_id, category }` — **SINGLE CALL**
 2. Return `edit_url` to user **IMMEDIATELY** (within 3 seconds of API response)
-3. Poll silently in background for `preview_url`
+3. **AUTO-POLL** silently in background for `preview_url`
 4. Notify user again ONLY when `preview_url` is ready
 
 ### ✅ REQUIRED Output Format (copy exactly)
@@ -127,7 +127,12 @@ If v0 renders without images despite design-intent prompts:
 
 🔴 Watch live: https://v0.app/chat/[CHAT_ID]
 
-I'll notify you when the final URL is ready.
+⏱️ Status: generating
+💬 Chat ID: [CHAT_ID]
+
+The AI is generating your site in real-time. Images, layout, and content will appear as v0 creates them.
+
+I'll message you when the final preview URL is ready!
 ```
 
 ### ❌ BANNED Output Patterns (zero tolerance)
@@ -140,11 +145,12 @@ I'll notify you when the final URL is ready.
 - Any multi-step progress narration — FORBIDDEN
 - Any aesthetic descriptions before link — FORBIDDEN
 - Waiting to give link until "done" — FORBIDDEN
+- Waiting for user to ask "update?" or "status?" — FORBIDDEN
 
 ### Correct Flow
 
 ```
-User request → POST /v0-designer → Instant edit_url → (silent background poll) → notify with preview_url
+User request → POST /v0-designer → Instant edit_url → (auto-poll every 30s) → notify with preview_url
 ```
 
 ### Wrong Flow (FORBIDDEN)
@@ -159,6 +165,61 @@ User request → "Creating customer..." → "Step 1..." → "Step 2..." → Link
 - `edit_url` → from `response.data.data.edit_url` — give IMMEDIATELY
 - `preview_url` → from polling — give when ready
 - `chat_id` → from `response.data.data.chat_id` — include in live link
+
+---
+
+## 🔄 MANDATORY AUTO-POLLING PROTOCOL
+
+### The user must NEVER have to ask "update?" or "status?"
+
+After delivering the initial link, the agent MUST automatically poll for completion.
+
+### Polling Rules
+
+| Rule | Value |
+|------|-------|
+| Poll interval | Every 30 seconds |
+| Endpoint | `GET /clawd-bot/previews` |
+| Start | Immediately after initial link delivery |
+| Stop | When `preview_url` exists OR 10-minute timeout |
+| User prompt required | **NEVER** — polling is automatic |
+
+### Message Sequence
+
+```
+0:00   "✅ Started! Watch LIVE: [link]. Checking every 30s..."
+0:30   (silent check — no message)
+1:00   (silent check — no message)
+2:00   "⏳ 2:00 elapsed... Still generating..."
+2:30   (silent check)
+4:00   "⏳ 4:00 elapsed... Still generating..."
+...
+Done   "✅ READY! Your site is live: [preview_url]"
+10:00  "⏱️ 10 minutes passed. Generation may have timed out. Check /previews."
+```
+
+### Implementation Pattern
+
+```javascript
+// Start polling AUTOMATICALLY after API response
+setInterval(async () => {
+  const status = await fetch('/clawd-bot/previews');
+  const data = await status.json();
+  if (data.preview_url) {
+    notifyUser("✅ READY: " + data.preview_url);
+    clearInterval(pollingInterval);
+  }
+}, 30000); // Every 30 seconds
+```
+
+### Polling Failure Modes
+
+| Scenario | Result |
+|----------|--------|
+| User has to ask "update?" | **YOU FAILED** |
+| User waits >2 min with no status | **YOU FAILED** |
+| Polling stops before completion | **YOU FAILED** |
+| Agent says "Let me check..." only when asked | **YOU FAILED** |
 
 ### Content Edits (Headless CMS)
 1. `GET /clawd-bot/previews` → find `site_id`
