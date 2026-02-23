@@ -60,11 +60,26 @@ export default function Invoices() {
     setLineItems(updated);
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     const validLines = lineItems.filter(li => li.description.trim());
     if (validLines.length === 0) { toast.error('Add at least one line item'); return; }
 
+    // UI-level duplicate check: same customer + same amount in existing invoices
+    const existingDupe = invoices.find(inv =>
+      inv.customer_id === form.customer_id &&
+      Number(inv.amount) === total &&
+      ['draft', 'sent'].includes(inv.status)
+    );
+    if (existingDupe) {
+      toast.error(`Duplicate detected: ${existingDupe.invoice_number || 'an invoice'} already exists for this customer with the same amount ($${total.toFixed(2)}).`);
+      return;
+    }
+
+    setSubmitting(true);
     const { error } = await supabase.from('invoices').insert([{
       customer_id: form.customer_id,
       amount: total,
@@ -77,6 +92,7 @@ export default function Invoices() {
       status: 'draft',
       provider: 'manual',
     }]);
+    setSubmitting(false);
     if (error) { toast.error(error.message); return; }
     toast.success('Invoice created');
     setDialogOpen(false);
