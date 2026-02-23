@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.share-content]
 verify_jwt = false
+
+[functions.ringcentral-webhook]
+verify_jwt = false
