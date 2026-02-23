@@ -11,11 +11,11 @@ import { supabase } from '@/integrations/supabase/client';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/deals', icon: Handshake, label: 'Deals', botIcon: true },
   { to: '/boards', icon: LayoutGrid, label: 'Boards', botIcon: true },
   { to: '/threads', icon: MessageSquare, label: 'Script AI' },
-  { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/content', icon: FileText, label: 'Content' },
   { to: '/templates', icon: FileCode2, label: 'Templates' },
   { to: '/invoices', icon: Receipt, label: 'Invoices' },
