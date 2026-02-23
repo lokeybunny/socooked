@@ -1137,6 +1137,81 @@ Deno.serve(async (req) => {
       return ok({ action: 'deleted', meeting_id: id })
     }
 
+    // ─── BOOKINGS (bot can book/cancel/reschedule on behalf of users) ─
+    if (path === 'bookings' && req.method === 'GET') {
+      const status = params.get('status')
+      const guest_email = params.get('guest_email')
+      let q = supabase.from('bookings').select('*').order('booking_date', { ascending: true }).limit(100)
+      if (status) q = q.eq('status', status)
+      if (guest_email) q = q.eq('guest_email', guest_email)
+      const { data, error } = await q
+      if (error) return fail(error.message)
+      return ok({ bookings: data })
+    }
+
+    if (path === 'book-meeting' && req.method === 'POST') {
+      const bookAction = (body.action as string) || 'book'
+
+      // Cancel via bot
+      if (bookAction === 'cancel') {
+        const booking_id = body.booking_id as string
+        if (!booking_id) return fail('booking_id is required')
+        // Proxy to book-meeting edge function
+        const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/book-meeting`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          },
+          body: JSON.stringify({ action: 'cancel', booking_id }),
+        })
+        const data = await res.json()
+        return ok(data)
+      }
+
+      // Reschedule via bot
+      if (bookAction === 'reschedule') {
+        const { booking_id, new_date, new_time } = body as any
+        if (!booking_id || !new_date || !new_time) return fail('booking_id, new_date, new_time required')
+        const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/book-meeting`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          },
+          body: JSON.stringify({ action: 'reschedule', booking_id, new_date, new_time }),
+        })
+        const data = await res.json()
+        return ok(data)
+      }
+
+      // Book via bot
+      const { guest_name, guest_email, guest_phone, booking_date, start_time, duration_minutes } = body as any
+      if (!guest_name || !guest_email || !booking_date || !start_time) {
+        return fail('guest_name, guest_email, booking_date, start_time are required')
+      }
+      const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/book-meeting`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+        },
+        body: JSON.stringify({
+          guest_name, guest_email, guest_phone: guest_phone || null,
+          booking_date, start_time, duration_minutes: duration_minutes || 30,
+        }),
+      })
+      const data = await res.json()
+      await logActivity(supabase, 'booking', data?.booking?.id || null, 'created', `Booking for ${guest_name}`)
+      return ok(data)
+    }
+
+    if (path === 'availability' && req.method === 'GET') {
+      const { data, error } = await supabase.from('availability_slots').select('*').eq('is_active', true).order('day_of_week')
+      if (error) return fail(error.message)
+      return ok({ slots: data })
+    }
+
     // ─── GENERATE (mock AI services) ─────────────────────────
     if (path === 'generate-resume' && req.method === 'POST') {
       const resumeJson = {

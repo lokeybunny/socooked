@@ -335,6 +335,8 @@ serve(async (req) => {
     const formattedDate = new Date(`${booking_date}T${start_time}:00`).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     const formattedTime = new Date(`${booking_date}T${start_time}:00`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
+    const manageUrl = `${SITE_DOMAIN}/manage-booking/${booking.id}`;
+
     await sendEmail(
       guest_email,
       `Meeting Confirmed - ${formattedDate} at ${formattedTime}`,
@@ -352,8 +354,10 @@ serve(async (req) => {
             Join Meeting
           </a>
         </div>
+        <div style="text-align:center;margin:16px 0;">
+          <a href="${manageUrl}" style="color:#2754C5;font-size:14px;text-decoration:underline;">Reschedule or Cancel this meeting</a>
+        </div>
         <p style="color:#666;font-size:13px;">Click the button above at the scheduled time to join. No downloads required.</p>
-        <p style="color:#666;font-size:13px;">If you need to reschedule, please reply to this email.</p>
       </div>`
     );
 

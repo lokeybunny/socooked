@@ -38,7 +38,7 @@ export default function LetsMeet() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [booked, setBooked] = useState<{ room_url: string; date: string; time: string } | null>(null);
+  const [booked, setBooked] = useState<{ room_url: string; date: string; time: string; booking_id?: string } | null>(null);
 
   useEffect(() => {
     supabase.from('availability_slots').select('day_of_week, start_time, end_time').eq('is_active', true).then(({ data }) => setSlots((data as Slot[]) || []));
@@ -123,6 +123,7 @@ export default function LetsMeet() {
         room_url: data.room_url,
         date: format(selectedDate, 'EEEE, MMMM d, yyyy'),
         time: new Date(`2000-01-01T${selectedTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+        booking_id: data.booking?.id,
       });
       toast.success('Meeting booked! Check your email for confirmation.');
     } catch (err: any) {
@@ -150,6 +151,16 @@ export default function LetsMeet() {
           <Button className="w-full" onClick={() => window.open(booked.room_url, '_blank')}>
             Open Meeting Room
           </Button>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => window.location.href = '/'}>
+              Back to Home
+            </Button>
+            {booked.booking_id && (
+              <Button variant="outline" className="flex-1" onClick={() => window.location.href = `/manage-booking/${booked.booking_id}`}>
+                Manage Booking
+              </Button>
+            )}
+          </div>
         </Card>
       </div>
     );
