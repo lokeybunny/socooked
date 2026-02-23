@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
@@ -126,6 +126,39 @@ export default function PhonePage() {
     }
     await supabase.from('customers').update({ notes: newNotes } as any).eq('id', leadId);
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, notes: newNotes } : l));
+  };
+
+  const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
+    // Find existing deal for this customer, or it was auto-created by the trigger
+    const { data: existingDeal } = await supabase
+      .from('deals')
+      .select('id')
+      .eq('customer_id', leadId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingDeal) {
+      // Update existing deal to qualified
+      await supabase.from('deals').update({ stage: 'qualified' }).eq('id', existingDeal.id);
+    } else {
+      // Create a new deal at qualified stage
+      const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+      await supabase.from('deals').insert({
+        title: `${leadName} — ${catLabel}`,
+        customer_id: leadId,
+        category: leadCategory || 'other',
+        stage: 'qualified',
+        status: 'open',
+        pipeline: 'default',
+        deal_value: 0,
+        probability: 30,
+      });
+    }
+
+    // Also update customer status to prospect
+    await supabase.from('customers').update({ status: 'prospect' }).eq('id', leadId);
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+    toast.success(`${leadName} marked as Interested — moved to Qualified`);
   };
 
   const handleDeleteLead = async () => {
@@ -596,6 +629,12 @@ export default function PhonePage() {
                             onClick={() => handleLeadStatus(lead.id, lead.full_name, 'call_back')}
                           >
                             <Clock className="h-3 w-3 text-blue-500" /> Call Back
+                          </Button>
+                          <Button
+                            variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1 border-green-500/40 text-green-600 hover:bg-green-500/10"
+                            onClick={() => handleLeadInterested(lead.id, lead.full_name, lead.category)}
+                          >
+                            <Star className="h-3 w-3" /> Interested
                           </Button>
                           <Button
                             variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1"
