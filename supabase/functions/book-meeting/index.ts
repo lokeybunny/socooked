@@ -137,6 +137,37 @@ serve(async (req) => {
       color: "#8b5cf6",
     });
 
+    // Send Telegram notification
+    const telegramToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const telegramChatId = Deno.env.get("TELEGRAM_CHAT_ID");
+    if (telegramToken && telegramChatId) {
+      try {
+        const dateObj2 = new Date(`${booking_date}T${start_time}:00`);
+        const fmtDate = dateObj2.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+        const fmtTime = dateObj2.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+        const tgMsg = [
+          `📅 *New Meeting Booked!*`,
+          ``,
+          `👤 *Guest:* ${guest_name}`,
+          `📧 *Email:* ${guest_email}`,
+          guest_phone ? `📞 *Phone:* ${guest_phone}` : null,
+          `📆 *Date:* ${fmtDate}`,
+          `🕐 *Time:* ${fmtTime} (PST)`,
+          `⏱ *Duration:* ${duration_minutes} min`,
+          `🔗 [Join Meeting](${roomUrl})`,
+        ].filter(Boolean).join("\n");
+
+        await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: telegramChatId, text: tgMsg, parse_mode: "Markdown" }),
+        });
+        console.log("Telegram notification sent");
+      } catch (tgErr) {
+        console.error("Telegram notify failed:", tgErr);
+      }
+    }
+
     // Format date for email
     const dateObj = new Date(`${booking_date}T${start_time}:00`);
     const formattedDate = dateObj.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
