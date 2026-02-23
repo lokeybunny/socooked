@@ -21,11 +21,11 @@ const navItems = [
   { to: '/calendar', icon: CalendarDays, label: 'Calendar', botIcon: true },
   { to: '/custom-u', icon: Link2, label: 'Custom-U', botIcon: true },
   { to: '/calendly', icon: CalendarClock, label: 'Calendly', botIcon: true },
+  { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
   { to: '/threads', icon: MessageSquare, label: 'Script AI' },
   { to: '/content', icon: FileText, label: 'Content' },
   { to: '/templates', icon: FileCode2, label: 'Templates' },
   { to: '/phone', icon: Phone, label: 'Phone' },
-  { to: '/meetings', icon: Video, label: 'Meetings' },
   { to: '/previews', icon: Sparkles, label: 'Previews' },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff' },
 ];
