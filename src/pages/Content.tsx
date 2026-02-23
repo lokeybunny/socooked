@@ -554,7 +554,7 @@ export default function Content() {
           ) : !loading ? (
             <div className="text-center py-16 text-muted-foreground">No content yet. Start creating!</div>
           ) : null}
-          {/* Higgsfield AI Section */}
+          {/* Higgsfield AI Category */}
           <HiggsFieldSection
             categoryId={categoryGate.selectedCategory}
             onPlay={playVideo}
@@ -719,7 +719,7 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
   );
 }
 
-/* ─── Higgsfield AI Sub-Section ──────────────────────── */
+/* ─── Higgsfield AI Category Section ──────────────────────── */
 function HiggsFieldSection({ categoryId, onPlay, onDownload, onDelete, onShare, onRevokeShare }: {
   categoryId: string | null;
   onPlay: (url: string, title: string) => void;
@@ -730,7 +730,7 @@ function HiggsFieldSection({ categoryId, onPlay, onDownload, onDelete, onShare, 
 }) {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -747,79 +747,72 @@ function HiggsFieldSection({ categoryId, onPlay, onDownload, onDelete, onShare, 
     load();
   }, [categoryId]);
 
-  if (loading || assets.length === 0) return null;
-
   return (
-    <>
-      {!expanded && (
-        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-40">
-          <button
-            onClick={() => setExpanded(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-accent-foreground shadow-lg hover:bg-accent/80 transition-all text-sm font-medium border border-border"
-          >
-            <Sparkles className="h-4 w-4" />
-            Higgsfield AI
-            <span className="ml-1 px-1.5 py-0.5 rounded bg-primary/20 text-[10px] font-bold">{assets.length}</span>
-          </button>
-        </div>
-      )}
+    <div className="glass-card overflow-hidden">
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-left"
+      >
+        {collapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        <Sparkles className="h-4 w-4 text-primary" />
+        <span className="text-sm font-semibold text-foreground">Higgsfield AI</span>
+        <span className="text-xs text-muted-foreground ml-auto">
+          {loading ? '…' : `${assets.length} asset${assets.length !== 1 ? 's' : ''}`}
+        </span>
+      </button>
 
-      {expanded && (
-        <div className="glass-card overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold text-foreground">Higgsfield AI</span>
-              <span className="text-xs text-muted-foreground">{assets.length} asset{assets.length !== 1 ? 's' : ''}</span>
+      {!collapsed && (
+        <div className="border-t border-border">
+          {assets.length === 0 && !loading ? (
+            <div className="px-4 py-8 text-center text-muted-foreground text-sm">
+              No Higgsfield AI content yet. Assets will appear here once the API is connected.
             </div>
-            <button onClick={() => setExpanded(false)} className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-muted">
-              Collapse
-            </button>
-          </div>
-
-          <div className="divide-y divide-border">
-            {assets.map(a => {
-              const Icon = typeIcons[a.type] || File;
-              const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
-              return (
-                <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
-                  <div className="p-1.5 rounded bg-primary/10"><Icon className="h-3.5 w-3.5 text-primary" /></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground truncate">{a.title}</p>
-                    <span className="text-[10px] text-muted-foreground">
-                      {a.customers?.full_name || 'No client'} · {new Date(a.created_at).toLocaleDateString()}
-                    </span>
+          ) : (
+            <div className="divide-y divide-border/30">
+              {assets.map(a => {
+                const Icon = typeIcons[a.type] || File;
+                const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
+                return (
+                  <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
+                    <div className="p-1.5 rounded bg-primary/10"><Icon className="h-3.5 w-3.5 text-primary" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-foreground truncate">{a.title}</p>
+                      <span className="text-[10px] text-muted-foreground">
+                        {a.customers?.full_name || 'No client'} · {new Date(a.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <StatusBadge status={a.status} />
+                    {isPlayable && (
+                      <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
+                        <Play className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {a.url && (
+                      <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {a.url && (
+                      a.share_token ? (
+                        <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
+                          <Link2 className="h-3.5 w-3.5" />
+                        </button>
+                      ) : (
+                        <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
+                          <Share2 className="h-3.5 w-3.5" />
+                        </button>
+                      )
+                    )}
+                    <button onClick={() => onDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  {isPlayable && (
-                    <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
-                      <Play className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {a.url && (
-                    <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
-                      <Download className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {a.url && (
-                    a.share_token ? (
-                      <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
-                        <Link2 className="h-3.5 w-3.5" />
-                      </button>
-                    ) : (
-                      <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
-                        <Share2 className="h-3.5 w-3.5" />
-                      </button>
-                    )
-                  )}
-                  <button onClick={() => onDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
-    </>
+    </div>
   );
 }
