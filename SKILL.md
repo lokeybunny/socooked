@@ -54,13 +54,24 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 | `delete_site_config` | DELETE | `/clawd-bot/site-config` | Delete a site content section |
 | `list_previews` | GET | `/clawd-bot/previews` | List API-generated work |
 
-## Web Design Workflow (v3.2)
+## Web Design Workflow (v3.2.1)
 
-### New Site Generation (DIRECT — skip CRM proxy)
-1. `POST /v0-designer` → calls v0.dev API directly, auto-saves to CRM (previews, threads, bot_tasks, activity_log)
-2. No need to call `/clawd-bot/generate-website` — the v0-designer handles all record-keeping
+### ⚠️ MANDATORY: All website generation MUST go through the CRM edge function
 
-### Editing Existing Sites (Headless CMS — preferred)
+SpaceBot MUST call `POST /v0-designer` for ALL website generation. This is a CRM-managed edge function — NOT the raw v0.dev API. The function enforces:
+- **Image validation**: Prompts without image generation instructions are rejected (HTTP 400)
+- **Placeholder ban**: Prompts containing placeholder.svg, unsplash.com, or stock references are rejected (HTTP 400)
+- **Auto CRM logging**: Creates bot_task, api_preview, conversation_thread, and activity_log automatically
+
+SpaceBot does NOT have direct access to v0.dev. The `/v0-designer` function is the ONLY gateway.
+
+### New Site Generation
+1. `POST /v0-designer` with `{ "prompt": "...", "customer_id": "uuid", "category": "..." }`
+2. Prompt MUST describe every image explicitly (hero, features, gallery, about, etc.)
+3. If the API returns 400, fix the prompt and retry — do not skip image descriptions
+4. Function auto-creates all CRM records — no additional CRM calls needed for record-keeping
+
+### Editing Existing Sites (Headless CMS — preferred for content)
 1. `GET /clawd-bot/previews` → find the site's `chat_id` and `site_id`
 2. `POST /clawd-bot/site-config` → update content sections (hero, services, gallery, etc.)
 3. Site auto-reflects changes on next page load — no deploy needed

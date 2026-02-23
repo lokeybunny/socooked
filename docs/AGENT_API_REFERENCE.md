@@ -328,20 +328,28 @@ All responses follow:
 | Generate contract | POST | `/clawd-bot/generate-contract` | `{ "client_name": "...", "terms": {...} }` |
 | Analyze thread | POST | `/clawd-bot/analyze-thread` | `{ "transcript": "..." }` |
 
-### Web Design (v0 Designer) — DIRECT CALL
+### Web Design (v0 Designer) — CRM-MANAGED GATEWAY
 
-> ⚠️ **NEW WORKFLOW (v3.2):** For **new site generation**, SpaceBot calls the `/v0-designer` endpoint **directly** — do NOT proxy through `/clawd-bot/generate-website`. The v0-designer function handles all CRM record-keeping (bot_tasks, api_previews, threads, activity_log) automatically.
-> For **editing existing sites**, use the Headless CMS pattern via Site Configs (below). The v0 API does not support reliable edits.
+> ⚠️ **MANDATORY (v3.2.1):** ALL website generation MUST go through `POST /v0-designer`. This is a CRM-managed edge function that enforces prompt quality rules before calling v0.dev:
+> - **Rejects prompts without image generation instructions** (HTTP 400)
+> - **Rejects prompts containing placeholder/stock references** (HTTP 400)
+> - **Auto-creates all CRM records** (bot_tasks, api_previews, threads, activity_log)
+>
+> SpaceBot does NOT have direct access to v0.dev. If the API returns 400, fix the prompt and retry — the error message tells you exactly what's missing.
+> For **editing existing sites**, use the Headless CMS pattern via Site Configs (below).
 
 | Action | Method | URL | Body |
 |--------|--------|-----|------|
-| **Generate website (DIRECT)** | POST | `/v0-designer` | `{ "prompt": "...", "customer_id": "uuid", "category": "..." }` |
-| Generate website (legacy proxy) | POST | `/clawd-bot/generate-website` | `{ "prompt": "...", "customer_id": "uuid" }` |
+| **Generate website (REQUIRED)** | POST | `/v0-designer` | `{ "prompt": "...", "customer_id": "uuid", "category": "..." }` |
+| Structural edit (with chat_id) | POST | `/v0-designer` | `{ "chat_id": "...", "prompt": "layout changes" }` |
+| ~~Generate website (DEPRECATED)~~ | ~~POST~~ | ~~/clawd-bot/generate-website~~ | ~~Do NOT use~~ |
 | Publish website | POST | `/clawd-bot/publish-website` | `{ "chat_id": "v0_chat_id" }` |
 
-> **Generation flow:** SpaceBot → `POST /v0-designer` → v0.dev API → auto-saves to CRM (previews, threads, bot_tasks)
-> **Edit flow:** SpaceBot → `GET /clawd-bot/previews` (get `chat_id`) → `POST /clawd-bot/site-config` (update content sections)
-> **Structural edits only:** If layout/code changes are truly needed, use `POST /v0-designer` with `chat_id` in body. But prefer Site Configs for all content/media changes.
+> **Prompt requirements enforced by API:**
+> - Must include image descriptions (hero, features, gallery, about, etc.)
+> - Must NOT contain: placeholder.svg, unsplash.com, stock photo, lorem, via.placeholder
+> - All copy must be real — no lorem ipsum
+> - If rejected, read the error message and resubmit with corrections
 
 ### Site Configs (Headless CMS for Client Websites)
 
@@ -430,12 +438,15 @@ Exception: `card-label` and `upload-token` use `{ "card_id": "uuid", "label_id":
 
 ---
 
-## Web Design Workflow Decision Tree (v3.2)
+## Web Design Workflow Decision Tree (v3.2.1)
 
 ```
 User requests a website?
   ├─ NEW site → POST /v0-designer { prompt, customer_id, category }
-  │              (v0-designer auto-creates: bot_task, api_preview, thread, activity_log)
+  │              ⚠️ Prompt MUST include image descriptions or API returns 400
+  │              ⚠️ No placeholder/stock/unsplash references or API returns 400
+  │              ✅ Auto-creates: bot_task, api_preview, thread, activity_log
+  │              ✅ If 400 error: read message, fix prompt, resubmit
   │
   ├─ EDIT existing site?
   │    ├─ Content/media change (text, images, pricing)?
@@ -446,7 +457,8 @@ User requests a website?
   │         → GET /clawd-bot/previews (find chat_id)
   │         → POST /v0-designer { chat_id, prompt }
   │
-  └─ NEVER use /clawd-bot/generate-website or /clawd-bot/edit-website for new workflows
+  └─ NEVER use /clawd-bot/generate-website or /clawd-bot/edit-website
+  └─ NEVER call v0.dev API directly — /v0-designer is the ONLY gateway
 ```
 
 ---

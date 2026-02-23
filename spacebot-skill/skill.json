@@ -115,8 +115,8 @@
 
     { "name": "crm_email_generate", "method": "POST", "path": "/clawd-bot/generate-email", "description": "Generate a portal invitation email for a customer" },
 
-    { "name": "crm_website_generate_direct", "method": "POST", "path": "/v0-designer", "description": "Generate a new v0 website DIRECTLY (preferred — auto-saves to CRM)" },
-    { "name": "crm_website_generate_legacy", "method": "POST", "path": "/clawd-bot/generate-website", "description": "Legacy proxy — still works but adds latency" },
+    { "name": "crm_website_generate", "method": "POST", "path": "/v0-designer", "description": "REQUIRED gateway for website generation. Enforces image descriptions and rejects placeholders. Auto-creates CRM records." },
+    { "name": "crm_website_generate_legacy", "method": "POST", "path": "/clawd-bot/generate-website", "description": "DEPRECATED — do NOT use. Route all generation through /v0-designer." },
     { "name": "crm_website_structural_edit", "method": "POST", "path": "/v0-designer", "description": "Structural v0 edit (requires chat_id in body — rare, prefer site-config for content)" },
     { "name": "crm_website_publish", "method": "POST", "path": "/clawd-bot/publish-website", "description": "Deploy v0 site to Vercel (requires manual Vercel linking)" },
 
