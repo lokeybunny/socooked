@@ -149,14 +149,11 @@ export default function Invoices() {
       return;
     }
 
-    const sending = toast.loading('Sending invoice email...');
+    const sending = toast.loading('Generating invoice PDF & sending...');
     try {
-      const subject = `Invoice ${inv.invoice_number || ''} from STU25`;
-      const body = buildInvoiceHtml(inv);
-
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const url = `https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`;
+      const url = `https://${projectId}.supabase.co/functions/v1/invoice-api?action=send-invoice`;
       const res = await fetch(url, {
         method: 'POST',
         headers: {
@@ -164,15 +161,13 @@ export default function Invoices() {
           'Authorization': `Bearer ${anonKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ to: email, subject, body }),
+        body: JSON.stringify({ invoice_id: inv.id }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send');
 
-      // Mark as sent
-      await supabase.from('invoices').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', inv.id);
       toast.dismiss(sending);
-      toast.success(`Invoice emailed to ${email}`);
+      toast.success(`Invoice PDF emailed to ${email}`);
       setDetailInvoice(null);
       load();
     } catch (e: any) {
