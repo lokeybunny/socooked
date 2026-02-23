@@ -93,7 +93,7 @@ export default function Boards() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Boards" {...categoryGate} totalCount={allBoards.length} countLabel="boards" categoryCounts={categoryCounts}>
+      <CategoryGate title="Boards" {...categoryGate} pageKey="boards" totalCount={allBoards.length} countLabel="boards" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{boards.length} boards</p>

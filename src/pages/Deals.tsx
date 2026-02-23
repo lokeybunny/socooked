@@ -161,7 +161,7 @@ export default function Deals() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Deals Pipeline" {...categoryGate} totalCount={allDeals.length} countLabel="deals" categoryCounts={categoryCounts}>
+      <CategoryGate title="Deals Pipeline" {...categoryGate} pageKey="deals" totalCount={allDeals.length} countLabel="deals" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{deals.length} deals · ${deals.reduce((s, d) => s + Number(d.deal_value || 0), 0).toLocaleString()} total value</p>

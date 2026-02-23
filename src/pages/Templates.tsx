@@ -123,7 +123,7 @@ export default function Templates() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Templates" {...categoryGate} totalCount={allTemplates.length} countLabel="templates" categoryCounts={categoryCounts}>
+      <CategoryGate title="Templates" {...categoryGate} pageKey="templates" totalCount={allTemplates.length} countLabel="templates" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground text-sm">{templates.length} templates</p>
