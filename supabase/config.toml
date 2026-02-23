@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.prompt-machine]
 verify_jwt = false
+
+[functions.v0-poll]
+verify_jwt = false
