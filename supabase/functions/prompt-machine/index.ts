@@ -45,7 +45,10 @@ Output ONLY:
 V0_PROMPT:
 <the full prompt>
 
-No commentary. No explanation. No preamble. Just V0_PROMPT: followed by the prompt.`
+CRITICAL: The VERY LAST LINE of every generated prompt MUST be exactly:
+"Replace all image placeholders with real people smiling within this niche."
+
+No commentary. No explanation. No preamble. Just V0_PROMPT: followed by the prompt, ending with the replacement directive above.`
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
