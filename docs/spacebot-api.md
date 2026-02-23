@@ -1,9 +1,9 @@
 # Spacebot (CLAWD-COMMAND) API Documentation
 
 > **Version:** v3.0.0
-> **Last Updated:** 2026-02-22
+> **Last Updated:** 2026-02-23
 > **Status:** Production
-> **Total Endpoints:** 103 actions across 29 modules
+> **Total Endpoints:** 110+ actions across 32 modules
 
 ---
 
@@ -316,6 +316,29 @@ Every bot-authenticated request is automatically logged to `webhook_events`:
 | `/clawd-bot/generate-email` | POST | Generate client email |
 | `/clawd-bot/analyze-thread` | POST | Analyze transcript for missing info |
 
+### Web Design (v0 Designer)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/generate-website` | POST | Generate new v0 website |
+| `/clawd-bot/edit-website` | POST | Edit existing v0 website (requires `chat_id`) |
+| `/clawd-bot/v0-designer` | POST | Generic v0 call (create or edit) |
+| `/clawd-bot/publish-website` | POST | Deploy to Vercel (requires manual linking) |
+
+### Site Configs (Headless CMS)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/site-configs` | GET | Read site content sections (**PUBLIC — no auth**). Params: `?site_id=slug&published=true` |
+| `/clawd-bot/site-config` | POST | Create/update a content section |
+| `/clawd-bot/site-config` | DELETE | Delete a content section |
+
+### Previews
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/clawd-bot/previews` | GET | List API-generated work (filter: `?customer_id=`, `?source=`) |
+
 ---
 
 ## Delete Pattern
@@ -326,6 +349,7 @@ All singular endpoints support DELETE via HTTP method:
 DELETE /clawd-bot/customer   → { "id": "uuid" }
 DELETE /clawd-bot/deal       → { "id": "uuid" }
 DELETE /clawd-bot/project    → { "id": "uuid" }
+DELETE /clawd-bot/site-config → { "id": "uuid" } or { "site_id": "slug", "section": "hero" }
 ...etc
 ```
 
@@ -345,4 +369,4 @@ Exception: `card-label` uses `{ "card_id": "uuid", "label_id": "uuid" }`, `uploa
 
 ---
 
-*Version: 3.0.0 — Last updated: 2026-02-22*
+*Version: 3.1.0 — Last updated: 2026-02-23*
