@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Monitor, Store, ShoppingCart, UtensilsCrossed, Smartphone, ChevronLeft, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -41,9 +41,41 @@ interface CategoryGateProps {
   countLabel?: string;
   /** Per-category item counts */
   categoryCounts?: Record<string, number>;
+  /** Unique key for localStorage tracking (e.g. 'leads', 'deals') */
+  pageKey?: string;
 }
 
-export function CategoryGate({ title, selectedCategory, onSelect, onBack, children, categoryTitle, totalCount, countLabel, categoryCounts }: CategoryGateProps) {
+function getSeenKey(pageKey: string) {
+  return `category-seen-${pageKey}`;
+}
+
+function getSeenCounts(pageKey: string): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(getSeenKey(pageKey)) || '{}');
+  } catch { return {}; }
+}
+
+function setSeenCounts(pageKey: string, counts: Record<string, number>) {
+  localStorage.setItem(getSeenKey(pageKey), JSON.stringify(counts));
+}
+
+export function CategoryGate({ title, selectedCategory, onSelect, onBack, children, categoryTitle, totalCount, countLabel, categoryCounts, pageKey }: CategoryGateProps) {
+  const [seenCounts, setSeenCountsState] = useState<Record<string, number>>({});
+
+  // Load seen counts on mount
+  useEffect(() => {
+    if (pageKey) setSeenCountsState(getSeenCounts(pageKey));
+  }, [pageKey]);
+
+  // When user selects a category, mark current count as seen
+  const handleSelect = useCallback((id: string) => {
+    if (pageKey && categoryCounts) {
+      const updated = { ...getSeenCounts(pageKey), [id]: categoryCounts[id] || 0 };
+      setSeenCounts(pageKey, updated);
+      setSeenCountsState(updated);
+    }
+    onSelect(id);
+  }, [pageKey, categoryCounts, onSelect]);
   if (!selectedCategory) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-fade-in">
@@ -62,10 +94,12 @@ export function CategoryGate({ title, selectedCategory, onSelect, onBack, childr
             const Icon = cat.icon;
             const notifCount = CATEGORY_NOTIFICATIONS[cat.id] || 0;
             const itemCount = categoryCounts?.[cat.id];
+            const seenCount = seenCounts[cat.id];
+            const hasNewData = pageKey && typeof itemCount === 'number' && (seenCount === undefined ? itemCount > 0 : itemCount > seenCount);
             return (
               <button
                 key={cat.id}
-                onClick={() => onSelect(cat.id)}
+                onClick={() => handleSelect(cat.id)}
                 className="group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-primary/40 transition-all relative"
               >
                 {notifCount > 0 ? (
@@ -73,7 +107,12 @@ export function CategoryGate({ title, selectedCategory, onSelect, onBack, childr
                     {notifCount}
                   </span>
                 ) : typeof itemCount === 'number' ? (
-                  <span className="absolute top-3 right-3 flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full bg-muted text-muted-foreground text-xs font-semibold">
+                  <span className={cn(
+                    "absolute top-3 right-3 flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full text-xs font-semibold transition-colors",
+                    hasNewData
+                      ? "bg-destructive text-destructive-foreground animate-pulse"
+                      : "bg-muted text-muted-foreground"
+                  )}>
                     {itemCount}
                   </span>
                 ) : (
