@@ -1805,6 +1805,62 @@ Deno.serve(async (req) => {
       return ok({ action: 'revoked', customer_id })
     }
 
+    // ─── AVAILABILITY SLOTS ─────────────────────────────────
+    if (path === 'availability' && req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('availability_slots')
+        .select('*')
+        .order('day_of_week', { ascending: true })
+      if (error) return fail(error.message, 500)
+      return ok(data)
+    }
+
+    if (path === 'availability' && req.method === 'POST') {
+      // Accepts { slots: [{ day_of_week, start_time, end_time, is_active }] }
+      // Or single: { day_of_week, start_time, end_time, is_active }
+      const slots = body.slots || [body]
+      
+      // Validate
+      for (const s of slots) {
+        if (s.day_of_week === undefined || s.start_time === undefined || s.end_time === undefined) {
+          return fail('Each slot requires day_of_week (0-6), start_time, end_time')
+        }
+      }
+
+      // If body.replace_all is true, delete existing slots first
+      if (body.replace_all) {
+        const { error: delErr } = await supabase.from('availability_slots').delete().gte('id', '00000000-0000-0000-0000-000000000000')
+        if (delErr) return fail(delErr.message, 500)
+      }
+
+      const toInsert = slots.map((s: any) => ({
+        day_of_week: s.day_of_week,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        is_active: s.is_active !== undefined ? s.is_active : true,
+      }))
+
+      const { data, error } = await supabase.from('availability_slots').insert(toInsert).select()
+      if (error) return fail(error.message, 500)
+      await logActivity(supabase, 'availability', null, 'updated', 'Availability schedule')
+      if (isBot) await auditLog(supabase, 'availability', { slots: toInsert })
+      return ok({ action: 'availability_set', slots: data })
+    }
+
+    if (path === 'availability' && req.method === 'DELETE') {
+      const { id, day_of_week } = body
+      if (id) {
+        const { error } = await supabase.from('availability_slots').delete().eq('id', id)
+        if (error) return fail(error.message, 500)
+      } else if (day_of_week !== undefined) {
+        const { error } = await supabase.from('availability_slots').delete().eq('day_of_week', day_of_week)
+        if (error) return fail(error.message, 500)
+      } else {
+        return fail('Provide id or day_of_week to delete')
+      }
+      return ok({ action: 'availability_deleted' })
+    }
+
     // ─── SEND PORTAL LINK (Custom-U) ─────────────────────────
     if (path === 'send-portal-link' && req.method === 'POST') {
       const { customer_id } = body
