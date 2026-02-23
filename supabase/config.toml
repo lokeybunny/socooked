@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.email-scheduler]
 verify_jwt = false
+
+[functions.script-ai]
+verify_jwt = false

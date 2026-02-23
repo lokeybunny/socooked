@@ -13,7 +13,7 @@ const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/deals', icon: Handshake, label: 'Deals' },
-  { to: '/threads', icon: MessageSquare, label: 'Threads' },
+  { to: '/threads', icon: MessageSquare, label: 'Script AI' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/content', icon: FileText, label: 'Content' },
   { to: '/templates', icon: FileCode2, label: 'Templates' },
