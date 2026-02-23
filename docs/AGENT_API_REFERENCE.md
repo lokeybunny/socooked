@@ -1,4 +1,4 @@
-# CLAWD Command CRM — Agent API Reference v3.0
+# CLAWD Command CRM — Agent API Reference v3.3.2
 
 > **Paste this entire document into your agent's system prompt or knowledge base.**
 > It is the single source of truth for all CRM API calls.
@@ -330,26 +330,30 @@ All responses follow:
 
 ### Web Design (v0 Designer) — CRM-MANAGED GATEWAY
 
-> ⚠️ **MANDATORY (v3.2.1):** ALL website generation MUST go through `POST /v0-designer`. This is a CRM-managed edge function that enforces prompt quality rules before calling v0.dev:
-> - **Rejects prompts without image generation instructions** (HTTP 400)
-> - **Rejects prompts containing placeholder/stock references** (HTTP 400)
+> ⚠️ **MANDATORY (v3.3.2):** ALL new website generation MUST go through the **Internal Prompting Machine** first (`POST /prompt-machine` with `auto_submit: true`), which optimizes prompts and forwards to `/v0-designer`. Direct `/v0-designer` calls are reserved for **structural edits** using `chat_id`.
+>
+> **Design-Intent-Only Enforcement (v3.3.2):**
+> - **Use design-intent descriptions:** "The hero features a cinematic barbershop interior with warm Edison bulb lighting, smiling clients in leather barber chairs"
+> - **NEVER use command language:** "Generate an image of...", "MANDATORY AI GENERATE", or any imperative image commands
+> - **NEVER use placeholder/stock references:** `placeholder.svg`, `unsplash.com`, `pexels.com`, `via.placeholder`, empty `src=""`
+> - **Mandatory closing directive:** Every prompt MUST end with: `"Replace all image placeholders with real people smiling within this niche."`
 > - **Auto-creates all CRM records** (bot_tasks, api_previews, threads, activity_log)
 >
-> SpaceBot does NOT have direct access to v0.dev. If the API returns 400, fix the prompt and retry — the error message tells you exactly what's missing.
 > For **editing existing sites**, use the Headless CMS pattern via Site Configs (below).
 
 | Action | Method | URL | Body |
 |--------|--------|-----|------|
-| **Generate website (REQUIRED)** | POST | `/v0-designer` | `{ "prompt": "...", "customer_id": "uuid", "category": "..." }` |
+| **New website (REQUIRED)** | POST | `/prompt-machine` | `{ "prompt": "...", "customer_id": "uuid", "category": "...", "auto_submit": true }` |
 | Structural edit (with chat_id) | POST | `/v0-designer` | `{ "chat_id": "...", "prompt": "layout changes" }` |
 | ~~Generate website (DEPRECATED)~~ | ~~POST~~ | ~~/clawd-bot/generate-website~~ | ~~Do NOT use~~ |
+| ~~Direct v0 for new sites~~ | ~~POST~~ | ~~/v0-designer (without chat_id)~~ | ~~Use /prompt-machine instead~~ |
 | Publish website | POST | `/clawd-bot/publish-website` | `{ "chat_id": "v0_chat_id" }` |
 
-> **Prompt requirements enforced by API:**
-> - Must include image descriptions (hero, features, gallery, about, etc.)
+> **Prompt requirements enforced by the Prompting Machine & v0-designer gateway:**
+> - Must use **design-intent descriptions** (scenes, lighting, mood, composition) — not "generate" commands
 > - Must NOT contain: placeholder.svg, unsplash.com, stock photo, lorem, via.placeholder
 > - All copy must be real — no lorem ipsum
-> - If rejected, read the error message and resubmit with corrections
+> - Must end with the mandatory smiling people directive
 
 ### Site Configs (Headless CMS for Client Websites)
 
@@ -438,15 +442,15 @@ Exception: `card-label` and `upload-token` use `{ "card_id": "uuid", "label_id":
 
 ---
 
-## Web Design Workflow Decision Tree (v3.2.1)
+## Web Design Workflow Decision Tree (v3.3.2)
 
 ```
 User requests a website?
-  ├─ NEW site → POST /v0-designer { prompt, customer_id, category }
-  │              ⚠️ Prompt MUST include image descriptions or API returns 400
-  │              ⚠️ No placeholder/stock/unsplash references or API returns 400
+  ├─ NEW site → POST /prompt-machine { prompt, customer_id, category, auto_submit: true }
+  │              ✅ Prompting Machine optimizes prompt with design-intent language
+  │              ✅ Auto-forwards to /v0-designer with enforced imagery directives
   │              ✅ Auto-creates: bot_task, api_preview, thread, activity_log
-  │              ✅ If 400 error: read message, fix prompt, resubmit
+  │              ✅ Mandatory closing line: "Replace all image placeholders with real people smiling within this niche."
   │
   ├─ EDIT existing site?
   │    ├─ Content/media change (text, images, pricing)?
@@ -456,9 +460,11 @@ User requests a website?
   │    └─ Structural/layout change (new page, component swap)?
   │         → GET /clawd-bot/previews (find chat_id)
   │         → POST /v0-designer { chat_id, prompt }
+  │         (design-intent descriptions only — no "generate" commands)
   │
   └─ NEVER use /clawd-bot/generate-website or /clawd-bot/edit-website
   └─ NEVER call v0.dev API directly — /v0-designer is the ONLY gateway
+  └─ NEVER use "Generate an image" or "MANDATORY AI GENERATE" — design-intent only
 ```
 
 ---
@@ -467,8 +473,12 @@ User requests a website?
 
 1. **NEVER simulate or fabricate API responses.** Every response shown to the user MUST come from an actual HTTP call. If the API errors or times out, report the real error. Never invent success data, preview URLs, status updates, or polling results.
 
-2. **NEVER use stock photos or placeholder images in website generation.** Every prompt sent to `/v0-designer` MUST include explicit AI image generation instructions for hero, features, about, gallery, and any other visual sections. Absolutely no `placeholder.svg`, no `unsplash.com` links, no generic stock URLs, no empty `src=""` attributes. If the site needs an image, describe exactly what to generate.
+2. **NEVER use stock photos or placeholder images in website generation.** Every prompt MUST use design-intent descriptions (scenes, lighting, mood, composition) — not imperative "generate" commands. Absolutely no `placeholder.svg`, no `unsplash.com` links, no generic stock URLs, no empty `src=""` attributes.
+
+3. **NEVER use "Generate an image" or "MANDATORY AI GENERATE" command language.** All image instructions must be design-intent descriptions only (e.g., "The hero features a cinematic wide shot of a confident barber mid-fade, warm Edison bulb lighting").
+
+4. **NEVER omit the mandatory closing directive.** Every website prompt MUST end with: `"Replace all image placeholders with real people smiling within this niche."`
 
 ---
 
-*Version: 3.2.1 — Last updated: 2026-02-23*
+*Version: 3.3.2 — Last updated: 2026-02-23*
