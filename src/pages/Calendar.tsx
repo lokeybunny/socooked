@@ -261,6 +261,20 @@ export default function CalendarPage() {
     }
 
     if (error) { toast.error(error.message); return; }
+
+    // Log deletion to activity_log for notifications
+    const ev = events.find(e => e.id === id);
+    if (ev) {
+      const entityType = ev.source === 'manual' || ev.source === 'google-calendar' ? 'calendar_event' : ev.source;
+      const entityId = ev.source_id || ev.id;
+      await supabase.from('activity_log').insert([{
+        entity_type: entityType,
+        entity_id: entityId,
+        action: 'deleted',
+        meta: { name: ev.title },
+      }]);
+    }
+
     toast.success('Removed from calendar');
     loadEvents();
   };
@@ -293,6 +307,18 @@ export default function CalendarPage() {
     }
 
     if (error) { toast.error(error.message); return; }
+
+    // Log to activity_log so Telegram + system notifications fire
+    const entityType = ev.source === 'manual' || ev.source === 'google-calendar' || ev.source === 'booking'
+      ? 'calendar_event' : ev.source;
+    const entityId = ev.source_id || ev.id;
+    await supabase.from('activity_log').insert([{
+      entity_type: entityType,
+      entity_id: entityId,
+      action: 'rescheduled',
+      meta: { name: ev.title, moved_to: format(newDate, 'yyyy-MM-dd') },
+    }]);
+
     toast.success(`Moved to ${format(newDate, 'MMM d')}`);
     loadEvents();
   };

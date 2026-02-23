@@ -312,6 +312,12 @@ export default function LetsMeet() {
         </div>
 
         <p className="text-center text-[11px] text-muted-foreground mt-4">All times are in Las Vegas (PST) timezone.</p>
+
+        <div className="text-center mt-6">
+          <Button variant="outline" onClick={() => window.location.href = 'https://stu25.com'}>
+            ← Home
+          </Button>
+        </div>
       </div>
     </div>
   );
