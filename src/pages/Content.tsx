@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2, Download, Play, Music, Share2, Link2, Copy, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES, type CategoryInfo } from '@/components/CategoryGate';
 import { uploadToStorage, detectContentType, downloadFromUrl } from '@/lib/storage';
 
 const contentTypes = ['article', 'image', 'video', 'audio', 'landing_page', 'doc', 'post'] as const;
@@ -37,6 +37,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   'food-and-beverage': 'Food & Beverage',
   'mobile-services': 'Mobile Services',
   'other': 'Other',
+};
+
+const HIGGSFIELD_CATEGORY: CategoryInfo = {
+  id: 'higgsfield',
+  label: 'Higgsfield AI',
+  icon: Sparkles,
+  description: 'AI-generated video & media from Higgsfield API',
 };
 
 export default function Content() {
@@ -132,6 +139,8 @@ export default function Content() {
     acc[cat.id] = allContent.filter(c => (c.category || 'other') === cat.id).length;
     return acc;
   }, {} as Record<string, number>);
+  // Add higgsfield count (by source)
+  categoryCounts['higgsfield'] = allContent.filter(c => c.source === 'higgsfield').length;
 
   const toggleCategory = (cat: string) => {
     setCollapsedCategories(prev => {
@@ -293,7 +302,16 @@ export default function Content() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Content Library" {...categoryGate} pageKey="content" totalCount={allContent.length} countLabel="assets" categoryCounts={categoryCounts}>
+      <CategoryGate title="Content Library" {...categoryGate} pageKey="content" totalCount={allContent.length} countLabel="assets" categoryCounts={categoryCounts} extraCategories={[HIGGSFIELD_CATEGORY]}>
+        {categoryGate.selectedCategory === 'higgsfield' ? (
+          <HiggsFieldManager
+            onPlay={playVideo}
+            onDownload={downloadFile}
+            onDelete={handleDeleteContent}
+            onShare={handleShare}
+            onRevokeShare={handleRevokeShare}
+          />
+        ) : (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <p className="text-muted-foreground text-sm">{content.length} assets</p>
@@ -554,15 +572,7 @@ export default function Content() {
           ) : !loading ? (
             <div className="text-center py-16 text-muted-foreground">No content yet. Start creating!</div>
           ) : null}
-          {/* Higgsfield AI Category */}
-          <HiggsFieldSection
-            categoryId={categoryGate.selectedCategory}
-            onPlay={playVideo}
-            onDownload={downloadFile}
-            onDelete={handleDeleteContent}
-            onShare={handleShare}
-            onRevokeShare={handleRevokeShare}
-          />
+
 
           {/* Customer Meetings Section */}
           <CustomerMeetingsSection 
@@ -582,6 +592,7 @@ export default function Content() {
             </DialogContent>
           </Dialog>
         </div>
+        )}
       </CategoryGate>
     </AppLayout>
   );
@@ -719,9 +730,8 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
   );
 }
 
-/* ─── Higgsfield AI Category Section ──────────────────────── */
-function HiggsFieldSection({ categoryId, onPlay, onDownload, onDelete, onShare, onRevokeShare }: {
-  categoryId: string | null;
+/* ─── Higgsfield AI Full Manager ──────────────────────── */
+function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare }: {
   onPlay: (url: string, title: string) => void;
   onDownload: (url: string, title: string) => void;
   onDelete: (id: string) => void;
@@ -730,87 +740,79 @@ function HiggsFieldSection({ categoryId, onPlay, onDownload, onDelete, onShare, 
 }) {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      let q = supabase.from('content_assets')
-        .select('*, customers(full_name)')
-        .eq('source', 'higgsfield')
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (categoryId) q = q.eq('category', categoryId);
-      const { data } = await q;
-      setAssets(data || []);
-      setLoading(false);
-    };
-    load();
-  }, [categoryId]);
+  const loadAssets = async () => {
+    const { data } = await supabase.from('content_assets')
+      .select('*, customers(full_name)')
+      .eq('source', 'higgsfield')
+      .order('created_at', { ascending: false });
+    setAssets(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadAssets(); }, []);
+
+  const handleDelete = async (id: string) => {
+    onDelete(id);
+    setTimeout(loadAssets, 500);
+  };
 
   return (
-    <div className="glass-card overflow-hidden">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-left"
-      >
-        {collapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        <Sparkles className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold text-foreground">Higgsfield AI</span>
-        <span className="text-xs text-muted-foreground ml-auto">
-          {loading ? '…' : `${assets.length} asset${assets.length !== 1 ? 's' : ''}`}
-        </span>
-      </button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-muted-foreground text-sm">{assets.length} Higgsfield AI assets</p>
+      </div>
 
-      {!collapsed && (
-        <div className="border-t border-border">
-          {assets.length === 0 && !loading ? (
-            <div className="px-4 py-8 text-center text-muted-foreground text-sm">
-              No Higgsfield AI content yet. Assets will appear here once the API is connected.
-            </div>
-          ) : (
-            <div className="divide-y divide-border/30">
-              {assets.map(a => {
-                const Icon = typeIcons[a.type] || File;
-                const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
-                return (
-                  <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
-                    <div className="p-1.5 rounded bg-primary/10"><Icon className="h-3.5 w-3.5 text-primary" /></div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground truncate">{a.title}</p>
-                      <span className="text-[10px] text-muted-foreground">
-                        {a.customers?.full_name || 'No client'} · {new Date(a.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <StatusBadge status={a.status} />
-                    {isPlayable && (
-                      <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
-                        <Play className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    {a.url && (
-                      <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
-                        <Download className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    {a.url && (
-                      a.share_token ? (
-                        <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
-                          <Link2 className="h-3.5 w-3.5" />
-                        </button>
-                      ) : (
-                        <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
-                          <Share2 className="h-3.5 w-3.5" />
-                        </button>
-                      )
-                    )}
-                    <button onClick={() => onDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 className="h-3.5 w-3.5" />
+      {loading ? (
+        <div className="text-center py-16 text-muted-foreground">Loading…</div>
+      ) : assets.length === 0 ? (
+        <div className="text-center py-16 space-y-3">
+          <Sparkles className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+          <p className="text-muted-foreground">No Higgsfield AI content yet.</p>
+          <p className="text-sm text-muted-foreground/60">Assets will appear here automatically once the Higgsfield API is connected.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {assets.map(a => {
+            const Icon = typeIcons[a.type] || File;
+            const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
+            return (
+              <div key={a.id} className="glass-card flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors">
+                <div className="p-1.5 rounded bg-primary/10"><Icon className="h-4 w-4 text-primary" /></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
+                  <span className="text-xs text-muted-foreground">
+                    {a.customers?.full_name || 'No client'} · {new Date(a.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <StatusBadge status={a.status} />
+                {isPlayable && (
+                  <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
+                    <Play className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {a.url && (
+                  <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {a.url && (
+                  a.share_token ? (
+                    <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
+                      <Link2 className="h-3.5 w-3.5" />
                     </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  ) : (
+                    <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
+                      <Share2 className="h-3.5 w-3.5" />
+                    </button>
+                  )
+                )}
+                <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

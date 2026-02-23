@@ -43,6 +43,8 @@ interface CategoryGateProps {
   categoryCounts?: Record<string, number>;
   /** Unique key for localStorage tracking (e.g. 'leads', 'deals') */
   pageKey?: string;
+  /** Extra categories to display after the standard ones */
+  extraCategories?: CategoryInfo[];
 }
 
 function getSeenKey(pageKey: string) {
@@ -59,7 +61,7 @@ function setSeenCounts(pageKey: string, counts: Record<string, number>) {
   localStorage.setItem(getSeenKey(pageKey), JSON.stringify(counts));
 }
 
-export function CategoryGate({ title, selectedCategory, onSelect, onBack, children, categoryTitle, totalCount, countLabel, categoryCounts, pageKey }: CategoryGateProps) {
+export function CategoryGate({ title, selectedCategory, onSelect, onBack, children, categoryTitle, totalCount, countLabel, categoryCounts, pageKey, extraCategories }: CategoryGateProps) {
   const [seenCounts, setSeenCountsState] = useState<Record<string, number>>({});
 
   // Load seen counts on mount
@@ -90,7 +92,7 @@ export function CategoryGate({ title, selectedCategory, onSelect, onBack, childr
           )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
-          {SERVICE_CATEGORIES.map((cat) => {
+          {[...SERVICE_CATEGORIES, ...(extraCategories || [])].map((cat) => {
             const Icon = cat.icon;
             const notifCount = CATEGORY_NOTIFICATIONS[cat.id] || 0;
             const itemCount = categoryCounts?.[cat.id];
@@ -133,7 +135,7 @@ export function CategoryGate({ title, selectedCategory, onSelect, onBack, childr
     );
   }
 
-  const activeCat = SERVICE_CATEGORIES.find(c => c.id === selectedCategory);
+  const activeCat = [...SERVICE_CATEGORIES, ...(extraCategories || [])].find(c => c.id === selectedCategory);
 
   return (
     <div className="space-y-6 animate-fade-in">
