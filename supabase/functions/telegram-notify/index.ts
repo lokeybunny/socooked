@@ -67,6 +67,18 @@ function formatMessage(entry: {
   // Support custom message override from meta
   const customMsg = entry.meta?.message;
 
+  // Deal stage transition
+  if (entry.entity_type === "deal" && entry.meta?.from_stage && entry.meta?.to_stage) {
+    const customerName = entry.meta?.customer_name || "Unknown";
+    const dealTitle = name || "Untitled Deal";
+    const fromStage = entry.meta.from_stage.charAt(0).toUpperCase() + entry.meta.from_stage.slice(1);
+    const toStage = entry.meta.to_stage.charAt(0).toUpperCase() + entry.meta.to_stage.slice(1);
+    let msg = `${entityEmoji} *Deal Update*\n📋 "${dealTitle}"\n👤 Customer: *${customerName}*\n🔀 Stage: *${fromStage}* → *${toStage}*\n🕐 ${time} PST`;
+    if (previewUrl) msg += `\n🔗 [Preview](${previewUrl})`;
+    if (editUrl) msg += `\n✏️ [Edit](${editUrl})`;
+    return msg;
+  }
+
   let msg = customMsg
     ? `${actionEmoji} ${entityEmoji} ${customMsg}\n🕐 ${time} PST`
     : `${actionEmoji} ${entityEmoji} *${entity}*${nameStr} was *${entry.action}*\n🕐 ${time} PST`;

@@ -147,6 +147,7 @@ export default function Deals() {
     const newStage = over.id as string;
     const deal = deals.find(d => d.id === dealId);
     if (!deal || deal.stage === newStage) return;
+    const oldStage = deal.stage;
 
     // Optimistic update
     setAllDeals(prev => prev.map(d => d.id === dealId ? { ...d, stage: newStage } : d));
@@ -156,6 +157,18 @@ export default function Deals() {
       loadAll();
     } else {
       toast.success(`Moved to ${newStage}`);
+      // Log stage transition for Telegram notification
+      await supabase.from('activity_log').insert({
+        entity_type: 'deal',
+        entity_id: dealId,
+        action: 'updated',
+        meta: {
+          title: deal.title,
+          customer_name: (deal as any).customers?.full_name || '',
+          from_stage: oldStage,
+          to_stage: newStage,
+        },
+      });
     }
   };
 
