@@ -40,6 +40,11 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 | `create_invoice` | POST | `/invoice-api` | Create invoice |
 | `create_meeting` | POST | `/clawd-bot/meeting` | Create a meeting room |
 | `create_card` | POST | `/clawd-bot/card` | Create a board card |
+| `book_meeting` | POST | `/clawd-bot/book-meeting` | Book a calendar meeting (with email + Telegram notifications) |
+| `cancel_booking` | POST | `/clawd-bot/book-meeting` | Cancel a booking `{ action: "cancel", booking_id }` |
+| `reschedule_booking` | POST | `/clawd-bot/book-meeting` | Reschedule `{ action: "reschedule", booking_id, new_date, new_time }` |
+| `list_bookings` | GET | `/clawd-bot/bookings` | List bookings (filter: `?status=confirmed&guest_email=...`) |
+| `get_availability` | GET | `/clawd-bot/availability` | Get available time slots |
 | `generate_website` | POST | `/v0-designer` | **Generate v0 website — returns edit_url instantly** |
 | `poll_status` | POST | `/v0-poll` | **Poll completion status of generating previews** |
 | `edit_site_content` | POST | `/clawd-bot/site-config` | Edit site content via Headless CMS |

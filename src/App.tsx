@@ -36,6 +36,7 @@ import NotFound from "./pages/NotFound";
 import PromptMachine from "./pages/PromptMachine";
 import Calendly from "./pages/Calendly";
 import LetsMeet from "./pages/LetsMeet";
+import ManageBooking from "./pages/ManageBooking";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -77,6 +78,7 @@ const App = () => (
             <Route path="/prompt-machine" element={<PromptMachine />} />
             <Route path="/calendly" element={<Calendly />} />
             <Route path="/letsmeet" element={<LetsMeet />} />
+            <Route path="/manage-booking/:bookingId" element={<ManageBooking />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
