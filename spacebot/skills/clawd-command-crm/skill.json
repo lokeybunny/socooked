@@ -126,6 +126,7 @@
     { "name": "crm_booking_create", "description": "Book a meeting on calendar. Body: {guest_name, guest_email, booking_date (YYYY-MM-DD), start_time (HH:MM), duration_minutes}. Sends email + Telegram notification.", "method": "POST", "path": "/clawd-bot/book-meeting" },
     { "name": "crm_booking_cancel", "description": "Cancel a booking. Body: {action:\"cancel\", booking_id}. Sends cancellation email + Telegram.", "method": "POST", "path": "/clawd-bot/book-meeting" },
     { "name": "crm_booking_reschedule", "description": "Reschedule a booking. Body: {action:\"reschedule\", booking_id, new_date, new_time}. Sends update email + Telegram.", "method": "POST", "path": "/clawd-bot/book-meeting" },
-    { "name": "crm_availability_get", "description": "Get available time slots (day_of_week, start_time, end_time)", "method": "GET", "path": "/clawd-bot/availability" }
+    { "name": "crm_availability_get", "description": "Get available time slots (day_of_week, start_time, end_time)", "method": "GET", "path": "/clawd-bot/availability" },
+    { "name": "crm_booking_smart", "description": "Intelligent auto-booking: resolves customer by name/email, checks availability_slots, finds next open slot, books meeting with email+Telegram notifications. Body: {guest_name, guest_email?, guest_phone?, duration_minutes?, preferred_date?, preferred_time?, notes?}. Use for natural-language requests like 'book a meeting with John whenever I'm free'.", "method": "POST", "path": "/clawd-bot/smart-book" }
   ]
 }
