@@ -371,6 +371,35 @@ serve(async (req) => {
       const { to, subject, body, attachments } = await req.json();
       if (!to || !subject) throw new Error("to and subject required");
 
+      // ─── Anti-spam: block duplicate emails to same recipient within 3 minutes ───
+      const recipientLower = to.toLowerCase().trim();
+      const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+
+      const saJson2 = Deno.env.get("SUPABASE_URL");
+      const saKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (saJson2 && saKey) {
+        const checkUrl = `${saJson2}/rest/v1/communications?to_address=eq.${encodeURIComponent(recipientLower)}&type=eq.email&direction=eq.outbound&created_at=gte.${encodeURIComponent(threeMinAgo)}&select=id,subject&limit=1`;
+        const checkRes = await fetch(checkUrl, {
+          headers: {
+            apikey: saKey,
+            Authorization: `Bearer ${saKey}`,
+          },
+        });
+        if (checkRes.ok) {
+          const recent = await checkRes.json();
+          if (recent && recent.length > 0) {
+            return new Response(
+              JSON.stringify({
+                error: `Email to ${to} blocked — another email was sent to this recipient less than 3 minutes ago (subject: "${recent[0].subject || 'unknown'}"). Wait before sending again.`,
+                blocked: true,
+                recent_id: recent[0].id,
+              }),
+              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+      }
+
       const raw = buildRawEmail(to, IMPERSONATE_EMAIL, subject, body || "", attachments);
       const sendRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
         method: "POST",
