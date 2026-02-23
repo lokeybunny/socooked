@@ -4,7 +4,7 @@ CRM integration for CLAWD Command via SpaceBot.
 
 ## Version
 
-3.3.2
+3.3.3
 
 ## Description
 
@@ -40,7 +40,8 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 | `create_invoice` | POST | `/invoice-api` | Create invoice |
 | `create_meeting` | POST | `/clawd-bot/meeting` | Create a meeting room |
 | `create_card` | POST | `/clawd-bot/card` | Create a board card |
-| `generate_website` | POST | `/v0-designer` | **Generate v0 website (uses v0's internal AI image gen)** |
+| `generate_website` | POST | `/v0-designer` | **Generate v0 website — returns edit_url instantly** |
+| `poll_status` | POST | `/v0-poll` | **Poll completion status of generating previews** |
 | `edit_site_content` | POST | `/clawd-bot/site-config` | Edit site content via Headless CMS |
 | `structural_edit` | POST | `/v0-designer` | Structural v0 edit (requires `chat_id` in body) |
 | `get_site_configs` | GET | `/clawd-bot/site-configs?site_id=slug` | Read site content (PUBLIC) |
@@ -50,7 +51,25 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 
 ---
 
-## v0 Internal Image Generation Strategy (v3.3.2)
+## 🚨 ARCHITECTURE: API FIRST → LINK → CRM (v3.3.3)
+
+### The v0-designer function is a DIRECT v0 API PROXY
+
+The `/v0-designer` edge function:
+1. **Calls v0.dev API directly** → gets `chat_id` and `edit_url` in < 1 second
+2. **Returns the link to the caller IMMEDIATELY**
+3. **Then** stores records in the CRM (customer, thread, preview, activity) in parallel
+
+**The caller (Cortex/SpaceBot) gets the link FIRST, reports it to the user, and CRM storage is handled automatically by the function.**
+
+### ⛔ NEVER use v0-designer for status checks
+
+**WRONG:** `POST /v0-designer { "prompt": "Check status of chat abc123" }` ← This creates a NEW v0 chat!
+**RIGHT:** `POST /v0-poll` or `GET /clawd-bot/previews` ← This checks existing chats
+
+---
+
+## v0 Internal Image Generation Strategy (v3.3.3)
 
 ### WHY this approach
 
@@ -62,10 +81,8 @@ The key is **prompt crafting**: describe each section's visual as a creative dir
 
 The `/v0-designer` edge function automatically:
 
-1. **Validates** that prompts contain visual descriptions (rejects prompts with no imagery language)
-2. **Rejects** any prompt containing `placeholder.svg`, `unsplash.com`, `pexels.com`, or stock-photo references (HTTP 400)
-3. **Auto-enriches** weak prompts by appending a design-direction block that instructs v0 to use its internal AI image generation for every visual section
-4. **Appends Tailwind CDN constraint** — forces `<script src="https://cdn.tailwindcss.com">` instead of `import "tailwindcss"`
+1. **Auto-enriches** weak prompts by appending a design-direction block that instructs v0 to use its internal AI image generation for every visual section
+2. **Appends Tailwind CDN constraint** — forces `<script src="https://cdn.tailwindcss.com">` instead of `import "tailwindcss"`
 
 ### Strict Rules
 
@@ -83,8 +100,6 @@ When Cortex writes a prompt for `/v0-designer`:
 **✅ DO — Use design-intent language:**
 - "The hero features a dramatic wide-angle view of the barbershop interior with warm Edison bulb lighting and exposed brick"
 - "Each service card displays a unique professional scene — precise fade haircut, hot towel shave, beard sculpting"
-- "The about section shows a confident team portrait in the shop with warm, inviting lighting"
-- "Gallery showcases 6 distinct portfolio shots: before/after cuts, styled looks, shop atmosphere"
 
 **❌ DON'T — Use generation commands:**
 - "Generate an image of a barbershop" ← v0 treats this as text, not visual generation
@@ -92,35 +107,21 @@ When Cortex writes a prompt for `/v0-designer`:
 - "Use this image URL: https://..." ← no external URLs
 - "placeholder.svg" ← rejected by gateway
 
-### Example: Correct v0-designer Request
-
-```json
-POST /v0-designer
-{
-  "prompt": "Build a premium barbershop website for 'Elite Cuts' in Atlanta. Dark charcoal and gold color scheme.\n\nHero: Full-width cinematic scene of a luxury barbershop interior — leather barber chairs, warm Edison bulb lighting, exposed brick walls, vintage mirrors. Bold headline 'Elite Cuts' with a 'Book Now' CTA.\n\nServices (3 cards): Each with its own distinct professional scene:\n1. 'Precision Fade' — close-up of a barber performing a crisp taper fade, shallow depth of field\n2. 'Hot Towel Shave' — steam rising from a hot towel on a client's face, warm amber tones\n3. 'Beard Sculpting' — detailed beard trim in progress, professional lighting\n\nAbout: Team portrait of 3 barbers standing confidently in the shop, arms crossed, warm overhead lighting, professional but approachable.\n\nGallery: 6 portfolio images with varied compositions — before/after haircuts, styled pompadours, classic cuts from different angles, shop atmosphere shots.\n\nContact: Map embed placeholder, hours, phone, address. Dark footer with gold accents.\n\nReplace all image placeholders with real people smiling within this niche.",
-  "customer_id": "abc-123",
-  "category": "brick-and-mortar"
-}
-```
-
-### Fallback Behavior
-
-If v0 renders without images despite design-intent prompts:
-- Use a structural edit (`POST /v0-designer` with `chat_id`) to reinforce: "Replace any missing images with your AI-generated visuals matching the original design direction"
-- NEVER insert fabricated image URLs
-- NEVER claim images exist if the preview shows none
-
 ---
 
-## Web Design Workflow (v3.3.2)
+## Web Design Workflow (v3.3.3) — API FIRST
 
-### New Site Generation — INSTANT LINK DELIVERY
-1. `POST /v0-designer` with `{ prompt, customer_id, category }` — **SINGLE CALL**
-2. Return `edit_url` to user **IMMEDIATELY** (within 3 seconds of API response)
-3. **AUTO-POLL** silently in background for `preview_url`
-4. Notify user again ONLY when `preview_url` is ready
+### 🚀 New Site Generation Flow
 
-### ✅ REQUIRED Output Format (copy exactly)
+```
+User says "build website" → Cortex calls POST /v0-designer → Gets edit_url in < 1s → Reports link to user IMMEDIATELY → CRM storage happens automatically → v0-poll handles completion detection
+```
+
+### Step-by-Step for Cortex/SpaceBot:
+
+1. **Call** `POST /v0-designer` with `{ prompt, customer_id, category }`
+2. **Read** `response.data.data.edit_url` and `response.data.data.chat_id`
+3. **Send link to user IMMEDIATELY** (within 3 seconds):
 
 ```
 ✅ Website started for [Name]!
@@ -130,41 +131,31 @@ If v0 renders without images despite design-intent prompts:
 ⏱️ Status: generating
 💬 Chat ID: [CHAT_ID]
 
-The AI is generating your site in real-time. Images, layout, and content will appear as v0 creates them.
+The AI is generating your site in real-time.
 
 I'll message you when the final preview URL is ready!
 ```
+
+4. **Auto-poll** `POST /v0-poll` or `GET /clawd-bot/previews` every 30 seconds
+5. **Notify user** when `preview_url` is ready
 
 ### ❌ BANNED Output Patterns (zero tolerance)
 
 - `⏳ Creating [Name]...` — FORBIDDEN
 - `Step 1: Creating customer record...` — FORBIDDEN
 - `Step 2: Generating site...` — FORBIDDEN
-- `Worker is still executing...` — FORBIDDEN
-- `Waiting for the API...` — FORBIDDEN
 - Any multi-step progress narration — FORBIDDEN
-- Any aesthetic descriptions before link — FORBIDDEN
 - Waiting to give link until "done" — FORBIDDEN
-- Waiting for user to ask "update?" or "status?" — FORBIDDEN
 
-### Correct Flow
+### ⛔ CRITICAL: Status Check Protocol
 
-```
-User request → POST /v0-designer → Instant edit_url → (auto-poll every 30s) → notify with preview_url
-```
+| Need | Method | Endpoint |
+|------|--------|----------|
+| Check if preview is ready | POST | `/v0-poll` |
+| List all previews | GET | `/clawd-bot/previews` |
+| Check specific chat | POST | `/v0-poll?chat_id=xxx` |
 
-### Wrong Flow (FORBIDDEN)
-
-```
-User request → "Creating customer..." → "Step 1..." → "Step 2..." → Link
-```
-
-**The API responds in < 1 second. Do NOT add artificial delays or narration.**
-
-### Response Data Mapping
-- `edit_url` → from `response.data.data.edit_url` — give IMMEDIATELY
-- `preview_url` → from polling — give when ready
-- `chat_id` → from `response.data.data.chat_id` — include in live link
+**NEVER use `POST /v0-designer` for status checks.** That creates a NEW v0 chat and wastes API credits.
 
 ---
 
@@ -179,7 +170,7 @@ After delivering the initial link, the agent MUST automatically poll for complet
 | Rule | Value |
 |------|-------|
 | Poll interval | Every 30 seconds |
-| Endpoint | `GET /clawd-bot/previews` |
+| Endpoint | `POST /v0-poll` (preferred) or `GET /clawd-bot/previews` |
 | Start | Immediately after initial link delivery |
 | Stop | When `preview_url` exists OR 10-minute timeout |
 | User prompt required | **NEVER** — polling is automatic |
@@ -195,21 +186,7 @@ After delivering the initial link, the agent MUST automatically poll for complet
 4:00   "⏳ 4:00 elapsed... Still generating..."
 ...
 Done   "✅ READY! Your site is live: [preview_url]"
-10:00  "⏱️ 10 minutes passed. Generation may have timed out. Check /previews."
-```
-
-### Implementation Pattern
-
-```javascript
-// Start polling AUTOMATICALLY after API response
-setInterval(async () => {
-  const status = await fetch('/clawd-bot/previews');
-  const data = await status.json();
-  if (data.preview_url) {
-    notifyUser("✅ READY: " + data.preview_url);
-    clearInterval(pollingInterval);
-  }
-}, 30000); // Every 30 seconds
+10:00  "⏱️ 10 minutes passed. Generation may have timed out."
 ```
 
 ### Polling Failure Modes
@@ -219,16 +196,17 @@ setInterval(async () => {
 | User has to ask "update?" | **YOU FAILED** |
 | User waits >2 min with no status | **YOU FAILED** |
 | Polling stops before completion | **YOU FAILED** |
-| Agent says "Let me check..." only when asked | **YOU FAILED** |
+| Status check sent to /v0-designer | **YOU FAILED** |
 
-### Content Edits (Headless CMS)
-1. `GET /clawd-bot/previews` → find `site_id`
-2. `POST /clawd-bot/site-config` → update content sections
-3. Site reflects changes on next load
+---
 
 ### Structural Edits
 1. `GET /clawd-bot/previews` → find `chat_id`
 2. `POST /v0-designer` with `{ chat_id, prompt }`
+
+### Content Edits (Headless CMS)
+1. `GET /clawd-bot/previews` → find `site_id`
+2. `POST /clawd-bot/site-config` → update content sections
 
 ### Site Config Sections
 `hero`, `about`, `services`, `gallery`, `contact`, `footer`, `meta`
@@ -251,11 +229,11 @@ Kebab-case: `terrion-barber`, `jane-photography`, `atlanta-fitness`
 
 1. **NEVER simulate or fabricate API responses.**
 2. **NEVER use stock photos or placeholder images.** Use design-intent language so v0 generates images internally.
-3. **NEVER claim images were generated unless the preview actually shows them.**
-4. **NEVER use `import "tailwindcss"`.** Tailwind CDN only.
-5. **NEVER use "generate an image of..." language** — use design-intent descriptions instead.
-6. **NEVER show multi-step progress ("Step 1", "Step 2") to the user.** Single call, instant link.
-7. **NEVER delay delivering the `edit_url`.** Return it the moment the API responds.
+3. **NEVER use `import "tailwindcss"`.** Tailwind CDN only.
+4. **NEVER show multi-step progress ("Step 1", "Step 2") to the user.** Single call, instant link.
+5. **NEVER delay delivering the `edit_url`.** Return it the moment the API responds.
+6. **NEVER use `POST /v0-designer` for status checks.** Use `POST /v0-poll` instead.
+7. **NEVER send "Check status of chat X" as a prompt to v0-designer.** This creates junk chats.
 
 ## Install
 

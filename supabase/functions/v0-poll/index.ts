@@ -41,14 +41,11 @@ Deno.serve(async (req) => {
     const url = new URL(req.url)
     const chatIdParam = url.searchParams.get('chat_id')
 
-    // Mode 1: Poll a specific chat_id
-    // Mode 2: Poll ALL pending/generating previews (batch check)
     let chatIds: string[] = []
 
     if (chatIdParam) {
       chatIds = [chatIdParam]
     } else {
-      // Find all previews still generating
       const { data: pending } = await supabase
         .from('api_previews')
         .select('meta')
@@ -75,6 +72,7 @@ Deno.serve(async (req) => {
 
     for (const chatId of chatIds) {
       try {
+        // Fetch the full chat to get latest version info
         const pollRes = await fetch(`${V0_API_URL}/v1/chats/${chatId}`, {
           headers: { 'Authorization': `Bearer ${v0Key}` },
         })
@@ -87,16 +85,47 @@ Deno.serve(async (req) => {
         }
 
         const pollData = await pollRes.json()
-        const status = pollData.latestVersion?.status
-        const demoUrl = pollData.latestVersion?.demoUrl || null
 
-        console.log(`[v0-poll] ${chatId}: status=${status}, demoUrl=${demoUrl ? 'yes' : 'no'}`)
+        // v0 API: demo URL is at chat.demo or in experimental_content tuples
+        let resolvedDemoUrl: string | null = null
 
-        if (status === 'completed' && demoUrl) {
+        // Path 1: top-level "demo" field (v0 SDK uses chat.demo)
+        if (pollData.demo) resolvedDemoUrl = pollData.demo
+        // Path 2: latestVersion.demoUrl (legacy)
+        if (!resolvedDemoUrl && pollData.latestVersion?.demoUrl) resolvedDemoUrl = pollData.latestVersion.demoUrl
+        // Path 3: scan messages for experimental_content tuples ["code", {demoUrl}]
+        if (!resolvedDemoUrl && pollData.messages) {
+          for (const msg of pollData.messages) {
+            if (msg.role !== 'assistant') continue
+            const ec = msg.experimental_content
+            if (ec && Array.isArray(ec)) {
+              for (const item of ec) {
+                // Tuples: [type, data] or objects {type, data}
+                const type = Array.isArray(item) ? item[0] : item?.type
+                const data = Array.isArray(item) ? item[1] : item?.data
+                if (type === 'code' && data?.demoUrl) { resolvedDemoUrl = data.demoUrl; break }
+                if (type === 'code' && data?.previewUrl) { resolvedDemoUrl = data.previewUrl; break }
+              }
+            }
+            if (resolvedDemoUrl) break
+          }
+        }
+        // Path 4: construct from chat URL pattern
+        if (!resolvedDemoUrl && pollData.messages?.some((m: any) => m.role === 'assistant' && m.finishReason === 'stop')) {
+          // Chat finished but no demo URL found — may be a text-only response (junk status check chat)
+          // Mark as failed to stop polling
+          console.log(`[v0-poll] ${chatId}: finished (stop) but no demoUrl — marking failed`)
+        }
+
+        console.log(`[v0-poll] ${chatId}: demoUrl=${resolvedDemoUrl ? resolvedDemoUrl.substring(0, 60) : 'no'}`)
+
+        // FIXED: Accept demoUrl with ANY status (pending, completed, etc.)
+        // v0 API often returns demoUrl before status flips to "completed"
+        if (resolvedDemoUrl) {
           // Update api_previews
-          const { error: updateErr } = await supabase.from('api_previews')
+          await supabase.from('api_previews')
             .update({
-              preview_url: demoUrl,
+              preview_url: resolvedDemoUrl,
               status: 'completed',
               meta: { chat_id: chatId, version_status: 'completed' },
               updated_at: new Date().toISOString(),
@@ -104,26 +133,21 @@ Deno.serve(async (req) => {
             .eq('source', 'v0-designer')
             .filter('meta->>chat_id', 'eq', chatId)
 
-          if (updateErr) {
-            console.error(`[v0-poll] DB update error for ${chatId}:`, updateErr)
-          }
-
           // Update bot_tasks if linked
           await supabase.from('bot_tasks')
             .update({
               status: 'completed',
-              meta: { chat_id: chatId, preview_url: demoUrl, version_status: 'completed' },
+              meta: { chat_id: chatId, preview_url: resolvedDemoUrl, version_status: 'completed' },
             })
             .filter('meta->>chat_id', 'eq', chatId)
             .eq('status', 'in_progress')
 
-          // Update conversation_thread
+          // Resolve conversation_thread
           const { data: preview } = await supabase.from('api_previews')
             .select('thread_id')
             .eq('source', 'v0-designer')
             .filter('meta->>chat_id', 'eq', chatId)
-            .limit(1)
-            .single()
+            .limit(1).single()
 
           if (preview?.thread_id) {
             await supabase.from('conversation_threads')
@@ -131,34 +155,29 @@ Deno.serve(async (req) => {
               .eq('id', preview.thread_id)
           }
 
-          // Log completion activity
+          // Log completion
           await supabase.from('activity_log').insert({
-            entity_type: 'api_preview',
-            entity_id: null,
+            entity_type: 'api_preview', entity_id: null,
             action: 'v0_design_completed',
-            meta: { chat_id: chatId, preview_url: demoUrl },
+            meta: { chat_id: chatId, preview_url: resolvedDemoUrl },
           })
 
           updated++
-          results.push({ chat_id: chatId, status: 'completed', preview_url: demoUrl })
-        } else if (status === 'failed') {
-          await supabase.from('api_previews')
-            .update({
-              status: 'failed',
-              meta: { chat_id: chatId, version_status: 'failed' },
-              updated_at: new Date().toISOString(),
-            })
-            .eq('source', 'v0-designer')
-            .filter('meta->>chat_id', 'eq', chatId)
+          results.push({ chat_id: chatId, status: 'completed', preview_url: resolvedDemoUrl })
 
-          await supabase.from('bot_tasks')
-            .update({ status: 'failed', meta: { chat_id: chatId, version_status: 'failed' } })
-            .filter('meta->>chat_id', 'eq', chatId)
-            .eq('status', 'in_progress')
-
-          results.push({ chat_id: chatId, status: 'failed' })
         } else {
-          results.push({ chat_id: chatId, status: status || 'still_generating' })
+          // Check if all assistant messages finished with 'stop' but no demo — junk chat
+          const allStopped = pollData.messages?.every((m: any) => m.role !== 'assistant' || m.finishReason === 'stop')
+          const hasAssistant = pollData.messages?.some((m: any) => m.role === 'assistant')
+          if (allStopped && hasAssistant) {
+            // Text-only response = junk status check chat, mark failed
+            await supabase.from('api_previews')
+              .update({ status: 'failed', meta: { chat_id: chatId, version_status: 'no_preview' }, updated_at: new Date().toISOString() })
+              .eq('source', 'v0-designer').filter('meta->>chat_id', 'eq', chatId)
+            results.push({ chat_id: chatId, status: 'failed' })
+          } else {
+            results.push({ chat_id: chatId, status: 'still_generating' })
+          }
         }
       } catch (chatErr) {
         console.error(`[v0-poll] Error processing ${chatId}:`, chatErr)
