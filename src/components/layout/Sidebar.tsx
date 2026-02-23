@@ -12,7 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/customers', icon: Users, label: 'Customers' },
-  { to: '/deals', icon: Handshake, label: 'Deals' },
+  { to: '/deals', icon: Handshake, label: 'Deals', botIcon: true },
+  { to: '/boards', icon: LayoutGrid, label: 'Boards', botIcon: true },
   { to: '/threads', icon: MessageSquare, label: 'Script AI' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
   { to: '/content', icon: FileText, label: 'Content' },
@@ -21,7 +22,6 @@ const navItems = [
   { to: '/leads', icon: Radar, label: 'Leads' },
   { to: '/messages', icon: Mail, label: 'E-Mail' },
   { to: '/phone', icon: Phone, label: 'Phone' },
-  { to: '/boards', icon: LayoutGrid, label: 'Boards' },
   { to: '/meetings', icon: Video, label: 'Meetings' },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/custom-u', icon: Link2, label: 'Custom-U' },
@@ -102,9 +102,11 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, icon: Icon, label }) => {
+          {navItems.map(({ to, icon: Icon, label, botIcon }, idx) => {
             const isActive = location.pathname === to;
             const showDot = to === '/messages' && hasNewMessages;
+            const nextItem = navItems[idx + 1];
+            const isGrouped = botIcon && nextItem?.botIcon;
             return (
               <NavLink
                 key={to}
@@ -113,7 +115,8 @@ export function Sidebar() {
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
                   isActive
                     ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  isGrouped && "mb-0"
                 )}
                >
                   <span className="relative shrink-0">
@@ -122,7 +125,12 @@ export function Sidebar() {
                       <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-sidebar animate-pulse" />
                     )}
                   </span>
-                {!collapsed && <span>{label}</span>}
+                {!collapsed && (
+                  <span className="flex items-center gap-1.5 flex-1">
+                    {label}
+                    {botIcon && <Bot className="h-3 w-3 text-primary/60" />}
+                  </span>
+                )}
               </NavLink>
             );
           })}
