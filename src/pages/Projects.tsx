@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Calendar, User, Tag, FolderOpen } from 'lucide-react';
+import { Plus, Calendar, User, Tag, FolderOpen, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
@@ -22,6 +23,7 @@ export default function Projects() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailProject, setDetailProject] = useState<any | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: '', description: '', status: 'planned', priority: 'medium', due_date: '' });
 
   const loadAll = async () => {
@@ -66,6 +68,16 @@ export default function Projects() {
   };
 
   const catLabel = (id: string | null) => SERVICE_CATEGORIES.find(c => c.id === id)?.label || id || 'Other';
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from('projects').delete().eq('id', deleteId);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Project deleted');
+    setDeleteId(null);
+    setDetailProject(null);
+    loadAll();
+  };
 
   return (
     <AppLayout>
@@ -220,10 +232,31 @@ export default function Projects() {
                   </div>
                 </div>
               )}
+
+              {/* Delete */}
+              <div className="pt-3 border-t border-border">
+                <Button variant="destructive" size="sm" className="w-full" onClick={() => setDeleteId(detailProject.id)}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Project
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete this project. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
