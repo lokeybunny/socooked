@@ -272,6 +272,7 @@ export type Database = {
           guest_phone: string | null
           id: string
           meeting_id: string | null
+          meeting_type: string
           notes: string | null
           room_code: string | null
           start_time: string
@@ -288,6 +289,7 @@ export type Database = {
           guest_phone?: string | null
           id?: string
           meeting_id?: string | null
+          meeting_type?: string
           notes?: string | null
           room_code?: string | null
           start_time: string
@@ -304,6 +306,7 @@ export type Database = {
           guest_phone?: string | null
           id?: string
           meeting_id?: string | null
+          meeting_type?: string
           notes?: string | null
           room_code?: string | null
           start_time?: string

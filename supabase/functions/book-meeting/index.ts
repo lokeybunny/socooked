@@ -259,10 +259,14 @@ serve(async (req) => {
     }
 
     // ──────── BOOK (original flow) ────────
-    const { guest_name, guest_email, guest_phone, booking_date, start_time, duration_minutes } = body;
+    const { guest_name, guest_email, guest_phone, booking_date, start_time, duration_minutes, meeting_type } = body;
+    const isPhone = meeting_type === "phone";
 
     if (!guest_name || !guest_email || !booking_date || !start_time || !duration_minutes) {
       throw new Error("Missing required fields");
+    }
+    if (isPhone && !guest_phone) {
+      throw new Error("Phone number is required for phone call meetings");
     }
 
     // Calculate end time
@@ -273,15 +277,20 @@ serve(async (req) => {
     const endM = endMinutes % 60;
     const end_time = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
 
-    // Create meeting room
-    const { data: meeting, error: meetingErr } = await supabase
-      .from("meetings")
-      .insert({ title: `Meeting with ${guest_name}`, scheduled_at: `${booking_date}T${start_time}:00`, status: "waiting" })
-      .select()
-      .single();
-    if (meetingErr) throw meetingErr;
+    let meeting: any = null;
+    let roomUrl = "";
 
-    const roomUrl = `${SITE_DOMAIN}/meet/${meeting.room_code}`;
+    if (!isPhone) {
+      // Create meeting room for video calls
+      const { data: mtg, error: meetingErr } = await supabase
+        .from("meetings")
+        .insert({ title: `Meeting with ${guest_name}`, scheduled_at: `${booking_date}T${start_time}:00`, status: "waiting" })
+        .select()
+        .single();
+      if (meetingErr) throw meetingErr;
+      meeting = mtg;
+      roomUrl = `${SITE_DOMAIN}/meet/${meeting.room_code}`;
+    }
 
     // Create booking
     const { data: booking, error: bookingErr } = await supabase
@@ -294,33 +303,35 @@ serve(async (req) => {
         guest_name,
         guest_email,
         guest_phone: guest_phone || null,
-        meeting_id: meeting.id,
-        room_code: meeting.room_code,
+        meeting_id: meeting?.id || null,
+        room_code: meeting?.room_code || null,
         status: "confirmed",
+        meeting_type: isPhone ? "phone" : "video",
       })
       .select()
       .single();
     if (bookingErr) throw bookingErr;
 
     // Create calendar event
+    const meetingLabel = isPhone ? "Phone Call" : "Video Meeting";
     const startDt = `${booking_date}T${start_time}:00-08:00`;
     const endDt = `${booking_date}T${end_time}:00-08:00`;
     await supabase.from("calendar_events").insert({
-      title: `Meeting with ${guest_name}`,
+      title: `${meetingLabel} with ${guest_name}`,
       start_time: startDt,
       end_time: endDt,
       source: "booking",
       source_id: booking.id,
-      description: `Guest: ${guest_name} (${guest_email})\nMeeting Link: ${roomUrl}`,
-      location: roomUrl,
-      color: "#8b5cf6",
+      description: `Guest: ${guest_name} (${guest_email})${isPhone ? `\nPhone: ${guest_phone}` : `\nMeeting Link: ${roomUrl}`}`,
+      location: isPhone ? guest_phone : roomUrl,
+      color: isPhone ? "#f59e0b" : "#8b5cf6",
     });
 
     // Telegram notification
     const fmtDate = formatDateNice(booking_date);
     const fmtTime = formatTime12(start_time);
     await sendTelegram([
-      `📅 *New Meeting Booked!*`,
+      `📅 *New ${meetingLabel} Booked!*`,
       ``,
       `👤 *Guest:* ${guest_name}`,
       `📧 *Email:* ${guest_email}`,
@@ -328,7 +339,8 @@ serve(async (req) => {
       `📆 *Date:* ${fmtDate}`,
       `🕐 *Time:* ${fmtTime} (PST)`,
       `⏱ *Duration:* ${duration_minutes} min`,
-      `🔗 [Join Meeting](${roomUrl})`,
+      `📋 *Type:* ${meetingLabel}`,
+      !isPhone && roomUrl ? `🔗 [Join Meeting](${roomUrl})` : null,
     ].filter(Boolean).join("\n"));
 
     // Send confirmation email
@@ -337,27 +349,34 @@ serve(async (req) => {
 
     const manageUrl = `${SITE_DOMAIN}/manage-booking/${booking.id}`;
 
+    const meetingActionHtml = isPhone
+      ? `<div style="background:#fef3c7;border-radius:8px;padding:16px;margin:20px 0;text-align:center;">
+           <p style="color:#92400e;font-weight:600;margin:0;">📞 We'll call you at ${guest_phone}</p>
+         </div>`
+      : `<div style="text-align:center;margin:24px 0;">
+           <a href="${roomUrl}" style="display:inline-block;background:#111;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
+             Join Meeting
+           </a>
+         </div>`;
+
     await sendEmail(
       guest_email,
-      `Meeting Confirmed - ${formattedDate} at ${formattedTime}`,
+      `${meetingLabel} Confirmed - ${formattedDate} at ${formattedTime}`,
       `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-        <h2 style="color:#111;margin-bottom:16px;">Meeting Confirmed! 🎉</h2>
+        <h2 style="color:#111;margin-bottom:16px;">${meetingLabel} Confirmed! 🎉</h2>
         <p style="color:#333;font-size:15px;">Hi ${guest_name},</p>
-        <p style="color:#333;font-size:15px;">Your meeting has been booked successfully. Here are the details:</p>
+        <p style="color:#333;font-size:15px;">Your ${meetingLabel.toLowerCase()} has been booked successfully. Here are the details:</p>
         <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;">
           <p style="margin:6px 0;color:#333;"><strong>📅 Date:</strong> ${formattedDate}</p>
           <p style="margin:6px 0;color:#333;"><strong>🕐 Time:</strong> ${formattedTime} (Las Vegas / PST)</p>
           <p style="margin:6px 0;color:#333;"><strong>⏱ Duration:</strong> ${duration_minutes} minutes</p>
+          <p style="margin:6px 0;color:#333;"><strong>${isPhone ? '📞 Type: Phone Call' : '🎥 Type: Video Call'}</strong></p>
         </div>
-        <div style="text-align:center;margin:24px 0;">
-          <a href="${roomUrl}" style="display:inline-block;background:#111;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
-            Join Meeting
-          </a>
-        </div>
+        ${meetingActionHtml}
         <div style="text-align:center;margin:16px 0;">
           <a href="${manageUrl}" style="color:#2754C5;font-size:14px;text-decoration:underline;">Reschedule or Cancel this meeting</a>
         </div>
-        <p style="color:#666;font-size:13px;">Click the button above at the scheduled time to join. No downloads required.</p>
+        <p style="color:#666;font-size:13px;">${isPhone ? 'We will call you at the scheduled time.' : 'Click the button above at the scheduled time to join. No downloads required.'}</p>
       </div>`
     );
 
