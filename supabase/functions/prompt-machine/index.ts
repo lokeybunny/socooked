@@ -80,6 +80,10 @@ Deno.serve(async (req) => {
       must_include_pages,
       cta,
       notes,
+      auto_submit,
+      customer_id,
+      category,
+      chat_id: existingChatId,
     } = body
 
     if (!user_request) {
@@ -148,7 +152,41 @@ Deno.serve(async (req) => {
       v0Prompt = v0Prompt.slice('V0_PROMPT:'.length).trim()
     }
 
-    const result = {
+    // Auto-submit to v0-designer if requested
+    let v0Result = null
+    if (auto_submit) {
+      console.log('[prompt-machine] Auto-submitting to v0-designer...')
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const botSecretValue = Deno.env.get('BOT_SECRET')!
+
+      const v0Payload: Record<string, unknown> = {
+        prompt: v0Prompt,
+        category: category || 'digital-services',
+      }
+      if (customer_id) v0Payload.customer_id = customer_id
+      if (existingChatId) v0Payload.chat_id = existingChatId
+
+      const v0Res = await fetch(`${supabaseUrl}/functions/v1/v0-designer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-bot-secret': botSecretValue,
+          'x-internal': 'true',
+        },
+        body: JSON.stringify(v0Payload),
+      })
+
+      if (v0Res.ok) {
+        v0Result = await v0Res.json()
+        console.log('[prompt-machine] v0-designer response:', JSON.stringify(v0Result).substring(0, 300))
+      } else {
+        const errText = await v0Res.text()
+        console.error('[prompt-machine] v0-designer error:', v0Res.status, errText)
+        v0Result = { success: false, error: `v0-designer error: ${v0Res.status}`, details: errText }
+      }
+    }
+
+    const result: Record<string, unknown> = {
       success: true,
       data: {
         v0_prompt: v0Prompt,
@@ -161,6 +199,11 @@ Deno.serve(async (req) => {
         model,
         generated_at: new Date().toISOString(),
       },
+    }
+
+    if (v0Result) {
+      (result.data as Record<string, unknown>).v0_designer = v0Result
+
     }
 
     return new Response(JSON.stringify(result), {
