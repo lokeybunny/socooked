@@ -91,7 +91,7 @@ function formatEvent(body: any): string | null {
   // Generic / extension info event
   if (event.includes("/message-store")) {
     const msg = body.body;
-    const type = msg?.type || "Message";
+    const type = msg?.type === "Message" || !msg?.type ? "Voice Message" : msg.type;
     const from = msg?.from?.phoneNumber || msg?.from?.name || "Unknown";
     return `📞 You have a *${type}* in your Business Phone from *${from}*\n🕐 ${time} PST`;
   }
