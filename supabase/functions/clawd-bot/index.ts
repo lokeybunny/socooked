@@ -162,21 +162,23 @@ Deno.serve(async (req) => {
       const { id, full_name, email, phone, address, company, source, status, notes, tags, category, meta } = body
       if (id) {
         const updates: Record<string, unknown> = {}
-        if (full_name) updates.full_name = full_name
+        if (full_name !== undefined) updates.full_name = full_name
         if (email !== undefined) updates.email = email
         if (phone !== undefined) updates.phone = phone
         if (address !== undefined) updates.address = address
         if (company !== undefined) updates.company = company
         if (source !== undefined) updates.source = source
-        if (status) updates.status = status
+        if (status !== undefined) updates.status = status
         if (notes !== undefined) updates.notes = notes
-        if (tags) updates.tags = tags
-        if (category) updates.category = normalizeCategory(category)
-        if (meta) updates.meta = meta
-        const { error } = await supabase.from('customers').update(updates).eq('id', id)
+        if (tags !== undefined) updates.tags = tags
+        if (category !== undefined) updates.category = normalizeCategory(category)
+        if (meta !== undefined) updates.meta = meta
+        if (Object.keys(updates).length === 0) return fail('No fields to update. Send at least one field besides id.')
+        const { data: updated, error } = await supabase.from('customers').update(updates).eq('id', id).select('id, full_name').maybeSingle()
         if (error) return fail(error.message)
-        await logActivity(supabase, 'customer', id, 'updated', full_name || updates.full_name as string)
-        return ok({ action: 'updated', customer_id: id })
+        if (!updated) return fail(`Customer with id ${id} not found`, 404)
+        await logActivity(supabase, 'customer', id, 'updated', updated.full_name)
+        return ok({ action: 'updated', customer_id: id, updated_fields: Object.keys(updates), current_name: updated.full_name })
       }
       if (!full_name) return fail('full_name is required')
       const { data, error } = await supabase.from('customers').insert({
