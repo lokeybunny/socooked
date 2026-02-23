@@ -37,6 +37,7 @@ import PromptMachine from "./pages/PromptMachine";
 import Calendly from "./pages/Calendly";
 import LetsMeet from "./pages/LetsMeet";
 import ManageBooking from "./pages/ManageBooking";
+import SharedContent from "./pages/SharedContent";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/calendly" element={<Calendly />} />
             <Route path="/letsmeet" element={<LetsMeet />} />
             <Route path="/manage-booking/:bookingId" element={<ManageBooking />} />
+            <Route path="/shared/:token" element={<SharedContent />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

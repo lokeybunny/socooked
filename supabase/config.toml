@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.script-ai]
 verify_jwt = false
+
+[functions.share-content]
+verify_jwt = false
