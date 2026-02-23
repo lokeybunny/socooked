@@ -51,13 +51,17 @@ function formatMessage(entry: {
   const name = entry.meta?.name || entry.meta?.title || "";
   const nameStr = name ? ` "${name}"` : "";
 
-  const time = new Date(entry.created_at).toLocaleTimeString("en-US", {
+  const now = new Date();
+  const time = now.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
     timeZone: "America/Los_Angeles",
   });
 
-  return `${actionEmoji} ${entityEmoji} *${entity}*${nameStr} was *${entry.action}*\n🕐 ${time} PT`;
+  return `${actionEmoji} ${entityEmoji} *${entity}*${nameStr} was *${entry.action}*\n🕐 ${time} PST`;
 }
 
 Deno.serve(async (req) => {
