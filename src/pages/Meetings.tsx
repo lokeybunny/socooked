@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Video, Copy, Trash2, ExternalLink, Search, ChevronLeft, ChevronRight, Download, FileVideo, FileAudio, RefreshCw } from 'lucide-react';
+import { Plus, Video, Copy, Trash2, ExternalLink, Search, ChevronLeft, ChevronRight, FileVideo, FileAudio, RefreshCw, CheckCircle2, Clock, VideoOff } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
@@ -205,11 +205,27 @@ export default function Meetings() {
                 const audioRec = meetingRecordings.find(r => r.type?.toLowerCase() === 'audio');
 
                 return (
-                  <div key={m.id} className="glass-card p-4 space-y-2">
+                  <div key={m.id} className={`glass-card p-4 space-y-2 ${m.status === 'ended' ? 'opacity-80' : ''}`}>
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-2 rounded-lg bg-muted text-primary">
-                          <Video className="h-4 w-4" />
+                        <div className={`p-2 rounded-lg ${
+                          m.status === 'ended' 
+                            ? meetingRecordings.length > 0 
+                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' 
+                              : 'bg-muted text-muted-foreground'
+                            : m.status === 'cancelled'
+                              ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+                              : 'bg-primary/15 text-primary'
+                        }`}>
+                          {m.status === 'ended' ? (
+                            meetingRecordings.length > 0 ? <CheckCircle2 className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />
+                          ) : m.status === 'cancelled' ? (
+                            <VideoOff className="h-4 w-4" />
+                          ) : m.status === 'waiting' ? (
+                            <Clock className="h-4 w-4" />
+                          ) : (
+                            <Video className="h-4 w-4" />
+                          )}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{m.title}</p>
@@ -217,27 +233,30 @@ export default function Meetings() {
                             Room: {m.room_code}
                             {m.customers?.full_name && ` · ${m.customers.full_name}`}
                             {m.scheduled_at && ` · ${format(new Date(m.scheduled_at), 'MMM d, yyyy h:mm a')}`}
+                            {m.status === 'ended' && meetingRecordings.length > 0 && ` · ${meetingRecordings.length} recording${meetingRecordings.length > 1 ? 's' : ''}`}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <StatusBadge status={m.status} />
                         {videoRec?.url && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Download MP4" onClick={() => downloadRecording(videoRec)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 dark:text-emerald-400" title="Download MP4" onClick={() => downloadRecording(videoRec)}>
                             <FileVideo className="h-4 w-4" />
                           </Button>
                         )}
                         {audioRec?.url && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" title="Download MP3" onClick={() => downloadRecording(audioRec)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 dark:text-blue-400" title="Download MP3" onClick={() => downloadRecording(audioRec)}>
                             <FileAudio className="h-4 w-4" />
                           </Button>
                         )}
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyLink(m.room_code)} title="Copy link">
                           <Copy className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startMeeting(m.room_code)} title="Join meeting">
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
+                        {m.status !== 'ended' && m.status !== 'cancelled' && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startMeeting(m.room_code)} title="Join meeting">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
                         <button onClick={() => handleDelete(m.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                           <Trash2 className="h-4 w-4" />
                         </button>
