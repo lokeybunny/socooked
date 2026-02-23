@@ -50,6 +50,10 @@ export default function PhonePage() {
   const [deleteLeadName, setDeleteLeadName] = useState('');
   const [deletingLead, setDeletingLead] = useState(false);
 
+  // Interested confirmation
+  const [interestedOpen, setInterestedOpen] = useState(false);
+  const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null } | null>(null);
+
   // Transcription upload state
   const [dragOver, setDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -632,7 +636,7 @@ export default function PhonePage() {
                           </Button>
                           <Button
                             variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1 border-green-500/40 text-green-600 hover:bg-green-500/10"
-                            onClick={() => handleLeadInterested(lead.id, lead.full_name, lead.category)}
+                            onClick={() => { setInterestedLead({ id: lead.id, name: lead.full_name, category: lead.category }); setInterestedOpen(true); }}
                           >
                             <Star className="h-3 w-3" /> Interested
                           </Button>
@@ -1155,6 +1159,34 @@ export default function PhonePage() {
             <AlertDialogAction onClick={handleDeleteLead} disabled={deletingLead} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5">
               {deletingLead ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
               Yes, remove permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Interested Confirmation */}
+      <AlertDialog open={interestedOpen} onOpenChange={setInterestedOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as Interested?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure <span className="font-semibold text-foreground">{interestedLead?.name}</span> is interested? This will move their deal to <span className="font-semibold text-foreground">Qualified</span> and update their status to <span className="font-semibold text-foreground">Prospect</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-green-600 text-white hover:bg-green-700 gap-1.5"
+              onClick={() => {
+                if (interestedLead) {
+                  handleLeadInterested(interestedLead.id, interestedLead.name, interestedLead.category);
+                }
+                setInterestedOpen(false);
+                setInterestedLead(null);
+              }}
+            >
+              <Star className="h-4 w-4" />
+              Yes, mark Interested
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
