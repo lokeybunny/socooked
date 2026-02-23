@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Calendar, User, Tag, FolderOpen, Trash2 } from 'lucide-react';
+import { Plus, Calendar } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import { ProjectDetailHub } from '@/components/projects/ProjectDetailHub';
 
 const projectStatuses = ['planned', 'active', 'blocked', 'completed', 'archived'] as const;
 const priorities = ['low', 'medium', 'high', 'urgent'] as const;
@@ -67,7 +68,7 @@ export default function Projects() {
     loadAll();
   };
 
-  const catLabel = (id: string | null) => SERVICE_CATEGORIES.find(c => c.id === id)?.label || id || 'Other';
+  
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -147,102 +148,12 @@ export default function Projects() {
         </div>
       </CategoryGate>
 
-      {/* Project Detail Modal */}
-      <Dialog open={!!detailProject} onOpenChange={(open) => { if (!open) setDetailProject(null); }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-lg">{detailProject?.title}</DialogTitle>
-          </DialogHeader>
-          {detailProject && (
-            <div className="space-y-4">
-              {/* Status & Priority */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <StatusBadge status={detailProject.status} />
-                <StatusBadge status={detailProject.priority} className={`priority-${detailProject.priority}`} />
-              </div>
-
-              {/* Description */}
-              {detailProject.description && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Description</p>
-                  <p className="text-sm text-foreground">{detailProject.description}</p>
-                </div>
-              )}
-
-              {/* Dates */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Created</p>
-                  <p className="text-sm text-foreground">{new Date(detailProject.created_at).toLocaleDateString()}</p>
-                </div>
-                {detailProject.due_date && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Due Date</p>
-                    <p className="text-sm text-foreground flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {new Date(detailProject.due_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-                {detailProject.start_date && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Start Date</p>
-                    <p className="text-sm text-foreground">{new Date(detailProject.start_date).toLocaleDateString()}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Category */}
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                  <FolderOpen className="h-3.5 w-3.5" /> Category
-                </p>
-                <p className="text-sm text-foreground">{catLabel(detailProject.category)}</p>
-              </div>
-
-              {/* Client */}
-              {detailProject.customers && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                    <User className="h-3.5 w-3.5" /> Client
-                  </p>
-                  <p className="text-sm text-foreground">{detailProject.customers.full_name}</p>
-                  {detailProject.customers.email && (
-                    <p className="text-xs text-muted-foreground">{detailProject.customers.email}</p>
-                  )}
-                  {detailProject.customers.phone && (
-                    <p className="text-xs text-muted-foreground">{detailProject.customers.phone}</p>
-                  )}
-                  {detailProject.customers.company && (
-                    <p className="text-xs text-muted-foreground">{detailProject.customers.company}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Tags */}
-              {detailProject.tags?.length > 0 && (
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
-                    <Tag className="h-3.5 w-3.5" /> Tags
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {detailProject.tags.map((t: string) => (
-                      <span key={t} className="px-2 py-0.5 rounded-full bg-muted text-xs text-muted-foreground">{t}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Delete */}
-              <div className="pt-3 border-t border-border">
-                <Button variant="destructive" size="sm" className="w-full" onClick={() => setDeleteId(detailProject.id)}>
-                  <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete Project
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ProjectDetailHub
+        project={detailProject}
+        open={!!detailProject}
+        onClose={() => setDetailProject(null)}
+        onDelete={(id) => setDeleteId(id)}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
