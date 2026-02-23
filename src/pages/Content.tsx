@@ -523,6 +523,14 @@ export default function Content() {
           ) : !loading ? (
             <div className="text-center py-16 text-muted-foreground">No content yet. Start creating!</div>
           ) : null}
+          {/* Customer Meetings Section */}
+          <CustomerMeetingsSection 
+            categoryId={categoryGate.selectedCategory} 
+            onPlay={playVideo}
+            onDownload={downloadFile}
+            onDelete={handleDeleteContent}
+          />
+
           {/* Video/Audio Preview Dialog */}
           <Dialog open={!!previewTitle} onOpenChange={(open) => { if (!open) closePreview(); }}>
             <DialogContent className="max-w-3xl">
@@ -535,5 +543,80 @@ export default function Content() {
         </div>
       </CategoryGate>
     </AppLayout>
+  );
+}
+
+/* ─── Customer Meetings Sub-Section ──────────────────────── */
+function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
+  categoryId: string | null;
+  onPlay: (url: string, title: string) => void;
+  onDownload: (url: string, title: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [assets, setAssets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const load = async () => {
+      let q = supabase.from('content_assets')
+        .select('*, customers(full_name)')
+        .eq('source', 'Meeting')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (categoryId) q = q.eq('category', categoryId);
+      const { data } = await q;
+      setAssets(data || []);
+      setLoading(false);
+    };
+    load();
+  }, [categoryId]);
+
+  if (loading || assets.length === 0) return null;
+
+  return (
+    <div className="glass-card overflow-hidden">
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-left"
+      >
+        {collapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        <Video className="h-4 w-4 text-primary" />
+        <span className="text-sm font-semibold text-foreground">Customer Meetings</span>
+        <span className="text-xs text-muted-foreground ml-auto">{assets.length} recording{assets.length !== 1 ? 's' : ''}</span>
+      </button>
+      {!collapsed && (
+        <div className="border-t border-border divide-y divide-border/30">
+          {assets.map(a => {
+            const Icon = a.type === 'video' ? Video : Music;
+            const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
+            return (
+              <div key={a.id} className="flex items-center gap-3 px-6 py-3 hover:bg-muted/20 transition-colors">
+                <div className="p-1.5 rounded bg-primary/10"><Icon className="h-3.5 w-3.5 text-primary" /></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-foreground truncate">{a.title}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {a.customers?.full_name || 'No client'} · {a.type} · {new Date(a.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                {isPlayable && (
+                  <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
+                    <Play className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {a.url && (
+                  <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <button onClick={() => onDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
