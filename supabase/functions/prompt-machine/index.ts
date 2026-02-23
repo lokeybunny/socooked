@@ -1,0 +1,177 @@
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bot-secret',
+}
+
+const SYSTEM_PROMPT = `You are a senior-level AI Website Prompt Engineer specialized in v0.dev prompts.
+
+You create high-tech, creative, minimalist, fun websites that are professional and conversion-optimized.
+
+You ALWAYS include imagery. If assets are not provided, you MUST use placeholder images using:
+- /placeholder.svg?height=600&width=800 (hero)
+- /placeholder.svg?height=400&width=400 (cards/products)
+- /placeholder.svg?height=120&width=120 (avatars/icons)
+
+Never omit images. Every hero, feature grid, and gallery/product section must reference an image source.
+
+BRAND DNA DEFAULTS (apply unless overridden):
+- White or near-white backgrounds
+- Dark text (#111 or similar)
+- Bold headline typography (Inter, Plus Jakarta Sans, or similar modern sans-serif)
+- Rounded corners (border-radius: 12-16px)
+- Soft shadows (box-shadow with low opacity)
+- Generous whitespace (py-20+ between sections)
+- Subtle motion (fade-in on scroll, hover lifts)
+
+Your output MUST contain these sections in this exact order:
+1) PROJECT OVERVIEW
+2) DESIGN STYLE
+3) COLOR & TYPOGRAPHY
+4) IMAGERY RULES
+5) LAYOUT STRUCTURE
+6) COMPONENTS
+7) INTERACTIONS & ANIMATIONS
+8) RESPONSIVENESS
+9) TECH STACK
+10) OUTPUT REQUIREMENTS
+
+The IMAGERY RULES section must ALWAYS include placeholder.svg patterns and mandate that NO section is left without a visual element.
+
+The TECH STACK section must specify: React, Next.js (App Router), Tailwind CSS, shadcn/ui components.
+
+Output ONLY:
+V0_PROMPT:
+<the full prompt>
+
+No commentary. No explanation. No preamble. Just V0_PROMPT: followed by the prompt.`
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
+
+  // Auth check
+  const botSecret = req.headers.get('x-bot-secret')
+  const expectedSecret = Deno.env.get('BOT_SECRET')
+  const authHeader = req.headers.get('authorization')
+
+  // Allow bot secret OR valid supabase auth (for admin UI calls)
+  const isBotAuth = botSecret && expectedSecret && botSecret === expectedSecret
+  const isSupabaseAuth = authHeader?.startsWith('Bearer ')
+
+  if (!isBotAuth && !isSupabaseAuth) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  const openRouterKey = Deno.env.get('OPENROUTER_API_KEY')
+  if (!openRouterKey) {
+    return new Response(JSON.stringify({ success: false, error: 'OPENROUTER_API_KEY not configured' }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  try {
+    const body = await req.json()
+    const {
+      user_request,
+      business_name,
+      niche,
+      style_tags,
+      must_include_pages,
+      cta,
+      notes,
+    } = body
+
+    if (!user_request) {
+      return new Response(JSON.stringify({ success: false, error: 'user_request is required' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const defaultBrand = Deno.env.get('DEFAULT_BRAND_NAME') || 'Warren'
+
+    // Build user message
+    const userMessage = [
+      `USER REQUEST: ${user_request}`,
+      `BUSINESS NAME: ${business_name || defaultBrand}`,
+      niche ? `NICHE: ${niche}` : 'NICHE: (infer from user request)',
+      style_tags?.length ? `STYLE TAGS: ${style_tags.join(', ')}` : '',
+      must_include_pages?.length ? `MUST INCLUDE PAGES: ${must_include_pages.join(', ')}` : '',
+      cta ? `PRIMARY CTA: ${cta}` : '',
+      notes ? `ADDITIONAL NOTES: ${notes}` : '',
+    ].filter(Boolean).join('\n')
+
+    const model = 'anthropic/claude-sonnet-4'
+
+    // Call OpenRouter
+    const generate = async (strict = false): Promise<string> => {
+      const messages = [
+        { role: 'system', content: strict
+          ? SYSTEM_PROMPT + '\n\nCRITICAL: Your response MUST start with exactly "V0_PROMPT:" on the first line. No other text before it.'
+          : SYSTEM_PROMPT
+        },
+        { role: 'user', content: userMessage },
+      ]
+
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openRouterKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://stu25.com',
+          'X-Title': 'STU25 Prompt Machine',
+        },
+        body: JSON.stringify({ model, messages, max_tokens: 4000 }),
+      })
+
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(`OpenRouter error ${res.status}: ${errText}`)
+      }
+
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content || ''
+    }
+
+    // First attempt
+    let rawOutput = await generate(false)
+
+    // Validate starts with V0_PROMPT:
+    if (!rawOutput.trim().startsWith('V0_PROMPT:')) {
+      console.log('[prompt-machine] Retry: output did not start with V0_PROMPT:')
+      rawOutput = await generate(true)
+    }
+
+    // Extract the prompt (everything after "V0_PROMPT:")
+    let v0Prompt = rawOutput.trim()
+    if (v0Prompt.startsWith('V0_PROMPT:')) {
+      v0Prompt = v0Prompt.slice('V0_PROMPT:'.length).trim()
+    }
+
+    const result = {
+      success: true,
+      data: {
+        v0_prompt: v0Prompt,
+        image_strategy: {
+          mode: 'placeholder',
+          placeholder_pattern: '/placeholder.svg?height={h}&width={w}',
+        },
+      },
+      meta: {
+        model,
+        generated_at: new Date().toISOString(),
+      },
+    }
+
+    return new Response(JSON.stringify(result), {
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    console.error('[prompt-machine] Error:', msg)
+    return new Response(JSON.stringify({ success: false, error: msg }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+})

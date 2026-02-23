@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.image-generator]
 verify_jwt = false
+
+[functions.prompt-machine]
+verify_jwt = false

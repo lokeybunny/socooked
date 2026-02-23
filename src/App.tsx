@@ -33,6 +33,7 @@ import ClientUpload from "./pages/portal/ClientUpload";
 import Previews from "./pages/Previews";
 import CalendarPage from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
+import PromptMachine from "./pages/PromptMachine";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,7 @@ const App = () => (
             <Route path="/custom-u" element={<CustomU />} />
             <Route path="/previews" element={<Previews />} />
             <Route path="/u/:token" element={<ClientUpload />} />
+            <Route path="/prompt-machine" element={<PromptMachine />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
