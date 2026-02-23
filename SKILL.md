@@ -114,12 +114,51 @@ If v0 renders without images despite design-intent prompts:
 
 ## Web Design Workflow (v3.3.2)
 
-### New Site Generation
-1. Craft prompt with design-intent visual descriptions for every section
-2. `POST /v0-designer` with `{ prompt, customer_id, category }`
-3. Gateway auto-validates, enriches, and sends to v0
-4. v0 generates site with its own AI-created images
-5. If 400 → read error → fix prompt → resubmit
+### New Site Generation — INSTANT LINK DELIVERY
+1. `POST /v0-designer` with `{ prompt, customer_id, category }` — **SINGLE CALL**
+2. Return `edit_url` to user **IMMEDIATELY** (within 3 seconds of API response)
+3. Poll silently in background for `preview_url`
+4. Notify user again ONLY when `preview_url` is ready
+
+### ✅ REQUIRED Output Format (copy exactly)
+
+```
+✅ Website started for [Name]!
+
+🔴 Watch live: https://v0.app/chat/[CHAT_ID]
+
+I'll notify you when the final URL is ready.
+```
+
+### ❌ BANNED Output Patterns (zero tolerance)
+
+- `⏳ Creating [Name]...` — FORBIDDEN
+- `Step 1: Creating customer record...` — FORBIDDEN
+- `Step 2: Generating site...` — FORBIDDEN
+- `Worker is still executing...` — FORBIDDEN
+- `Waiting for the API...` — FORBIDDEN
+- Any multi-step progress narration — FORBIDDEN
+- Any aesthetic descriptions before link — FORBIDDEN
+- Waiting to give link until "done" — FORBIDDEN
+
+### Correct Flow
+
+```
+User request → POST /v0-designer → Instant edit_url → (silent background poll) → notify with preview_url
+```
+
+### Wrong Flow (FORBIDDEN)
+
+```
+User request → "Creating customer..." → "Step 1..." → "Step 2..." → Link
+```
+
+**The API responds in < 1 second. Do NOT add artificial delays or narration.**
+
+### Response Data Mapping
+- `edit_url` → from `response.data.data.edit_url` — give IMMEDIATELY
+- `preview_url` → from polling — give when ready
+- `chat_id` → from `response.data.data.chat_id` — include in live link
 
 ### Content Edits (Headless CMS)
 1. `GET /clawd-bot/previews` → find `site_id`
@@ -154,6 +193,8 @@ Kebab-case: `terrion-barber`, `jane-photography`, `atlanta-fitness`
 3. **NEVER claim images were generated unless the preview actually shows them.**
 4. **NEVER use `import "tailwindcss"`.** Tailwind CDN only.
 5. **NEVER use "generate an image of..." language** — use design-intent descriptions instead.
+6. **NEVER show multi-step progress ("Step 1", "Step 2") to the user.** Single call, instant link.
+7. **NEVER delay delivering the `edit_url`.** Return it the moment the API responds.
 
 ## Install
 

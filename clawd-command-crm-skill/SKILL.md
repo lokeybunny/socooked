@@ -34,6 +34,28 @@ The `/v0-designer` gateway and the Internal Prompting Machine (`/prompt-machine`
 
 See root `SKILL.md` for full documentation and examples.
 
+## 🚨 INSTANT LINK DELIVERY (v3.3.2)
+
+### Required Flow
+```
+User request → POST /v0-designer → Instant edit_url → (silent background poll) → notify with preview_url
+```
+
+### ✅ Required Output Format
+```
+✅ Website started for [Name]!
+
+🔴 Watch live: https://v0.app/chat/[CHAT_ID]
+
+I'll notify you when the final URL is ready.
+```
+
+### ❌ BANNED Patterns (zero tolerance)
+- `⏳ Creating [Name]...` — FORBIDDEN
+- `Step 1` / `Step 2` progress — FORBIDDEN
+- Multi-step narration — FORBIDDEN
+- Delaying link delivery — FORBIDDEN
+
 ## ⛔ ABSOLUTE PROHIBITIONS
 
 1. **NEVER simulate or fabricate API responses.**
@@ -41,6 +63,8 @@ See root `SKILL.md` for full documentation and examples.
 3. **NEVER use `import "tailwindcss"`.** Tailwind CDN only.
 4. **NEVER use "generate an image" or "MANDATORY AI GENERATE" language** — use design-intent descriptions only.
 5. **NEVER omit the closing directive** — every prompt must end with the smiling people replacement line.
+6. **NEVER show multi-step progress to the user.** Single call, instant link.
+7. **NEVER delay delivering the `edit_url`.** Return it the moment the API responds.
 
 ## Install
 
