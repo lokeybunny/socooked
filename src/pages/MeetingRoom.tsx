@@ -258,18 +258,23 @@ export default function MeetingRoom() {
 
   const uploadFile = useCallback(async (blob: Blob, ext: string, assetType: 'video' | 'audio') => {
     try {
-      const { data: customer } = await supabase
-        .from('customers')
-        .select('full_name, category')
-        .eq('id', meeting.customer_id)
-        .single();
-
-      if (!customer) throw new Error('Customer not found');
-
-      const category = customer.category || 'other';
-      const customerName = customer.full_name;
       const dateStr = new Date().toISOString().slice(0, 10);
-      const fileName = `${meeting.title || 'Meeting'} - ${dateStr}.${ext}`;
+      const fileName = `${meeting?.title || 'Meeting'} - ${dateStr}.${ext}`;
+      
+      let category = 'other';
+      let customerName = 'Unknown';
+      
+      if (meeting?.customer_id) {
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('full_name, category')
+          .eq('id', meeting.customer_id)
+          .single();
+        if (customer) {
+          category = customer.category || 'other';
+          customerName = customer.full_name;
+        }
+      }
 
       const { uploadToStorage } = await import('@/lib/storage');
       const publicUrl = await uploadToStorage(new File([blob], fileName, { type: blob.type }), {
@@ -279,7 +284,7 @@ export default function MeetingRoom() {
         fileName,
       });
 
-      console.log('[MeetingRoom] Saving content_asset:', { fileName, assetType, publicUrl, meetingId: meeting.id, customerId: meeting.customer_id });
+      console.log('[MeetingRoom] Saving content_asset:', { fileName, assetType, publicUrl, meetingId: meeting?.id });
       
       const { error: insertErr } = await supabase.from('content_assets').insert({
         title: fileName,
@@ -287,9 +292,9 @@ export default function MeetingRoom() {
         source: 'Meeting',
         status: 'published',
         category,
-        customer_id: meeting.customer_id,
+        customer_id: meeting?.customer_id || null,
         url: publicUrl,
-        folder: meeting.id,
+        folder: meeting?.id || null,
       });
       
       if (insertErr) {
@@ -341,25 +346,22 @@ export default function MeetingRoom() {
     const dateStr = new Date().toISOString().slice(0, 10);
     const baseName = meeting?.title || 'recording';
 
-    // Always download locally
+    // Always download locally as backup
     downloadBlob(videoBlob, `${baseName}-${dateStr}.${videoExt}`);
     downloadBlob(audioBlob, `${baseName}-${dateStr}.${audioExt}`);
-    toast.success('Recordings downloaded locally');
 
-    // Upload to Google Drive if customer exists (also saves to content_assets with Drive URL)
-    if (meeting?.customer_id) {
-      setUploading(true);
-      const [videoOk, audioOk] = await Promise.all([
-        uploadFile(videoBlob, videoExt, 'video'),
-        uploadFile(audioBlob, audioExt, 'audio'),
-      ]);
-      setUploading(false);
+    // Always upload to Supabase storage (works with or without customer_id)
+    setUploading(true);
+    const [videoOk, audioOk] = await Promise.all([
+      uploadFile(videoBlob, videoExt, 'video'),
+      uploadFile(audioBlob, audioExt, 'audio'),
+    ]);
+    setUploading(false);
 
-      if (videoOk && audioOk) {
-        toast.success('Recordings also saved to client Drive');
-      } else {
-        toast.error('Drive upload failed — local copies saved');
-      }
+    if (videoOk && audioOk) {
+      toast.success('Recordings saved to cloud storage');
+    } else {
+      toast.error('Cloud upload failed — local copies saved');
     }
   }, [meeting, uploadFile]);
 
@@ -510,7 +512,7 @@ export default function MeetingRoom() {
     }
     setUploading(false);
     toast.success('Meeting ended — recordings saved');
-    window.location.href = 'https://stu25.com';
+    navigate('/meetings');
   };
 
   useEffect(() => {

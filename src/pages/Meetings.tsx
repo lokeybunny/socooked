@@ -98,14 +98,22 @@ export default function Meetings() {
     load();
   };
 
-  const downloadRecording = (rec: any) => {
+  const downloadRecording = async (rec: any) => {
     if (!rec.url) { toast.error('No file URL available'); return; }
-    const a = document.createElement('a');
-    a.href = rec.url;
-    a.download = rec.title || 'download';
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.click();
+    try {
+      // Fetch the file as blob to force a real download
+      const response = await fetch(rec.url);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = rec.title || 'recording';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: open in new tab
+      window.open(rec.url, '_blank');
+    }
   };
 
   const copyLink = (roomCode: string) => {
