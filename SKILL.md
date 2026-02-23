@@ -104,6 +104,12 @@ When scheduling a meeting, Cortex should chain **two** API calls:
 
 See [`skill.json`](./skill.json) for the machine-readable skill definition.
 
+## ⛔ ABSOLUTE PROHIBITIONS
+
+1. **NEVER simulate or fabricate API responses.** Every response shown to the user MUST come from an actual HTTP call. If the API is down or errors, report the real error — never invent success data, preview URLs, or status updates.
+
+2. **NEVER use stock photos or placeholder images.** Every v0.dev website generation prompt MUST include AI image generation instructions. The prompt sent to `/v0-designer` must explicitly describe hero images, feature images, gallery images, about section images, etc. using real descriptive prompts so v0 generates or sources unique visuals. Absolutely no `placeholder.svg`, no `unsplash.com` links, no generic stock URLs, no empty `src=""` attributes. If the site needs an image, the prompt must describe exactly what image to generate.
+
 ## Install
 
 ```
