@@ -1,7 +1,11 @@
 {
   "skill_name": "clawd-command-crm",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "Full CRM command console for CLAWD Command — 110+ endpoints covering customers, leads, deals, projects, tasks, boards, cards, invoices, communications, documents, templates, content assets, signatures, meetings, automations, web design (v0), headless site configs, and more.",
+  "absolute_prohibitions": [
+    "NEVER simulate or fabricate API responses. Every response shown to the user MUST come from an actual HTTP call. Report real errors, never invent data.",
+    "NEVER use stock photos or placeholder images in website generation prompts. Every /v0-designer prompt MUST include explicit AI image generation instructions for all visual sections. No placeholder.svg, no unsplash links, no generic stock URLs."
+  ],
   "auth": {
     "type": "hmac_signature",
     "algorithm": "HMAC-SHA256",

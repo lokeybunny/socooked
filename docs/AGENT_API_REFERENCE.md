@@ -451,4 +451,12 @@ User requests a website?
 
 ---
 
-*Version: 3.2.0 — Last updated: 2026-02-23*
+## ⛔ ABSOLUTE PROHIBITIONS
+
+1. **NEVER simulate or fabricate API responses.** Every response shown to the user MUST come from an actual HTTP call. If the API errors or times out, report the real error. Never invent success data, preview URLs, status updates, or polling results.
+
+2. **NEVER use stock photos or placeholder images in website generation.** Every prompt sent to `/v0-designer` MUST include explicit AI image generation instructions for hero, features, about, gallery, and any other visual sections. Absolutely no `placeholder.svg`, no `unsplash.com` links, no generic stock URLs, no empty `src=""` attributes. If the site needs an image, describe exactly what to generate.
+
+---
+
+*Version: 3.2.1 — Last updated: 2026-02-23*

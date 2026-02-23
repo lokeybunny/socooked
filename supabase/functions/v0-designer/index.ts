@@ -42,12 +42,35 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Enforce image generation — reject prompts with no imagery instructions
+    const isEdit = !!existingChatId
+    if (!isEdit) {
+      const promptLower = prompt.toLowerCase()
+      const imageKeywords = ['image', 'photo', 'picture', 'visual', 'hero image', 'gallery', 'background image', 'imagery', 'illustration', 'graphic', 'banner']
+      const hasImageInstructions = imageKeywords.some(kw => promptLower.includes(kw))
+      const hasPlaceholderViolation = /placeholder\.|unsplash\.com|stock photo|lorem|via\.placeholder/i.test(prompt)
+
+      if (hasPlaceholderViolation) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Prompt contains forbidden placeholder/stock references. All images must be described for AI generation — no placeholder.svg, unsplash, or stock URLs allowed.',
+        }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+
+      if (!hasImageInstructions) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Prompt must include image generation instructions for visual sections (hero, features, gallery, about, etc.). Describe each image explicitly — no stock placeholders allowed.',
+        }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+    }
+
     // Update bot_task to in_progress if provided
     if (bot_task_id) {
       await supabase.from('bot_tasks').update({ status: 'in_progress' }).eq('id', bot_task_id)
     }
 
-    const isEdit = !!existingChatId
+    // isEdit already declared above
     console.log(`[v0-designer] ${isEdit ? `Editing chat ${existingChatId}` : 'Creating new chat'} with prompt: ${prompt.substring(0, 100)}...`)
 
     // Step 1: Create new chat OR send follow-up message to existing chat
