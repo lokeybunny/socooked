@@ -35,7 +35,7 @@ export default function Meetings() {
     const [meetingsRes, customersRes, recordingsRes] = await Promise.all([
       supabase.from('meetings').select('*, customers(full_name)').order('created_at', { ascending: false }),
       supabase.from('customers').select('id, full_name').order('full_name'),
-      supabase.from('content_assets').select('id, title, url, type, customer_id, category, folder').in('type', ['Video', 'Audio', 'video', 'audio']).or('source.eq.Meeting,source.eq.google-drive'),
+      supabase.from('content_assets').select('id, title, url, type, customer_id, category, folder').in('type', ['Video', 'Audio', 'video', 'audio']).eq('source', 'Meeting'),
     ]);
     setMeetings(meetingsRes.data || []);
     setCustomers(customersRes.data || []);
@@ -98,31 +98,14 @@ export default function Meetings() {
     load();
   };
 
-  const downloadRecording = async (rec: any) => {
-    // Extract file ID from Drive URL like https://drive.google.com/file/d/FILE_ID/view...
-    const match = rec.url?.match(/\/file\/d\/([^/]+)/);
-    if (!match) { toast.error('No valid Drive file link'); return; }
-    const fileId = match[1];
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    toast.info('Downloading…');
-    try {
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${fileId}`,
-        { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
-      );
-      if (!res.ok) throw new Error(await res.text());
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = rec.title || 'download';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err: any) {
-      console.error('Download failed:', err);
-      toast.error('Download failed');
-    }
+  const downloadRecording = (rec: any) => {
+    if (!rec.url) { toast.error('No file URL available'); return; }
+    const a = document.createElement('a');
+    a.href = rec.url;
+    a.download = rec.title || 'download';
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.click();
   };
 
   const copyLink = (roomCode: string) => {

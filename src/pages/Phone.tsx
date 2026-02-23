@@ -301,51 +301,29 @@ export default function PhonePage() {
         const transcribeData = await transcribeRes.json();
         if (!transcribeRes.ok) throw new Error(transcribeData.error || 'Transcription failed');
 
-        // Upload original audio to Google Drive
-        let driveResult = null;
+        // Upload original audio to Supabase storage
+        let audioPublicUrl: string | null = null;
         try {
           setUploadingToDrive(true);
-          const folderRes = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
-            {
-              method: 'POST',
-              headers: {
-                'apikey': anonKey, 'Authorization': `Bearer ${anonKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ category: 'Transcriptions', customer_name: customerName }),
-            }
-          );
-          const folderData = await folderRes.json();
-          if (!folderRes.ok) throw new Error(folderData.error || 'Folder creation failed');
-
-          const driveForm = new FormData();
+          const { uploadToStorage } = await import('@/lib/storage');
           const typePrefix = callType === 'voicemail' ? 'VM' : 'CALL';
           const renamedFile = new File([file], `${dateStr}_${typePrefix}_${file.name}`, { type: file.type });
-          driveForm.append('file', renamedFile);
-          driveForm.append('folder_id', folderData.folder_id);
-
-          const uploadRes = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/google-drive?action=upload`,
-            {
-              method: 'POST',
-              headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-              body: driveForm,
-            }
-          );
-          driveResult = await uploadRes.json();
-          if (!uploadRes.ok) throw new Error(driveResult.error || 'Drive upload failed');
-        } catch (driveErr: any) {
-          console.error('Drive upload error:', driveErr);
+          audioPublicUrl = await uploadToStorage(renamedFile, {
+            category: 'Transcriptions',
+            customerName,
+            source: 'phone',
+            fileName: renamedFile.name,
+          });
+        } catch (uploadErr: any) {
+          console.error('Storage upload error:', uploadErr);
         } finally {
           setUploadingToDrive(false);
         }
 
-        // Save the drive link to the transcription record
+        // Save the storage link to the transcription record
         const transcriptionId = transcribeData.transcription_id;
-        const driveLink = driveResult?.webViewLink || null;
-        if (transcriptionId && driveLink) {
-          await supabase.from('transcriptions').update({ audio_url: driveLink } as any).eq('id', transcriptionId);
+        if (transcriptionId && audioPublicUrl) {
+          await supabase.from('transcriptions').update({ audio_url: audioPublicUrl } as any).eq('id', transcriptionId);
         }
 
         newResults.push({
@@ -353,7 +331,7 @@ export default function PhonePage() {
           filename: file.name,
           transcript: transcribeData.transcript,
           summary: transcribeData.summary,
-          driveLink,
+          driveLink: audioPublicUrl,
           callType,
           success: true,
         });
@@ -438,20 +416,10 @@ export default function PhonePage() {
       return;
     }
 
-    const fileId = extractDriveFileId(transcription.audio_url);
-    if (!fileId) {
-      window.open(transcription.audio_url, '_blank');
-      return;
-    }
-
+    // For Supabase storage URLs, fetch directly
     setDownloadingId(transcription.id);
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${fileId}`,
-        { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } }
-      );
+      const res = await fetch(transcription.audio_url);
       if (!res.ok) throw new Error('Download failed');
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);

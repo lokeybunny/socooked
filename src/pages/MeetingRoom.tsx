@@ -257,8 +257,6 @@ export default function MeetingRoom() {
   }, [roomCode, guestName, getLocalStream, createPeerConnection]);
 
   const uploadFile = useCallback(async (blob: Blob, ext: string, assetType: 'video' | 'audio') => {
-    const mimeType = blob.type || (ext === 'mp4' ? 'video/mp4' : ext === 'webm' ? 'video/webm' : 'audio/webm');
-
     try {
       const { data: customer } = await supabase
         .from('customers')
@@ -273,46 +271,15 @@ export default function MeetingRoom() {
       const dateStr = new Date().toISOString().slice(0, 10);
       const fileName = `${meeting.title || 'Meeting'} - ${dateStr}.${ext}`;
 
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const headers: Record<string, string> = {
-        'apikey': anonKey,
-        'Authorization': `Bearer ${anonKey}`,
-      };
+      const { uploadToStorage } = await import('@/lib/storage');
+      const publicUrl = await uploadToStorage(new File([blob], fileName, { type: blob.type }), {
+        category,
+        customerName,
+        source: 'Meeting',
+        fileName,
+      });
 
-      // 1. Ensure folder
-      const folderRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
-        {
-          method: 'POST',
-          headers: { ...headers, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category, customer_name: customerName }),
-        },
-      );
-      if (!folderRes.ok) throw new Error(await folderRes.text());
-      const folderData = await folderRes.json();
-      const folderId = folderData?.folder_id;
-      if (!folderId) throw new Error('Could not create Drive folder');
-
-      // 2. Upload file
-      const formData = new FormData();
-      formData.append('file', new File([blob], fileName, { type: mimeType }));
-      formData.append('folder_id', folderId);
-
-      const uploadRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=upload`,
-        {
-          method: 'POST',
-          headers,
-          body: formData,
-        },
-      );
-      if (!uploadRes.ok) throw new Error(await uploadRes.text());
-      const uploadData = await uploadRes.json();
-
-      // 3. Save to content_assets
-      const driveUrl = uploadData?.webViewLink || uploadData?.id ? `https://drive.google.com/file/d/${uploadData.id}/view` : null;
-      console.log('[MeetingRoom] Saving content_asset:', { fileName, assetType, driveUrl, meetingId: meeting.id, customerId: meeting.customer_id });
+      console.log('[MeetingRoom] Saving content_asset:', { fileName, assetType, publicUrl, meetingId: meeting.id, customerId: meeting.customer_id });
       
       const { error: insertErr } = await supabase.from('content_assets').insert({
         title: fileName,
@@ -321,7 +288,7 @@ export default function MeetingRoom() {
         status: 'published',
         category,
         customer_id: meeting.customer_id,
-        url: driveUrl,
+        url: publicUrl,
         folder: meeting.id,
       });
       
