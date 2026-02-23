@@ -308,7 +308,7 @@ export default function CalendarPage() {
 
   // ─── MONTH VIEW ──────────────────────────────────────
   const MonthView = () => (
-    <div className="grid grid-cols-7 border border-border rounded-lg overflow-hidden" style={{ gridAutoRows: 'minmax(0, 1fr)' }}>
+    <div className="grid grid-cols-7 border border-border rounded-lg overflow-hidden" style={{ gridAutoRows: 'auto' }}>
       {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
         <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1.5 bg-muted/50 border-b border-border">{d}</div>
       ))}
@@ -316,17 +316,15 @@ export default function CalendarPage() {
         const dayEvents = getEventsForDay(day);
         const isToday = isSameDay(day, new Date());
         const isCurrentMonth = isSameMonth(day, currentDate);
-        const numWeeks = monthDays.length / 7;
-        const maxVisible = numWeeks > 5 ? 2 : 3;
         return (
           <div
             key={i}
             onClick={() => openCreate(day)}
             className={cn(
-              "p-1 border-b border-r border-border cursor-pointer hover:bg-muted/30 transition-colors overflow-hidden",
+              "p-1 border-b border-r border-border cursor-pointer hover:bg-muted/30 transition-colors",
               !isCurrentMonth && "bg-muted/20"
             )}
-            style={{ minHeight: numWeeks > 5 ? '72px' : '90px' }}
+            style={{ minHeight: '72px' }}
           >
             <div className={cn(
               "text-[11px] font-medium mb-0.5 w-5 h-5 flex items-center justify-center rounded-full",
@@ -335,10 +333,7 @@ export default function CalendarPage() {
               {format(day, 'd')}
             </div>
             <div className="space-y-px">
-              {dayEvents.slice(0, maxVisible).map(ev => <EventPill key={ev.id} ev={ev} compact />)}
-              {dayEvents.length > maxVisible && (
-                <p className="text-[10px] text-muted-foreground pl-1">+{dayEvents.length - maxVisible} more</p>
-              )}
+              {dayEvents.map(ev => <EventPill key={ev.id} ev={ev} compact />)}
             </div>
           </div>
         );
