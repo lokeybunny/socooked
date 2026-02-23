@@ -50,6 +50,8 @@ function formatMessage(entry: {
     entry.entity_type.charAt(0).toUpperCase() + entry.entity_type.slice(1);
   const name = entry.meta?.name || entry.meta?.title || "";
   const nameStr = name ? ` "${name}"` : "";
+  const previewUrl = entry.meta?.preview_url || "";
+  const editUrl = entry.meta?.edit_url || "";
 
   const now = new Date();
   const time = now.toLocaleString("en-US", {
@@ -61,7 +63,10 @@ function formatMessage(entry: {
     timeZone: "America/Los_Angeles",
   });
 
-  return `${actionEmoji} ${entityEmoji} *${entity}*${nameStr} was *${entry.action}*\n🕐 ${time} PST`;
+  let msg = `${actionEmoji} ${entityEmoji} *${entity}*${nameStr} was *${entry.action}*\n🕐 ${time} PST`;
+  if (previewUrl) msg += `\n🔗 [Preview](${previewUrl})`;
+  if (editUrl) msg += `\n✏️ [Edit](${editUrl})`;
+  return msg;
 }
 
 Deno.serve(async (req) => {
