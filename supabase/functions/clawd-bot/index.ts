@@ -1207,9 +1207,110 @@ Deno.serve(async (req) => {
     }
 
     if (path === 'availability' && req.method === 'GET') {
-      const { data, error } = await supabase.from('availability_slots').select('*').eq('is_active', true).order('day_of_week')
+      const { data, error } = await supabase.from('availability_slots').select('*').order('day_of_week')
       if (error) return fail(error.message)
-      return ok({ slots: data })
+      const DAY_MAP = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+      const enriched = (data || []).map((s: any) => ({ ...s, day_name: DAY_MAP[s.day_of_week] }))
+      return ok({ slots: enriched })
+    }
+
+    // ─── AVAILABILITY: UPDATE SLOTS ─────────────────────────────
+    // POST /availability — Bulk set schedule. Body: { slots: [{ day_of_week, start_time, end_time }] }
+    //   Replaces ALL existing slots with the provided set.
+    // POST /availability/disable — Disable days. Body: { days: [0-6] } or { from: "YYYY-MM-DD", to: "YYYY-MM-DD" }
+    // POST /availability/enable  — Enable days.  Body: { days: [0-6] } or { from: "YYYY-MM-DD", to: "YYYY-MM-DD" }
+    // POST /availability/override — Temporary override for specific dates. Body: { date: "YYYY-MM-DD", start_time?, end_time?, disabled?: bool }
+    // DELETE /availability — Delete all slots (nuclear reset)
+
+    if (path === 'availability' && req.method === 'POST') {
+      const { slots } = body as { slots: { day_of_week: number; start_time: string; end_time: string }[] }
+      if (!slots || !Array.isArray(slots)) return fail('slots array is required')
+      // Replace all: deactivate existing, insert new
+      await supabase.from('availability_slots').update({ is_active: false }).neq('id', '00000000-0000-0000-0000-000000000000')
+      const toInsert = slots.map(s => ({ day_of_week: s.day_of_week, start_time: s.start_time, end_time: s.end_time, is_active: true }))
+      const { data, error } = await supabase.from('availability_slots').insert(toInsert).select()
+      if (error) return fail(error.message)
+      await logActivity(supabase, 'availability', null, 'updated', `Schedule replaced with ${slots.length} slot(s)`)
+      return ok({ slots: data, replaced: true })
+    }
+
+    if (path === 'availability/disable' && req.method === 'POST') {
+      const { days, from, to } = body as { days?: number[]; from?: string; to?: string }
+      if (days && Array.isArray(days)) {
+        // Disable specific days of week
+        const { error } = await supabase.from('availability_slots').update({ is_active: false }).in('day_of_week', days)
+        if (error) return fail(error.message)
+        const DAY_MAP = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+        const dayNames = days.map(d => DAY_MAP[d]).join(', ')
+        await logActivity(supabase, 'availability', null, 'disabled', `Disabled: ${dayNames}`)
+        return ok({ disabled_days: days, message: `Disabled ${dayNames}` })
+      }
+      if (from && to) {
+        // Disable by date range — find which days of week fall in range and disable
+        const start = new Date(from)
+        const end = new Date(to)
+        const daysToDisable = new Set<number>()
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          daysToDisable.add(d.getDay())
+        }
+        const dayArr = [...daysToDisable]
+        const { error } = await supabase.from('availability_slots').update({ is_active: false }).in('day_of_week', dayArr)
+        if (error) return fail(error.message)
+        await logActivity(supabase, 'availability', null, 'disabled', `Disabled ${from} to ${to}`)
+        return ok({ disabled_days: dayArr, from, to })
+      }
+      return fail('Provide either days[] or from/to date range')
+    }
+
+    if (path === 'availability/enable' && req.method === 'POST') {
+      const { days, from, to, start_time, end_time } = body as { days?: number[]; from?: string; to?: string; start_time?: string; end_time?: string }
+      const sTime = start_time || '09:00'
+      const eTime = end_time || '17:00'
+      if (days && Array.isArray(days)) {
+        // Re-enable existing or create new slots for these days
+        const { data: existing } = await supabase.from('availability_slots').select('day_of_week').in('day_of_week', days)
+        const existingDays = new Set((existing || []).map((e: any) => e.day_of_week))
+        // Activate existing
+        if (existingDays.size > 0) {
+          await supabase.from('availability_slots').update({ is_active: true }).in('day_of_week', [...existingDays])
+        }
+        // Create missing
+        const missing = days.filter(d => !existingDays.has(d))
+        if (missing.length > 0) {
+          await supabase.from('availability_slots').insert(missing.map(d => ({ day_of_week: d, start_time: sTime, end_time: eTime, is_active: true })))
+        }
+        const DAY_MAP = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+        await logActivity(supabase, 'availability', null, 'enabled', `Enabled: ${days.map(d => DAY_MAP[d]).join(', ')}`)
+        return ok({ enabled_days: days })
+      }
+      if (from && to) {
+        const start = new Date(from)
+        const end = new Date(to)
+        const daysToEnable = new Set<number>()
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          daysToEnable.add(d.getDay())
+        }
+        const dayArr = [...daysToEnable]
+        const { data: existing } = await supabase.from('availability_slots').select('day_of_week').in('day_of_week', dayArr)
+        const existingDays = new Set((existing || []).map((e: any) => e.day_of_week))
+        if (existingDays.size > 0) {
+          await supabase.from('availability_slots').update({ is_active: true }).in('day_of_week', [...existingDays])
+        }
+        const missing = dayArr.filter(d => !existingDays.has(d))
+        if (missing.length > 0) {
+          await supabase.from('availability_slots').insert(missing.map(d => ({ day_of_week: d, start_time: sTime, end_time: eTime, is_active: true })))
+        }
+        await logActivity(supabase, 'availability', null, 'enabled', `Enabled ${from} to ${to}`)
+        return ok({ enabled_days: dayArr, from, to })
+      }
+      return fail('Provide either days[] or from/to date range')
+    }
+
+    if (path === 'availability' && req.method === 'DELETE') {
+      const { error } = await supabase.from('availability_slots').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      if (error) return fail(error.message)
+      await logActivity(supabase, 'availability', null, 'deleted', 'All availability slots cleared')
+      return ok({ message: 'All availability slots deleted' })
     }
 
     // ─── SMART BOOK (AI-style: resolve customer, find next slot, book) ─
