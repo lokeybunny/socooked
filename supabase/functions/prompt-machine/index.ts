@@ -157,6 +157,12 @@ Deno.serve(async (req) => {
       v0Prompt = v0Prompt.slice('V0_PROMPT:'.length).trim()
     }
 
+    // Force-append the mandatory closing directive if not already present
+    const mandatoryClosing = 'Replace all image placeholders with real people smiling within this niche.'
+    if (!v0Prompt.trim().endsWith(mandatoryClosing)) {
+      v0Prompt = v0Prompt.trimEnd() + '\n\n' + mandatoryClosing
+    }
+
     // Auto-submit to v0-designer if requested
     let v0Result = null
     if (auto_submit) {
