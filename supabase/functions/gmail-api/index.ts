@@ -176,6 +176,41 @@ function appendSignature(html: string): string {
   return html + EMAIL_SIGNATURE;
 }
 
+const INVOICE_KEYWORDS = [/\binvoice\b/i, /\binv[-\s]?\d{2,}\b/i];
+
+function isInvoiceEmail(subject: string, body: string): boolean {
+  const combined = `${subject}\n${body}`;
+  return INVOICE_KEYWORDS.some((pattern) => pattern.test(combined));
+}
+
+function hasPdfAttachment(
+  attachments?: { filename: string; mimeType: string; data: string }[]
+): boolean {
+  if (!attachments?.length) return false;
+  return attachments.some((att) => {
+    const mime = (att.mimeType || "").toLowerCase();
+    const name = (att.filename || "").toLowerCase();
+    return mime.includes("pdf") || name.endsWith(".pdf");
+  });
+}
+
+function buildInvoiceSupportBody(recipient: string): string {
+  return `
+    <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.6;">
+      <p>Hello,</p>
+      <p>
+        Your invoice details are attached as a PDF to preserve formatting, totals,
+        and a clean print-ready copy.
+      </p>
+      <p>
+        Please review the attached PDF invoice for the full breakdown and payment terms.
+      </p>
+      <p>If you have any questions, just reply to this email.</p>
+      <p style="margin-top:16px;">Recipient: ${recipient}</p>
+    </div>
+  `;
+}
+
 function buildRawEmail(to: string, from: string, subject: string, body: string, attachments?: { filename: string; mimeType: string; data: string }[]): string {
   const boundary = `boundary_${crypto.randomUUID().replace(/-/g, '')}`;
   const signedBody = appendSignature(body);
@@ -371,6 +406,21 @@ serve(async (req) => {
       const { to, subject, body, attachments } = await req.json();
       if (!to || !subject) throw new Error("to and subject required");
 
+      const invoiceEmail = isInvoiceEmail(subject || "", body || "");
+      const hasInvoicePdf = hasPdfAttachment(attachments);
+
+      if (invoiceEmail && !hasInvoicePdf) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "Invoice-related emails must include a PDF attachment. Use invoice-api?action=send-invoice (preferred) or attach a PDF before sending.",
+            blocked: true,
+            code: "invoice_pdf_required",
+          }),
+          { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // ─── Anti-spam: block duplicate emails to same recipient within 3 minutes ───
       const recipientLower = to.toLowerCase().trim();
       const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
@@ -400,7 +450,11 @@ serve(async (req) => {
         }
       }
 
-      const raw = buildRawEmail(to, IMPERSONATE_EMAIL, subject, body || "", attachments);
+      const normalizedBody = invoiceEmail
+        ? buildInvoiceSupportBody(to)
+        : (body || "");
+
+      const raw = buildRawEmail(to, IMPERSONATE_EMAIL, subject, normalizedBody, attachments);
       const sendRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
         method: "POST",
         headers: {
