@@ -71,6 +71,22 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url)
   const path = url.pathname.split('/').pop()
+  const params = url.searchParams
+
+  // ─── PUBLIC ROUTE: site-configs GET (no auth needed, v0 sites fetch this) ─
+  if (path === 'site-configs' && req.method === 'GET') {
+    const site_id = params.get('site_id')
+    const published_only = params.get('published') === 'true'
+    if (!site_id) return fail('site_id query param required')
+    const pubSupabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    let q = pubSupabase.from('site_configs').select('*').eq('site_id', site_id).order('section')
+    if (published_only) q = q.eq('is_published', true)
+    const { data, error } = await q
+    if (error) return fail(error.message, 500)
+    const config: Record<string, any> = {}
+    for (const row of (data || [])) config[row.section] = { ...row.content, _version: row.version, _id: row.id }
+    return ok({ site_id, config })
+  }
 
   const botSecret = req.headers.get('x-bot-secret')
   const authHeader = req.headers.get('Authorization')
@@ -118,7 +134,7 @@ Deno.serve(async (req) => {
         // Body may be empty for DELETE requests — fall through to query params
       }
     }
-    const params = url.searchParams
+    // params already defined above
     // For DELETE requests, also check query param ?id=
     if (req.method === 'DELETE' && !body.id) {
       const qId = params.get('id')
@@ -1508,6 +1524,52 @@ Deno.serve(async (req) => {
       if (isBot) await auditLog(supabase, isEdit ? 'edit-website' : 'generate-website', { prompt, customer_id, chat_id })
       await logActivity(supabase, 'bot_task', task?.id || null, isEdit ? 'v0_design_edit_requested' : 'v0_design_requested', `${actionLabel}: ${(prompt as string).substring(0, 80)}`)
       return ok(v0Data.data || v0Data)
+    }
+
+    // ─── SITE CONFIGS (write/delete — read is public, handled above auth) ─
+
+    if (path === 'site-config' && req.method === 'POST') {
+      const { site_id, section, content, customer_id, is_published } = body
+      if (!site_id || !section) return fail('site_id and section are required')
+      // Upsert by site_id + section
+      const { data: existing } = await supabase.from('site_configs').select('id, version').eq('site_id', site_id).eq('section', section).maybeSingle()
+      let result
+      if (existing) {
+        const { data, error } = await supabase.from('site_configs').update({
+          content: content || {},
+          is_published: is_published ?? true,
+          version: existing.version + 1,
+          ...(customer_id ? { customer_id } : {}),
+        }).eq('id', existing.id).select().single()
+        if (error) return fail(error.message, 500)
+        result = data
+      } else {
+        const { data, error } = await supabase.from('site_configs').insert({
+          site_id, section,
+          content: content || {},
+          customer_id: customer_id || null,
+          is_published: is_published ?? true,
+        }).select().single()
+        if (error) return fail(error.message, 500)
+        result = data
+      }
+      if (isBot) await auditLog(supabase, 'site-config', { site_id, section })
+      return ok(result)
+    }
+
+    if (path === 'site-config' && req.method === 'DELETE') {
+      const { id, site_id, section } = body
+      if (id) {
+        const { error } = await supabase.from('site_configs').delete().eq('id', id)
+        if (error) return fail(error.message, 500)
+      } else if (site_id && section) {
+        const { error } = await supabase.from('site_configs').delete().eq('site_id', site_id).eq('section', section)
+        if (error) return fail(error.message, 500)
+      } else {
+        return fail('id or (site_id + section) required')
+      }
+      if (isBot) await auditLog(supabase, 'site-config-delete', { id, site_id, section })
+      return ok({ deleted: true })
     }
 
     // ─── PUBLISH WEBSITE (deploy v0 chat to Vercel production) ─
