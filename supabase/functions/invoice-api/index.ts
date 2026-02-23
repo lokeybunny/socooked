@@ -328,21 +328,39 @@ Deno.serve(async (req) => {
       if (!customerId) return fail('Customer not found. Provide customer_id or customer_email.')
       if (!body.line_items || body.line_items.length === 0) return fail('line_items required')
 
-      // ─── Duplicate guard: same customer + same amount + created within last 2 minutes ───
+      // ─── Duplicate guard: same customer + same amount within 30 minutes ───
       const candidateSubtotal = body.line_items.reduce((s: number, li: LineItem) => s + li.quantity * li.unit_price, 0)
       const candidateTotal = candidateSubtotal + (candidateSubtotal * (body.tax_rate || 0) / 100)
-      const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+      const windowAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
 
       const { data: dupes } = await supabase
         .from('invoices')
-        .select('id, invoice_number')
+        .select('id, invoice_number, status')
         .eq('customer_id', customerId)
         .eq('amount', candidateTotal)
-        .gte('created_at', twoMinAgo)
+        .gte('created_at', windowAgo)
         .limit(1)
 
       if (dupes && dupes.length > 0) {
-        return fail(`Duplicate invoice blocked. Invoice ${dupes[0].invoice_number || dupes[0].id} for this customer with the same amount was created less than 2 minutes ago.`, 409)
+        const d = dupes[0]
+        return fail(`Duplicate invoice blocked. Invoice ${d.invoice_number || d.id} (${d.status}) for this customer with the same amount was created within the last 30 minutes. If intentional, wait or change the amount.`, 409)
+      }
+
+      // ─── Secondary guard: same customer + same due_date + same amount (any time) ───
+      if (body.due_date) {
+        const { data: exactDupes } = await supabase
+          .from('invoices')
+          .select('id, invoice_number, status')
+          .eq('customer_id', customerId)
+          .eq('amount', candidateTotal)
+          .eq('due_date', body.due_date)
+          .in('status', ['draft', 'sent'])
+          .limit(1)
+
+        if (exactDupes && exactDupes.length > 0) {
+          const d = exactDupes[0]
+          return fail(`Duplicate invoice blocked. Invoice ${d.invoice_number || d.id} (${d.status}) already exists for this customer with the same amount and due date.`, 409)
+        }
       }
 
       const taxRate = body.tax_rate || 0
