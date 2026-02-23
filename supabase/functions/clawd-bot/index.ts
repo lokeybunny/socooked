@@ -1880,6 +1880,123 @@ Deno.serve(async (req) => {
       return ok(learnData.data || learnData, learnRes.status >= 400 ? learnRes.status : 200)
     }
 
+    // ─── SCHEDULE EMAILS ──────────────────────────────────────
+    if (path === 'schedule-emails' && req.method === 'POST') {
+      const { to, subject, body_template, start_at, interval_minutes, count, customer_id } = body as any
+      if (!to || !subject || !body_template || !count) {
+        return fail('to, subject, body_template, and count are required')
+      }
+      const startTime = start_at ? new Date(start_at as string) : new Date()
+      const interval = Number(interval_minutes) || 60
+      const totalCount = Math.min(Number(count), 50) // cap at 50
+
+      // Resolve customer if not provided
+      let resolvedCustomerId = customer_id || null
+      if (!resolvedCustomerId && to) {
+        const { data: cust } = await supabase.from('customers').select('id').eq('email', to).maybeSingle()
+        resolvedCustomerId = cust?.id || null
+      }
+
+      const events = []
+      for (let i = 0; i < totalCount; i++) {
+        const sendAt = new Date(startTime.getTime() + i * interval * 60 * 1000)
+        
+        // Allow body_template to be an array (different body per email) or a single string
+        const emailBody = Array.isArray(body_template) 
+          ? (body_template[i] || body_template[body_template.length - 1])
+          : body_template
+
+        const emailMeta = JSON.stringify({ to, subject, body: emailBody })
+
+        events.push({
+          title: `📧 Scheduled: ${subject}`,
+          description: emailMeta,
+          start_time: sendAt.toISOString(),
+          end_time: new Date(sendAt.getTime() + 5 * 60 * 1000).toISOString(),
+          source: 'scheduled-email',
+          color: '#scheduled',
+          category: 'email',
+          customer_id: resolvedCustomerId,
+          source_id: `sched-${Date.now()}-${i}`,
+        })
+      }
+
+      const { data: inserted, error: insertErr } = await supabase
+        .from('calendar_events')
+        .insert(events)
+        .select('id, start_time')
+      
+      if (insertErr) return fail(insertErr.message)
+
+      await logActivity(supabase, 'scheduled-email', null, 'created', `${totalCount} emails to ${to}`)
+
+      return ok({
+        action: 'scheduled',
+        total: totalCount,
+        to,
+        subject,
+        interval_minutes: interval,
+        first_send: events[0]?.start_time,
+        last_send: events[events.length - 1]?.start_time,
+        event_ids: inserted?.map((e: any) => e.id) || [],
+      })
+    }
+
+    // ─── SCHEDULED EMAILS LIST ──────────────────────────────
+    if (path === 'scheduled-emails' && req.method === 'GET') {
+      const status = params.get('status') // 'pending' or 'sent'
+      let q = supabase.from('calendar_events').select('*')
+        .eq('source', 'scheduled-email')
+        .order('start_time', { ascending: true })
+        .limit(100)
+      if (status === 'sent') q = q.eq('color', '#sent')
+      if (status === 'pending') q = q.neq('color', '#sent')
+      const { data, error } = await q
+      if (error) return fail(error.message)
+      
+      const emails = (data || []).map((e: any) => {
+        let meta = {}
+        try { meta = JSON.parse(e.description || '{}') } catch {}
+        return {
+          id: e.id,
+          ...meta,
+          scheduled_for: e.start_time,
+          status: e.color === '#sent' ? 'sent' : 'pending',
+          customer_id: e.customer_id,
+        }
+      })
+      return ok({ scheduled_emails: emails })
+    }
+
+    // ─── CANCEL SCHEDULED EMAILS ────────────────────────────
+    if (path === 'cancel-scheduled-emails' && req.method === 'POST') {
+      const { event_ids, cancel_all_for } = body as any
+      if (event_ids && Array.isArray(event_ids)) {
+        const { error } = await supabase.from('calendar_events')
+          .delete()
+          .in('id', event_ids)
+          .eq('source', 'scheduled-email')
+          .neq('color', '#sent')
+        if (error) return fail(error.message)
+        return ok({ action: 'cancelled', count: event_ids.length })
+      }
+      if (cancel_all_for) {
+        // Cancel all pending for a given email address
+        const { data: pending } = await supabase.from('calendar_events')
+          .select('id, description')
+          .eq('source', 'scheduled-email')
+          .neq('color', '#sent')
+        const toDelete = (pending || []).filter((e: any) => {
+          try { return JSON.parse(e.description).to === cancel_all_for } catch { return false }
+        }).map((e: any) => e.id)
+        if (toDelete.length > 0) {
+          await supabase.from('calendar_events').delete().in('id', toDelete)
+        }
+        return ok({ action: 'cancelled', count: toDelete.length, email: cancel_all_for })
+      }
+      return fail('event_ids array or cancel_all_for email required')
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
       const [boards, customers, deals, projects, meetings, templates, content, transcriptions, botTasks, apiPreviews, soulConfig] = await Promise.all([
