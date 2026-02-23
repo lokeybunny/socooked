@@ -34,11 +34,11 @@ The `/v0-designer` gateway and the Internal Prompting Machine (`/prompt-machine`
 
 See root `SKILL.md` for full documentation and examples.
 
-## 🚨 INSTANT LINK DELIVERY (v3.3.2)
+## 🚨 INSTANT LINK DELIVERY + AUTO-POLLING (v3.3.2)
 
 ### Required Flow
 ```
-User request → POST /v0-designer → Instant edit_url → (silent background poll) → notify with preview_url
+User request → POST /v0-designer → Instant edit_url → (auto-poll every 30s) → notify with preview_url
 ```
 
 ### ✅ Required Output Format
@@ -47,14 +47,32 @@ User request → POST /v0-designer → Instant edit_url → (silent background p
 
 🔴 Watch live: https://v0.app/chat/[CHAT_ID]
 
-I'll notify you when the final URL is ready.
+⏱️ Status: generating
+💬 Chat ID: [CHAT_ID]
+
+The AI is generating your site in real-time.
+
+I'll message you when the final preview URL is ready!
 ```
+
+### 🔄 MANDATORY AUTO-POLLING
+
+After initial link delivery, agent MUST auto-poll `GET /clawd-bot/previews` every 30 seconds:
+- **0:00** — Deliver link immediately
+- **Every 30s** — Silent check (no message)
+- **Every 2 min** — Send elapsed time update: `"⏳ 2:00 elapsed... Still generating..."`
+- **On completion** — Send `"✅ READY! [preview_url]"` immediately
+- **10 min timeout** — Send timeout notice
+
+**The user must NEVER ask "update?" or "status?" — polling is automatic.**
 
 ### ❌ BANNED Patterns (zero tolerance)
 - `⏳ Creating [Name]...` — FORBIDDEN
 - `Step 1` / `Step 2` progress — FORBIDDEN
 - Multi-step narration — FORBIDDEN
 - Delaying link delivery — FORBIDDEN
+- Waiting for user to ask "update?" — FORBIDDEN
+- Stopping polling after initial message — FORBIDDEN
 
 ## ⛔ ABSOLUTE PROHIBITIONS
 
