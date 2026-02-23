@@ -4,19 +4,13 @@ CRM integration for CLAWD Command via SpaceBot.
 
 ## Version
 
-3.3.0
+3.3.1
 
 ## Description
 
-Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, deal creation, invoicing, and full CRM state retrieval via Supabase Edge Functions. Includes two-phase website generation pipeline (image-generator → v0-designer).
+Connects SpaceBot to the CLAWD Command CRM backend. Website generation uses v0.dev's internal AI image generation via design-intent prompt crafting.
 
 ## Auth
-
-| Type | Method |
-|------|--------|
-| `shared_secret` | Plain shared secret sent as HTTP header |
-
-### Required Header
 
 | Header | Value |
 |--------|-------|
@@ -28,30 +22,21 @@ Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, de
 https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 ```
 
-## Actions
+## v0 Image Strategy
 
-| Name | Method | Path | Description |
-|------|--------|------|-------------|
-| `get_state` | GET | `/clawd-bot/state` | Get CRM snapshot |
-| `create_or_update_lead` | POST | `/clawd-bot/lead` | Create or update lead |
-| `create_deal` | POST | `/clawd-bot/deal` | Create deal |
-| `create_invoice` | POST | `/invoice-api` | Create invoice |
-| `generate_images` | POST | `/image-generator` | **Phase A: AI image generation + storage** |
-| `generate_website` | POST | `/v0-designer` | **Phase B: v0 site with asset_map** |
+The `/v0-designer` gateway auto-enriches prompts with **design-intent language** so v0 uses its own built-in AI image generation. No external image generator needed.
 
-## Two-Phase Pipeline
-
-1. `POST /image-generator` with `{ customer_id, images: [{key, prompt}] }` → returns `asset_map`
-2. `POST /v0-designer` with `{ prompt, customer_id, category, asset_map }` → returns `preview_url`
+**✅ Use design-intent:** "The hero features a cinematic barbershop interior with warm Edison bulb lighting"
+**❌ Don't use commands:** "Generate an image of a barbershop"
 
 See root `SKILL.md` for full documentation and examples.
 
 ## ⛔ ABSOLUTE PROHIBITIONS
 
 1. **NEVER simulate or fabricate API responses.**
-2. **NEVER use stock photos or placeholder images.** Use the two-phase pipeline.
-3. **NEVER claim images were generated unless real URLs exist.**
-4. **NEVER use `import "tailwindcss"`.** Use Tailwind CDN only.
+2. **NEVER use placeholder.svg, unsplash, pexels, or stock photos.**
+3. **NEVER use `import "tailwindcss"`.** Tailwind CDN only.
+4. **NEVER use "generate an image" language** — use design-intent descriptions.
 
 ## Install
 

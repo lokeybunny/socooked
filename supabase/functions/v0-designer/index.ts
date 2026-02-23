@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   )
 
   try {
-    const { prompt, customer_id, category, bot_task_id, chat_id: existingChatId, asset_map } = await req.json()
+    const { prompt, customer_id, category, bot_task_id, chat_id: existingChatId } = await req.json()
 
     if (!prompt) {
       return new Response(JSON.stringify({ success: false, error: 'prompt is required' }), {
@@ -65,38 +65,27 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Auto-enrich: append image generation best-practice block if prompt is light on detail
+    // Auto-enrich: use design-intent language so v0 uses its internal AI image generator
     let enrichedPrompt = prompt
     if (!isEdit) {
       const sectionKeywords = ['hero', 'features', 'about', 'gallery', 'services', 'contact', 'footer']
       const describedSections = sectionKeywords.filter(s => prompt.toLowerCase().includes(s))
-      const hasDetailedImageDescriptions = (prompt.match(/image[:\s]/gi) || []).length >= 3
+      const hasVisualDescriptions = (prompt.match(/(image|photo|picture|visual|banner|background|portrait|shot|scene)/gi) || []).length >= 3
 
-      if (describedSections.length < 4 || !hasDetailedImageDescriptions) {
+      if (describedSections.length < 4 || !hasVisualDescriptions) {
         const enrichmentBlock = `
 
-IMPORTANT IMAGE GENERATION RULES (auto-appended):
-- Every visual section MUST have a unique, descriptive image prompt. Do NOT use placeholder images, stock photo URLs, unsplash links, or empty src attributes.
-- Hero section: Generate a striking, high-resolution hero image that matches the brand's industry and mood. Full-width, cinematic lighting.
-- Features/Services section: Generate individual images for each feature or service card. Each must be visually distinct.
-- About section: Generate a professional interior, team, or workspace photo that conveys trust and expertise.
-- Gallery section: Generate 4-6 unique portfolio/showcase images with varied compositions and subjects relevant to the business.
-- All images must be AI-generated with rich detail, proper lighting, and professional quality. Zero placeholders.`
+VISUAL DESIGN DIRECTION (auto-appended):
+For every visual section of this website, you MUST create unique, original imagery using your built-in AI image generation capabilities. Do not use placeholder images, stock photo URLs, unsplash, pexels, or empty src attributes.
+
+- Hero: Design a full-width hero with an AI-generated background that captures the brand's industry, mood, and energy. Cinematic composition, dramatic lighting.
+- Features/Services: Each card or section needs its own distinct AI-generated visual that represents the specific service or feature being described.
+- About: Include an AI-generated professional scene — a workspace, team environment, or brand-relevant interior that builds trust.
+- Gallery/Portfolio: Create 4-6 unique AI-generated showcase images with varied compositions, angles, and subjects relevant to the business.
+- All visuals must be original AI-generated content with professional quality. Never reference external image URLs or placeholder files.`
         enrichedPrompt = prompt + enrichmentBlock
-        console.log(`[v0-designer] Auto-enriched prompt (${describedSections.length} sections detected, ${(prompt.match(/image[:\s]/gi) || []).length} image refs)`)
+        console.log(`[v0-designer] Auto-enriched with design-intent language (${describedSections.length} sections, ${(prompt.match(/(image|photo|picture|visual|banner|background|portrait|shot|scene)/gi) || []).length} visual refs)`)
       }
-    }
-
-    // Inject asset_map URLs into prompt if provided
-    if (asset_map && typeof asset_map === 'object' && Object.keys(asset_map).length > 0) {
-      const assetBlock = `
-
-PRE-GENERATED IMAGE ASSETS (use these exact URLs — do NOT replace with placeholders):
-${Object.entries(asset_map).map(([key, url]) => `- ${key}: ${url}`).join('\n')}
-
-CRITICAL: Use the exact URLs above for the corresponding sections. These are real, hosted images. Do NOT substitute them with placeholder.svg, unsplash, pexels, or any other source.`
-      enrichedPrompt = enrichedPrompt + assetBlock
-      console.log(`[v0-designer] Injected ${Object.keys(asset_map).length} asset URLs into prompt`)
     }
 
     // Tailwind CDN constraint — always appended
