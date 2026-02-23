@@ -4,41 +4,23 @@ CRM integration for CLAWD Command via SpaceBot.
 
 ## Version
 
-1.0.0
+3.3.0
 
 ## Description
 
-Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, deal creation, invoicing, and full CRM state retrieval via Supabase Edge Functions.
+Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, deal creation, invoicing, and full CRM state retrieval via Supabase Edge Functions. Includes two-phase website generation pipeline (image-generator → v0-designer).
 
 ## Auth
 
 | Type | Method |
 |------|--------|
-| `hmac_signature` | HMAC-SHA256 signed request headers |
+| `shared_secret` | Plain shared secret sent as HTTP header |
 
-### How it works
+### Required Header
 
-SpaceBot sends the shared secret via the `x-bot-secret` header on every request.
-
-### BOT_SECRET
-
-```
-XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f
-```
-
-### Required Headers
-
-| Header | Description |
-|--------|-------------|
-| `x-bot-timestamp` | Unix epoch seconds (e.g. `1740100000`) |
-| `x-bot-nonce` | Random unique string per request (UUID recommended) |
-| `x-bot-signature` | HMAC-SHA256 hex digest of `<timestamp>.<nonce>` using `BOT_SECRET` |
-
-### Verification Rules
-
-- Signature: `HMAC-SHA256(timestamp + "." + nonce, BOT_SECRET)`
-- Requests older than **5 minutes** are rejected (replay protection)
-- Each nonce is single-use within the 5-minute window
+| Header | Value |
+|--------|-------|
+| `x-bot-secret` | `XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f` |
 
 ## Base URL
 
@@ -54,16 +36,22 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 | `create_or_update_lead` | POST | `/clawd-bot/lead` | Create or update lead |
 | `create_deal` | POST | `/clawd-bot/deal` | Create deal |
 | `create_invoice` | POST | `/invoice-api` | Create invoice |
+| `generate_images` | POST | `/image-generator` | **Phase A: AI image generation + storage** |
+| `generate_website` | POST | `/v0-designer` | **Phase B: v0 site with asset_map** |
 
-## Manifest
+## Two-Phase Pipeline
 
-See [`skill.json`](./skill.json) for the machine-readable skill definition.
+1. `POST /image-generator` with `{ customer_id, images: [{key, prompt}] }` → returns `asset_map`
+2. `POST /v0-designer` with `{ prompt, customer_id, category, asset_map }` → returns `preview_url`
+
+See root `SKILL.md` for full documentation and examples.
 
 ## ⛔ ABSOLUTE PROHIBITIONS
 
-1. **NEVER simulate or fabricate API responses.** Every response shown to the user MUST come from an actual HTTP call. If the API is down or errors, report the real error — never invent success data, preview URLs, or status updates.
-
-2. **NEVER use stock photos or placeholder images.** Every v0.dev website generation prompt MUST include AI image generation instructions. The prompt sent to `/v0-designer` must explicitly describe hero images, feature images, gallery images, about section images, etc. Absolutely no `placeholder.svg`, no `unsplash.com` links, no generic stock URLs. Every image must be described for generation.
+1. **NEVER simulate or fabricate API responses.**
+2. **NEVER use stock photos or placeholder images.** Use the two-phase pipeline.
+3. **NEVER claim images were generated unless real URLs exist.**
+4. **NEVER use `import "tailwindcss"`.** Use Tailwind CDN only.
 
 ## Install
 

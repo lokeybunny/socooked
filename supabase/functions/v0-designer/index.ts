@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
   )
 
   try {
-    const { prompt, customer_id, category, bot_task_id, chat_id: existingChatId } = await req.json()
+    const { prompt, customer_id, category, bot_task_id, chat_id: existingChatId, asset_map } = await req.json()
 
     if (!prompt) {
       return new Response(JSON.stringify({ success: false, error: 'prompt is required' }), {
@@ -86,6 +86,27 @@ IMPORTANT IMAGE GENERATION RULES (auto-appended):
         console.log(`[v0-designer] Auto-enriched prompt (${describedSections.length} sections detected, ${(prompt.match(/image[:\s]/gi) || []).length} image refs)`)
       }
     }
+
+    // Inject asset_map URLs into prompt if provided
+    if (asset_map && typeof asset_map === 'object' && Object.keys(asset_map).length > 0) {
+      const assetBlock = `
+
+PRE-GENERATED IMAGE ASSETS (use these exact URLs — do NOT replace with placeholders):
+${Object.entries(asset_map).map(([key, url]) => `- ${key}: ${url}`).join('\n')}
+
+CRITICAL: Use the exact URLs above for the corresponding sections. These are real, hosted images. Do NOT substitute them with placeholder.svg, unsplash, pexels, or any other source.`
+      enrichedPrompt = enrichedPrompt + assetBlock
+      console.log(`[v0-designer] Injected ${Object.keys(asset_map).length} asset URLs into prompt`)
+    }
+
+    // Tailwind CDN constraint — always appended
+    const tailwindCdnBlock = `
+
+TAILWIND CSS RULE (mandatory):
+- Use Tailwind CSS via CDN only: <script src="https://cdn.tailwindcss.com"></script>
+- Do NOT use "import 'tailwindcss'" or any npm/module import of tailwindcss.
+- Do NOT use PostCSS or build-step Tailwind. CDN only.`
+    enrichedPrompt = enrichedPrompt + tailwindCdnBlock
 
     // Update bot_task to in_progress if provided
     if (bot_task_id) {

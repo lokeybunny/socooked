@@ -4,11 +4,11 @@ CRM integration for CLAWD Command via SpaceBot.
 
 ## Version
 
-3.2.0
+3.3.0
 
 ## Description
 
-Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, deal creation, invoicing, meetings, web design generation, headless CMS site configs, and full CRM state retrieval via Supabase Edge Functions.
+Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, deal creation, invoicing, meetings, web design generation (two-phase pipeline), headless CMS site configs, and full CRM state retrieval via Supabase Edge Functions.
 
 ## Auth
 
@@ -44,7 +44,8 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 | `create_invoice` | POST | `/invoice-api` | Create invoice |
 | `create_meeting` | POST | `/clawd-bot/meeting` | Create a meeting room (returns `room_code` + `room_url`) |
 | `create_card` | POST | `/clawd-bot/card` | Create a board card |
-| `generate_website` | POST | `/v0-designer` | **Generate a new v0 website (DIRECT — preferred)** |
+| `generate_images` | POST | `/image-generator` | **Phase A: Generate images + store to Supabase Storage** |
+| `generate_website` | POST | `/v0-designer` | **Phase B: Generate v0 website with asset_map (DIRECT — preferred)** |
 | `generate_website_legacy` | POST | `/clawd-bot/generate-website` | Legacy proxy (still works) |
 | `edit_site_content` | POST | `/clawd-bot/site-config` | **Edit site content via Headless CMS (preferred for edits)** |
 | `structural_edit` | POST | `/v0-designer` | Structural v0 edit (requires `chat_id` in body) |
@@ -54,27 +55,145 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 | `delete_site_config` | DELETE | `/clawd-bot/site-config` | Delete a site content section |
 | `list_previews` | GET | `/clawd-bot/previews` | List API-generated work |
 
-## Web Design Workflow (v3.2.1)
+---
 
-### ⚠️ MANDATORY: All website generation MUST go through the CRM edge function
+## Two-Phase Website Generation: Images then v0 (v3.3.0)
 
-SpaceBot MUST call `POST /v0-designer` for ALL website generation. This is a CRM-managed edge function — NOT the raw v0.dev API. The function enforces:
-- **Image validation**: Prompts without image generation instructions are rejected (HTTP 400)
-- **Placeholder ban**: Prompts containing placeholder.svg, unsplash.com, or stock references are rejected (HTTP 400)
-- **Auto CRM logging**: Creates bot_task, api_preview, conversation_thread, and activity_log automatically
+### WHY this exists
 
-SpaceBot does NOT have direct access to v0.dev. The `/v0-designer` function is the ONLY gateway.
+v0.dev previews frequently render with broken images, all-black pages, or placeholder artifacts because v0 generates code that *references* images but does not *produce* real image files. The generated `<img>` tags point to non-existent URLs, placeholder.svg, or unsplash/pexels links that may be blocked or render incorrectly.
 
-### New Site Generation
-1. `POST /v0-designer` with `{ "prompt": "...", "customer_id": "uuid", "category": "..." }`
-2. Prompt MUST describe every image explicitly (hero, features, gallery, about, etc.)
-3. If the API returns 400, fix the prompt and retry — do not skip image descriptions
-4. Function auto-creates all CRM records — no additional CRM calls needed for record-keeping
+**The solution:** Generate real images FIRST, upload them to permanent storage, then pass those real URLs into the v0 prompt so the rendered preview contains actual working images.
 
-### Editing Existing Sites (Headless CMS — preferred for content)
+### Strict Rules
+
+1. **No fabricated `preview_url`** — every preview_url shown to the user MUST come from a real v0 API response
+2. **No fabricated image URLs** — every image URL must be a real Supabase Storage public URL from an actual upload
+3. **No `placeholder.svg`** — never reference placeholder.svg in any prompt or output
+4. **No `unsplash.com` / `pexels.com` / stock-photo language** — all images must be AI-generated and stored
+5. **Tailwind CDN only** — v0 prompts must use `<script src="https://cdn.tailwindcss.com"></script>`, never `import "tailwindcss"` or npm imports
+
+### Agent Behavior (Exact Sequence)
+
+```
+1. PRODUCE image prompt list
+   → Analyze the website request
+   → Generate a list of {key, prompt} for each visual section:
+     hero_image, feature_1, feature_2, feature_3, about_image, gallery_1...gallery_6
+
+2. CALL image generation endpoint
+   → POST /image-generator
+   → Body: { customer_id, images: [{key, prompt}, ...] }
+
+3. RECEIVE asset_map
+   → { asset_map: { hero_image: "https://...png", feature_1: "https://...png", ... } }
+
+4. CALL /v0-designer with asset_map
+   → POST /v0-designer
+   → Body: { prompt, customer_id, category, asset_map }
+   → The function auto-injects asset URLs into the v0 prompt
+
+5. RETURN to user
+   → preview_url (real, from v0 API)
+   → asset_map (real URLs)
+   → section summary
+```
+
+### Fallback Behavior
+
+If image generation FAILS (partial or total):
+- Still generate the site via `/v0-designer` but WITHOUT fake image URLs
+- Use CSS gradients, solid colors, and icons instead of images
+- Clearly state: **"IMAGES NOT GENERATED — site uses gradient/icon placeholders"**
+- Include the `errors` array from the image-generator response
+- NEVER insert fabricated image URLs
+
+If v0 generation FAILS:
+- Return the exact v0 prompt that was sent (for debugging)
+- Return the asset_map (images are still valid)
+- Return the raw error from v0
+- NEVER fabricate a preview_url
+
+### Example: Image Generator Request
+
+```json
+POST /image-generator
+Headers: { "x-bot-secret": "...", "Content-Type": "application/json" }
+
+{
+  "customer_id": "abc-123-def",
+  "images": [
+    { "key": "hero_image", "prompt": "A dramatic wide-angle shot of a modern barbershop interior with warm Edison bulb lighting, leather chairs, and exposed brick walls" },
+    { "key": "services_1", "prompt": "Close-up of a barber performing a precise fade haircut, professional lighting, shallow depth of field" },
+    { "key": "services_2", "prompt": "Hot towel shave in progress at a luxury barbershop, steam visible, warm tones" },
+    { "key": "about_image", "prompt": "Professional portrait of a barbershop team standing confidently in their shop, arms crossed, warm lighting" },
+    { "key": "gallery_1", "prompt": "Before and after of a clean taper fade haircut, studio lighting" },
+    { "key": "gallery_2", "prompt": "Styled pompadour haircut from the side angle, product in hair, professional photography" }
+  ]
+}
+```
+
+### Example: Image Generator Response
+
+```json
+{
+  "success": true,
+  "asset_map": {
+    "hero_image": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/hero-image.png",
+    "services_1": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/services-1.png",
+    "services_2": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/services-2.png",
+    "about_image": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/about-image.png",
+    "gallery_1": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/gallery-1.png",
+    "gallery_2": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/gallery-2.png"
+  },
+  "raw": [
+    { "key": "hero_image", "status": "success" },
+    { "key": "services_1", "status": "success" },
+    { "key": "services_2", "status": "success" },
+    { "key": "about_image", "status": "success" },
+    { "key": "gallery_1", "status": "success" },
+    { "key": "gallery_2", "status": "success" }
+  ],
+  "images_generated": 6,
+  "images_failed": 0
+}
+```
+
+### Example: v0-designer Request with asset_map
+
+```json
+POST /v0-designer
+Headers: { "x-bot-secret": "...", "Content-Type": "application/json" }
+
+{
+  "prompt": "Build a modern barbershop website for 'Elite Cuts'. Dark theme with gold accents. Sections: hero with booking CTA, services grid (3 services), about the team, gallery (6 images), contact with map. Use the provided asset images for all visual sections.",
+  "customer_id": "abc-123-def",
+  "category": "brick-and-mortar",
+  "asset_map": {
+    "hero_image": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/hero-image.png",
+    "services_1": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/services-1.png",
+    "services_2": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/services-2.png",
+    "about_image": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/about-image.png",
+    "gallery_1": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/gallery-1.png",
+    "gallery_2": "https://mziuxsfxevjnmdwnrqjs.supabase.co/storage/v1/object/public/site-assets/abc-123-def/1708900000000/gallery-2.png"
+  }
+}
+```
+
+---
+
+## Web Design Workflow (v3.3.0)
+
+### ⚠️ MANDATORY: Two-phase pipeline for ALL new website generation
+
+SpaceBot MUST follow the two-phase pipeline:
+1. **Phase A:** `POST /image-generator` → generate + store real images
+2. **Phase B:** `POST /v0-designer` with `asset_map` → generate site with real images
+
+### Content Edits (Headless CMS — no images needed)
 1. `GET /clawd-bot/previews` → find the site's `chat_id` and `site_id`
-2. `POST /clawd-bot/site-config` → update content sections (hero, services, gallery, etc.)
-3. Site auto-reflects changes on next page load — no deploy needed
+2. `POST /clawd-bot/site-config` → update content sections
+3. Site auto-reflects changes on next page load
 
 ### Structural Edits Only (rare — layout/code changes)
 1. `GET /clawd-bot/previews` → find the site's `chat_id`
@@ -119,7 +238,11 @@ See [`skill.json`](./skill.json) for the machine-readable skill definition.
 
 1. **NEVER simulate or fabricate API responses.** Every response shown to the user MUST come from an actual HTTP call. If the API is down or errors, report the real error — never invent success data, preview URLs, or status updates.
 
-2. **NEVER use stock photos or placeholder images.** Every v0.dev website generation prompt MUST include AI image generation instructions. The prompt sent to `/v0-designer` must explicitly describe hero images, feature images, gallery images, about section images, etc. using real descriptive prompts so v0 generates or sources unique visuals. Absolutely no `placeholder.svg`, no `unsplash.com` links, no generic stock URLs, no empty `src=""` attributes. If the site needs an image, the prompt must describe exactly what image to generate.
+2. **NEVER use stock photos or placeholder images.** Every website generation MUST go through the two-phase pipeline (image-generator → v0-designer). No `placeholder.svg`, no `unsplash.com` links, no generic stock URLs, no empty `src=""` attributes.
+
+3. **NEVER claim images were generated unless real image URLs exist.** Every image URL in the asset_map must be a real, accessible Supabase Storage public URL from an actual upload.
+
+4. **NEVER use `import "tailwindcss"` in v0 prompts.** Always use Tailwind CDN: `<script src="https://cdn.tailwindcss.com"></script>`.
 
 ## Install
 
