@@ -26,7 +26,7 @@ const SOURCE_LABELS: Record<string, { label: string; icon: any }> = {
   instagram: { label: 'From Client Instagram', icon: MessageSquare },
   sms: { label: 'From Client Text Messages', icon: Smartphone },
   'client-direct': { label: 'From Client Directly', icon: File },
-  higgsfield: { label: 'Higgsfield AI', icon: Sparkles },
+  'ai-generated': { label: 'AI Generated', icon: Sparkles },
   other: { label: 'Other', icon: File },
 };
 
@@ -40,8 +40,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const HIGGSFIELD_CATEGORY: CategoryInfo = {
-  id: 'higgsfield',
-  label: 'Higgsfield AI',
+  id: 'ai-generated',
+  label: 'AI Generated',
   icon: Sparkles,
   description: 'AI-generated video & media from Higgsfield API',
 };
@@ -140,7 +140,7 @@ export default function Content() {
     return acc;
   }, {} as Record<string, number>);
   // Add higgsfield count (by source)
-  categoryCounts['higgsfield'] = allContent.filter(c => c.source === 'higgsfield').length;
+  categoryCounts['ai-generated'] = allContent.filter(c => c.source === 'higgsfield' || c.source === 'ai-generated').length;
 
   const toggleCategory = (cat: string) => {
     setCollapsedCategories(prev => {
@@ -303,7 +303,7 @@ export default function Content() {
   return (
     <AppLayout>
       <CategoryGate title="Content Library" {...categoryGate} pageKey="content" totalCount={allContent.length} countLabel="assets" categoryCounts={categoryCounts} extraCategories={[HIGGSFIELD_CATEGORY]}>
-        {categoryGate.selectedCategory === 'higgsfield' ? (
+        {categoryGate.selectedCategory === 'ai-generated' ? (
           <HiggsFieldManager
             onPlay={playVideo}
             onDownload={downloadFile}
