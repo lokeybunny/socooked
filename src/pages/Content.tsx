@@ -555,7 +555,7 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
 }) {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -563,7 +563,7 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
         .select('*, customers(full_name)')
         .eq('source', 'Meeting')
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
       if (categoryId) q = q.eq('category', categoryId);
       const { data } = await q;
       setAssets(data || []);
@@ -572,51 +572,108 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
     load();
   }, [categoryId]);
 
+  // Group by date → customer
+  const grouped = useMemo(() => {
+    const byDate: Record<string, Record<string, any[]>> = {};
+    for (const a of assets) {
+      const dateKey = new Date(a.created_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      const custName = a.customers?.full_name || 'No Client';
+      if (!byDate[dateKey]) byDate[dateKey] = {};
+      if (!byDate[dateKey][custName]) byDate[dateKey][custName] = [];
+      byDate[dateKey][custName].push(a);
+    }
+    return Object.entries(byDate).map(([date, custs]) => ({
+      date,
+      customers: Object.entries(custs).map(([name, files]) => ({ name, files })),
+    }));
+  }, [assets]);
+
   if (loading || assets.length === 0) return null;
 
   return (
-    <div className="glass-card overflow-hidden">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-left"
-      >
-        {collapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-        <Video className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold text-foreground">Customer Meetings</span>
-        <span className="text-xs text-muted-foreground ml-auto">{assets.length} recording{assets.length !== 1 ? 's' : ''}</span>
-      </button>
-      {!collapsed && (
-        <div className="border-t border-border divide-y divide-border/30">
-          {assets.map(a => {
-            const Icon = a.type === 'video' ? Video : Music;
-            const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
-            return (
-              <div key={a.id} className="flex items-center gap-3 px-6 py-3 hover:bg-muted/20 transition-colors">
-                <div className="p-1.5 rounded bg-primary/10"><Icon className="h-3.5 w-3.5 text-primary" /></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground truncate">{a.title}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {a.customers?.full_name || 'No client'} · {a.type} · {new Date(a.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                {isPlayable && (
-                  <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
-                    <Play className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                {a.url && (
-                  <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
-                    <Download className="h-3.5 w-3.5" />
-                  </button>
-                )}
-                <button onClick={() => onDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            );
-          })}
+    <>
+      {/* Sticky bottom bar trigger */}
+      {!expanded && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+          <button
+            onClick={() => setExpanded(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all text-sm font-medium"
+          >
+            <Video className="h-4 w-4" />
+            Client Meetings
+            <span className="ml-1 px-1.5 py-0.5 rounded bg-primary-foreground/20 text-[10px] font-bold">{assets.length}</span>
+          </button>
         </div>
       )}
-    </div>
+
+      {/* Expanded meetings panel */}
+      {expanded && (
+        <div className="glass-card overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <div className="flex items-center gap-3">
+              <Video className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Client Meetings</span>
+              <span className="text-xs text-muted-foreground">{assets.length} recording{assets.length !== 1 ? 's' : ''}</span>
+            </div>
+            <button onClick={() => setExpanded(false)} className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-muted">
+              Collapse
+            </button>
+          </div>
+
+          <div className="divide-y divide-border">
+            {grouped.map(group => (
+              <div key={group.date}>
+                {/* Date header */}
+                <div className="px-4 py-2 bg-muted/30">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.date}</span>
+                </div>
+
+                {group.customers.map(cust => (
+                  <div key={`${group.date}-${cust.name}`}>
+                    {/* Customer sub-header */}
+                    <div className="px-6 py-1.5 flex items-center gap-2">
+                      <Users className="h-3 w-3 text-primary/70" />
+                      <span className="text-xs font-medium text-foreground">{cust.name}</span>
+                      <span className="text-[10px] text-muted-foreground">({cust.files.length})</span>
+                    </div>
+
+                    {/* Files */}
+                    <div className="divide-y divide-border/20">
+                      {cust.files.map(a => {
+                        const Icon = a.type === 'video' ? Video : Music;
+                        const ext = a.type === 'video' ? 'MP4' : a.type === 'audio' ? 'MP3' : a.type?.toUpperCase();
+                        const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
+                        return (
+                          <div key={a.id} className="flex items-center gap-3 px-8 py-2 hover:bg-muted/20 transition-colors">
+                            <div className="p-1 rounded bg-primary/10"><Icon className="h-3.5 w-3.5 text-primary" /></div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-foreground truncate">{a.title}</p>
+                            </div>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ext}</span>
+                            {isPlayable && (
+                              <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
+                                <Play className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {a.url && (
+                              <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                                <Download className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button onClick={() => onDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
