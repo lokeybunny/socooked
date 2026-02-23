@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bot-secret',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bot-secret, x-internal',
 }
 
 const V0_API_URL = 'https://api.v0.dev'
@@ -81,13 +81,11 @@ TAILWIND CSS RULE (mandatory):
       await supabase.from('bot_tasks').update({ status: 'in_progress' }).eq('id', bot_task_id)
     }
 
-    // isEdit already declared above
     console.log(`[v0-designer] ${isEdit ? `Editing chat ${existingChatId}` : 'Creating new chat'} with prompt: ${prompt.substring(0, 100)}...`)
 
-    // Step 1: Create new chat OR send follow-up message to existing chat
+    // Create new chat OR send follow-up message to existing chat
     let chatRes: Response
     if (isEdit) {
-      // Send follow-up message to existing v0 chat
       chatRes = await fetch(`${V0_API_URL}/v1/chats/${existingChatId}/messages`, {
         method: 'POST',
         headers: {
@@ -100,7 +98,6 @@ TAILWIND CSS RULE (mandatory):
         }),
       })
     } else {
-      // Create a brand new v0 chat
       chatRes = await fetch(`${V0_API_URL}/v1/chats`, {
         method: 'POST',
         headers: {
@@ -134,57 +131,15 @@ TAILWIND CSS RULE (mandatory):
     const chatData = await chatRes.json()
     console.log(`[v0-designer] ${isEdit ? 'Edit response' : 'Chat created'} (async):`, JSON.stringify(chatData).substring(0, 500))
 
-    // For edits, chatData is a message object; for new chats, it's the chat object
     const chatId = isEdit ? existingChatId : chatData.id
-    const webUrl = isEdit ? `https://v0.dev/chat/${existingChatId}` : (chatData.webUrl || `https://v0.dev/chat/${chatData.id}`)
-    const latestVersion = isEdit ? chatData.version : chatData.latestVersion
-    const versionStatus = latestVersion?.status || 'pending'
-    const demoUrl = latestVersion?.demoUrl || null
+    const editUrl = isEdit ? `https://v0.app/chat/${existingChatId}` : (chatData.webUrl || `https://v0.app/chat/${chatData.id}`)
 
-    // Step 2: If async and still pending, poll for completion (up to 90s)
-    let finalDemoUrl = demoUrl
-    let finalVersion = chatData.latestVersion
+    // ═══════════════════════════════════════════════════════
+    // INSTANT RETURN — No polling! Return edit_url immediately.
+    // The v0-poll function handles completion checking separately.
+    // ═══════════════════════════════════════════════════════
 
-    if (versionStatus === 'pending' && chatId) {
-      console.log(`[v0-designer] Polling for completion...`)
-      for (let i = 0; i < 18; i++) {
-        await new Promise(r => setTimeout(r, 5000)) // wait 5s
-
-        const pollRes = await fetch(`${V0_API_URL}/v1/chats/${chatId}`, {
-          headers: { 'Authorization': `Bearer ${v0Key}` },
-        })
-
-        if (pollRes.ok) {
-          const pollData = await pollRes.json()
-          const status = pollData.latestVersion?.status
-          console.log(`[v0-designer] Poll ${i + 1}: status=${status}`)
-
-          if (status === 'completed') {
-            finalDemoUrl = pollData.latestVersion?.demoUrl || null
-            finalVersion = pollData.latestVersion
-            break
-          } else if (status === 'failed') {
-            console.error(`[v0-designer] Generation failed`)
-            if (bot_task_id) {
-              await supabase.from('bot_tasks').update({
-                status: 'failed',
-                meta: { error: 'V0 generation failed', prompt, chat_id: chatId },
-              }).eq('id', bot_task_id)
-            }
-            return new Response(JSON.stringify({ success: false, error: 'V0 generation failed', chat_url: webUrl }), {
-              status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            })
-          }
-        } else {
-          const errBody = await pollRes.text()
-          console.warn(`[v0-designer] Poll error: ${pollRes.status} ${errBody}`)
-        }
-      }
-    }
-
-    const editUrl = webUrl
-
-    // Step 3: Resolve customer_id
+    // Resolve customer_id
     let resolvedCustomerId = customer_id
     if (!resolvedCustomerId) {
       const { data: existing } = await supabase.from('customers')
@@ -207,7 +162,7 @@ TAILWIND CSS RULE (mandatory):
       }
     }
 
-    // Step 4: Store result in conversation_threads
+    // Store in conversation_threads
     const { data: thread, error: threadError } = await supabase
       .from('conversation_threads')
       .insert({
@@ -217,9 +172,9 @@ TAILWIND CSS RULE (mandatory):
         raw_transcript: JSON.stringify({
           prompt,
           chat_id: chatId,
-          preview_url: finalDemoUrl,
+          preview_url: null,
           edit_url: editUrl,
-          version_status: finalVersion?.status || 'unknown',
+          version_status: 'generating',
           created_at: new Date().toISOString(),
         }, null, 2),
         category: category || 'digital-services',
@@ -232,30 +187,14 @@ TAILWIND CSS RULE (mandatory):
       console.error(`[v0-designer] Thread insert error:`, threadError)
     }
 
-    // Step 5: Update bot_task to completed
-    if (bot_task_id) {
-      await supabase.from('bot_tasks').update({
-        status: finalDemoUrl ? 'completed' : 'in_progress',
-        meta: {
-          prompt,
-          chat_id: chatId,
-          preview_url: finalDemoUrl,
-          edit_url: editUrl,
-          thread_id: thread?.id,
-          version_status: finalVersion?.status || 'unknown',
-        },
-      }).eq('id', bot_task_id)
-    }
-
-    // Step 6: Store/update in api_previews for the Previews page
+    // Store in api_previews — status "generating" (v0-poll will update to completed)
     if (isEdit) {
-      // Update existing preview record for this chat
       await supabase.from('api_previews')
         .update({
-          preview_url: finalDemoUrl,
+          preview_url: null,
           edit_url: editUrl,
-          status: finalDemoUrl ? 'completed' : 'pending',
-          meta: { chat_id: chatId, version_status: finalVersion?.status || 'unknown', last_edit_prompt: prompt },
+          status: 'generating',
+          meta: { chat_id: chatId, version_status: 'generating', last_edit_prompt: prompt },
           updated_at: new Date().toISOString(),
         })
         .eq('source', 'v0-designer')
@@ -266,33 +205,47 @@ TAILWIND CSS RULE (mandatory):
         source: 'v0-designer',
         title: `V0 Design: ${prompt.substring(0, 120)}`,
         prompt,
-        preview_url: finalDemoUrl,
+        preview_url: null,
         edit_url: editUrl,
-        status: finalDemoUrl ? 'completed' : 'pending',
-        meta: { chat_id: chatId, version_status: finalVersion?.status || 'unknown' },
+        status: 'generating',
+        meta: { chat_id: chatId, version_status: 'generating' },
         bot_task_id: bot_task_id || null,
         thread_id: thread?.id || null,
       })
     }
 
-    // Step 7: Log activity
+    // Update bot_task meta with chat info (still in_progress, v0-poll completes it)
+    if (bot_task_id) {
+      await supabase.from('bot_tasks').update({
+        status: 'in_progress',
+        meta: {
+          prompt,
+          chat_id: chatId,
+          edit_url: editUrl,
+          thread_id: thread?.id,
+          version_status: 'generating',
+        },
+      }).eq('id', bot_task_id)
+    }
+
+    // Log activity
     await supabase.from('activity_log').insert({
       entity_type: 'conversation_thread',
       entity_id: thread?.id || null,
       action: isEdit ? 'v0_design_edited' : 'v0_design_generated',
-      meta: { name: `V0 ${isEdit ? 'Edit' : 'Design'}: ${prompt.substring(0, 80)}`, preview_url: finalDemoUrl, chat_id: chatId },
+      meta: { name: `V0 ${isEdit ? 'Edit' : 'Design'}: ${prompt.substring(0, 80)}`, chat_id: chatId },
     })
 
     const result = {
       chat_id: chatId,
-      preview_url: finalDemoUrl,
+      preview_url: null,
       edit_url: editUrl,
       thread_id: thread?.id,
-      status: finalVersion?.status || 'pending',
+      status: 'generating',
       is_edit: isEdit,
     }
 
-    console.log(`[v0-designer] Success:`, JSON.stringify(result))
+    console.log(`[v0-designer] Instant return:`, JSON.stringify(result))
 
     return new Response(JSON.stringify({ success: true, data: result, api_version: 'v1' }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

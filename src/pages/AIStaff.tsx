@@ -284,6 +284,30 @@ export default function AIStaff() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Poll v0-poll for any generating previews every 15s
+  useEffect(() => {
+    const hasPending = previews.some(p => p.status === 'pending' || p.status === 'generating');
+    if (!hasPending) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/v0-poll`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-internal': 'true' },
+          body: JSON.stringify({}),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.data?.updated > 0) load();
+        }
+      } catch (e) {
+        console.warn('[v0-poll] client poll error:', e);
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [previews, load]);
+
   // Realtime subscription
   useEffect(() => {
     const channel = supabase
