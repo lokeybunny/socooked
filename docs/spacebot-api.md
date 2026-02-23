@@ -316,13 +316,15 @@ Every bot-authenticated request is automatically logged to `webhook_events`:
 | `/clawd-bot/generate-email` | POST | Generate client email |
 | `/clawd-bot/analyze-thread` | POST | Analyze transcript for missing info |
 
-### Web Design (v0 Designer)
+### Web Design (v0 Designer) — DIRECT CALL
+
+> ⚠️ **v3.2 WORKFLOW:** For new sites, call `/v0-designer` directly (NOT through `/clawd-bot/`). For edits, use Site Configs.
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/clawd-bot/generate-website` | POST | Generate new v0 website |
-| `/clawd-bot/edit-website` | POST | Edit existing v0 website (requires `chat_id`) |
-| `/clawd-bot/v0-designer` | POST | Generic v0 call (create or edit) |
+| `/v0-designer` | POST | **Generate new v0 website (DIRECT — preferred)** |
+| `/v0-designer` | POST | Structural edit with `chat_id` in body (rare) |
+| `/clawd-bot/generate-website` | POST | Legacy proxy (still works, but adds latency) |
 | `/clawd-bot/publish-website` | POST | Deploy to Vercel (requires manual linking) |
 
 ### Site Configs (Headless CMS)
@@ -369,4 +371,29 @@ Exception: `card-label` uses `{ "card_id": "uuid", "label_id": "uuid" }`, `uploa
 
 ---
 
-*Version: 3.1.0 — Last updated: 2026-02-23*
+## Web Design Workflow (v3.2)
+
+### New Site Generation
+```
+SpaceBot ──POST /v0-designer──▶ v0.dev API ──▶ auto-saves to CRM
+                                                  ├─ api_previews
+                                                  ├─ conversation_threads
+                                                  ├─ bot_tasks
+                                                  └─ activity_log
+```
+
+### Editing Existing Site Content
+```
+SpaceBot ──GET /clawd-bot/previews──▶ gets chat_id + site_id
+         ──POST /clawd-bot/site-config──▶ updates content section
+         ──site auto-reflects on next page load
+```
+
+### Structural Edits (rare — layout/code changes only)
+```
+SpaceBot ──POST /v0-designer { chat_id, prompt }──▶ v0.dev API edit
+```
+
+---
+
+*Version: 3.2.0 — Last updated: 2026-02-23*
