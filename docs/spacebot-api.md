@@ -284,6 +284,7 @@ Every bot-authenticated request is automatically logged to `webhook_events`:
 | `/clawd-bot/meetings` | GET | List |
 | `/clawd-bot/meeting` | POST | Create/Update (returns `room_url`) |
 | `/clawd-bot/meeting` | DELETE | Delete |
+| `/clawd-bot/cancel-meetings` | POST | Smart cancel by customer name, date, or range |
 
 ### Automations
 

@@ -1137,6 +1137,70 @@ Deno.serve(async (req) => {
       return ok({ action: 'deleted', meeting_id: id })
     }
 
+    // ─── CANCEL MEETINGS (smart: by customer name, date range, or both) ─
+    if (path === 'cancel-meetings' && req.method === 'POST') {
+      const { customer_name, customer_id, from, to, date } = body as {
+        customer_name?: string; customer_id?: string;
+        from?: string; to?: string; date?: string;
+      }
+
+      // Build query — always join customer name for response
+      let q = supabase.from('meetings').select('*, customers(full_name)').neq('status', 'cancelled')
+
+      // Filter by customer
+      if (customer_id) {
+        q = q.eq('customer_id', customer_id)
+      } else if (customer_name) {
+        // Look up customer(s) by name (case-insensitive partial match)
+        const { data: customers } = await supabase.from('customers').select('id, full_name').ilike('full_name', `%${customer_name}%`)
+        if (!customers || customers.length === 0) return fail(`No customer found matching "${customer_name}"`)
+        const ids = customers.map((c: any) => c.id)
+        q = q.in('customer_id', ids)
+      }
+
+      // Filter by date range
+      if (date) {
+        // Single day: match scheduled_at within that calendar day
+        q = q.gte('scheduled_at', `${date}T00:00:00Z`).lt('scheduled_at', `${date}T23:59:59Z`)
+      } else if (from && to) {
+        q = q.gte('scheduled_at', `${from}T00:00:00Z`).lte('scheduled_at', `${to}T23:59:59Z`)
+      } else if (from) {
+        q = q.gte('scheduled_at', `${from}T00:00:00Z`)
+      } else if (to) {
+        q = q.lte('scheduled_at', `${to}T23:59:59Z`)
+      }
+
+      const { data: meetings, error: fetchErr } = await q
+      if (fetchErr) return fail(fetchErr.message, 500)
+      if (!meetings || meetings.length === 0) return ok({ action: 'no_matches', cancelled: [], message: 'No meetings found matching criteria' })
+
+      // Cancel all matched meetings
+      const cancelledIds = meetings.map((m: any) => m.id)
+      const { error: updateErr } = await supabase.from('meetings').update({ status: 'cancelled' }).in('id', cancelledIds)
+      if (updateErr) return fail(updateErr.message, 500)
+
+      // Also cancel any linked bookings
+      const roomCodes = meetings.map((m: any) => m.room_code).filter(Boolean)
+      if (roomCodes.length > 0) {
+        await supabase.from('bookings').update({ status: 'cancelled' }).in('room_code', roomCodes)
+      }
+
+      // Log activity for each
+      for (const m of meetings) {
+        await logActivity(supabase, 'meeting', m.id, 'cancelled', m.title)
+      }
+
+      const summary = meetings.map((m: any) => ({
+        id: m.id,
+        title: m.title,
+        scheduled_at: m.scheduled_at,
+        customer: m.customers?.full_name || 'No customer',
+        room_url: `https://stu25.com/meet/${m.room_code}`,
+      }))
+
+      return ok({ action: 'cancelled', count: cancelledIds.length, cancelled: summary })
+    }
+
     // ─── BOOKINGS (bot can book/cancel/reschedule on behalf of users) ─
     if (path === 'bookings' && req.method === 'GET') {
       const status = params.get('status')
