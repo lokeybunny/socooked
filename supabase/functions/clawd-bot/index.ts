@@ -1805,6 +1805,86 @@ Deno.serve(async (req) => {
       return ok({ action: 'revoked', customer_id })
     }
 
+    // ─── SEND PORTAL LINK (Custom-U) ─────────────────────────
+    if (path === 'send-portal-link' && req.method === 'POST') {
+      const { customer_id } = body
+      if (!customer_id) return fail('customer_id is required')
+
+      // Fetch customer
+      const { data: cust, error: custErr } = await supabase
+        .from('customers')
+        .select('id, full_name, email, upload_token')
+        .eq('id', customer_id)
+        .maybeSingle()
+      if (custErr) return fail(custErr.message, 500)
+      if (!cust) return fail('Customer not found', 404)
+
+      const recipientEmail = cust.email
+      if (!recipientEmail) return fail('Customer has no email address on file. Add an email first.', 400)
+
+      // Generate token if customer doesn't have one yet
+      let token = cust.upload_token
+      if (!token) {
+        token = crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+        const { error: tokErr } = await supabase.from('customers').update({ upload_token: token }).eq('id', customer_id)
+        if (tokErr) return fail(tokErr.message, 500)
+      }
+
+      const portalUrl = `https://stu25.com/u/${token}`
+      const customerFirst = cust.full_name.split(' ')[0]
+
+      // Build a clean HTML email
+      const emailBody = `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+  <h2 style="color:#111;margin-bottom:8px;">Your Upload Portal Is Ready</h2>
+  <p style="color:#333;font-size:15px;line-height:1.6;">
+    Hi ${customerFirst},
+  </p>
+  <p style="color:#333;font-size:15px;line-height:1.6;">
+    We've created a personal upload portal just for you. You can use this link anytime to send us photos, videos, documents, or any other media files you'd like us to work with.
+  </p>
+  <p style="text-align:center;margin:28px 0;">
+    <a href="${portalUrl}" style="background-color:#111;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block;">
+      Open Your Upload Portal
+    </a>
+  </p>
+  <p style="color:#333;font-size:15px;line-height:1.6;">
+    <strong>Please bookmark or save this link</strong> — it will be your main portal for sharing media with us throughout our business journey together.
+  </p>
+  <p style="color:#888;font-size:13px;margin-top:24px;">
+    Direct link: <a href="${portalUrl}" style="color:#2563eb;">${portalUrl}</a>
+  </p>
+</div>`
+
+      // Send via gmail-api proxy
+      const baseUrl = Deno.env.get('SUPABASE_URL')
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      const gmailRes = await fetch(`${baseUrl}/functions/v1/gmail-api?action=send`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: recipientEmail,
+          subject: `Your Personal Upload Portal — ${cust.full_name}`,
+          body: emailBody,
+        }),
+      })
+
+      const gmailData = await gmailRes.json()
+      if (!gmailRes.ok) return fail(gmailData.error || 'Failed to send portal email', gmailRes.status)
+
+      await logActivity(supabase, 'custom-u', customer_id as string, 'portal_link_sent', cust.full_name)
+      if (isBot) await auditLog(supabase, 'send-portal-link', { customer_id, email: recipientEmail })
+
+      return ok({
+        action: 'portal_link_sent',
+        customer_id,
+        customer_name: cust.full_name,
+        email: recipientEmail,
+        portal_url: portalUrl,
+        token_generated: !cust.upload_token,
+      })
+    }
+
     // ─── LABEL (update/delete) ───────────────────────────────
     if (path === 'label' && req.method === 'DELETE') {
       const { id } = body
