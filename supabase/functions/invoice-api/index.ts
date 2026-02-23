@@ -52,52 +52,207 @@ interface InvoicePayload {
   auto_send?: boolean
 }
 
-function buildInvoiceEmailHtml(inv: any, customerName: string): string {
-  const lineItems: LineItem[] = Array.isArray(inv.line_items) ? inv.line_items : []
-  const subtotalVal = Number(inv.subtotal || inv.amount)
-  const taxRate = Number(inv.tax_rate || 0)
-  const taxAmt = subtotalVal * taxRate / 100
-  const totalVal = Number(inv.amount)
+function formatCurrency(amount: number, currency = 'USD'): string {
+  const normalizedAmount = Number(amount || 0)
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(normalizedAmount)
+  } catch {
+    return `$${normalizedAmount.toFixed(2)} ${currency}`
+  }
+}
+
+function sanitizeFilename(value: string): string {
+  const clean = value
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+  return clean || 'invoice'
+}
+
+function wrapText(text: string, maxCharsPerLine: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean)
+  if (!words.length) return ['']
+
+  const lines: string[] = []
+  let current = ''
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word
+    if (candidate.length <= maxCharsPerLine) {
+      current = candidate
+    } else {
+      if (current) lines.push(current)
+      current = word
+    }
+  }
+
+  if (current) lines.push(current)
+  return lines
+}
+
+function encodeBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000
+  let binary = ''
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize)
+    binary += String.fromCharCode(...chunk)
+  }
+
+  return btoa(binary)
+}
+
+function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string {
   const invNum = inv.invoice_number || 'Invoice'
   const dueDateStr = inv.due_date
     ? new Date(inv.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : null
 
   return `
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
-      <h2 style="color:#1a1a1a;margin-bottom:4px;">${invNum}</h2>
-      <p style="color:#666;margin-top:0;">Dear ${customerName},</p>
-      <p>Please find your invoice details below:</p>
-      <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-        <thead>
-          <tr style="background:#f5f5f5;">
-            <th style="text-align:left;padding:8px;border-bottom:1px solid #ddd;">Item</th>
-            <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Qty</th>
-            <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Price</th>
-            <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${lineItems.map(li => `
-            <tr>
-              <td style="padding:8px;border-bottom:1px solid #eee;">${li.description}</td>
-              <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${li.quantity}</td>
-              <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${Number(li.unit_price).toFixed(2)}</td>
-              <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${(li.quantity * li.unit_price).toFixed(2)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      <div style="text-align:right;margin-top:8px;">
-        <p style="margin:2px 0;color:#666;">Subtotal: <strong>$${subtotalVal.toFixed(2)}</strong></p>
-        ${taxRate > 0 ? `<p style="margin:2px 0;color:#666;">Tax (${taxRate}%): <strong>$${taxAmt.toFixed(2)}</strong></p>` : ''}
-        <p style="margin:8px 0 0;font-size:18px;font-weight:bold;color:#1a1a1a;">Total: $${totalVal.toFixed(2)} ${inv.currency}</p>
+    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#1f2937;">
+      <div style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+        <div style="background:#111827;padding:18px 22px;color:#ffffff;">
+          <h2 style="margin:0;font-size:20px;letter-spacing:0.3px;">Invoice ${invNum}</h2>
+          <p style="margin:6px 0 0;opacity:0.9;">STU25 Billing</p>
+        </div>
+        <div style="padding:20px 22px;">
+          <p style="margin:0 0 10px;font-size:15px;">Hi ${customerName},</p>
+          <p style="margin:0 0 14px;line-height:1.6;color:#4b5563;">
+            Your invoice is attached as a professionally formatted PDF.
+          </p>
+          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
+            <p style="margin:0;font-size:14px;color:#374151;"><strong>Total:</strong> ${formatCurrency(Number(inv.amount || 0), inv.currency || 'USD')}</p>
+            ${dueDateStr ? `<p style="margin:6px 0 0;font-size:14px;color:#374151;"><strong>Due:</strong> ${dueDateStr}</p>` : ''}
+          </div>
+          <p style="margin:14px 0 0;line-height:1.6;color:#6b7280;font-size:13px;">
+            Please review the attached PDF for itemized details and payment terms.
+          </p>
+        </div>
       </div>
-      ${dueDateStr ? `<p style="margin-top:16px;color:#666;">Due Date: <strong>${dueDateStr}</strong></p>` : ''}
-      ${inv.notes ? `<div style="margin-top:16px;padding:12px;background:#f9f9f9;border-radius:6px;"><p style="margin:0;color:#666;font-size:13px;">${inv.notes}</p></div>` : ''}
-      <p style="margin-top:24px;color:#666;">Thank you for your business!</p>
     </div>
   `
+}
+
+async function buildInvoicePdfBase64(inv: any, customerName: string): Promise<string> {
+  const { PDFDocument, StandardFonts, rgb } = await import('npm:pdf-lib@1.17.1')
+
+  const lineItems: LineItem[] = Array.isArray(inv.line_items) ? inv.line_items : []
+  const subtotalVal = Number(inv.subtotal || inv.amount || 0)
+  const taxRate = Number(inv.tax_rate || 0)
+  const taxAmt = subtotalVal * taxRate / 100
+  const totalVal = Number(inv.amount || 0)
+  const currency = inv.currency || 'USD'
+  const invNum = inv.invoice_number || 'Invoice'
+  const dueDateStr = inv.due_date
+    ? new Date(inv.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : 'Due on receipt'
+  const notes = String(inv.notes || '').trim()
+
+  const pdfDoc = await PDFDocument.create()
+  const regular = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+
+  const pageSize: [number, number] = [612, 792]
+  const left = 48
+  const right = 564
+  const width = right - left
+
+  let page = pdfDoc.addPage(pageSize)
+
+  const drawTableHeader = (targetPage: any, y: number): number => {
+    targetPage.drawRectangle({ x: left, y: y - 16, width, height: 20, color: rgb(0.95, 0.97, 1) })
+    targetPage.drawText('Item', { x: left + 8, y: y - 11, size: 9, font: bold, color: rgb(0.15, 0.23, 0.40) })
+    targetPage.drawText('Qty', { x: left + 330, y: y - 11, size: 9, font: bold, color: rgb(0.15, 0.23, 0.40) })
+    targetPage.drawText('Unit', { x: left + 390, y: y - 11, size: 9, font: bold, color: rgb(0.15, 0.23, 0.40) })
+    targetPage.drawText('Total', { x: left + 470, y: y - 11, size: 9, font: bold, color: rgb(0.15, 0.23, 0.40) })
+    return y - 24
+  }
+
+  const drawHeader = (targetPage: any): number => {
+    targetPage.drawRectangle({ x: left, y: 700, width, height: 72, color: rgb(0.07, 0.12, 0.23) })
+    targetPage.drawText('STU25', { x: left + 18, y: 744, size: 18, font: bold, color: rgb(1, 1, 1) })
+    targetPage.drawText('Professional Services Invoice', { x: left + 18, y: 724, size: 11, font: regular, color: rgb(0.84, 0.89, 1) })
+
+    targetPage.drawText(String(invNum), { x: left + 360, y: 744, size: 14, font: bold, color: rgb(1, 1, 1) })
+    targetPage.drawText(`Issued: ${new Date(inv.created_at || Date.now()).toLocaleDateString('en-US')}`, { x: left + 360, y: 728, size: 9, font: regular, color: rgb(0.84, 0.89, 1) })
+    targetPage.drawText(`Due: ${dueDateStr}`, { x: left + 360, y: 714, size: 9, font: regular, color: rgb(0.84, 0.89, 1) })
+
+    targetPage.drawText('Bill To', { x: left, y: 676, size: 10, font: bold, color: rgb(0.11, 0.17, 0.30) })
+    targetPage.drawText(String(customerName || 'Customer'), { x: left, y: 660, size: 12, font: regular, color: rgb(0.16, 0.20, 0.28) })
+    targetPage.drawText((inv.customers?.email || '').toString(), { x: left, y: 646, size: 9, font: regular, color: rgb(0.43, 0.47, 0.55) })
+
+    return 622
+  }
+
+  let y = drawHeader(page)
+  y = drawTableHeader(page, y)
+
+  for (const li of lineItems) {
+    if (y < 130) {
+      page = pdfDoc.addPage(pageSize)
+      page.drawText(`${invNum} (continued)`, { x: left, y: 748, size: 11, font: bold, color: rgb(0.11, 0.17, 0.30) })
+      y = drawTableHeader(page, 722)
+    }
+
+    const qty = Number(li.quantity || 0)
+    const unit = Number(li.unit_price || 0)
+    const total = qty * unit
+    const descriptionRaw = String(li.description || 'Item').replace(/\s+/g, ' ').trim()
+    const description = descriptionRaw.length > 58 ? `${descriptionRaw.slice(0, 55)}...` : descriptionRaw
+
+    page.drawText(description, { x: left + 8, y, size: 9.5, font: regular, color: rgb(0.18, 0.22, 0.29) })
+    page.drawText(String(qty), { x: left + 330, y, size: 9.5, font: regular, color: rgb(0.18, 0.22, 0.29) })
+    page.drawText(formatCurrency(unit, currency), { x: left + 390, y, size: 9.5, font: regular, color: rgb(0.18, 0.22, 0.29) })
+    page.drawText(formatCurrency(total, currency), { x: left + 470, y, size: 9.5, font: regular, color: rgb(0.18, 0.22, 0.29) })
+
+    page.drawLine({
+      start: { x: left, y: y - 5 },
+      end: { x: right, y: y - 5 },
+      thickness: 0.4,
+      color: rgb(0.90, 0.92, 0.95),
+    })
+
+    y -= 20
+  }
+
+  let totalsY = Math.max(y - 6, 158)
+  if (totalsY < 158) totalsY = 158
+
+  page.drawRectangle({
+    x: left + 320,
+    y: totalsY - 66,
+    width: 196,
+    height: 72,
+    color: rgb(0.98, 0.99, 1),
+    borderColor: rgb(0.88, 0.91, 0.96),
+    borderWidth: 1,
+  })
+
+  page.drawText(`Subtotal: ${formatCurrency(subtotalVal, currency)}`, { x: left + 332, y: totalsY - 14, size: 9.5, font: regular, color: rgb(0.20, 0.24, 0.31) })
+  page.drawText(`Tax (${taxRate}%): ${formatCurrency(taxAmt, currency)}`, { x: left + 332, y: totalsY - 30, size: 9.5, font: regular, color: rgb(0.20, 0.24, 0.31) })
+  page.drawText(`Total: ${formatCurrency(totalVal, currency)}`, { x: left + 332, y: totalsY - 50, size: 11.5, font: bold, color: rgb(0.08, 0.14, 0.27) })
+
+  if (notes) {
+    let noteY = totalsY - 96
+    let notePage = page
+
+    if (noteY < 86) {
+      notePage = pdfDoc.addPage(pageSize)
+      noteY = 744
+    }
+
+    notePage.drawText('Notes', { x: left, y: noteY, size: 10, font: bold, color: rgb(0.12, 0.17, 0.28) })
+    const noteLines = wrapText(notes, 95).slice(0, 8)
+
+    let lineY = noteY - 14
+    for (const line of noteLines) {
+      notePage.drawText(line, { x: left, y: lineY, size: 9, font: regular, color: rgb(0.35, 0.39, 0.47) })
+      lineY -= 12
+    }
+  }
+
+  const pdfBytes = await pdfDoc.save()
+  return encodeBase64(pdfBytes)
 }
 
 Deno.serve(async (req) => {
@@ -219,14 +374,18 @@ Deno.serve(async (req) => {
 
       if (error) return fail(error.message, 500)
 
-      // If auto_send, actually send the styled HTML invoice email via gmail-api
+      // If auto_send, generate invoice PDF and send as attachment via gmail-api
       if (body.auto_send && invoice) {
         const customerEmail = (invoice as any).customers?.email
         const customerName = (invoice as any).customers?.full_name || 'Customer'
+
         if (customerEmail) {
           try {
-            const emailBody = buildInvoiceEmailHtml(invoice, customerName)
             const invNum = (invoice as any).invoice_number || 'Invoice'
+            const pdfBase64 = await buildInvoicePdfBase64(invoice, customerName)
+            const emailBody = buildInvoiceAttachmentEmailHtml(invoice, customerName)
+            const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
+
             const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
             const gmailRes = await fetch(gmailUrl, {
               method: 'POST',
@@ -239,13 +398,21 @@ Deno.serve(async (req) => {
                 to: customerEmail,
                 subject: `Invoice ${invNum} from STU25`,
                 body: emailBody,
+                attachments: [
+                  {
+                    filename: attachmentFilename,
+                    mimeType: 'application/pdf',
+                    data: pdfBase64,
+                  },
+                ],
               }),
             })
+
             const gmailData = await gmailRes.json()
             if (!gmailRes.ok) {
               console.error('[invoice-api] auto_send email failed:', gmailData)
             } else {
-              console.log(`[invoice-api] Auto-sent invoice ${invNum} to ${customerEmail}`)
+              console.log(`[invoice-api] Auto-sent invoice PDF ${invNum} to ${customerEmail}`)
             }
           } catch (emailErr) {
             console.error('[invoice-api] auto_send email error:', emailErr)
@@ -292,7 +459,7 @@ Deno.serve(async (req) => {
       return ok({ invoice: data })
     }
 
-    // POST /invoice-api?action=send-invoice — build styled HTML & email via gmail-api
+    // POST /invoice-api?action=send-invoice — generate professional PDF and email attachment via gmail-api
     if (req.method === 'POST' && url.searchParams.get('action') === 'send-invoice') {
       const { invoice_id } = await req.json()
       if (!invoice_id) return fail('invoice_id required')
@@ -313,7 +480,9 @@ Deno.serve(async (req) => {
       const invNum = inv.invoice_number || 'Invoice'
       const totalVal = Number(inv.amount)
 
-      const emailBody = buildInvoiceEmailHtml(inv, customerName)
+      const pdfBase64 = await buildInvoicePdfBase64(inv, customerName)
+      const emailBody = buildInvoiceAttachmentEmailHtml(inv, customerName)
+      const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
 
       // Send via gmail-api
       const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
@@ -328,6 +497,13 @@ Deno.serve(async (req) => {
           to: customerEmail,
           subject: `Invoice ${invNum} from STU25`,
           body: emailBody,
+          attachments: [
+            {
+              filename: attachmentFilename,
+              mimeType: 'application/pdf',
+              data: pdfBase64,
+            },
+          ],
         }),
       })
       const gmailData = await gmailRes.json()
@@ -340,7 +516,7 @@ Deno.serve(async (req) => {
       }).eq('id', invoice_id)
 
       return ok({
-        message: `Invoice ${invNum} emailed to ${customerEmail}`,
+        message: `Invoice ${invNum} emailed to ${customerEmail} with PDF attachment`,
         gmail_id: gmailData.id,
         invoice_number: invNum,
         customer_email: customerEmail,
