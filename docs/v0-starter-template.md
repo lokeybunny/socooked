@@ -165,13 +165,16 @@ Examples:
 
 ---
 
-## Workflow
+## Workflow (v3.2)
 
-1. **Generate site** → `POST /clawd-bot/generate-website` with v0 prompt including the config hook
+1. **Generate site (DIRECT)** → `POST /v0-designer` with v0 prompt including the config hook — auto-saves to CRM
 2. **Seed config** → Multiple `POST /clawd-bot/site-config` calls to populate initial content
-3. **Client requests change** → SpaceBot updates the relevant section via `POST /clawd-bot/site-config`
+3. **Client requests content change** → SpaceBot updates the relevant section via `POST /clawd-bot/site-config`
 4. **Site auto-reflects** → Next page load pulls fresh config — no deploy needed
+5. **Structural change needed (rare)** → `POST /v0-designer` with `chat_id` from `GET /clawd-bot/previews`
+
+> ⚠️ Do NOT use `/clawd-bot/generate-website` for new generations — call `/v0-designer` directly for speed.
 
 ---
 
-*Version: 1.0.0 — Last updated: 2026-02-23*
+*Version: 1.1.0 — Last updated: 2026-02-23*

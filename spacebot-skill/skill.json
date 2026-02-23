@@ -1,6 +1,6 @@
 {
   "skill_name": "clawd-command-crm",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Full CRM command console for CLAWD Command — 110+ endpoints covering customers, leads, deals, projects, tasks, boards, cards, invoices, communications, documents, templates, content assets, signatures, meetings, automations, web design (v0), headless site configs, and more.",
   "auth": {
     "type": "hmac_signature",
@@ -111,8 +111,9 @@
 
     { "name": "crm_email_generate", "method": "POST", "path": "/clawd-bot/generate-email", "description": "Generate a portal invitation email for a customer" },
 
-    { "name": "crm_website_generate", "method": "POST", "path": "/clawd-bot/generate-website", "description": "Generate a new v0 website for a customer" },
-    { "name": "crm_website_edit", "method": "POST", "path": "/clawd-bot/edit-website", "description": "Edit an existing v0 website (requires chat_id)" },
+    { "name": "crm_website_generate_direct", "method": "POST", "path": "/v0-designer", "description": "Generate a new v0 website DIRECTLY (preferred — auto-saves to CRM)" },
+    { "name": "crm_website_generate_legacy", "method": "POST", "path": "/clawd-bot/generate-website", "description": "Legacy proxy — still works but adds latency" },
+    { "name": "crm_website_structural_edit", "method": "POST", "path": "/v0-designer", "description": "Structural v0 edit (requires chat_id in body — rare, prefer site-config for content)" },
     { "name": "crm_website_publish", "method": "POST", "path": "/clawd-bot/publish-website", "description": "Deploy v0 site to Vercel (requires manual Vercel linking)" },
 
     { "name": "crm_site_configs_read", "method": "GET", "path": "/clawd-bot/site-configs", "description": "Read site content sections (PUBLIC — no auth required). Params: ?site_id=slug&published=true" },

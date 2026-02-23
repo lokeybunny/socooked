@@ -328,17 +328,20 @@ All responses follow:
 | Generate contract | POST | `/clawd-bot/generate-contract` | `{ "client_name": "...", "terms": {...} }` |
 | Analyze thread | POST | `/clawd-bot/analyze-thread` | `{ "transcript": "..." }` |
 
-### Web Design (v0 Designer)
+### Web Design (v0 Designer) — DIRECT CALL
+
+> ⚠️ **NEW WORKFLOW (v3.2):** For **new site generation**, SpaceBot calls the `/v0-designer` endpoint **directly** — do NOT proxy through `/clawd-bot/generate-website`. The v0-designer function handles all CRM record-keeping (bot_tasks, api_previews, threads, activity_log) automatically.
+> For **editing existing sites**, use the Headless CMS pattern via Site Configs (below). The v0 API does not support reliable edits.
 
 | Action | Method | URL | Body |
 |--------|--------|-----|------|
-| Generate website | POST | `/clawd-bot/generate-website` | `{ "prompt": "...", "customer_id": "uuid", "category": "..." }` |
-| Edit website | POST | `/clawd-bot/edit-website` | `{ "chat_id": "v0_chat_id", "prompt": "edit instructions...", "customer_id": "uuid" }` |
-| Generic v0 call | POST | `/clawd-bot/v0-designer` | `{ "prompt": "...", "customer_id": "uuid", "chat_id": "optional" }` |
+| **Generate website (DIRECT)** | POST | `/v0-designer` | `{ "prompt": "...", "customer_id": "uuid", "category": "..." }` |
+| Generate website (legacy proxy) | POST | `/clawd-bot/generate-website` | `{ "prompt": "...", "customer_id": "uuid" }` |
 | Publish website | POST | `/clawd-bot/publish-website` | `{ "chat_id": "v0_chat_id" }` |
 
-> `generate-website` creates a new v0 site. `edit-website` sends follow-up edits to an existing chat. `publish-website` deploys to Vercel (requires manual Vercel linking first).
-> **Preferred approach**: Use Site Configs (below) for content changes instead of v0 API edits.
+> **Generation flow:** SpaceBot → `POST /v0-designer` → v0.dev API → auto-saves to CRM (previews, threads, bot_tasks)
+> **Edit flow:** SpaceBot → `GET /clawd-bot/previews` (get `chat_id`) → `POST /clawd-bot/site-config` (update content sections)
+> **Structural edits only:** If layout/code changes are truly needed, use `POST /v0-designer` with `chat_id` in body. But prefer Site Configs for all content/media changes.
 
 ### Site Configs (Headless CMS for Client Websites)
 
@@ -427,4 +430,25 @@ Exception: `card-label` and `upload-token` use `{ "card_id": "uuid", "label_id":
 
 ---
 
-*Version: 3.1.0 — Last updated: 2026-02-23*
+## Web Design Workflow Decision Tree (v3.2)
+
+```
+User requests a website?
+  ├─ NEW site → POST /v0-designer { prompt, customer_id, category }
+  │              (v0-designer auto-creates: bot_task, api_preview, thread, activity_log)
+  │
+  ├─ EDIT existing site?
+  │    ├─ Content/media change (text, images, pricing)?
+  │    │    → GET /clawd-bot/previews (find chat_id / site_id)
+  │    │    → POST /clawd-bot/site-config { site_id, section, content }
+  │    │
+  │    └─ Structural/layout change (new page, component swap)?
+  │         → GET /clawd-bot/previews (find chat_id)
+  │         → POST /v0-designer { chat_id, prompt }
+  │
+  └─ NEVER use /clawd-bot/generate-website or /clawd-bot/edit-website for new workflows
+```
+
+---
+
+*Version: 3.2.0 — Last updated: 2026-02-23*

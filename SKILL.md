@@ -4,7 +4,7 @@ CRM integration for CLAWD Command via SpaceBot.
 
 ## Version
 
-3.1.0
+3.2.0
 
 ## Description
 
@@ -44,24 +44,30 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 | `create_invoice` | POST | `/invoice-api` | Create invoice |
 | `create_meeting` | POST | `/clawd-bot/meeting` | Create a meeting room (returns `room_code` + `room_url`) |
 | `create_card` | POST | `/clawd-bot/card` | Create a board card |
-| `generate_website` | POST | `/clawd-bot/generate-website` | Generate a new v0 website |
-| `edit_website` | POST | `/clawd-bot/edit-website` | Edit existing v0 website (requires `chat_id`) |
+| `generate_website` | POST | `/v0-designer` | **Generate a new v0 website (DIRECT — preferred)** |
+| `generate_website_legacy` | POST | `/clawd-bot/generate-website` | Legacy proxy (still works) |
+| `edit_site_content` | POST | `/clawd-bot/site-config` | **Edit site content via Headless CMS (preferred for edits)** |
+| `structural_edit` | POST | `/v0-designer` | Structural v0 edit (requires `chat_id` in body) |
 | `publish_website` | POST | `/clawd-bot/publish-website` | Deploy v0 site to Vercel (requires Vercel linking) |
 | `get_site_configs` | GET | `/clawd-bot/site-configs?site_id=slug` | Read site content (PUBLIC — no auth needed) |
 | `upsert_site_config` | POST | `/clawd-bot/site-config` | Create/update a site content section |
 | `delete_site_config` | DELETE | `/clawd-bot/site-config` | Delete a site content section |
 | `list_previews` | GET | `/clawd-bot/previews` | List API-generated work |
 
-## Web Design Workflow
+## Web Design Workflow (v3.2)
 
-### Option A: v0 API (initial generation only)
-1. `POST /clawd-bot/generate-website` → creates a new v0 site
-2. `POST /clawd-bot/edit-website` → sends edits to existing chat (requires `chat_id`)
+### New Site Generation (DIRECT — skip CRM proxy)
+1. `POST /v0-designer` → calls v0.dev API directly, auto-saves to CRM (previews, threads, bot_tasks, activity_log)
+2. No need to call `/clawd-bot/generate-website` — the v0-designer handles all record-keeping
 
-### Option B: Site Configs (preferred for ongoing edits)
-1. Generate site once with v0 (include config-fetching hook in prompt)
-2. Use `POST /clawd-bot/site-config` to update content sections
+### Editing Existing Sites (Headless CMS — preferred)
+1. `GET /clawd-bot/previews` → find the site's `chat_id` and `site_id`
+2. `POST /clawd-bot/site-config` → update content sections (hero, services, gallery, etc.)
 3. Site auto-reflects changes on next page load — no deploy needed
+
+### Structural Edits Only (rare — layout/code changes)
+1. `GET /clawd-bot/previews` → find the site's `chat_id`
+2. `POST /v0-designer` with `{ "chat_id": "...", "prompt": "structural edit instructions" }`
 
 ### Site Config Sections
 `hero`, `about`, `services`, `gallery`, `contact`, `footer`, `meta`
