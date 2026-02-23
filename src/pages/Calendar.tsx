@@ -9,10 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Trash2, Clock,
   Video, Handshake, CheckSquare, Receipt, GripVertical, List, Edit2,
+  DollarSign, User, FileText,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths,
   addWeeks, subWeeks, isSameDay, isSameMonth, startOfDay, endOfDay, parseISO, setHours, setMinutes } from 'date-fns';
@@ -35,6 +37,8 @@ interface CalendarEvent {
   customer_id?: string | null;
   category?: string | null;
   created_by?: string | null;
+  // Extra invoice fields for detail view
+  _invoiceData?: any;
 }
 
 const EVENT_COLORS = [
@@ -64,6 +68,8 @@ export default function CalendarPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);
   const [customers, setCustomers] = useState<{ id: string; full_name: string }[]>([]);
+  const [dragEvent, setDragEvent] = useState<CalendarEvent | null>(null);
+  const [invoiceDetail, setInvoiceDetail] = useState<any | null>(null);
 
   // Form state
   const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
@@ -128,15 +134,18 @@ export default function CalendarPage() {
       }
     }
 
-    // 5. Invoice due dates
-    const { data: invoices } = await supabase.from('invoices').select('id, invoice_number, due_date, customer_id, amount');
+    // 5. Invoice due dates (exclude voided)
+    const { data: invoices } = await supabase.from('invoices').select('*, customers(full_name, email)').not('status', 'eq', 'voided').order('created_at');
     if (invoices) {
       for (const inv of invoices) {
         if (!inv.due_date) continue;
+        const isPaid = inv.status === 'paid';
         allEvents.push({
           id: `invoice-${inv.id}`, title: `💰 Invoice ${inv.invoice_number || ''} - $${inv.amount}`,
           start_time: `${inv.due_date}T09:00:00`, end_time: null, all_day: true,
-          color: 'hsl(var(--destructive))', source: 'invoice', source_id: inv.id, customer_id: inv.customer_id,
+          color: isPaid ? 'hsl(var(--success))' : 'hsl(var(--destructive))',
+          source: 'invoice', source_id: inv.id, customer_id: inv.customer_id,
+          _invoiceData: inv,
         });
       }
     }
@@ -181,7 +190,12 @@ export default function CalendarPage() {
 
   const openEdit = (ev: CalendarEvent) => {
     if (ev.source !== 'manual' && ev.source !== 'google-calendar') {
-      toast.info('This event is auto-synced from CRM data and cannot be edited here.');
+      // For CRM-synced events, show detail view instead of edit
+      if (ev.source === 'invoice' && ev._invoiceData) {
+        setInvoiceDetail(ev._invoiceData);
+      } else {
+        setDetailEvent(ev);
+      }
       return;
     }
     const start = parseISO(ev.start_time);
@@ -227,18 +241,62 @@ export default function CalendarPage() {
   };
 
   const handleDelete = async (id: string) => {
-    // Allow deleting manual, google-calendar, and booking events
-    if (!id.startsWith('meeting-') && !id.startsWith('deal-') && !id.startsWith('task-') && !id.startsWith('invoice-')) {
-      const { error } = await supabase.from('calendar_events').delete().eq('id', id);
-      if (error) { toast.error(error.message); return; }
-      toast.success('Event deleted');
-      loadEvents();
+    let error: any = null;
+
+    if (id.startsWith('meeting-')) {
+      const realId = id.replace('meeting-', '');
+      ({ error } = await supabase.from('meetings').delete().eq('id', realId));
+    } else if (id.startsWith('deal-')) {
+      const realId = id.replace('deal-', '');
+      ({ error } = await supabase.from('deals').delete().eq('id', realId));
+    } else if (id.startsWith('task-')) {
+      const realId = id.replace('task-', '');
+      ({ error } = await supabase.from('tasks').delete().eq('id', realId));
+    } else if (id.startsWith('invoice-')) {
+      // Void the invoice instead of hard-deleting
+      const realId = id.replace('invoice-', '');
+      ({ error } = await supabase.from('invoices').update({ status: 'voided' }).eq('id', realId));
     } else {
-      toast.info('CRM-synced events can only be deleted from their source page.');
+      ({ error } = await supabase.from('calendar_events').delete().eq('id', id));
     }
+
+    if (error) { toast.error(error.message); return; }
+    toast.success('Removed from calendar');
+    loadEvents();
   };
 
-  // Get events for a specific day
+  // Drag-and-drop: move an event to a new date
+  const handleDrop = async (ev: CalendarEvent, newDate: Date) => {
+    const newDateStr = format(newDate, 'yyyy-MM-dd');
+    const oldStart = parseISO(ev.start_time);
+    const timeStr = format(oldStart, 'HH:mm:ss');
+
+    let error: any = null;
+
+    if (ev.source === 'manual' || ev.source === 'google-calendar' || ev.source === 'booking') {
+      const newStartTime = `${newDateStr}T${timeStr}`;
+      let newEndTime: string | null = null;
+      if (ev.end_time) {
+        const oldEnd = parseISO(ev.end_time);
+        const diff = oldEnd.getTime() - oldStart.getTime();
+        newEndTime = new Date(parseISO(newStartTime).getTime() + diff).toISOString();
+      }
+      ({ error } = await supabase.from('calendar_events').update({ start_time: newStartTime, end_time: newEndTime }).eq('id', ev.id));
+    } else if (ev.id.startsWith('meeting-')) {
+      ({ error } = await supabase.from('meetings').update({ scheduled_at: `${newDateStr}T${timeStr}` }).eq('id', ev.source_id!));
+    } else if (ev.id.startsWith('deal-')) {
+      ({ error } = await supabase.from('deals').update({ expected_close_date: newDateStr }).eq('id', ev.source_id!));
+    } else if (ev.id.startsWith('task-')) {
+      ({ error } = await supabase.from('tasks').update({ due_date: newDateStr }).eq('id', ev.source_id!));
+    } else if (ev.id.startsWith('invoice-')) {
+      ({ error } = await supabase.from('invoices').update({ due_date: newDateStr }).eq('id', ev.source_id!));
+    }
+
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Moved to ${format(newDate, 'MMM d')}`);
+    loadEvents();
+  };
+
   const getEventsForDay = useCallback((date: Date) => {
     return events.filter(ev => {
       const start = parseISO(ev.start_time);
@@ -288,22 +346,35 @@ export default function CalendarPage() {
   const EventPill = ({ ev, compact = false }: { ev: CalendarEvent; compact?: boolean }) => {
     const SourceIcon = SOURCE_ICONS[ev.source];
     return (
-      <button
+      <div
+        draggable
+        onDragStart={(e) => {
+          e.stopPropagation();
+          setDragEvent(ev);
+          e.dataTransfer.effectAllowed = 'move';
+        }}
         onClick={(e) => { e.stopPropagation(); openEdit(ev); }}
-        onDoubleClick={(e) => { e.stopPropagation(); setDetailEvent(ev); }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          if (ev.source === 'invoice' && ev._invoiceData) {
+            setInvoiceDetail(ev._invoiceData);
+          } else {
+            setDetailEvent(ev);
+          }
+        }}
         className={cn(
-          "text-left w-full rounded px-1.5 py-0.5 text-[11px] font-medium truncate transition-opacity hover:opacity-80 group",
+          "text-left w-full rounded px-1.5 py-0.5 text-[11px] font-medium truncate transition-opacity hover:opacity-80 cursor-grab active:cursor-grabbing group",
           compact ? "leading-tight" : "leading-normal"
         )}
         style={{ backgroundColor: ev.color, color: '#fff' }}
-        title="Click to edit · Double-click for details"
+        title="Drag to move · Click to edit · Double-click for details"
       >
         <span className="flex items-center gap-1">
           {SourceIcon && <SourceIcon className="h-3 w-3 shrink-0" />}
           {!ev.all_day && <span className="opacity-75">{format(parseISO(ev.start_time), 'h:mma').toLowerCase()}</span>}
           <span className="truncate">{ev.title}</span>
         </span>
-      </button>
+      </div>
     );
   };
 
@@ -321,6 +392,13 @@ export default function CalendarPage() {
           <div
             key={i}
             onClick={() => openCreate(day)}
+            onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-primary/10'); }}
+            onDragLeave={(e) => { e.currentTarget.classList.remove('bg-primary/10'); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove('bg-primary/10');
+              if (dragEvent) { handleDrop(dragEvent, day); setDragEvent(null); }
+            }}
             className={cn(
               "p-1 border-b border-r border-border cursor-pointer hover:bg-muted/30 transition-colors",
               !isCurrentMonth && "bg-muted/20"
@@ -470,18 +548,16 @@ export default function CalendarPage() {
                       </p>
                     </div>
                     {SourceIcon && <SourceIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                    {(ev.source === 'manual' || ev.source === 'booking') && (
-                      <div className="flex items-center gap-1">
-                        {ev.source === 'manual' && (
-                          <button onClick={() => openEdit(ev)} className="text-muted-foreground hover:text-primary">
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        <button onClick={() => handleDelete(ev.id)} className="text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5" />
+                    <div className="flex items-center gap-1">
+                      {(ev.source === 'manual') && (
+                        <button onClick={() => openEdit(ev)} className="text-muted-foreground hover:text-primary">
+                          <Edit2 className="h-3.5 w-3.5" />
                         </button>
-                      </div>
-                    )}
+                      )}
+                      <button onClick={() => handleDelete(ev.id)} className="text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -686,18 +762,115 @@ export default function CalendarPage() {
                   <span className="capitalize">Source: {detailEvent.source}</span>
                   {detailEvent.category && <span>· {detailEvent.category}</span>}
                 </div>
-                {(detailEvent.source === 'manual' || detailEvent.source === 'google-calendar' || detailEvent.source === 'booking') && (
-                  <div className="flex gap-2 pt-2">
-                    {detailEvent.source !== 'booking' && (
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailEvent(null); openEdit(detailEvent); }}>
-                        <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Edit
-                      </Button>
-                    )}
-                    <Button size="sm" variant="destructive" onClick={() => { handleDelete(detailEvent.id); setDetailEvent(null); }}>
-                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                <div className="flex gap-2 pt-2">
+                  {(detailEvent.source === 'manual' || detailEvent.source === 'google-calendar') && (
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => { setDetailEvent(null); openEdit(detailEvent); }}>
+                      <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Edit
                     </Button>
+                  )}
+                  <Button size="sm" variant="destructive" onClick={() => { handleDelete(detailEvent.id); setDetailEvent(null); }}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Invoice Detail Modal */}
+        <Dialog open={!!invoiceDetail} onOpenChange={(open) => { if (!open) setInvoiceDetail(null); }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Receipt className="h-5 w-5 text-primary" />
+                Invoice {invoiceDetail?.invoice_number || ''}
+              </DialogTitle>
+            </DialogHeader>
+            {invoiceDetail && (
+              <div className="space-y-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold text-foreground">${Number(invoiceDetail.amount).toFixed(2)} {invoiceDetail.currency}</p>
+                    <Badge variant={invoiceDetail.status === 'paid' ? 'default' : 'destructive'} className="capitalize mt-1">
+                      {invoiceDetail.status}
+                    </Badge>
+                  </div>
+                  {invoiceDetail.due_date && (
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Due Date</p>
+                      <p className="text-sm font-medium">{format(parseISO(invoiceDetail.due_date), 'MMM d, yyyy')}</p>
+                    </div>
+                  )}
+                </div>
+
+                {invoiceDetail.customers && (
+                  <div className="glass-card p-3 space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                      <User className="h-3 w-3" /> Customer
+                    </p>
+                    <p className="text-sm font-medium">{invoiceDetail.customers.full_name}</p>
+                    {invoiceDetail.customers.email && (
+                      <p className="text-xs text-muted-foreground">{invoiceDetail.customers.email}</p>
+                    )}
                   </div>
                 )}
+
+                {/* Line Items */}
+                {invoiceDetail.line_items && Array.isArray(invoiceDetail.line_items) && invoiceDetail.line_items.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Line Items</p>
+                    <div className="glass-card divide-y divide-border">
+                      {invoiceDetail.line_items.map((item: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between p-2.5">
+                          <div>
+                            <p className="text-sm">{item.description || item.name || 'Item'}</p>
+                            {item.quantity && <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>}
+                          </div>
+                          <p className="text-sm font-medium">${Number(item.amount || item.total || 0).toFixed(2)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Subtotal</p>
+                    <p className="text-sm font-medium">${Number(invoiceDetail.subtotal || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Tax Rate</p>
+                    <p className="text-sm font-medium">{Number(invoiceDetail.tax_rate || 0)}%</p>
+                  </div>
+                  {invoiceDetail.sent_at && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Sent</p>
+                      <p className="text-sm">{format(parseISO(invoiceDetail.sent_at), 'MMM d, yyyy')}</p>
+                    </div>
+                  )}
+                  {invoiceDetail.paid_at && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Paid</p>
+                      <p className="text-sm">{format(parseISO(invoiceDetail.paid_at), 'MMM d, yyyy')}</p>
+                    </div>
+                  )}
+                </div>
+
+                {invoiceDetail.notes && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Notes</p>
+                    <p className="text-sm text-foreground">{invoiceDetail.notes}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2 border-t border-border">
+                  <Button size="sm" variant="destructive" className="w-full" onClick={() => {
+                    handleDelete(`invoice-${invoiceDetail.id}`);
+                    setInvoiceDetail(null);
+                  }}>
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Void Invoice
+                  </Button>
+                </div>
               </div>
             )}
           </DialogContent>
