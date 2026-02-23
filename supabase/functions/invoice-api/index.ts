@@ -61,6 +61,39 @@ function formatCurrency(amount: number, currency = 'USD'): string {
   }
 }
 
+async function notifyTelegramInvoiceSent(
+  supabaseUrl: string,
+  serviceKey: string,
+  invNum: string,
+  customerName: string,
+  customerEmail: string,
+  amount: number,
+  currency = 'USD',
+) {
+  try {
+    const formatted = formatCurrency(amount, currency)
+    await fetch(`${supabaseUrl}/functions/v1/telegram-notify`, {
+      method: 'POST',
+      headers: {
+        'apikey': serviceKey,
+        'Authorization': `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        entity_type: 'invoice',
+        action: 'created',
+        meta: {
+          name: `${invNum} — ${formatted} sent to ${customerName} (${customerEmail})`,
+          title: `📨 Invoice PDF ${invNum} emailed to ${customerEmail}`,
+        },
+        created_at: new Date().toISOString(),
+      }),
+    })
+  } catch (e) {
+    console.error('[invoice-api] telegram notify error:', e)
+  }
+}
+
 function sanitizeFilename(value: string): string {
   const clean = value
     .replace(/[^a-zA-Z0-9._-]+/g, '-')
@@ -366,6 +399,9 @@ Deno.serve(async (req) => {
         sent_at: new Date().toISOString(),
       }).eq('id', invoice_id)
 
+      // Notify Telegram
+      await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, totalVal, inv.currency)
+
       return ok({
         message: `Invoice ${invNum} emailed to ${customerEmail} with PDF attachment`,
         gmail_id: gmailData.id,
@@ -497,6 +533,8 @@ Deno.serve(async (req) => {
               console.error('[invoice-api] auto_send email failed:', gmailData)
             } else {
               console.log(`[invoice-api] Auto-sent invoice PDF ${invNum} to ${customerEmail}`)
+              // Notify Telegram
+              await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, Number(invoice.amount), invoice.currency)
             }
           } catch (emailErr) {
             console.error('[invoice-api] auto_send email error:', emailErr)
