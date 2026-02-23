@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2, Download, Play, Music } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import { uploadToStorage, detectContentType, downloadFromUrl } from '@/lib/storage';
 
 const contentTypes = ['article', 'image', 'video', 'audio', 'landing_page', 'doc', 'post'] as const;
 const contentStatuses = ['draft', 'scheduled', 'published', 'archived'] as const;
@@ -22,7 +23,6 @@ const typeIcons: Record<string, any> = {
 
 const SOURCE_LABELS: Record<string, { label: string; icon: any }> = {
   dashboard: { label: 'From Dashboard', icon: Monitor },
-  'google-drive': { label: 'From Google Drive', icon: FolderOpen },
   instagram: { label: 'From Client Instagram', icon: MessageSquare },
   sms: { label: 'From Client Text Messages', icon: Smartphone },
   'client-direct': { label: 'From Client Directly', icon: File },
@@ -49,17 +49,12 @@ export default function Content() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ title: '', type: 'article' as string, status: 'draft' as string, url: '', folder: '', customer_id: '' });
 
-  // Drive upload state
+  // Upload state
   const [uploadOpen, setUploadOpen] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [uploadCustomerId, setUploadCustomerId] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  // Drive files browser
-  const [driveFiles, setDriveFiles] = useState<any[]>([]);
-  const [driveLoading, setDriveLoading] = useState(false);
-  const [showDrive, setShowDrive] = useState(false);
 
   // Upload menu (customer list)
   const [showUploadMenu, setShowUploadMenu] = useState(false);
@@ -72,35 +67,14 @@ export default function Content() {
   // Video preview state
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('');
-  const [previewLoading, setPreviewLoading] = useState(false);
 
-  const playVideo = async (fileUrl: string, title: string) => {
-    const match = fileUrl?.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (!match) { window.open(fileUrl, '_blank'); return; }
-    const fileId = match[1];
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const playVideo = (fileUrl: string, title: string) => {
+    if (!fileUrl) return;
     setPreviewTitle(title);
-    setPreviewLoading(true);
-    setPreviewUrl(null);
-    try {
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${fileId}`,
-        { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
-      );
-      if (!res.ok) throw new Error('Failed to load video');
-      const blob = await res.blob();
-      setPreviewUrl(URL.createObjectURL(blob));
-    } catch {
-      toast.error('Could not load video preview');
-      setPreviewTitle('');
-    } finally {
-      setPreviewLoading(false);
-    }
+    setPreviewUrl(fileUrl);
   };
 
   const closePreview = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     setPreviewTitle('');
   };
@@ -205,7 +179,7 @@ export default function Content() {
     loadAll();
   };
 
-  const handleUploadToDrive = async () => {
+  const handleUpload = async () => {
     const file = fileRef.current?.files?.[0];
     if (!file) { toast.error('Select a file'); return; }
     if (!uploadCustomerId) { toast.error('Select a customer'); return; }
@@ -217,62 +191,26 @@ export default function Content() {
     setUploading(true);
 
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const publicUrl = await uploadToStorage(file, {
+        category,
+        customerName: customer.full_name,
+        source: 'dashboard',
+      });
 
-      // 1. Ensure folder structure exists
-      const folderRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-          body: JSON.stringify({ category, customer_name: customer.full_name }),
-        }
-      );
-      const folderData = await folderRes.json();
-      if (!folderRes.ok) throw new Error(folderData.error || 'Failed to create folder');
+      const detectedType = detectContentType(file.type || '');
 
-      // 2. Upload file
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder_id', folderData.folder_id);
-
-      const uploadRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=upload`,
-        {
-          method: 'POST',
-          headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-          body: formData,
-        }
-      );
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.error || 'Failed to upload');
-
-      // 3. Auto-detect content type from MIME
-      const mime = file.type || '';
-      let detectedType = 'doc';
-      if (mime.startsWith('image/')) detectedType = 'image';
-      else if (mime.startsWith('video/')) detectedType = 'video';
-      else if (mime.startsWith('audio/')) detectedType = 'video';
-      else if (
-        mime === 'application/pdf' || mime.includes('word') || mime.includes('document') ||
-        mime.includes('spreadsheet') || mime.includes('presentation') ||
-        mime === 'text/plain' || mime === 'text/csv'
-      ) detectedType = 'doc';
-
-      // 4. Create content_assets record
       await supabase.from('content_assets').insert([{
         title: file.name,
         type: detectedType,
         status: 'published',
-        url: uploadData.webViewLink || null,
+        url: publicUrl,
         folder: `${category}/${customer.full_name}`,
         category: customer.category || 'other',
-        source: 'google-drive',
+        source: 'dashboard',
         customer_id: customer.id,
       }]);
 
-      toast.success(`Uploaded "${file.name}" to Google Drive`);
+      toast.success(`Uploaded "${file.name}"`);
       setUploadOpen(false);
       setUploadCustomerId('');
       if (fileRef.current) fileRef.current.value = '';
@@ -284,83 +222,26 @@ export default function Content() {
     }
   };
 
-  const browseDriveFiles = async () => {
-    setDriveLoading(true);
-    setShowDrive(true);
-    try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=folders`,
-        { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } }
-      );
-      const data = await res.json();
-      setDriveFiles(data.folders || []);
-    } catch {
-      toast.error('Failed to load Drive folders');
-    } finally {
-      setDriveLoading(false);
-    }
-  };
-
-  const downloadFile = async (fileUrl: string, title: string) => {
+  const downloadFile = (fileUrl: string, title: string) => {
     if (!fileUrl) { toast.error('No file URL available'); return; }
-    // Extract Google Drive file ID from webViewLink
-    const match = fileUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (!match) {
-      // Not a Drive link, just open it
-      window.open(fileUrl, '_blank');
-      return;
-    }
-    const fileId = match[1];
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    toast.info(`Downloading "${title}"...`);
-    try {
-      const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${fileId}`,
-        { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Download failed');
-      }
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = title;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch (err: any) {
-      toast.error(err.message || 'Download failed');
-    }
+    downloadFromUrl(fileUrl, title);
   };
 
   const downloadFolder = async (sources: { source: string; files: any[] }[], folderName: string) => {
-    const allFiles = sources.flatMap(s => s.files);
+    const allFiles = sources.flatMap(s => s.files).filter(f => f.url);
     if (allFiles.length === 0) { toast.error('No files to download'); return; }
-    const driveFiles = allFiles.filter(f => f.url?.match(/\/d\/([a-zA-Z0-9_-]+)/));
-    if (driveFiles.length === 0) { toast.error('No Drive files to download'); return; }
 
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const zip = new JSZip();
     let downloaded = 0;
-    toast.info(`Zipping ${driveFiles.length} file(s) from "${folderName}"...`);
+    toast.info(`Zipping ${allFiles.length} file(s) from "${folderName}"...`);
 
     for (const srcGroup of sources) {
-      const srcDriveFiles = srcGroup.files.filter(f => f.url?.match(/\/d\/([a-zA-Z0-9_-]+)/));
-      for (const f of srcDriveFiles) {
-        const match = f.url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (!match) continue;
+      const filesWithUrl = srcGroup.files.filter(f => f.url);
+      for (const f of filesWithUrl) {
         try {
-          const res = await fetch(
-            `https://${projectId}.supabase.co/functions/v1/google-drive?action=download&file_id=${match[1]}`,
-            { headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` } }
-          );
+          const res = await fetch(f.url);
           if (!res.ok) continue;
           const blob = await res.blob();
-          // Preserve folder structure: source subfolder / filename
           const folderPath = srcGroup.source || 'Files';
           zip.file(`${folderPath}/${f.title}`, blob);
           downloaded++;
@@ -400,19 +281,16 @@ export default function Content() {
               <Button variant="outline" size="sm" onClick={() => setShowUploadMenu(!showUploadMenu)} className="gap-1.5">
                 <Users className="h-4 w-4" /> Upload
               </Button>
-              <Button variant="outline" size="sm" onClick={browseDriveFiles} className="gap-1.5">
-                <FolderOpen className="h-4 w-4" /> Browse Drive
-              </Button>
 
               <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5"><Upload className="h-4 w-4" /> Upload to Drive</Button>
+                  <Button variant="outline" size="sm" className="gap-1.5"><Upload className="h-4 w-4" /> Upload File</Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Upload to Google Drive</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>Upload File</DialogTitle></DialogHeader>
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Files are organized into <strong>Category → Customer Name</strong> folders on Drive and in the CRM.
+                      Files are organized into <strong>Category → Customer Name</strong> folders.
                     </p>
                     <div className="space-y-2">
                       <Label>Customer *</Label>
@@ -431,7 +309,7 @@ export default function Content() {
                       <Label>File *</Label>
                       <Input ref={fileRef} type="file" />
                     </div>
-                    <Button onClick={handleUploadToDrive} disabled={uploading} className="w-full gap-2">
+                    <Button onClick={handleUpload} disabled={uploading} className="w-full gap-2">
                       {uploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</> : <><Upload className="h-4 w-4" /> Upload</>}
                     </Button>
                   </div>
@@ -507,34 +385,6 @@ export default function Content() {
               </SelectContent>
             </Select>
           </div>
-
-          {/* Drive folders browser */}
-          {showDrive && (
-            <div className="glass-card p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4" /> Google Drive Folders
-                </h3>
-                <Button variant="ghost" size="sm" onClick={() => setShowDrive(false)}>Close</Button>
-              </div>
-              {driveLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</div>
-              ) : driveFiles.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4">No folders yet. Upload a file to auto-create the folder structure.</p>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                  {driveFiles.map(f => (
-                    <a key={f.id} href={f.webViewLink} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-sm">
-                      <FolderOpen className="h-4 w-4 text-primary shrink-0" />
-                      <span className="truncate text-foreground">{f.name}</span>
-                      <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0 ml-auto" />
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Upload menu: customer list */}
           {showUploadMenu && (
@@ -677,11 +527,7 @@ export default function Content() {
           <Dialog open={!!previewTitle} onOpenChange={(open) => { if (!open) closePreview(); }}>
             <DialogContent className="max-w-3xl">
               <DialogHeader><DialogTitle className="truncate">{previewTitle}</DialogTitle></DialogHeader>
-              {previewLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : previewUrl ? (
+              {previewUrl ? (
                 <video src={previewUrl} controls autoPlay className="w-full rounded-lg max-h-[70vh]" />
               ) : null}
             </DialogContent>

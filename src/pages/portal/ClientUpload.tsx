@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Upload, Loader2, CheckCircle, FileUp, AlertCircle, X } from 'lucide-react';
+import { uploadToStorage, detectContentType } from '@/lib/storage';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'digital-services': 'Digital Services',
@@ -78,49 +79,23 @@ export default function ClientUpload() {
 
     setUploading(true);
     const category = CATEGORY_LABELS[customer.category || 'other'] || 'Other';
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const newUploaded: string[] = [];
 
     try {
-      const folderRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-          body: JSON.stringify({ category, customer_name: customer.full_name }),
-        }
-      );
-      const folderData = await folderRes.json();
-      if (!folderRes.ok) throw new Error(folderData.error || 'Failed to create folder');
-
       for (const file of selectedFiles) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('folder_id', folderData.folder_id);
+        const publicUrl = await uploadToStorage(file, {
+          category,
+          customerName: customer.full_name,
+          source: 'client-direct',
+        });
 
-        const uploadRes = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/google-drive?action=upload`,
-          {
-            method: 'POST',
-            headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-            body: formData,
-          }
-        );
-        const uploadData = await uploadRes.json();
-        if (!uploadRes.ok) throw new Error(uploadData.error || `Failed to upload ${file.name}`);
-
-        const mime = file.type || '';
-        let detectedType = 'doc';
-        if (mime.startsWith('image/')) detectedType = 'image';
-        else if (mime.startsWith('video/')) detectedType = 'video';
-        else if (mime.startsWith('audio/')) detectedType = 'video';
+        const detectedType = detectContentType(file.type || '');
 
         await supabase.from('content_assets').insert([{
           title: file.name,
           type: detectedType,
           status: 'published',
-          url: uploadData.webViewLink || null,
+          url: publicUrl,
           folder: `${category}/${customer.full_name}`,
           category: 'other',
           source: 'client-direct',

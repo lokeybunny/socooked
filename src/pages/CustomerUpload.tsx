@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Upload, Loader2, FolderOpen, ExternalLink, File, FileText, Image, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { uploadToStorage, detectContentType } from '@/lib/storage';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'digital-services': 'Digital Services',
@@ -24,7 +25,6 @@ const SOURCE_OPTIONS = [
   { value: 'instagram', label: 'From Client Instagram' },
   { value: 'sms', label: 'From Client Text Messages' },
   { value: 'client-direct', label: 'From Client Directly' },
-  { value: 'google-drive', label: 'From Google Drive' },
 ];
 
 const typeIcons: Record<string, any> = {
@@ -64,51 +64,21 @@ export default function CustomerUpload() {
     setUploading(true);
 
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      // 1. Ensure folder structure: Category / Customer / Source
-      const folderRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=ensure-folder`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-          body: JSON.stringify({ category, customer_name: customer.full_name }),
-        }
-      );
-      const folderData = await folderRes.json();
-      if (!folderRes.ok) throw new Error(folderData.error || 'Failed to create folder');
-
-      // 2. Upload file
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folder_id', folderData.folder_id);
-
-      const uploadRes = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/google-drive?action=upload`,
-        {
-          method: 'POST',
-          headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-          body: formData,
-        }
-      );
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.error || 'Failed to upload');
-
-      // 3. Auto-detect content type from MIME
-      const mime = file.type || '';
-      let detectedType = 'doc';
-      if (mime.startsWith('image/')) detectedType = 'image';
-      else if (mime.startsWith('video/')) detectedType = 'video';
-      else if (mime.startsWith('audio/')) detectedType = 'video';
-
-      // 4. Create content_assets record with source
       const sourceLabel = SOURCE_OPTIONS.find(s => s.value === uploadSource)?.label || uploadSource;
+
+      const publicUrl = await uploadToStorage(file, {
+        category,
+        customerName: customer.full_name,
+        source: sourceLabel,
+      });
+
+      const detectedType = detectContentType(file.type || '');
+
       await supabase.from('content_assets').insert([{
         title: file.name,
         type: detectedType,
         status: 'published',
-        url: uploadData.webViewLink || null,
+        url: publicUrl,
         folder: `${category}/${customer.full_name}/${sourceLabel}`,
         category: customer.category || 'other',
         source: uploadSource,
@@ -118,7 +88,6 @@ export default function CustomerUpload() {
       toast.success(`Uploaded "${file.name}"`);
       if (fileRef.current) fileRef.current.value = '';
 
-      // Reload assets
       const { data } = await supabase.from('content_assets').select('*').eq('customer_id', customerId).order('created_at', { ascending: false });
       setAssets(data || []);
     } catch (err: any) {
@@ -192,7 +161,7 @@ export default function CustomerUpload() {
               <Input ref={fileRef} type="file" />
             </div>
             <Button onClick={handleUpload} disabled={uploading} className="gap-2">
-              {uploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</> : <><Upload className="h-4 w-4" /> Upload to Drive</>}
+              {uploading ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</> : <><Upload className="h-4 w-4" /> Upload</>}
             </Button>
           </div>
         </div>
