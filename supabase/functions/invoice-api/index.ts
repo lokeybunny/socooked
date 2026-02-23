@@ -309,6 +309,72 @@ Deno.serve(async (req) => {
       } catch (_) { /* non-blocking */ }
     }
 
+    // POST /invoice-api?action=send-invoice — generate professional PDF and email attachment via gmail-api
+    // (must be checked BEFORE the create handler below)
+    if (req.method === 'POST' && url.searchParams.get('action') === 'send-invoice') {
+      const { invoice_id } = await req.json()
+      if (!invoice_id) return fail('invoice_id required')
+
+      // Fetch invoice + customer
+      const { data: inv, error: invErr } = await supabase
+        .from('invoices')
+        .select('*, customers(full_name, email)')
+        .eq('id', invoice_id)
+        .single()
+
+      if (invErr || !inv) return fail(invErr?.message || 'Invoice not found', 404)
+
+      const customerEmail = (inv as any).customers?.email
+      if (!customerEmail) return fail('Customer has no email address')
+
+      const customerName = (inv as any).customers?.full_name || 'Customer'
+      const invNum = inv.invoice_number || 'Invoice'
+      const totalVal = Number(inv.amount)
+
+      const pdfBase64 = await buildInvoicePdfBase64(inv, customerName)
+      const emailBody = buildInvoiceAttachmentEmailHtml(inv, customerName)
+      const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
+
+      // Send via gmail-api
+      const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
+      const gmailRes = await fetch(gmailUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: customerEmail,
+          subject: `Invoice ${invNum} from STU25`,
+          body: emailBody,
+          attachments: [
+            {
+              filename: attachmentFilename,
+              mimeType: 'application/pdf',
+              data: pdfBase64,
+            },
+          ],
+        }),
+      })
+      const gmailData = await gmailRes.json()
+      if (!gmailRes.ok) return fail(gmailData.error || 'Failed to send email', gmailRes.status)
+
+      // Mark invoice as sent
+      await supabase.from('invoices').update({
+        status: 'sent',
+        sent_at: new Date().toISOString(),
+      }).eq('id', invoice_id)
+
+      return ok({
+        message: `Invoice ${invNum} emailed to ${customerEmail} with PDF attachment`,
+        gmail_id: gmailData.id,
+        invoice_number: invNum,
+        customer_email: customerEmail,
+        amount: totalVal,
+      }, 200)
+    }
+
     // POST /invoice-api - Create invoice
     if (req.method === 'POST' && (!path || path === 'invoice-api')) {
       const body: InvoicePayload = await req.json()
@@ -477,70 +543,7 @@ Deno.serve(async (req) => {
       return ok({ invoice: data })
     }
 
-    // POST /invoice-api?action=send-invoice — generate professional PDF and email attachment via gmail-api
-    if (req.method === 'POST' && url.searchParams.get('action') === 'send-invoice') {
-      const { invoice_id } = await req.json()
-      if (!invoice_id) return fail('invoice_id required')
-
-      // Fetch invoice + customer
-      const { data: inv, error: invErr } = await supabase
-        .from('invoices')
-        .select('*, customers(full_name, email)')
-        .eq('id', invoice_id)
-        .single()
-
-      if (invErr || !inv) return fail(invErr?.message || 'Invoice not found', 404)
-
-      const customerEmail = (inv as any).customers?.email
-      if (!customerEmail) return fail('Customer has no email address')
-
-      const customerName = (inv as any).customers?.full_name || 'Customer'
-      const invNum = inv.invoice_number || 'Invoice'
-      const totalVal = Number(inv.amount)
-
-      const pdfBase64 = await buildInvoicePdfBase64(inv, customerName)
-      const emailBody = buildInvoiceAttachmentEmailHtml(inv, customerName)
-      const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
-
-      // Send via gmail-api
-      const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
-      const gmailRes = await fetch(gmailUrl, {
-        method: 'POST',
-        headers: {
-          'apikey': serviceKey,
-          'Authorization': `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: customerEmail,
-          subject: `Invoice ${invNum} from STU25`,
-          body: emailBody,
-          attachments: [
-            {
-              filename: attachmentFilename,
-              mimeType: 'application/pdf',
-              data: pdfBase64,
-            },
-          ],
-        }),
-      })
-      const gmailData = await gmailRes.json()
-      if (!gmailRes.ok) return fail(gmailData.error || 'Failed to send email', gmailRes.status)
-
-      // Mark invoice as sent
-      await supabase.from('invoices').update({
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-      }).eq('id', invoice_id)
-
-      return ok({
-        message: `Invoice ${invNum} emailed to ${customerEmail} with PDF attachment`,
-        gmail_id: gmailData.id,
-        invoice_number: invNum,
-        customer_email: customerEmail,
-        amount: totalVal,
-      }, 200)
-    }
+    // (send-invoice handler moved above create handler to fix routing priority)
 
     return fail('Method not allowed', 405)
   } catch (err) {
