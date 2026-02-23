@@ -125,6 +125,23 @@ Deno.serve(async (req) => {
       if (!customerId) return fail('Customer not found. Provide customer_id or customer_email.')
       if (!body.line_items || body.line_items.length === 0) return fail('line_items required')
 
+      // ─── Duplicate guard: same customer + same amount + created within last 2 minutes ───
+      const candidateSubtotal = body.line_items.reduce((s: number, li: LineItem) => s + li.quantity * li.unit_price, 0)
+      const candidateTotal = candidateSubtotal + (candidateSubtotal * (body.tax_rate || 0) / 100)
+      const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+
+      const { data: dupes } = await supabase
+        .from('invoices')
+        .select('id, invoice_number')
+        .eq('customer_id', customerId)
+        .eq('amount', candidateTotal)
+        .gte('created_at', twoMinAgo)
+        .limit(1)
+
+      if (dupes && dupes.length > 0) {
+        return fail(`Duplicate invoice blocked. Invoice ${dupes[0].invoice_number || dupes[0].id} for this customer with the same amount was created less than 2 minutes ago.`, 409)
+      }
+
       const taxRate = body.tax_rate || 0
       const subtotal = body.line_items.reduce((s, li) => s + li.quantity * li.unit_price, 0)
       const total = subtotal + (subtotal * taxRate / 100)
