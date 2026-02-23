@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.v0-poll]
 verify_jwt = false
+
+[functions.telegram-notify]
+verify_jwt = false
