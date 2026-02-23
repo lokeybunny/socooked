@@ -52,6 +52,54 @@ interface InvoicePayload {
   auto_send?: boolean
 }
 
+function buildInvoiceEmailHtml(inv: any, customerName: string): string {
+  const lineItems: LineItem[] = Array.isArray(inv.line_items) ? inv.line_items : []
+  const subtotalVal = Number(inv.subtotal || inv.amount)
+  const taxRate = Number(inv.tax_rate || 0)
+  const taxAmt = subtotalVal * taxRate / 100
+  const totalVal = Number(inv.amount)
+  const invNum = inv.invoice_number || 'Invoice'
+  const dueDateStr = inv.due_date
+    ? new Date(inv.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : null
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+      <h2 style="color:#1a1a1a;margin-bottom:4px;">${invNum}</h2>
+      <p style="color:#666;margin-top:0;">Dear ${customerName},</p>
+      <p>Please find your invoice details below:</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+        <thead>
+          <tr style="background:#f5f5f5;">
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #ddd;">Item</th>
+            <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Qty</th>
+            <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Price</th>
+            <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lineItems.map(li => `
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid #eee;">${li.description}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${li.quantity}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${Number(li.unit_price).toFixed(2)}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${(li.quantity * li.unit_price).toFixed(2)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      <div style="text-align:right;margin-top:8px;">
+        <p style="margin:2px 0;color:#666;">Subtotal: <strong>$${subtotalVal.toFixed(2)}</strong></p>
+        ${taxRate > 0 ? `<p style="margin:2px 0;color:#666;">Tax (${taxRate}%): <strong>$${taxAmt.toFixed(2)}</strong></p>` : ''}
+        <p style="margin:8px 0 0;font-size:18px;font-weight:bold;color:#1a1a1a;">Total: $${totalVal.toFixed(2)} ${inv.currency}</p>
+      </div>
+      ${dueDateStr ? `<p style="margin-top:16px;color:#666;">Due Date: <strong>${dueDateStr}</strong></p>` : ''}
+      ${inv.notes ? `<div style="margin-top:16px;padding:12px;background:#f9f9f9;border-radius:6px;"><p style="margin:0;color:#666;font-size:13px;">${inv.notes}</p></div>` : ''}
+      <p style="margin-top:24px;color:#666;">Thank you for your business!</p>
+    </div>
+  `
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -170,6 +218,41 @@ Deno.serve(async (req) => {
         .single()
 
       if (error) return fail(error.message, 500)
+
+      // If auto_send, actually send the styled HTML invoice email via gmail-api
+      if (body.auto_send && invoice) {
+        const customerEmail = (invoice as any).customers?.email
+        const customerName = (invoice as any).customers?.full_name || 'Customer'
+        if (customerEmail) {
+          try {
+            const emailBody = buildInvoiceEmailHtml(invoice, customerName)
+            const invNum = (invoice as any).invoice_number || 'Invoice'
+            const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
+            const gmailRes = await fetch(gmailUrl, {
+              method: 'POST',
+              headers: {
+                'apikey': serviceKey,
+                'Authorization': `Bearer ${serviceKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                to: customerEmail,
+                subject: `Invoice ${invNum} from STU25`,
+                body: emailBody,
+              }),
+            })
+            const gmailData = await gmailRes.json()
+            if (!gmailRes.ok) {
+              console.error('[invoice-api] auto_send email failed:', gmailData)
+            } else {
+              console.log(`[invoice-api] Auto-sent invoice ${invNum} to ${customerEmail}`)
+            }
+          } catch (emailErr) {
+            console.error('[invoice-api] auto_send email error:', emailErr)
+          }
+        }
+      }
+
       return ok({ invoice }, 201)
     }
 
@@ -227,52 +310,10 @@ Deno.serve(async (req) => {
       if (!customerEmail) return fail('Customer has no email address')
 
       const customerName = (inv as any).customers?.full_name || 'Customer'
-      const lineItems: { description: string; quantity: number; unit_price: number }[] =
-        Array.isArray(inv.line_items) ? inv.line_items as any : []
-      const subtotalVal = Number(inv.subtotal || inv.amount)
-      const taxRate = Number(inv.tax_rate || 0)
-      const taxAmt = subtotalVal * taxRate / 100
-      const totalVal = Number(inv.amount)
       const invNum = inv.invoice_number || 'Invoice'
-      const dueDateStr = inv.due_date
-        ? new Date(inv.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-        : null
+      const totalVal = Number(inv.amount)
 
-      const emailBody = `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
-          <h2 style="color:#1a1a1a;margin-bottom:4px;">${invNum}</h2>
-          <p style="color:#666;margin-top:0;">Dear ${customerName},</p>
-          <p>Please find your invoice details below:</p>
-          <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-            <thead>
-              <tr style="background:#f5f5f5;">
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #ddd;">Item</th>
-                <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Qty</th>
-                <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Price</th>
-                <th style="text-align:right;padding:8px;border-bottom:1px solid #ddd;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${lineItems.map(li => `
-                <tr>
-                  <td style="padding:8px;border-bottom:1px solid #eee;">${li.description}</td>
-                  <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${li.quantity}</td>
-                  <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${Number(li.unit_price).toFixed(2)}</td>
-                  <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${(li.quantity * li.unit_price).toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div style="text-align:right;margin-top:8px;">
-            <p style="margin:2px 0;color:#666;">Subtotal: <strong>$${subtotalVal.toFixed(2)}</strong></p>
-            ${taxRate > 0 ? `<p style="margin:2px 0;color:#666;">Tax (${taxRate}%): <strong>$${taxAmt.toFixed(2)}</strong></p>` : ''}
-            <p style="margin:8px 0 0;font-size:18px;font-weight:bold;color:#1a1a1a;">Total: $${totalVal.toFixed(2)} ${inv.currency}</p>
-          </div>
-          ${dueDateStr ? `<p style="margin-top:16px;color:#666;">Due Date: <strong>${dueDateStr}</strong></p>` : ''}
-          ${inv.notes ? `<div style="margin-top:16px;padding:12px;background:#f9f9f9;border-radius:6px;"><p style="margin:0;color:#666;font-size:13px;">${inv.notes}</p></div>` : ''}
-          <p style="margin-top:24px;color:#666;">Thank you for your business!</p>
-        </div>
-      `
+      const emailBody = buildInvoiceEmailHtml(inv, customerName)
 
       // Send via gmail-api
       const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
