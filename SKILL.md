@@ -43,6 +43,7 @@ https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1
 | `book_meeting` | POST | `/clawd-bot/book-meeting` | Book a calendar meeting (with email + Telegram notifications) |
 | `cancel_booking` | POST | `/clawd-bot/book-meeting` | Cancel a booking `{ action: "cancel", booking_id }` |
 | `reschedule_booking` | POST | `/clawd-bot/book-meeting` | Reschedule `{ action: "reschedule", booking_id, new_date, new_time }` |
+| `smart_book` | POST | `/clawd-bot/smart-book` | **Intelligent booking: resolves customer, finds next available slot, auto-books with notifications** |
 | `list_bookings` | GET | `/clawd-bot/bookings` | List bookings (filter: `?status=confirmed&guest_email=...`) |
 | `get_availability` | GET | `/clawd-bot/availability` | Get available time slots |
 | `generate_website` | POST | `/v0-designer` | **Generate v0 website — returns edit_url instantly** |
@@ -223,6 +224,50 @@ Kebab-case: `terrion-barber`, `jane-photography`, `atlanta-fitness`
 
 1. `POST /clawd-bot/meeting` with `{"title": "Meeting: Customer Name"}`
 2. `POST /clawd-bot/card` with `{ board_id, list_id, title, customer_id, source_url: room_url }`
+
+## Smart Booking (Bot Autopilot)
+
+For natural-language booking requests like _"book a meeting with John Smith whenever I'm next available"_:
+
+```
+POST /clawd-bot/smart-book
+{
+  "guest_name": "John Smith",
+  "guest_email": "john@example.com",       // optional — resolves or creates customer
+  "guest_phone": "+1234567890",             // optional
+  "duration_minutes": 30,                   // optional, default 30
+  "preferred_date": "2026-02-25",           // optional — starts search from here
+  "preferred_time": "10:00",                // optional — tries this time first
+  "notes": "Video zoom meeting"             // optional
+}
+```
+
+**What it does automatically:**
+1. **Resolves customer** — searches by email or name, creates lead if not found
+2. **Reads availability_slots** — your configured working hours
+3. **Finds next open slot** — checks against existing bookings for conflicts
+4. **Books the meeting** — creates meeting room, booking, calendar event
+5. **Sends notifications** — Telegram alert + Gmail confirmation to guest
+6. **Links customer** — attaches customer_id to the meeting record
+
+**Response:**
+```json
+{
+  "action": "smart_booked",
+  "customer_id": "uuid",
+  "booking": { "id": "uuid", "booking_date": "2026-02-25", ... },
+  "room_url": "https://stu25.com/meet/abc123",
+  "manage_url": "https://stu25.com/manage-booking/uuid",
+  "scheduled": {
+    "date": "2026-02-25",
+    "date_formatted": "Wednesday, February 25, 2026",
+    "time": "10:00",
+    "time_formatted": "10:00 AM (PST)",
+    "duration": 30
+  },
+  "message": "✅ Meeting booked with John Smith on Wednesday, February 25, 2026 at 10:00 AM PST (30 min)."
+}
+```
 
 ## Customer Lookup & Safe Create/Update
 

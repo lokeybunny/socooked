@@ -1212,6 +1212,149 @@ Deno.serve(async (req) => {
       return ok({ slots: data })
     }
 
+    // ─── SMART BOOK (AI-style: resolve customer, find next slot, book) ─
+    if (path === 'smart-book' && req.method === 'POST') {
+      const { guest_name, guest_email, guest_phone, customer_name, customer_email, duration_minutes: reqDuration, preferred_date, preferred_time, notes: bookNotes } = body as any
+
+      const name = guest_name || customer_name
+      const email = guest_email || customer_email
+      if (!name) return fail('guest_name (or customer_name) is required')
+
+      // 1. Resolve or create customer
+      let customerId: string | null = null
+      if (email) {
+        const { data: existing } = await supabase.from('customers').select('id, full_name, email').or(`email.eq.${email},full_name.ilike.%${name}%`).limit(1).maybeSingle()
+        if (existing) {
+          customerId = existing.id
+        }
+      }
+      if (!customerId) {
+        const { data: byName } = await supabase.from('customers').select('id').ilike('full_name', `%${name}%`).limit(1).maybeSingle()
+        customerId = byName?.id || null
+      }
+      if (!customerId && email) {
+        const { data: created } = await supabase.from('customers').insert({
+          full_name: name, email, phone: guest_phone || null, source: 'bot', status: 'lead',
+        }).select('id').single()
+        customerId = created?.id || null
+      }
+
+      // 2. Get availability slots
+      const { data: slots } = await supabase.from('availability_slots').select('*').eq('is_active', true).order('day_of_week')
+
+      // 3. Get existing bookings to avoid conflicts
+      const { data: existingBookings } = await supabase.from('bookings').select('booking_date, start_time, end_time, status').in('status', ['confirmed', 'pending']).gte('booking_date', new Date().toISOString().split('T')[0]).order('booking_date')
+
+      // 4. Find next available slot
+      const duration = (reqDuration as number) || 30
+      const today = new Date()
+      // If preferred_date provided, start from there; otherwise start from tomorrow
+      const startDate = preferred_date ? new Date(`${preferred_date}T00:00:00`) : new Date(today.getTime() + 24 * 60 * 60 * 1000)
+      const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+      let foundDate: string | null = null
+      let foundTime: string | null = null
+
+      for (let d = 0; d < 30; d++) {
+        const checkDate = new Date(startDate.getTime() + d * 24 * 60 * 60 * 1000)
+        const dayOfWeek = checkDate.getDay()
+        const dateStr = checkDate.toISOString().split('T')[0]
+
+        // Find availability for this day
+        const daySlots = (slots || []).filter((s: any) => s.day_of_week === dayOfWeek)
+        if (daySlots.length === 0) continue
+
+        // Check each slot window for an opening
+        for (const slot of daySlots) {
+          const [sh, sm] = (slot.start_time as string).split(':').map(Number)
+          const [eh, em] = (slot.end_time as string).split(':').map(Number)
+          const slotStartMin = sh * 60 + sm
+          const slotEndMin = eh * 60 + em
+
+          // Try every 30-min increment within this slot
+          for (let startMin = slotStartMin; startMin + duration <= slotEndMin; startMin += 30) {
+            const tryTime = `${String(Math.floor(startMin / 60)).padStart(2, '0')}:${String(startMin % 60).padStart(2, '0')}`
+            const tryEndMin = startMin + duration
+            const tryEnd = `${String(Math.floor(tryEndMin / 60)).padStart(2, '0')}:${String(tryEndMin % 60).padStart(2, '0')}`
+
+            // If preferred_time, try to match it first
+            if (preferred_time && d === 0 && tryTime !== preferred_time) continue
+
+            // Check for conflicts with existing bookings
+            const hasConflict = (existingBookings || []).some((b: any) => {
+              if (b.booking_date !== dateStr) return false
+              const [bsh, bsm] = b.start_time.split(':').map(Number)
+              const [beh, bem] = b.end_time.split(':').map(Number)
+              const bStart = bsh * 60 + bsm
+              const bEnd = beh * 60 + bem
+              return startMin < bEnd && tryEndMin > bStart
+            })
+
+            if (!hasConflict) {
+              foundDate = dateStr
+              foundTime = tryTime
+              break
+            }
+          }
+          if (foundDate) break
+        }
+        // If preferred_time didn't work on first day, retry without it
+        if (!foundDate && preferred_time && d === 0) continue
+        if (foundDate) break
+      }
+
+      if (!foundDate || !foundTime) {
+        return fail('No available slots found in the next 30 days. Please configure availability_slots or adjust the request.')
+      }
+
+      // 5. Book the meeting via book-meeting edge function
+      const bookRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/book-meeting`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+        },
+        body: JSON.stringify({
+          guest_name: name,
+          guest_email: email || `${name.toLowerCase().replace(/\s+/g, '.')}@pending.stu25.com`,
+          guest_phone: guest_phone || null,
+          booking_date: foundDate,
+          start_time: foundTime,
+          duration_minutes: duration,
+        }),
+      })
+      const bookData = await bookRes.json()
+
+      // 6. Link customer to meeting if we have one
+      if (customerId && bookData.booking?.meeting_id) {
+        await supabase.from('meetings').update({ customer_id: customerId }).eq('id', bookData.booking.meeting_id)
+      }
+
+      await logActivity(supabase, 'booking', bookData.booking?.id || null, 'smart_booked', `Smart-booked for ${name}`)
+
+      // Format for bot response
+      const fDate = new Date(`${foundDate}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      const [fh, fm] = foundTime.split(':').map(Number)
+      const ampm = fh >= 12 ? 'PM' : 'AM'
+      const fTime = `${fh % 12 || 12}:${String(fm).padStart(2, '0')} ${ampm}`
+
+      return ok({
+        action: 'smart_booked',
+        customer_id: customerId,
+        booking: bookData.booking,
+        room_url: bookData.room_url,
+        manage_url: bookData.booking?.id ? `https://stu25.com/manage-booking/${bookData.booking.id}` : null,
+        scheduled: {
+          date: foundDate,
+          date_formatted: fDate,
+          time: foundTime,
+          time_formatted: `${fTime} (PST)`,
+          duration,
+        },
+        message: `✅ Meeting booked with ${name} on ${fDate} at ${fTime} PST (${duration} min). Room: ${bookData.room_url}`,
+      })
+    }
+
     // ─── GENERATE (mock AI services) ─────────────────────────
     if (path === 'generate-resume' && req.method === 'POST') {
       const resumeJson = {
