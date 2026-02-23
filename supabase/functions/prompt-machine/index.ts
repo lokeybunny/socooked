@@ -14,6 +14,8 @@ You ALWAYS include imagery. If assets are not provided, you MUST use placeholder
 
 Never omit images. Every hero, feature grid, and gallery/product section must reference an image source.
 
+ALL GENERATED IMAGES MUST depict real, diverse people smiling — matched to the business niche. For example, a barbershop site should show smiling clients in barber chairs, a dental site should show smiling patients, etc. Every image description/alt text must specify "smiling people" relevant to the niche. No generic stock objects — always people, always smiling, always contextually appropriate to the industry.
+
 BRAND DNA DEFAULTS (apply unless overridden):
 - White or near-white backgrounds
 - Dark text (#111 or similar)
