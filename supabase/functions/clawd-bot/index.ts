@@ -1646,6 +1646,20 @@ Deno.serve(async (req) => {
       return ok({ previews: data })
     }
 
+    // ─── LEARN (trigger cortex learning loop) ──────────────
+    if (path === 'learn' && req.method === 'POST') {
+      const fnUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/cortex-learn`
+      const learnRes = await fetch(fnUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-bot-secret': Deno.env.get('BOT_SECRET') || '',
+        },
+      })
+      const learnData = await learnRes.json()
+      return ok(learnData.data || learnData, learnRes.status >= 400 ? learnRes.status : 200)
+    }
+
     // ─── STATE (full overview) ───────────────────────────────
     if (path === 'state' && req.method === 'GET') {
       const [boards, customers, deals, projects, meetings, templates, content, transcriptions, botTasks, apiPreviews, soulConfig] = await Promise.all([
