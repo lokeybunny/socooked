@@ -10,6 +10,7 @@ const ACTION_EMOJI: Record<string, string> = {
   created: "🟢",
   updated: "🔵",
   deleted: "🔴",
+  moved: "🔀",
 };
 
 const ENTITY_EMOJI: Record<string, string> = {
@@ -63,7 +64,12 @@ function formatMessage(entry: {
     timeZone: "America/Los_Angeles",
   });
 
-  let msg = `${actionEmoji} ${entityEmoji} *${entity}*${nameStr} was *${entry.action}*\n🕐 ${time} PST`;
+  // Support custom message override from meta
+  const customMsg = entry.meta?.message;
+
+  let msg = customMsg
+    ? `${actionEmoji} ${entityEmoji} ${customMsg}\n🕐 ${time} PST`
+    : `${actionEmoji} ${entityEmoji} *${entity}*${nameStr} was *${entry.action}*\n🕐 ${time} PST`;
   if (previewUrl) msg += `\n🔗 [Preview](${previewUrl})`;
   if (editUrl) msg += `\n✏️ [Edit](${editUrl})`;
   return msg;
