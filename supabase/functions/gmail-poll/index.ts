@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
     const details = await Promise.all(
       newMessages.slice(0, 5).map(async (m: any) => {
         const res = await fetch(
-          `${GMAIL_API}/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject`,
+          `${GMAIL_API}/users/me/messages/${m.id}?format=full`,
           { headers: { Authorization: `Bearer ${accessToken}` } }
         );
         return res.json();
@@ -247,6 +247,21 @@ Deno.serve(async (req) => {
       const senderEmail = extractSenderEmail(from);
       const senderName = extractSenderName(from);
 
+      // Extract email body text
+      let bodyText = msg.snippet || "";
+      try {
+        const parts = msg.payload?.parts || [];
+        const textPart = parts.find((p: any) => p.mimeType === "text/plain");
+        if (textPart?.body?.data) {
+          bodyText = atob(textPart.body.data.replace(/-/g, "+").replace(/_/g, "/"));
+        } else if (msg.payload?.body?.data) {
+          bodyText = atob(msg.payload.body.data.replace(/-/g, "+").replace(/_/g, "/"));
+        }
+      } catch { /* fall back to snippet */ }
+
+      // Trim body for Telegram (max ~500 chars)
+      const trimmedBody = bodyText.length > 500 ? bodyText.slice(0, 500) + "…" : bodyText;
+
       // Check if sender is a customer
       const customer = customerMap.get(senderEmail);
       const isCustomer = !!customer;
@@ -265,10 +280,13 @@ Deno.serve(async (req) => {
       const text = [
         `${emoji} *New Email* from *${senderName}*${customerTag}`,
         `📧 ${senderEmail}`,
-        `📋 ${subject || "(no subject)"}`,
+        `📋 *${subject || "(no subject)"}*`,
         `🕐 ${time} PST`,
+        ``,
+        `💬 ${trimmedBody}`,
+        ``,
         isCustomer ? `🔗 [View in CRM](https://stu25.com/messages)` : "",
-      ].filter(Boolean).join("\n");
+      ].filter((l) => l !== false).join("\n");
 
       // Send Telegram notification
       const tgRes = await fetch(
