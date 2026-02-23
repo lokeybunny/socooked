@@ -42,28 +42,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Enforce image generation — reject prompts with no imagery instructions
     const isEdit = !!existingChatId
-    if (!isEdit) {
-      const promptLower = prompt.toLowerCase()
-      const imageKeywords = ['image', 'photo', 'picture', 'visual', 'hero image', 'gallery', 'background image', 'imagery', 'illustration', 'graphic', 'banner']
-      const hasImageInstructions = imageKeywords.some(kw => promptLower.includes(kw))
-      const hasPlaceholderViolation = /placeholder\.|unsplash\.com|stock photo|lorem|via\.placeholder/i.test(prompt)
-
-      if (hasPlaceholderViolation) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Prompt contains forbidden placeholder/stock references. All images must be described for AI generation — no placeholder.svg, unsplash, or stock URLs allowed.',
-        }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
-
-      if (!hasImageInstructions) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Prompt must include image generation instructions for visual sections (hero, features, gallery, about, etc.). Describe each image explicitly — no stock placeholders allowed.',
-        }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-      }
-    }
 
     // Auto-enrich: use design-intent language so v0 uses its internal AI image generator
     let enrichedPrompt = prompt
