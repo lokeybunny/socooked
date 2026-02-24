@@ -49,6 +49,13 @@ const HIGGSFIELD_CATEGORY: CategoryInfo = {
   description: 'AI-generated video & media from Higgsfield API',
 };
 
+const TELEGRAM_CATEGORY: CategoryInfo = {
+  id: 'telegram',
+  label: 'Telegram',
+  icon: MessageSquare,
+  description: 'Media received via Telegram bot',
+};
+
 export default function Content() {
   const categoryGate = useCategoryGate();
   const navigate = useNavigate();
@@ -317,7 +324,7 @@ export default function Content() {
 
   return (
     <AppLayout>
-       <CategoryGate title="Content Library" {...categoryGate} pageKey="content" totalCount={allContent.length} countLabel="assets" categoryCounts={categoryCounts} extraCategories={[HIGGSFIELD_CATEGORY]}>
+       <CategoryGate title="Content Library" {...categoryGate} pageKey="content" totalCount={allContent.length} countLabel="assets" categoryCounts={categoryCounts} extraCategories={[HIGGSFIELD_CATEGORY, TELEGRAM_CATEGORY]}>
         {categoryGate.selectedCategory === 'ai-generated' ? (
           <HiggsFieldManager
             onPlay={playVideo}
