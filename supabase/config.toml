@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.smm-api]
 verify_jwt = false
+
+[functions.ig-dm-notify]
+verify_jwt = false
