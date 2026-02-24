@@ -2565,6 +2565,48 @@ Deno.serve(async (req) => {
       return ok({ action: 'created', content_id: newAsset?.id, url: publicUrl, type: assetType })
     }
 
+    // ─── SOURCE-ASSET: Resolve Telegram content to signed URL ──
+    if (path === 'source-asset') {
+      if (req.method === 'GET') {
+        const search = params.get('search') || ''
+        const asset_id = params.get('id')
+        const limit = Math.min(parseInt(params.get('limit') || '10'), 50)
+
+        let query = supabase
+          .from('content_assets')
+          .select('id, title, type, url, folder, customer_id, source, created_at')
+          .in('source', ['telegram', 'dashboard'])
+          .eq('status', 'published')
+          .order('created_at', { ascending: false })
+
+        if (asset_id) {
+          query = query.eq('id', asset_id)
+        } else if (search) {
+          query = query.ilike('title', `%${search}%`)
+        }
+
+        const { data: assets, error: assetsErr } = await query.limit(limit)
+        if (assetsErr) return fail(assetsErr.message, 500)
+        if (!assets || assets.length === 0) return fail('No matching source assets found', 404)
+
+        // Return assets with their public URLs ready for Higgsfield/Gmail
+        const results = assets.map((a: any) => ({
+          id: a.id,
+          title: a.title,
+          type: a.type,
+          url: a.url,
+          folder: a.folder,
+          source: a.source,
+          customer_id: a.customer_id,
+          created_at: a.created_at,
+        }))
+
+        await auditLog(supabase, 'source-asset:search', { search, asset_id, results_count: results.length })
+        return ok(results)
+      }
+      return fail('Method not allowed', 405)
+    }
+
     return fail('Unknown endpoint', 404)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'

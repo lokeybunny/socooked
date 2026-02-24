@@ -136,6 +136,38 @@ Cortex can fix mistakes in any CRM record by sending POST with the record's `id`
 
 Workflow: Search → get id → POST with id + corrected fields → confirm to user.
 
+## ASSET PIPELINE: Telegram → Higgsfield / Gmail
+
+Cortex has access to a **source asset resolver** that makes Telegram-uploaded media available as input for Higgsfield transformations and Gmail attachments.
+
+### Endpoint
+
+| Name | Method | Path | Description |
+|------|--------|------|-------------|
+| `resolve_source_asset` | GET | `/clawd-bot/source-asset?search={title}` | Search Telegram content by title/filename |
+| `resolve_source_asset_by_id` | GET | `/clawd-bot/source-asset?id={uuid}` | Resolve a specific asset by ID |
+
+### Workflow: Telegram → Higgsfield
+
+1. User sends or references a Telegram image (e.g. "transform the sunset photo")
+2. **Search**: `GET /clawd-bot/source-asset?search=sunset` → returns `{ id, url, type }`
+3. **Generate**: `POST /clawd-bot/generate-content` with `image_url` set to the resolved `url`
+4. **Output**: Result is auto-stored in the **AI Generated** content category
+
+### Workflow: Telegram → Gmail Attachment
+
+1. User requests sending an image via email (e.g. "email the logo to client")
+2. **Search**: `GET /clawd-bot/source-asset?search=logo` → returns `{ id, url, title }`
+3. **Send**: `POST /gmail-api` with the resolved `url` as an attachment URL
+4. The Gmail function fetches the file from the public URL and encodes it as a MIME attachment
+
+### Rules
+
+- Source assets are filtered to `source: telegram` or `source: dashboard` with `status: published`
+- Results are ordered by most recent first
+- The `url` field contains a permanent public Supabase Storage URL (not an expiring Telegram URL)
+- NEVER use raw Telegram `file_id` for Higgsfield or Gmail — always resolve through this endpoint first
+
 ## Install
 
 ```
