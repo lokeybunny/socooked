@@ -24,12 +24,18 @@ function StatCard({ label, value, icon: Icon, subtitle }: { label: string; value
 }
 
 export default function SMMAnalytics({ profiles }: { profiles: SMMProfile[] }) {
-  const { profileId } = useSMMContext();
+  const { profileId, platform } = useSMMContext();
   const [localProfileId, setLocalProfileId] = useState(profileId || profiles[0]?.id || '');
   const [data, setData] = useState<AnalyticsData[]>([]);
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('all');
+  // Sync with context platform: map context 'all' to 'all', otherwise use it
+  const [selectedPlatform, setSelectedPlatform] = useState<string>(platform && platform !== 'all' ? platform : 'all');
   const [compareMode, setCompareMode] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Update selectedPlatform when context platform changes
+  useEffect(() => {
+    if (platform && platform !== 'all') setSelectedPlatform(platform);
+  }, [platform]);
 
   useEffect(() => {
     if (!localProfileId) return;
@@ -44,14 +50,24 @@ export default function SMMAnalytics({ profiles }: { profiles: SMMProfile[] }) {
     shares: acc.shares + d.shares, saves: acc.saves + d.saves,
   }), { followers: 0, impressions: 0, reach: 0, likes: 0, comments: 0, shares: 0, saves: 0 });
 
-  const chartData = filtered.length > 0 ? filtered[0].series.map((_, i) => {
-    const point: any = { date: filtered[0].series[i].date.slice(5) };
-    filtered.forEach(d => {
-      point[`${d.platform}_imp`] = d.series[i]?.impressions || 0;
-      point[`${d.platform}_eng`] = d.series[i]?.engagement || 0;
+  // Date-based alignment for multi-platform chart data
+  const chartData = (() => {
+    if (filtered.length === 0) return [];
+    // Collect all unique dates across all platforms
+    const dateSet = new Set<string>();
+    filtered.forEach(d => d.series.forEach(s => dateSet.add(s.date)));
+    const allDates = Array.from(dateSet).sort();
+    // Build date-indexed lookup per platform
+    return allDates.map(date => {
+      const point: any = { date: date.slice(5) };
+      filtered.forEach(d => {
+        const entry = d.series.find(s => s.date === date);
+        point[`${d.platform}_imp`] = entry?.impressions || 0;
+        point[`${d.platform}_eng`] = entry?.engagement || 0;
+      });
+      return point;
     });
-    return point;
-  }) : [];
+  })();
 
   const platforms = data.map(d => d.platform);
 
