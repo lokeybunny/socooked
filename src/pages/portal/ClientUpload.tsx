@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Upload, Loader2, CheckCircle, FileUp, AlertCircle, X, Sparkles, Download } from 'lucide-react';
 import { uploadToStorage, detectContentType } from '@/lib/storage';
+import MVClientLanding from '@/components/portal/MVClientLanding';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'digital-services': 'Digital Services',
@@ -27,6 +28,7 @@ export default function ClientUpload() {
   const [aiAssets, setAiAssets] = useState<any[]>([]);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [artPage, setArtPage] = useState(0);
+  const [showMVLanding, setShowMVLanding] = useState(false);
   const ART_PAGE_SIZE = 9;
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -35,11 +37,13 @@ export default function ClientUpload() {
       if (!token) { setNotFound(true); setLoading(false); return; }
       const { data, error } = await supabase
         .from('customers')
-        .select('id, full_name, category, company')
+        .select('id, full_name, category, company, meta')
         .eq('upload_token', token)
         .maybeSingle();
       if (error || !data) { setNotFound(true); setLoading(false); return; }
       setCustomer(data);
+      const meta = data.meta && typeof data.meta === 'object' ? data.meta as Record<string, unknown> : {};
+      if (meta.mv_client) setShowMVLanding(true);
       setLoading(false);
 
       // Fetch AI-generated assets assigned to this customer
@@ -148,6 +152,11 @@ export default function ClientUpload() {
         </p>
       </div>
     );
+  }
+
+  if (showMVLanding) {
+    const firstName = customer?.full_name?.split(' ')[0] || 'there';
+    return <MVClientLanding firstName={firstName} onContinue={() => setShowMVLanding(false)} />;
   }
 
   const allMediaAssets = aiAssets.filter(a => (a.type === 'image' || a.type === 'video') && a.url);
