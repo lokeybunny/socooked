@@ -146,6 +146,21 @@ Deno.serve(async (req) => {
       await auditLog(supabase, path, body)
     }
 
+    // ─── /higs — Higgsfield model reminder ─────────────────────
+    if (path === 'higs' && req.method === 'GET') {
+      return ok({
+        message: 'Here is a reminder of the Higgsfield prompts:',
+        models: [
+          { id: 'higgsfield-ai/soul/standard', note: 'Default image model' },
+          { id: 'higgsfield-ai/soul/turbo', note: 'Fast image model' },
+          { id: 'higgsfield-ai/dop/standard', note: 'Default video model' },
+          { id: 'higgsfield-ai/dop/turbo', note: 'Fast video model' },
+          { id: 'flux', note: 'Flux image model' },
+          { id: 'iris', note: 'Iris image model' },
+        ],
+      })
+    }
+
     // ─── CUSTOMERS ───────────────────────────────────────────
     if (path === 'customers' && req.method === 'GET') {
       const status = params.get('status')
