@@ -32,8 +32,8 @@ Deno.serve(async (req) => {
   )
 
   const token = authHeader.replace('Bearer ', '')
-  const { data, error } = await supabase.auth.getClaims(token)
-  if (error || !data?.claims) {
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
+  if (authErr || !user) {
     return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
       status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
