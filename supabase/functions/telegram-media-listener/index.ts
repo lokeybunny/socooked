@@ -1,10 +1,3 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
 /**
  * Telegram Media Listener
  * 
@@ -13,68 +6,54 @@ const corsHeaders = {
  * On "Yes" callback, stores the file via POST /clawd-bot/content using file_id.
  */
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 const TG_API = 'https://api.telegram.org/bot'
 
-async function sendMessage(token: string, chatId: number | string, text: string, replyMarkup?: object) {
-  const payload: Record<string, unknown> = { chat_id: chatId, text, parse_mode: 'HTML' }
-  if (replyMarkup) payload.reply_markup = replyMarkup
-  await fetch(`${TG_API}${token}/sendMessage`, {
+async function tgPost(token: string, method: string, body: Record<string, unknown>) {
+  const res = await fetch(`${TG_API}${token}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   })
-}
-
-async function answerCallback(token: string, callbackId: string, text: string) {
-  await fetch(`${TG_API}${token}/answerCallbackQuery`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ callback_query_id: callbackId, text }),
-  })
-}
-
-async function editMessage(token: string, chatId: number | string, messageId: number, text: string) {
-  await fetch(`${TG_API}${token}/editMessageText`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, message_id: messageId, text, parse_mode: 'HTML' }),
-  })
+  const text = await res.text()
+  console.log(`[tg:${method}]`, res.status, text.slice(0, 200))
+  return res
 }
 
 function extractMedia(message: Record<string, unknown>): { fileId: string; type: string; fileName: string } | null {
-  // Photos — use highest resolution (last element)
   if (message.photo && Array.isArray(message.photo) && message.photo.length > 0) {
     const largest = message.photo[message.photo.length - 1] as Record<string, unknown>
     return { fileId: largest.file_id as string, type: 'image', fileName: `photo_${Date.now()}.jpg` }
   }
-
-  // Video
   if (message.video) {
     const v = message.video as Record<string, unknown>
     return { fileId: v.file_id as string, type: 'video', fileName: (v.file_name as string) || `video_${Date.now()}.mp4` }
   }
-
-  // Document (PDF, etc.)
   if (message.document) {
     const d = message.document as Record<string, unknown>
     const mime = (d.mime_type as string) || ''
     let docType = 'doc'
     if (mime.startsWith('image/')) docType = 'image'
     else if (mime.startsWith('video/')) docType = 'video'
-    else if (mime === 'application/pdf') docType = 'doc'
     return { fileId: d.file_id as string, type: docType, fileName: (d.file_name as string) || `file_${Date.now()}` }
   }
-
-  // Audio / Voice
   if (message.audio || message.voice) {
     const a = (message.audio || message.voice) as Record<string, unknown>
     return { fileId: a.file_id as string, type: 'audio', fileName: (a.file_name as string) || `audio_${Date.now()}.ogg` }
   }
-
   return null
 }
 
+// In-memory map to store file_id for callback (since callback_data has 64-byte limit)
+const pendingMedia = new Map<string, { fileId: string; type: string; fileName: string }>()
+
 Deno.serve(async (req) => {
+  console.log('[telegram-media-listener] request received:', req.method)
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -84,36 +63,48 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 
   if (!TG_TOKEN || !BOT_SECRET || !SUPABASE_URL) {
+    console.error('[telegram-media-listener] Missing env vars:', { TG_TOKEN: !!TG_TOKEN, BOT_SECRET: !!BOT_SECRET, SUPABASE_URL: !!SUPABASE_URL })
     return new Response(JSON.stringify({ error: 'Missing config' }), { status: 500, headers: corsHeaders })
   }
 
   try {
-    const update = await req.json()
+    const rawBody = await req.text()
+    console.log('[telegram-media-listener] body:', rawBody.slice(0, 500))
+
+    const update = JSON.parse(rawBody)
 
     // ─── Handle callback queries (user pressed Yes/No) ───
     if (update.callback_query) {
       const cb = update.callback_query
-      const data = cb.data as string // format: "crm_save:<file_id>:<type>:<fileName>" or "crm_skip"
+      const data = (cb.data as string) || ''
       const chatId = cb.message?.chat?.id
       const messageId = cb.message?.message_id
 
+      console.log('[callback]', data)
+
       if (data === 'crm_skip') {
-        await answerCallback(TG_TOKEN, cb.id, 'Skipped')
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Skipped' })
         if (chatId && messageId) {
-          await editMessage(TG_TOKEN, chatId, messageId, '⏭ Skipped — not saved to CRM.')
+          await tgPost(TG_TOKEN, 'editMessageText', { chat_id: chatId, message_id: messageId, text: '⏭ Skipped — not saved to CRM.' })
         }
         return new Response('ok')
       }
 
       if (data.startsWith('crm_save:')) {
-        const parts = data.split(':')
-        const fileId = parts[1]
-        const fileType = parts[2]
-        const fileName = parts.slice(3).join(':') // fileName may contain colons
+        const key = data.replace('crm_save:', '')
+        const cached = pendingMedia.get(key)
 
-        await answerCallback(TG_TOKEN, cb.id, 'Saving to CRM...')
+        if (!cached) {
+          await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Session expired. Please re-send the file.' })
+          return new Response('ok')
+        }
 
-        // Call clawd-bot/content to store the file
+        pendingMedia.delete(key)
+
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Saving to CRM...' })
+
+        console.log('[save] storing file_id:', cached.fileId, 'type:', cached.type)
+
         const storeRes = await fetch(`${SUPABASE_URL}/functions/v1/clawd-bot/content`, {
           method: 'POST',
           headers: {
@@ -121,80 +112,93 @@ Deno.serve(async (req) => {
             'x-bot-secret': BOT_SECRET,
           },
           body: JSON.stringify({
-            title: fileName,
-            type: fileType,
+            title: cached.fileName,
+            type: cached.type,
             status: 'published',
             source: 'telegram',
             category: 'telegram',
-            file_id: fileId,
+            file_id: cached.fileId,
             folder: 'STU25sTG',
           }),
         })
 
-        const storeResult = await storeRes.json()
+        const storeText = await storeRes.text()
+        console.log('[save] result:', storeRes.status, storeText.slice(0, 300))
 
-        if (storeRes.ok && storeResult.success) {
-          if (chatId && messageId) {
-            await editMessage(TG_TOKEN, chatId, messageId, `✅ <b>Saved to CRM!</b>\n📁 ${fileName}`)
-          }
-        } else {
-          const errMsg = storeResult.error || 'Unknown error'
-          if (chatId && messageId) {
-            await editMessage(TG_TOKEN, chatId, messageId, `❌ <b>Failed to save:</b> ${errMsg}`)
-          }
+        let success = false
+        try {
+          const storeResult = JSON.parse(storeText)
+          success = storeRes.ok && storeResult.success
+        } catch { /* ignore parse error */ }
+
+        if (chatId && messageId) {
+          const msg = success
+            ? `✅ <b>Saved to CRM!</b>\n📁 ${cached.fileName}`
+            : `❌ <b>Failed to save.</b> Check logs for details.`
+          await tgPost(TG_TOKEN, 'editMessageText', { chat_id: chatId, message_id: messageId, text: msg, parse_mode: 'HTML' })
         }
 
         return new Response('ok')
       }
 
-      // Unknown callback
-      await answerCallback(TG_TOKEN, cb.id, 'Unknown action')
+      await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Unknown action' })
       return new Response('ok')
     }
 
     // ─── Handle incoming messages with media ───
     const message = update.message
-    if (!message) return new Response('ok')
+    if (!message) {
+      console.log('[telegram-media-listener] no message in update, ignoring')
+      return new Response('ok')
+    }
 
     const chatId = message.chat?.id
     if (!chatId) return new Response('ok')
 
     const media = extractMedia(message)
-    if (!media) return new Response('ok') // Not a media message, ignore
-
-    // Check for .webp — reject early
-    if (media.type === 'image' && media.fileName.toLowerCase().endsWith('.webp')) {
-      await sendMessage(TG_TOKEN, chatId,
-        '⚠️ <b>.webp images are not supported.</b>\nPlease re-send as JPG or PNG.')
+    if (!media) {
+      console.log('[telegram-media-listener] no media detected, ignoring')
       return new Response('ok')
     }
 
-    // Truncate callback data to 64 bytes (Telegram limit)
-    // Format: crm_save:<fileId>:<type>:<fileName>
-    const callbackData = `crm_save:${media.fileId}:${media.type}:${media.fileName}`
-    const safeCallback = callbackData.length > 64
-      ? `crm_save:${media.fileId}:${media.type}:file`
-      : callbackData
+    console.log('[telegram-media-listener] media detected:', media.type, media.fileName, 'file_id:', media.fileId.slice(0, 20) + '...')
+
+    // Check for .webp — reject early
+    if (media.type === 'image' && media.fileName.toLowerCase().endsWith('.webp')) {
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '⚠️ <b>.webp images are not supported.</b>\nPlease re-send as JPG or PNG.',
+        parse_mode: 'HTML',
+      })
+      return new Response('ok')
+    }
+
+    // Store in memory with a short key for callback_data (64-byte limit)
+    const key = String(message.message_id)
+    pendingMedia.set(key, media)
+
+    // Auto-cleanup after 10 minutes
+    setTimeout(() => pendingMedia.delete(key), 10 * 60 * 1000)
 
     const caption = message.caption ? `\n💬 <i>${message.caption}</i>` : ''
 
-    await sendMessage(
-      TG_TOKEN,
-      chatId,
-      `📎 <b>${media.fileName}</b> (${media.type})${caption}\n\nSave to CRM?`,
-      {
+    await tgPost(TG_TOKEN, 'sendMessage', {
+      chat_id: chatId,
+      text: `📎 <b>${media.fileName}</b> (${media.type})${caption}\n\nSave to CRM?`,
+      parse_mode: 'HTML',
+      reply_markup: {
         inline_keyboard: [
           [
-            { text: '✅ Yes, save', callback_data: safeCallback },
+            { text: '✅ Yes, save', callback_data: `crm_save:${key}` },
             { text: '❌ No, skip', callback_data: 'crm_skip' },
           ],
         ],
-      }
-    )
+      },
+    })
 
     return new Response('ok')
   } catch (err) {
-    console.error('[telegram-media-listener]', err)
+    console.error('[telegram-media-listener] ERROR:', err)
     return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: corsHeaders })
   }
 })
