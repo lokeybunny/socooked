@@ -446,7 +446,7 @@ Deno.serve(async (req) => {
 
     if (path === 'content' && req.method === 'POST') {
       const { id, title, type, body: assetBody, status, tags, category, url, folder, scheduled_for, source, customer_id } = body
-      const VALID_SOURCES = ['dashboard', 'google-drive', 'instagram', 'sms', 'client-direct', 'other']
+      const VALID_SOURCES = ['dashboard', 'google-drive', 'instagram', 'sms', 'client-direct', 'higgsfield', 'ai-generated', 'other']
       if (id) {
         const updates: Record<string, unknown> = {}
         if (title) updates.title = title
@@ -2344,6 +2344,51 @@ Deno.serve(async (req) => {
       ])
       const soul = soulConfig.data?.content || null
       return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data, templates: templates.data, content: content.data, transcriptions: transcriptions.data, bot_tasks: botTasks.data, api_previews: apiPreviews.data, soul })
+    }
+
+    // ─── HIGGSFIELD: Proxy to higgsfield-api edge function ───
+    if (path === 'generate-content' && req.method === 'POST') {
+      const hfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/higgsfield-api/generate`
+      const hfRes = await fetch(hfUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-bot-secret': Deno.env.get('BOT_SECRET') || '',
+        },
+        body: JSON.stringify(body),
+      })
+      const hfData = await hfRes.json()
+      if (!hfRes.ok) return fail(hfData.error || 'Higgsfield generation failed', hfRes.status)
+      await logActivity(supabase, 'content_asset', hfData.data?.bot_task_id || null, 'higgsfield_generate', body.prompt ? (body.prompt as string).substring(0, 80) : 'Content generation')
+      return ok(hfData.data)
+    }
+
+    if (path === 'poll-content' && req.method === 'POST') {
+      const hfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/higgsfield-api/poll`
+      const hfRes = await fetch(hfUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-bot-secret': Deno.env.get('BOT_SECRET') || '',
+        },
+        body: JSON.stringify(body),
+      })
+      const hfData = await hfRes.json()
+      return ok(hfData.data)
+    }
+
+    if (path === 'cancel-content' && req.method === 'POST') {
+      const hfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/higgsfield-api/cancel`
+      const hfRes = await fetch(hfUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-bot-secret': Deno.env.get('BOT_SECRET') || '',
+        },
+        body: JSON.stringify(body),
+      })
+      const hfData = await hfRes.json()
+      return ok(hfData.data)
     }
 
     return fail('Unknown endpoint', 404)

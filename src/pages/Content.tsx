@@ -27,6 +27,7 @@ const SOURCE_LABELS: Record<string, { label: string; icon: any }> = {
   sms: { label: 'From Client Text Messages', icon: Smartphone },
   'client-direct': { label: 'From Client Directly', icon: File },
   'ai-generated': { label: 'AI Generated', icon: Sparkles },
+  'higgsfield': { label: 'AI Generated (Higgsfield)', icon: Sparkles },
   other: { label: 'Other', icon: File },
 };
 
@@ -744,7 +745,7 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
   const loadAssets = async () => {
     const { data } = await supabase.from('content_assets')
       .select('*, customers(full_name)')
-      .eq('source', 'higgsfield')
+      .or('source.eq.higgsfield,source.eq.ai-generated')
       .order('created_at', { ascending: false });
     setAssets(data || []);
     setLoading(false);
