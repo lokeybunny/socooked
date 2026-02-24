@@ -32,9 +32,13 @@ const PLATFORM_WARNINGS: Record<string, string> = {
 
 export default function SMMComposer({ profiles, onRefresh }: { profiles: SMMProfile[]; onRefresh: () => void }) {
   const { profileId, platform: ctxPlatform } = useSMMContext();
+  const activeProfile = profiles.find(p => p.id === profileId) || profiles[0];
+  const connectedPlatformNames = (activeProfile?.connected_platforms || [])
+    .filter(cp => cp.connected)
+    .map(cp => cp.platform) as Platform[];
   const [localProfileId, setLocalProfileId] = useState(profileId || profiles[0]?.id || '');
   const [postType, setPostType] = useState<PostType>('photos');
-  const [platforms, setPlatforms] = useState<Platform[]>(ctxPlatform !== 'all' ? [ctxPlatform as Platform] : []);
+  const [platforms, setPlatforms] = useState<Platform[]>(ctxPlatform !== 'all' && connectedPlatformNames.includes(ctxPlatform as Platform) ? [ctxPlatform as Platform] : []);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [firstComment, setFirstComment] = useState('');
@@ -109,26 +113,15 @@ export default function SMMComposer({ profiles, onRefresh }: { profiles: SMMProf
         <div className="glass-card p-6 space-y-5">
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Profile</Label>
-              <Select value={localProfileId} onValueChange={setLocalProfileId}>
-                <SelectTrigger><SelectValue placeholder="Select profile" /></SelectTrigger>
-                <SelectContent>
-                  {profiles.map(p => {
-                    const handles = p.connected_platforms
-                      .filter(cp => cp.connected)
-                      .map(cp => `${PLATFORM_META[cp.platform]?.abbr || cp.platform}: @${cp.display_name}`)
-                      .join(' · ');
-                    return (
-                      <SelectItem key={p.id} value={p.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{p.username}</span>
-                          {handles && <span className="text-[10px] text-muted-foreground">{handles}</span>}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-medium">Post Type</Label>
+              <div className="flex gap-1.5">
+                {POST_TYPES.map(t => (
+                  <button key={t.value} onClick={() => setPostType(t.value)}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${postType === t.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}>
+                    <t.icon className="h-3 w-3" /> {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Post Type</Label>
@@ -146,12 +139,15 @@ export default function SMMComposer({ profiles, onRefresh }: { profiles: SMMProf
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">Platforms</Label>
             <div className="flex flex-wrap gap-1.5">
-              {ALL_PLATFORMS.map(p => (
+              {connectedPlatformNames.map(p => (
                 <label key={p} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg cursor-pointer text-xs transition-colors ${platforms.includes(p) ? 'bg-primary/10 text-primary border border-primary/30' : 'bg-muted text-muted-foreground border border-transparent'}`}>
                   <Checkbox checked={platforms.includes(p)} onCheckedChange={() => togglePlatform(p)} className="h-3 w-3" />
                   {PLATFORM_META[p]?.abbr || p}
                 </label>
               ))}
+              {connectedPlatformNames.length === 0 && (
+                <p className="text-xs text-muted-foreground py-1">No platforms connected. Connect accounts first.</p>
+              )}
             </div>
             {platforms.some(p => PLATFORM_WARNINGS[p]) && (
               <div className="space-y-1 mt-2">
