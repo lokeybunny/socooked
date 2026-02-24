@@ -446,7 +446,7 @@ Deno.serve(async (req) => {
 
     if (path === 'content' && req.method === 'POST') {
       const { id, title, type, body: assetBody, status, tags, category, url, folder, scheduled_for, source, customer_id } = body
-      const VALID_SOURCES = ['dashboard', 'google-drive', 'instagram', 'sms', 'client-direct', 'higgsfield', 'ai-generated', 'other']
+      const VALID_SOURCES = ['dashboard', 'google-drive', 'instagram', 'sms', 'client-direct', 'higgsfield', 'ai-generated', 'telegram', 'other']
       if (id) {
         const updates: Record<string, unknown> = {}
         if (title) updates.title = title
