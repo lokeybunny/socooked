@@ -290,6 +290,156 @@ All Instagram DM messages from known customers (those with an `instagram_handle`
 - Only use `GET smm-api?action=ig-conversations` if you need messages from the last few minutes that may not have been polled yet
 - Or if you need conversations from non-customer accounts (those without `instagram_handle` in CRM)
 
+## SOCIAL MEDIA POSTING & SCHEDULING (Upload-Post API)
+
+Cortex has full authority to create, schedule, cancel, and manage social media posts across all connected platforms via the `clawd-bot` proxy.
+
+### Connected Accounts (Profile: STU25)
+- **Instagram**: @w4rr3nguru
+- **X (Twitter)**: @WarrenGuru (display: "W4RR3N | RED PILL VILLE")
+- TikTok, YouTube, Facebook, LinkedIn, Pinterest — connect as needed
+
+### Posting a Post
+
+**Endpoint**: `POST /clawd-bot/smm-post`
+
+**Required fields**:
+| Field | Type | Description |
+|-------|------|-------------|
+| `user` | string | Profile username, always `"STU25"` |
+| `type` | string | `"video"`, `"photos"`, `"text"`, or `"document"` |
+| `platforms` | string[] | Array of platforms: `["instagram"]`, `["x"]`, `["instagram", "x"]`, etc. |
+| `title` | string | The post caption/text content |
+
+**Optional fields**:
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | string | Extended description (YouTube, LinkedIn) |
+| `first_comment` | string | Auto-posted as first comment (Instagram strategy) |
+| `media_url` | string | Public URL to video/image/document file |
+| `scheduled_date` | string | ISO 8601 datetime for scheduling (e.g., `"2026-02-25T00:15:00Z"`) |
+| `add_to_queue` | boolean | Add to next available queue slot instead of immediate post |
+| `timezone` | string | Timezone for queue (e.g., `"America/Los_Angeles"`) |
+| `platform_overrides` | object | Per-platform title/comment overrides |
+| `customer_id` | string | Link to CRM customer UUID |
+| `customer_name` | string | Customer name for task tracking |
+
+### Example Commands & How Cortex Should Handle Them
+
+**"Post on X: I'm so excited"**
+```json
+POST /clawd-bot/smm-post
+{
+  "user": "STU25",
+  "type": "text",
+  "platforms": ["x"],
+  "title": "I'm so excited"
+}
+```
+
+**"Post a reel to Instagram in 3 minutes with caption 'New heat coming'"**
+→ Calculate `scheduled_date` = now() + 3 minutes in ISO 8601 UTC
+```json
+POST /clawd-bot/smm-post
+{
+  "user": "STU25",
+  "type": "video",
+  "platforms": ["instagram"],
+  "title": "New heat coming 🔥",
+  "media_url": "<resolved video URL>",
+  "scheduled_date": "2026-02-25T00:05:00Z"
+}
+```
+
+**"Post this on Instagram AND X at 6pm PST tomorrow"**
+→ Convert "6pm PST tomorrow" to UTC ISO 8601
+```json
+POST /clawd-bot/smm-post
+{
+  "user": "STU25",
+  "type": "text",
+  "platforms": ["instagram", "x"],
+  "title": "<the content>",
+  "scheduled_date": "2026-02-26T02:00:00Z"
+}
+```
+
+**"Queue a post for the next available slot"**
+```json
+POST /clawd-bot/smm-post
+{
+  "user": "STU25",
+  "type": "text",
+  "platforms": ["instagram"],
+  "title": "<the content>",
+  "add_to_queue": true,
+  "timezone": "America/Los_Angeles"
+}
+```
+
+### Platform Name Mapping
+Users say → API platform value:
+- "X", "Twitter" → `"x"`
+- "IG", "Instagram", "Insta" → `"instagram"`
+- "TikTok", "TT" → `"tiktok"`
+- "YouTube", "YT" → `"youtube"`
+- "Facebook", "FB" → `"facebook"`
+- "LinkedIn", "LI" → `"linkedin"`
+- "Pinterest" → `"pinterest"`
+
+### Platform Overrides (Different Caption Per Platform)
+```json
+{
+  "platform_overrides": {
+    "x": { "title": "Short tweet version" },
+    "instagram": { "title": "Longer IG caption with #hashtags", "first_comment": "Link in bio!" }
+  }
+}
+```
+
+### Scheduling Logic
+- **"in X minutes"** → Calculate `new Date(Date.now() + X * 60000).toISOString()`
+- **"at 6pm"** → Assume user's timezone is PST (America/Los_Angeles), convert to UTC
+- **"tomorrow at noon"** → Calculate accordingly
+- **"next Monday"** → Calculate the date
+- **No time specified** → Post immediately (omit `scheduled_date`)
+- **"queue it"** → Use `add_to_queue: true` instead of `scheduled_date`
+
+### Checking Post Status
+
+**Endpoint**: `GET /clawd-bot/smm-status?request_id={id}` or `?job_id={id}`
+
+Use this to check if a post was published successfully. The response from `smm-post` includes `request_id` and/or `job_id` — use either to poll status.
+
+### Viewing Scheduled Posts
+
+**Endpoint**: `GET /clawd-bot/smm-scheduled`
+
+Returns all currently scheduled (future) posts. Use when user asks "what's scheduled" or "show me upcoming posts."
+
+### Canceling a Scheduled Post
+
+**Endpoint**: `POST /clawd-bot/smm-cancel`
+```json
+{ "job_id": "<the job_id from the scheduled post>" }
+```
+
+### Upload History
+
+**Endpoint**: `GET /clawd-bot/smm-history?page=1&limit=50` (via smm-api proxy)
+
+Shows past uploads with status, platforms, and post URLs.
+
+### CRITICAL RULES FOR POSTING
+
+1. **ALWAYS use `user: "STU25"`** — this is the only profile.
+2. **`type` must match the content**: text-only → `"text"`, with video → `"video"`, with images → `"photos"`.
+3. **`platforms` is an ARRAY**, even for single platform: `["x"]` not `"x"`.
+4. **For video/image posts**, `media_url` must be a publicly accessible URL. If user sends media via Telegram, resolve it from the Source Asset Pool first via `GET /clawd-bot/source-asset`.
+5. **Time calculations**: Always convert user-friendly times to UTC ISO 8601. Default timezone assumption: America/Los_Angeles (PST/PDT).
+6. **Confirm before posting** if the request is ambiguous. If clear, post immediately.
+7. **After posting**, report back the `request_id` and confirm what was posted, to which platforms, and when.
+
 ## Install
 
 ```
