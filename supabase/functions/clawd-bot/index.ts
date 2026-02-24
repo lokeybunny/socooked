@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
   }
 
   // Valid category IDs matching the UI
-  const VALID_CATEGORIES = ['digital-services', 'brick-and-mortar', 'digital-ecommerce', 'food-and-beverage', 'mobile-services', 'other']
+  const VALID_CATEGORIES = ['digital-services', 'brick-and-mortar', 'digital-ecommerce', 'food-and-beverage', 'mobile-services', 'telegram', 'other']
   const normalizeCategory = (cat: string | null | undefined): string => {
     if (!cat) return 'other'
     return VALID_CATEGORIES.includes(cat) ? cat : 'other'
@@ -497,9 +497,11 @@ Deno.serve(async (req) => {
       }
       if (!title || !type) return fail('title and type are required')
       const normalizedSource = source ? (VALID_SOURCES.includes(source as string) ? source : 'other') : 'dashboard'
+      // Auto-assign telegram category for telegram-sourced content
+      const effectiveCategory = (normalizedSource === 'telegram' && !category) ? 'telegram' : normalizeCategory(category)
       const { data, error } = await supabase.from('content_assets').insert({
         title, type, body: assetBody || null, status: status || 'draft',
-        tags: tags || [], category: normalizeCategory(category), url: resolvedUrl || null,
+        tags: tags || [], category: effectiveCategory, url: resolvedUrl || null,
         folder: folder || null, scheduled_for: scheduled_for || null,
         source: normalizedSource, customer_id: customer_id || null,
       }).select('id').single()
@@ -2486,7 +2488,7 @@ Deno.serve(async (req) => {
         url: publicUrl,
         folder: 'telegram',
         source: 'telegram',
-        category: normalizeCategory(category),
+        category: normalizeCategory(category) || 'telegram',
         customer_id: customer_id || null,
       }).select('id').single()
       if (insertErr) return fail(insertErr.message, 500)
