@@ -1,6 +1,6 @@
 {
   "skill_name": "clawd-command-crm",
-  "version": "3.0.0",
+  "version": "3.3.5",
   "description": "Full CRM integration for CLAWD Command via SpaceBot — covers all modules: customers, deals, projects, tasks, boards, invoices, content, templates, meetings, communications, interactions, transcriptions, checklists, signatures, automations, and more",
   "auth": {
     "type": "shared_secret",
