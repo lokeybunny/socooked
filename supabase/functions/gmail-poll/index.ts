@@ -317,6 +317,32 @@ Deno.serve(async (req) => {
           },
           processed: true,
         });
+
+        // Log inbound customer emails to communications table
+        if (isCustomer && customer?.id) {
+          const trimmedBodyForComm = bodyText.replace(/<[^>]*>/g, '').slice(0, 2000);
+          // Check if already logged (by external_id)
+          const { data: existing } = await supabase
+            .from("communications")
+            .select("id")
+            .eq("external_id", msg.id)
+            .limit(1);
+
+          if (!existing || existing.length === 0) {
+            await supabase.from("communications").insert({
+              type: "email",
+              direction: "inbound",
+              subject: subject || null,
+              body: trimmedBodyForComm,
+              from_address: senderEmail,
+              to_address: IMPERSONATE_EMAIL,
+              status: "received",
+              provider: "gmail",
+              external_id: msg.id,
+              customer_id: customer.id,
+            });
+          }
+        }
       } else {
         console.error("Telegram send failed:", await tgRes.text());
       }
