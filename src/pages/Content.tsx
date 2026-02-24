@@ -67,6 +67,10 @@ export default function Content() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ title: '', type: 'article' as string, status: 'draft' as string, url: '', folder: '', customer_id: '' });
 
+  // Track IDs present on first load — anything new gets highlighted
+  const initialIdsRef = useRef<Set<string> | null>(null);
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
+
   // Upload state
   const [uploadOpen, setUploadOpen] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -113,7 +117,17 @@ export default function Content() {
     if (filterSource !== 'all') q = q.eq('source', filterSource);
     if (search) q = q.ilike('title', `%${search}%`);
     const { data } = await q;
-    setAllContent(data || []);
+    const items = data || [];
+
+    // On first load, snapshot all existing IDs; on subsequent loads, mark new ones
+    if (initialIdsRef.current === null) {
+      initialIdsRef.current = new Set(items.map(i => i.id));
+    } else {
+      const fresh = items.filter(i => !initialIdsRef.current!.has(i.id)).map(i => i.id);
+      if (fresh.length > 0) setNewIds(prev => new Set([...prev, ...fresh]));
+    }
+
+    setAllContent(items);
     setLoading(false);
   };
 
@@ -551,7 +565,7 @@ export default function Content() {
                                               const Icon = typeIcons[c.type] || File;
                                               const isPlayable = (c.type === 'video' || c.type === 'audio') && c.url;
                                               return (
-                                                <div key={c.id} className="flex items-center gap-3 pl-24 pr-4 py-2.5 hover:bg-muted/20 transition-colors">
+                                                <div key={c.id} className={`flex items-center gap-3 pl-24 pr-4 py-2.5 hover:bg-muted/20 transition-colors ${newIds.has(c.id) ? 'new-content-highlight' : ''}`}>
                                                   <div className="p-1.5 rounded bg-muted"><Icon className="h-3.5 w-3.5 text-muted-foreground" /></div>
                                                   <div className="flex-1 min-w-0">
                                                     <p className="text-sm text-foreground truncate">{c.title}</p>
@@ -802,13 +816,22 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
   const [assets, setAssets] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const initialIdsRef = useRef<Set<string> | null>(null);
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
   const loadAssets = async () => {
     const { data } = await supabase.from('content_assets')
       .select('*, customers(id, full_name)')
-      .or('source.eq.higgsfield,source.eq.ai-generated')
+      .or('source.eq.higgsfield,source.eq.ai-generated,source.eq.nano-banana')
       .order('created_at', { ascending: false });
-    setAssets(data || []);
+    const items = data || [];
+    if (initialIdsRef.current === null) {
+      initialIdsRef.current = new Set(items.map(i => i.id));
+    } else {
+      const fresh = items.filter(i => !initialIdsRef.current!.has(i.id)).map(i => i.id);
+      if (fresh.length > 0) setNewIds(prev => new Set([...prev, ...fresh]));
+    }
+    setAssets(items);
     setLoading(false);
   };
 
@@ -852,7 +875,7 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
             const Icon = typeIcons[a.type] || File;
             const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
             return (
-              <div key={a.id} className="glass-card flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors">
+              <div key={a.id} className={`glass-card flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors ${newIds.has(a.id) ? 'new-content-highlight' : ''}`}>
                 <div className="p-1.5 rounded bg-primary/10"><Icon className="h-4 w-4 text-primary" /></div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
@@ -933,13 +956,22 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
   const [search, setSearch] = useState('');
   const [collapsedCustomers, setCollapsedCustomers] = useState<Set<string>>(new Set());
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
+  const initialIdsRef = useRef<Set<string> | null>(null);
+  const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
   const loadAssets = async () => {
     const { data } = await supabase.from('content_assets')
       .select('*, customers(id, full_name)')
       .or('source.eq.telegram,category.eq.telegram')
       .order('created_at', { ascending: false });
-    setAssets(data || []);
+    const items = data || [];
+    if (initialIdsRef.current === null) {
+      initialIdsRef.current = new Set(items.map(i => i.id));
+    } else {
+      const fresh = items.filter(i => !initialIdsRef.current!.has(i.id)).map(i => i.id);
+      if (fresh.length > 0) setNewIds(prev => new Set([...prev, ...fresh]));
+    }
+    setAssets(items);
     setLoading(false);
   };
 
@@ -1097,7 +1129,7 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
                                 const Icon = typeIcons[a.type] || File;
                                 const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
                                 return (
-                                  <div key={a.id} className="flex items-center gap-3 px-4 pl-16 py-3 hover:bg-muted/20 transition-colors">
+                                  <div key={a.id} className={`flex items-center gap-3 px-4 pl-16 py-3 hover:bg-muted/20 transition-colors ${newIds.has(a.id) ? 'new-content-highlight' : ''}`}>
                                     <div className="p-1.5 rounded bg-primary/10"><Icon className="h-4 w-4 text-primary" /></div>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
