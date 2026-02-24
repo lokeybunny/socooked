@@ -223,13 +223,15 @@ export const smmApi = {
     try {
       const data = await invokeSMM('analytics', {
         profile_username: profileUsername,
-        platforms: platforms || 'instagram,tiktok,facebook,linkedin,youtube',
+        platforms: platforms || 'instagram,tiktok,facebook,linkedin,youtube,x',
       });
       if (!data) return [];
       // The API returns platform-keyed data
       const result: AnalyticsData[] = [];
-      Object.entries(data).forEach(([platform, metrics]: [string, any]) => {
-        if (platform === 'success' || platform === 'error') return;
+      Object.entries(data).forEach(([rawPlatform, metrics]: [string, any]) => {
+        if (rawPlatform === 'success' || rawPlatform === 'error') return;
+        if (metrics?.success === false) return; // skip platforms with errors
+        const platform = rawPlatform === 'x' ? 'twitter' : rawPlatform;
         result.push({
           profile_id: profileUsername,
           platform: platform as Platform,
@@ -240,10 +242,10 @@ export const smmApi = {
           comments: metrics.comments || metrics.engagement?.comments || 0,
           shares: metrics.shares || metrics.engagement?.shares || 0,
           saves: metrics.saves || 0,
-          series: (metrics.time_series || []).map((s: any) => ({
+          series: (metrics.time_series || metrics.reach_timeseries || []).map((s: any) => ({
             date: s.date || s.end_time || '',
             impressions: s.impressions || s.value || 0,
-            reach: s.reach || 0,
+            reach: s.reach || s.value || 0,
             engagement: s.engagement || 0,
           })),
         });
