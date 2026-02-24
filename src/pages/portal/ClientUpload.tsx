@@ -26,6 +26,8 @@ export default function ClientUpload() {
   const [dragActive, setDragActive] = useState(false);
   const [aiAssets, setAiAssets] = useState<any[]>([]);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [artPage, setArtPage] = useState(0);
+  const ART_PAGE_SIZE = 9;
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -148,6 +150,7 @@ export default function ClientUpload() {
     );
   }
 
+  const allMediaAssets = aiAssets.filter(a => (a.type === 'image' || a.type === 'video') && a.url);
   const imageAssets = aiAssets.filter(a => a.type === 'image' && a.url);
   const videoAssets = aiAssets.filter(a => a.type === 'video' && a.url);
 
@@ -165,50 +168,47 @@ export default function ClientUpload() {
         </div>
 
         {/* AI-Generated Gallery */}
-        {(imageAssets.length > 0 || videoAssets.length > 0) && (
-          <div className="glass-card p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-yellow-400" />
-              Your AI-Generated Artwork
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {imageAssets.map(asset => (
-                <button
-                  key={asset.id}
-                  onClick={() => setLightboxUrl(asset.url)}
-                  className="group relative aspect-square rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-all hover:shadow-lg"
-                >
-                  <img
-                    src={asset.url}
-                    alt={asset.title}
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <p className="absolute bottom-1.5 left-2 right-2 text-[10px] text-white truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                    {asset.title}
-                  </p>
-                </button>
-              ))}
-              {videoAssets.map(asset => (
-                <div
-                  key={asset.id}
-                  className="relative aspect-square rounded-xl overflow-hidden border border-border"
-                >
-                  <video
-                    src={asset.url}
-                    className="w-full h-full object-cover"
-                    controls
-                    preload="metadata"
-                  />
-                </div>
-              ))}
+        {allMediaAssets.length > 0 && (() => {
+          const totalPages = Math.ceil(allMediaAssets.length / ART_PAGE_SIZE);
+          const paged = allMediaAssets.slice(artPage * ART_PAGE_SIZE, (artPage + 1) * ART_PAGE_SIZE);
+          return (
+            <div className="glass-card p-5 space-y-4">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Your AI-Generated Artwork
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {paged.map(asset => asset.type === 'video' ? (
+                  <div key={asset.id} className="relative aspect-square rounded-xl overflow-hidden border border-border">
+                    <video src={asset.url} className="w-full h-full object-cover" controls preload="metadata" />
+                  </div>
+                ) : (
+                  <button
+                    key={asset.id}
+                    onClick={() => setLightboxUrl(asset.url)}
+                    className="group relative aspect-square rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-all hover:shadow-lg"
+                  >
+                    <img src={asset.url} alt={asset.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <p className="absolute bottom-1.5 left-2 right-2 text-[10px] text-white truncate opacity-0 group-hover:opacity-100 transition-opacity">{asset.title}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] text-muted-foreground">
+                  {allMediaAssets.length} piece{allMediaAssets.length !== 1 ? 's' : ''} created for you
+                </p>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" disabled={artPage === 0} onClick={() => setArtPage(p => p - 1)} className="h-7 px-2 text-xs">Prev</Button>
+                    <span className="text-xs text-muted-foreground">{artPage + 1}/{totalPages}</span>
+                    <Button variant="outline" size="sm" disabled={artPage + 1 >= totalPages} onClick={() => setArtPage(p => p + 1)} className="h-7 px-2 text-xs">Next</Button>
+                  </div>
+                )}
+              </div>
             </div>
-            <p className="text-[11px] text-muted-foreground text-center">
-              {imageAssets.length + videoAssets.length} piece{imageAssets.length + videoAssets.length !== 1 ? 's' : ''} created for you
-            </p>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Lightbox */}
         {lightboxUrl && (
