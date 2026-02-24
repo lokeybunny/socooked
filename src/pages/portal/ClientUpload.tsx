@@ -315,7 +315,15 @@ export default function ClientUpload() {
           </div>
         )}
 
-        <div className="text-center space-y-1">
+        <div className="text-center space-y-2">
+          <a
+            href="https://app.upload-post.com/connect?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6IndhcnJlbnRoZWNyZWF0aXZleXRAZ21haWwuY29tIiwicHJvZmlsZV91c2VybmFtZSI6IlNUVTI1IiwiZXhwIjoxNzcyMDkyNTUyLCJpYXQiOjE3NzE5MTk3NTJ9.L0HlDsiRpaPCckEYLqaIAG7IxC0cc2eHKIqOCEENKeU"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            📱 Onboarding Social Media
+          </a>
           <p className="text-xs text-muted-foreground">Powered by STU25 · Files are stored securely</p>
           <a href="https://stu25.com" target="_blank" rel="noopener noreferrer" className="inline-block text-xs text-primary hover:underline">
             ← Back to stu25.com
