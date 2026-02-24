@@ -28,6 +28,7 @@ const SOURCE_LABELS: Record<string, { label: string; icon: any }> = {
   'client-direct': { label: 'From Client Directly', icon: File },
   'ai-generated': { label: 'AI Generated', icon: Sparkles },
   'higgsfield': { label: 'AI Generated (Higgsfield)', icon: Sparkles },
+  telegram: { label: 'From Telegram', icon: MessageSquare },
   other: { label: 'Other', icon: File },
 };
 
