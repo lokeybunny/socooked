@@ -9,9 +9,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Calendar, User, Tag, FolderOpen, Trash2, Mail, FileText, Receipt,
   PenTool, Phone, MessageSquare, Upload, Globe, Clock, Image, Video,
-  Send, Inbox, RefreshCw
+  Send, Inbox, RefreshCw, Copy, StickyNote, Check
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import { toast } from 'sonner';
 
 const GMAIL_FN = 'gmail-api';
 async function callGmail(action: string): Promise<any> {
@@ -50,6 +51,8 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   const [botTasks, setBotTasks] = useState<any[]>([]);
   const [previews, setPreviews] = useState<any[]>([]);
   const [contentAssets, setContentAssets] = useState<any[]>([]);
+  const [customerNotes, setCustomerNotes] = useState('');
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [customerEmail, setCustomerEmail] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -61,10 +64,12 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
     setLoading(true);
 
     const load = async () => {
-      // Fetch customer email for Gmail filtering
-      const { data: cust } = await supabase.from('customers').select('email').eq('id', customerId).maybeSingle();
+      // Fetch customer info for Gmail filtering and notes
+      const { data: cust } = await supabase.from('customers').select('email, notes').eq('id', customerId).maybeSingle();
       const custEmail = cust?.email?.toLowerCase().trim() || null;
       setCustomerEmail(custEmail);
+      setCustomerNotes(cust?.notes || '');
+      setCopied(false);
 
       const [
         { data: e }, { data: d }, { data: inv }, { data: sig },
@@ -174,9 +179,10 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
 
         {/* Hub Tabs */}
         <Tabs defaultValue="tasks" className="flex-1 min-h-0">
-          <TabsList className="grid grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-6 w-full">
             <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
             <TabsTrigger value="emails" className="text-xs">Emails</TabsTrigger>
+            <TabsTrigger value="notes" className="text-xs">Notes</TabsTrigger>
             <TabsTrigger value="docs" className="text-xs">Sites</TabsTrigger>
             <TabsTrigger value="money" className="text-xs">Money</TabsTrigger>
             <TabsTrigger value="activity" className="text-xs">Activity</TabsTrigger>
@@ -287,6 +293,37 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
                     </div>
                   ))}
                 </div>
+              )}
+            </TabsContent>
+
+            {/* Notes */}
+            <TabsContent value="notes" className="space-y-2 m-0">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <StickyNote className="h-3 w-3" /> Customer Notes
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => {
+                    navigator.clipboard.writeText(customerNotes || '');
+                    setCopied(true);
+                    toast.success('Notes copied to clipboard');
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  disabled={!customerNotes}
+                >
+                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copied ? 'Copied' : 'Copy'}
+                </Button>
+              </div>
+              {customerNotes ? (
+                <div className="glass-card p-4 whitespace-pre-wrap text-sm text-foreground select-all leading-relaxed">
+                  {customerNotes}
+                </div>
+              ) : (
+                <EmptyState label="customer notes" />
               )}
             </TabsContent>
 
