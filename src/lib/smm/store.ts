@@ -14,7 +14,15 @@ async function invokeSMM(action: string, params?: Record<string, string>, body?:
   const { data, error } = await supabase.functions.invoke(`smm-api?${queryString}`, {
     body: body || undefined,
   });
-  if (error) throw error;
+  if (error) {
+    // Try to extract a meaningful message from the response
+    const msg = (data as any)?.error || error.message || 'Unknown error';
+    throw new Error(msg);
+  }
+  // Also check for API-level errors in the response body
+  if (data && typeof data === 'object' && data.success === false && data.error) {
+    throw new Error(data.error);
+  }
   return data;
 }
 
