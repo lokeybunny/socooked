@@ -55,8 +55,8 @@ export default function SMMInstagram() {
       setNewMsg('');
       // Hard refresh conversations to sync with API
       await refreshConversations();
-    } catch {
-      toast.error('Failed to send message');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to send message');
     } finally {
       setSending(false);
     }
