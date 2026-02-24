@@ -239,20 +239,21 @@ export default function EmailPage() {
       return;
     }
     setViewEmail(email); setReplyOpen(false); setReplyBody(''); setReplyAttachments([]);
-    setReadIds((prev) => {
-      if (prev.has(email.id)) return prev;
-      // Persist to database
-      supabase.from('communications').insert({
+    if (!readIds.has(email.id)) {
+      setReadIds((prev) => new Set(prev).add(email.id));
+      // Persist read status to database
+      const { error } = await supabase.from('communications').insert({
         type: 'email-read',
         direction: 'inbound',
-        from_address: email.from,
-        subject: email.subject,
+        from_address: email.from || '',
+        to_address: email.to || '',
+        subject: email.subject || '',
         external_id: email.id,
         provider: 'gmail',
         status: 'read',
-      }).then(() => {});
-      return new Set(prev).add(email.id);
-    });
+      });
+      if (error) console.error('Failed to persist read status:', error);
+    }
     if (email.isUnread && activeTab === 'inbox') {
       try {
         await callGmail(`message&id=${email.id}`);
