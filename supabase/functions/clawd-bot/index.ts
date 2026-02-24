@@ -2446,8 +2446,29 @@ Deno.serve(async (req) => {
       return ok({ boards: boards.data, customers: customers.data, deals: deals.data, projects: projects.data, meetings: meetings.data, templates: templates.data, content: content.data, transcriptions: transcriptions.data, bot_tasks: botTasks.data, api_previews: apiPreviews.data, soul })
     }
 
-    // ─── HIGGSFIELD: Proxy to higgsfield-api edge function ───
+    // ─── CONTENT GENERATION: Route to Nano Banana or Higgsfield ───
     if (path === 'generate-content' && req.method === 'POST') {
+      const promptLower = ((body.prompt as string) || '').toLowerCase()
+      const useNanoBanana = /nano[\s\-_]*banana|nano\b|\bbanana\b/i.test(promptLower)
+
+      if (useNanoBanana) {
+        // Route to Nano Banana (Gemini image generation)
+        const nbUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/nano-banana/generate`
+        const nbRes = await fetch(nbUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-bot-secret': Deno.env.get('BOT_SECRET') || '',
+          },
+          body: JSON.stringify(body),
+        })
+        const nbData = await nbRes.json()
+        if (!nbRes.ok) return fail(nbData.error || 'Nano Banana generation failed', nbRes.status)
+        await logActivity(supabase, 'content_asset', nbData.data?.bot_task_id || null, 'nano_banana_generate', body.prompt ? (body.prompt as string).substring(0, 80) : 'Content generation')
+        return ok(nbData.data)
+      }
+
+      // Default: Higgsfield
       const hfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/higgsfield-api/generate`
       const hfRes = await fetch(hfUrl, {
         method: 'POST',
