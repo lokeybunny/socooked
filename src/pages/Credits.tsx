@@ -12,14 +12,30 @@ interface CreditInfo {
   details?: string;
 }
 
+const apiChecks = [
+  { key: 'openrouter', label: 'OpenRouter' },
+  { key: 'higgsfield', label: 'Higgsfield' },
+  { key: 'deepgram', label: 'Deepgram' },
+  { key: 'v0', label: 'V0' },
+  { key: 'lovable', label: 'Lovable AI' },
+  { key: 'telegram', label: 'Telegram' },
+  { key: 'ringcentral', label: 'RingCentral' },
+  { key: 'instagram', label: 'Instagram' },
+] as const;
+
+type ApiCheckKey = (typeof apiChecks)[number]['key'];
+
 export default function Credits() {
   const [credits, setCredits] = useState<CreditInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeCheck, setActiveCheck] = useState<ApiCheckKey | 'all'>('all');
 
-  const fetchCredits = async () => {
+  const fetchCredits = async (api?: ApiCheckKey) => {
     setLoading(true);
     setError(null);
+    setActiveCheck(api ?? 'all');
+
     try {
       let { data: { session: activeSession } } = await supabase.auth.getSession();
       if (!activeSession) {
@@ -31,11 +47,13 @@ export default function Credits() {
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-credits`,
         {
+          method: 'POST',
           headers: {
             Authorization: `Bearer ${activeSession.access_token}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify(api ? { api } : {}),
         }
       );
       const json = await res.json();
@@ -74,24 +92,40 @@ export default function Credits() {
   return (
     <AppLayout>
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <Wallet className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-semibold text-foreground">API Credits</h1>
           </div>
           <button
-            onClick={fetchCredits}
+            onClick={() => fetchCredits()}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/80 transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            Refresh
+            <RefreshCw className={cn('h-4 w-4', loading && activeCheck === 'all' && 'animate-spin')} />
+            Check All
           </button>
         </div>
 
         <p className="text-sm text-muted-foreground">
-          Overview of all external API integrations and their remaining balances.
+          Run checks one by one to identify exactly which API is failing.
         </p>
+
+        <div className="flex flex-wrap gap-2">
+          {apiChecks.map((item) => (
+            <button
+              key={item.key}
+              onClick={() => fetchCredits(item.key)}
+              disabled={loading}
+              className="px-3 py-1.5 rounded-md border border-border bg-card text-foreground text-xs hover:bg-accent hover:text-accent-foreground transition-colors disabled:opacity-50"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                {loading && activeCheck === item.key ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
+                Test {item.label}
+              </span>
+            </button>
+          ))}
+        </div>
 
         {error && (
           <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
@@ -101,7 +135,7 @@ export default function Credits() {
 
         {loading && credits.length === 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-28 rounded-xl border border-border bg-card animate-pulse" />
             ))}
           </div>
@@ -111,7 +145,7 @@ export default function Credits() {
               <div
                 key={c.name}
                 className={cn(
-                  "rounded-xl border p-5 transition-colors",
+                  'rounded-xl border p-5 transition-colors',
                   statusBg(c.status)
                 )}
               >
