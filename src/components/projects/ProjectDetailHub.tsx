@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Calendar, User, Tag, FolderOpen, Trash2, Mail, FileText, Receipt,
-  PenTool, Phone, MessageSquare, Upload, Globe, Clock
+  PenTool, Phone, MessageSquare, Upload, Globe, Clock, Image, Video
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
@@ -32,6 +32,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   const [transcriptions, setTranscriptions] = useState<any[]>([]);
   const [botTasks, setBotTasks] = useState<any[]>([]);
   const [previews, setPreviews] = useState<any[]>([]);
+  const [contentAssets, setContentAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const customerId = project?.customer_id;
@@ -44,7 +45,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
       const [
         { data: e }, { data: d }, { data: inv }, { data: sig },
         { data: dl }, { data: ev }, { data: th }, { data: tr },
-        { data: tk }, { data: pr }
+        { data: tk }, { data: pr }, { data: ca }
       ] = await Promise.all([
         supabase.from('communications').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }).limit(20),
         supabase.from('documents').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
@@ -56,6 +57,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
         supabase.from('transcriptions').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
         supabase.from('bot_tasks').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
         supabase.from('api_previews').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
+        supabase.from('content_assets').select('*').eq('customer_id', customerId).order('created_at', { ascending: false }),
       ]);
 
       setEmails(e || []);
@@ -68,6 +70,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
       setTranscriptions(tr || []);
       setBotTasks(tk || []);
       setPreviews(pr || []);
+      setContentAssets(ca || []);
       setLoading(false);
     };
     load();
@@ -121,7 +124,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
           <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
             <TabsTrigger value="emails" className="text-xs">Emails</TabsTrigger>
-            <TabsTrigger value="docs" className="text-xs">Docs</TabsTrigger>
+            <TabsTrigger value="docs" className="text-xs">Sites</TabsTrigger>
             <TabsTrigger value="money" className="text-xs">Money</TabsTrigger>
             <TabsTrigger value="activity" className="text-xs">Activity</TabsTrigger>
           </TabsList>
@@ -191,19 +194,40 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
               )}
             </TabsContent>
 
-            {/* Docs */}
+            {/* Sites */}
             <TabsContent value="docs" className="space-y-2 m-0">
-              <SectionCount items={documents} label="documents" />
-              {documents.length === 0 && <EmptyState label="documents" />}
-              {documents.map(d => (
-                <div key={d.id} className="glass-card p-3 flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-primary" />
+              {/* Content Assets */}
+              <p className="text-xs font-medium text-muted-foreground">Assigned Content ({contentAssets.length})</p>
+              {contentAssets.length === 0 && <EmptyState label="assigned content" />}
+              {contentAssets.map(a => (
+                <div key={a.id} className="glass-card p-3 flex items-center gap-3">
+                  {a.type === 'video' ? <Video className="h-4 w-4 text-primary" /> : <Image className="h-4 w-4 text-primary" />}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{d.title}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{d.type} · {d.status}</p>
+                    <p className="text-sm font-medium truncate">{a.title}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{a.type} · {a.source} · {a.status}</p>
                   </div>
+                  {a.url && (
+                    <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">View</a>
+                  )}
                 </div>
               ))}
+
+              {/* Documents */}
+              {documents.length > 0 && (
+                <div className="pt-2 border-t border-border">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Documents ({documents.length})</p>
+                  {documents.map(d => (
+                    <div key={d.id} className="glass-card p-3 mb-2 flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{d.title}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{d.type} · {d.status}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Signatures */}
               {signatures.length > 0 && (
                 <div className="pt-2 border-t border-border">
@@ -217,6 +241,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
                   ))}
                 </div>
               )}
+
               {/* Previews */}
               {previews.length > 0 && (
                 <div className="pt-2 border-t border-border">
