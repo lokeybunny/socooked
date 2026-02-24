@@ -134,10 +134,11 @@ export const smmApi = {
       title: post.title,
     };
 
-    // Platforms
+    // Platforms — remap 'twitter' back to 'x' for the API
     post.platforms.forEach(p => {
       if (!formBody['platform[]']) formBody['platform[]'] = [];
-      if (Array.isArray(formBody['platform[]'])) formBody['platform[]'].push(p);
+      const apiPlatform = p === 'twitter' ? 'x' : p;
+      if (Array.isArray(formBody['platform[]'])) formBody['platform[]'].push(apiPlatform);
     });
 
     if (post.description) formBody.description = post.description;
@@ -421,7 +422,8 @@ function mapApiPostToScheduledPost(p: any, defaultStatus: string): ScheduledPost
     title: p.title || p.caption || '',
     description: p.description,
     type: p.type || p.media_type || 'text',
-    platforms: Array.isArray(p.platforms) ? p.platforms : (p.platform ? [p.platform] : []),
+    platforms: (Array.isArray(p.platforms) ? p.platforms : (p.platform ? [p.platform] : []))
+      .map((pl: string) => pl === 'x' ? 'twitter' : pl),
     media_url: p.media_url || p.video_url || p.photo_url,
     preview_url: p.preview_url || p.thumbnail_url,
     status: (p.status || defaultStatus) as PostStatus,
