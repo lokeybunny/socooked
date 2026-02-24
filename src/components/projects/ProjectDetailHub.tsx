@@ -9,8 +9,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Calendar, User, Tag, FolderOpen, Trash2, Mail, FileText, Receipt,
   PenTool, Phone, MessageSquare, Upload, Globe, Clock, Image, Video,
-  Send, Inbox, RefreshCw, Copy, StickyNote, Check
+  Send, Inbox, RefreshCw, Copy, StickyNote, Check, Instagram
 } from 'lucide-react';
+import { smmApi } from '@/lib/smm/store';
+import { Input } from '@/components/ui/input';
+import { format } from 'date-fns';
+import type { IGConversation } from '@/lib/smm/types';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { toast } from 'sonner';
 
@@ -55,6 +59,12 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [customerEmail, setCustomerEmail] = useState<string | null>(null);
+  const [igHandle, setIgHandle] = useState<string | null>(null);
+  const [igConversations, setIgConversations] = useState<IGConversation[]>([]);
+  const [igActiveConv, setIgActiveConv] = useState<string | null>(null);
+  const [igNewMsg, setIgNewMsg] = useState('');
+  const [igSending, setIgSending] = useState(false);
+  const [igLoading, setIgLoading] = useState(false);
   const navigate = useNavigate();
 
   const customerId = project?.customer_id;
@@ -65,11 +75,15 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
 
     const load = async () => {
       // Fetch customer info for Gmail filtering and notes
-      const { data: cust } = await supabase.from('customers').select('email, notes').eq('id', customerId).maybeSingle();
+      const { data: cust } = await supabase.from('customers').select('email, notes, instagram_handle').eq('id', customerId).maybeSingle();
       const custEmail = cust?.email?.toLowerCase().trim() || null;
       setCustomerEmail(custEmail);
       setCustomerNotes(cust?.notes || '');
       setCopied(false);
+      const handle = cust?.instagram_handle?.replace(/^@/, '').trim() || null;
+      setIgHandle(handle);
+      setIgConversations([]);
+      setIgActiveConv(null);
 
       const [
         { data: e }, { data: d }, { data: inv }, { data: sig },
@@ -130,6 +144,24 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
           setGmailLoading(false);
         }
       }
+
+      // Fetch IG DMs if customer has instagram handle
+      if (handle) {
+        setIgLoading(true);
+        try {
+          // Use STU25 profile to fetch conversations, then filter to this customer's handle
+          const convs = await smmApi.getIGConversations('STU25');
+          const matched = convs.filter(c =>
+            c.participant.toLowerCase() === handle.toLowerCase()
+          );
+          setIgConversations(matched);
+        } catch (err) {
+          console.error('IG DM fetch for project hub:', err);
+          setIgConversations([]);
+        } finally {
+          setIgLoading(false);
+        }
+      }
     };
     load();
   }, [customerId, project?.id, open]);
@@ -179,9 +211,10 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
 
         {/* Hub Tabs */}
         <Tabs defaultValue="tasks" className="flex-1 min-h-0">
-          <TabsList className="grid grid-cols-6 w-full">
+          <TabsList className={`grid w-full ${igHandle ? 'grid-cols-7' : 'grid-cols-6'}`}>
             <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
             <TabsTrigger value="emails" className="text-xs">Emails</TabsTrigger>
+            {igHandle && <TabsTrigger value="igdms" className="text-xs gap-1"><Instagram className="h-3 w-3" />DMs</TabsTrigger>}
             <TabsTrigger value="notes" className="text-xs">Notes</TabsTrigger>
             <TabsTrigger value="docs" className="text-xs">Sites</TabsTrigger>
             <TabsTrigger value="money" className="text-xs">Money</TabsTrigger>
@@ -295,6 +328,110 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
                 </div>
               )}
             </TabsContent>
+
+            {/* IG DMs */}
+            {igHandle && (
+              <TabsContent value="igdms" className="space-y-2 m-0">
+                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <Instagram className="h-3 w-3" /> @{igHandle} DMs
+                </p>
+                {igLoading && (
+                  <div className="flex items-center gap-2 py-4 justify-center">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Loading IG conversations...</span>
+                  </div>
+                )}
+                {!igLoading && igConversations.length === 0 && (
+                  <EmptyState label="IG DM conversations for this customer" />
+                )}
+                {igConversations.map(conv => {
+                  const isActive = igActiveConv === conv.id;
+                  return (
+                    <div key={conv.id} className="glass-card overflow-hidden">
+                      <button
+                        onClick={() => setIgActiveConv(isActive ? null : conv.id)}
+                        className="w-full text-left p-3 hover:bg-muted/50 transition-colors flex items-center justify-between"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">@{conv.participant}</p>
+                          <p className="text-xs text-muted-foreground truncate">{conv.last_message || '(media)'}</p>
+                        </div>
+                        {conv.last_timestamp && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {format(new Date(conv.last_timestamp), 'MMM d, h:mm a')}
+                          </span>
+                        )}
+                      </button>
+                      {isActive && (
+                        <div className="border-t border-border">
+                          <div className="max-h-[250px] overflow-y-auto p-3 space-y-2">
+                            {(conv.messages || []).slice().reverse().map(msg => {
+                              const isSelf = msg.from.toLowerCase() !== conv.participant.toLowerCase();
+                              return (
+                                <div key={msg.id} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                                  <div className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${
+                                    isSelf ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                                  }`}>
+                                    {msg.text ? <p>{msg.text}</p> : <p className="text-xs italic opacity-70">(media)</p>}
+                                    <p className={`text-[10px] mt-1 ${isSelf ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                                      {msg.timestamp ? format(new Date(msg.timestamp), 'MMM d, h:mm a') : ''}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {(!conv.messages || conv.messages.length === 0) && (
+                              <p className="text-xs text-muted-foreground text-center py-4">No messages loaded</p>
+                            )}
+                          </div>
+                          <div className="p-2 border-t border-border flex gap-2">
+                            <Input
+                              placeholder="Reply..."
+                              value={igNewMsg}
+                              onChange={e => setIgNewMsg(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && !igSending && igNewMsg.trim()) {
+                                  setIgSending(true);
+                                  smmApi.sendIGDM('STU25', conv.participant_id, igNewMsg.trim())
+                                    .then(() => {
+                                      setIgNewMsg('');
+                                      return smmApi.getIGConversations('STU25');
+                                    })
+                                    .then(all => setIgConversations(all.filter(c => c.participant.toLowerCase() === igHandle!.toLowerCase())))
+                                    .catch(() => {})
+                                    .finally(() => setIgSending(false));
+                                }
+                              }}
+                              disabled={igSending}
+                              className="h-8 text-sm"
+                            />
+                            <Button
+                              size="icon"
+                              className="h-8 w-8"
+                              disabled={igSending || !igNewMsg.trim()}
+                              onClick={() => {
+                                if (!igNewMsg.trim()) return;
+                                setIgSending(true);
+                                smmApi.sendIGDM('STU25', conv.participant_id, igNewMsg.trim())
+                                  .then(() => {
+                                    setIgNewMsg('');
+                                    return smmApi.getIGConversations('STU25');
+                                  })
+                                  .then(all => setIgConversations(all.filter(c => c.participant.toLowerCase() === igHandle!.toLowerCase())))
+                                  .catch(() => {})
+                                  .finally(() => setIgSending(false));
+                              }}
+                            >
+                              <Send className={`h-3.5 w-3.5 ${igSending ? 'animate-pulse' : ''}`} />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </TabsContent>
+            )}
 
             {/* Notes */}
             <TabsContent value="notes" className="space-y-2 m-0">
