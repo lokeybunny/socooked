@@ -3,6 +3,13 @@
 ## Overview
 Higgsfield AI is a unified generative media platform. Through the CRM's `higgsfield-api` edge function, Cortex can generate **images** (text-to-image) and **videos** (image-to-video) for any customer. Results are automatically stored in the Content Library under **AI Generated**.
 
+## API Reference
+- **Base URL:** `https://platform.higgsfield.ai`
+- **Auth:** `Authorization: Key {HIGGSFIELD_API_KEY}:{HIGGSFIELD_CLIENT_SECRET}`
+- **Pattern:** Async queue — submit → poll → retrieve
+- **Statuses:** `queued` → `in_progress` → `completed` | `failed` | `nsfw`
+- **Cancel:** Only while `queued` (returns `202` on success, `400` if already processing)
+
 ---
 
 ## Available CRM Actions
@@ -56,9 +63,10 @@ Higgsfield AI is a unified generative media platform. Through the CRM's `higgsfi
 {
   "success": true,
   "data": {
-    "request_id": "req_abc123",
+    "request_id": "d7e6c0f3-6699-4f6c-bb45-2ad7fd9158ff",
     "bot_task_id": "uuid",
-    "status": "IN_QUEUE",
+    "status": "queued",
+    "status_url": "https://platform.higgsfield.ai/requests/.../status",
     "type": "image"
   }
 }
@@ -93,7 +101,7 @@ Higgsfield AI is a unified generative media platform. Through the CRM's `higgsfi
 }
 ```
 
-**Status values:** `IN_QUEUE`, `IN_PROGRESS`, `completed`, `failed`, `nsfw`
+**Status values:** `queued`, `in_progress`, `completed`, `failed`, `nsfw`
 
 ---
 
