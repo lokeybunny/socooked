@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── Handle incoming messages with media ───
+    // ─── Handle replies to IG DM notifications ───
     const message = update.message
     if (!message) {
       console.log('[telegram-media-listener] no message in update, ignoring')
@@ -170,8 +170,96 @@ Deno.serve(async (req) => {
     }
 
     const chatId = message.chat?.id
-    const chatType = message.chat?.type // 'private', 'group', 'supergroup'
+    const chatType = message.chat?.type
     if (!chatId) return new Response('ok')
+
+    // Check if this is a reply to an IG DM notification
+    const replyToMsg = message.reply_to_message
+    if (replyToMsg && message.text) {
+      const replyText = (message.text as string).trim()
+      const replyToId = replyToMsg.message_id
+
+      // Look up the original IG DM notification by telegram_message_id
+      const { data: matchedComm } = await supabase
+        .from('communications')
+        .select('metadata, from_address')
+        .eq('type', 'instagram')
+        .eq('provider', 'upload-post-dm-notify')
+        .filter('metadata->>telegram_message_id', 'eq', String(replyToId))
+        .limit(1)
+
+      if (matchedComm && matchedComm.length > 0) {
+        const meta = matchedComm[0].metadata as Record<string, unknown>
+        const participantId = meta?.participant_id as string
+        const igUsername = (matchedComm[0].from_address || meta?.ig_username || 'unknown') as string
+
+        if (!participantId) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '❌ Cannot reply — no participant ID found for this conversation.',
+            parse_mode: 'HTML',
+          })
+          return new Response('ok')
+        }
+
+        console.log('[ig-reply] Sending IG DM to', igUsername, 'participant_id:', participantId)
+
+        // Send via Upload-Post API
+        const UPLOAD_POST_API_KEY = Deno.env.get('UPLOAD_POST_API_KEY')
+        if (!UPLOAD_POST_API_KEY) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ UPLOAD_POST_API_KEY not configured.' })
+          return new Response('ok')
+        }
+
+        const sendRes = await fetch('https://api.upload-post.com/api/uploadposts/dms/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Apikey ${UPLOAD_POST_API_KEY}`,
+          },
+          body: JSON.stringify({
+            platform: 'instagram',
+            user: 'STU25',
+            recipient_id: participantId,
+            message: replyText,
+          }),
+        })
+
+        const sendData = await sendRes.text()
+        console.log('[ig-reply] Upload-Post response:', sendRes.status, sendData.slice(0, 300))
+
+        if (sendRes.ok) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `✅ <b>Reply sent to @${igUsername} via Instagram DM</b>`,
+            parse_mode: 'HTML',
+          })
+
+          // Log outbound reply in communications
+          await supabase.from('communications').insert({
+            type: 'instagram',
+            direction: 'outbound',
+            to_address: igUsername,
+            body: replyText,
+            provider: 'upload-post-dm-notify',
+            status: 'sent',
+            metadata: {
+              ig_username: igUsername,
+              participant_id: participantId,
+              source: 'telegram-reply',
+            },
+          })
+        } else {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ <b>Failed to send IG DM.</b>\n<code>${sendData.slice(0, 200)}</code>`,
+            parse_mode: 'HTML',
+          })
+        }
+
+        return new Response('ok')
+      }
+    }
 
     // Only respond in DMs or allowed groups
     const isPrivate = chatType === 'private'
