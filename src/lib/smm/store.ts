@@ -21,7 +21,21 @@ async function invokeSMM(action: string, params?: Record<string, string>, body?:
   }
   // Also check for API-level errors in the response body
   if (data && typeof data === 'object' && data.success === false && data.error) {
-    throw new Error(data.error);
+    // Map known platform errors to user-friendly messages
+    const rawError: string = data.error;
+    const suggestion: string = data.suggestion || '';
+    let friendlyMsg = rawError;
+
+    // Instagram 24-hour messaging window policy
+    if (data.error_subcode === 2534022 || /fen[eê]tre autoris[eé]e|outside.*allowed.*window|messaging.*not.*available/i.test(rawError + suggestion)) {
+      friendlyMsg = 'Can\'t message this user — Instagram requires them to message you first (24-hour window policy).';
+    }
+    // DM daily limit
+    else if (data.error_code === 429 || /daily.*limit|rate.*limit|quota/i.test(rawError)) {
+      friendlyMsg = 'Daily DM limit reached. Try again tomorrow.';
+    }
+
+    throw new Error(friendlyMsg);
   }
   return data;
 }
