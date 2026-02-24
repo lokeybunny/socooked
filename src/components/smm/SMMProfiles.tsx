@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { SMMProfile } from '@/lib/smm/types';
 import { smmApi } from '@/lib/smm/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ExternalLink, AlertTriangle, CheckCircle, Bell, Info } from 'lucide-react';
+import { ExternalLink, AlertTriangle, CheckCircle, Bell, Info, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { PLATFORM_META } from '@/lib/smm/context';
 
@@ -22,11 +22,15 @@ interface ConnectedAccount {
   reauth_required?: boolean;
 }
 
+const PAGE_SIZE = 10;
+
 export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProfile[]; onRefresh: () => void }) {
   const [accountInfo, setAccountInfo] = useState<any>(null);
   const [selectedAccount, setSelectedAccount] = useState<ConnectedAccount | null>(null);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSaving, setWebhookSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     smmApi.getMe().then(setAccountInfo).catch(() => {});
@@ -39,6 +43,25 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
       allAccounts.push({ ...cp, profileUsername: p.username });
     });
   });
+
+  // Search + paginate
+  const filtered = useMemo(() => {
+    if (!search.trim()) return allAccounts;
+    const q = search.toLowerCase();
+    return allAccounts.filter(a =>
+      a.display_name.toLowerCase().includes(q) ||
+      a.platform.toLowerCase().includes(q) ||
+      a.profileUsername.toLowerCase().includes(q)
+    );
+  }, [allAccounts, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const showPagination = filtered.length > PAGE_SIZE;
+
+  // Reset page when search changes
+  useEffect(() => { setPage(1); }, [search]);
 
   const handleWebhookSave = async () => {
     if (!webhookUrl.trim()) return;
@@ -67,14 +90,27 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
         </div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-foreground">Connected Accounts</h3>
-        <p className="text-xs text-muted-foreground">{allAccounts.length} connected</p>
+        <p className="text-xs text-muted-foreground">{filtered.length} of {allAccounts.length} accounts</p>
       </div>
+
+      {/* Search */}
+      {allAccounts.length > PAGE_SIZE && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, platform, or profile..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
 
       {/* Connected Accounts Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {allAccounts.map(account => {
+        {paginated.map(account => {
           const meta = PLATFORM_META[account.platform];
           return (
             <button
@@ -99,12 +135,27 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
             </button>
           );
         })}
-        {allAccounts.length === 0 && (
+        {filtered.length === 0 && (
           <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
-            No accounts connected yet. Connect your social accounts through the Upload-Post dashboard.
+            {search ? 'No accounts match your search.' : 'No accounts connected yet. Connect your social accounts through the Upload-Post dashboard.'}
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {showPagination && (
+        <div className="flex items-center justify-center gap-2">
+          <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage(p => p - 1)} className="gap-1">
+            <ChevronLeft className="h-3.5 w-3.5" /> Prev
+          </Button>
+          <span className="text-xs text-muted-foreground px-2">
+            Page {safePage} of {totalPages}
+          </span>
+          <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage(p => p + 1)} className="gap-1">
+            Next <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
 
       {/* Webhook Configuration */}
       <div className="glass-card p-5 space-y-3">
