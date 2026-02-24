@@ -111,8 +111,9 @@ export default function EmailPage() {
       const { data } = await supabase
         .from('communications')
         .select('external_id')
-        .eq('type', 'email-read')
-        .eq('provider', 'gmail');
+        .eq('type', 'email')
+        .eq('status', 'read')
+        .eq('provider', 'gmail-read-tracker');
       if (data) {
         setReadIds(new Set(data.map((r: any) => r.external_id).filter(Boolean)));
       }
@@ -243,13 +244,13 @@ export default function EmailPage() {
       setReadIds((prev) => new Set(prev).add(email.id));
       // Persist read status to database
       const { error } = await supabase.from('communications').insert({
-        type: 'email-read',
+        type: 'email',
         direction: 'inbound',
         from_address: email.from || '',
         to_address: email.to || '',
         subject: email.subject || '',
         external_id: email.id,
-        provider: 'gmail',
+        provider: 'gmail-read-tracker',
         status: 'read',
       });
       if (error) console.error('Failed to persist read status:', error);
