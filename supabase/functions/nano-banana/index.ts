@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model: MODEL,
           messages,
+          modalities: ['image', 'text'],
         }),
       })
 
@@ -121,26 +122,40 @@ Deno.serve(async (req) => {
       console.log('[nano-banana] response received, choices:', aiData.choices?.length)
 
       // Extract image from response
-      // Gemini image model returns base64 image data in the response
       const choice = aiData.choices?.[0]
-      const content = choice?.message?.content
+      const messageContent = choice?.message
 
       let outputUrl: string | null = null
       let base64Data: string | null = null
 
-      if (typeof content === 'string') {
-        // Plain text response (might contain a URL or base64)
-        if (content.startsWith('http')) {
-          outputUrl = content.trim()
-        }
-      } else if (Array.isArray(content)) {
-        // Multimodal response with image parts
-        for (const part of content) {
-          if (part.type === 'image_url' && part.image_url?.url) {
-            if (part.image_url.url.startsWith('data:')) {
-              base64Data = part.image_url.url
+      // Check the images array (primary response format for Gemini image models)
+      if (messageContent?.images && Array.isArray(messageContent.images)) {
+        for (const img of messageContent.images) {
+          if (img.type === 'image_url' && img.image_url?.url) {
+            if (img.image_url.url.startsWith('data:')) {
+              base64Data = img.image_url.url
             } else {
-              outputUrl = part.image_url.url
+              outputUrl = img.image_url.url
+            }
+            break
+          }
+        }
+      }
+
+      // Fallback: check content field
+      const content = messageContent?.content
+      if (!outputUrl && !base64Data) {
+        if (typeof content === 'string' && content.startsWith('http')) {
+          outputUrl = content.trim()
+        } else if (Array.isArray(content)) {
+          for (const part of content) {
+            if (part.type === 'image_url' && part.image_url?.url) {
+              if (part.image_url.url.startsWith('data:')) {
+                base64Data = part.image_url.url
+              } else {
+                outputUrl = part.image_url.url
+              }
+              break
             }
           }
         }

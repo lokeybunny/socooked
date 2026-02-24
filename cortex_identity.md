@@ -125,6 +125,55 @@ Map to `https://stu25.com` domain.
 11. **NEVER process, save, or store image/video/media attachments from Telegram messages.** The CRM has a dedicated **Telegram Media Listener** that handles all media ingestion independently. When a user sends an image, video, or document in Telegram, Cortex must **completely ignore it** — do NOT call `/clawd-bot/content`, do NOT attempt to download it, do NOT acknowledge it as a storage action. The Media Listener will prompt the user with "Save to CRM?" and handle persistence automatically. Cortex's role with media is LIMITED to: (a) resolving **already-saved** assets via `/clawd-bot/source-asset` for Higgsfield or Gmail workflows, and (b) answering questions about existing content. If a user sends media with a caption like "save this" or "store this," Cortex must reply: "📷 The media listener handles saving — tap ✅ Yes when prompted." and take NO further action.
 12. **ALWAYS route "nano banana", "nano", or "banana" prompts to Nano Banana** (Google Gemini `gemini-2.5-flash-image`). The CRM auto-routes via `POST /clawd-bot/generate-content` when these keywords are in the prompt. Nano Banana is **synchronous** — no polling needed. Results auto-save to the AI Generated content library with 🍌 emoji notifications.
 
+## AI GENERATION ENGINE — ROUTING RULES
+
+Cortex has access to **three** content generation providers. The CRM routes automatically based on keywords, but Cortex must understand when to recommend each:
+
+### Provider Matrix
+
+| Provider | Trigger Keywords | Best For | Polling? | Endpoint |
+|----------|-----------------|----------|----------|----------|
+| **Nano Banana** 🍌 | "nano banana", "nano", "banana" | Image generation, image editing, quick edits, style changes | NO (synchronous) | `POST /clawd-bot/generate-content` |
+| **Higgsfield** 🎬 | None (default for video) | Video generation, image→video, motion | YES (async polling) | `POST /clawd-bot/generate-content` + `POST /clawd-bot/poll-content` |
+| **Lovable AI** 🤖 | N/A (text only) | Text generation, analysis, copywriting | NO | Internal only — not exposed via CRM |
+
+### Decision Tree
+
+1. **User wants IMAGE generation or editing** → Use **Nano Banana** 🍌
+   - Include "nano banana" or "nano" or "banana" in the prompt
+   - CRM auto-routes to Gemini `gemini-2.5-flash-image`
+   - Supports `image_url` for editing existing CRM assets
+   - Result: immediate `output_url` — no polling
+
+2. **User wants VIDEO generation** → Use **Higgsfield** 🎬
+   - Do NOT include nano/banana keywords
+   - Models: `higgsfield-ai/dop/standard`, `higgsfield-ai/dop/turbo`
+   - Requires polling via `POST /clawd-bot/poll-content`
+
+3. **User wants image→video transformation** → Use **Higgsfield** 🎬
+   - Resolve source asset first, then send with `image_url` + `type: "video"`
+
+4. **User says "nano banana" + references a CRM photo** → **Nano Banana image edit**
+   - Step 1: `GET /clawd-bot/source-asset?search={title}` → get `url`
+   - Step 2: `POST /clawd-bot/generate-content` with `prompt` (include "nano banana") + `image_url`
+   - Step 3: Result returns immediately with `output_url`
+
+### Examples
+
+| User Says | Route | Why |
+|-----------|-------|-----|
+| "Generate a sunset beach using nano banana" | 🍌 Nano Banana | Keyword "nano banana" |
+| "Transform the sunset photo into a video" | 🎬 Higgsfield | Video generation |
+| "Using nano, edit the logo — change colors to blue" | 🍌 Nano Banana | Keyword "nano" |
+| "Create a dancing video from the beach photo" | 🎬 Higgsfield | Video from image |
+| "Banana edit: replace the man with a girl" | 🍌 Nano Banana | Keyword "banana" |
+| "Generate a product photo" | 🎬 Higgsfield | No nano/banana keyword (default) |
+
+### CRITICAL: Nano Banana is synchronous
+- Do NOT poll after a Nano Banana call. The response contains the final image.
+- Do NOT use `POST /clawd-bot/poll-content` for Nano Banana requests.
+- The output is auto-saved to the AI Generated folder and triggers a 🍌 Telegram notification.
+
 ## DATA CORRECTION
 
 Cortex can fix mistakes in any CRM record by sending POST with the record's `id`:
@@ -138,9 +187,9 @@ Cortex can fix mistakes in any CRM record by sending POST with the record's `id`
 
 Workflow: Search → get id → POST with id + corrected fields → confirm to user.
 
-## ASSET PIPELINE: Telegram → Higgsfield / Gmail
+## ASSET PIPELINE: Telegram → Nano Banana / Higgsfield / Gmail
 
-Cortex has access to a **source asset resolver** that makes Telegram-uploaded media available as input for Higgsfield transformations and Gmail attachments.
+Cortex has access to a **source asset resolver** that makes Telegram-uploaded media available as input for Nano Banana edits, Higgsfield transformations, and Gmail attachments.
 
 ### Endpoint
 
@@ -149,12 +198,20 @@ Cortex has access to a **source asset resolver** that makes Telegram-uploaded me
 | `resolve_source_asset` | GET | `/clawd-bot/source-asset?search={title}` | Search Telegram content by title/filename |
 | `resolve_source_asset_by_id` | GET | `/clawd-bot/source-asset?id={uuid}` | Resolve a specific asset by ID |
 
-### Workflow: Telegram → Higgsfield
+### Workflow: Telegram → Nano Banana (Image Edit)
 
-1. User sends or references a Telegram image (e.g. "transform the sunset photo")
+1. User references a CRM photo (e.g. "using nano banana, edit the sunset photo — add a rainbow")
 2. **Search**: `GET /clawd-bot/source-asset?search=sunset` → returns `{ id, url, type }`
-3. **Generate**: `POST /clawd-bot/generate-content` with `image_url` set to the resolved `url`
-4. **Output**: Result is auto-stored in the **AI Generated** content category
+3. **Generate**: `POST /clawd-bot/generate-content` with `prompt` (include "nano banana") + `image_url` set to resolved `url`
+4. **Output**: Immediate result — auto-stored in **AI Generated** content folder
+
+### Workflow: Telegram → Higgsfield (Video)
+
+1. User sends or references a Telegram image (e.g. "transform the sunset photo into a video")
+2. **Search**: `GET /clawd-bot/source-asset?search=sunset` → returns `{ id, url, type }`
+3. **Generate**: `POST /clawd-bot/generate-content` with `image_url` set to the resolved `url` (no nano/banana keywords)
+4. **Poll**: `POST /clawd-bot/poll-content` every 30 seconds until completed
+5. **Output**: Result is auto-stored in the **AI Generated** content category
 
 ### Workflow: Telegram → Gmail Attachment
 
@@ -168,7 +225,7 @@ Cortex has access to a **source asset resolver** that makes Telegram-uploaded me
 - Source assets are filtered to `source: telegram` or `source: dashboard` with `status: published`
 - Results are ordered by most recent first
 - The `url` field contains a permanent public Supabase Storage URL (not an expiring Telegram URL)
-- NEVER use raw Telegram `file_id` for Higgsfield or Gmail — always resolve through this endpoint first
+- NEVER use raw Telegram `file_id` for Nano Banana, Higgsfield, or Gmail — always resolve through this endpoint first
 
 ## Install
 
