@@ -1,10 +1,12 @@
 /**
- * Telegram Media Listener
+ * Telegram Media Listener v2
  * 
- * Receives Telegram webhook updates, detects media (photos, videos, documents),
- * and asks the user "Save to CRM?" with inline keyboard buttons.
- * On "Yes" callback, stores the file via POST /clawd-bot/content using file_id.
+ * Listens for media in DMs and specified group chats.
+ * Asks "Save to CRM?" — stores pending media in DB (not memory).
+ * On "Yes" callback, retrieves from DB and saves via clawd-bot/content.
  */
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +14,9 @@ const corsHeaders = {
 }
 
 const TG_API = 'https://api.telegram.org/bot'
+
+// Group IDs the bot should listen in (add more as needed)
+const ALLOWED_GROUP_IDS = [-5205597217]
 
 async function tgPost(token: string, method: string, body: Record<string, unknown>) {
   const res = await fetch(`${TG_API}${token}/${method}`, {
@@ -48,9 +53,6 @@ function extractMedia(message: Record<string, unknown>): { fileId: string; type:
   return null
 }
 
-// In-memory map to store file_id for callback (since callback_data has 64-byte limit)
-const pendingMedia = new Map<string, { fileId: string; type: string; fileName: string }>()
-
 Deno.serve(async (req) => {
   console.log('[telegram-media-listener] request received:', req.method)
 
@@ -61,11 +63,14 @@ Deno.serve(async (req) => {
   const TG_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')
   const BOT_SECRET = Deno.env.get('BOT_SECRET')
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-  if (!TG_TOKEN || !BOT_SECRET || !SUPABASE_URL) {
-    console.error('[telegram-media-listener] Missing env vars:', { TG_TOKEN: !!TG_TOKEN, BOT_SECRET: !!BOT_SECRET, SUPABASE_URL: !!SUPABASE_URL })
+  if (!TG_TOKEN || !BOT_SECRET || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('[telegram-media-listener] Missing env vars')
     return new Response(JSON.stringify({ error: 'Missing config' }), { status: 500, headers: corsHeaders })
   }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   try {
     const rawBody = await req.text()
@@ -91,19 +96,28 @@ Deno.serve(async (req) => {
       }
 
       if (data.startsWith('crm_save:')) {
-        const key = data.replace('crm_save:', '')
-        const cached = pendingMedia.get(key)
+        const pendingId = data.replace('crm_save:', '')
 
-        if (!cached) {
+        // Retrieve pending media from DB
+        const { data: pending, error: fetchErr } = await supabase
+          .from('webhook_events')
+          .select('payload')
+          .eq('id', pendingId)
+          .eq('source', 'telegram')
+          .eq('event_type', 'pending_media')
+          .single()
+
+        if (fetchErr || !pending) {
+          console.error('[callback] pending not found:', pendingId, fetchErr)
           await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Session expired. Please re-send the file.' })
           return new Response('ok')
         }
 
-        pendingMedia.delete(key)
+        const media = pending.payload as { fileId: string; type: string; fileName: string }
 
         await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Saving to CRM...' })
 
-        console.log('[save] storing file_id:', cached.fileId, 'type:', cached.type)
+        console.log('[save] storing file_id:', media.fileId, 'type:', media.type)
 
         const storeRes = await fetch(`${SUPABASE_URL}/functions/v1/clawd-bot/content`, {
           method: 'POST',
@@ -112,12 +126,12 @@ Deno.serve(async (req) => {
             'x-bot-secret': BOT_SECRET,
           },
           body: JSON.stringify({
-            title: cached.fileName,
-            type: cached.type,
+            title: media.fileName,
+            type: media.type,
             status: 'published',
             source: 'telegram',
             category: 'telegram',
-            file_id: cached.fileId,
+            file_id: media.fileId,
             folder: 'STU25sTG',
           }),
         })
@@ -129,11 +143,14 @@ Deno.serve(async (req) => {
         try {
           const storeResult = JSON.parse(storeText)
           success = storeRes.ok && storeResult.success
-        } catch { /* ignore parse error */ }
+        } catch { /* ignore */ }
+
+        // Clean up the pending record
+        await supabase.from('webhook_events').delete().eq('id', pendingId)
 
         if (chatId && messageId) {
           const msg = success
-            ? `✅ <b>Saved to CRM!</b>\n📁 ${cached.fileName}`
+            ? `✅ <b>Saved to CRM!</b>\n📁 ${media.fileName}`
             : `❌ <b>Failed to save.</b> Check logs for details.`
           await tgPost(TG_TOKEN, 'editMessageText', { chat_id: chatId, message_id: messageId, text: msg, parse_mode: 'HTML' })
         }
@@ -153,7 +170,16 @@ Deno.serve(async (req) => {
     }
 
     const chatId = message.chat?.id
+    const chatType = message.chat?.type // 'private', 'group', 'supergroup'
     if (!chatId) return new Response('ok')
+
+    // Only respond in DMs or allowed groups
+    const isPrivate = chatType === 'private'
+    const isAllowedGroup = ALLOWED_GROUP_IDS.includes(chatId)
+    if (!isPrivate && !isAllowedGroup) {
+      console.log('[telegram-media-listener] ignoring chat:', chatId, chatType)
+      return new Response('ok')
+    }
 
     const media = extractMedia(message)
     if (!media) {
@@ -161,9 +187,9 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    console.log('[telegram-media-listener] media detected:', media.type, media.fileName, 'file_id:', media.fileId.slice(0, 20) + '...')
+    console.log('[telegram-media-listener] media detected:', media.type, media.fileName, 'chat:', chatId, chatType)
 
-    // Check for .webp — reject early
+    // Check for .webp
     if (media.type === 'image' && media.fileName.toLowerCase().endsWith('.webp')) {
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
@@ -173,23 +199,37 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // Store in memory with a short key for callback_data (64-byte limit)
-    const key = String(message.message_id)
-    pendingMedia.set(key, media)
+    // Store pending media in DB so it survives across function invocations
+    const { data: inserted, error: insertErr } = await supabase
+      .from('webhook_events')
+      .insert({
+        source: 'telegram',
+        event_type: 'pending_media',
+        payload: { fileId: media.fileId, type: media.type, fileName: media.fileName },
+        processed: false,
+      })
+      .select('id')
+      .single()
 
-    // Auto-cleanup after 10 minutes
-    setTimeout(() => pendingMedia.delete(key), 10 * 60 * 1000)
+    if (insertErr || !inserted) {
+      console.error('[telegram-media-listener] failed to store pending:', insertErr)
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Internal error. Please try again.' })
+      return new Response('ok')
+    }
 
+    const pendingId = inserted.id
     const caption = message.caption ? `\n💬 <i>${message.caption}</i>` : ''
+    const fromName = message.from?.first_name || 'Someone'
+    const groupLabel = isAllowedGroup ? ` (from ${fromName})` : ''
 
     await tgPost(TG_TOKEN, 'sendMessage', {
       chat_id: chatId,
-      text: `📎 <b>${media.fileName}</b> (${media.type})${caption}\n\nSave to CRM?`,
+      text: `📎 <b>${media.fileName}</b> (${media.type})${groupLabel}${caption}\n\nSave to CRM?`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '✅ Yes, save', callback_data: `crm_save:${key}` },
+            { text: '✅ Yes, save', callback_data: `crm_save:${pendingId}` },
             { text: '❌ No, skip', callback_data: 'crm_skip' },
           ],
         ],
