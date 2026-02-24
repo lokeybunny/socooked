@@ -2663,6 +2663,180 @@ Deno.serve(async (req) => {
       return fail('Method not allowed', 405)
     }
 
+    // ─── SMM: Upload-Post API proxy with bot_task tracking ────
+    if (path === 'smm-post' && req.method === 'POST') {
+      const { user, type, platforms, title, description, first_comment, media_url, scheduled_date, add_to_queue, timezone, platform_overrides, customer_id, customer_name } = body as any
+      if (!user) return fail('user (profile username) is required')
+      if (!platforms || !Array.isArray(platforms) || platforms.length === 0) return fail('platforms[] is required')
+      if (!title) return fail('title is required')
+
+      const postType = type || 'text'
+      const action = postType === 'video' ? 'upload-video'
+        : postType === 'photos' ? 'upload-photos'
+        : postType === 'document' ? 'upload-document'
+        : 'upload-text'
+
+      // Create bot_task for tracking
+      const taskTitle = `📱 ${title.substring(0, 60)}${title.length > 60 ? '...' : ''}`
+      const { data: botTask } = await supabase.from('bot_tasks').insert({
+        title: taskTitle,
+        description: description || title,
+        bot_agent: 'social-media',
+        priority: 'medium',
+        status: 'queued',
+        customer_id: customer_id || null,
+        meta: { type: postType, platforms, user, customer_name: customer_name || null, action, scheduled: !!scheduled_date, queued: !!add_to_queue },
+      }).select('id').single()
+
+      // Build payload for smm-api edge function
+      const smmBody: Record<string, any> = { user, title }
+      platforms.forEach((p: string) => {
+        if (!smmBody['platform[]']) smmBody['platform[]'] = []
+        if (Array.isArray(smmBody['platform[]'])) smmBody['platform[]'].push(p)
+      })
+      if (description) smmBody.description = description
+      if (first_comment) smmBody.first_comment = first_comment
+      if (scheduled_date) smmBody.scheduled_date = scheduled_date
+      if (add_to_queue) smmBody.add_to_queue = true
+      if (timezone) smmBody.timezone = timezone
+      if (media_url) {
+        if (postType === 'video') smmBody.video = media_url
+        else if (postType === 'document') smmBody.document = media_url
+      }
+      if (platform_overrides) {
+        Object.entries(platform_overrides).forEach(([platform, overrides]: [string, any]) => {
+          if (overrides.title) smmBody[`${platform}_title`] = overrides.title
+          if (overrides.first_comment) smmBody[`${platform}_first_comment`] = overrides.first_comment
+        })
+      }
+      if (!scheduled_date && !add_to_queue) smmBody.async_upload = true
+
+      // Call smm-api edge function
+      try {
+        const projectUrl = Deno.env.get('SUPABASE_URL')!
+        const smmRes = await fetch(`${projectUrl}/functions/v1/smm-api?action=${action}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          },
+          body: JSON.stringify(smmBody),
+        })
+        const smmData = await smmRes.json()
+
+        if (!smmRes.ok) {
+          if (botTask?.id) await supabase.from('bot_tasks').update({ status: 'failed', meta: { error: smmData } }).eq('id', botTask.id)
+          return fail(`Upload-Post API error: ${JSON.stringify(smmData)}`, 502)
+        }
+
+        // Update task with result
+        if (botTask?.id) {
+          await supabase.from('bot_tasks').update({
+            status: scheduled_date || add_to_queue ? 'queued' : 'in_progress',
+            meta: { type: postType, platforms, user, customer_name: customer_name || null, request_id: smmData.request_id, job_id: smmData.job_id, response: smmData },
+          }).eq('id', botTask.id)
+        }
+
+        await logActivity(supabase, 'bot_task', botTask?.id, 'smm_post_created', taskTitle)
+        return ok({ bot_task_id: botTask?.id, ...smmData })
+      } catch (e: any) {
+        if (botTask?.id) await supabase.from('bot_tasks').update({ status: 'failed', meta: { error: e.message } }).eq('id', botTask.id)
+        return fail(`SMM proxy error: ${e.message}`, 500)
+      }
+    }
+
+    // ─── SMM: Check upload status ───────────────────────────────
+    if (path === 'smm-status' && req.method === 'GET') {
+      const request_id = params.get('request_id')
+      const job_id = params.get('job_id')
+      if (!request_id && !job_id) return fail('request_id or job_id is required')
+
+      try {
+        const statusParams = new URLSearchParams({ action: 'upload-status' })
+        if (request_id) statusParams.set('request_id', request_id)
+        if (job_id) statusParams.set('job_id', job_id)
+
+        const projectUrl = Deno.env.get('SUPABASE_URL')!
+        const res = await fetch(`${projectUrl}/functions/v1/smm-api?${statusParams}`, {
+          headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        })
+        const data = await res.json()
+        return ok(data)
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
+    // ─── SMM: List scheduled posts ──────────────────────────────
+    if (path === 'smm-scheduled' && req.method === 'GET') {
+      try {
+        const projectUrl = Deno.env.get('SUPABASE_URL')!
+        const res = await fetch(`${projectUrl}/functions/v1/smm-api?action=list-scheduled`, {
+          headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        })
+        const data = await res.json()
+        return ok(data)
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
+    // ─── SMM: Cancel scheduled post ─────────────────────────────
+    if (path === 'smm-cancel' && req.method === 'POST') {
+      const { job_id, bot_task_id } = body as any
+      if (!job_id) return fail('job_id is required')
+
+      try {
+        const projectUrl = Deno.env.get('SUPABASE_URL')!
+        const res = await fetch(`${projectUrl}/functions/v1/smm-api?action=cancel-scheduled&job_id=${job_id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        })
+
+        if (bot_task_id) {
+          await supabase.from('bot_tasks').update({ status: 'failed', meta: { job_id, cancelled: true } }).eq('id', bot_task_id)
+        }
+
+        await logActivity(supabase, 'bot_task', bot_task_id || null, 'smm_post_cancelled', `Cancelled scheduled post ${job_id}`)
+        return ok({ cancelled: true, job_id })
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
+    // ─── SMM: Upload history ────────────────────────────────────
+    if (path === 'smm-history' && req.method === 'GET') {
+      const page = params.get('page') || '1'
+      const limit = params.get('limit') || '50'
+      try {
+        const projectUrl = Deno.env.get('SUPABASE_URL')!
+        const res = await fetch(`${projectUrl}/functions/v1/smm-api?action=upload-history&page=${page}&limit=${limit}`, {
+          headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        })
+        const data = await res.json()
+        return ok(data)
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
+    // ─── SMM: Analytics ─────────────────────────────────────────
+    if (path === 'smm-analytics' && req.method === 'GET') {
+      const profile_username = params.get('profile_username')
+      const smmPlatforms = params.get('platforms') || 'instagram,tiktok,facebook,linkedin,youtube'
+      if (!profile_username) return fail('profile_username is required')
+      try {
+        const projectUrl = Deno.env.get('SUPABASE_URL')!
+        const res = await fetch(`${projectUrl}/functions/v1/smm-api?action=analytics&profile_username=${profile_username}&platforms=${smmPlatforms}`, {
+          headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        })
+        const data = await res.json()
+        return ok(data)
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
     return fail('Unknown endpoint', 404)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
