@@ -462,21 +462,28 @@ export default function AIStaff() {
               />
 
               {/* Right connectors */}
-              {clawdChildren.length > 2 && (
-                <div className="flex flex-col items-center mx-2 shrink-0">
-                  <svg width="60" height="120" viewBox="0 0 60 120" className="overflow-visible">
-                    {clawdChildren.slice(2).map((_agent, i) => {
-                      const y = 30 + i * 60;
-                      return (
-                        <g key={i}>
-                          <line x1="0" y1="60" x2="60" y2={y} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
-                          <circle cx="30" cy={(y + 60) / 2} r="3" fill="hsl(var(--primary))" opacity="0.6" />
-                        </g>
-                      );
-                    })}
-                  </svg>
-                </div>
-              )}
+              {clawdChildren.length > 2 && (() => {
+                const rightChildren = clawdChildren.slice(2);
+                const gap = 12; // gap-3 = 12px
+                const cardH = 120; // approx card height
+                const totalH = rightChildren.length * cardH + (rightChildren.length - 1) * gap;
+                const midY = totalH / 2;
+                return (
+                  <div className="flex flex-col items-center mx-2 shrink-0">
+                    <svg width="60" height={totalH} viewBox={`0 0 60 ${totalH}`} className="overflow-visible">
+                      {rightChildren.map((_agent, i) => {
+                        const cardCenter = i * (cardH + gap) + cardH / 2;
+                        return (
+                          <g key={i}>
+                            <line x1="0" y1={midY} x2="60" y2={cardCenter} stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="6 4" opacity="0.5" />
+                            <circle cx="30" cy={(midY + cardCenter) / 2} r="3" fill="hsl(var(--primary))" opacity="0.6" />
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                );
+              })()}
 
               {/* Right child */}
               {clawdChildren.length > 2 && (
