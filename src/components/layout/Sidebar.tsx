@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LayoutGrid, LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
-  Radar, Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers,
+  Radar, Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -20,11 +20,12 @@ const navItems = [
   { to: '/messages', icon: Mail, label: 'E-Mail', botIcon: true },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar', botIcon: true },
   { to: '/custom-u', icon: Link2, label: 'Custom-U', botIcon: true },
-  { to: '/landing-pages', icon: Layers, label: 'Landing Pages' },
+  { to: '/landing', icon: Layers, label: 'Landing' },
   { to: '/calendly', icon: CalendarClock, label: 'Calendly', botIcon: true },
   { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
   { to: '/threads', icon: MessageSquare, label: 'Script AI' },
   { to: '/content', icon: FileText, label: 'Content' },
+  { to: '/dashboard/smm', icon: Share2, label: 'SMM' },
   { to: '/templates', icon: FileCode2, label: 'Templates' },
   { to: '/phone', icon: Phone, label: 'Phone' },
   { to: '/previews', icon: Sparkles, label: 'Previews' },

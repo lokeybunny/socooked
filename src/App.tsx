@@ -30,6 +30,7 @@ import MeetingRoom from "./pages/MeetingRoom";
 import AIStaff from "./pages/AIStaff";
 import CustomU from "./pages/CustomU";
 import LandingPages from "./pages/LandingPages";
+import SMM from "./pages/SMM";
 import ClientUpload from "./pages/portal/ClientUpload";
 import Previews from "./pages/Previews";
 import CalendarPage from "./pages/Calendar";
@@ -75,7 +76,8 @@ const App = () => (
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/ai-staff" element={<AIStaff />} />
             <Route path="/custom-u" element={<CustomU />} />
-            <Route path="/landing-pages" element={<LandingPages />} />
+            <Route path="/landing" element={<LandingPages />} />
+            <Route path="/dashboard/smm" element={<SMM />} />
             <Route path="/previews" element={<Previews />} />
             <Route path="/u/:token" element={<ClientUpload />} />
             <Route path="/prompt-machine" element={<PromptMachine />} />
