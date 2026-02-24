@@ -959,6 +959,17 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
     loadAssets();
   };
 
+  const brokenCount = useMemo(() => assets.filter(a => !a.url).length, [assets]);
+
+  const handleCleanupBroken = async () => {
+    const broken = assets.filter(a => !a.url);
+    if (broken.length === 0) { toast.info('No broken entries found'); return; }
+    const { error } = await supabase.from('content_assets').delete().in('id', broken.map(a => a.id));
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Removed ${broken.length} broken entr${broken.length === 1 ? 'y' : 'ies'}`);
+    loadAssets();
+  };
+
   // Group by date
   const grouped = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -974,6 +985,12 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <p className="text-muted-foreground text-sm">{assets.length} Telegram file{assets.length !== 1 ? 's' : ''}</p>
+        {brokenCount > 0 && (
+          <Button variant="destructive" size="sm" onClick={handleCleanupBroken}>
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Remove {brokenCount} broken entr{brokenCount === 1 ? 'y' : 'ies'}
+          </Button>
+        )}
       </div>
 
       {loading ? (
