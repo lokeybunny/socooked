@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { Plus, Receipt, DollarSign, Hash, Calendar, Trash2, FileText, Send, Download, FileSpreadsheet, ChevronDown, Mail, Eye } from 'lucide-react';
+import { Plus, Receipt, DollarSign, Hash, Calendar, Trash2, FileText, Send, Download, FileSpreadsheet, ChevronDown, Mail, Eye, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -24,6 +24,7 @@ export default function Invoices() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [detailInvoice, setDetailInvoice] = useState<any>(null);
   const [form, setForm] = useState({
     customer_id: '',
@@ -63,26 +64,38 @@ export default function Invoices() {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const openEdit = (inv: any) => {
+    const items = Array.isArray(inv.line_items) && inv.line_items.length > 0
+      ? (inv.line_items as LineItem[])
+      : [{ description: '', quantity: 1, unit_price: 0 }];
+    setEditingInvoice(inv);
+    setForm({
+      customer_id: inv.customer_id,
+      currency: inv.currency || 'USD',
+      due_date: inv.due_date || '',
+      notes: inv.notes || '',
+      tax_rate: String(inv.tax_rate || 0),
+      status: inv.status === 'paid' ? 'paid' : 'draft',
+    });
+    setLineItems(items.map(li => ({ description: li.description, quantity: li.quantity, unit_price: li.unit_price })));
+    setDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setEditingInvoice(null);
+    setForm({ customer_id: '', currency: 'USD', due_date: '', notes: '', tax_rate: '0', status: 'draft' });
+    setLineItems([{ description: '', quantity: 1, unit_price: 0 }]);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     const validLines = lineItems.filter(li => li.description.trim());
     if (validLines.length === 0) { toast.error('Add at least one line item'); return; }
 
-    // UI-level duplicate check: same customer + same amount in existing invoices
-    const existingDupe = invoices.find(inv =>
-      inv.customer_id === form.customer_id &&
-      Number(inv.amount) === total &&
-      ['draft', 'sent'].includes(inv.status)
-    );
-    if (existingDupe) {
-      toast.error(`Duplicate detected: ${existingDupe.invoice_number || 'an invoice'} already exists for this customer with the same amount ($${total.toFixed(2)}).`);
-      return;
-    }
-
     setSubmitting(true);
     const isPaid = form.status === 'paid';
-    const { error } = await supabase.from('invoices').insert([{
+    const payload: any = {
       customer_id: form.customer_id,
       amount: total,
       subtotal,
@@ -91,16 +104,46 @@ export default function Invoices() {
       due_date: form.due_date || null,
       notes: form.notes || null,
       line_items: validLines as unknown as any,
-      status: isPaid ? 'paid' : 'draft',
-      provider: 'manual',
-      paid_at: isPaid ? new Date().toISOString() : null,
-    }]);
-    setSubmitting(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success('Invoice created');
+    };
+
+    if (editingInvoice) {
+      // Update existing invoice
+      if (isPaid && editingInvoice.status !== 'paid') {
+        payload.status = 'paid';
+        payload.paid_at = new Date().toISOString();
+      } else if (!isPaid && editingInvoice.status === 'paid') {
+        payload.status = 'draft';
+        payload.paid_at = null;
+      }
+      const { error } = await supabase.from('invoices').update(payload).eq('id', editingInvoice.id);
+      setSubmitting(false);
+      if (error) { toast.error(error.message); return; }
+      toast.success('Invoice updated');
+    } else {
+      // UI-level duplicate check: same customer + same amount in existing invoices
+      const existingDupe = invoices.find(inv =>
+        inv.customer_id === form.customer_id &&
+        Number(inv.amount) === total &&
+        ['draft', 'sent'].includes(inv.status)
+      );
+      if (existingDupe) {
+        setSubmitting(false);
+        toast.error(`Duplicate detected: ${existingDupe.invoice_number || 'an invoice'} already exists for this customer with the same amount ($${total.toFixed(2)}).`);
+        return;
+      }
+
+      payload.status = isPaid ? 'paid' : 'draft';
+      payload.provider = 'manual';
+      payload.paid_at = isPaid ? new Date().toISOString() : null;
+
+      const { error } = await supabase.from('invoices').insert([payload]);
+      setSubmitting(false);
+      if (error) { toast.error(error.message); return; }
+      toast.success('Invoice created');
+    }
+
     setDialogOpen(false);
-    setForm({ customer_id: '', currency: 'USD', due_date: '', notes: '', tax_rate: '0', status: 'draft' });
-    setLineItems([{ description: '', quantity: 1, unit_price: 0 }]);
+    resetForm();
     load();
   };
 
@@ -319,13 +362,13 @@ export default function Invoices() {
             <h1 className="text-2xl font-bold text-foreground">Invoices</h1>
             <p className="text-muted-foreground text-sm mt-1">{invoices.length} invoices</p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={v => { setDialogOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" />New Invoice</Button>
+              <Button onClick={() => resetForm()}><Plus className="h-4 w-4 mr-2" />New Invoice</Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Create Invoice</DialogTitle></DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-5">
+              <DialogHeader><DialogTitle>{editingInvoice ? 'Edit Invoice' : 'Create Invoice'}</DialogTitle></DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Customer & Currency */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -412,7 +455,7 @@ export default function Invoices() {
                   <Textarea placeholder="Payment terms, thank you note, etc." value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
                 </div>
 
-                <Button type="submit" className="w-full" disabled={!form.customer_id || lineItems.every(li => !li.description.trim())}>Create Invoice</Button>
+                <Button type="submit" className="w-full" disabled={!form.customer_id || lineItems.every(li => !li.description.trim())}>{editingInvoice ? 'Save Changes' : 'Create Invoice'}</Button>
               </form>
             </DialogContent>
           </Dialog>
@@ -537,6 +580,7 @@ export default function Invoices() {
               </div>
               <StatusBadge status={inv.status} />
               <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                {(inv.status === 'draft' || inv.status === 'sent') && <Button size="sm" variant="outline" onClick={() => openEdit(inv)}><Pencil className="h-3 w-3 mr-1" />Edit</Button>}
                 {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => openPreview(inv)}><Eye className="h-3 w-3 mr-1" />Preview & Send</Button>}
                 {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
                 {inv.status === 'sent' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
@@ -627,6 +671,7 @@ export default function Invoices() {
                   </div>
 
                   <div className="flex gap-2">
+                    {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && <Button className="flex-1" variant="outline" onClick={() => { setDetailInvoice(null); openEdit(detailInvoice); }}><Pencil className="h-4 w-4 mr-2" />Edit</Button>}
                     {detailInvoice.status === 'draft' && <Button className="flex-1" onClick={() => { setDetailInvoice(null); openPreview(detailInvoice); }}><Eye className="h-4 w-4 mr-2" />Preview & Send</Button>}
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && <Button className="flex-1" variant="outline" onClick={() => markAs(detailInvoice.id, 'paid')}>Mark as Paid</Button>}
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && (
