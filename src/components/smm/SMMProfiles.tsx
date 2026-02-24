@@ -112,7 +112,13 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
                     </div>
                   ))}
                 </div>
-                <Button variant="outline" className="w-full gap-2" onClick={() => toast.info('Connect URL would open here')}>
+                <Button variant="outline" className="w-full gap-2" onClick={async () => {
+                  try {
+                    const { access_url } = await smmApi.generateConnectJWT(drawerProfile.username);
+                    if (access_url) window.open(access_url, '_blank');
+                    else toast.info('Connect URL could not be generated');
+                  } catch { toast.error('Failed to generate connect link'); }
+                }}>
                   <ExternalLink className="h-4 w-4" /> Connect Accounts
                 </Button>
               </div>

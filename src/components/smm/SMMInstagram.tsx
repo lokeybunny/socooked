@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { IGMedia, IGComment, IGConversation, IGMessage } from '@/lib/smm/types';
+import type { IGMedia, IGComment, IGConversation } from '@/lib/smm/types';
 import { useSMMContext } from '@/lib/smm/context';
 import { smmApi } from '@/lib/smm/store';
 import { Button } from '@/components/ui/button';
@@ -10,34 +10,46 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 export default function SMMInstagram() {
-  const { navigateToTab } = useSMMContext();
+  const { navigateToTab, profileId } = useSMMContext();
   const [tab, setTab] = useState('inbox');
   const [conversations, setConversations] = useState<IGConversation[]>([]);
   const [activeConv, setActiveConv] = useState<string | null>(null);
-  const [messages, setMessages] = useState<IGMessage[]>([]);
   const [newMsg, setNewMsg] = useState('');
   const [media, setMedia] = useState<IGMedia[]>([]);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [comments, setComments] = useState<IGComment[]>([]);
 
-  useEffect(() => {
-    smmApi.getIGConversations().then(setConversations);
-    smmApi.getIGMedia().then(setMedia);
-  }, []);
+  const username = profileId || '';
 
   useEffect(() => {
-    if (activeConv) smmApi.getIGMessages(activeConv).then(setMessages);
-  }, [activeConv]);
+    if (!username) return;
+    smmApi.getIGConversations(username).then(setConversations);
+    smmApi.getIGMedia(username).then(setMedia);
+  }, [username]);
 
   useEffect(() => {
-    if (selectedMedia) smmApi.getIGComments(selectedMedia).then(setComments);
-  }, [selectedMedia]);
+    if (selectedMedia && username) smmApi.getIGComments(username, selectedMedia).then(setComments);
+  }, [selectedMedia, username]);
 
   const handleSend = async () => {
-    if (!newMsg.trim() || !activeConv) return;
-    const msg = await smmApi.sendIGMessage(activeConv, newMsg.trim());
-    setMessages(prev => [...prev, msg]);
-    setNewMsg('');
+    if (!newMsg.trim() || !activeConv || !username) return;
+    try {
+      await smmApi.sendIGDM(username, activeConv, newMsg.trim());
+      toast.success('Message sent');
+      setNewMsg('');
+    } catch {
+      toast.error('Failed to send message');
+    }
+  };
+
+  const handlePrivateReply = async (commentId: string) => {
+    if (!username) return;
+    try {
+      await smmApi.replyToIGComment(username, commentId, 'Thanks for your comment! 🙏');
+      toast.success('Private reply sent');
+    } catch {
+      toast.error('Failed to send reply');
+    }
   };
 
   return (
@@ -76,23 +88,15 @@ export default function SMMInstagram() {
                     <p className="text-xs text-muted-foreground truncate mt-0.5">{c.last_message}</p>
                   </button>
                 ))}
+                {conversations.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No conversations</p>}
               </div>
             </div>
 
             <div className="glass-card flex flex-col">
               {activeConv ? (
                 <>
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {messages.map(m => (
-                      <div key={m.id} className={`flex ${m.from === 'me' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${m.from === 'me' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>
-                          <p className="text-sm">{m.text}</p>
-                          <p className={`text-[10px] mt-1 ${m.from === 'me' ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                            {format(new Date(m.timestamp), 'h:mm a')}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex-1 flex items-center justify-center p-4">
+                    <p className="text-sm text-muted-foreground">DM thread view – messages load from IG API</p>
                   </div>
                   <div className="p-3 border-t border-border flex gap-2">
                     <Input placeholder="Type a message..." value={newMsg} onChange={e => setNewMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} />
@@ -121,6 +125,7 @@ export default function SMMInstagram() {
                   </div>
                 </button>
               ))}
+              {media.length === 0 && <p className="text-xs text-muted-foreground text-center py-8 col-span-3">No media found</p>}
             </div>
             <div className="glass-card p-4 space-y-3">
               <h4 className="text-xs font-semibold text-muted-foreground uppercase">Comments</h4>
@@ -131,7 +136,7 @@ export default function SMMInstagram() {
                       <div key={c.id} className="space-y-1">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium text-foreground">{c.username}</p>
-                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1" onClick={() => toast.info('Private reply DM sent (mock)')}>
+                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1" onClick={() => handlePrivateReply(c.id)}>
                             <Reply className="h-3 w-3" /> DM
                           </Button>
                         </div>

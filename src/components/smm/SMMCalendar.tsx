@@ -45,7 +45,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
 
   const handleSave = async () => {
     if (!selectedPost) return;
-    await smmApi.updatePost(selectedPost.id, { title: editTitle, scheduled_date: new Date(`${editDate}T${editTime}`).toISOString() });
+    await smmApi.editPost(selectedPost.job_id, { title: editTitle, scheduled_date: new Date(`${editDate}T${editTime}`).toISOString() });
     toast.success('Post updated');
     setSelectedPost(null);
     onRefresh();
@@ -53,7 +53,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
 
   const handleCancel = async () => {
     if (!selectedPost) return;
-    await smmApi.cancelPost(selectedPost.id);
+    await smmApi.cancelPost(selectedPost.job_id);
     toast.success('Post cancelled');
     setSelectedPost(null);
     onRefresh();
@@ -62,11 +62,11 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const handleDrop = async (day: Date) => {
     if (!dragId) return;
     const post = posts.find(p => p.id === dragId);
-    if (!post?.scheduled_date) return;
+    if (!post?.scheduled_date || !post.job_id) return;
     const oldDate = new Date(post.scheduled_date);
     const newDate = new Date(day);
     newDate.setHours(oldDate.getHours(), oldDate.getMinutes());
-    await smmApi.updatePost(dragId, { scheduled_date: newDate.toISOString() });
+    await smmApi.editPost(post.job_id, { scheduled_date: newDate.toISOString() });
     setDragId(null);
     toast.success('Post rescheduled');
     onRefresh();
