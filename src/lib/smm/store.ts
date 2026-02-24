@@ -28,7 +28,7 @@ export const smmApi = {
       // API may return { profiles: [...] } or { users: [...] } or just [...]
       const rawProfiles = data?.profiles || data?.users || (Array.isArray(data) ? data : []);
       if (!rawProfiles.length) return [];
-      console.log('[SMM getProfiles] first profile keys:', Object.keys(rawProfiles[0]));
+      console.log('[SMM getProfiles] first profile social_accounts:', JSON.stringify(rawProfiles[0]?.social_accounts));
       return rawProfiles.map((p: any) => {
         // API returns social_accounts as an object keyed by platform
         const socials = p.social_accounts || {};
@@ -36,11 +36,13 @@ export const smmApi = {
           .map(([platform, info]: [string, any]) => {
             // Empty string or falsy means not connected
             if (!info || info === '') return null;
+            // info could be a string (handle) or an object
+            const isString = typeof info === 'string';
             return {
               platform: platform === 'x' ? 'twitter' : platform,
               connected: true,
-              reauth_required: info.reauth_required || false,
-              display_name: info.display_name || info.handle || platform,
+              reauth_required: isString ? false : (info.reauth_required || false),
+              display_name: isString ? info : (info.display_name || info.handle || info.username || info.name || platform),
             };
           })
           .filter(Boolean) as SMMProfile['connected_platforms'];
