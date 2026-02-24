@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Link2, Copy, ExternalLink, Search, RefreshCw, Trash2 } from 'lucide-react';
+import MVPVideoPicker from '@/components/portal/MVPVideoPicker';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'digital-services': 'Digital Services',
@@ -81,8 +82,13 @@ export default function CustomU() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Custom-U</h1>
-          <p className="text-muted-foreground mt-1">Generate custom upload links for your clients. They can upload files directly to your Google Drive.</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Custom-U</h1>
+              <p className="text-muted-foreground mt-1">Generate custom upload links for your clients. They can upload files directly to your Google Drive.</p>
+            </div>
+            <MVPVideoPicker />
+          </div>
         </div>
 
         <div className="relative max-w-sm">
