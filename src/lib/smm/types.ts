@@ -100,6 +100,7 @@ export interface IGMessage {
   from: string;
   text: string;
   timestamp: string;
+  attachment_url?: string;
 }
 
 export interface WebhookEvent {
