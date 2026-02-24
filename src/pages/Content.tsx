@@ -919,9 +919,10 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
   };
 
   const handleAssignCustomer = async (assetId: string, customerId: string) => {
-    const { error } = await supabase.from('content_assets').update({ customer_id: customerId }).eq('id', assetId);
+    const update = customerId === '__unassign__' ? { customer_id: null } : { customer_id: customerId };
+    const { error } = await supabase.from('content_assets').update(update).eq('id', assetId);
     if (error) { toast.error(error.message); return; }
-    toast.success('Assigned to customer');
+    toast.success(customerId === '__unassign__' ? 'Unassigned from customer' : 'Assigned to customer');
     loadAssets();
   };
 
@@ -982,6 +983,9 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
                           <SelectValue placeholder="Assign…" />
                         </SelectTrigger>
                         <SelectContent>
+                          {a.customer_id && (
+                            <SelectItem key="__unassign__" value="__unassign__" className="text-xs text-destructive">Unassign</SelectItem>
+                          )}
                           {customers.map(c => (
                             <SelectItem key={c.id} value={c.id} className="text-xs">{c.full_name}</SelectItem>
                           ))}
