@@ -38,6 +38,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   'digital-ecommerce': 'Digital E-Commerce',
   'food-and-beverage': 'Food & Beverage',
   'mobile-services': 'Mobile Services',
+  'telegram': 'Telegram',
   'other': 'Other',
 };
 
@@ -153,6 +154,8 @@ export default function Content() {
   }, {} as Record<string, number>);
   // Add higgsfield count (by source)
   categoryCounts['ai-generated'] = allContent.filter(c => c.source === 'higgsfield' || c.source === 'ai-generated').length;
+  // Add telegram count (by source or category)
+  categoryCounts['telegram'] = allContent.filter(c => c.source === 'telegram' || c.category === 'telegram').length;
 
   const toggleCategory = (cat: string) => {
     setCollapsedCategories(prev => {
@@ -314,9 +317,18 @@ export default function Content() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Content Library" {...categoryGate} pageKey="content" totalCount={allContent.length} countLabel="assets" categoryCounts={categoryCounts} extraCategories={[HIGGSFIELD_CATEGORY]}>
+       <CategoryGate title="Content Library" {...categoryGate} pageKey="content" totalCount={allContent.length} countLabel="assets" categoryCounts={categoryCounts} extraCategories={[HIGGSFIELD_CATEGORY]}>
         {categoryGate.selectedCategory === 'ai-generated' ? (
           <HiggsFieldManager
+            onPlay={playVideo}
+            onDownload={downloadFile}
+            onDelete={handleDeleteContent}
+            onShare={handleShare}
+            onRevokeShare={handleRevokeShare}
+            onImagePreview={openImage}
+          />
+        ) : categoryGate.selectedCategory === 'telegram' ? (
+          <TelegramManager
             onPlay={playVideo}
             onDownload={downloadFile}
             onDelete={handleDeleteContent}
@@ -859,6 +871,152 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Telegram Manager ──────────────────────── */
+function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare, onImagePreview }: {
+  onPlay: (url: string, title: string) => void;
+  onDownload: (url: string, title: string) => void;
+  onDelete: (id: string) => void;
+  onShare: (id: string) => void;
+  onRevokeShare: (id: string) => void;
+  onImagePreview: (url: string, title: string) => void;
+}) {
+  const [assets, setAssets] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadAssets = async () => {
+    const { data } = await supabase.from('content_assets')
+      .select('*, customers(id, full_name)')
+      .or('source.eq.telegram,category.eq.telegram')
+      .order('created_at', { ascending: false });
+    setAssets(data || []);
+    setLoading(false);
+  };
+
+  const loadCustomers = async () => {
+    const { data } = await supabase.from('customers').select('id, full_name, category');
+    setCustomers(data || []);
+  };
+
+  useEffect(() => { loadAssets(); loadCustomers(); }, []);
+
+  const handleDelete = async (id: string) => {
+    onDelete(id);
+    setTimeout(loadAssets, 500);
+  };
+
+  const handleAssignCustomer = async (assetId: string, customerId: string) => {
+    const { error } = await supabase.from('content_assets').update({ customer_id: customerId }).eq('id', assetId);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Assigned to customer');
+    loadAssets();
+  };
+
+  // Group by date
+  const grouped = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    for (const a of assets) {
+      const dateKey = new Date(a.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      if (!map[dateKey]) map[dateKey] = [];
+      map[dateKey].push(a);
+    }
+    return Object.entries(map);
+  }, [assets]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <p className="text-muted-foreground text-sm">{assets.length} Telegram file{assets.length !== 1 ? 's' : ''}</p>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-16 text-muted-foreground">Loading…</div>
+      ) : assets.length === 0 ? (
+        <div className="text-center py-16 space-y-3">
+          <MessageSquare className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+          <p className="text-muted-foreground">No Telegram content yet.</p>
+          <p className="text-sm text-muted-foreground/60">Media sent through Telegram will appear here automatically.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {grouped.map(([date, items]) => (
+            <div key={date} className="glass-card overflow-hidden">
+              <div className="flex items-center gap-3 p-4 border-b border-border">
+                <FolderOpen className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">{date}</span>
+                <span className="text-xs text-muted-foreground ml-auto">{items.length} file{items.length !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="divide-y divide-border/30">
+                {items.map(a => {
+                  const Icon = typeIcons[a.type] || File;
+                  const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
+                  return (
+                    <div key={a.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors">
+                      <div className="p-1.5 rounded bg-primary/10"><Icon className="h-4 w-4 text-primary" /></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
+                        <span className="text-xs text-muted-foreground">
+                          {a.customers?.full_name || 'Unassigned'} · {new Date(a.created_at).toLocaleTimeString()}
+                        </span>
+                      </div>
+
+                      {/* Assign to customer */}
+                      <Select
+                        value={a.customer_id || ''}
+                        onValueChange={(v) => handleAssignCustomer(a.id, v)}
+                      >
+                        <SelectTrigger className="w-36 h-7 text-xs">
+                          <SelectValue placeholder="Assign…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customers.map(c => (
+                            <SelectItem key={c.id} value={c.id} className="text-xs">{c.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <StatusBadge status={a.status} />
+                      {a.type === 'image' && a.url && (
+                        <button onClick={() => onImagePreview(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="View image">
+                          <Image className="h-4 w-4" />
+                        </button>
+                      )}
+                      {isPlayable && (
+                        <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
+                          <Play className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {a.url && (
+                        <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {a.url && (
+                        a.share_token ? (
+                          <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
+                            <Link2 className="h-3.5 w-3.5" />
+                          </button>
+                        ) : (
+                          <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
+                            <Share2 className="h-3.5 w-3.5" />
+                          </button>
+                        )
+                      )}
+                      <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
