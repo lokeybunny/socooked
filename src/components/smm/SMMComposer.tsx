@@ -112,7 +112,22 @@ export default function SMMComposer({ profiles, onRefresh }: { profiles: SMMProf
               <Label className="text-xs font-medium">Profile</Label>
               <Select value={localProfileId} onValueChange={setLocalProfileId}>
                 <SelectTrigger><SelectValue placeholder="Select profile" /></SelectTrigger>
-                <SelectContent>{profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.username}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  {profiles.map(p => {
+                    const handles = p.connected_platforms
+                      .filter(cp => cp.connected)
+                      .map(cp => `${PLATFORM_META[cp.platform]?.abbr || cp.platform}: @${cp.display_name}`)
+                      .join(' · ');
+                    return (
+                      <SelectItem key={p.id} value={p.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{p.username}</span>
+                          {handles && <span className="text-[10px] text-muted-foreground">{handles}</span>}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
