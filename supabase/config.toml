@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.higgsfield-api]
 verify_jwt = false
+
+[functions.telegram-media-listener]
+verify_jwt = false
