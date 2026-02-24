@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useSMMStore } from '@/lib/smm/store';
@@ -16,8 +16,9 @@ import SMMAnalytics from '@/components/smm/SMMAnalytics';
 import SMMInstagram from '@/components/smm/SMMInstagram';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
-  Activity, ListOrdered, BarChart3, MessageSquare,
+  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import type { Platform, ScheduledPost } from '@/lib/smm/types';
 
 const TABS = [
@@ -56,9 +57,15 @@ function SMMInner() {
   return (
     <AppLayout>
       <div className="space-y-4 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Social Media Manager</h1>
-          <p className="text-muted-foreground mt-1">Schedule, publish, and analyze social content across all platforms.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Social Media Manager</h1>
+            <p className="text-muted-foreground mt-1">Schedule, publish, and analyze social content across all platforms.</p>
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={refresh} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         <SMMContextBar profiles={profiles} />
