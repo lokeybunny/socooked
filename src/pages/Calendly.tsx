@@ -77,7 +77,7 @@ export default function Calendly() {
     await supabase.from('activity_log').insert({
       entity_type: 'availability',
       action,
-      meta: { name: detail },
+      meta: { name: detail, message: detail },
     });
   };
 
@@ -94,11 +94,20 @@ export default function Calendly() {
     loadSlots();
   };
 
+  const fmtSlotTime = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
   const updateSlot = async (id: string, updates: Partial<Slot>) => {
     await supabase.from('availability_slots').update(updates).eq('id', id);
     const slot = slots.find(s => s.id === id);
-    const detail = slot ? DAYS[slot.day_of_week] : 'Slot';
-    await logAvailabilityChange('updated', `${detail} availability`);
+    const merged = slot ? { ...slot, ...updates } : null;
+    const detail = merged
+      ? `${DAYS[merged.day_of_week]} updated to ${fmtSlotTime(merged.start_time)} – ${fmtSlotTime(merged.end_time)}`
+      : 'Slot availability updated';
+    await logAvailabilityChange('updated', detail);
     loadSlots();
   };
 
@@ -106,8 +115,10 @@ export default function Calendly() {
     const slot = slots.find(s => s.id === id);
     await supabase.from('availability_slots').delete().eq('id', id);
     toast.success('Slot removed');
-    const detail = slot ? DAYS[slot.day_of_week] : 'Slot';
-    await logAvailabilityChange('deleted', `${detail} availability`);
+    const detail = slot
+      ? `${DAYS[slot.day_of_week]} ${fmtSlotTime(slot.start_time)} – ${fmtSlotTime(slot.end_time)} removed`
+      : 'Slot removed';
+    await logAvailabilityChange('deleted', detail);
     loadSlots();
   };
 
