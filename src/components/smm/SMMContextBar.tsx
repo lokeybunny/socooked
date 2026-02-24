@@ -14,17 +14,60 @@ const DATE_RANGES = [
 export default function SMMContextBar({ profiles }: { profiles: SMMProfile[] }) {
   const { profileId, setProfileId, platform, setPlatform, dateRange, setDateRange, navigateToTab } = useSMMContext();
 
+  const selectedProfile = profiles.find(p => p.id === profileId);
+
   return (
-    <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border -mx-6 px-6 py-3">
+    <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border -mx-6 px-6 py-3 space-y-2">
+      {/* Connected accounts banner */}
+      {selectedProfile && selectedProfile.connected_platforms.length > 0 && (
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="text-muted-foreground font-medium">Connected:</span>
+          {selectedProfile.connected_platforms.map(cp => {
+            const meta = PLATFORM_META[cp.platform];
+            if (!meta) return null;
+            return (
+              <button
+                key={cp.platform}
+                onClick={() => setPlatform(cp.platform)}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${
+                  platform === cp.platform
+                    ? 'bg-primary text-primary-foreground'
+                    : meta.color
+                } ${cp.reauth_required ? 'opacity-50' : ''}`}
+              >
+                <meta.icon className="w-3 h-3" />
+                <span className="font-semibold">@{cp.display_name}</span>
+                {cp.reauth_required && <span className="text-[9px]">(reauth)</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="flex items-center gap-3 flex-wrap">
         {/* Profile Selector */}
         <Select value={profileId || 'all'} onValueChange={v => setProfileId(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-40 h-8 text-xs">
+          <SelectTrigger className="w-52 h-8 text-xs">
             <SelectValue placeholder="All Clients" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Clients</SelectItem>
-            {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.username}</SelectItem>)}
+            {profiles.map(p => {
+              const handles = p.connected_platforms
+                .map(cp => {
+                  const meta = PLATFORM_META[cp.platform];
+                  return meta ? `${meta.abbr}: @${cp.display_name}` : null;
+                })
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <SelectItem key={p.id} value={p.id}>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{p.username}</span>
+                    {handles && <span className="text-[10px] text-muted-foreground">{handles}</span>}
+                  </div>
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
 

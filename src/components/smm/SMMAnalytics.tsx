@@ -34,7 +34,7 @@ export default function SMMAnalytics({ profiles }: { profiles: SMMProfile[] }) {
 
   // Update selectedPlatform when context platform changes
   useEffect(() => {
-    if (platform && platform !== 'all') setSelectedPlatform(platform);
+    setSelectedPlatform(platform && platform !== 'all' ? platform : 'all');
   }, [platform]);
 
   useEffect(() => {
