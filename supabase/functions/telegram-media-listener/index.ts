@@ -181,6 +181,23 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── /higs command — Higgsfield model reminder ───
+    const text = (message.text as string || '').trim()
+    if (text.toLowerCase().startsWith('/higs')) {
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: `🎬 <b>Higgsfield Model Prompts:</b>\n\n`
+          + `• <code>higgsfield-ai/soul/standard</code> — Default image model\n`
+          + `• <code>higgsfield-ai/soul/turbo</code> — Fast image model\n`
+          + `• <code>higgsfield-ai/dop/standard</code> — Default video model\n`
+          + `• <code>higgsfield-ai/dop/turbo</code> — Fast video model\n`
+          + `• <code>flux</code> — Flux image model\n`
+          + `• <code>iris</code> — Iris image model`,
+        parse_mode: 'HTML',
+      })
+      return new Response('ok')
+    }
+
     const media = extractMedia(message)
     if (!media) {
       console.log('[telegram-media-listener] no media detected, ignoring')
