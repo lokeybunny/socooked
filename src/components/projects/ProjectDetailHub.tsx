@@ -7,9 +7,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Calendar, User, Tag, FolderOpen, Trash2, Mail, FileText, Receipt,
-  PenTool, Phone, MessageSquare, Upload, Globe, Clock, Image, Video
+  PenTool, Phone, MessageSquare, Upload, Globe, Clock, Image, Video,
+  Send, Inbox, RefreshCw
 } from 'lucide-react';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
+
+const GMAIL_FN = 'gmail-api';
+async function callGmail(action: string): Promise<any> {
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const url = `https://${projectId}.supabase.co/functions/v1/${GMAIL_FN}?action=${action}`;
+  const res = await fetch(url, {
+    headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Gmail API error');
+  return data;
+}
 
 interface ProjectDetailHubProps {
   project: any;
@@ -23,6 +37,8 @@ const catLabel = (id: string | null) =>
 
 export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDetailHubProps) {
   const [emails, setEmails] = useState<any[]>([]);
+  const [gmailEmails, setGmailEmails] = useState<any[]>([]);
+  const [gmailLoading, setGmailLoading] = useState(false);
   const [documents, setDocuments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [signatures, setSignatures] = useState<any[]>([]);
@@ -34,6 +50,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   const [previews, setPreviews] = useState<any[]>([]);
   const [contentAssets, setContentAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [customerEmail, setCustomerEmail] = useState<string | null>(null);
 
   const customerId = project?.customer_id;
 
@@ -42,6 +59,11 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
     setLoading(true);
 
     const load = async () => {
+      // Fetch customer email for Gmail filtering
+      const { data: cust } = await supabase.from('customers').select('email').eq('id', customerId).maybeSingle();
+      const custEmail = cust?.email?.toLowerCase().trim() || null;
+      setCustomerEmail(custEmail);
+
       const [
         { data: e }, { data: d }, { data: inv }, { data: sig },
         { data: dl }, { data: ev }, { data: th }, { data: tr },
@@ -72,6 +94,35 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
       setPreviews(pr || []);
       setContentAssets(ca || []);
       setLoading(false);
+
+      // Fetch Gmail emails for this customer in background
+      if (custEmail) {
+        setGmailLoading(true);
+        try {
+          const [inboxData, sentData] = await Promise.all([
+            callGmail('inbox'),
+            callGmail('sent'),
+          ]);
+          const allGmail = [...(inboxData.emails || []), ...(sentData.emails || [])];
+          // Filter to only emails involving this customer
+          const filtered = allGmail.filter((em: any) =>
+            em.from?.toLowerCase().includes(custEmail) || em.to?.toLowerCase().includes(custEmail)
+          );
+          // Dedupe by id and sort by date
+          const seen = new Set<string>();
+          const deduped = filtered.filter((em: any) => {
+            if (seen.has(em.id)) return false;
+            seen.add(em.id);
+            return true;
+          }).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setGmailEmails(deduped);
+        } catch (err) {
+          console.error('Gmail fetch for project hub:', err);
+          setGmailEmails([]);
+        } finally {
+          setGmailLoading(false);
+        }
+      }
     };
     load();
   }, [customerId, project?.id, open]);
@@ -150,21 +201,56 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
 
             {/* Emails / Comms */}
             <TabsContent value="emails" className="space-y-2 m-0">
-              <SectionCount items={emails} label="communications" />
-              {emails.length === 0 && <EmptyState label="communications" />}
-              {emails.map(e => (
-                <div key={e.id} className="glass-card p-3 space-y-1">
-                  <div className="flex items-center gap-2">
-                    {e.type === 'email' ? <Mail className="h-3 w-3 text-primary" /> :
-                     e.type === 'call' ? <Phone className="h-3 w-3 text-primary" /> :
-                     <MessageSquare className="h-3 w-3 text-primary" />}
-                    <span className="text-sm font-medium line-clamp-1">{e.subject || e.type}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">{e.direction}</span>
-                  </div>
-                  {e.body && <p className="text-xs text-muted-foreground line-clamp-2">{e.body}</p>}
-                  <p className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleDateString()}</p>
+              {/* Gmail emails */}
+              {gmailEmails.length > 0 && (
+                <>
+                  <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                    <Mail className="h-3 w-3" /> Gmail ({gmailEmails.length})
+                  </p>
+                  {gmailEmails.map(em => {
+                    const isInbound = customerEmail && em.from?.toLowerCase().includes(customerEmail);
+                    return (
+                      <div key={em.id} className={`glass-card p-3 space-y-1 ${isInbound ? 'border-l-2 border-l-primary' : 'border-l-2 border-l-muted-foreground/30'}`}>
+                        <div className="flex items-center gap-2">
+                          {isInbound ? <Inbox className="h-3 w-3 text-primary" /> : <Send className="h-3 w-3 text-muted-foreground" />}
+                          <span className="text-sm font-medium line-clamp-1">{em.subject || '(no subject)'}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">{isInbound ? 'received' : 'sent'}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {isInbound ? `From: ${em.from}` : `To: ${em.to}`}
+                        </p>
+                        {em.snippet && <p className="text-xs text-muted-foreground line-clamp-2">{em.snippet}</p>}
+                        <p className="text-xs text-muted-foreground">{em.date ? new Date(em.date).toLocaleDateString() : ''}</p>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+              {gmailLoading && (
+                <div className="flex items-center gap-2 py-3 justify-center">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Loading Gmail...</span>
                 </div>
-              ))}
+              )}
+              {!gmailLoading && gmailEmails.length === 0 && emails.length === 0 && <EmptyState label="emails" />}
+
+              {/* Logged communications (calls, SMS, etc.) */}
+              {emails.filter(e => e.type !== 'email').length > 0 && (
+                <div className="pt-2 border-t border-border">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Other Communications</p>
+                  {emails.filter(e => e.type !== 'email').map(e => (
+                    <div key={e.id} className="glass-card p-3 space-y-1 mb-2">
+                      <div className="flex items-center gap-2">
+                        {e.type === 'call' ? <Phone className="h-3 w-3 text-primary" /> : <MessageSquare className="h-3 w-3 text-primary" />}
+                        <span className="text-sm font-medium line-clamp-1">{e.subject || e.type}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{e.direction}</span>
+                      </div>
+                      {e.body && <p className="text-xs text-muted-foreground line-clamp-2">{e.body}</p>}
+                      <p className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleDateString()}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
               {/* Threads */}
               {threads.length > 0 && (
                 <div className="pt-2 border-t border-border">
