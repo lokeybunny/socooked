@@ -8,13 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Trash2, Instagram } from 'lucide-react';
+import { Plus, Search, Trash2, Instagram, Video } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
-const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '' };
+const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', mv_client: false };
 
 export default function Customers() {
   const categoryGate = useCategoryGate();
@@ -96,6 +97,8 @@ export default function Customers() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const existingCustomer = editingId ? allCustomers.find(c => c.id === editingId) : null;
+    const existingMeta = existingCustomer?.meta && typeof existingCustomer.meta === 'object' ? existingCustomer.meta as Record<string, unknown> : {};
     const payload = {
       full_name: form.full_name,
       email: form.email || null,
@@ -108,6 +111,7 @@ export default function Customers() {
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       category: form.category || categoryGate.selectedCategory || 'other',
       instagram_handle: form.instagram_handle || null,
+      meta: { ...existingMeta, mv_client: form.mv_client },
     };
     if (editingId) {
       const { error } = await supabase.from('customers').update(payload).eq('id', editingId);
@@ -125,6 +129,7 @@ export default function Customers() {
   };
 
   const openEdit = (c: any) => {
+    const meta = c.meta && typeof c.meta === 'object' ? c.meta : {};
     setForm({
       full_name: c.full_name,
       email: c.email || '',
@@ -137,6 +142,7 @@ export default function Customers() {
       tags: Array.isArray(c.tags) ? c.tags.join(', ') : '',
       category: c.category || 'other',
       instagram_handle: c.instagram_handle || '',
+      mv_client: !!meta.mv_client,
     });
     setEditingId(c.id);
     setDialogOpen(true);
@@ -214,6 +220,18 @@ export default function Customers() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {editingId && (
+                    <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                      <div className="flex items-center gap-2">
+                        <Video className="h-4 w-4 text-primary" />
+                        <div>
+                          <Label className="text-sm font-medium">MV Client</Label>
+                          <p className="text-xs text-muted-foreground">Show music video intro on their Custom-U portal</p>
+                        </div>
+                      </div>
+                      <Switch checked={form.mv_client} onCheckedChange={v => setForm({ ...form, mv_client: v })} />
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Button type="submit" className="flex-1">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
                     {editingId && (
