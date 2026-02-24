@@ -21,14 +21,18 @@ export default function Credits() {
     setLoading(true);
     setError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setError('Not authenticated'); setLoading(false); return; }
+      let { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (!activeSession) {
+        const { data: { session: refreshed } } = await supabase.auth.refreshSession();
+        activeSession = refreshed;
+      }
+      if (!activeSession) { setError('Please log in to view API credits'); setLoading(false); return; }
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-credits`,
         {
           headers: {
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${activeSession.access_token}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             'Content-Type': 'application/json',
           },
