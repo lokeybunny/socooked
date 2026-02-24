@@ -196,12 +196,16 @@ Deno.serve(async (req) => {
           }).eq('id', bot_task_id)
         }
 
-        // Log activity
+        // Log activity with rich Telegram notification
+        const dashboardUrl = 'https://stu25.com/content'
+        const customMessage = outputType === 'video'
+          ? `🎬 *AI Video Ready!*\n🔗 [View Video](${outputUrl})\n📂 Check it out in your [Content AI Generated](${dashboardUrl}) dashboard.`
+          : `🎨 *AI Image Ready!*\n🔗 [View Image](${outputUrl})\n📂 Check it out in your [Content AI Generated](${dashboardUrl}) dashboard.`
         await supabase.from('activity_log').insert({
           entity_type: 'content_asset',
           entity_id: contentAsset?.id || null,
           action: `higgsfield_${outputType}_completed`,
-          meta: { name: title, output_url: outputUrl },
+          meta: { name: title, output_url: outputUrl, message: customMessage, preview_url: outputUrl },
         })
 
         return ok({ status: 'completed', output_url: outputUrl, output_type: outputType, content_asset_id: contentAsset?.id, title })
