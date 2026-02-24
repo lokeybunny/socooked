@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const AGENTS = [
   { id: 'clawd-main', label: 'CLAWD Main', role: 'SpaceBot.sh — Orchestrator', icon: Cpu, color: 'from-violet-500 to-purple-600', ring: 'ring-violet-500/30', bg: 'bg-violet-500/10', text: 'text-violet-400', pulse: 'bg-violet-500', connected: true, group: 'clawd' },
   { id: 'web-designer', label: 'Web Designer', role: 'UI/UX Agent — V0.DEV API', icon: Palette, color: 'from-cyan-500 to-blue-600', ring: 'ring-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', pulse: 'bg-cyan-500', connected: true, group: 'clawd' },
-  { id: 'social-media', label: 'Social Media', role: 'Social Agent — Coming Soon', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: false, group: 'clawd' },
+  { id: 'social-media', label: 'Social Media', role: 'Upload-Post API — Publisher', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: true, group: 'clawd' },
   { id: 'content-manager', label: 'Higgsfield AI', role: 'Content Agent — Video/Image', icon: Bot, color: 'from-amber-500 to-orange-600', ring: 'ring-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', pulse: 'bg-amber-500', connected: true, group: 'clawd' },
   { id: 'nano-banana', label: 'Nano Banana', role: 'Image AI — Gemini Flash', icon: Palette, color: 'from-yellow-400 to-amber-500', ring: 'ring-yellow-400/30', bg: 'bg-yellow-400/10', text: 'text-yellow-400', pulse: 'bg-yellow-400', connected: true, group: 'clawd' },
   { id: 'research-finder', label: 'Research Finder', role: 'Research Agent — Coming Soon', icon: Search, color: 'from-teal-500 to-emerald-600', ring: 'ring-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', pulse: 'bg-teal-500', connected: false, group: 'clawd' },
@@ -387,6 +387,12 @@ export default function AIStaff() {
         a.action.startsWith('nano_banana') ||
         (a.entity_type === 'content_asset' && a.action.includes('nano_banana')) ||
         (a.meta as any)?.provider === 'nano-banana'
+      );
+    }
+    if (id === 'social-media') {
+      return activities.filter(a => 
+        a.action.startsWith('smm_') ||
+        (a.entity_type === 'bot_task' && (a.meta as any)?.name?.includes('📱'))
       );
     }
     return activities;
