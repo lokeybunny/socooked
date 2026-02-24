@@ -105,7 +105,7 @@ export default function SMMInstagram() {
                       <p className="text-sm font-medium text-foreground">@{c.participant}</p>
                       {c.unread && <span className="w-2 h-2 rounded-full bg-primary" />}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{c.last_message || '(media/attachment)'}</p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{c.last_message || '(no text)'}</p>
                     {c.last_timestamp && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
                         {format(new Date(c.last_timestamp), 'MMM d, h:mm a')}
@@ -133,10 +133,22 @@ export default function SMMInstagram() {
                           <div className={`max-w-[70%] px-3 py-2 rounded-xl text-sm ${
                             isSelf ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
                           }`}>
-                            {msg.text ? (
-                              <p>{msg.text}</p>
-                            ) : (
-                              <p className="text-xs italic opacity-70">(media/attachment)</p>
+                            {msg.text && <p>{msg.text}</p>}
+                            {msg.attachment_url && (
+                              <a
+                                href={msg.attachment_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-1 text-xs underline ${
+                                  isSelf ? 'text-primary-foreground/80 hover:text-primary-foreground' : 'text-primary hover:text-primary/80'
+                                }`}
+                              >
+                                <ExternalLink className="h-3 w-3 shrink-0" />
+                                {msg.attachment_url.includes('instagram.com') ? 'View on Instagram' : 'View attachment'}
+                              </a>
+                            )}
+                            {!msg.text && !msg.attachment_url && (
+                              <p className="text-xs italic opacity-70">(unsupported media)</p>
                             )}
                             <p className={`text-[10px] mt-1 ${isSelf ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
                               {msg.timestamp ? format(new Date(msg.timestamp), 'MMM d, h:mm a') : ''}

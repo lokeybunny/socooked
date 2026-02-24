@@ -374,11 +374,28 @@ export const smmApi = {
         const messages = c.messages?.data || [];
         const lastMsg = messages[0];
 
+        // Extract attachment URL from shared posts/videos/stories
+        const extractAttachmentUrl = (m: any): string => {
+          // Instagram shares come as attachments.data[].url or story replies
+          const att = m.attachments?.data?.[0];
+          if (att?.url) return att.url;
+          if (att?.video_data?.url) return att.video_data.url;
+          if (att?.image_data?.url) return att.image_data.url;
+          // Shared post links sometimes in shares.data
+          const share = m.shares?.data?.[0];
+          if (share?.link) return share.link;
+          // Story replies
+          if (m.story?.url) return m.story.url;
+          return '';
+        };
+
+        const lastAttachment = lastMsg ? extractAttachmentUrl(lastMsg) : '';
+
         return {
           id: c.id || otherUser?.id || `conv-${idx}`,
           participant: otherUser?.username || 'Unknown',
           participant_id: otherUser?.id || '',
-          last_message: lastMsg?.message || '',
+          last_message: lastMsg?.message || (lastAttachment ? '🔗 Shared link' : ''),
           last_timestamp: lastMsg?.created_time || '',
           unread: c.unread || false,
           messages: messages.map((m: any) => ({
@@ -386,6 +403,7 @@ export const smmApi = {
             from: m.from?.username || '',
             text: m.message || '',
             timestamp: m.created_time || '',
+            attachment_url: extractAttachmentUrl(m),
           })),
         };
       });
