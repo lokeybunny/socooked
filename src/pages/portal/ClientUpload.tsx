@@ -29,6 +29,7 @@ export default function ClientUpload() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [artPage, setArtPage] = useState(0);
   const [showMVLanding, setShowMVLanding] = useState(false);
+  const [landingVideos, setLandingVideos] = useState<{ id: string; title: string; url: string }[]>([]);
   const ART_PAGE_SIZE = 9;
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +58,20 @@ export default function ClientUpload() {
         .order('created_at', { ascending: false })
         .limit(50);
       setAiAssets(assets || []);
+
+      // If no AI assets, fetch landing page videos
+      if (!assets || assets.length === 0) {
+        const { data: cfg } = await supabase
+          .from('site_configs')
+          .select('content')
+          .eq('site_id', 'stu25')
+          .eq('section', 'mv-landing-videos')
+          .maybeSingle();
+        if (cfg?.content) {
+          const content = cfg.content as Record<string, unknown>;
+          setLandingVideos((content.videos as { id: string; title: string; url: string }[]) || []);
+        }
+      }
     };
     load();
   }, [token]);
@@ -219,6 +234,24 @@ export default function ClientUpload() {
             </div>
           );
         })()}
+
+        {/* Landing Page Videos (only when no AI assets) */}
+        {allMediaAssets.length === 0 && landingVideos.length > 0 && (
+          <div className="glass-card p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Sample Work
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              {landingVideos.slice(0, 3).map((video, i) => (
+                <div key={video.id || i} className="relative aspect-[9/16] rounded-xl overflow-hidden border border-border">
+                  <video src={video.url} className="w-full h-full object-cover" controls preload="metadata" />
+                  <p className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-[10px] text-white truncate">{video.title}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Lightbox */}
         {lightboxUrl && (
