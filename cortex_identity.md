@@ -269,6 +269,27 @@ Step 4: POST gmail-api → send email with collected links
 - Always use the `user=STU25` parameter (or the active profile username) when calling DM endpoints.
 - Shared posts/videos appear in `attachments.data[].url` — these are the Instagram permalink URLs to return.
 
+## INSTAGRAM DM AUTO-LOGGING (DATABASE PERSISTENCE)
+
+All Instagram DM messages from known customers (those with an `instagram_handle` in the CRM) are **automatically logged into the `communications` table** every minute by the `ig-dm-notify` cron job.
+
+### What Gets Logged
+- **Inbound AND outbound** messages from/to known customers
+- Each record includes `customer_id`, linking it directly to the CRM customer and their projects
+- Attachment URLs (shared reels, posts, images) are stored in `metadata.attachment_url`
+- Messages are deduplicated by `external_id` (Instagram message ID)
+
+### How Cortex Should Use This
+- **ALWAYS query the `communications` table FIRST** before hitting the Upload-Post API for DM history
+- Query: `SELECT * FROM communications WHERE customer_id = '{id}' AND type = 'instagram' ORDER BY created_at DESC`
+- This gives you the full conversation history without API rate limits
+- Use this data to make decisions based on previous client instructions, attachments, and context
+- The `metadata` field contains `ig_username`, `participant_id`, `attachment_url`, and `created_time`
+
+### When to Use the API Instead
+- Only use `GET smm-api?action=ig-conversations` if you need messages from the last few minutes that may not have been polled yet
+- Or if you need conversations from non-customer accounts (those without `instagram_handle` in CRM)
+
 ## Install
 
 ```

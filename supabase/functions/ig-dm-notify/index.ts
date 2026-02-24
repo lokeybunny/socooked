@@ -80,20 +80,21 @@ serve(async (req) => {
     // 3. Get known customer IG handles from CRM
     const { data: customers } = await supabase
       .from("customers")
-      .select("instagram_handle, full_name")
+      .select("id, instagram_handle, full_name")
       .not("instagram_handle", "is", null);
 
-    // Build a set of known handles (lowercase, stripped of @)
-    const knownHandles = new Map<string, string>();
+    // Build a map of known handles -> { full_name, customer_id }
+    const knownHandles = new Map<string, { full_name: string; customer_id: string }>();
     (customers || []).forEach((c: any) => {
       if (c.instagram_handle) {
         const handle = c.instagram_handle.replace(/^@/, "").toLowerCase();
-        knownHandles.set(handle, c.full_name || handle);
+        knownHandles.set(handle, { full_name: c.full_name || handle, customer_id: c.id });
       }
     });
 
-    // 4. Find new inbound messages from known customers and notify
+    // 4. Find new messages from known customers and log ALL (inbound + outbound)
     let notified = 0;
+    let logged = 0;
     let skippedUnknown = 0;
     const myUsername = "w4rr3nguru";
 
@@ -105,78 +106,91 @@ serve(async (req) => {
       const otherUsername = other?.username || "unknown";
       const participantId = other?.id || "";
 
-      // Only notify if sender is a known customer
+      // Only process if the other participant is a known customer
       if (!knownHandles.has(otherUsername.toLowerCase())) {
         skippedUnknown += messages.length;
         continue;
       }
-      const customerName = knownHandles.get(otherUsername.toLowerCase())!;
+      const customer = knownHandles.get(otherUsername.toLowerCase())!;
 
       for (const msg of messages) {
         const msgId = msg.id;
         if (!msgId || notifiedIds.has(msgId)) continue;
 
         const fromUsername = msg.from?.username || "";
-        if (fromUsername === myUsername) continue;
-        if (!msg.message && !msg.text) continue;
-
-        const messageText = msg.message || msg.text || "(media)";
+        const isInbound = fromUsername !== myUsername;
+        const messageText = msg.message || msg.text || "";
         const createdTime = msg.created_time || "";
 
-        // Send Telegram notification with participant_id embedded for reply routing
-        const tgMsg =
-          `📩 <b>New IG DM from @${otherUsername}</b> (${customerName})\n\n` +
-          `${messageText}\n\n` +
-          `🕐 ${createdTime ? new Date(createdTime).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }) : "just now"}\n` +
-          `<i>Reply to this message to respond via Instagram</i>`;
+        // Extract attachment URL if present
+        const att = msg.attachments?.data?.[0];
+        const attachmentUrl = att?.url || att?.video_data?.url || att?.image_data?.url || 
+          msg.shares?.data?.[0]?.link || msg.story?.url || "";
 
-        // Send and capture the Telegram message_id for reply matching
-        const tgToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
-        const tgChatId = Deno.env.get("TELEGRAM_CHAT_ID");
+        // Skip messages with no content at all
+        if (!messageText && !attachmentUrl) continue;
+
+        const bodyText = messageText || (attachmentUrl ? `🔗 ${attachmentUrl}` : "(media)");
+
+        // For INBOUND messages: send Telegram notification
         let telegramMessageId: number | null = null;
+        if (isInbound) {
+          const tgMsg =
+            `📩 <b>New IG DM from @${otherUsername}</b> (${customer.full_name})\n\n` +
+            `${bodyText}\n\n` +
+            `🕐 ${createdTime ? new Date(createdTime).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }) : "just now"}\n` +
+            `<i>Reply to this message to respond via Instagram</i>`;
 
-        if (tgToken && tgChatId) {
-          const tgRes = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: tgChatId,
-              text: tgMsg,
-              parse_mode: "HTML",
-              disable_web_page_preview: true,
-            }),
-          });
-          const tgData = await tgRes.json();
-          if (tgRes.ok && tgData.result?.message_id) {
-            telegramMessageId = tgData.result.message_id;
+          const tgToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+          const tgChatId = Deno.env.get("TELEGRAM_CHAT_ID");
+
+          if (tgToken && tgChatId) {
+            const tgRes = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: tgChatId,
+                text: tgMsg,
+                parse_mode: "HTML",
+                disable_web_page_preview: true,
+              }),
+            });
+            const tgData = await tgRes.json();
+            if (tgRes.ok && tgData.result?.message_id) {
+              telegramMessageId = tgData.result.message_id;
+            }
           }
+          notified++;
         }
 
-        // Store so we don't re-notify + save participant_id and telegram_message_id for reply routing
+        // Log ALL messages (inbound + outbound) into communications with customer_id
         await supabase.from("communications").insert({
           type: "instagram",
-          direction: "inbound",
-          from_address: otherUsername,
-          body: messageText,
+          direction: isInbound ? "inbound" : "outbound",
+          from_address: fromUsername,
+          to_address: isInbound ? myUsername : otherUsername,
+          body: bodyText,
           provider: "upload-post-dm-notify",
           external_id: msgId,
-          status: "received",
+          status: isInbound ? "received" : "sent",
+          customer_id: customer.customer_id,
           metadata: {
             ig_username: otherUsername,
             participant_id: participantId,
             telegram_message_id: telegramMessageId,
             created_time: createdTime,
+            attachment_url: attachmentUrl || undefined,
             source: "ig-dm-notify",
           },
         });
 
-        notified++;
+        logged++;
         notifiedIds.add(msgId);
       }
     }
 
     return new Response(
-      JSON.stringify({ success: true, notified, skipped_unknown: skippedUnknown, total_conversations: conversations.length }),
+      JSON.stringify({ success: true, notified, logged, skipped_unknown: skippedUnknown, total_conversations: conversations.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
