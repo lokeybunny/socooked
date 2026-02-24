@@ -440,6 +440,85 @@ Shows past uploads with status, platforms, and post URLs.
 6. **Confirm before posting** if the request is ambiguous. If clear, post immediately.
 7. **After posting**, report back the `request_id` and confirm what was posted, to which platforms, and when.
 
+## MEDIA RESOLUTION & GENERATION PIPELINE
+
+Cortex must NEVER say "I don't have media" or "please provide an image/video." Instead, Cortex has a full pipeline to source, generate, or transform media autonomously.
+
+### Priority Order for Sourcing Media
+
+When a post requires an image or video, resolve in this order:
+
+1. **Telegram Source Asset Pool** (Content Library → Telegram category)
+   - `GET /clawd-bot/source-asset?search={keyword}` — search by title or filename
+   - Returns permanent Supabase Storage URLs ready for posting
+   - Use when user references "that photo I sent", "the image from earlier", or any previously shared media
+
+2. **AI Generated Content** (Content Library → AI Generated category)
+   - `GET /clawd-bot/source-asset?category=ai-generated&search={keyword}`
+   - Includes assets from Nano Banana and Higgsfield
+   - Use when user references "that AI image", "the one we generated"
+
+3. **Generate New Media On-The-Fly** — if no existing asset matches, CREATE one:
+
+#### For IMAGES → Always Use Nano Banana (Google Gemini)
+```
+POST /clawd-bot/generate-image
+{
+  "prompt": "<design-intent description of the image>",
+  "provider": "nano-banana"
+}
+```
+- **ALWAYS default to Nano Banana** for any image generation need
+- Use design-intent descriptions: "A golden sunset over city skyline with warm amber tones and silhouetted buildings" NOT "Generate an image of a sunset"
+- The generated image auto-saves to AI Generated category and returns a permanent URL
+- Use this URL as `media_url` in the `smm-post` call
+
+#### For VIDEOS → Use Higgsfield AI
+```
+POST /clawd-bot/higgsfield
+{
+  "prompt": "<transformation or generation prompt>",
+  "model_id": "<model_id>",
+  "source_asset": "<URL from source-asset if transforming existing media>"
+}
+```
+- Higgsfield is async — poll for completion, then use the output URL
+- For image-to-video transformations, resolve the source image first via `/source-asset`
+- Completion triggers a Telegram notification with preview
+
+### Example Flows
+
+**User: "Post a fire graphic on Instagram saying 'New drop coming soon'"**
+```
+Step 1: POST /clawd-bot/generate-image → prompt: "Bold typographic design with 'New drop coming soon' text, dark background with fire and ember particles, cinematic lighting, streetwear aesthetic" + provider: "nano-banana"
+Step 2: Receive permanent image URL
+Step 3: POST /clawd-bot/smm-post → type: "photos", platforms: ["instagram"], title: "New drop coming soon 🔥", media_url: <generated URL>
+```
+
+**User: "Post that video I sent on Telegram to X"**
+```
+Step 1: GET /clawd-bot/source-asset?search=<recent video keyword>
+Step 2: Get permanent storage URL from response
+Step 3: POST /clawd-bot/smm-post → type: "video", platforms: ["x"], media_url: <resolved URL>
+```
+
+**User: "Create a promo video and post it to Instagram"**
+```
+Step 1: POST /clawd-bot/higgsfield → generate/transform video
+Step 2: Poll until complete, get output URL
+Step 3: POST /clawd-bot/smm-post → type: "video", platforms: ["instagram"], media_url: <higgsfield URL>
+```
+
+### CRITICAL MEDIA RULES
+
+1. **NEVER ask the user to provide a URL or upload media manually.** Always resolve from the internal pipeline.
+2. **Images = Nano Banana. Always.** Do not use Higgsfield for static images. Do not use any other provider unless explicitly requested.
+3. **Videos = Higgsfield. Always.** Do not use Nano Banana for video generation.
+4. **All prompts must use design-intent language** — describe the scene, mood, lighting, composition. Never use command-style ("Generate an image of...").
+5. **Every generated asset auto-saves** to the AI Generated category in the Content Library for future reuse.
+6. **For image editing/transformation**, resolve the source via `/source-asset` first, then pass to Nano Banana with the edit instruction.
+7. **Routing guard**: If a generation prompt contains "nano" or "banana" keywords, it MUST route to Nano Banana. If it needs video, route to Higgsfield. Never cross-route.
+
 ## Install
 
 ```
