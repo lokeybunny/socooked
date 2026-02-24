@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LayoutGrid, LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
-  Radar, Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock,
+  Radar, Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Wallet,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -28,6 +28,7 @@ const navItems = [
   { to: '/phone', icon: Phone, label: 'Phone' },
   { to: '/previews', icon: Sparkles, label: 'Previews' },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff' },
+  { to: '/credits', icon: Wallet, label: 'Credits' },
 ];
 
 export function Sidebar() {

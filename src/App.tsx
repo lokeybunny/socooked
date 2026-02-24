@@ -38,6 +38,7 @@ import Calendly from "./pages/Calendly";
 import LetsMeet from "./pages/LetsMeet";
 import ManageBooking from "./pages/ManageBooking";
 import SharedContent from "./pages/SharedContent";
+import Credits from "./pages/Credits";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -81,6 +82,7 @@ const App = () => (
             <Route path="/letsmeet" element={<LetsMeet />} />
             <Route path="/manage-booking/:bookingId" element={<ManageBooking />} />
             <Route path="/shared/:token" element={<SharedContent />} />
+            <Route path="/credits" element={<Credits />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
