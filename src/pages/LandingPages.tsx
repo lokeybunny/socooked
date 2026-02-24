@@ -14,9 +14,9 @@ export default function LandingPages() {
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Landing Pages</h1>
+          <h1 className="text-2xl font-bold text-foreground">Landing</h1>
           <p className="text-muted-foreground mt-1">
-            Manage niche landing pages shown to customers on their Custom-U portal.
+            Manage niche landing pages for customer Custom-U portals.
           </p>
         </div>
 
