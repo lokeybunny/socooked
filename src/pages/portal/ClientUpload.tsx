@@ -223,9 +223,12 @@ export default function ClientUpload() {
           </div>
         )}
 
-        <p className="text-center text-xs text-muted-foreground">
-          Powered by STU25 · Files are stored securely
-        </p>
+        <div className="text-center space-y-1">
+          <p className="text-xs text-muted-foreground">Powered by STU25 · Files are stored securely</p>
+          <a href="https://stu25.com" target="_blank" rel="noopener noreferrer" className="inline-block text-xs text-primary hover:underline">
+            ← Back to stu25.com
+          </a>
+        </div>
       </div>
     </div>
   );

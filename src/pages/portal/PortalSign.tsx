@@ -240,6 +240,14 @@ export default function PortalSign() {
           </div>
         )}
       </main>
+
+      <footer className="border-t border-border p-4 mt-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <a href="https://stu25.com" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+            ← Back to stu25.com
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }
