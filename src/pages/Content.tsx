@@ -799,22 +799,36 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
   onImagePreview: (url: string, title: string) => void;
 }) {
   const [assets, setAssets] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadAssets = async () => {
     const { data } = await supabase.from('content_assets')
-      .select('*, customers(full_name)')
+      .select('*, customers(id, full_name)')
       .or('source.eq.higgsfield,source.eq.ai-generated')
       .order('created_at', { ascending: false });
     setAssets(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { loadAssets(); }, []);
+  const loadCustomers = async () => {
+    const { data } = await supabase.from('customers').select('id, full_name, category');
+    setCustomers(data || []);
+  };
+
+  useEffect(() => { loadAssets(); loadCustomers(); }, []);
 
   const handleDelete = async (id: string) => {
     onDelete(id);
     setTimeout(loadAssets, 500);
+  };
+
+  const handleAssignCustomer = async (assetId: string, customerId: string) => {
+    const update = customerId === '__unassign__' ? { customer_id: null } : { customer_id: customerId };
+    const { error } = await supabase.from('content_assets').update(update).eq('id', assetId);
+    if (error) { toast.error(error.message); return; }
+    toast.success(customerId === '__unassign__' ? 'Unassigned from customer' : 'Assigned to customer');
+    loadAssets();
   };
 
   return (
@@ -845,6 +859,25 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
                     {a.customers?.full_name || 'No client'} · {new Date(a.created_at).toLocaleDateString()}
                   </span>
                 </div>
+
+                {/* Assign to customer */}
+                <Select
+                  value={a.customer_id || ''}
+                  onValueChange={(v) => handleAssignCustomer(a.id, v)}
+                >
+                  <SelectTrigger className="w-36 h-7 text-xs">
+                    <SelectValue placeholder="Assign…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {a.customer_id && (
+                      <SelectItem key="__unassign__" value="__unassign__" className="text-xs text-destructive">Unassign</SelectItem>
+                    )}
+                    {customers.map(c => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs">{c.full_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 <StatusBadge status={a.status} />
                 {a.type === 'image' && a.url && (
                   <button onClick={() => onImagePreview(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="View image">
