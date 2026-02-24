@@ -33,17 +33,32 @@ export default function SMMInstagram() {
 
   const activeConversation = conversations.find(c => c.id === activeConv);
 
+  const [sending, setSending] = useState(false);
+
+  const refreshConversations = async () => {
+    if (!username) return;
+    const convs = await smmApi.getIGConversations(username);
+    setConversations(convs);
+    // If we have an active conversation, update it with fresh data
+    if (activeConv) {
+      const updated = convs.find(c => c.id === activeConv);
+      if (!updated) setActiveConv(null);
+    }
+  };
+
   const handleSend = async () => {
-    if (!newMsg.trim() || !activeConversation || !username) return;
+    if (!newMsg.trim() || !activeConversation || !username || sending) return;
+    setSending(true);
     try {
-      // Send using the participant's IG user ID, not the conversation ID
       await smmApi.sendIGDM(username, activeConversation.participant_id, newMsg.trim());
       toast.success('Message sent');
       setNewMsg('');
-      // Refresh conversations
-      smmApi.getIGConversations(username).then(setConversations);
+      // Hard refresh conversations to sync with API
+      await refreshConversations();
     } catch {
       toast.error('Failed to send message');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -136,8 +151,8 @@ export default function SMMInstagram() {
                   </div>
                   {/* Input */}
                   <div className="p-3 border-t border-border flex gap-2">
-                    <Input placeholder="Type a message..." value={newMsg} onChange={e => setNewMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} />
-                    <Button onClick={handleSend} size="icon"><Send className="h-4 w-4" /></Button>
+                    <Input placeholder="Type a message..." value={newMsg} onChange={e => setNewMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} disabled={sending} />
+                    <Button onClick={handleSend} size="icon" disabled={sending}><Send className={`h-4 w-4 ${sending ? 'animate-pulse' : ''}`} /></Button>
                   </div>
                 </>
               ) : (
