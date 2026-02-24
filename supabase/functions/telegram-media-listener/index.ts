@@ -273,6 +273,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Ignore ALL replies to other messages (Cortex stays quiet) ───
+    if (message.reply_to_message) {
+      console.log('[telegram-media-listener] ignoring reply to message:', message.reply_to_message.message_id)
+      return new Response('ok')
+    }
+
     // Only respond in DMs or allowed groups
     const isPrivate = chatType === 'private'
     const isAllowedGroup = ALLOWED_GROUP_IDS.includes(chatId)
