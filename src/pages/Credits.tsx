@@ -26,7 +26,13 @@ export default function Credits() {
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/api-credits`,
-        { headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' } }
+        {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Content-Type': 'application/json',
+          },
+        }
       );
       const json = await res.json();
       if (json.success) {
