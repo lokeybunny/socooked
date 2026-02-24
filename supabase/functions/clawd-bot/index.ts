@@ -445,8 +445,38 @@ Deno.serve(async (req) => {
     }
 
     if (path === 'content' && req.method === 'POST') {
-      const { id, title, type, body: assetBody, status, tags, category, url, folder, scheduled_for, source, customer_id } = body
+      const { id, title, type, body: assetBody, status, tags, category, url, folder, scheduled_for, source, customer_id, file_id } = body
       const VALID_SOURCES = ['dashboard', 'google-drive', 'instagram', 'sms', 'client-direct', 'higgsfield', 'ai-generated', 'telegram', 'other']
+
+      // Auto-download Telegram file if file_id provided and no url
+      let resolvedUrl = url as string | null | undefined
+      if (!resolvedUrl && file_id) {
+        try {
+          const TG_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')
+          if (TG_TOKEN) {
+            const fileInfoRes = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/getFile?file_id=${file_id}`)
+            const fileInfo = await fileInfoRes.json()
+            if (fileInfo.ok && fileInfo.result?.file_path) {
+              const dlUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${fileInfo.result.file_path}`
+              const fileRes = await fetch(dlUrl)
+              if (fileRes.ok) {
+                const blob = await fileRes.blob()
+                const ct = fileRes.headers.get('content-type') || 'application/octet-stream'
+                const extMap: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4', 'audio/mpeg': 'mp3' }
+                const ext = extMap[ct] || 'bin'
+                const safeTitle = ((title as string) || 'telegram-file').replace(/[^a-zA-Z0-9-_ ]/g, '').substring(0, 80)
+                const storagePath = `telegram/${safeTitle}/${Date.now()}.${ext}`
+                const { error: upErr } = await supabase.storage.from('content-uploads').upload(storagePath, blob, { contentType: ct, cacheControl: '3600', upsert: false })
+                if (!upErr) {
+                  const { data: pubData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
+                  resolvedUrl = pubData.publicUrl
+                }
+              }
+            }
+          }
+        } catch (e) { console.log('[content] telegram file download failed:', e) }
+      }
+
       if (id) {
         const updates: Record<string, unknown> = {}
         if (title) updates.title = title
@@ -455,7 +485,7 @@ Deno.serve(async (req) => {
         if (status) updates.status = status
         if (tags) updates.tags = tags
         if (category) updates.category = normalizeCategory(category)
-        if (url !== undefined) updates.url = url
+        if (resolvedUrl !== undefined) updates.url = resolvedUrl
         if (folder !== undefined) updates.folder = folder
         if (scheduled_for !== undefined) updates.scheduled_for = scheduled_for
         if (source) updates.source = VALID_SOURCES.includes(source as string) ? source : 'other'
@@ -469,7 +499,7 @@ Deno.serve(async (req) => {
       const normalizedSource = source ? (VALID_SOURCES.includes(source as string) ? source : 'other') : 'dashboard'
       const { data, error } = await supabase.from('content_assets').insert({
         title, type, body: assetBody || null, status: status || 'draft',
-        tags: tags || [], category: normalizeCategory(category), url: url || null,
+        tags: tags || [], category: normalizeCategory(category), url: resolvedUrl || null,
         folder: folder || null, scheduled_for: scheduled_for || null,
         source: normalizedSource, customer_id: customer_id || null,
       }).select('id').single()
@@ -2389,6 +2419,80 @@ Deno.serve(async (req) => {
       })
       const hfData = await hfRes.json()
       return ok(hfData.data)
+    }
+
+    // ─── STORE TELEGRAM FILE (download from TG API → Supabase storage → content_asset) ─
+    if (path === 'store-telegram-file' && req.method === 'POST') {
+      const { file_id, file_url, title, type, customer_id, category, content_id } = body
+      const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')
+      if (!TELEGRAM_BOT_TOKEN) return fail('TELEGRAM_BOT_TOKEN not configured', 500)
+
+      let downloadUrl = file_url as string | undefined
+
+      // If file_id provided, resolve download URL via Telegram Bot API
+      if (!downloadUrl && file_id) {
+        const fileInfoRes = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getFile?file_id=${file_id}`)
+        const fileInfo = await fileInfoRes.json()
+        if (!fileInfo.ok || !fileInfo.result?.file_path) return fail('Could not resolve Telegram file: ' + JSON.stringify(fileInfo), 400)
+        downloadUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${fileInfo.result.file_path}`
+      }
+
+      if (!downloadUrl) return fail('Either file_id or file_url is required')
+
+      // Download the file
+      const fileRes = await fetch(downloadUrl)
+      if (!fileRes.ok) return fail(`Failed to download file: ${fileRes.status}`)
+      const blob = await fileRes.blob()
+      const contentType = fileRes.headers.get('content-type') || 'application/octet-stream'
+
+      // Determine extension from content type or file path
+      const extMap: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg' }
+      const ext = extMap[contentType] || 'bin'
+      const safeTitle = ((title as string) || 'telegram-file').replace(/[^a-zA-Z0-9-_ ]/g, '').substring(0, 80)
+      const timestamp = Date.now()
+      const storagePath = `telegram/${safeTitle}/${timestamp}.${ext}`
+
+      // Upload to Supabase storage
+      const { error: uploadErr } = await supabase.storage.from('content-uploads').upload(storagePath, blob, {
+        contentType,
+        cacheControl: '3600',
+        upsert: false,
+      })
+      if (uploadErr) return fail(`Storage upload failed: ${uploadErr.message}`, 500)
+
+      const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
+      const publicUrl = urlData.publicUrl
+
+      // Detect type if not provided
+      let assetType = type as string || 'image'
+      if (!type) {
+        if (contentType.startsWith('image/')) assetType = 'image'
+        else if (contentType.startsWith('video/')) assetType = 'video'
+        else if (contentType.startsWith('audio/')) assetType = 'audio'
+        else assetType = 'doc'
+      }
+
+      // Update existing content_asset or create new one
+      if (content_id) {
+        const { error } = await supabase.from('content_assets').update({ url: publicUrl }).eq('id', content_id)
+        if (error) return fail(error.message, 500)
+        return ok({ action: 'updated', content_id, url: publicUrl })
+      }
+
+      const { data: newAsset, error: insertErr } = await supabase.from('content_assets').insert({
+        title: title || 'Telegram File',
+        type: assetType,
+        status: 'published',
+        url: publicUrl,
+        folder: 'telegram',
+        source: 'telegram',
+        category: normalizeCategory(category),
+        customer_id: customer_id || null,
+      }).select('id').single()
+      if (insertErr) return fail(insertErr.message, 500)
+
+      await logActivity(supabase, 'content', newAsset?.id, 'created', title as string || 'Telegram File')
+      return ok({ action: 'created', content_id: newAsset?.id, url: publicUrl, type: assetType })
     }
 
     return fail('Unknown endpoint', 404)
