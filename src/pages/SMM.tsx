@@ -23,7 +23,7 @@ import type { Platform, ScheduledPost } from '@/lib/smm/types';
 
 const TABS = [
   { value: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { value: 'profiles', label: 'Profiles', icon: Users },
+  { value: 'profiles', label: 'Accounts', icon: Users },
   { value: 'composer', label: 'Composer', icon: PenLine },
   { value: 'calendar', label: 'Calendar', icon: CalendarDays },
   { value: 'history', label: 'History', icon: History },
