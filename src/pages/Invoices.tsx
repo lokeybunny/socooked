@@ -31,6 +31,7 @@ export default function Invoices() {
     due_date: '',
     notes: '',
     tax_rate: '0',
+    status: 'draft' as 'draft' | 'paid',
   });
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { description: '', quantity: 1, unit_price: 0 },
@@ -80,6 +81,7 @@ export default function Invoices() {
     }
 
     setSubmitting(true);
+    const isPaid = form.status === 'paid';
     const { error } = await supabase.from('invoices').insert([{
       customer_id: form.customer_id,
       amount: total,
@@ -89,14 +91,15 @@ export default function Invoices() {
       due_date: form.due_date || null,
       notes: form.notes || null,
       line_items: validLines as unknown as any,
-      status: 'draft',
+      status: isPaid ? 'paid' : 'draft',
       provider: 'manual',
+      paid_at: isPaid ? new Date().toISOString() : null,
     }]);
     setSubmitting(false);
     if (error) { toast.error(error.message); return; }
     toast.success('Invoice created');
     setDialogOpen(false);
-    setForm({ customer_id: '', currency: 'USD', due_date: '', notes: '', tax_rate: '0' });
+    setForm({ customer_id: '', currency: 'USD', due_date: '', notes: '', tax_rate: '0', status: 'draft' });
     setLineItems([{ description: '', quantity: 1, unit_price: 0 }]);
     load();
   };
@@ -359,7 +362,20 @@ export default function Invoices() {
                   </div>
                 </div>
 
-                {/* Line Items */}
+                {/* Status */}
+                <div className="space-y-2">
+                  <Label>Invoice Status</Label>
+                  <Select value={form.status} onValueChange={(v: 'draft' | 'paid') => setForm({ ...form, status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft — Send later</SelectItem>
+                      <SelectItem value="paid">Already Paid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.status === 'paid' && (
+                    <p className="text-xs text-muted-foreground">This invoice will be recorded as paid immediately.</p>
+                  )}
+                </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-semibold">Line Items</Label>
@@ -522,6 +538,7 @@ export default function Invoices() {
               <StatusBadge status={inv.status} />
               <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                 {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => openPreview(inv)}><Eye className="h-3 w-3 mr-1" />Preview & Send</Button>}
+                {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
                 {inv.status === 'sent' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
                 {(inv.status === 'draft' || inv.status === 'sent') && <Button size="sm" variant="ghost" onClick={() => markAs(inv.id, 'void')}>Void</Button>}
                 <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteInvoice(inv.id)}><Trash2 className="h-3 w-3" /></Button>
@@ -611,7 +628,7 @@ export default function Invoices() {
 
                   <div className="flex gap-2">
                     {detailInvoice.status === 'draft' && <Button className="flex-1" onClick={() => { setDetailInvoice(null); openPreview(detailInvoice); }}><Eye className="h-4 w-4 mr-2" />Preview & Send</Button>}
-                    {detailInvoice.status === 'sent' && <Button className="flex-1" onClick={() => markAs(detailInvoice.id, 'paid')}>Mark as Paid</Button>}
+                    {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && <Button className="flex-1" variant="outline" onClick={() => markAs(detailInvoice.id, 'paid')}>Mark as Paid</Button>}
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && (
                       <Button variant="ghost" onClick={() => markAs(detailInvoice.id, 'void')}>Void</Button>
                     )}
