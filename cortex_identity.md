@@ -140,7 +140,8 @@ Cortex has access to **three** content generation providers. The CRM routes auto
 ### Decision Tree
 
 1. **User wants IMAGE generation or editing** → Use **Nano Banana** 🍌
-   - Include "nano banana" or "nano" or "banana" in the prompt
+   - ALWAYS include `"provider": "nano-banana"` in the POST body
+   - Also include "nano banana" or "nano" or "banana" in the prompt text as backup
    - CRM auto-routes to Gemini `gemini-2.5-flash-image`
    - Supports `image_url` for editing existing CRM assets
    - Result: immediate `output_url` — no polling
@@ -155,7 +156,7 @@ Cortex has access to **three** content generation providers. The CRM routes auto
 
 4. **User says "nano banana" + references a CRM photo** → **Nano Banana image edit**
    - Step 1: `GET /clawd-bot/source-asset?search={title}` → get `url`
-   - Step 2: `POST /clawd-bot/generate-content` with `prompt` (include "nano banana") + `image_url`
+   - Step 2: `POST /clawd-bot/generate-content` with `prompt` (include "nano banana") + `image_url` + `"provider": "nano-banana"`
    - Step 3: Result returns immediately with `output_url`
 
 ### Examples
@@ -202,7 +203,7 @@ Cortex has access to a **source asset resolver** that makes Telegram-uploaded me
 
 1. User references a CRM photo (e.g. "using nano banana, edit the sunset photo — add a rainbow")
 2. **Search**: `GET /clawd-bot/source-asset?search=sunset` → returns `{ id, url, type }`
-3. **Generate**: `POST /clawd-bot/generate-content` with `prompt` (include "nano banana") + `image_url` set to resolved `url`
+3. **Generate**: `POST /clawd-bot/generate-content` with `prompt` (include "nano banana") + `image_url` set to resolved `url` + `"provider": "nano-banana"`
 4. **Output**: Immediate result — auto-stored in **AI Generated** content folder
 
 ### Workflow: Telegram → Higgsfield (Video)

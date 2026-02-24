@@ -2464,7 +2464,8 @@ Deno.serve(async (req) => {
     // ─── CONTENT GENERATION: Route to Nano Banana or Higgsfield ───
     if (path === 'generate-content' && req.method === 'POST') {
       const promptLower = ((body.prompt as string) || '').toLowerCase()
-      const useNanoBanana = /nano[\s\-_]*banana|nano\b|\bbanana\b/i.test(promptLower)
+      const explicitProvider = ((body.provider as string) || '').toLowerCase()
+      const useNanoBanana = explicitProvider === 'nano-banana' || /nano[\s\-_]*banana|nano\b|\bbanana\b/i.test(promptLower)
 
       if (useNanoBanana) {
         // Route to Nano Banana (Gemini image generation)
