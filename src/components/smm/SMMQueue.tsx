@@ -12,18 +12,18 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'UTC', 'Europe/London', 'Asia/Tokyo'];
 
 export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
-  const [profileId, setProfileId] = useState(profiles[0]?.id || '');
+  const [profileUsername, setProfileUsername] = useState(profiles[0]?.username || '');
   const [settings, setSettings] = useState<QueueSettings | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!profileId) return;
+    if (!profileUsername) return;
     setLoading(true);
-    smmApi.getQueueSettings(profileId).then(s => {
-      setSettings(s || { profile_id: profileId, timezone: 'America/New_York', slots: [] });
+    smmApi.getQueueSettings(profileUsername).then(s => {
+      setSettings(s || { profile_id: profileUsername, timezone: 'America/New_York', slots: [] });
       setLoading(false);
     });
-  }, [profileId]);
+  }, [profileUsername]);
 
   const addSlot = () => {
     if (!settings) return;
@@ -74,9 +74,9 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Profile</Label>
-            <Select value={profileId} onValueChange={setProfileId}>
+            <Select value={profileUsername} onValueChange={setProfileUsername}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.username}</SelectItem>)}</SelectContent>
+              <SelectContent>{profiles.map(p => <SelectItem key={p.id} value={p.username}>{p.username}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           {settings && (

@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.nano-banana]
 verify_jwt = false
+
+[functions.smm-api]
+verify_jwt = false

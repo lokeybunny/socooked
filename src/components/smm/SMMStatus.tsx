@@ -15,16 +15,34 @@ export default function SMMStatus() {
   const handleSearch = async () => {
     if (!query.trim()) return;
     setLoading(true);
-    const found = await smmApi.getPostByJobId(query.trim());
-    setResult(found);
+    try {
+      const q = query.trim();
+      const isJobId = q.startsWith('job_') || !q.startsWith('req_');
+      const data = await smmApi.getPostStatus(isJobId ? { job_id: q } : { request_id: q });
+      if (data) {
+        setResult({
+          id: data.id || q, job_id: data.job_id || q, request_id: data.request_id || '',
+          profile_id: data.user || '', profile_username: data.user || '', title: data.title || '',
+          type: data.type || 'text', platforms: data.platforms || [], status: data.status || 'pending',
+          scheduled_date: data.scheduled_date || null, post_urls: (data.platform_results || []).map((r: any) => ({ platform: r.platform, url: r.url || '' })),
+          created_at: data.created_at || new Date().toISOString(), error: data.error,
+        } as ScheduledPost);
+      } else {
+        setResult(null);
+      }
+    } catch { setResult(null); }
     setLoading(false);
   };
 
   const handlePoll = async () => {
     if (!result) return;
     setPolling(true);
-    const updated = await smmApi.getPostByJobId(result.job_id);
-    setResult(updated);
+    try {
+      const data = await smmApi.getPostStatus({ job_id: result.job_id || undefined, request_id: result.request_id || undefined });
+      if (data) {
+        setResult(prev => prev ? { ...prev, status: data.status, post_urls: (data.platform_results || []).map((r: any) => ({ platform: r.platform, url: r.url || '' })), error: data.error } : null);
+      }
+    } catch {}
     setPolling(false);
   };
 

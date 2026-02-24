@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { smmApi } from '@/lib/smm/store';
 import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/context';
 import type { ScheduledPost, SMMProfile, WebhookEvent, Platform } from '@/lib/smm/types';
@@ -29,10 +29,8 @@ interface Props {
 
 export default function SMMOverview({ posts, allPosts, profiles }: Props) {
   const { platform, navigateToTab } = useSMMContext();
-  const [webhooks, setWebhooks] = useState<WebhookEvent[]>([]);
+  const [webhooks] = useState<WebhookEvent[]>([]);
   const [viewMode, setViewMode] = useState<'all' | 'byPlatform'>('all');
-
-  useEffect(() => { smmApi.getWebhookEvents().then(setWebhooks); }, []);
 
   const today = new Date().toISOString().slice(0, 10);
   const scheduledToday = posts.filter(p => p.scheduled_date?.startsWith(today) && p.status === 'scheduled');

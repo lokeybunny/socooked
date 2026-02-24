@@ -65,19 +65,29 @@ export default function SMMComposer({ profiles, onRefresh }: { profiles: SMMProf
     const profile = profiles.find(p => p.id === localProfileId);
     const scheduledDate = publishMode === 'schedule' && scheduleDate && scheduleTime
       ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
-      : publishMode === 'queue' ? new Date(Date.now() + 86400000).toISOString() : null;
+      : null;
 
-    await smmApi.createPost({
-      profile_id: localProfileId,
-      profile_username: profile?.username || '',
-      title, description, type: postType, platforms,
-      first_comment: firstComment || undefined,
-      scheduled_date: scheduledDate,
-      status: publishMode === 'now' ? 'pending' : publishMode === 'queue' ? 'queued' : 'scheduled',
-    });
+    try {
+      const overrides: Record<string, { title?: string; first_comment?: string }> = {};
+      Object.entries(platformOverrides).forEach(([p, v]) => {
+        if (v.title || v.firstComment) overrides[p] = { title: v.title || undefined, first_comment: v.firstComment || undefined };
+      });
 
-    toast.success(publishMode === 'now' ? 'Post submitted!' : publishMode === 'schedule' ? 'Post scheduled!' : 'Added to queue!');
-    setTitle(''); setDescription(''); setFirstComment(''); setPlatforms([]); setMediaUrl(''); setPlatformOverrides({});
+      await smmApi.createPost({
+        user: profile?.username || localProfileId,
+        title, description, type: postType, platforms,
+        first_comment: firstComment || undefined,
+        media_url: mediaUrl || undefined,
+        scheduled_date: scheduledDate,
+        add_to_queue: publishMode === 'queue',
+        platform_overrides: Object.keys(overrides).length > 0 ? overrides : undefined,
+      });
+
+      toast.success(publishMode === 'now' ? 'Post submitted!' : publishMode === 'schedule' ? 'Post scheduled!' : 'Added to queue!');
+      setTitle(''); setDescription(''); setFirstComment(''); setPlatforms([]); setMediaUrl(''); setPlatformOverrides({});
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to create post');
+    }
     setSubmitting(false);
     onRefresh();
   };
