@@ -34,9 +34,10 @@ export default function SMMInstagram() {
   const activeConversation = conversations.find(c => c.id === activeConv);
 
   const handleSend = async () => {
-    if (!newMsg.trim() || !activeConv || !username) return;
+    if (!newMsg.trim() || !activeConversation || !username) return;
     try {
-      await smmApi.sendIGDM(username, activeConv, newMsg.trim());
+      // Send using the participant's IG user ID, not the conversation ID
+      await smmApi.sendIGDM(username, activeConversation.participant_id, newMsg.trim());
       toast.success('Message sent');
       setNewMsg('');
       // Refresh conversations
@@ -111,7 +112,6 @@ export default function SMMInstagram() {
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[400px]">
                     {(activeConversation.messages || []).slice().reverse().map(msg => {
-                      const isOwn = msg.from === username || msg.from === conversations.find(c => c.id === activeConv)?.participant ? false : true;
                       const isSelf = msg.from !== activeConversation.participant;
                       return (
                         <div key={msg.id} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
