@@ -5,7 +5,7 @@ import { smmApi } from '@/lib/smm/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Send, Heart, MessageSquare, Image as ImageIcon, Reply, BarChart3, PenLine, History } from 'lucide-react';
+import { Send, Heart, MessageSquare, Image as ImageIcon, Reply, BarChart3, PenLine, History, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
@@ -31,12 +31,16 @@ export default function SMMInstagram() {
     if (selectedMedia && username) smmApi.getIGComments(username, selectedMedia).then(setComments);
   }, [selectedMedia, username]);
 
+  const activeConversation = conversations.find(c => c.id === activeConv);
+
   const handleSend = async () => {
     if (!newMsg.trim() || !activeConv || !username) return;
     try {
       await smmApi.sendIGDM(username, activeConv, newMsg.trim());
       toast.success('Message sent');
       setNewMsg('');
+      // Refresh conversations
+      smmApi.getIGConversations(username).then(setConversations);
     } catch {
       toast.error('Failed to send message');
     }
@@ -77,15 +81,20 @@ export default function SMMInstagram() {
           <div className="grid md:grid-cols-[280px_1fr] gap-4 min-h-[400px]">
             <div className="glass-card overflow-hidden">
               <div className="p-3 border-b border-border"><p className="text-xs font-semibold text-muted-foreground uppercase">Conversations</p></div>
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
                 {conversations.map(c => (
                   <button key={c.id} onClick={() => setActiveConv(c.id)}
                     className={`w-full text-left p-3 hover:bg-muted/50 transition-colors ${activeConv === c.id ? 'bg-muted' : ''}`}>
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium text-foreground">{c.participant}</p>
+                      <p className="text-sm font-medium text-foreground">@{c.participant}</p>
                       {c.unread && <span className="w-2 h-2 rounded-full bg-primary" />}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{c.last_message}</p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">{c.last_message || '(media/attachment)'}</p>
+                    {c.last_timestamp && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {format(new Date(c.last_timestamp), 'MMM d, h:mm a')}
+                      </p>
+                    )}
                   </button>
                 ))}
                 {conversations.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">No conversations</p>}
@@ -93,11 +102,39 @@ export default function SMMInstagram() {
             </div>
 
             <div className="glass-card flex flex-col">
-              {activeConv ? (
+              {activeConversation ? (
                 <>
-                  <div className="flex-1 flex items-center justify-center p-4">
-                    <p className="text-sm text-muted-foreground">DM thread view – messages load from IG API</p>
+                  {/* Header */}
+                  <div className="p-3 border-b border-border">
+                    <p className="text-sm font-semibold text-foreground">@{activeConversation.participant}</p>
                   </div>
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[400px]">
+                    {(activeConversation.messages || []).slice().reverse().map(msg => {
+                      const isOwn = msg.from === username || msg.from === conversations.find(c => c.id === activeConv)?.participant ? false : true;
+                      const isSelf = msg.from !== activeConversation.participant;
+                      return (
+                        <div key={msg.id} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[70%] px-3 py-2 rounded-xl text-sm ${
+                            isSelf ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                          }`}>
+                            {msg.text ? (
+                              <p>{msg.text}</p>
+                            ) : (
+                              <p className="text-xs italic opacity-70">(media/attachment)</p>
+                            )}
+                            <p className={`text-[10px] mt-1 ${isSelf ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                              {msg.timestamp ? format(new Date(msg.timestamp), 'MMM d, h:mm a') : ''}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {(!activeConversation.messages || activeConversation.messages.length === 0) && (
+                      <p className="text-xs text-muted-foreground text-center py-8">No messages loaded</p>
+                    )}
+                  </div>
+                  {/* Input */}
                   <div className="p-3 border-t border-border flex gap-2">
                     <Input placeholder="Type a message..." value={newMsg} onChange={e => setNewMsg(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} />
                     <Button onClick={handleSend} size="icon"><Send className="h-4 w-4" /></Button>
@@ -113,18 +150,34 @@ export default function SMMInstagram() {
         <TabsContent value="media">
           <div className="grid md:grid-cols-[1fr_320px] gap-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {media.map(m => (
-                <button key={m.id} onClick={() => setSelectedMedia(m.id)}
-                  className={`group relative aspect-square rounded-xl overflow-hidden border transition-all ${selectedMedia === m.id ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}>
-                  <img src={m.media_url} alt={m.caption} className="w-full h-full object-cover" loading="lazy" />
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                    <div className="flex items-center gap-3 text-white text-xs">
-                      <span className="flex items-center gap-1"><Heart className="h-3 w-3" />{m.like_count}</span>
-                      <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" />{m.comments_count}</span>
+              {media.map(m => {
+                const imgSrc = m.media_url || '';
+                const hasImage = !!imgSrc;
+                return (
+                  <button key={m.id} onClick={() => setSelectedMedia(m.id)}
+                    className={`group relative aspect-square rounded-xl overflow-hidden border transition-all ${selectedMedia === m.id ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}`}>
+                    {hasImage ? (
+                      <img src={imgSrc} alt={m.caption} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground">{m.media_type || 'POST'}</span>
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                      <div className="flex items-center gap-3 text-white text-xs">
+                        <span className="flex items-center gap-1"><Heart className="h-3 w-3" />{m.like_count}</span>
+                        <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" />{m.comments_count}</span>
+                        {m.permalink && (
+                          <a href={m.permalink} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                            className="ml-auto hover:text-primary-foreground">
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
               {media.length === 0 && <p className="text-xs text-muted-foreground text-center py-8 col-span-3">No media found</p>}
             </div>
             <div className="glass-card p-4 space-y-3">
@@ -135,7 +188,7 @@ export default function SMMInstagram() {
                     {comments.map(c => (
                       <div key={c.id} className="space-y-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-foreground">{c.username}</p>
+                          <p className="text-sm font-medium text-foreground">@{c.username}</p>
                           <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1" onClick={() => handlePrivateReply(c.id)}>
                             <Reply className="h-3 w-3" /> DM
                           </Button>

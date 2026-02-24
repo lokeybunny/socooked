@@ -59,12 +59,12 @@ export const mockAnalytics: AnalyticsData[] = [
 ];
 
 export const mockIGMedia: IGMedia[] = [
-  { id: 'ig1', media_url: 'https://picsum.photos/seed/ig1/400/400', caption: 'Amazing sunset 🌅', timestamp: d(-24), like_count: 342, comments_count: 18 },
-  { id: 'ig2', media_url: 'https://picsum.photos/seed/ig2/400/400', caption: 'Product showcase', timestamp: d(-48), like_count: 189, comments_count: 7 },
-  { id: 'ig3', media_url: 'https://picsum.photos/seed/ig3/400/400', caption: 'Team photo 📸', timestamp: d(-72), like_count: 523, comments_count: 31 },
-  { id: 'ig4', media_url: 'https://picsum.photos/seed/ig4/400/400', caption: 'Behind the scenes', timestamp: d(-96), like_count: 267, comments_count: 12 },
-  { id: 'ig5', media_url: 'https://picsum.photos/seed/ig5/400/400', caption: 'New collection drop', timestamp: d(-120), like_count: 891, comments_count: 45 },
-  { id: 'ig6', media_url: 'https://picsum.photos/seed/ig6/400/400', caption: 'Monday motivation', timestamp: d(-144), like_count: 156, comments_count: 9 },
+  { id: 'ig1', media_url: 'https://picsum.photos/seed/ig1/400/400', permalink: '', media_type: 'IMAGE', caption: 'Amazing sunset 🌅', timestamp: d(-24), like_count: 342, comments_count: 18 },
+  { id: 'ig2', media_url: 'https://picsum.photos/seed/ig2/400/400', permalink: '', media_type: 'IMAGE', caption: 'Product showcase', timestamp: d(-48), like_count: 189, comments_count: 7 },
+  { id: 'ig3', media_url: 'https://picsum.photos/seed/ig3/400/400', permalink: '', media_type: 'IMAGE', caption: 'Team photo 📸', timestamp: d(-72), like_count: 523, comments_count: 31 },
+  { id: 'ig4', media_url: 'https://picsum.photos/seed/ig4/400/400', permalink: '', media_type: 'IMAGE', caption: 'Behind the scenes', timestamp: d(-96), like_count: 267, comments_count: 12 },
+  { id: 'ig5', media_url: 'https://picsum.photos/seed/ig5/400/400', permalink: '', media_type: 'IMAGE', caption: 'New collection drop', timestamp: d(-120), like_count: 891, comments_count: 45 },
+  { id: 'ig6', media_url: 'https://picsum.photos/seed/ig6/400/400', permalink: '', media_type: 'IMAGE', caption: 'Monday motivation', timestamp: d(-144), like_count: 156, comments_count: 9 },
 ];
 
 export const mockIGComments: IGComment[] = [
@@ -76,9 +76,9 @@ export const mockIGComments: IGComment[] = [
 ];
 
 export const mockIGConversations: IGConversation[] = [
-  { id: 'conv1', participant: 'loyal_customer', last_message: 'Thanks for the info!', last_timestamp: d(-1), unread: true },
-  { id: 'conv2', participant: 'influencer_x', last_message: 'Sounds great, let\'s chat', last_timestamp: d(-5), unread: false },
-  { id: 'conv3', participant: 'brand_partner', last_message: 'Sending over the brief now', last_timestamp: d(-12), unread: false },
+  { id: 'conv1', participant: 'loyal_customer', last_message: 'Thanks for the info!', last_timestamp: d(-1), unread: true, messages: [] },
+  { id: 'conv2', participant: 'influencer_x', last_message: 'Sounds great, let\'s chat', last_timestamp: d(-5), unread: false, messages: [] },
+  { id: 'conv3', participant: 'brand_partner', last_message: 'Sending over the brief now', last_timestamp: d(-12), unread: false, messages: [] },
 ];
 
 export const mockIGMessages: IGMessage[] = [

@@ -81,7 +81,7 @@ export const smmApi = {
       // Get both scheduled and history
       const [scheduled, history] = await Promise.all([
         invokeSMM('list-scheduled').catch(() => ({ scheduled_posts: [] })),
-        invokeSMM('upload-history', { limit: '50' }).catch(() => ({ uploads: [] })),
+        invokeSMM('upload-history', { limit: '50' }).catch(() => ({ history: [] })),
       ]);
 
       const posts: ScheduledPost[] = [];
@@ -94,8 +94,9 @@ export const smmApi = {
       }
 
       // Map history
-      if (history?.uploads) {
-        history.uploads.forEach((p: any) => {
+      const historyItems = history?.history || history?.uploads || [];
+      if (Array.isArray(historyItems)) {
+        historyItems.forEach((p: any) => {
           // Don't duplicate if already in scheduled
           if (!posts.find(ep => ep.job_id === p.job_id)) {
             posts.push(mapApiPostToScheduledPost(p, p.status || 'completed'));
@@ -286,7 +287,9 @@ export const smmApi = {
       if (!data?.media) return [];
       return data.media.map((m: any) => ({
         id: m.id,
-        media_url: m.thumbnail_url || m.permalink || '',
+        media_url: m.thumbnail_url || m.media_url || '',
+        permalink: m.permalink || '',
+        media_type: m.media_type || 'IMAGE',
         caption: m.caption || '',
         timestamp: m.timestamp || '',
         like_count: m.like_count || 0,
@@ -319,13 +322,26 @@ export const smmApi = {
     try {
       const data = await invokeSMM('ig-conversations', { user });
       if (!data?.conversations) return [];
-      return data.conversations.map((c: any) => ({
-        id: c.id,
-        participant: c.participant || c.name || 'Unknown',
-        last_message: c.last_message || '',
-        last_timestamp: c.last_timestamp || '',
-        unread: c.unread || false,
-      }));
+      return data.conversations.map((c: any) => {
+        // API returns nested participants and messages objects
+        const participants = c.participants?.data || [];
+        const otherUser = participants.find((p: any) => p.username !== user) || participants[0];
+        const messages = c.messages?.data || [];
+        const lastMsg = messages[0];
+        return {
+          id: c.id,
+          participant: otherUser?.username || c.participant || c.name || 'Unknown',
+          last_message: lastMsg?.message || c.last_message || '',
+          last_timestamp: lastMsg?.created_time || c.last_timestamp || '',
+          unread: c.unread || false,
+          messages: messages.map((m: any) => ({
+            id: m.id,
+            from: m.from?.username || '',
+            text: m.message || '',
+            timestamp: m.created_time || '',
+          })),
+        };
+      });
     } catch (e) {
       console.error('getIGConversations error:', e);
       return [];
@@ -353,6 +369,26 @@ export const smmApi = {
   // ─── Account Info ───
   async getMe(): Promise<any> {
     return invokeSMM('me');
+  },
+
+  // ─── Webhook Notifications ───
+  async configureNotifications(config: { webhook_url: string; events: string[] }): Promise<any> {
+    return invokeSMM('configure-notifications', undefined, config);
+  },
+
+  // ─── Next Queue Slot ───
+  async getNextQueueSlot(profileUsername: string): Promise<any> {
+    try {
+      const data = await invokeSMM('queue-next-slot', { profile: profileUsername });
+      return data;
+    } catch { return null; }
+  },
+
+  // ─── Platform Resources ───
+  async getProfileDetail(username: string): Promise<any> {
+    try {
+      return await invokeSMM('get-profile', { username });
+    } catch { return null; }
   },
 };
 

@@ -68,6 +68,8 @@ export interface AnalyticsData {
 export interface IGMedia {
   id: string;
   media_url: string;
+  permalink: string;
+  media_type: string;
   caption: string;
   timestamp: string;
   like_count: number;
@@ -88,6 +90,7 @@ export interface IGConversation {
   last_message: string;
   last_timestamp: string;
   unread: boolean;
+  messages: IGMessage[];
 }
 
 export interface IGMessage {
