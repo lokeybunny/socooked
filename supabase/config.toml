@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.ringcentral-subscribe]
 verify_jwt = false
+
+[functions.higgsfield-api]
+verify_jwt = false
