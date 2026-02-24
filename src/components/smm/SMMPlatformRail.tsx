@@ -33,10 +33,10 @@ export default function SMMPlatformRail({ posts, unreadCounts }: Props) {
           <Tooltip key={p}>
             <TooltipTrigger asChild>
               <button onClick={() => setPlatform(p)}
-                className={`relative w-9 h-9 flex items-center justify-center rounded-lg text-[10px] font-bold transition-all ${
+                className={`relative w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
                   isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}>
-                {meta.abbr}
+                <meta.icon className="w-5 h-5" />
                 {badges && badges.failed24h > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-destructive text-[8px] text-white flex items-center justify-center font-bold">
                     {badges.failed24h}

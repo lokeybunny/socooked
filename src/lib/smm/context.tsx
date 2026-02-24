@@ -1,24 +1,37 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { Platform } from './types';
+import { 
+  InstagramLogo, 
+  FacebookLogo, 
+  TikTokLogo, 
+  XLogo, 
+  LinkedInLogo, 
+  YoutubeLogo, 
+  PinterestLogo, 
+  RedditLogo, 
+  ThreadsLogo, 
+  BlueskyLogo 
+} from '@/components/smm/SMMBrandIcons';
+import { LayoutGrid } from 'lucide-react';
 
 export type DateRange = 'today' | '7d' | '30d' | 'custom';
 
 export const ALL_PLATFORMS: (Platform | 'all')[] = ['all', 'instagram', 'facebook', 'tiktok', 'twitter', 'linkedin', 'youtube', 'pinterest'];
 export const EXTENDED_PLATFORMS: string[] = ['all', 'instagram', 'facebook', 'tiktok', 'twitter', 'linkedin', 'youtube', 'pinterest', 'reddit', 'threads', 'bluesky'];
 
-export const PLATFORM_META: Record<string, { label: string; color: string; abbr: string }> = {
-  all:       { label: 'All Platforms', color: 'bg-muted text-foreground', abbr: 'ALL' },
-  instagram: { label: 'Instagram', color: 'bg-pink-500/10 text-pink-500', abbr: 'IG' },
-  facebook:  { label: 'Facebook', color: 'bg-blue-500/10 text-blue-500', abbr: 'FB' },
-  tiktok:    { label: 'TikTok', color: 'bg-foreground/10 text-foreground', abbr: 'TT' },
-  twitter:   { label: 'X (Twitter)', color: 'bg-foreground/10 text-foreground', abbr: 'X' },
-  linkedin:  { label: 'LinkedIn', color: 'bg-sky-600/10 text-sky-600', abbr: 'LI' },
-  youtube:   { label: 'YouTube', color: 'bg-red-500/10 text-red-500', abbr: 'YT' },
-  pinterest: { label: 'Pinterest', color: 'bg-red-600/10 text-red-600', abbr: 'PI' },
-  reddit:    { label: 'Reddit', color: 'bg-orange-500/10 text-orange-500', abbr: 'RD' },
-  threads:   { label: 'Threads', color: 'bg-foreground/10 text-foreground', abbr: 'TH' },
-  bluesky:   { label: 'Bluesky', color: 'bg-sky-400/10 text-sky-400', abbr: 'BS' },
+export const PLATFORM_META: Record<string, { label: string; color: string; abbr: string; icon: any }> = {
+  all:       { label: 'All Platforms', color: 'bg-muted text-foreground', abbr: 'ALL', icon: LayoutGrid },
+  instagram: { label: 'Instagram', color: 'bg-pink-500/10 text-pink-500', abbr: 'IG', icon: InstagramLogo },
+  facebook:  { label: 'Facebook', color: 'bg-blue-500/10 text-blue-500', abbr: 'FB', icon: FacebookLogo },
+  tiktok:    { label: 'TikTok', color: 'bg-foreground/10 text-foreground', abbr: 'TT', icon: TikTokLogo },
+  twitter:   { label: 'X (Twitter)', color: 'bg-foreground/10 text-foreground', abbr: 'X', icon: XLogo },
+  linkedin:  { label: 'LinkedIn', color: 'bg-sky-600/10 text-sky-600', abbr: 'LI', icon: LinkedInLogo },
+  youtube:   { label: 'YouTube', color: 'bg-red-500/10 text-red-500', abbr: 'YT', icon: YoutubeLogo },
+  pinterest: { label: 'Pinterest', color: 'bg-red-600/10 text-red-600', abbr: 'PI', icon: PinterestLogo },
+  reddit:    { label: 'Reddit', color: 'bg-orange-500/10 text-orange-500', abbr: 'RD', icon: RedditLogo },
+  threads:   { label: 'Threads', color: 'bg-foreground/10 text-foreground', abbr: 'TH', icon: ThreadsLogo },
+  bluesky:   { label: 'Bluesky', color: 'bg-sky-400/10 text-sky-400', abbr: 'BS', icon: BlueskyLogo },
 };
 
 interface SMMContextType {
