@@ -620,32 +620,33 @@ export default function Content() {
             onImagePreview={openImage}
           />
 
-          {/* Video/Audio Preview Dialog */}
-          <Dialog open={!!previewTitle} onOpenChange={(open) => { if (!open) closePreview(); }}>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader><DialogTitle className="truncate">{previewTitle}</DialogTitle></DialogHeader>
-              {previewUrl ? (
-                <video src={previewUrl} controls autoPlay className="w-full rounded-lg max-h-[70vh]" />
-              ) : null}
-            </DialogContent>
-          </Dialog>
-
-          {/* Image Preview Dialog */}
-          <Dialog open={!!imagePreviewUrl} onOpenChange={(open) => { if (!open) { setImagePreviewUrl(null); setImagePreviewTitle(''); } }}>
-            <DialogContent className="max-w-4xl">
-              <DialogHeader><DialogTitle className="truncate">{imagePreviewTitle}</DialogTitle></DialogHeader>
-              {imagePreviewUrl && (
-                <div className="space-y-4">
-                  <img src={imagePreviewUrl} alt={imagePreviewTitle} className="w-full rounded-lg max-h-[70vh] object-contain" />
-                  <Button onClick={() => downloadFile(imagePreviewUrl, imagePreviewTitle)} className="w-full gap-2">
-                    <Download className="h-4 w-4" /> Download
-                  </Button>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
         </div>
         )}
+
+        {/* Video/Audio Preview Dialog (shared across all views) */}
+        <Dialog open={!!previewTitle} onOpenChange={(open) => { if (!open) closePreview(); }}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader><DialogTitle className="truncate">{previewTitle}</DialogTitle></DialogHeader>
+            {previewUrl ? (
+              <video src={previewUrl} controls autoPlay className="w-full rounded-lg max-h-[70vh]" />
+            ) : null}
+          </DialogContent>
+        </Dialog>
+
+        {/* Image Preview Dialog (shared across all views) */}
+        <Dialog open={!!imagePreviewUrl} onOpenChange={(open) => { if (!open) { setImagePreviewUrl(null); setImagePreviewTitle(''); } }}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader><DialogTitle className="truncate">{imagePreviewTitle}</DialogTitle></DialogHeader>
+            {imagePreviewUrl && (
+              <div className="space-y-4">
+                <img src={imagePreviewUrl} alt={imagePreviewTitle} className="w-full rounded-lg max-h-[70vh] object-contain" />
+                <Button onClick={() => downloadFile(imagePreviewUrl, imagePreviewTitle)} className="w-full gap-2">
+                  <Download className="h-4 w-4" /> Download
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </CategoryGate>
     </AppLayout>
   );
