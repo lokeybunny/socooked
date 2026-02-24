@@ -270,6 +270,23 @@ serve(async (req) => {
     const response = await fetch(apiUrl, fetchOpts);
     const responseText = await response.text();
 
+    // Debug: log response structure for profile-related actions
+    if (action === 'list-profiles' || action === 'get-profile' || action === 'me') {
+      try {
+        const parsed = JSON.parse(responseText);
+        console.log(`[smm-api] action=${action} response keys:`, Object.keys(parsed));
+        if (action === 'list-profiles') {
+          // Log first-level structure to understand the shape
+          if (parsed.profiles) console.log('[smm-api] has .profiles, count:', parsed.profiles.length);
+          if (parsed.users) console.log('[smm-api] has .users, count:', parsed.users.length);
+          if (Array.isArray(parsed)) console.log('[smm-api] response is array, count:', parsed.length);
+          // Log first item keys for debugging
+          const firstItem = parsed.profiles?.[0] || parsed.users?.[0] || (Array.isArray(parsed) ? parsed[0] : null);
+          if (firstItem) console.log('[smm-api] first item keys:', Object.keys(firstItem));
+        }
+      } catch { /* not json */ }
+    }
+
     if (!response.ok) {
       console.error(`Upload-Post API error [${response.status}] for action=${action}: ${responseText}`);
       return new Response(responseText, {

@@ -24,8 +24,12 @@ export const smmApi = {
   async getProfiles(): Promise<SMMProfile[]> {
     try {
       const data = await invokeSMM('list-profiles');
-      if (!data?.profiles) return [];
-      return data.profiles.map((p: any) => {
+      console.log('[SMM getProfiles] raw response keys:', data ? Object.keys(data) : 'null');
+      // API may return { profiles: [...] } or { users: [...] } or just [...]
+      const rawProfiles = data?.profiles || data?.users || (Array.isArray(data) ? data : []);
+      if (!rawProfiles.length) return [];
+      console.log('[SMM getProfiles] first profile keys:', Object.keys(rawProfiles[0]));
+      return rawProfiles.map((p: any) => {
         // API returns social_accounts as an object keyed by platform
         const socials = p.social_accounts || {};
         const connected_platforms = Object.entries(socials)
