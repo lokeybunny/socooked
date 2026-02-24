@@ -930,6 +930,9 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
   const [assets, setAssets] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [collapsedCustomers, setCollapsedCustomers] = useState<Set<string>>(new Set());
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
 
   const loadAssets = async () => {
     const { data } = await supabase.from('content_assets')
@@ -953,10 +956,18 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
   };
 
   const handleAssignCustomer = async (assetId: string, customerId: string) => {
-    const update = customerId === '__unassign__' ? { customer_id: null } : { customer_id: customerId };
-    const { error } = await supabase.from('content_assets').update(update).eq('id', assetId);
-    if (error) { toast.error(error.message); return; }
-    toast.success(customerId === '__unassign__' ? 'Unassigned from customer' : 'Assigned to customer');
+    if (customerId === '__unassign__') {
+      const { error } = await supabase.from('content_assets').update({ customer_id: null, folder: null }).eq('id', assetId);
+      if (error) { toast.error(error.message); return; }
+      toast.success('Unassigned from customer');
+    } else {
+      const customer = customers.find(c => c.id === customerId);
+      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
+      const folder = customer ? `Telegram/${customer.full_name}/${dateStr}` : null;
+      const { error } = await supabase.from('content_assets').update({ customer_id: customerId, folder }).eq('id', assetId);
+      if (error) { toast.error(error.message); return; }
+      toast.success(`Assigned to ${customer?.full_name} → folder created`);
+    }
     loadAssets();
   };
 
@@ -971,21 +982,64 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
     loadAssets();
   };
 
-  // Group by date
+  // Filter by search (customer name or file title)
+  const filtered = useMemo(() => {
+    if (!search.trim()) return assets;
+    const q = search.toLowerCase();
+    return assets.filter(a =>
+      a.title?.toLowerCase().includes(q) ||
+      a.customers?.full_name?.toLowerCase().includes(q)
+    );
+  }, [assets, search]);
+
+  // Group by Customer → Date
   const grouped = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    for (const a of assets) {
+    const map: Record<string, Record<string, any[]>> = {};
+    for (const a of filtered) {
+      const custName = a.customers?.full_name || 'Unassigned';
       const dateKey = new Date(a.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      if (!map[dateKey]) map[dateKey] = [];
-      map[dateKey].push(a);
+      if (!map[custName]) map[custName] = {};
+      if (!map[custName][dateKey]) map[custName][dateKey] = [];
+      map[custName][dateKey].push(a);
     }
-    return Object.entries(map);
-  }, [assets]);
+    // Sort: assigned customers first (alphabetically), then Unassigned last
+    const entries = Object.entries(map).sort(([a], [b]) => {
+      if (a === 'Unassigned') return 1;
+      if (b === 'Unassigned') return -1;
+      return a.localeCompare(b);
+    });
+    return entries.map(([custName, dates]) => ({
+      customer: custName,
+      totalFiles: Object.values(dates).reduce((s, arr) => s + arr.length, 0),
+      dates: Object.entries(dates).map(([date, files]) => ({ date, files })),
+    }));
+  }, [filtered]);
+
+  const toggleCustomer = (key: string) => {
+    setCollapsedCustomers(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  };
+  const toggleDate = (key: string) => {
+    setCollapsedDates(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  };
 
   return (
     <div className="space-y-6">
+      {/* Search bar */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by customer name or file name..."
+          className="pl-9"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
       <div className="flex items-center justify-between">
-        <p className="text-muted-foreground text-sm">{assets.length} Telegram file{assets.length !== 1 ? 's' : ''}</p>
+        <p className="text-muted-foreground text-sm">
+          {filtered.length} Telegram file{filtered.length !== 1 ? 's' : ''}
+          {search && ` matching "${search}"`}
+        </p>
         {brokenCount > 0 && (
           <Button variant="destructive" size="sm" onClick={handleCleanupBroken}>
             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
@@ -996,89 +1050,123 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
 
       {loading ? (
         <div className="text-center py-16 text-muted-foreground">Loading…</div>
-      ) : assets.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-center py-16 space-y-3">
           <MessageSquare className="h-10 w-10 text-muted-foreground/40 mx-auto" />
-          <p className="text-muted-foreground">No Telegram content yet.</p>
-          <p className="text-sm text-muted-foreground/60">Media sent through Telegram will appear here automatically.</p>
+          <p className="text-muted-foreground">{search ? 'No results found.' : 'No Telegram content yet.'}</p>
+          <p className="text-sm text-muted-foreground/60">{search ? 'Try a different search term.' : 'Media sent through Telegram will appear here automatically.'}</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {grouped.map(([date, items]) => (
-            <div key={date} className="glass-card overflow-hidden">
-              <div className="flex items-center gap-3 p-4 border-b border-border">
-                <FolderOpen className="h-4 w-4 text-primary" />
-                <span className="text-sm font-semibold text-foreground">{date}</span>
-                <span className="text-xs text-muted-foreground ml-auto">{items.length} file{items.length !== 1 ? 's' : ''}</span>
-              </div>
-              <div className="divide-y divide-border/30">
-                {items.map(a => {
-                  const Icon = typeIcons[a.type] || File;
-                  const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
-                  return (
-                    <div key={a.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors">
-                      <div className="p-1.5 rounded bg-primary/10"><Icon className="h-4 w-4 text-primary" /></div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
-                        <span className="text-xs text-muted-foreground">
-                          {a.customers?.full_name || 'Unassigned'} · {new Date(a.created_at).toLocaleTimeString()}
-                        </span>
-                      </div>
+          {grouped.map(({ customer, totalFiles, dates }) => {
+            const custCollapsed = collapsedCustomers.has(customer);
+            return (
+              <div key={customer} className="glass-card overflow-hidden">
+                {/* Customer folder header */}
+                <button
+                  onClick={() => toggleCustomer(customer)}
+                  className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-left"
+                >
+                  {custCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  <Users className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold text-foreground">{customer}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">{totalFiles} file{totalFiles !== 1 ? 's' : ''}</span>
+                </button>
 
-                      {/* Assign to customer */}
-                      <Select
-                        value={a.customer_id || ''}
-                        onValueChange={(v) => handleAssignCustomer(a.id, v)}
-                      >
-                        <SelectTrigger className="w-36 h-7 text-xs">
-                          <SelectValue placeholder="Assign…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {a.customer_id && (
-                            <SelectItem key="__unassign__" value="__unassign__" className="text-xs text-destructive">Unassign</SelectItem>
+                {!custCollapsed && (
+                  <div className="border-t border-border">
+                    {dates.map(({ date, files }) => {
+                      const dateKey = `${customer}::${date}`;
+                      const dateCollapsed = collapsedDates.has(dateKey);
+                      return (
+                        <div key={dateKey}>
+                          {/* Date sub-folder */}
+                          <button
+                            onClick={() => toggleDate(dateKey)}
+                            className="w-full flex items-center gap-3 pl-10 pr-4 py-2.5 hover:bg-muted/30 transition-colors text-left border-b border-border/50"
+                          >
+                            {dateCollapsed ? <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                            <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-xs font-medium text-muted-foreground">{date}</span>
+                            <span className="text-[10px] text-muted-foreground ml-auto">{files.length}</span>
+                          </button>
+
+                          {!dateCollapsed && (
+                            <div className="divide-y divide-border/30">
+                              {files.map(a => {
+                                const Icon = typeIcons[a.type] || File;
+                                const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
+                                return (
+                                  <div key={a.id} className="flex items-center gap-3 px-4 pl-16 py-3 hover:bg-muted/20 transition-colors">
+                                    <div className="p-1.5 rounded bg-primary/10"><Icon className="h-4 w-4 text-primary" /></div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
+                                      <span className="text-xs text-muted-foreground">
+                                        {a.folder || 'No folder'} · {new Date(a.created_at).toLocaleTimeString()}
+                                      </span>
+                                    </div>
+
+                                    {/* Assign to customer */}
+                                    <Select
+                                      value={a.customer_id || ''}
+                                      onValueChange={(v) => handleAssignCustomer(a.id, v)}
+                                    >
+                                      <SelectTrigger className="w-36 h-7 text-xs">
+                                        <SelectValue placeholder="Assign…" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {a.customer_id && (
+                                          <SelectItem key="__unassign__" value="__unassign__" className="text-xs text-destructive">Unassign</SelectItem>
+                                        )}
+                                        {customers.map(c => (
+                                          <SelectItem key={c.id} value={c.id} className="text-xs">{c.full_name}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+
+                                    <StatusBadge status={a.status} />
+                                    {a.type === 'image' && a.url && (
+                                      <button onClick={() => onImagePreview(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="View image">
+                                        <Image className="h-4 w-4" />
+                                      </button>
+                                    )}
+                                    {isPlayable && (
+                                      <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
+                                        <Play className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                    {a.url && (
+                                      <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                                        <Download className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                    {a.url && (
+                                      a.share_token ? (
+                                        <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
+                                          <Link2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      ) : (
+                                        <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
+                                          <Share2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      )
+                                    )}
+                                    <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
-                          {customers.map(c => (
-                            <SelectItem key={c.id} value={c.id} className="text-xs">{c.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <StatusBadge status={a.status} />
-                      {a.type === 'image' && a.url && (
-                        <button onClick={() => onImagePreview(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="View image">
-                          <Image className="h-4 w-4" />
-                        </button>
-                      )}
-                      {isPlayable && (
-                        <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
-                          <Play className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {a.url && (
-                        <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
-                          <Download className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      {a.url && (
-                        a.share_token ? (
-                          <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
-                            <Link2 className="h-3.5 w-3.5" />
-                          </button>
-                        ) : (
-                          <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
-                            <Share2 className="h-3.5 w-3.5" />
-                          </button>
-                        )
-                      )}
-                      <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
