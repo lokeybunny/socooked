@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadToStorage } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Film, Search, Check, Loader2, X } from 'lucide-react';
+import { Film, Search, Check, Loader2, X, Upload } from 'lucide-react';
 
 interface VideoAsset {
   id: string;
@@ -28,7 +29,9 @@ export default function MVPVideoPicker() {
   const [videos, setVideos] = useState<VideoAsset[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [slots, setSlots] = useState<(SelectedVideo | null)[]>([null, null, null]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load current saved slots
   useEffect(() => {
@@ -86,6 +89,26 @@ export default function MVPVideoPicker() {
       next[slotIndex] = null;
       return next;
     });
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('video/')) { toast.error('Please select a video file'); return; }
+    setUploading(true);
+    try {
+      const url = await uploadToStorage(file, { category: 'mv-landing', customerName: 'stu25', source: 'dashboard', fileName: file.name });
+      const title = file.name.replace(/\.[^.]+$/, '');
+      const { data, error } = await supabase.from('content_assets').insert([{ title, type: 'video', url, source: 'telegram', status: 'published' }]).select('id, title, url, type, created_at').single();
+      if (error) throw error;
+      if (data) {
+        setVideos(prev => [data, ...prev]);
+        selectForSlot(activeSlot, data);
+        toast.success('Video uploaded & selected');
+      }
+    } catch (err: any) { toast.error(err.message || 'Upload failed'); }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSave = async () => {
@@ -169,15 +192,22 @@ export default function MVPVideoPicker() {
           ))}
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search TG videos..."
-            className="pl-9"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        {/* Search + Upload */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search TG videos..."
+              className="pl-9"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleUpload} />
+          <Button variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()} className="gap-1.5 shrink-0">
+            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            Upload
+          </Button>
         </div>
 
         {/* Video list */}
