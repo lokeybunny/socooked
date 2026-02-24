@@ -466,6 +466,46 @@ serve(async (req) => {
       const sendData = await sendRes.json();
       if (!sendRes.ok) throw new Error(`Send error: ${JSON.stringify(sendData)}`);
 
+      // Log to communications table so emails appear in project hubs
+      const sbUrl = Deno.env.get("SUPABASE_URL");
+      const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (sbUrl && sbKey) {
+        // Find customer by email
+        const custRes = await fetch(
+          `${sbUrl}/rest/v1/customers?email=ilike.${encodeURIComponent(recipientLower)}&select=id&limit=1`,
+          { headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` } }
+        );
+        let customerId: string | null = null;
+        if (custRes.ok) {
+          const custs = await custRes.json();
+          if (custs?.length > 0) customerId = custs[0].id;
+        }
+
+        const commPayload = {
+          type: 'email',
+          direction: 'outbound',
+          subject: subject || null,
+          body: (body || '').replace(/<[^>]*>/g, '').slice(0, 2000),
+          from_address: IMPERSONATE_EMAIL,
+          to_address: recipientLower,
+          status: 'sent',
+          provider: 'gmail',
+          external_id: sendData.id,
+          ...(customerId ? { customer_id: customerId } : {}),
+        };
+
+        await fetch(`${sbUrl}/rest/v1/communications`, {
+          method: 'POST',
+          headers: {
+            apikey: sbKey,
+            Authorization: `Bearer ${sbKey}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify(commPayload),
+        });
+      }
+
       return new Response(JSON.stringify({ success: true, id: sendData.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
