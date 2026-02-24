@@ -143,10 +143,30 @@ export default function EmailPage() {
   }, []);
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
+  const [customerSentEmails, setCustomerSentEmails] = useState<GmailEmail[]>([]);
+
   useEffect(() => {
-    // "customers" tab uses inbox data filtered to customer emails
-    const gmailTab = activeTab === 'customers' ? 'inbox' : activeTab;
-    loadEmails(gmailTab);
+    if (activeTab === 'customers') {
+      // Load both inbox and sent, merge for customer tab
+      setLoading(true);
+      Promise.all([callGmail('inbox'), callGmail('sent')])
+        .then(([inboxData, sentData]) => {
+          const inbox = inboxData.emails || [];
+          const sent = sentData.emails || [];
+          setEmails(inbox);
+          setCustomerSentEmails(sent);
+        })
+        .catch((e: any) => {
+          console.error('Gmail load error:', e);
+          toast.error(e.message || 'Failed to load emails');
+          setEmails([]);
+          setCustomerSentEmails([]);
+        })
+        .finally(() => setLoading(false));
+    } else {
+      setCustomerSentEmails([]);
+      loadEmails(activeTab);
+    }
   }, [activeTab, loadEmails]);
 
   const handleRefresh = async () => {
@@ -225,10 +245,24 @@ export default function EmailPage() {
   const customerEmailOptions = customers.filter((c) => c.email);
   const customerEmailSet = new Set(customers.filter((c) => c.email).map((c) => c.email!.toLowerCase()));
 
-  const customerOnlyEmails = emails.filter((e) =>
-    Array.from(customerEmailSet).some((ce) => e.from.toLowerCase().includes(ce) || e.to.toLowerCase().includes(ce))
-  );
+  const isCustomerEmail = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.from.toLowerCase().includes(ce) || email.to.toLowerCase().includes(ce));
   const isFromCustomer = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.from.toLowerCase().includes(ce));
+  const isToCustomer = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.to.toLowerCase().includes(ce));
+
+  // Merge inbox + sent for customer tab, dedupe by id, sort by date
+  const customerOnlyEmails = (() => {
+    const merged = [...emails, ...customerSentEmails];
+    const seen = new Set<string>();
+    const deduped = merged.filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
+    return deduped
+      .filter((e) => isCustomerEmail(e))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  })();
+
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
     setForm({ ...form, customer_id: custId, to: cust?.email || '' });
@@ -245,13 +279,13 @@ export default function EmailPage() {
     ) : (
       <div className="space-y-2">
         {items.map((email) => {
-          const fromClient = isFromCustomer(email);
-          const isDimmed = selectedCustomerEmail === 'all' && !fromClient;
+          const relatedToCustomer = isFromCustomer(email) || isToCustomer(email);
+          const isDimmed = selectedCustomerEmail === 'all' && !relatedToCustomer;
           return (
             <button
               key={email.id}
               onClick={() => handleOpenEmail(email)}
-              className={`w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors ${email.isUnread ? 'border-l-2 border-l-primary' : ''} ${isDimmed ? 'opacity-50' : ''}`}
+              className={`w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors ${email.isUnread ? 'border-l-2 border-l-primary' : ''} ${isDimmed ? 'opacity-50' : ''} ${!isDimmed && relatedToCustomer && (activeTab === 'sent' || activeTab === 'customers') ? 'border-l-2 border-l-primary/70' : ''}`}
             >
               <div className="flex items-start gap-3 min-w-0">
                 <Mail className={`h-4 w-4 mt-0.5 shrink-0 ${isDimmed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
@@ -260,7 +294,7 @@ export default function EmailPage() {
                     {email.subject || '(no subject)'}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {activeTab === 'sent' ? `To: ${email.to}` : `From: ${email.from}`}
+                    {activeTab === 'sent' || (activeTab === 'customers' && email.from.toLowerCase().includes('warren@stu25.com')) ? `To: ${email.to}` : `From: ${email.from}`}
                   </p>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet}</p>
                   <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
