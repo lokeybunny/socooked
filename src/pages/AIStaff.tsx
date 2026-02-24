@@ -12,6 +12,7 @@ const AGENTS = [
   { id: 'web-designer', label: 'Web Designer', role: 'UI/UX Agent — V0.DEV API', icon: Palette, color: 'from-cyan-500 to-blue-600', ring: 'ring-cyan-500/30', bg: 'bg-cyan-500/10', text: 'text-cyan-400', pulse: 'bg-cyan-500', connected: true, group: 'clawd' },
   { id: 'social-media', label: 'Social Media', role: 'Social Agent — Coming Soon', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: false, group: 'clawd' },
   { id: 'content-manager', label: 'Content Manager', role: 'Content Agent — Higgsfield API', icon: Bot, color: 'from-amber-500 to-orange-600', ring: 'ring-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', pulse: 'bg-amber-500', connected: true, group: 'clawd' },
+  { id: 'nano-banana', label: 'Nano Banana', role: 'Image AI — Gemini Flash', icon: Palette, color: 'from-yellow-400 to-amber-500', ring: 'ring-yellow-400/30', bg: 'bg-yellow-400/10', text: 'text-yellow-400', pulse: 'bg-yellow-400', connected: true, group: 'clawd' },
   { id: 'research-finder', label: 'Research Finder', role: 'Research Agent — Coming Soon', icon: Search, color: 'from-teal-500 to-emerald-600', ring: 'ring-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', pulse: 'bg-teal-500', connected: false, group: 'clawd' },
   { id: 'crm-maintenance', label: 'CRM Maintenance Bot', role: 'Maintenance — Standalone', icon: Wrench, color: 'from-slate-400 to-zinc-600', ring: 'ring-slate-400/30', bg: 'bg-slate-400/10', text: 'text-slate-400', pulse: 'bg-slate-400', connected: false, group: 'standalone' },
 ] as const;
@@ -325,6 +326,19 @@ export default function AIStaff() {
   // Synthesize tasks from api_previews for web-designer, merge with bot_tasks
   const agentTasks = (id: string): BotTask[] => {
     if (!agentMeta(id)?.connected) return [];
+    
+    if (id === 'nano-banana') {
+      // Nano Banana tasks are stored under bot_agent 'content-manager' but have meta.provider = 'nano-banana'
+      const nanaTasks = tasks.filter(t => t.bot_agent === 'content-manager' && (t.meta as any)?.provider === 'nano-banana');
+      return nanaTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
+    }
+    
+    if (id === 'content-manager') {
+      // Exclude nano-banana tasks from the Higgsfield content manager
+      const hfTasks = tasks.filter(t => t.bot_agent === 'content-manager' && (t.meta as any)?.provider !== 'nano-banana');
+      return hfTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
+    }
+
     const botTasks = tasks.filter(t => t.bot_agent === id);
     
     if (id === 'web-designer') {
@@ -346,7 +360,6 @@ export default function AIStaff() {
     }
     
     if (id === 'clawd-main') {
-      // Clawd Main only shows its own bot_tasks (orchestrator tasks), not web-designer previews
       return botTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
     }
     
@@ -367,6 +380,13 @@ export default function AIStaff() {
       return activities.filter(a => 
         a.action.startsWith('higgsfield_') ||
         (a.entity_type === 'content_asset' && a.action.includes('higgsfield'))
+      );
+    }
+    if (id === 'nano-banana') {
+      return activities.filter(a => 
+        a.action.startsWith('nano_banana') ||
+        (a.entity_type === 'content_asset' && a.action.includes('nano_banana')) ||
+        (a.meta as any)?.provider === 'nano-banana'
       );
     }
     return activities;
