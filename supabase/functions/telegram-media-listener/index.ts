@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
 
         if (chatId && messageId) {
           const msg = success
-            ? `✅ <b>Saved to CRM!</b>\n📁 ${media.fileName}`
+            ? `✅ <b>Saved to CRM!</b>\n📁 Tap to copy filename:\n\n<code>${media.fileName}</code>`
             : `❌ <b>Failed to save.</b> Check logs for details.`
           await tgPost(TG_TOKEN, 'editMessageText', { chat_id: chatId, message_id: messageId, text: msg, parse_mode: 'HTML' })
         }
