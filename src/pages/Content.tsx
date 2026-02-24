@@ -321,6 +321,7 @@ export default function Content() {
             onDelete={handleDeleteContent}
             onShare={handleShare}
             onRevokeShare={handleRevokeShare}
+            onImagePreview={openImage}
           />
         ) : (
         <div className="space-y-6">
@@ -596,6 +597,7 @@ export default function Content() {
             onPlay={playVideo}
             onDownload={downloadFile}
             onDelete={handleDeleteContent}
+            onImagePreview={openImage}
           />
 
           {/* Video/Audio Preview Dialog */}
@@ -630,11 +632,12 @@ export default function Content() {
 }
 
 /* ─── Customer Meetings Sub-Section ──────────────────────── */
-function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
+function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete, onImagePreview }: {
   categoryId: string | null;
   onPlay: (url: string, title: string) => void;
   onDownload: (url: string, title: string) => void;
   onDelete: (id: string) => void;
+  onImagePreview: (url: string, title: string) => void;
 }) {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -723,8 +726,8 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
                     {/* Files */}
                     <div className="divide-y divide-border/20">
                       {cust.files.map(a => {
-                        const Icon = a.type === 'video' ? Video : Music;
-                        const ext = a.type === 'video' ? 'MP4' : a.type === 'audio' ? 'MP3' : a.type?.toUpperCase();
+                        const Icon = a.type === 'video' ? Video : a.type === 'image' ? Image : a.type === 'audio' ? Music : File;
+                        const ext = a.type === 'video' ? 'MP4' : a.type === 'audio' ? 'MP3' : a.type === 'image' ? 'IMG' : a.type?.toUpperCase();
                         const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
                         return (
                           <div key={a.id} className="flex items-center gap-3 px-8 py-2 hover:bg-muted/20 transition-colors">
@@ -733,6 +736,11 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
                               <p className="text-sm text-foreground truncate">{a.title}</p>
                             </div>
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{ext}</span>
+                            {a.type === 'image' && a.url && (
+                              <button onClick={() => onImagePreview(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="View image">
+                                <Image className="h-3.5 w-3.5" />
+                              </button>
+                            )}
                             {isPlayable && (
                               <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
                                 <Play className="h-3.5 w-3.5" />
@@ -762,12 +770,13 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete }: {
 }
 
 /* ─── Higgsfield AI Full Manager ──────────────────────── */
-function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare }: {
+function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare, onImagePreview }: {
   onPlay: (url: string, title: string) => void;
   onDownload: (url: string, title: string) => void;
   onDelete: (id: string) => void;
   onShare: (id: string) => void;
   onRevokeShare: (id: string) => void;
+  onImagePreview: (url: string, title: string) => void;
 }) {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -817,6 +826,11 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
                   </span>
                 </div>
                 <StatusBadge status={a.status} />
+                {a.type === 'image' && a.url && (
+                  <button onClick={() => onImagePreview(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="View image">
+                    <Image className="h-4 w-4" />
+                  </button>
+                )}
                 {isPlayable && (
                   <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
                     <Play className="h-3.5 w-3.5" />
