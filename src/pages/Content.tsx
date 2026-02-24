@@ -77,6 +77,10 @@ export default function Content() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState('');
 
+  // Image preview state
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [imagePreviewTitle, setImagePreviewTitle] = useState('');
+
   const playVideo = (fileUrl: string, title: string) => {
     if (!fileUrl) return;
     setPreviewTitle(title);
@@ -86,6 +90,12 @@ export default function Content() {
   const closePreview = () => {
     setPreviewUrl(null);
     setPreviewTitle('');
+  };
+
+  const openImage = (fileUrl: string, title: string) => {
+    if (!fileUrl) return;
+    setImagePreviewTitle(title);
+    setImagePreviewUrl(fileUrl);
   };
 
   const loadAll = async () => {
@@ -527,6 +537,11 @@ export default function Content() {
                                                     <span className="text-[10px] text-muted-foreground capitalize">{c.type.replace('_', ' ')}</span>
                                                   </div>
                                                   <StatusBadge status={c.status} />
+                                                  {c.type === 'image' && c.url && (
+                                                    <button onClick={() => openImage(c.url, c.title)} className="text-muted-foreground hover:text-primary transition-colors" title="View image">
+                                                      <Image className="h-3.5 w-3.5" />
+                                                    </button>
+                                                  )}
                                                   {isPlayable && (
                                                     <button onClick={() => playVideo(c.url, c.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
                                                       <Play className="h-3.5 w-3.5" />
@@ -590,6 +605,21 @@ export default function Content() {
               {previewUrl ? (
                 <video src={previewUrl} controls autoPlay className="w-full rounded-lg max-h-[70vh]" />
               ) : null}
+            </DialogContent>
+          </Dialog>
+
+          {/* Image Preview Dialog */}
+          <Dialog open={!!imagePreviewUrl} onOpenChange={(open) => { if (!open) { setImagePreviewUrl(null); setImagePreviewTitle(''); } }}>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader><DialogTitle className="truncate">{imagePreviewTitle}</DialogTitle></DialogHeader>
+              {imagePreviewUrl && (
+                <div className="space-y-4">
+                  <img src={imagePreviewUrl} alt={imagePreviewTitle} className="w-full rounded-lg max-h-[70vh] object-contain" />
+                  <Button onClick={() => downloadFile(imagePreviewUrl, imagePreviewTitle)} className="w-full gap-2">
+                    <Download className="h-4 w-4" /> Download
+                  </Button>
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         </div>
