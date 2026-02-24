@@ -143,30 +143,10 @@ export default function EmailPage() {
   }, []);
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
-  const [customerSentEmails, setCustomerSentEmails] = useState<GmailEmail[]>([]);
-
   useEffect(() => {
-    if (activeTab === 'customers') {
-      // Load both inbox and sent, merge for customer tab
-      setLoading(true);
-      Promise.all([callGmail('inbox'), callGmail('sent')])
-        .then(([inboxData, sentData]) => {
-          const inbox = inboxData.emails || [];
-          const sent = sentData.emails || [];
-          setEmails(inbox);
-          setCustomerSentEmails(sent);
-        })
-        .catch((e: any) => {
-          console.error('Gmail load error:', e);
-          toast.error(e.message || 'Failed to load emails');
-          setEmails([]);
-          setCustomerSentEmails([]);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setCustomerSentEmails([]);
-      loadEmails(activeTab);
-    }
+    // "customers" tab uses inbox data filtered to customer emails
+    const gmailTab = activeTab === 'customers' ? 'inbox' : activeTab;
+    loadEmails(gmailTab);
   }, [activeTab, loadEmails]);
 
   const handleRefresh = async () => {
@@ -249,19 +229,7 @@ export default function EmailPage() {
   const isFromCustomer = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.from.toLowerCase().includes(ce));
   const isToCustomer = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.to.toLowerCase().includes(ce));
 
-  // Merge inbox + sent for customer tab, dedupe by id, sort by date
-  const customerOnlyEmails = (() => {
-    const merged = [...emails, ...customerSentEmails];
-    const seen = new Set<string>();
-    const deduped = merged.filter((e) => {
-      if (seen.has(e.id)) return false;
-      seen.add(e.id);
-      return true;
-    });
-    return deduped
-      .filter((e) => isCustomerEmail(e))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  })();
+  const customerOnlyEmails = emails.filter((e) => isFromCustomer(e));
 
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);
