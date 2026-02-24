@@ -43,7 +43,8 @@ export default function ClientUpload() {
       if (error || !data) { setNotFound(true); setLoading(false); return; }
       setCustomer(data);
       const meta = data.meta && typeof data.meta === 'object' ? data.meta as Record<string, unknown> : {};
-      if (meta.mv_client) setShowMVLanding(true);
+      const niche = (meta.portal_niche as string) || (meta.mv_client ? 'mv' : '');
+      if (niche === 'mv') setShowMVLanding(true);
       setLoading(false);
 
       // Fetch AI-generated assets assigned to this customer

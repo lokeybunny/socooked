@@ -8,14 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Trash2, Instagram, Video } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { Plus, Search, Trash2, Instagram, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
-const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', mv_client: false };
+const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '' };
 
 export default function Customers() {
   const categoryGate = useCategoryGate();
@@ -111,7 +110,7 @@ export default function Customers() {
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       category: form.category || categoryGate.selectedCategory || 'other',
       instagram_handle: form.instagram_handle || null,
-      meta: { ...existingMeta, mv_client: form.mv_client },
+      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv' },
     };
     if (editingId) {
       const { error } = await supabase.from('customers').update(payload).eq('id', editingId);
@@ -142,7 +141,7 @@ export default function Customers() {
       tags: Array.isArray(c.tags) ? c.tags.join(', ') : '',
       category: c.category || 'other',
       instagram_handle: c.instagram_handle || '',
-      mv_client: !!meta.mv_client,
+      portal_niche: (meta.portal_niche as string) || (meta.mv_client ? 'mv' : ''),
     });
     setEditingId(c.id);
     setDialogOpen(true);
@@ -221,15 +220,21 @@ export default function Customers() {
                     </Select>
                   </div>
                   {editingId && (
-                    <div className="flex items-center justify-between rounded-lg border border-border p-3">
+                    <div className="space-y-2">
                       <div className="flex items-center gap-2">
-                        <Video className="h-4 w-4 text-primary" />
-                        <div>
-                          <Label className="text-sm font-medium">MV Client</Label>
-                          <p className="text-xs text-muted-foreground">Show music video intro on their Custom-U portal</p>
-                        </div>
+                        <Layers className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-medium">Portal Landing Page</Label>
                       </div>
-                      <Switch checked={form.mv_client} onCheckedChange={v => setForm({ ...form, mv_client: v })} />
+                      <Select value={form.portal_niche} onValueChange={v => setForm({ ...form, portal_niche: v === 'none' ? '' : v })}>
+                        <SelectTrigger><SelectValue placeholder="None (default uploader)" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="mv">Music Video (MV)</SelectItem>
+                          <SelectItem value="realtor">Realtor</SelectItem>
+                          <SelectItem value="barber">Barber</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">Choose which niche landing page this customer sees on their Custom-U portal</p>
                     </div>
                   )}
                   <div className="flex gap-2">
