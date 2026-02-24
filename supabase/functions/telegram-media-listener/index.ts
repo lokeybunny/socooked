@@ -259,6 +259,18 @@ Deno.serve(async (req) => {
 
         return new Response('ok')
       }
+
+      // Reply was to a bot message but no IG DM match found (old notification without stored metadata)
+      const replyFromBot = replyToMsg.from?.is_bot === true
+      if (replyFromBot) {
+        console.log('[ig-reply] No matching IG notification for message_id:', replyToId)
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '⚠️ <b>Could not route reply.</b>\nThis notification was sent before reply support was added. Please use the IG DMs tab in the Project Hub to reply, or wait for a new notification.',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
     }
 
     // Only respond in DMs or allowed groups
