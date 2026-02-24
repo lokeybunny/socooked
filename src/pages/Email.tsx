@@ -105,6 +105,20 @@ export default function EmailPage() {
   const [replyAttachments, setReplyAttachments] = useState<Attachment[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
+  // Load persisted read IDs from database on mount
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('communications')
+        .select('external_id')
+        .eq('type', 'email-read')
+        .eq('provider', 'gmail');
+      if (data) {
+        setReadIds(new Set(data.map((r: any) => r.external_id).filter(Boolean)));
+      }
+    })();
+  }, []);
+
   const handleFileSelect = async (files: FileList | null, target: 'compose' | 'reply') => {
     if (!files) return;
     const maxSize = 10 * 1024 * 1024;
@@ -225,7 +239,20 @@ export default function EmailPage() {
       return;
     }
     setViewEmail(email); setReplyOpen(false); setReplyBody(''); setReplyAttachments([]);
-    setReadIds((prev) => new Set(prev).add(email.id));
+    setReadIds((prev) => {
+      if (prev.has(email.id)) return prev;
+      // Persist to database
+      supabase.from('communications').insert({
+        type: 'email-read',
+        direction: 'inbound',
+        from_address: email.from,
+        subject: email.subject,
+        external_id: email.id,
+        provider: 'gmail',
+        status: 'read',
+      }).then(() => {});
+      return new Set(prev).add(email.id);
+    });
     if (email.isUnread && activeTab === 'inbox') {
       try {
         await callGmail(`message&id=${email.id}`);
