@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { SMMProfile, QueueSettings, QueueSlot } from '@/lib/smm/types';
 import { smmApi } from '@/lib/smm/store';
 import { Button } from '@/components/ui/button';
@@ -15,12 +15,20 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
   const [profileUsername, setProfileUsername] = useState(profiles[0]?.username || '');
   const [settings, setSettings] = useState<QueueSettings | null>(null);
   const [loading, setLoading] = useState(false);
+  const [nextSlot, setNextSlot] = useState<any>(null);
+  const [apiPreview, setApiPreview] = useState<any[]>([]);
 
   useEffect(() => {
     if (!profileUsername) return;
     setLoading(true);
-    smmApi.getQueueSettings(profileUsername).then(s => {
+    Promise.all([
+      smmApi.getQueueSettings(profileUsername),
+      smmApi.getNextQueueSlot(profileUsername),
+      smmApi.getQueuePreview(profileUsername),
+    ]).then(([s, ns, preview]) => {
       setSettings(s || { profile_id: profileUsername, timezone: 'America/New_York', slots: [] });
+      setNextSlot(ns);
+      setApiPreview(preview || []);
       setLoading(false);
     });
   }, [profileUsername]);
@@ -113,26 +121,39 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
         </div>
       </div>
 
-      <div className="glass-card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Queue Preview</h3>
-        {previewSlots.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-4">No upcoming queue slots</p>
-        ) : (
-          <div className="space-y-2">
-            {previewSlots.map((s, i) => (
-              <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${i === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'}`}>
-                <Clock className={`h-4 w-4 shrink-0 ${i === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-                <div>
-                  <p className="text-sm font-medium text-foreground">{DAYS[s.slot.day]}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {s.datetime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {s.slot.time}
-                  </p>
-                </div>
-                {i === 0 && <span className="ml-auto text-xs font-medium text-primary">Next Slot</span>}
-              </div>
-            ))}
+      <div className="space-y-4">
+        {/* Next Slot from API */}
+        {nextSlot && (
+          <div className="glass-card p-4 flex items-center gap-3 border-primary/20 border">
+            <Clock className="h-5 w-5 text-primary shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Next Queue Slot</p>
+              <p className="text-xs text-muted-foreground">{nextSlot.next_slot || nextSlot.slot_time || 'No upcoming slot'}</p>
+            </div>
           </div>
         )}
+
+        <div className="glass-card p-5 space-y-4">
+          <h3 className="text-sm font-semibold text-foreground">Queue Preview</h3>
+          {previewSlots.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">No upcoming queue slots. Add slots above.</p>
+          ) : (
+            <div className="space-y-2">
+              {previewSlots.map((s, i) => (
+                <div key={i} className={`flex items-center gap-3 p-3 rounded-lg ${i === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'}`}>
+                  <Clock className={`h-4 w-4 shrink-0 ${i === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{DAYS[s.slot.day]}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {s.datetime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {s.slot.time}
+                    </p>
+                  </div>
+                  {i === 0 && <span className="ml-auto text-xs font-medium text-primary">Next Slot</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
