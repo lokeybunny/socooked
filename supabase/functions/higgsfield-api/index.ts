@@ -25,7 +25,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   const HIGGSFIELD_API_KEY = Deno.env.get('HIGGSFIELD_API_KEY')
-  if (!HIGGSFIELD_API_KEY) return fail('HIGGSFIELD_API_KEY not configured', 500)
+  const HIGGSFIELD_API_SECRET = Deno.env.get('HIGGSFIELD_CLIENT_SECRET')
+  if (!HIGGSFIELD_API_KEY || !HIGGSFIELD_API_SECRET) return fail('HIGGSFIELD_API_KEY and HIGGSFIELD_CLIENT_SECRET must be configured', 500)
+  const authValue = `Key ${HIGGSFIELD_API_KEY}:${HIGGSFIELD_API_SECRET}`
 
   // Auth check: bot secret or staff JWT
   const botSecret = req.headers.get('x-bot-secret')
@@ -92,7 +94,7 @@ Deno.serve(async (req) => {
       const hfRes = await fetch(`${HIGGSFIELD_BASE}/${modelId}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Key ${HIGGSFIELD_API_KEY}`,
+          'Authorization': authValue,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
@@ -143,7 +145,7 @@ Deno.serve(async (req) => {
       if (!request_id) return fail('request_id is required')
 
       const statusRes = await fetch(`${HIGGSFIELD_BASE}/requests/${request_id}/status`, {
-        headers: { 'Authorization': `Key ${HIGGSFIELD_API_KEY}` },
+        headers: { 'Authorization': authValue },
       })
       const statusData = await statusRes.json()
       console.log('[higgsfield] poll response:', JSON.stringify(statusData))
@@ -233,7 +235,7 @@ Deno.serve(async (req) => {
 
       const cancelRes = await fetch(`${HIGGSFIELD_BASE}/requests/${request_id}/cancel`, {
         method: 'POST',
-        headers: { 'Authorization': `Key ${HIGGSFIELD_API_KEY}` },
+        headers: { 'Authorization': authValue },
       })
 
       if (bot_task_id) {
