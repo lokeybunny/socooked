@@ -121,7 +121,8 @@ Map to `https://stu25.com` domain.
 7. **NEVER send status check prompts to `/v0-designer`.** Use `/v0-poll` only.
 8. **NEVER send Telegram content without `file_id`.** The CRM rejects entries without a downloadable file. Use `message.photo[-1].file_id`, `message.document.file_id`, or `message.video.file_id`.
 9. **NEVER use Telegram `url` field for storage.** Telegram URLs expire. Always use `file_id` — the CRM downloads and stores the file permanently.
-10. **NEVER send `.webp` as image type.** Only `.jpg`, `.png`, `.gif` are accepted for Telegram image uploads.
+10. **NEVER use `.webp` as image type.** Only `.jpg`, `.png`, `.gif` are accepted for Telegram image uploads.
+11. **NEVER process, save, or store image/video/media attachments from Telegram messages.** The CRM has a dedicated **Telegram Media Listener** that handles all media ingestion independently. When a user sends an image, video, or document in Telegram, Cortex must **completely ignore it** — do NOT call `/clawd-bot/content`, do NOT attempt to download it, do NOT acknowledge it as a storage action. The Media Listener will prompt the user with "Save to CRM?" and handle persistence automatically. Cortex's role with media is LIMITED to: (a) resolving **already-saved** assets via `/clawd-bot/source-asset` for Higgsfield or Gmail workflows, and (b) answering questions about existing content. If a user sends media with a caption like "save this" or "store this," Cortex must reply: "📷 The media listener handles saving — tap ✅ Yes when prompted." and take NO further action.
 
 ## DATA CORRECTION
 
