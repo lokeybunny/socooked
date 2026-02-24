@@ -76,9 +76,9 @@ export const mockIGComments: IGComment[] = [
 ];
 
 export const mockIGConversations: IGConversation[] = [
-  { id: 'conv1', participant: 'loyal_customer', last_message: 'Thanks for the info!', last_timestamp: d(-1), unread: true, messages: [] },
-  { id: 'conv2', participant: 'influencer_x', last_message: 'Sounds great, let\'s chat', last_timestamp: d(-5), unread: false, messages: [] },
-  { id: 'conv3', participant: 'brand_partner', last_message: 'Sending over the brief now', last_timestamp: d(-12), unread: false, messages: [] },
+  { id: 'conv1', participant: 'loyal_customer', participant_id: 'u1', last_message: 'Thanks for the info!', last_timestamp: d(-1), unread: true, messages: [] },
+  { id: 'conv2', participant: 'influencer_x', participant_id: 'u2', last_message: 'Sounds great, let\'s chat', last_timestamp: d(-5), unread: false, messages: [] },
+  { id: 'conv3', participant: 'brand_partner', participant_id: 'u3', last_message: 'Sending over the brief now', last_timestamp: d(-12), unread: false, messages: [] },
 ];
 
 export const mockIGMessages: IGMessage[] = [

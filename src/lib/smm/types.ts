@@ -87,6 +87,7 @@ export interface IGComment {
 export interface IGConversation {
   id: string;
   participant: string;
+  participant_id: string;
   last_message: string;
   last_timestamp: string;
   unread: boolean;

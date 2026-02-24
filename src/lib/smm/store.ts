@@ -322,17 +322,35 @@ export const smmApi = {
     try {
       const data = await invokeSMM('ig-conversations', { user });
       if (!data?.conversations) return [];
-      return data.conversations.map((c: any) => {
-        // API returns nested participants and messages objects
+
+      // We need the IG handle to distinguish self from others.
+      // First try to get it from the profiles we already fetched.
+      let selfHandle = '';
+      try {
+        const profiles = await this.getProfiles();
+        const profile = profiles.find(p => p.username === user);
+        const igAccount = profile?.connected_platforms.find(cp => cp.platform === 'instagram');
+        selfHandle = (igAccount?.display_name || '').toLowerCase();
+      } catch { /* ignore */ }
+
+      return data.conversations.map((c: any, idx: number) => {
         const participants = c.participants?.data || [];
-        const otherUser = participants.find((p: any) => p.username !== user) || participants[0];
+        // Find the OTHER participant (not self)
+        const otherUser = participants.find((p: any) =>
+          p.username.toLowerCase() !== selfHandle
+        ) || participants.find((p: any) =>
+          p.username.toLowerCase() !== user.toLowerCase()
+        ) || participants[1] || participants[0];
+
         const messages = c.messages?.data || [];
         const lastMsg = messages[0];
+
         return {
-          id: c.id,
-          participant: otherUser?.username || c.participant || c.name || 'Unknown',
-          last_message: lastMsg?.message || c.last_message || '',
-          last_timestamp: lastMsg?.created_time || c.last_timestamp || '',
+          id: c.id || otherUser?.id || `conv-${idx}`,
+          participant: otherUser?.username || 'Unknown',
+          participant_id: otherUser?.id || '',
+          last_message: lastMsg?.message || '',
+          last_timestamp: lastMsg?.created_time || '',
           unread: c.unread || false,
           messages: messages.map((m: any) => ({
             id: m.id,
