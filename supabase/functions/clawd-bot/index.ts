@@ -2483,7 +2483,11 @@ Deno.serve(async (req) => {
         return ok(nbData.data)
       }
 
-      // Default: Higgsfield
+      // Default: Higgsfield (BLOCKED if nano/banana keywords detected)
+      // Double-check: if nano/banana keywords somehow reach here, reject
+      const recheckNano = /nano|banana/i.test(((body.prompt as string) || ''))
+      if (recheckNano) return fail('🍌 This prompt contains nano/banana keywords. Routed to Nano Banana — not Higgsfield. Please retry.', 400)
+
       const hfUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/higgsfield-api/generate`
       const hfRes = await fetch(hfUrl, {
         method: 'POST',
