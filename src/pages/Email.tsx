@@ -103,6 +103,7 @@ export default function EmailPage() {
   const [replyBody, setReplyBody] = useState('');
   const [replying, setReplying] = useState(false);
   const [replyAttachments, setReplyAttachments] = useState<Attachment[]>([]);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
 
   const handleFileSelect = async (files: FileList | null, target: 'compose' | 'reply') => {
     if (!files) return;
@@ -224,6 +225,7 @@ export default function EmailPage() {
       return;
     }
     setViewEmail(email); setReplyOpen(false); setReplyBody(''); setReplyAttachments([]);
+    setReadIds((prev) => new Set(prev).add(email.id));
     if (email.isUnread && activeTab === 'inbox') {
       try {
         await callGmail(`message&id=${email.id}`);
@@ -302,11 +304,14 @@ export default function EmailPage() {
                   <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
                 </div>
               </div>
-              {activeTab === 'drafts' ? (
-                <FileEdit className="h-4 w-4 shrink-0 mt-1 text-muted-foreground" />
-              ) : (
-                <Eye className={`h-4 w-4 shrink-0 mt-1 ${isDimmed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
-              )}
+              <div className="flex items-center gap-1.5 shrink-0 mt-1">
+                {readIds.has(email.id) && <Check className="h-4 w-4 text-red-500" />}
+                {activeTab === 'drafts' ? (
+                  <FileEdit className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <Eye className={`h-4 w-4 ${isDimmed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
+                )}
+              </div>
             </button>
           );
         })}
