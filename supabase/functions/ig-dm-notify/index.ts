@@ -77,34 +77,54 @@ serve(async (req) => {
 
     const notifiedIds = new Set((existing || []).map((r: any) => r.external_id));
 
-    // 3. Find new inbound messages and notify
+    // 3. Get known customer IG handles from CRM
+    const { data: customers } = await supabase
+      .from("customers")
+      .select("instagram_handle, full_name")
+      .not("instagram_handle", "is", null);
+
+    // Build a set of known handles (lowercase, stripped of @)
+    const knownHandles = new Map<string, string>();
+    (customers || []).forEach((c: any) => {
+      if (c.instagram_handle) {
+        const handle = c.instagram_handle.replace(/^@/, "").toLowerCase();
+        knownHandles.set(handle, c.full_name || handle);
+      }
+    });
+
+    // 4. Find new inbound messages from known customers and notify
     let notified = 0;
+    let skippedUnknown = 0;
     const myUsername = "w4rr3nguru";
 
     for (const conv of conversations) {
-      // Upload-Post format: conv has participants.data[] and messages.data[]
       const participants = conv.participants?.data || [];
       const messages = conv.messages?.data || [];
 
-      // Find the other participant (not us)
       const other = participants.find((p: any) => p.username !== myUsername);
       const otherUsername = other?.username || "unknown";
+
+      // Only notify if sender is a known customer
+      if (!knownHandles.has(otherUsername.toLowerCase())) {
+        skippedUnknown += messages.length;
+        continue;
+      }
+      const customerName = knownHandles.get(otherUsername.toLowerCase())!;
 
       for (const msg of messages) {
         const msgId = msg.id;
         if (!msgId || notifiedIds.has(msgId)) continue;
 
-        // Only notify for inbound messages (from the other person)
         const fromUsername = msg.from?.username || "";
         if (fromUsername === myUsername) continue;
-        if (!msg.message && !msg.text) continue; // skip empty/media-only
+        if (!msg.message && !msg.text) continue;
 
         const messageText = msg.message || msg.text || "(media)";
         const createdTime = msg.created_time || "";
 
         // Send Telegram notification
         const tgMsg =
-          `📩 <b>New IG DM from @${otherUsername}</b>\n\n` +
+          `📩 <b>New IG DM from @${otherUsername}</b> (${customerName})\n\n` +
           `${messageText}\n\n` +
           `🕐 ${createdTime ? new Date(createdTime).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }) : "just now"}`;
 
@@ -132,7 +152,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, notified, total_conversations: conversations.length }),
+      JSON.stringify({ success: true, notified, skipped_unknown: skippedUnknown, total_conversations: conversations.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
