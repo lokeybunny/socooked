@@ -602,6 +602,21 @@ Deno.serve(async (req) => {
       return ok({ action: 'deleted', content_id: id })
     }
 
+    // ─── ASSIGN CONTENT TO CUSTOMER ──────────────────────────
+    if (path === 'assign-content' && req.method === 'POST') {
+      const { content_id, customer_id } = body
+      if (!content_id) return fail('content_id is required')
+      // customer_id can be null to unassign
+      const updates: Record<string, unknown> = { customer_id: customer_id || null }
+      const { data, error } = await supabase.from('content_assets').update(updates).eq('id', content_id).select('id, title, customer_id').maybeSingle()
+      if (error) return fail(error.message)
+      if (!data) return fail('Content asset not found', 404)
+      const action = customer_id ? 'content_assigned' : 'content_unassigned'
+      await logActivity(supabase, 'content', content_id, action, data.title)
+      await auditLog(supabase, 'assign-content', { content_id, customer_id, action })
+      return ok({ action, content: data })
+    }
+
     // ─── CONVERSATION THREADS ────────────────────────────────
     if (path === 'threads' && req.method === 'GET') {
       const customer_id = params.get('customer_id')
