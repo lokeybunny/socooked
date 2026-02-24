@@ -3,19 +3,17 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Calendar } from 'lucide-react';
+import { Plus, Calendar, ChevronsUpDown, Check } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { ProjectDetailHub } from '@/components/projects/ProjectDetailHub';
+import { cn } from '@/lib/utils';
 
 const projectStatuses = ['planned', 'active', 'blocked', 'completed', 'archived'] as const;
-const priorities = ['low', 'medium', 'high', 'urgent'] as const;
 
 export default function Projects() {
   const categoryGate = useCategoryGate();
@@ -25,7 +23,11 @@ export default function Projects() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailProject, setDetailProject] = useState<any | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState({ title: '', description: '', status: 'planned', priority: 'medium', due_date: '' });
+
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const loadAll = async () => {
     const { data } = await supabase.from('projects').select('*, customers(full_name, email, phone, company)').order('created_at', { ascending: false });
@@ -33,7 +35,12 @@ export default function Projects() {
     setLoading(false);
   };
 
-  useEffect(() => { loadAll(); }, []);
+  const loadCustomers = async () => {
+    const { data } = await supabase.from('customers').select('id, full_name, email, category');
+    setCustomers(data || []);
+  };
+
+  useEffect(() => { loadAll(); loadCustomers(); }, []);
 
   const validIds = SERVICE_CATEGORIES.map(c => c.id);
   const normCat = (c: string | null) => (c && validIds.includes(c) ? c : 'other');
@@ -51,20 +58,51 @@ export default function Projects() {
     return acc;
   }, {} as Record<string, number>);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const catLabelMap: Record<string, string> = {
+    'digital-services': 'Digital Services',
+    'brick-and-mortar': 'Brick & Mortar',
+    'digital-ecommerce': 'Digital E-Commerce',
+    'food-and-beverage': 'Food & Beverage',
+    'mobile-services': 'Mobile Services',
+  };
+
+  const handleCreateFromCustomer = async () => {
+    if (!selectedCustomerId) { toast.error('Please select a customer'); return; }
+    setCreating(true);
+    const cust = customers.find(c => c.id === selectedCustomerId);
+    if (!cust) { toast.error('Customer not found'); setCreating(false); return; }
+
+    const category = normCat(cust.category);
+    const title = `${cust.full_name} — ${catLabelMap[category] || 'Other'}`;
+
+    // Check if active project already exists
+    const { data: existing } = await supabase.from('projects')
+      .select('id')
+      .eq('customer_id', cust.id)
+      .eq('category', category)
+      .not('status', 'in', '("completed","archived")')
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      toast.error('An active project already exists for this customer and category');
+      setCreating(false);
+      return;
+    }
+
     const { error } = await supabase.from('projects').insert([{
-      title: form.title,
-      description: form.description || null,
-      status: form.status,
-      priority: form.priority,
-      due_date: form.due_date || null,
-      category: categoryGate.selectedCategory,
+      title,
+      customer_id: cust.id,
+      category,
+      status: 'active',
+      priority: 'medium',
+      description: `Project for ${cust.full_name}.`,
     }]);
-    if (error) { toast.error(error.message); return; }
+
+    if (error) { toast.error(error.message); setCreating(false); return; }
     toast.success('Project created');
     setDialogOpen(false);
-    setForm({ title: '', description: '', status: 'planned', priority: 'medium', due_date: '' });
+    setSelectedCustomerId('');
+    setCreating(false);
     loadAll();
   };
 
@@ -90,30 +128,55 @@ export default function Projects() {
               <DialogTrigger asChild>
                 <Button><Plus className="h-4 w-4 mr-2" />New Project</Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Create Project</DialogTitle></DialogHeader>
-                <form onSubmit={handleCreate} className="space-y-4">
-                  <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required /></div>
-                  <div className="space-y-2"><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} /></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Status</Label>
-                      <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{projectStatuses.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Priority</Label>
-                      <Select value={form.priority} onValueChange={v => setForm({ ...form, priority: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>{priorities.map(p => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-2"><Label>Due Date</Label><Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} /></div>
-                  <Button type="submit" className="w-full">Create Project</Button>
-                </form>
+              <DialogContent className="sm:max-w-[420px]">
+                <DialogHeader><DialogTitle>New Project</DialogTitle></DialogHeader>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">Select a customer to auto-create a project based on their category.</p>
+                  <Popover open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                        {selectedCustomerId
+                          ? customers.find(c => c.id === selectedCustomerId)?.full_name || 'Select customer'
+                          : 'Select customer...'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search customers..." />
+                        <CommandList>
+                          <CommandEmpty>No customer found.</CommandEmpty>
+                          <CommandGroup>
+                            {customers.map(c => (
+                              <CommandItem key={c.id} value={`${c.full_name} ${c.email || ''}`} onSelect={() => { setSelectedCustomerId(c.id); setCustomerPickerOpen(false); }}>
+                                <Check className={cn("mr-2 h-4 w-4", selectedCustomerId === c.id ? "opacity-100" : "opacity-0")} />
+                                <div>
+                                  <p className="text-sm">{c.full_name}</p>
+                                  {c.email && <p className="text-xs text-muted-foreground">{c.email}</p>}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {selectedCustomerId && (() => {
+                    const cust = customers.find(c => c.id === selectedCustomerId);
+                    if (!cust) return null;
+                    const cat = normCat(cust.category);
+                    return (
+                      <div className="glass-card p-3 text-sm space-y-1">
+                        <p className="font-medium text-foreground">{cust.full_name} — {catLabelMap[cat] || 'Other'}</p>
+                        <p className="text-xs text-muted-foreground">Category: {catLabelMap[cat] || 'Other'}</p>
+                        <p className="text-xs text-muted-foreground">Status: Active · Priority: Medium</p>
+                      </div>
+                    );
+                  })()}
+                  <Button onClick={handleCreateFromCustomer} disabled={!selectedCustomerId || creating} className="w-full">
+                    {creating ? 'Creating...' : 'Create Project'}
+                  </Button>
+                </div>
               </DialogContent>
             </Dialog>
           </div>
