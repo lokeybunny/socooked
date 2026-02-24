@@ -25,18 +25,30 @@ export const smmApi = {
     try {
       const data = await invokeSMM('list-profiles');
       if (!data?.profiles) return [];
-      return data.profiles.map((p: any) => ({
-        id: p.username,
-        username: p.username,
-        connected_platforms: (p.connected_accounts || []).map((a: any) => ({
-          platform: a.platform,
-          connected: true,
-          reauth_required: a.reauth_required || false,
-          display_name: a.display_name || a.platform,
-        })),
-        last_activity: p.last_activity || p.created_at || new Date().toISOString(),
-        created_at: p.created_at || new Date().toISOString(),
-      }));
+      return data.profiles.map((p: any) => {
+        // API returns social_accounts as an object keyed by platform
+        const socials = p.social_accounts || {};
+        const connected_platforms = Object.entries(socials)
+          .map(([platform, info]: [string, any]) => {
+            // Empty string or falsy means not connected
+            if (!info || info === '') return null;
+            return {
+              platform: platform === 'x' ? 'twitter' : platform,
+              connected: true,
+              reauth_required: info.reauth_required || false,
+              display_name: info.display_name || info.handle || platform,
+            };
+          })
+          .filter(Boolean) as SMMProfile['connected_platforms'];
+
+        return {
+          id: p.username,
+          username: p.username,
+          connected_platforms,
+          last_activity: p.last_activity || p.created_at || new Date().toISOString(),
+          created_at: p.created_at || new Date().toISOString(),
+        };
+      });
     } catch (e) {
       console.error('getProfiles error:', e);
       return [];
