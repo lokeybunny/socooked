@@ -32,6 +32,21 @@ Trigger words: "make this", "use this image", "take this", "transform this", "ed
 
 When a user sends an image/video attachment via Telegram:
 
+### ⚠️ MANDATORY: file_id Requirement
+
+**Every Telegram attachment MUST include `file_id`** in the storage request. Without it, the CRM cannot download the file from Telegram servers and the entry will be REJECTED.
+
+- For **photos**: use `message.photo[-1].file_id` (largest resolution)
+- For **documents**: use `message.document.file_id`
+- For **videos**: use `message.video.file_id`
+
+### ⚠️ MANDATORY: Image Format Restriction
+
+Telegram image uploads ONLY accept `.jpg`, `.png`, and `.gif` formats. The API will reject:
+- `.webp` images — ask the user to re-send as JPG/PNG
+- Any non-image binary data sent with `type: "image"`
+- Requests missing both `file_id` and `url`
+
 ### Step 1 — Store the Attachment
 ```
 POST /clawd-bot/content
@@ -40,12 +55,13 @@ POST /clawd-bot/content
   "type": "image",
   "status": "published",
   "source": "telegram",
-  "url": "<telegram_file_url>",
+  "file_id": "<telegram_file_id>",
   "folder": "STU25sTG",
   "customer_id": "<resolved_customer_id>"
 }
 ```
-→ Save the returned `content_asset.id` and `url`
+→ The API will download the file via `file_id`, store it in `content-uploads` bucket, and return the `content_id` with a valid public URL.
+→ If `file_id` is missing or the file is not a valid image, the API returns an error — **do NOT retry without `file_id`**.
 
 ### Step 2 — Submit to Higgsfield
 ```
@@ -182,6 +198,9 @@ Cortex infers aspect ratio from context:
 - ❌ Never create placeholder/stock image references in prompts
 - ❌ Never ask the user which model to use — auto-select based on intent
 - ❌ Never forget to include `customer_id` when customer context is available
+- ❌ **Never send `url` instead of `file_id` for Telegram attachments** — Telegram URLs expire; always use `file_id`
+- ❌ **Never omit `file_id` from Telegram image/video storage requests** — the API will reject the entry
+- ❌ **Never send `.webp` images as `type: "image"` to the CRM** — only `.jpg`, `.png`, `.gif` are accepted
 
 ---
 

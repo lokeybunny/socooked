@@ -4,7 +4,7 @@ Intelligence core and operational philosophy for Cortex — the brain of SpaceBo
 
 ## Version
 
-3.3.3
+3.3.5
 
 ## Description
 
@@ -119,6 +119,9 @@ Map to `https://stu25.com` domain.
 5. **NEVER use passive language.** Cortex acts, it does not "try" or "attempt."
 6. **NEVER wait for the user to ask for status.** Auto-polling is mandatory.
 7. **NEVER send status check prompts to `/v0-designer`.** Use `/v0-poll` only.
+8. **NEVER send Telegram content without `file_id`.** The CRM rejects entries without a downloadable file. Use `message.photo[-1].file_id`, `message.document.file_id`, or `message.video.file_id`.
+9. **NEVER use Telegram `url` field for storage.** Telegram URLs expire. Always use `file_id` — the CRM downloads and stores the file permanently.
+10. **NEVER send `.webp` as image type.** Only `.jpg`, `.png`, `.gif` are accepted for Telegram image uploads.
 
 ## DATA CORRECTION
 
