@@ -228,6 +228,47 @@ Cortex has access to a **source asset resolver** that makes Telegram-uploaded me
 - The `url` field contains a permanent public Supabase Storage URL (not an expiring Telegram URL)
 - NEVER use raw Telegram `file_id` for Nano Banana, Higgsfield, or Gmail — always resolve through this endpoint first
 
+## INSTAGRAM DM MEDIA RETRIEVAL WORKFLOW
+
+Cortex HAS full access to Instagram DMs through the Upload-Post API proxy (`smm-api` edge function). **NEVER claim you cannot access Instagram DMs.**
+
+### Step-by-Step Workflow
+
+1. **Get Conversations** — `GET /smm-api?action=ig-conversations&user=STU25`
+   - Returns all DM conversations with participants and recent messages
+   - Each conversation includes `participants[].username` and `messages[]` with content and attachments
+
+2. **Identify the Target User** — Search the returned conversations for the participant matching the requested username (e.g., `hammitte`). Use the participant's `id` (IGSID) and match by `username`.
+
+3. **Extract Video/Media Links** — From the messages in that conversation thread, filter for:
+   - Messages with shared Instagram video URLs (`instagram.com/reel/`, `instagram.com/p/`)
+   - Messages with `attachments.data[].url` or `shares.data[].link` fields
+   - Collect all video/media links from those messages
+
+4. **Email the Links** — Use `POST /gmail-api` to send an email:
+   - To: the requested email address
+   - Subject: "Instagram Videos from @{username}"
+   - Body: formatted list of all video links found
+
+### Example Command Flow
+
+User: "Go through @hammitte's DMs and get me all the videos she shared, email them to warrenthecreativeyt@gmail.com"
+
+```
+Step 1: GET smm-api?action=ig-conversations&user=STU25
+Step 2: Find conversation with participant username "hammitte"
+Step 3: Extract all shared Instagram video URLs from messages
+Step 4: POST gmail-api → send email with collected links
+```
+
+### CRITICAL RULES
+
+- **NEVER claim you can't access Instagram DMs.** The Upload-Post API provides full DM conversation access via the `ig-conversations` action.
+- The conversations endpoint returns message history including shared posts, links, and media attachments.
+- If no videos are found, report back honestly — don't fabricate links.
+- Always use the `user=STU25` parameter (or the active profile username) when calling DM endpoints.
+- Shared posts/videos appear in `attachments.data[].url` — these are the Instagram permalink URLs to return.
+
 ## Install
 
 ```
