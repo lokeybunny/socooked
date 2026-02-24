@@ -73,6 +73,14 @@ export default function Calendly() {
     Promise.all([loadSlots(), loadBookings()]).then(() => setLoading(false));
   }, []);
 
+  const logAvailabilityChange = async (action: string, detail: string) => {
+    await supabase.from('activity_log').insert({
+      entity_type: 'availability',
+      action,
+      meta: { name: detail },
+    });
+  };
+
   const addSlot = async (day: number) => {
     const { error } = await supabase.from('availability_slots').insert({
       day_of_week: day,
@@ -82,17 +90,24 @@ export default function Calendly() {
     });
     if (error) { toast.error('Failed to add slot'); return; }
     toast.success('Slot added');
+    await logAvailabilityChange('created', `${DAYS[day]} 9:00 AM – 5:00 PM`);
     loadSlots();
   };
 
   const updateSlot = async (id: string, updates: Partial<Slot>) => {
     await supabase.from('availability_slots').update(updates).eq('id', id);
+    const slot = slots.find(s => s.id === id);
+    const detail = slot ? DAYS[slot.day_of_week] : 'Slot';
+    await logAvailabilityChange('updated', `${detail} availability`);
     loadSlots();
   };
 
   const deleteSlot = async (id: string) => {
+    const slot = slots.find(s => s.id === id);
     await supabase.from('availability_slots').delete().eq('id', id);
     toast.success('Slot removed');
+    const detail = slot ? DAYS[slot.day_of_week] : 'Slot';
+    await logAvailabilityChange('deleted', `${detail} availability`);
     loadSlots();
   };
 
