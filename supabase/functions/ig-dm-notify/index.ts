@@ -103,6 +103,7 @@ serve(async (req) => {
 
       const other = participants.find((p: any) => p.username !== myUsername);
       const otherUsername = other?.username || "unknown";
+      const participantId = other?.id || "";
 
       // Only notify if sender is a known customer
       if (!knownHandles.has(otherUsername.toLowerCase())) {
@@ -122,15 +123,36 @@ serve(async (req) => {
         const messageText = msg.message || msg.text || "(media)";
         const createdTime = msg.created_time || "";
 
-        // Send Telegram notification
+        // Send Telegram notification with participant_id embedded for reply routing
         const tgMsg =
           `📩 <b>New IG DM from @${otherUsername}</b> (${customerName})\n\n` +
           `${messageText}\n\n` +
-          `🕐 ${createdTime ? new Date(createdTime).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }) : "just now"}`;
+          `🕐 ${createdTime ? new Date(createdTime).toLocaleString("en-US", { timeZone: "America/Los_Angeles" }) : "just now"}\n` +
+          `<i>Reply to this message to respond via Instagram</i>`;
 
-        await sendTelegram(tgMsg);
+        // Send and capture the Telegram message_id for reply matching
+        const tgToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+        const tgChatId = Deno.env.get("TELEGRAM_CHAT_ID");
+        let telegramMessageId: number | null = null;
 
-        // Store so we don't re-notify
+        if (tgToken && tgChatId) {
+          const tgRes = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: tgChatId,
+              text: tgMsg,
+              parse_mode: "HTML",
+              disable_web_page_preview: true,
+            }),
+          });
+          const tgData = await tgRes.json();
+          if (tgRes.ok && tgData.result?.message_id) {
+            telegramMessageId = tgData.result.message_id;
+          }
+        }
+
+        // Store so we don't re-notify + save participant_id and telegram_message_id for reply routing
         await supabase.from("communications").insert({
           type: "instagram",
           direction: "inbound",
@@ -141,6 +163,8 @@ serve(async (req) => {
           status: "received",
           metadata: {
             ig_username: otherUsername,
+            participant_id: participantId,
+            telegram_message_id: telegramMessageId,
             created_time: createdTime,
             source: "ig-dm-notify",
           },
