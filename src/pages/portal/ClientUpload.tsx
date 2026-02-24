@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Upload, Loader2, CheckCircle, FileUp, AlertCircle, X } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, FileUp, AlertCircle, X, Sparkles, Download } from 'lucide-react';
 import { uploadToStorage, detectContentType } from '@/lib/storage';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -24,6 +24,8 @@ export default function ClientUpload() {
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
+  const [aiAssets, setAiAssets] = useState<any[]>([]);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,6 +39,17 @@ export default function ClientUpload() {
       if (error || !data) { setNotFound(true); setLoading(false); return; }
       setCustomer(data);
       setLoading(false);
+
+      // Fetch AI-generated assets assigned to this customer
+      const { data: assets } = await supabase
+        .from('content_assets')
+        .select('id, title, url, type, created_at, source')
+        .eq('customer_id', data.id)
+        .in('source', ['ai-generated', 'higgsfield', 'nano-banana'])
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      setAiAssets(assets || []);
     };
     load();
   }, [token]);
@@ -135,6 +148,9 @@ export default function ClientUpload() {
     );
   }
 
+  const imageAssets = aiAssets.filter(a => a.type === 'image' && a.url);
+  const videoAssets = aiAssets.filter(a => a.type === 'video' && a.url);
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg space-y-8">
@@ -147,6 +163,82 @@ export default function ClientUpload() {
             Welcome, <span className="font-medium text-foreground">{customer.full_name}</span>. Drag & drop or browse to upload your files.
           </p>
         </div>
+
+        {/* AI-Generated Gallery */}
+        {(imageAssets.length > 0 || videoAssets.length > 0) && (
+          <div className="glass-card p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-yellow-400" />
+              Your AI-Generated Artwork
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {imageAssets.map(asset => (
+                <button
+                  key={asset.id}
+                  onClick={() => setLightboxUrl(asset.url)}
+                  className="group relative aspect-square rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-all hover:shadow-lg"
+                >
+                  <img
+                    src={asset.url}
+                    alt={asset.title}
+                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <p className="absolute bottom-1.5 left-2 right-2 text-[10px] text-white truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                    {asset.title}
+                  </p>
+                </button>
+              ))}
+              {videoAssets.map(asset => (
+                <div
+                  key={asset.id}
+                  className="relative aspect-square rounded-xl overflow-hidden border border-border"
+                >
+                  <video
+                    src={asset.url}
+                    className="w-full h-full object-cover"
+                    controls
+                    preload="metadata"
+                  />
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground text-center">
+              {imageAssets.length + videoAssets.length} piece{imageAssets.length + videoAssets.length !== 1 ? 's' : ''} created for you
+            </p>
+          </div>
+        )}
+
+        {/* Lightbox */}
+        {lightboxUrl && (
+          <div
+            className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+            onClick={() => setLightboxUrl(null)}
+          >
+            <div className="relative max-w-3xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
+              <img src={lightboxUrl} alt="" className="max-w-full max-h-[85vh] rounded-xl object-contain" />
+              <div className="absolute top-2 right-2 flex gap-2">
+                <a
+                  href={lightboxUrl}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <Download className="h-4 w-4" />
+                </a>
+                <button
+                  onClick={() => setLightboxUrl(null)}
+                  className="p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="glass-card p-6 space-y-5">
           {/* Drop zone */}
