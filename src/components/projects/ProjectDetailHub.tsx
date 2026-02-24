@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   const [contentAssets, setContentAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [customerEmail, setCustomerEmail] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const customerId = project?.customer_id;
 
@@ -210,7 +212,15 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
                   {gmailEmails.map(em => {
                     const isInbound = customerEmail && em.from?.toLowerCase().includes(customerEmail);
                     return (
-                      <div key={em.id} className={`glass-card p-3 space-y-1 ${isInbound ? 'border-l-2 border-l-primary' : 'border-l-2 border-l-muted-foreground/30'}`}>
+                      <div
+                        key={em.id}
+                        className={`glass-card p-3 space-y-1 cursor-pointer hover:bg-accent/50 transition-colors ${isInbound ? 'border-l-2 border-l-primary' : 'border-l-2 border-l-muted-foreground/30'}`}
+                        onDoubleClick={() => {
+                          const tab = isInbound ? 'inbox' : 'sent';
+                          navigate(`/messages?open=${em.id}&tab=${tab}`);
+                          onClose();
+                        }}
+                      >
                         <div className="flex items-center gap-2">
                           {isInbound ? <Inbox className="h-3 w-3 text-primary" /> : <Send className="h-3 w-3 text-muted-foreground" />}
                           <span className="text-sm font-medium line-clamp-1">{em.subject || '(no subject)'}</span>

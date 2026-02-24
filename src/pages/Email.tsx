@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -80,11 +81,14 @@ const emptyForm = { to: '', subject: '', body: '', customer_id: '' };
 
 export default function EmailPage() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [emails, setEmails] = useState<GmailEmail[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('customers');
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'customers');
+  const deepOpenId = useRef(searchParams.get('open'));
+  const deepHandled = useRef(false);
   const [selectedCustomerEmail, setSelectedCustomerEmail] = useState<string>('all');
   const [filterOpen, setFilterOpen] = useState(false);
   const [composeCustomerOpen, setComposeCustomerOpen] = useState(false);
@@ -148,6 +152,36 @@ export default function EmailPage() {
     const gmailTab = activeTab === 'customers' ? 'inbox' : activeTab;
     loadEmails(gmailTab);
   }, [activeTab, loadEmails]);
+
+  // Deep-link: open a specific email by ID from query params
+  useEffect(() => {
+    if (!deepOpenId.current || deepHandled.current || loading || emails.length === 0) return;
+    const targetId = deepOpenId.current;
+    const found = emails.find((e) => e.id === targetId);
+    if (found) {
+      deepHandled.current = true;
+      setViewEmail(found);
+      setReplyOpen(false);
+      setReplyBody('');
+      setReplyAttachments([]);
+      // Clean up URL params
+      setSearchParams({}, { replace: true });
+    } else if (!loading) {
+      // If not found in current tab, try fetching the specific message
+      deepHandled.current = true;
+      callGmail(`message&id=${targetId}`)
+        .then((data) => {
+          if (data?.email) {
+            setViewEmail(data.email);
+            setReplyOpen(false);
+            setReplyBody('');
+            setReplyAttachments([]);
+          }
+        })
+        .catch(() => { /* ignore */ })
+        .finally(() => setSearchParams({}, { replace: true }));
+    }
+  }, [emails, loading, setSearchParams]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
