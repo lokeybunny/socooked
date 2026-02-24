@@ -262,13 +262,13 @@ Deno.serve(async (req) => {
       // Trim body for Telegram (max ~500 chars)
       const trimmedBody = bodyText.length > 500 ? bodyText.slice(0, 500) + "…" : bodyText;
 
-      // Check if sender is a customer
+      // Check if sender is a customer — skip non-customers entirely
       const customer = customerMap.get(senderEmail);
-      const isCustomer = !!customer;
+      if (!customer) continue;
 
       // Build Telegram message
-      const emoji = isCustomer ? "👤" : "📩";
-      const customerTag = isCustomer ? ` (CRM: ${customer!.full_name})` : "";
+      const emoji = "👤";
+      const customerTag = ` (CRM: ${customer.full_name})`;
       const time = new Date().toLocaleString("en-US", {
         month: "short",
         day: "numeric",
@@ -285,8 +285,7 @@ Deno.serve(async (req) => {
         ``,
         `💬 ${trimmedBody}`,
         ``,
-        isCustomer ? `🔗 [View in CRM](https://stu25.com/messages)` : "",
-      ].filter((l) => l !== false).join("\n");
+        `🔗 [View in CRM](https://stu25.com/messages)`,
 
       // Send Telegram notification
       const tgRes = await fetch(
@@ -312,14 +311,14 @@ Deno.serve(async (req) => {
             gmail_id: msg.id,
             from: senderEmail,
             subject,
-            is_customer: isCustomer,
-            customer_id: customer?.id || null,
+            is_customer: true,
+            customer_id: customer.id,
           },
           processed: true,
         });
 
         // Log inbound customer emails to communications table
-        if (isCustomer && customer?.id) {
+        if (customer.id) {
           const trimmedBodyForComm = bodyText.replace(/<[^>]*>/g, '').slice(0, 2000);
           // Check if already logged (by external_id)
           const { data: existing } = await supabase
