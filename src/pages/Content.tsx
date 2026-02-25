@@ -178,7 +178,7 @@ export default function Content() {
     return acc;
   }, {} as Record<string, number>);
   // Add higgsfield count (by source)
-  categoryCounts['ai-generated'] = allContent.filter(c => c.source === 'higgsfield' || c.source === 'ai-generated').length;
+  categoryCounts['ai-generated'] = allContent.filter(c => c.source === 'higgsfield' || c.source === 'ai-generated' || c.source === 'nano-banana' || c.category === 'ai-generated').length;
   // Add telegram count (by source or category)
   categoryCounts['telegram'] = allContent.filter(c => c.source === 'telegram' || c.category === 'telegram').length;
 
@@ -860,7 +860,7 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
   const loadAssets = async () => {
     const { data } = await supabase.from('content_assets')
       .select('*, customers(id, full_name)')
-      .or('source.eq.higgsfield,source.eq.ai-generated,source.eq.nano-banana')
+      .or('source.eq.higgsfield,source.eq.ai-generated,source.eq.nano-banana,category.eq.ai-generated')
       .order('created_at', { ascending: false });
     const items = data || [];
     if (initialIdsRef.current === null) {
