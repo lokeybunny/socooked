@@ -57,6 +57,9 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   const [contentAssets, setContentAssets] = useState<any[]>([]);
   const [mediaPreview, setMediaPreview] = useState<{ url: string; title: string; type: string } | null>(null);
   const [customerNotes, setCustomerNotes] = useState('');
+  const [notesEditing, setNotesEditing] = useState(false);
+  const [notesDraft, setNotesDraft] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   const [customerEmail, setCustomerEmail] = useState<string | null>(null);
@@ -474,28 +477,88 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
                 <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                   <StickyNote className="h-3 w-3" /> Customer Notes
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={() => {
-                    navigator.clipboard.writeText(customerNotes || '');
-                    setCopied(true);
-                    toast.success('Notes copied to clipboard');
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  disabled={!customerNotes}
-                >
-                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  {copied ? 'Copied' : 'Copy'}
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  {notesEditing ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => { setNotesEditing(false); setNotesDraft(''); }}
+                        disabled={notesSaving}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs gap-1.5"
+                        disabled={notesSaving}
+                        onClick={async () => {
+                          setNotesSaving(true);
+                          const { error } = await supabase.from('customers').update({ notes: notesDraft }).eq('id', customerId);
+                          if (error) { toast.error(error.message); } else {
+                            setCustomerNotes(notesDraft);
+                            toast.success('Notes saved');
+                          }
+                          setNotesEditing(false);
+                          setNotesSaving(false);
+                        }}
+                      >
+                        {notesSaving ? 'Saving...' : 'Save'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1.5"
+                        onClick={() => { setNotesDraft(customerNotes); setNotesEditing(true); }}
+                      >
+                        <PenTool className="h-3 w-3" /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs gap-1.5"
+                        onClick={() => {
+                          navigator.clipboard.writeText(customerNotes || '');
+                          setCopied(true);
+                          toast.success('Notes copied to clipboard');
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        disabled={!customerNotes}
+                      >
+                        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copied ? 'Copied' : 'Copy'}
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-              {customerNotes ? (
-                <div className="glass-card p-4 whitespace-pre-wrap text-sm text-foreground select-all leading-relaxed">
+              {notesEditing ? (
+                <textarea
+                  value={notesDraft}
+                  onChange={e => setNotesDraft(e.target.value)}
+                  className="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 leading-relaxed resize-y"
+                  placeholder="Add customer notes..."
+                  autoFocus
+                />
+              ) : customerNotes ? (
+                <div
+                  className="glass-card p-4 whitespace-pre-wrap text-sm text-foreground select-all leading-relaxed cursor-pointer hover:ring-1 hover:ring-ring/30 transition-all"
+                  onDoubleClick={() => { setNotesDraft(customerNotes); setNotesEditing(true); }}
+                  title="Double-click to edit"
+                >
                   {customerNotes}
                 </div>
               ) : (
-                <EmptyState label="customer notes" />
+                <div
+                  className="glass-card p-4 text-sm text-muted-foreground text-center cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => { setNotesDraft(''); setNotesEditing(true); }}
+                >
+                  No notes yet. Click to add notes.
+                </div>
               )}
             </TabsContent>
 
