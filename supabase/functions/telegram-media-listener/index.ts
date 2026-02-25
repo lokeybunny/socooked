@@ -776,6 +776,9 @@ Deno.serve(async (req) => {
     // Ensure bot commands are registered
     await ensureBotCommands(TG_TOKEN)
 
+    // ─── Persistent keyboard button presses — check BEFORE sessions ───
+    const isPersistentButton = ['💰 Invoice', '📱 SMM', '📋 Menu', '❌ Cancel'].includes(text)
+
     // ─── /menu or "📋 Menu" button — show persistent keyboard ───
     if (text.toLowerCase() === '/menu' || text === '📋 Menu' || text.toLowerCase() === '/start') {
       await tgPost(TG_TOKEN, 'sendMessage', {
@@ -985,7 +988,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── Check for active invoice session (multi-turn invoice terminal) ───
-    if (text && !text.startsWith('/')) {
+    if (text && !text.startsWith('/') && !isPersistentButton) {
       const { data: invoiceSessions } = await supabase.from('webhook_events')
         .select('id, payload')
         .eq('source', 'telegram').eq('event_type', 'invoice_session')
@@ -1005,7 +1008,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── Check for active SMM session (multi-turn SMM terminal) ───
-    if (text && !text.startsWith('/')) {
+    if (text && !text.startsWith('/') && !isPersistentButton) {
       const { data: smmSessions } = await supabase.from('webhook_events')
         .select('id, payload')
         .eq('source', 'telegram').eq('event_type', 'smm_session')
@@ -1024,7 +1027,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (text && !text.startsWith('/')) {
+    if (text && !text.startsWith('/') && !isPersistentButton) {
       const { data: sessions } = await supabase.from('webhook_events')
         .select('id, payload')
         .eq('source', 'telegram').eq('event_type', 'xpost_session')
