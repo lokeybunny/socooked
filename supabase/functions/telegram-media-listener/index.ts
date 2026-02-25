@@ -494,17 +494,22 @@ async function processBananaCommand(
   supabaseUrl: string,
   botSecret: string,
   supabase: any,
+  imageUrl?: string,
 ) {
-  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🍌 Generating image...', parse_mode: 'HTML' })
+  const editMode = !!imageUrl
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: editMode ? '🍌 Editing image with reference...' : '🍌 Generating image...', parse_mode: 'HTML' })
 
   try {
+    const payload: Record<string, unknown> = { prompt, provider: 'nano-banana' }
+    if (imageUrl) payload.image_url = imageUrl
+
     const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/generate-content`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-bot-secret': botSecret,
       },
-      body: JSON.stringify({ prompt, provider: 'nano-banana' }),
+      body: JSON.stringify(payload),
     })
     const rawData = await res.json()
     const result = rawData?.data || rawData
@@ -1145,7 +1150,7 @@ Deno.serve(async (req) => {
         if (replyAction === 'banana') {
           await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
           await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'banana_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🍌 <b>Banana Image Generator</b>\n\nDescribe what image you want:\n\n• <code>A sunset over neon mountains</code>\n• <code>Logo for a tech startup</code>\n\n<i>Type your prompt or tap ❌ Cancel to exit.</i>', parse_mode: 'HTML', reply_markup: PAGE_2_KEYBOARD })
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🍌 <b>Banana Image Generator</b>\n\nDescribe what image you want:\n\n• <code>A sunset over neon mountains</code>\n• <code>Logo for a tech startup</code>\n• 📎 <b>Send a photo</b> to use as reference for editing\n\n<i>Type your prompt, attach an image, or tap ❌ Cancel to exit.</i>', parse_mode: 'HTML', reply_markup: PAGE_2_KEYBOARD })
           return new Response('ok')
         }
 
@@ -1365,7 +1370,7 @@ Deno.serve(async (req) => {
       await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'banana_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: '🍌 <b>Banana Image Generator</b>\n\nDescribe what image you want to create.\n\n• <code>A sunset over neon mountains</code>\n• <code>Logo for a tech startup called NovaByte</code>\n• <code>Abstract art with gold and blue tones</code>\n\n<i>Type your prompt or tap ❌ Cancel to exit.</i>',
+        text: '🍌 <b>Banana Image Generator</b>\n\nDescribe what image you want to create.\n\n• <code>A sunset over neon mountains</code>\n• <code>Logo for a tech startup called NovaByte</code>\n• 📎 <b>Send a photo</b> to use as reference for editing\n\n<i>Type your prompt, attach an image, or tap ❌ Cancel to exit.</i>',
         parse_mode: 'HTML',
         reply_markup: PAGE_2_KEYBOARD,
       })
@@ -1627,7 +1632,55 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Check if media was sent during an active banana session (image reference) ───
     const media = extractMedia(message)
+    if (media && media.type === 'image') {
+      const { data: bnMediaSess } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', 'banana_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .limit(1)
+
+      if (bnMediaSess && bnMediaSess.length > 0) {
+        console.log('[banana-tg] image reference received, downloading file_id:', media.fileId)
+        const caption = (message.caption as string) || 'Edit this image'
+        try {
+          // Download from Telegram
+          const fileInfoRes = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/getFile?file_id=${media.fileId}`)
+          const fileInfo = await fileInfoRes.json()
+          const filePath = fileInfo?.result?.file_path
+          if (!filePath) throw new Error('Could not get file path from Telegram')
+
+          const fileRes = await fetch(`https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`)
+          const fileBytes = new Uint8Array(await fileRes.arrayBuffer())
+          const ext = filePath.split('.').pop() || 'jpg'
+          const storagePath = `nano-banana/ref_${Date.now()}_${crypto.randomUUID().slice(0, 8)}.${ext}`
+
+          const { error: upErr } = await supabase.storage
+            .from('content-uploads')
+            .upload(storagePath, fileBytes, { contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`, upsert: true })
+
+          if (upErr) throw new Error(`Storage upload failed: ${upErr.message}`)
+
+          const { data: pubUrl } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
+          const imageUrl = pubUrl.publicUrl
+
+          console.log('[banana-tg] reference image uploaded:', imageUrl)
+          const sp = bnMediaSess[0].payload as { chat_id: number; history: any[]; created: number }
+          await processBananaCommand(chatId, caption, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, imageUrl)
+          return new Response('ok')
+        } catch (e: any) {
+          console.error('[banana-tg] reference image error:', e)
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ <b>Could not process reference image:</b> <code>${(e.message || String(e)).slice(0, 200)}</code>\n\nTry sending the image again, or type a text prompt instead.`,
+            parse_mode: 'HTML',
+          })
+          return new Response('ok')
+        }
+      }
+    }
+
     if (!media) {
       console.log('[telegram-media-listener] no media detected, ignoring')
       return new Response('ok')
