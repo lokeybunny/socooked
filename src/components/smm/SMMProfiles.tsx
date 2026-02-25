@@ -4,7 +4,7 @@ import { smmApi } from '@/lib/smm/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ExternalLink, AlertTriangle, CheckCircle, Bell, Info, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ExternalLink, AlertTriangle, CheckCircle, Bell, Info, Search, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { PLATFORM_META } from '@/lib/smm/context';
 
@@ -22,46 +22,38 @@ interface ConnectedAccount {
   reauth_required?: boolean;
 }
 
-const PAGE_SIZE = 10;
-
 export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProfile[]; onRefresh: () => void }) {
   const [accountInfo, setAccountInfo] = useState<any>(null);
-  const [selectedAccount, setSelectedAccount] = useState<ConnectedAccount | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<(ConnectedAccount & { profileUsername: string }) | null>(null);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
 
   useEffect(() => {
     smmApi.getMe().then(setAccountInfo).catch(() => {});
   }, []);
 
-  // Flatten all connected accounts across profiles
-  const allAccounts: (ConnectedAccount & { profileUsername: string })[] = [];
-  profiles.forEach(p => {
-    p.connected_platforms.filter(cp => cp.connected).forEach(cp => {
-      allAccounts.push({ ...cp, profileUsername: p.username });
-    });
-  });
+  // Build grouped data: profile -> connected accounts
+  const grouped = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return profiles
+      .map(p => {
+        const accounts = p.connected_platforms
+          .filter(cp => cp.connected)
+          .filter(cp =>
+            !q ||
+            cp.display_name.toLowerCase().includes(q) ||
+            cp.platform.toLowerCase().includes(q) ||
+            p.username.toLowerCase().includes(q)
+          )
+          .map(cp => ({ ...cp, profileUsername: p.username }));
+        return { profile: p, accounts };
+      })
+      .filter(g => g.accounts.length > 0);
+  }, [profiles, search]);
 
-  // Search + paginate
-  const filtered = useMemo(() => {
-    if (!search.trim()) return allAccounts;
-    const q = search.toLowerCase();
-    return allAccounts.filter(a =>
-      a.display_name.toLowerCase().includes(q) ||
-      a.platform.toLowerCase().includes(q) ||
-      a.profileUsername.toLowerCase().includes(q)
-    );
-  }, [allAccounts, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const showPagination = filtered.length > PAGE_SIZE;
-
-  // Reset page when search changes
-  useEffect(() => { setPage(1); }, [search]);
+  const totalAccounts = grouped.reduce((sum, g) => sum + g.accounts.length, 0);
+  const allAccountsCount = profiles.reduce((sum, p) => sum + p.connected_platforms.filter(cp => cp.connected).length, 0);
 
   const handleWebhookSave = async () => {
     if (!webhookUrl.trim()) return;
@@ -92,68 +84,73 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
 
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-foreground">Connected Accounts</h3>
-        <p className="text-xs text-muted-foreground">{filtered.length} of {allAccounts.length} accounts</p>
+        <p className="text-xs text-muted-foreground">
+          {search ? `${totalAccounts} of ${allAccountsCount}` : `${allAccountsCount}`} account{allAccountsCount !== 1 ? 's' : ''}
+        </p>
       </div>
 
-      {/* Search */}
-      {allAccounts.length > PAGE_SIZE && (
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, platform, or profile..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      )}
+      {/* Search — always visible */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by handle, platform, or profile..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
 
-      {/* Connected Accounts Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {paginated.map(account => {
-          const meta = PLATFORM_META[account.platform];
-          return (
-            <button
-              key={`${account.profileUsername}-${account.platform}`}
-              onClick={() => setSelectedAccount(account)}
-              className="glass-card p-4 text-left hover:ring-1 hover:ring-primary/30 transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                {meta && <meta.icon className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">@{account.display_name}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{account.platform}</p>
-                </div>
-                <div className="shrink-0">
-                  {account.reauth_required ? (
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  ) : (
-                    <CheckCircle className="h-4 w-4 text-emerald-500" />
-                  )}
-                </div>
+      {/* Grouped Accounts */}
+      {grouped.length > 0 ? (
+        <div className="space-y-5">
+          {grouped.map(({ profile, accounts }) => (
+            <div key={profile.id} className="space-y-2.5">
+              {/* Profile group header */}
+              <div className="flex items-center gap-2 px-1">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {profile.username}
+                </span>
+                <span className="text-[10px] text-muted-foreground/60">
+                  · {accounts.length} account{accounts.length !== 1 ? 's' : ''}
+                </span>
+                <div className="flex-1 border-t border-border/40 ml-2" />
               </div>
-            </button>
-          );
-        })}
-        {filtered.length === 0 && (
-          <div className="col-span-full py-12 text-center text-sm text-muted-foreground">
-            {search ? 'No accounts match your search.' : 'No accounts connected yet. Connect your social accounts through the Upload-Post dashboard.'}
-          </div>
-        )}
-      </div>
 
-      {/* Pagination */}
-      {showPagination && (
-        <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage(p => p - 1)} className="gap-1">
-            <ChevronLeft className="h-3.5 w-3.5" /> Prev
-          </Button>
-          <span className="text-xs text-muted-foreground px-2">
-            Page {safePage} of {totalPages}
-          </span>
-          <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage(p => p + 1)} className="gap-1">
-            Next <ChevronRight className="h-3.5 w-3.5" />
-          </Button>
+              {/* Account cards grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {accounts.map(account => {
+                  const meta = PLATFORM_META[account.platform];
+                  return (
+                    <button
+                      key={`${account.profileUsername}-${account.platform}`}
+                      onClick={() => setSelectedAccount(account)}
+                      className="glass-card p-4 text-left hover:ring-1 hover:ring-primary/30 transition-all group"
+                    >
+                      <div className="flex items-center gap-3">
+                        {meta && <meta.icon className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">@{account.display_name}</p>
+                          <p className="text-xs text-muted-foreground capitalize">{account.platform}</p>
+                        </div>
+                        <div className="shrink-0">
+                          {account.reauth_required ? (
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4 text-emerald-500" />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="py-12 text-center text-sm text-muted-foreground">
+          {search ? 'No accounts match your search.' : 'No accounts connected yet. Connect your social accounts through the Upload-Post dashboard.'}
         </div>
       )}
 
@@ -186,6 +183,10 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
               </SheetHeader>
               <div className="space-y-4 mt-4">
                 <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Profile</span>
+                    <span className="text-sm font-medium">{selectedAccount.profileUsername}</span>
+                  </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Platform</span>
                     <span className="text-sm font-medium capitalize">{selectedAccount.platform}</span>
