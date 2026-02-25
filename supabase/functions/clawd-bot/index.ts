@@ -2885,6 +2885,29 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── SMM: AI Command (prompt-driven scheduler) ────────────
+    if (path === 'smm-command' && req.method === 'POST') {
+      const { prompt, profile, history } = body as { prompt?: string; profile?: string; history?: any[] }
+      if (!prompt) return fail('prompt is required')
+      try {
+        const projectUrl = Deno.env.get('SUPABASE_URL')!
+        const res = await fetch(`${projectUrl}/functions/v1/smm-scheduler`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ prompt, profile: profile || 'STU25', history: history || [] }),
+        })
+        const data = await res.json()
+        await logActivity(supabase, 'smm', null, 'smm-command', `SMM Command: ${(prompt as string).slice(0, 80)}`)
+        return ok(data)
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
     return fail('Unknown endpoint', 404)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
