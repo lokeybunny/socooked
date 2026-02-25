@@ -415,7 +415,11 @@ export default function EmailPage() {
               <p><span className="font-medium text-foreground">Date:</span> {formatDate(viewEmail.date)}</p>
             </div>
             <div className="border-t border-border pt-4">
-              <div className="prose prose-sm dark:prose-invert max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: viewEmail.body || '<p class="text-muted-foreground">No content</p>' }} />
+              <div
+                className="prose prose-sm dark:prose-invert max-w-none text-foreground [&_*]:!text-inherit dark:[&_*]:!text-foreground dark:[&_td]:!text-foreground dark:[&_th]:!text-foreground dark:[&_span]:!text-foreground dark:[&_p]:!text-foreground dark:[&_div]:!text-foreground dark:[&_li]:!text-foreground dark:[&_h1]:!text-foreground dark:[&_h2]:!text-foreground dark:[&_h3]:!text-foreground dark:[&_h4]:!text-foreground dark:[&_a]:!text-primary"
+                style={{ colorScheme: 'auto' }}
+                dangerouslySetInnerHTML={{ __html: viewEmail.body || '<p class="text-muted-foreground">No content</p>' }}
+              />
             </div>
             {viewEmail.attachments && viewEmail.attachments.length > 0 && (
               <div className="border-t border-border pt-4">
