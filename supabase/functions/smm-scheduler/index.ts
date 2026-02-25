@@ -14,10 +14,10 @@ You are an SMM Scheduler AI. You translate natural language into Upload-Post API
 Current UTC time: {{NOW}}
 
 AVAILABLE ACTIONS (call via smm-api edge function):
-1. upload-video — Post a video. Body: { user, title, description?, video (url), platform[] (facebook|instagram|x|linkedin|tiktok|youtube|pinterest), scheduled_date? (ISO 8601 UTC), add_to_queue? (bool), first_comment?, timezone? }
-2. upload-photos — Post photos. Body: { user, title, description?, platform[], scheduled_date?, add_to_queue?, first_comment? }
-3. upload-text — Post text only. Body: { user, title, description?, platform[], scheduled_date?, add_to_queue?, first_comment? }
-4. upload-document — Post a document. Body: { user, title, description?, document (url), platform[], scheduled_date? }
+1. upload-video — Post a video. Body: { user, title, description?, video (url), "platform[]": ["facebook","instagram",...], scheduled_date? (ISO 8601 UTC), add_to_queue? (bool), first_comment?, timezone? }
+2. upload-photos — Post photos. Body: { user, title, description?, "platform[]": [...], scheduled_date?, add_to_queue?, first_comment? }
+3. upload-text — Post text only. ONLY supports: facebook, x, linkedin. Instagram/tiktok/youtube/pinterest do NOT support text-only posts. Body: { user, title, description?, "platform[]": [...], scheduled_date?, add_to_queue?, first_comment? }
+4. upload-document — Post a document. Body: { user, title, description?, document (url), "platform[]": [...], scheduled_date? }
 5. list-scheduled — List all scheduled posts. No body needed.
 6. cancel-scheduled — Cancel a scheduled post. Params: job_id
 7. edit-scheduled — Edit a scheduled post. Params: job_id. Body: { scheduled_date?, title?, caption? }
@@ -37,11 +37,14 @@ AVAILABLE ACTIONS (call via smm-api edge function):
 RULES:
 - The "user" field is the profile username (e.g. "STU25").
 - Platform names for API: facebook, instagram, x, linkedin, tiktok, youtube, pinterest (NOT "twitter" — use "x")
+- IMPORTANT: The body key for platforms MUST be "platform[]" (with brackets), e.g. { "platform[]": ["instagram", "x"] }
+- Instagram, TikTok, YouTube, and Pinterest require media (video or photos) — they do NOT support text-only posts.
 - For scheduling, convert any relative times to ISO 8601 UTC. User is in PST (UTC-8).
 - Return a JSON array of steps. Each step: { "action": "...", "params": {...}, "body": {...}, "description": "human-readable" }
 - If the request is unclear, return: { "clarify": "question to ask" }
 - Never fabricate data. If you need info (like a job_id), say so.
 - For multi-platform posts, use a single call with platform[] array.
+- If user tries to post text to Instagram, tell them Instagram requires an image or video.
 `;
 
 async function callAI(prompt: string, userMessage: string): Promise<string> {
@@ -79,6 +82,19 @@ async function executeSMMAction(action: string, params?: Record<string, string>,
   if (params) Object.entries(params).forEach(([k, v]) => { if (v) searchParams.set(k, v); });
 
   const url = `${SMM_API_URL}?${searchParams}`;
+
+  // Normalize body: ensure "platform" arrays become "platform[]"
+  if (body && typeof body === 'object') {
+    if (body.platform && !body['platform[]']) {
+      body['platform[]'] = Array.isArray(body.platform) ? body.platform : [body.platform];
+      delete body.platform;
+    }
+    // Also add title from description if missing (text posts need it)
+    if (!body.title && body.description) {
+      body.title = body.description;
+    }
+  }
+
   const fetchOpts: RequestInit = {
     method: body ? 'POST' : 'GET',
     headers: {
