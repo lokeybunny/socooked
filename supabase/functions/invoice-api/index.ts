@@ -304,7 +304,7 @@ async function buildInvoicePdfBase64(inv: any, customerName: string): Promise<st
       borderColor: rgb(0.02, 0.50, 0.35),
       borderWidth: 1,
     })
-    page.drawText('✓ PAID IN FULL', {
+    page.drawText('PAID IN FULL', {
       x: left + 12,
       y: totalsY - 57,
       size: 12,
