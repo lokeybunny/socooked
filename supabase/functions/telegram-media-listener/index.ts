@@ -56,6 +56,15 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'menu' | 'cancel' | null {
+  const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').trim().toLowerCase()
+  if (normalized === '/menu' || normalized === '/start' || normalized === 'menu') return 'menu'
+  if (normalized === '/invoice' || normalized === 'invoice') return 'invoice'
+  if (normalized === '/smm' || normalized === 'smm') return 'smm'
+  if (normalized === '/cancel' || normalized === 'cancel') return 'cancel'
+  return null
+}
+
 function extractMedia(message: Record<string, unknown>): { fileId: string; type: string; fileName: string; fileSize: number } | null {
   if (message.photo && Array.isArray(message.photo) && message.photo.length > 0) {
     const largest = message.photo[message.photo.length - 1] as Record<string, unknown>
@@ -721,10 +730,76 @@ Deno.serve(async (req) => {
       }
 
       // Reply was to a bot message but no IG DM or email match found
-      // Check if there's an active session — if so, treat the reply text as a session command
+      // If it's a persistent menu action, handle it directly.
       const replyFromBot = replyToMsg.from?.is_bot === true
       if (replyFromBot) {
         const replyAsText = (message.text as string).trim()
+        const replyAction = resolvePersistentAction(replyAsText)
+
+        if (replyAction === 'menu') {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:',
+            parse_mode: 'HTML',
+            reply_markup: PERSISTENT_KEYBOARD,
+          })
+          return new Response('ok')
+        }
+
+        if (replyAction === 'invoice') {
+          await supabase.from('webhook_events').delete()
+            .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
+            .filter('payload->>chat_id', 'eq', String(chatId))
+          await supabase.from('webhook_events').insert({
+            source: 'telegram',
+            event_type: 'invoice_session',
+            payload: { chat_id: chatId, history: [], created: Date.now() },
+            processed: false,
+          })
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '💰 <b>Invoice Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your invoice commands naturally or tap ❌ Cancel to exit.</i>',
+            parse_mode: 'HTML',
+            reply_markup: PERSISTENT_KEYBOARD,
+          })
+          return new Response('ok')
+        }
+
+        if (replyAction === 'smm') {
+          await supabase.from('webhook_events').delete()
+            .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
+            .filter('payload->>chat_id', 'eq', String(chatId))
+          await supabase.from('webhook_events').insert({
+            source: 'telegram',
+            event_type: 'smm_session',
+            payload: { chat_id: chatId, history: [], created: Date.now() },
+            processed: false,
+          })
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '📱 <b>SMM Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your social media commands naturally or tap ❌ Cancel to exit.</i>',
+            parse_mode: 'HTML',
+            reply_markup: PERSISTENT_KEYBOARD,
+          })
+          return new Response('ok')
+        }
+
+        if (replyAction === 'cancel') {
+          const { data: sessions } = await supabase.from('webhook_events').select('id')
+            .eq('source', 'telegram')
+            .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
+            .filter('payload->>chat_id', 'eq', String(chatId))
+          if (sessions && sessions.length > 0) {
+            await supabase.from('webhook_events').delete()
+              .eq('source', 'telegram')
+              .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
+              .filter('payload->>chat_id', 'eq', String(chatId))
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Session cancelled.', reply_markup: PERSISTENT_KEYBOARD })
+          } else {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: 'ℹ️ Nothing to cancel.', reply_markup: PERSISTENT_KEYBOARD })
+          }
+          return new Response('ok')
+        }
 
         // Check for active invoice session
         const { data: invSess } = await supabase.from('webhook_events')
@@ -777,10 +852,11 @@ Deno.serve(async (req) => {
     await ensureBotCommands(TG_TOKEN)
 
     // ─── Persistent keyboard button presses — check BEFORE sessions ───
-    const isPersistentButton = ['💰 Invoice', '📱 SMM', '📋 Menu', '❌ Cancel'].includes(text)
+    const persistentAction = resolvePersistentAction(text)
+    const isPersistentButton = persistentAction !== null
 
-    // ─── /menu or "📋 Menu" button — show persistent keyboard ───
-    if (text.toLowerCase() === '/menu' || text === '📋 Menu' || text.toLowerCase() === '/start') {
+    // ─── Menu action ───
+    if (persistentAction === 'menu') {
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
         text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:',
@@ -790,8 +866,8 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── "💰 Invoice" button press (persistent keyboard) ───
-    if (text === '💰 Invoice') {
+    // ─── Invoice action ───
+    if (persistentAction === 'invoice') {
       // Clear any existing sessions
       await supabase.from('webhook_events').delete()
         .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
@@ -812,8 +888,8 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── "📱 SMM" button press (persistent keyboard) ───
-    if (text === '📱 SMM') {
+    // ─── SMM action ───
+    if (persistentAction === 'smm') {
       // Clear any existing sessions
       await supabase.from('webhook_events').delete()
         .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
@@ -834,8 +910,8 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── "❌ Cancel" button press (persistent keyboard) ───
-    if (text === '❌ Cancel') {
+    // ─── Cancel action ───
+    if (persistentAction === 'cancel') {
       const { data: sessions } = await supabase.from('webhook_events').select('id')
         .eq('source', 'telegram')
         .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
