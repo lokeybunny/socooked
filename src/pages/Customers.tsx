@@ -12,6 +12,7 @@ import { Plus, Search, Trash2, Instagram, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import CortexTerminal from '@/components/terminal/CortexTerminal';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
 const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '' };
@@ -309,6 +310,14 @@ export default function Customers() {
             </div>
           </div>
         </div>
+
+        <CortexTerminal
+          module="customers"
+          label="Customer Terminal"
+          hint="create & manage customers via prompt"
+          placeholder="e.g. Create a new customer named John Doe with email john@example.com…"
+          edgeFunction="customer-scheduler"
+        />
 
         <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
           <AlertDialogContent>

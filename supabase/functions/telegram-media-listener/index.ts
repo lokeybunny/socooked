@@ -22,6 +22,8 @@ const ALLOWED_GROUP_IDS = [-5295903251]
 const PERSISTENT_KEYBOARD = {
   keyboard: [
     [{ text: '💰 Invoice' }, { text: '📱 SMM' }],
+    [{ text: '👤 Customer' }, { text: '📅 Calendar' }],
+    [{ text: '🗓 Calendly' }, { text: '🤝 Meeting' }],
     [{ text: '📋 Menu' }, { text: '❌ Cancel' }],
   ],
   resize_keyboard: true,
@@ -38,6 +40,10 @@ async function ensureBotCommands(token: string) {
       { command: 'menu', description: '🎛 Open Command Center' },
       { command: 'invoice', description: '💰 Invoice Terminal' },
       { command: 'smm', description: '📱 SMM Terminal' },
+      { command: 'customer', description: '👤 Customer Terminal' },
+      { command: 'calendar', description: '📅 Calendar Terminal' },
+      { command: 'calendly', description: '🗓 Availability Setup' },
+      { command: 'meeting', description: '🤝 Meeting Terminal' },
       { command: 'xpost', description: '📡 Quick post to social media' },
       { command: 'cancel', description: '❌ Cancel active session' },
       { command: 'higs', description: '🎬 Higgsfield model list' },
@@ -56,11 +62,15 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'menu' | 'cancel' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'menu' | 'cancel' | null {
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').trim().toLowerCase()
   if (normalized === '/menu' || normalized === '/start' || normalized === 'menu') return 'menu'
   if (normalized === '/invoice' || normalized === 'invoice') return 'invoice'
   if (normalized === '/smm' || normalized === 'smm') return 'smm'
+  if (normalized === '/customer' || normalized === 'customer') return 'customer'
+  if (normalized === '/calendar' || normalized === 'calendar') return 'calendar'
+  if (normalized === '/calendly' || normalized === 'calendly') return 'calendly'
+  if (normalized === '/meeting' || normalized === 'meeting') return 'meeting'
   if (normalized === '/cancel' || normalized === 'cancel') return 'cancel'
   return null
 }
@@ -261,6 +271,118 @@ async function processSMMCommand(
     await tgPost(tgToken, 'sendMessage', {
       chat_id: chatId,
       text: `❌ <b>SMM command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      parse_mode: 'HTML',
+    })
+  }
+}
+
+// ─── Generic Module Terminal via Telegram (Customer, Calendar, Meeting, Calendly) ───
+async function processModuleCommand(
+  chatId: number,
+  prompt: string,
+  history: { role: string; text: string }[],
+  tgToken: string,
+  supabaseUrl: string,
+  botSecret: string,
+  supabase: any,
+  module: 'customer' | 'calendar' | 'meeting' | 'calendly',
+) {
+  const moduleLabels: Record<string, string> = {
+    customer: '👤 Customer',
+    calendar: '📅 Calendar',
+    meeting: '🤝 Meeting',
+    calendly: '🗓 Calendly',
+  }
+
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: `⏳ Processing ${moduleLabels[module]} command...`, parse_mode: 'HTML' })
+
+  // Map modules to their edge function endpoints
+  const moduleEndpoints: Record<string, { fn: string; bodyExtra?: Record<string, unknown> }> = {
+    customer: { fn: 'customer-scheduler' },
+    calendar: { fn: 'clawd-bot/calendar-command' },
+    meeting: { fn: 'clawd-bot/meeting-command' },
+    calendly: { fn: 'clawd-bot/availability-command' },
+  }
+
+  const endpoint = moduleEndpoints[module]
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/${endpoint.fn}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-bot-secret': botSecret,
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+      },
+      body: JSON.stringify({ prompt, history, ...endpoint.bodyExtra }),
+    })
+    const rawData = await res.json()
+    const result = rawData?.data || rawData
+
+    let replyText = ''
+
+    if (result?.type === 'clarify') {
+      replyText = `❓ ${result.message}`
+    } else if (result?.type === 'executed') {
+      const lines: string[] = []
+      for (const action of result.actions || []) {
+        if (action.success) {
+          lines.push(`✅ ${action.description}`)
+          if (action.data) {
+            const parts: string[] = []
+            if (action.data.customer_id) parts.push(`ID: ${action.data.customer_id}`)
+            if (action.data.full_name) parts.push(action.data.full_name)
+            if (action.data.action) parts.push(action.data.action)
+            if (action.data.message) parts.push(action.data.message)
+            if (action.data.room_url) parts.push(`🔗 ${action.data.room_url}`)
+            if (action.data.date_formatted) parts.push(`📅 ${action.data.date_formatted}`)
+            if (action.data.time_formatted) parts.push(`🕐 ${action.data.time_formatted}`)
+            if (parts.length) lines.push(`  → ${parts.join(' · ')}`)
+          }
+        } else {
+          lines.push(`❌ ${action.description}: ${action.error || 'unknown'}`)
+        }
+      }
+      replyText = lines.join('\n') || '✅ Done.'
+    } else if (result?.type === 'message') {
+      replyText = result.message
+    } else {
+      replyText = `<pre>${JSON.stringify(result, null, 2).slice(0, 3500)}</pre>`
+    }
+
+    // Update conversation history in session
+    const sessionType = `${module}_session`
+    const { data: sessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', sessionType)
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .limit(1)
+
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0]
+      const payload = session.payload as { chat_id: number; history: any[]; created: number }
+      const newHistory = [
+        ...(payload.history || []),
+        { role: 'user', text: prompt },
+        { role: 'assistant', text: replyText.slice(0, 500) },
+      ].slice(-10)
+
+      await supabase.from('webhook_events').update({
+        payload: { ...payload, history: newHistory },
+      }).eq('id', session.id)
+    }
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: replyText.slice(0, 4000),
+      parse_mode: 'HTML',
+    })
+  } catch (e: any) {
+    console.error(`[${module}-tg] error:`, e)
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `❌ <b>${moduleLabels[module]} command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
       parse_mode: 'HTML',
     })
   }
@@ -866,117 +988,48 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session']
+
     // ─── Invoice action ───
     if (persistentAction === 'invoice') {
-      // Clear any existing sessions
-      await supabase.from('webhook_events').delete()
-        .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
-        .filter('payload->>chat_id', 'eq', String(chatId))
-      // Create invoice session
-      await supabase.from('webhook_events').insert({
-        source: 'telegram',
-        event_type: 'invoice_session',
-        payload: { chat_id: chatId, history: [], created: Date.now() },
-        processed: false,
-      })
-      await tgPost(TG_TOKEN, 'sendMessage', {
-        chat_id: chatId,
-        text: '💰 <b>Invoice Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your invoice commands naturally or tap ❌ Cancel to exit.</i>',
-        parse_mode: 'HTML',
-        reply_markup: PERSISTENT_KEYBOARD,
-      })
+      await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'invoice_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '💰 <b>Invoice Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your invoice commands naturally or tap ❌ Cancel to exit.</i>', parse_mode: 'HTML', reply_markup: PERSISTENT_KEYBOARD })
       return new Response('ok')
     }
 
     // ─── SMM action ───
     if (persistentAction === 'smm') {
-      // Clear any existing sessions
-      await supabase.from('webhook_events').delete()
-        .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
-        .filter('payload->>chat_id', 'eq', String(chatId))
-      // Create SMM session
-      await supabase.from('webhook_events').insert({
-        source: 'telegram',
-        event_type: 'smm_session',
-        payload: { chat_id: chatId, history: [], created: Date.now() },
-        processed: false,
-      })
-      await tgPost(TG_TOKEN, 'sendMessage', {
-        chat_id: chatId,
-        text: '📱 <b>SMM Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your social media commands naturally or tap ❌ Cancel to exit.</i>',
-        parse_mode: 'HTML',
-        reply_markup: PERSISTENT_KEYBOARD,
-      })
+      await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'smm_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📱 <b>SMM Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your social media commands naturally or tap ❌ Cancel to exit.</i>', parse_mode: 'HTML', reply_markup: PERSISTENT_KEYBOARD })
+      return new Response('ok')
+    }
+
+    // ─── Customer / Calendar / Calendly / Meeting actions ───
+    if (persistentAction === 'customer' || persistentAction === 'calendar' || persistentAction === 'calendly' || persistentAction === 'meeting') {
+      const labels: Record<string, string> = { customer: '👤 Customer', calendar: '📅 Calendar', calendly: '🗓 Calendly', meeting: '🤝 Meeting' }
+      const hints: Record<string, string> = {
+        customer: 'Create, update, or search customers naturally.\n\n• <code>Create customer John Doe, email john@test.com</code>\n• <code>Update Warren status to active</code>',
+        calendar: 'Add events, check schedule, manage your calendar.\n\n• <code>Add meeting tomorrow at 3pm</code>\n• <code>Show my schedule for next week</code>',
+        calendly: 'Set your availability schedule.\n\n• <code>I\'m available Mon-Wed 2PM-5PM this week</code>\n• <code>Block off Friday</code>',
+        meeting: 'Book meetings with customers.\n\n• <code>Setup a meeting with Warren at 5PM next Tuesday</code>\n• <code>Book a 30-min call with John tomorrow</code>',
+      }
+      const sessionType = `${persistentAction}_session`
+      await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({ source: 'telegram', event_type: sessionType, payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `${labels[persistentAction]} <b>Terminal</b>\n\n${hints[persistentAction]}\n\n<i>Type your commands naturally or tap ❌ Cancel to exit.</i>`, parse_mode: 'HTML', reply_markup: PERSISTENT_KEYBOARD })
       return new Response('ok')
     }
 
     // ─── Cancel action ───
     if (persistentAction === 'cancel') {
-      const { data: sessions } = await supabase.from('webhook_events').select('id')
-        .eq('source', 'telegram')
-        .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
-        .filter('payload->>chat_id', 'eq', String(chatId))
+      const { data: sessions } = await supabase.from('webhook_events').select('id').eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
       if (sessions && sessions.length > 0) {
-        await supabase.from('webhook_events').delete()
-          .eq('source', 'telegram')
-          .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
-          .filter('payload->>chat_id', 'eq', String(chatId))
+        await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
         await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Session cancelled.', reply_markup: PERSISTENT_KEYBOARD })
       } else {
         await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: 'ℹ️ Nothing to cancel.', reply_markup: PERSISTENT_KEYBOARD })
-      }
-      return new Response('ok')
-    }
-    if (text.toLowerCase().startsWith('/xpost')) {
-      console.log('[xpost] fetching profiles from Upload-Post')
-
-      const profRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=list-profiles`, {
-        headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-      })
-      const profData = await profRes.json()
-      const profilesList = profData?.profiles || profData?.users || (Array.isArray(profData) ? profData : [])
-
-      if (!profilesList.length) {
-        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ No profiles connected to Upload-Post API.', parse_mode: 'HTML' })
-        return new Response('ok')
-      }
-
-      // Build numbered profile list with inline keyboard
-      let listText = '📱 <b>Select a profile to post from:</b>\n\n'
-      const rows: { text: string; callback_data: string }[][] = []
-      for (let i = 0; i < profilesList.length; i++) {
-        const p = profilesList[i]
-        const username = p.username || p.id || `profile_${i}`
-        const accts = p.accounts || p.social_accounts || p.connected_accounts || p.platforms || []
-        const platCount = Array.isArray(accts) ? accts.length : 0
-        listText += `<b>${i + 1}.</b> <code>${username}</code> — ${platCount} platform${platCount !== 1 ? 's' : ''}\n`
-        rows.push([{ text: `${i + 1}. ${username}`, callback_data: `xp_prof:${username}` }])
-      }
-      rows.push([{ text: '❌ Cancel', callback_data: 'xp_cancel' }])
-
-      await tgPost(TG_TOKEN, 'sendMessage', {
-        chat_id: chatId,
-        text: listText,
-        parse_mode: 'HTML',
-        reply_markup: { inline_keyboard: rows },
-      })
-      return new Response('ok')
-    }
-
-    // ─── /cancel command — abort active sessions ───
-    if (text.toLowerCase() === '/cancel') {
-      const { data: sessions } = await supabase.from('webhook_events').select('id')
-        .eq('source', 'telegram')
-        .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
-        .filter('payload->>chat_id', 'eq', String(chatId))
-      if (sessions && sessions.length > 0) {
-        await supabase.from('webhook_events').delete()
-          .eq('source', 'telegram')
-          .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
-          .filter('payload->>chat_id', 'eq', String(chatId))
-        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Session cancelled.' })
-      } else {
-        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: 'ℹ️ Nothing to cancel.' })
       }
       return new Response('ok')
     }
