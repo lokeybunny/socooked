@@ -24,12 +24,12 @@ const navItems = [
   { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
   { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true },
   { to: '/threads', icon: MessageSquare, label: 'Script AI' },
-  { to: '/content', icon: FileText, label: 'Content' },
-  { to: '/templates', icon: FileCode2, label: 'Templates' },
-  { to: '/phone', icon: Phone, label: 'Phone' },
-  { to: '/previews', icon: Sparkles, label: 'Previews' },
-  { to: '/landing', icon: Layers, label: 'Landing' },
-  { to: '/ai-staff', icon: Bot, label: 'AI Staff' },
+  { to: '/content', icon: FileText, label: 'Content', highlight: true },
+  { to: '/templates', icon: FileCode2, label: 'Templates', highlight: true },
+  { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
+  { to: '/previews', icon: Sparkles, label: 'Previews', highlight: true },
+  { to: '/landing', icon: Layers, label: 'Landing', highlight: true },
+  { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
 ];
 
 export function Sidebar() {
@@ -104,7 +104,7 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, icon: Icon, label, botIcon }, idx) => {
+          {navItems.map(({ to, icon: Icon, label, botIcon, highlight }, idx) => {
             const isActive = location.pathname === to;
             const showDot = to === '/messages' && hasNewMessages;
             const nextItem = navItems[idx + 1];
@@ -117,7 +117,9 @@ export function Sidebar() {
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
                   isActive
                     ? "bg-accent text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    : highlight
+                      ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   isGrouped && "mb-0"
                 )}
                >
