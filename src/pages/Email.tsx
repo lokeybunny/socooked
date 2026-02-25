@@ -204,7 +204,7 @@ export default function EmailPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    const gmailTab = activeTab === 'customers' ? 'inbox' : activeTab;
+    const gmailTab = (activeTab === 'customers' || activeTab === 'read') ? 'inbox' : activeTab;
     await loadEmails(gmailTab);
     setRefreshing(false);
   };
@@ -311,7 +311,7 @@ export default function EmailPage() {
   const isFromCustomer = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.from.toLowerCase().includes(ce));
   const isToCustomer = (email: GmailEmail) => Array.from(customerEmailSet).some((ce) => email.to.toLowerCase().includes(ce));
 
-  const customerOnlyEmails = emails.filter((e) => isFromCustomer(e));
+  const customerOnlyEmails = emails.filter((e) => isFromCustomer(e) && !readIds.has(e.id));
 
   const handleCustomerSelect = (custId: string) => {
     const cust = customers.find((c) => c.id === custId);

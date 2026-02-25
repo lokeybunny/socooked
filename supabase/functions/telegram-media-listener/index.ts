@@ -872,9 +872,11 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
+        const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session']
+
         if (replyAction === 'invoice') {
           await supabase.from('webhook_events').delete()
-            .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
+            .eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS)
             .filter('payload->>chat_id', 'eq', String(chatId))
           await supabase.from('webhook_events').insert({
             source: 'telegram',
@@ -893,7 +895,7 @@ Deno.serve(async (req) => {
 
         if (replyAction === 'smm') {
           await supabase.from('webhook_events').delete()
-            .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
+            .eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS)
             .filter('payload->>chat_id', 'eq', String(chatId))
           await supabase.from('webhook_events').insert({
             source: 'telegram',
@@ -910,10 +912,37 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
+        // Customer / Calendar / Calendly / Meeting via reply
+        if (replyAction === 'customer' || replyAction === 'calendar' || replyAction === 'calendly' || replyAction === 'meeting') {
+          const labels: Record<string, string> = { customer: '👤 Customer', calendar: '📅 Calendar', calendly: '🗓 Calendly', meeting: '🤝 Meeting' }
+          const hints: Record<string, string> = {
+            customer: 'Create, update, or search customers naturally.\n\n• <code>Create customer John Doe, email john@test.com</code>\n• <code>Update Warren status to active</code>',
+            calendar: 'Add events, check schedule, manage your calendar.\n\n• <code>Add meeting tomorrow at 3pm</code>\n• <code>Show my schedule for next week</code>',
+            calendly: 'Set your availability schedule.\n\n• <code>I\'m available Mon-Wed 2PM-5PM this week</code>\n• <code>Block off Friday</code>',
+            meeting: 'Book meetings with customers.\n\n• <code>Setup a meeting with Warren at 5PM next Tuesday</code>\n• <code>Book a 30-min call with John tomorrow</code>',
+          }
+          await supabase.from('webhook_events').delete()
+            .eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS)
+            .filter('payload->>chat_id', 'eq', String(chatId))
+          await supabase.from('webhook_events').insert({
+            source: 'telegram',
+            event_type: `${replyAction}_session`,
+            payload: { chat_id: chatId, history: [], created: Date.now() },
+            processed: false,
+          })
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `${labels[replyAction]} <b>Terminal</b>\n\n${hints[replyAction]}\n\n<i>Type your commands naturally or tap ❌ Cancel to exit.</i>`,
+            parse_mode: 'HTML',
+            reply_markup: PERSISTENT_KEYBOARD,
+          })
+          return new Response('ok')
+        }
+
         if (replyAction === 'cancel') {
           const { data: sessions } = await supabase.from('webhook_events').select('id')
             .eq('source', 'telegram')
-            .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
+            .in('event_type', ALL_REPLY_SESSIONS)
             .filter('payload->>chat_id', 'eq', String(chatId))
           if (sessions && sessions.length > 0) {
             await supabase.from('webhook_events').delete()
