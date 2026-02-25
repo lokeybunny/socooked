@@ -24,7 +24,17 @@ const PERSISTENT_KEYBOARD = {
     [{ text: '💰 Invoice' }, { text: '📱 SMM' }],
     [{ text: '👤 Customer' }, { text: '📅 Calendar' }],
     [{ text: '🗓 Calendly' }, { text: '🤝 Meeting' }],
-    [{ text: '📦 Custom' }, { text: '❌ Cancel' }],
+    [{ text: '📦 Custom' }, { text: '➡️ More' }],
+    [{ text: '❌ Cancel' }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+}
+
+const PAGE_2_KEYBOARD = {
+  keyboard: [
+    [{ text: '🌐 Web Dev' }, { text: '🍌 Banana' }],
+    [{ text: '⬅️ Back' }, { text: '❌ Cancel' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -66,7 +76,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -78,6 +88,10 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === '/calendly' || normalized === 'calendly') return 'calendly'
   if (normalized === '/meeting' || normalized === 'meeting') return 'meeting'
   if (normalized === '/cancel' || normalized === 'cancel') return 'cancel'
+  if (normalized === 'more' || normalized === '/more') return 'more'
+  if (normalized === 'back' || normalized === '/back') return 'back'
+  if (normalized === 'web dev' || normalized === 'webdev' || normalized === '/webdev') return 'webdev'
+  if (normalized === 'banana' || normalized === '/banana') return 'banana'
   return null
 }
 
@@ -391,6 +405,154 @@ async function processModuleCommand(
     await tgPost(tgToken, 'sendMessage', {
       chat_id: chatId,
       text: `❌ <b>${moduleLabels[module]} command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      parse_mode: 'HTML',
+    })
+  }
+}
+
+// ─── Web Dev Terminal via Telegram (V0 Designer) ───
+async function processWebDevCommand(
+  chatId: number,
+  prompt: string,
+  history: { role: string; text: string }[],
+  tgToken: string,
+  supabaseUrl: string,
+  botSecret: string,
+  supabase: any,
+) {
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🧠 Thinking a bit... generating website...', parse_mode: 'HTML' })
+
+  try {
+    // First try prompt-machine to optimize the prompt, then v0-designer
+    const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/generate-website`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-bot-secret': botSecret,
+      },
+      body: JSON.stringify({ prompt, chat_id: String(chatId) }),
+    })
+    const rawData = await res.json()
+    const result = rawData?.data || rawData
+
+    let replyText = ''
+
+    if (result?.preview_url) {
+      replyText = `✅ <b>Website Generated!</b>\n\n`
+        + `🔗 <a href="${result.preview_url}">Preview</a>`
+        + (result.edit_url ? ` · <a href="${result.edit_url}">Edit</a>` : '')
+        + `\n📋 <i>${prompt.slice(0, 200)}</i>`
+    } else if (result?.id) {
+      replyText = `⏳ <b>Website generation started!</b>\n🆔 <code>${result.id}</code>\n\nYou'll get a notification when it's ready.`
+    } else if (result?.error) {
+      replyText = `❌ ${result.error}`
+    } else {
+      replyText = `<pre>${JSON.stringify(result, null, 2).slice(0, 3500)}</pre>`
+    }
+
+    // Update conversation history
+    const { data: sessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'webdev_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .limit(1)
+
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0]
+      const payload = session.payload as { chat_id: number; history: any[]; created: number }
+      const newHistory = [
+        ...(payload.history || []),
+        { role: 'user', text: prompt },
+        { role: 'assistant', text: replyText.slice(0, 500) },
+      ].slice(-10)
+      await supabase.from('webhook_events').update({ payload: { ...payload, history: newHistory } }).eq('id', session.id)
+    }
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: replyText.slice(0, 4000),
+      parse_mode: 'HTML',
+      disable_web_page_preview: false,
+    })
+  } catch (e: any) {
+    console.error('[webdev-tg] error:', e)
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `❌ <b>Web Dev command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      parse_mode: 'HTML',
+    })
+  }
+}
+
+// ─── Banana (Nano Banana) Terminal via Telegram ───
+async function processBananaCommand(
+  chatId: number,
+  prompt: string,
+  history: { role: string; text: string }[],
+  tgToken: string,
+  supabaseUrl: string,
+  botSecret: string,
+  supabase: any,
+) {
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🍌 Generating image...', parse_mode: 'HTML' })
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/generate-content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-bot-secret': botSecret,
+      },
+      body: JSON.stringify({ prompt, provider: 'nano-banana' }),
+    })
+    const rawData = await res.json()
+    const result = rawData?.data || rawData
+
+    let replyText = ''
+
+    if (result?.url) {
+      replyText = `🍌 <b>Image Generated!</b>\n\n🔗 <a href="${result.url}">View Image</a>\n📋 <i>${prompt.slice(0, 200)}</i>`
+      // Try to send the image directly
+      try {
+        await tgPost(tgToken, 'sendPhoto', { chat_id: chatId, photo: result.url, caption: `🍌 ${prompt.slice(0, 200)}` })
+      } catch { /* fallback to text link above */ }
+    } else if (result?.content_asset_id || result?.id) {
+      replyText = `✅ <b>Image created!</b>\n🆔 <code>${result.content_asset_id || result.id}</code>\n\nCheck the Content Library for your image.`
+    } else if (result?.error) {
+      replyText = `❌ ${result.error}`
+    } else {
+      replyText = `<pre>${JSON.stringify(result, null, 2).slice(0, 3500)}</pre>`
+    }
+
+    // Update conversation history
+    const { data: sessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'banana_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .limit(1)
+
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0]
+      const payload = session.payload as { chat_id: number; history: any[]; created: number }
+      const newHistory = [
+        ...(payload.history || []),
+        { role: 'user', text: prompt },
+        { role: 'assistant', text: replyText.slice(0, 500) },
+      ].slice(-10)
+      await supabase.from('webhook_events').update({ payload: { ...payload, history: newHistory } }).eq('id', session.id)
+    }
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: replyText.slice(0, 4000),
+      parse_mode: 'HTML',
+      disable_web_page_preview: false,
+    })
+  } catch (e: any) {
+    console.error('[banana-tg] error:', e)
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `❌ <b>Banana command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
       parse_mode: 'HTML',
     })
   }
@@ -876,7 +1038,7 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
-        const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session']
+        const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session']
 
         if (replyAction === 'custom') {
           await supabase.from('webhook_events').delete()
@@ -964,6 +1126,28 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
+        // More / Back / Web Dev / Banana via reply
+        if (replyAction === 'more') {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🎛 <b>Page 2 — Creative Tools</b>\n\nTap a button below:', parse_mode: 'HTML', reply_markup: PAGE_2_KEYBOARD })
+          return new Response('ok')
+        }
+        if (replyAction === 'back') {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:', parse_mode: 'HTML', reply_markup: PERSISTENT_KEYBOARD })
+          return new Response('ok')
+        }
+        if (replyAction === 'webdev') {
+          await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+          await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'webdev_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🌐 <b>Web Dev Terminal</b>\n\nDescribe what you want to build:\n\n• <code>Build a modern landing page for a coffee shop</code>\n• <code>Create a minimalist portfolio</code>\n\n<i>Type your prompt or tap ❌ Cancel to exit.</i>', parse_mode: 'HTML', reply_markup: PAGE_2_KEYBOARD })
+          return new Response('ok')
+        }
+        if (replyAction === 'banana') {
+          await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+          await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'banana_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🍌 <b>Banana Image Generator</b>\n\nDescribe what image you want:\n\n• <code>A sunset over neon mountains</code>\n• <code>Logo for a tech startup</code>\n\n<i>Type your prompt or tap ❌ Cancel to exit.</i>', parse_mode: 'HTML', reply_markup: PAGE_2_KEYBOARD })
+          return new Response('ok')
+        }
+
         if (replyAction === 'cancel') {
           const { data: sessions } = await supabase.from('webhook_events').select('id')
             .eq('source', 'telegram')
@@ -1007,7 +1191,30 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Check for active SMM session
+        // Check for active Web Dev session
+        const { data: wdSess } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'webdev_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+          .limit(1)
+        if (wdSess && wdSess.length > 0) {
+          const sp = wdSess[0].payload as { chat_id: number; history: any[]; created: number }
+          await processWebDevCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+          return new Response('ok')
+        }
+
+        // Check for active Banana session
+        const { data: bnSess } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'banana_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+          .limit(1)
+        if (bnSess && bnSess.length > 0) {
+          const sp = bnSess[0].payload as { chat_id: number; history: any[]; created: number }
+          await processBananaCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+          return new Response('ok')
+        }
+
         const { data: smmSess } = await supabase.from('webhook_events')
           .select('id, payload')
           .eq('source', 'telegram').eq('event_type', 'smm_session')
@@ -1067,7 +1274,7 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session']
+    const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session']
 
     // ─── Custom-U action ───
     if (persistentAction === 'custom') {
@@ -1113,6 +1320,54 @@ Deno.serve(async (req) => {
       await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
       await supabase.from('webhook_events').insert({ source: 'telegram', event_type: sessionType, payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
       await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `${labels[persistentAction]} <b>Terminal</b>\n\n${hints[persistentAction]}\n\n<i>Type your commands naturally or tap ❌ Cancel to exit.</i>`, parse_mode: 'HTML', reply_markup: PERSISTENT_KEYBOARD })
+      return new Response('ok')
+    }
+
+    // ─── More action — show Page 2 keyboard ───
+    if (persistentAction === 'more') {
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🎛 <b>Page 2 — Creative Tools</b>\n\nTap a button below:',
+        parse_mode: 'HTML',
+        reply_markup: PAGE_2_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
+    // ─── Back action — return to main keyboard ───
+    if (persistentAction === 'back') {
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:',
+        parse_mode: 'HTML',
+        reply_markup: PERSISTENT_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
+    // ─── Web Dev action ───
+    if (persistentAction === 'webdev') {
+      await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'webdev_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🌐 <b>Web Dev Terminal</b>\n\nDescribe what you want to build and I\'ll generate it using V0.\n\n• <code>Build a modern landing page for a coffee shop</code>\n• <code>Create a minimalist portfolio with dark mode</code>\n• <code>Design a SaaS pricing page with 3 tiers</code>\n\n<i>Type your prompt or tap ❌ Cancel to exit.</i>',
+        parse_mode: 'HTML',
+        reply_markup: PAGE_2_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
+    // ─── Banana (Nano Banana) action ───
+    if (persistentAction === 'banana') {
+      await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'banana_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🍌 <b>Banana Image Generator</b>\n\nDescribe what image you want to create.\n\n• <code>A sunset over neon mountains</code>\n• <code>Logo for a tech startup called NovaByte</code>\n• <code>Abstract art with gold and blue tones</code>\n\n<i>Type your prompt or tap ❌ Cancel to exit.</i>',
+        parse_mode: 'HTML',
+        reply_markup: PAGE_2_KEYBOARD,
+      })
       return new Response('ok')
     }
 
@@ -1230,7 +1485,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Check for active module sessions (customer, calendar, calendly, meeting) — checked BEFORE SMM ───
+    // ─── Check for active Web Dev session ───
+    if (text && !text.startsWith('/') && !isPersistentButton) {
+      const { data: wdSessions } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', 'webdev_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (wdSessions && wdSessions.length > 0) {
+        const session = wdSessions[0]
+        const sp = session.payload as { chat_id: number; history: any[]; created: number }
+        console.log('[webdev-tg] session active, processing:', text.slice(0, 100))
+        await processWebDevCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+        return new Response('ok')
+      }
+    }
+
+    // ─── Check for active Banana session ───
+    if (text && !text.startsWith('/') && !isPersistentButton) {
+      const { data: bnSessions } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', 'banana_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (bnSessions && bnSessions.length > 0) {
+        const session = bnSessions[0]
+        const sp = session.payload as { chat_id: number; history: any[]; created: number }
+        console.log('[banana-tg] session active, processing:', text.slice(0, 100))
+        await processBananaCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+        return new Response('ok')
+      }
+    }
     if (text && !text.startsWith('/') && !isPersistentButton) {
       for (const mod of ['customer', 'calendar', 'calendly', 'meeting', 'custom'] as const) {
         const { data: modSessions } = await supabase.from('webhook_events')
