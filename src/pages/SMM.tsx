@@ -38,7 +38,7 @@ const UNREAD_COUNTS: Record<string, number> = {};
 
 function filterPosts(posts: ScheduledPost[], profileId: string, platform: string): ScheduledPost[] {
   return posts
-    .filter(p => !profileId || p.profile_id === profileId)
+    .filter(p => !profileId || p.profile_id === profileId || p.profile_username === profileId)
     .filter(p => platform === 'all' || p.platforms.includes(platform as Platform));
 }
 
