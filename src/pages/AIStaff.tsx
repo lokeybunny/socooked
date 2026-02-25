@@ -16,7 +16,7 @@ const AGENTS = [
   { id: 'research-finder', label: 'Research Finder', role: 'Research Agent — Coming Soon', icon: Search, color: 'from-teal-500 to-emerald-600', ring: 'ring-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', pulse: 'bg-teal-500', connected: false, group: 'clawd' },
   { id: 'crm-maintenance', label: 'Zyla - Cortex', role: 'Operations Agent — Cortex AI', icon: Brain, color: 'from-indigo-500 to-blue-600', ring: 'ring-indigo-500/30', bg: 'bg-indigo-500/10', text: 'text-indigo-400', pulse: 'bg-indigo-500', connected: true, group: 'standalone' },
   { id: 'email-bot', label: 'E-Mail', role: 'Email Agent — Outbound/Inbound', icon: Mail, color: 'from-sky-500 to-blue-600', ring: 'ring-sky-500/30', bg: 'bg-sky-500/10', text: 'text-sky-400', pulse: 'bg-sky-500', connected: true, group: 'standalone' },
-  { id: 'gmail-bot', label: 'Gmail', role: 'Gmail API — warren@stu25.com', icon: Inbox, color: 'from-red-500 to-rose-600', ring: 'ring-red-500/30', bg: 'bg-red-500/10', text: 'text-red-400', pulse: 'bg-red-500', connected: true, group: 'standalone' },
+  { id: 'gmail-bot', label: 'SM Planner', role: 'Social Media Planner — Scheduler', icon: Inbox, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500', connected: true, group: 'standalone' },
 ] as const;
 
 type AgentId = typeof AGENTS[number]['id'];
