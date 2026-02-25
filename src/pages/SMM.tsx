@@ -33,7 +33,7 @@ const TABS = [
   { value: 'instagram', label: 'IG Inbox', icon: MessageSquare },
 ];
 
-const UNREAD_COUNTS: Record<string, number> = { instagram: 2 };
+const UNREAD_COUNTS: Record<string, number> = {};
 
 function filterPosts(posts: ScheduledPost[], profileId: string, platform: string): ScheduledPost[] {
   return posts
