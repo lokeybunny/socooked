@@ -196,6 +196,32 @@ export const smmApi = {
     }
 
     const data = await invokeSMM(action, undefined, formBody);
+
+    // Create bot_task so social-media agent shows activity on AI Staff page
+    try {
+      const taskTitle = `📱 ${post.title.substring(0, 60)}${post.title.length > 60 ? '...' : ''}`;
+      const platformNames = post.platforms.map(p => p === 'twitter' ? 'x' : p);
+      await supabase.from('bot_tasks').insert({
+        title: taskTitle,
+        description: post.description || post.title,
+        bot_agent: 'social-media',
+        priority: 'medium',
+        status: post.scheduled_date ? 'queued' : post.add_to_queue ? 'queued' : 'completed',
+        meta: {
+          type: post.type,
+          platforms: platformNames,
+          user: post.user,
+          scheduled: !!post.scheduled_date,
+          queued: !!post.add_to_queue,
+          request_id: data?.request_id,
+          job_id: data?.job_id,
+          source: 'dashboard-composer',
+        },
+      });
+    } catch (e) {
+      console.warn('[smm] bot_task creation failed:', e);
+    }
+
     return data;
   },
 
