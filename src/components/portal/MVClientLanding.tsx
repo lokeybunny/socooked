@@ -3,9 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Play, ChevronRight, Loader2 } from 'lucide-react';
 
+interface AssignedAsset {
+  id: string;
+  title: string;
+  url: string;
+  type: string;
+}
+
 interface MVClientLandingProps {
   firstName: string;
   onContinue: () => void;
+  assignedAssets?: AssignedAsset[];
 }
 
 interface MVVideo {
@@ -20,11 +28,18 @@ const FALLBACK_VIDEOS = [
   { title: 'Social Media Teaser', thumbnail: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=600&q=80' },
 ];
 
-export default function MVClientLanding({ firstName, onContinue }: MVClientLandingProps) {
+export default function MVClientLanding({ firstName, onContinue, assignedAssets = [] }: MVClientLandingProps) {
   const [mvVideos, setMvVideos] = useState<MVVideo[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(true);
 
+  // If customer has assigned content, use that instead of generic landing videos
+  const hasAssignedContent = assignedAssets.length > 0;
+
   useEffect(() => {
+    if (hasAssignedContent) {
+      setLoadingVideos(false);
+      return;
+    }
     const load = async () => {
       const { data } = await supabase
         .from('site_configs')
@@ -39,7 +54,7 @@ export default function MVClientLanding({ firstName, onContinue }: MVClientLandi
       setLoadingVideos(false);
     };
     load();
-  }, []);
+  }, [hasAssignedContent]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12">
@@ -51,13 +66,32 @@ export default function MVClientLanding({ firstName, onContinue }: MVClientLandi
             Hey {firstName} 👋
           </h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Check out some sample music videos we've crafted. These are the styles and quality you can expect for your project.
+            {hasAssignedContent
+              ? "Here's the content we've created for your project so far. Take a look!"
+              : "Check out some sample music videos we've crafted. These are the styles and quality you can expect for your project."}
           </p>
         </div>
 
         {/* Videos Grid */}
         {loadingVideos ? (
           <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        ) : hasAssignedContent ? (
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 max-w-xl mx-auto">
+            {assignedAssets.filter(a => a.url).map((asset, i) => (
+              <div key={asset.id || i} className="group glass-card overflow-hidden rounded-xl border border-border hover:border-primary/40 transition-all hover:shadow-lg">
+                <div className={`relative overflow-hidden bg-muted ${asset.type === 'video' ? 'aspect-[9/16]' : 'aspect-square'}`}>
+                  {asset.type === 'video' ? (
+                    <video src={asset.url} className="w-full h-full object-cover" controls preload="metadata" />
+                  ) : (
+                    <img src={asset.url} alt={asset.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                  )}
+                </div>
+                <div className="p-3">
+                  <h3 className="text-sm font-semibold text-foreground truncate">{asset.title}</h3>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : mvVideos.length > 0 ? (
           <div className="grid gap-4 grid-cols-3 max-w-xl mx-auto">
             {mvVideos.map((video, i) => (
