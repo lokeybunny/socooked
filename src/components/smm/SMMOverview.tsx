@@ -39,7 +39,7 @@ export default function SMMOverview({ posts, allPosts, profiles }: Props) {
   const total7d = posts.filter(p => new Date(p.created_at) > new Date(Date.now() - 604800000));
   const successRate = total7d.length ? Math.round((completed7d.length / total7d.length) * 100) : 100;
   const queued = posts.filter(p => p.status === 'queued' || p.status === 'scheduled').sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
-  const recent = [...posts].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 10);
+  const recent = [...posts].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 4);
 
   // By-platform view data
   const activePlatforms = EXTENDED_PLATFORMS.filter(p => p !== 'all' && allPosts.some(post => post.platforms.includes(p as Platform)));
