@@ -18,6 +18,33 @@ const TG_API = 'https://api.telegram.org/bot'
 // Group IDs the bot should listen in (add more as needed)
 const ALLOWED_GROUP_IDS = [-5205597217]
 
+// Persistent reply keyboard — always visible to user
+const PERSISTENT_KEYBOARD = {
+  keyboard: [
+    [{ text: '💰 Invoice' }, { text: '📱 SMM' }],
+    [{ text: '📋 Menu' }, { text: '❌ Cancel' }],
+  ],
+  resize_keyboard: true,
+  is_persistent: true,
+}
+
+// Register bot commands + set persistent keyboard on first call
+let commandsRegistered = false
+async function ensureBotCommands(token: string) {
+  if (commandsRegistered) return
+  commandsRegistered = true
+  await tgPost(token, 'setMyCommands', {
+    commands: [
+      { command: 'menu', description: '🎛 Open Command Center' },
+      { command: 'invoice', description: '💰 Invoice Terminal' },
+      { command: 'smm', description: '📱 SMM Terminal' },
+      { command: 'xpost', description: '📡 Quick post to social media' },
+      { command: 'cancel', description: '❌ Cancel active session' },
+      { command: 'higs', description: '🎬 Higgsfield model list' },
+    ],
+  })
+}
+
 async function tgPost(token: string, method: string, body: Record<string, unknown>) {
   const res = await fetch(`${TG_API}${token}/${method}`, {
     method: 'POST',
@@ -723,19 +750,79 @@ Deno.serve(async (req) => {
     // ─── /xpost command — interactive social posting ───
     const text = (message.text as string || '').trim()
 
-    // ─── /menu command — remote control with inline buttons ───
-    if (text.toLowerCase() === '/menu') {
+    // Ensure bot commands are registered
+    await ensureBotCommands(TG_TOKEN)
+
+    // ─── /menu or "📋 Menu" button — show persistent keyboard ───
+    if (text.toLowerCase() === '/menu' || text === '📋 Menu' || text.toLowerCase() === '/start') {
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: '🎛 <b>Command Center</b>\n\nSelect a terminal to get started:',
+        text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:',
         parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '💰 Invoice Terminal', callback_data: 'menu_invoice' }],
-            [{ text: '📱 SMM Terminal', callback_data: 'menu_smm' }],
-          ],
-        },
+        reply_markup: PERSISTENT_KEYBOARD,
       })
+      return new Response('ok')
+    }
+
+    // ─── "💰 Invoice" button press (persistent keyboard) ───
+    if (text === '💰 Invoice') {
+      // Clear any existing sessions
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      // Create invoice session
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'invoice_session',
+        payload: { chat_id: chatId, history: [], created: Date.now() },
+        processed: false,
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '💰 <b>Invoice Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your invoice commands naturally or tap ❌ Cancel to exit.</i>',
+        parse_mode: 'HTML',
+        reply_markup: PERSISTENT_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
+    // ─── "📱 SMM" button press (persistent keyboard) ───
+    if (text === '📱 SMM') {
+      // Clear any existing sessions
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      // Create SMM session
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'smm_session',
+        payload: { chat_id: chatId, history: [], created: Date.now() },
+        processed: false,
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '📱 <b>SMM Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your social media commands naturally or tap ❌ Cancel to exit.</i>',
+        parse_mode: 'HTML',
+        reply_markup: PERSISTENT_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
+    // ─── "❌ Cancel" button press (persistent keyboard) ───
+    if (text === '❌ Cancel') {
+      const { data: sessions } = await supabase.from('webhook_events').select('id')
+        .eq('source', 'telegram')
+        .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      if (sessions && sessions.length > 0) {
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram')
+          .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Session cancelled.', reply_markup: PERSISTENT_KEYBOARD })
+      } else {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: 'ℹ️ Nothing to cancel.', reply_markup: PERSISTENT_KEYBOARD })
+      }
       return new Response('ok')
     }
     if (text.toLowerCase().startsWith('/xpost')) {
