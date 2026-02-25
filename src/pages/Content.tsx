@@ -929,6 +929,20 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
                     </button>
                   )
                 )}
+                {a.category !== 'ai-generated' && (
+                  <button
+                    onClick={async () => {
+                      const { error } = await supabase.from('content_assets').update({ category: 'ai-generated' }).eq('id', a.id);
+                      if (error) { toast.error('Failed to push'); return; }
+                      toast.success('Pushed to AI Generated', { description: a.title });
+                    }}
+                    className="flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors"
+                    title="Push to AI Generated"
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    <Sparkles className="h-2.5 w-2.5" />
+                  </button>
+                )}
                 <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
