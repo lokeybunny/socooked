@@ -59,11 +59,11 @@ export default function MVClientLanding({ firstName, onContinue }: MVClientLandi
         {loadingVideos ? (
           <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : mvVideos.length > 0 ? (
-          <div className="grid gap-4 grid-cols-3 max-w-xl mx-auto">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-xl mx-auto">
             {mvVideos.map((video, i) => (
               <div key={video.id || i} className="group glass-card overflow-hidden rounded-xl border border-border hover:border-primary/40 transition-all hover:shadow-lg">
                 <div className="relative aspect-[9/16] overflow-hidden bg-muted">
-                  <video src={video.url} className="w-full h-full object-cover" controls preload="metadata" />
+                  <video src={video.url} className="w-full h-full object-cover" controls preload="metadata" playsInline />
                 </div>
                 <div className="p-3">
                   <h3 className="text-sm font-semibold text-foreground truncate">{video.title}</h3>
