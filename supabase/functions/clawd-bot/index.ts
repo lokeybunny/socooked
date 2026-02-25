@@ -3142,6 +3142,65 @@ Deno.serve(async (req) => {
       return ok({ action: 'cleared', profile: smmProfile })
     }
 
+    // ─── INVOICE: AI Command (prompt-driven scheduler via Cortex) ──
+    if (path === 'invoice-command' && req.method === 'POST') {
+      const { prompt, history: manualHistory } = body as {
+        prompt?: string; history?: any[]
+      }
+      if (!prompt) return fail('prompt is required')
+
+      try {
+        const projectUrl = Deno.env.get('SUPABASE_URL')!
+        const res = await fetch(`${projectUrl}/functions/v1/invoice-scheduler`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+            'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ prompt, history: manualHistory }),
+        })
+        const data = await res.json()
+
+        // Notify Telegram on successful invoice executions
+        if (data.type === 'executed' && Array.isArray(data.actions)) {
+          const successActions = data.actions.filter((a: any) => a.success)
+          if (successActions.length > 0) {
+            const summaryLines = successActions.map((a: any) => `✅ ${a.description || a.action}`).join('\n')
+            const failedActions = data.actions.filter((a: any) => !a.success)
+            const failLines = failedActions.length
+              ? '\n' + failedActions.map((a: any) => `❌ ${a.description || a.action}: ${a.error || 'unknown'}`).join('\n')
+              : ''
+            try {
+              await fetch(`${projectUrl}/functions/v1/telegram-notify`, {
+                method: 'POST',
+                headers: {
+                  'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  entity_type: 'invoice',
+                  action: 'created',
+                  meta: {
+                    message: `💰 *Invoice via Cortex*\n${summaryLines}${failLines}`,
+                  },
+                  created_at: new Date().toISOString(),
+                }),
+              })
+            } catch (tgErr) {
+              console.error('[invoice-command] telegram notify error:', tgErr)
+            }
+          }
+        }
+
+        await logActivity(supabase, 'invoice', null, 'invoice-command', `Invoice Command: ${(prompt as string).slice(0, 80)}`)
+        return ok(data)
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
     return fail('Unknown endpoint', 404)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
