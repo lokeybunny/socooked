@@ -16,7 +16,7 @@ const corsHeaders = {
 const TG_API = 'https://api.telegram.org/bot'
 
 // Group IDs the bot should listen in (add more as needed)
-const ALLOWED_GROUP_IDS = [-5205597217]
+const ALLOWED_GROUP_IDS = [-5295903251]
 
 // Persistent reply keyboard — always visible to user
 const PERSISTENT_KEYBOARD = {
