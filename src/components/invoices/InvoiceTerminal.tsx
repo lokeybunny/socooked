@@ -41,8 +41,17 @@ export default function InvoiceTerminal() {
     setLoading(true);
 
     try {
+      // Build conversation history from previous lines
+      const history = lines
+        .filter(l => l.type === 'input' || l.type === 'success' || l.type === 'output')
+        .slice(-10)
+        .map(l => ({
+          role: l.type === 'input' ? 'user' : 'assistant',
+          text: l.text.replace(/^> /, ''),
+        }));
+
       const { data, error } = await supabase.functions.invoke('invoice-scheduler', {
-        body: { prompt: cmd },
+        body: { prompt: cmd, history },
       });
 
       if (error) {
