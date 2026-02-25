@@ -719,34 +719,108 @@ Deno.serve(async (req) => {
     }
 
     if (path === 'invoice' && req.method === 'POST') {
-      const { id, customer_id, deal_id, line_items, tax_rate, subtotal, amount, status, due_date, notes, currency } = body
+      const { id, customer_id, deal_id, line_items, tax_rate, subtotal, amount, status, due_date, notes, currency, auto_send } = body
+      const shouldAutoSend = auto_send === true || auto_send === 'true'
+
+      const normalizedLineItems = Array.isArray(line_items)
+        ? line_items.map((item: any) => {
+            const qtyRaw = Number(item?.quantity ?? 1)
+            const unitRaw = Number(item?.unit_price ?? item?.amount ?? 0)
+            return {
+              description: String(item?.description || 'Item'),
+              quantity: Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1,
+              unit_price: Number.isFinite(unitRaw) ? unitRaw : 0,
+            }
+          })
+        : []
+
+      const normalizedTaxRate = Number(tax_rate ?? 0)
+      const computedSubtotal = normalizedLineItems.reduce((sum: number, li: any) => sum + (Number(li.quantity) * Number(li.unit_price)), 0)
+      const computedTotal = computedSubtotal + (computedSubtotal * (Number.isFinite(normalizedTaxRate) ? normalizedTaxRate : 0) / 100)
+      const normalizedAmount = Number(amount ?? computedTotal)
+      const statusText = typeof status === 'string' ? status.toLowerCase() : null
+      const normalizedStatus = statusText && ['draft', 'sent', 'paid', 'void'].includes(statusText) ? statusText : null
+
       if (id) {
         const updates: Record<string, unknown> = {}
-        if (line_items) updates.line_items = line_items
-        if (tax_rate !== undefined) updates.tax_rate = tax_rate
-        if (subtotal !== undefined) updates.subtotal = subtotal
-        if (amount !== undefined) updates.amount = amount
-        if (status) updates.status = status
+        if (line_items) {
+          updates.line_items = normalizedLineItems
+          if (subtotal === undefined) updates.subtotal = computedSubtotal
+          if (amount === undefined) updates.amount = computedTotal
+        }
+        if (tax_rate !== undefined) updates.tax_rate = normalizedTaxRate
+        if (subtotal !== undefined) updates.subtotal = Number(subtotal)
+        if (amount !== undefined) updates.amount = normalizedAmount
+        if (normalizedStatus) updates.status = normalizedStatus
         if (due_date !== undefined) updates.due_date = due_date
         if (notes !== undefined) updates.notes = notes
         if (currency) updates.currency = currency
-        if (status === 'sent') updates.sent_at = new Date().toISOString()
-        if (status === 'paid') updates.paid_at = new Date().toISOString()
+        if (normalizedStatus === 'sent') updates.sent_at = new Date().toISOString()
+        if (normalizedStatus === 'paid') updates.paid_at = new Date().toISOString()
+
         const { error } = await supabase.from('invoices').update(updates).eq('id', id)
         if (error) return fail(error.message)
         await logActivity(supabase, 'invoice', id, 'updated')
-        return ok({ action: 'updated', invoice_id: id })
+
+        let sendResult: any = null
+        if (shouldAutoSend) {
+          const invoiceApiUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/invoice-api?action=send-invoice`
+          const sendRes = await fetch(invoiceApiUrl, {
+            method: 'POST',
+            headers: {
+              'x-bot-secret': Deno.env.get('BOT_SECRET') || '',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ invoice_id: id }),
+          })
+          const sendData = await sendRes.json()
+          if (!sendRes.ok) return fail(sendData.error || 'Invoice updated but failed to send email', sendRes.status)
+          sendResult = sendData.data || sendData
+        }
+
+        return ok({ action: 'updated', invoice_id: id, ...(sendResult ? { send: sendResult } : {}) })
       }
+
       if (!customer_id) return fail('customer_id is required')
-      const { data, error } = await supabase.from('invoices').insert({
-        customer_id, deal_id: deal_id || null, line_items: line_items || [],
-        tax_rate: tax_rate || 0, subtotal: subtotal || 0, amount: amount || 0,
-        status: status || 'draft', due_date: due_date || null, notes: notes || null,
+
+      const insertStatus = normalizedStatus ?? (shouldAutoSend ? 'sent' : 'draft')
+      const insertData: Record<string, unknown> = {
+        customer_id,
+        deal_id: deal_id || null,
+        line_items: normalizedLineItems,
+        tax_rate: Number.isFinite(normalizedTaxRate) ? normalizedTaxRate : 0,
+        subtotal: subtotal !== undefined ? Number(subtotal) : computedSubtotal,
+        amount: amount !== undefined ? normalizedAmount : computedTotal,
+        status: insertStatus,
+        due_date: due_date || null,
+        notes: notes || null,
         currency: currency || 'USD',
-      }).select('id, invoice_number').single()
+      }
+
+      if (insertStatus === 'sent' || shouldAutoSend) insertData.sent_at = new Date().toISOString()
+      if (insertStatus === 'paid') insertData.paid_at = new Date().toISOString()
+
+      const { data, error } = await supabase.from('invoices').insert(insertData).select('id, invoice_number').single()
       if (error) return fail(error.message)
       await logActivity(supabase, 'invoice', data?.id, 'created', data?.invoice_number)
-      return ok({ action: 'created', invoice_id: data?.id, invoice_number: data?.invoice_number })
+
+      let sendResult: any = null
+      if (shouldAutoSend && data?.id) {
+        const invoiceApiUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/invoice-api?action=send-invoice`
+        const sendRes = await fetch(invoiceApiUrl, {
+          method: 'POST',
+          headers: {
+            'x-bot-secret': Deno.env.get('BOT_SECRET') || '',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ invoice_id: data.id }),
+        })
+        const sendData = await sendRes.json()
+        if (!sendRes.ok) return fail(sendData.error || 'Invoice created but failed to send email', sendRes.status)
+        sendResult = sendData.data || sendData
+      }
+
+      return ok({ action: 'created', invoice_id: data?.id, invoice_number: data?.invoice_number, ...(sendResult ? { send: sendResult } : {}) })
     }
 
     if (path === 'invoice' && req.method === 'DELETE') {
