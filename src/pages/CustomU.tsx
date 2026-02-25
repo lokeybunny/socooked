@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Link2, Copy, ExternalLink, Search, RefreshCw, Trash2 } from 'lucide-react';
+import CortexTerminal from '@/components/terminal/CortexTerminal';
 
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -157,6 +158,13 @@ export default function CustomU() {
             )}
           </>
         )}
+        <CortexTerminal
+          module="custom-u"
+          label="Custom-U Terminal"
+          hint="generate, send & revoke upload links"
+          placeholder="e.g. Send Warren his upload portal link..."
+          edgeFunction="custom-u-scheduler"
+        />
       </div>
     </AppLayout>
   );

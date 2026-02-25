@@ -24,7 +24,7 @@ const PERSISTENT_KEYBOARD = {
     [{ text: '💰 Invoice' }, { text: '📱 SMM' }],
     [{ text: '👤 Customer' }, { text: '📅 Calendar' }],
     [{ text: '🗓 Calendly' }, { text: '🤝 Meeting' }],
-    [{ text: '📋 Menu' }, { text: '❌ Cancel' }],
+    [{ text: '📦 Custom' }, { text: '❌ Cancel' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -37,7 +37,7 @@ async function ensureBotCommands(token: string) {
   commandsRegistered = true
   await tgPost(token, 'setMyCommands', {
     commands: [
-      { command: 'menu', description: '🎛 Open Command Center' },
+      { command: 'custom', description: '📦 Custom-U Portal Links' },
       { command: 'invoice', description: '💰 Invoice Terminal' },
       { command: 'smm', description: '📱 SMM Terminal' },
       { command: 'customer', description: '👤 Customer Terminal' },
@@ -66,9 +66,9 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'menu' | 'cancel' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'cancel' | null {
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').trim().toLowerCase()
-  if (normalized === '/menu' || normalized === '/start' || normalized === 'menu') return 'menu'
+  if (normalized === '/custom' || normalized === 'custom' || normalized === 'custom-u') return 'custom'
   if (normalized === '/invoice' || normalized === 'invoice') return 'invoice'
   if (normalized === '/smm' || normalized === 'smm') return 'smm'
   if (normalized === '/customer' || normalized === 'customer') return 'customer'
@@ -289,13 +289,14 @@ async function processModuleCommand(
   supabaseUrl: string,
   botSecret: string,
   supabase: any,
-  module: 'customer' | 'calendar' | 'meeting' | 'calendly',
+  module: 'customer' | 'calendar' | 'meeting' | 'calendly' | 'custom',
 ) {
   const moduleLabels: Record<string, string> = {
     customer: '👤 Customer',
     calendar: '📅 Calendar',
     meeting: '🤝 Meeting',
     calendly: '🗓 Calendly',
+    custom: '📦 Custom-U',
   }
 
   await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: `⏳ Processing ${moduleLabels[module]} command...`, parse_mode: 'HTML' })
@@ -306,6 +307,7 @@ async function processModuleCommand(
     calendar: { fn: 'clawd-bot/calendar-command' },
     meeting: { fn: 'clawd-bot/meeting-command' },
     calendly: { fn: 'clawd-bot/availability-command' },
+    custom: { fn: 'custom-u-scheduler' },
   }
 
   const endpoint = moduleEndpoints[module]
@@ -862,17 +864,28 @@ Deno.serve(async (req) => {
         const replyAsText = (message.text as string).trim()
         const replyAction = resolvePersistentAction(replyAsText)
 
-        if (replyAction === 'menu') {
+        if (replyAction === 'custom') {
+          await supabase.from('webhook_events').delete()
+            .eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS)
+            .filter('payload->>chat_id', 'eq', String(chatId))
+          await supabase.from('webhook_events').insert({
+            source: 'telegram',
+            event_type: 'custom_session',
+            payload: { chat_id: chatId, history: [], created: Date.now() },
+            processed: false,
+          })
           await tgPost(TG_TOKEN, 'sendMessage', {
             chat_id: chatId,
-            text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:',
+            text: '📦 <b>Custom-U Terminal</b>\n\nManage upload portal links for your customers.\n\n• <code>Send Warren his upload link</code>\n• <code>Generate portal link for John</code>\n• <code>Revoke link for Jane</code>\n\n<i>Type your commands naturally or tap ❌ Cancel to exit.</i>',
             parse_mode: 'HTML',
             reply_markup: PERSISTENT_KEYBOARD,
           })
           return new Response('ok')
+          })
+          return new Response('ok')
         }
 
-        const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session']
+        const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session']
 
         if (replyAction === 'invoice') {
           await supabase.from('webhook_events').delete()
@@ -913,13 +926,14 @@ Deno.serve(async (req) => {
         }
 
         // Customer / Calendar / Calendly / Meeting via reply
-        if (replyAction === 'customer' || replyAction === 'calendar' || replyAction === 'calendly' || replyAction === 'meeting') {
-          const labels: Record<string, string> = { customer: '👤 Customer', calendar: '📅 Calendar', calendly: '🗓 Calendly', meeting: '🤝 Meeting' }
+        if (replyAction === 'customer' || replyAction === 'calendar' || replyAction === 'calendly' || replyAction === 'meeting' || replyAction === 'custom') {
+          const labels: Record<string, string> = { customer: '👤 Customer', calendar: '📅 Calendar', calendly: '🗓 Calendly', meeting: '🤝 Meeting', custom: '📦 Custom-U' }
           const hints: Record<string, string> = {
             customer: 'Create, update, or search customers naturally.\n\n• <code>Create customer John Doe, email john@test.com</code>\n• <code>Update Warren status to active</code>',
             calendar: 'Add events, check schedule, manage your calendar.\n\n• <code>Add meeting tomorrow at 3pm</code>\n• <code>Show my schedule for next week</code>',
             calendly: 'Set your availability schedule.\n\n• <code>I\'m available Mon-Wed 2PM-5PM this week</code>\n• <code>Block off Friday</code>',
             meeting: 'Book meetings with customers.\n\n• <code>Setup a meeting with Warren at 5PM next Tuesday</code>\n• <code>Book a 30-min call with John tomorrow</code>',
+            custom: 'Manage upload portal links for customers.\n\n• <code>Send Warren his upload link</code>\n• <code>Generate a portal link for John</code>\n• <code>Revoke upload link for Jane</code>\n• <code>Show who has active upload links</code>',
           }
           await supabase.from('webhook_events').delete()
             .eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS)
@@ -947,7 +961,7 @@ Deno.serve(async (req) => {
           if (sessions && sessions.length > 0) {
             await supabase.from('webhook_events').delete()
               .eq('source', 'telegram')
-              .in('event_type', ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session'])
+              .in('event_type', ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session'])
               .filter('payload->>chat_id', 'eq', String(chatId))
             await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Session cancelled.', reply_markup: PERSISTENT_KEYBOARD })
           } else {
@@ -1031,18 +1045,21 @@ Deno.serve(async (req) => {
     const persistentAction = resolvePersistentAction(text)
     const isPersistentButton = persistentAction !== null
 
-    // ─── Menu action ───
-    if (persistentAction === 'menu') {
+    // ─── Custom-U action ───
+    if (persistentAction === 'custom') {
+      const sessionType = 'custom_session'
+      await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({ source: 'telegram', event_type: sessionType, payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:',
+        text: '📦 <b>Custom-U Terminal</b>\n\nManage upload portal links for your customers.\n\n• <code>Send Warren his upload link</code>\n• <code>Generate portal link for John</code>\n• <code>Revoke link for Jane</code>\n• <code>Who has active upload links?</code>\n\n<i>Type your commands naturally or tap ❌ Cancel to exit.</i>',
         parse_mode: 'HTML',
         reply_markup: PERSISTENT_KEYBOARD,
       })
       return new Response('ok')
     }
 
-    const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session']
+    const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session']
 
     // ─── Invoice action ───
     if (persistentAction === 'invoice') {
@@ -1192,7 +1209,7 @@ Deno.serve(async (req) => {
 
     // ─── Check for active module sessions (customer, calendar, calendly, meeting) — checked BEFORE SMM ───
     if (text && !text.startsWith('/') && !isPersistentButton) {
-      for (const mod of ['customer', 'calendar', 'calendly', 'meeting'] as const) {
+      for (const mod of ['customer', 'calendar', 'calendly', 'meeting', 'custom'] as const) {
         const { data: modSessions } = await supabase.from('webhook_events')
           .select('id, payload')
           .eq('source', 'telegram').eq('event_type', `${mod}_session`)
