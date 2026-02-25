@@ -103,7 +103,9 @@ serve(async (req) => {
           const formData = new FormData();
           Object.entries(reqBody).forEach(([key, value]) => {
             if (Array.isArray(value)) {
-              value.forEach(v => formData.append(`${key}[]`, String(v)));
+              // If key already ends with [] don't double it
+              const appendKey = key.endsWith('[]') ? key : `${key}[]`;
+              value.forEach(v => formData.append(appendKey, String(v)));
             } else if (value !== undefined && value !== null) {
               formData.append(key, String(value));
             }
@@ -127,9 +129,12 @@ serve(async (req) => {
         break;
       }
       case 'upload-history': {
+        const user = url.searchParams.get('user') || url.searchParams.get('profile') || '';
         const page = url.searchParams.get('page') || '1';
         const limit = url.searchParams.get('limit') || '50';
-        apiUrl = `${API_BASE}/uploadposts/history?page=${page}&limit=${limit}`;
+        const params = new URLSearchParams({ page, limit });
+        if (user) params.set('user', user);
+        apiUrl = `${API_BASE}/uploadposts/history?${params}`;
         break;
       }
       case 'list-scheduled': {
@@ -154,8 +159,8 @@ serve(async (req) => {
 
       // ─── Queue System ───
       case 'queue-settings': {
-        const profile = url.searchParams.get('profile');
-        apiUrl = `${API_BASE}/uploadposts/queue/settings${profile ? `?profile=${profile}` : ''}`;
+        const profile = url.searchParams.get('profile') || url.searchParams.get('profile_username');
+        apiUrl = `${API_BASE}/uploadposts/queue/settings${profile ? `?profile_username=${profile}` : ''}`;
         break;
       }
       case 'update-queue-settings': {
@@ -167,13 +172,13 @@ serve(async (req) => {
         break;
       }
       case 'queue-preview': {
-        const profile = url.searchParams.get('profile');
-        apiUrl = `${API_BASE}/uploadposts/queue/preview${profile ? `?profile=${profile}` : ''}`;
+        const profile = url.searchParams.get('profile') || url.searchParams.get('profile_username');
+        apiUrl = `${API_BASE}/uploadposts/queue/preview${profile ? `?profile_username=${profile}` : ''}`;
         break;
       }
       case 'queue-next-slot': {
-        const profile = url.searchParams.get('profile');
-        apiUrl = `${API_BASE}/uploadposts/queue/next-slot${profile ? `?profile=${profile}` : ''}`;
+        const profile = url.searchParams.get('profile') || url.searchParams.get('profile_username');
+        apiUrl = `${API_BASE}/uploadposts/queue/next-slot${profile ? `?profile_username=${profile}` : ''}`;
         break;
       }
 
