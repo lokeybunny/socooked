@@ -1018,6 +1018,12 @@ Deno.serve(async (req) => {
     // ─── /xpost command — interactive social posting ───
     const text = (message.text as string || '').trim()
 
+    // ─── Ignore messages containing Cortex/Zyla keywords (handled by Cortex bot) ───
+    if (/\b(cortex|zyla)\b/i.test(text)) {
+      console.log('[telegram-media-listener] ignoring cortex/zyla message:', text.slice(0, 80))
+      return new Response('ok')
+    }
+
     // Ensure bot commands are registered
     await ensureBotCommands(TG_TOKEN)
 

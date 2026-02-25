@@ -482,7 +482,7 @@ export default function EmailPage() {
                 <span className="ml-2 text-sm text-muted-foreground">Loading emails...</span>
               </div>
             ) : customerOnlyEmails.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">No customer emails found.</p>
+              <p className="text-sm text-muted-foreground py-8 text-center">No new customer emails found at this time.</p>
             ) : renderEmailList(customerOnlyEmails)}
           </TabsContent>
           {['inbox', 'sent', 'drafts'].map((tab) => (
