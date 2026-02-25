@@ -586,7 +586,7 @@ export default function Invoices() {
               </div>
               <StatusBadge status={inv.status} />
               <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                {(inv.status === 'draft' || inv.status === 'sent') && <Button size="sm" variant="outline" onClick={() => openEdit(inv)}><Pencil className="h-3 w-3 mr-1" />Edit</Button>}
+                <Button size="sm" variant="outline" onClick={() => openEdit(inv)}><Pencil className="h-3 w-3 mr-1" />Edit</Button>
                 {(inv.status === 'draft' || inv.status === 'sent' || inv.status === 'paid') && <Button size="sm" variant="outline" onClick={() => openPreview(inv)}><Eye className="h-3 w-3 mr-1" />{inv.status === 'paid' ? 'Preview Receipt' : 'Preview & Send'}</Button>}
                 {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
                 {inv.status === 'sent' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
@@ -677,7 +677,7 @@ export default function Invoices() {
                   </div>
 
                   <div className="flex gap-2">
-                    {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && <Button className="flex-1" variant="outline" onClick={() => { setDetailInvoice(null); openEdit(detailInvoice); }}><Pencil className="h-4 w-4 mr-2" />Edit</Button>}
+                    <Button className="flex-1" variant="outline" onClick={() => { setDetailInvoice(null); openEdit(detailInvoice); }}><Pencil className="h-4 w-4 mr-2" />Edit</Button>
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent' || detailInvoice.status === 'paid') && <Button className="flex-1" onClick={() => { setDetailInvoice(null); openPreview(detailInvoice); }}><Eye className="h-4 w-4 mr-2" />{detailInvoice.status === 'paid' ? 'Preview Receipt' : 'Preview & Send'}</Button>}
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && <Button className="flex-1" variant="outline" onClick={() => markAs(detailInvoice.id, 'paid')}>Mark as Paid</Button>}
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && (
