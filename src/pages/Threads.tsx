@@ -127,7 +127,7 @@ export default function Threads() {
   return (
     <AppLayout>
       <CategoryGate
-        title="Script AI"
+        title="Analyze"
         {...categoryGate}
         totalCount={allThreads.length}
         countLabel="transcripts"
