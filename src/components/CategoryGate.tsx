@@ -102,7 +102,11 @@ export function CategoryGate({ title, selectedCategory, onSelect, onBack, childr
               <button
                 key={cat.id}
                 onClick={() => handleSelect(cat.id)}
-                className="group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-primary/40 transition-all relative"
+                className={cn(
+                  "group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-primary/40 transition-all relative",
+                  cat.id === 'telegram' && "ring-1 ring-blue-400/30 bg-blue-500/5",
+                  cat.id === 'ai-generated' && "ring-1 ring-emerald-400/30 bg-emerald-500/5",
+                )}
               >
                 {notifCount > 0 ? (
                   <span className="absolute top-3 right-3 flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold animate-pulse">
@@ -122,10 +126,25 @@ export function CategoryGate({ title, selectedCategory, onSelect, onBack, childr
                     <Bot className="h-3 w-3" />
                   </span>
                 )}
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <Icon className="h-5 w-5 text-primary" />
+                <div className={cn(
+                  "h-10 w-10 rounded-lg flex items-center justify-center transition-colors",
+                  cat.id === 'telegram' ? "bg-blue-500/15 group-hover:bg-blue-500/25" :
+                  cat.id === 'ai-generated' ? "bg-emerald-500/15 group-hover:bg-emerald-500/25" :
+                  "bg-primary/10 group-hover:bg-primary/20"
+                )}>
+                  <Icon className={cn(
+                    "h-5 w-5",
+                    cat.id === 'telegram' ? "text-blue-500" :
+                    cat.id === 'ai-generated' ? "text-emerald-500" :
+                    "text-primary"
+                  )} />
                 </div>
-                <h3 className="font-semibold text-foreground">{cat.label}</h3>
+                <h3 className={cn(
+                  "font-semibold",
+                  cat.id === 'telegram' ? "text-blue-600 dark:text-blue-400" :
+                  cat.id === 'ai-generated' ? "text-emerald-600 dark:text-emerald-400" :
+                  "text-foreground"
+                )}>{cat.label}</h3>
                 <p className="text-sm text-muted-foreground">{cat.description}</p>
               </button>
             );
