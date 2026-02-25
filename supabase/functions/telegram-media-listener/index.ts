@@ -776,8 +776,14 @@ Deno.serve(async (req) => {
     // Ensure bot commands are registered
     await ensureBotCommands(TG_TOKEN)
 
-    // ─── /menu or "📋 Menu" button — silently show keyboard, no message ───
+    // ─── /menu or "📋 Menu" button — show persistent keyboard ───
     if (text.toLowerCase() === '/menu' || text === '📋 Menu' || text.toLowerCase() === '/start') {
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:',
+        parse_mode: 'HTML',
+        reply_markup: PERSISTENT_KEYBOARD,
+      })
       return new Response('ok')
     }
 
