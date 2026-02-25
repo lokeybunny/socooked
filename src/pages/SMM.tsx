@@ -104,7 +104,7 @@ function SMMInner() {
               <TabsContent value="instagram"><SMMInstagram /></TabsContent>
             </Tabs>
           </div>
-        </div>
+      </div>
       </div>
 
       {/* Persistent AI Scheduler Terminal */}
