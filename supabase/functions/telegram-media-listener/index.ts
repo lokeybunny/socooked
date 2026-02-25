@@ -876,6 +876,8 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
+        const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session']
+
         if (replyAction === 'custom') {
           await supabase.from('webhook_events').delete()
             .eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS)
@@ -895,7 +897,6 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
-        const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session']
 
         if (replyAction === 'invoice') {
           await supabase.from('webhook_events').delete()
@@ -1066,6 +1067,8 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session']
+
     // ─── Custom-U action ───
     if (persistentAction === 'custom') {
       const sessionType = 'custom_session'
@@ -1080,7 +1083,6 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session']
 
     // ─── Invoice action ───
     if (persistentAction === 'invoice') {
