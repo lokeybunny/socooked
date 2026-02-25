@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Image, Video, Music, File, Download, Loader2 } from 'lucide-react';
+import VideoThumbnail from '@/components/ui/VideoThumbnail';
 
 const typeIcons: Record<string, any> = {
   article: FileText, image: Image, video: Video, audio: Music, doc: File,
@@ -83,7 +84,7 @@ export default function SharedContent() {
         {isPlayable && (
           <div className="rounded-lg overflow-hidden border border-border">
             {asset.type === 'video' ? (
-              <video src={asset.url} controls className="w-full max-h-[60vh]" />
+              <VideoThumbnail src={asset.url} title={asset.title} videoClassName="w-full max-h-[60vh]" />
             ) : (
               <audio src={asset.url} controls className="w-full" />
             )}

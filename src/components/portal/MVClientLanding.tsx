@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Play, ChevronRight, Loader2 } from 'lucide-react';
+import VideoThumbnail from '@/components/ui/VideoThumbnail';
 
 interface MVClientLandingProps {
   firstName: string;
@@ -63,7 +64,7 @@ export default function MVClientLanding({ firstName, onContinue }: MVClientLandi
             {mvVideos.map((video, i) => (
               <div key={video.id || i} className="group glass-card overflow-hidden rounded-xl border border-border hover:border-primary/40 transition-all hover:shadow-lg">
                 <div className="relative aspect-[9/16] overflow-hidden bg-muted">
-                  <video src={video.url} className="w-full h-full object-cover" controls preload="metadata" playsInline />
+                  <VideoThumbnail src={video.url} title={video.title} videoClassName="w-full h-full object-cover" />
                 </div>
                 <div className="p-3">
                   <h3 className="text-sm font-semibold text-foreground truncate">{video.title}</h3>
