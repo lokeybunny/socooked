@@ -167,8 +167,8 @@ export default function EmailPage() {
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
   useEffect(() => {
-    // "customers" tab uses inbox data filtered to customer emails
-    const gmailTab = activeTab === 'customers' ? 'inbox' : activeTab;
+    // "customers" and "read" tabs use inbox data filtered locally
+    const gmailTab = (activeTab === 'customers' || activeTab === 'read') ? 'inbox' : activeTab;
     loadEmails(gmailTab);
   }, [activeTab, loadEmails]);
 
