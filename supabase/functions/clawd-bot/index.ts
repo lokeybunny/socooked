@@ -2885,11 +2885,35 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── SMM: AI Command (prompt-driven scheduler) ────────────
+    // ─── SMM: AI Command (prompt-driven scheduler with auto-history) ──
     if (path === 'smm-command' && req.method === 'POST') {
-      const { prompt, profile, history } = body as { prompt?: string; profile?: string; history?: any[] }
+      const { prompt, profile, history: manualHistory, reset } = body as {
+        prompt?: string; profile?: string; history?: any[]; reset?: boolean
+      }
       if (!prompt) return fail('prompt is required')
+      const smmProfile = profile || 'STU25'
+      const memoryKey = `smm-conv:${smmProfile}`
+
       try {
+        // Load persisted conversation memory (last 20 turns)
+        let conversationHistory: { role: string; text: string }[] = []
+        if (!reset) {
+          const { data: memRow } = await supabase
+            .from('webhook_events')
+            .select('payload')
+            .eq('source', 'system')
+            .eq('event_type', memoryKey)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (memRow?.payload && Array.isArray((memRow.payload as any).turns)) {
+            conversationHistory = (memRow.payload as any).turns
+          }
+        }
+
+        // Merge: manual history overrides, otherwise use persisted
+        const mergedHistory = manualHistory?.length ? manualHistory : conversationHistory
+
         const projectUrl = Deno.env.get('SUPABASE_URL')!
         const res = await fetch(`${projectUrl}/functions/v1/smm-scheduler`, {
           method: 'POST',
@@ -2898,14 +2922,70 @@ Deno.serve(async (req) => {
             'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ prompt, profile: profile || 'STU25', history: history || [] }),
+          body: JSON.stringify({ prompt, profile: smmProfile, history: mergedHistory }),
         })
         const data = await res.json()
+
+        // Persist updated conversation (keep last 20 turns)
+        const newTurns = [
+          ...mergedHistory,
+          { role: 'user', text: prompt },
+          { role: 'assistant', text: data.type === 'executed'
+            ? `Executed: ${(data.actions || []).map((a: any) => a.description).join(', ')}`
+            : data.message || JSON.stringify(data) },
+        ].slice(-20)
+
+        const { data: existing } = await supabase
+          .from('webhook_events')
+          .select('id')
+          .eq('source', 'system')
+          .eq('event_type', memoryKey)
+          .limit(1)
+          .maybeSingle()
+
+        if (existing?.id) {
+          await supabase.from('webhook_events').update({
+            payload: { turns: newTurns, updated_at: new Date().toISOString() },
+            processed: true,
+          }).eq('id', existing.id)
+        } else {
+          await supabase.from('webhook_events').insert({
+            source: 'system',
+            event_type: memoryKey,
+            payload: { turns: newTurns, updated_at: new Date().toISOString() },
+            processed: true,
+          })
+        }
+
         await logActivity(supabase, 'smm', null, 'smm-command', `SMM Command: ${(prompt as string).slice(0, 80)}`)
-        return ok(data)
+        return ok({ ...data, conversation_turns: newTurns.length })
       } catch (e: any) {
         return fail(e.message, 500)
       }
+    }
+
+    // ─── SMM: Conversation context (read / clear) ───────────────
+    if (path === 'smm-history-context' && req.method === 'GET') {
+      const smmProfile = params.get('profile') || 'STU25'
+      const memoryKey = `smm-conv:${smmProfile}`
+      const { data: memRow } = await supabase
+        .from('webhook_events')
+        .select('payload')
+        .eq('source', 'system')
+        .eq('event_type', memoryKey)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const turns = memRow?.payload && Array.isArray((memRow.payload as any).turns)
+        ? (memRow.payload as any).turns : []
+      return ok({ profile: smmProfile, turns, turn_count: turns.length })
+    }
+
+    if (path === 'smm-history-context' && req.method === 'DELETE') {
+      const smmProfile = (body.profile as string) || params.get('profile') || 'STU25'
+      const memoryKey = `smm-conv:${smmProfile}`
+      await supabase.from('webhook_events').delete().eq('source', 'system').eq('event_type', memoryKey)
+      return ok({ action: 'cleared', profile: smmProfile })
     }
 
     return fail('Unknown endpoint', 404)
