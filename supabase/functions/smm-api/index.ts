@@ -6,6 +6,23 @@ const corsHeaders = {
 };
 
 const API_BASE = 'https://api.upload-post.com/api';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+async function logSMMActivity(action: string, meta: Record<string, any>) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/activity_log`, {
+      method: 'POST',
+      headers: {
+        'apikey': SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ entity_type: 'smm', action, meta }),
+    });
+  } catch (e) { console.error('[smm-api] activity log error:', e); }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -304,6 +321,13 @@ serve(async (req) => {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Log upload/post/schedule/DM actions to activity_log for Telegram notifications
+    const LOGGABLE = ['upload-video','upload-photos','upload-text','upload-document','cancel-scheduled','edit-scheduled','ig-dm-send','ig-comment-reply','update-queue-settings'];
+    if (LOGGABLE.includes(action)) {
+      const label = action.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      await logSMMActivity(action, { name: `SMM: ${label}` });
     }
 
     return new Response(responseText, {
