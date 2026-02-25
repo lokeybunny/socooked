@@ -97,23 +97,19 @@ serve(async (req) => {
           // Forward the content-type with boundary
           authHeaders['Content-Type'] = contentType;
         } else {
-          // JSON body with URL-based uploads
+          // JSON body with URL-based uploads — use URLSearchParams for reliability
           const reqBody = await req.json();
-          // Build FormData from JSON for the API
-          const formData = new FormData();
+          const params = new URLSearchParams();
           Object.entries(reqBody).forEach(([key, value]) => {
             if (Array.isArray(value)) {
-              // If key already ends with [] don't double it
               const appendKey = key.endsWith('[]') ? key : `${key}[]`;
-              value.forEach(v => formData.append(appendKey, String(v)));
+              value.forEach(v => params.append(appendKey, String(v)));
             } else if (value !== undefined && value !== null) {
-              formData.append(key, String(value));
+              params.append(key, String(value));
             }
           });
-          body = formData;
-          isFormData = true;
-          // Don't set Content-Type for FormData - let fetch set it with boundary
-          delete authHeaders['Content-Type'];
+          body = params.toString();
+          authHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
         }
         break;
       }
@@ -265,6 +261,16 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+    }
+
+    // Debug: log what we're about to send for upload actions
+    if (action.startsWith('upload-')) {
+      console.log(`[smm-api] action=${action} method=${method} apiUrl=${apiUrl}`);
+      if (body instanceof FormData) {
+        const entries: string[] = [];
+        (body as FormData).forEach((v, k) => entries.push(`${k}=${v}`));
+        console.log(`[smm-api] FormData entries:`, entries.join(' | '));
+      }
     }
 
     const fetchOpts: RequestInit = { method, headers: authHeaders };
