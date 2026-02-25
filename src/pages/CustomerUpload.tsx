@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Upload, Loader2, FolderOpen, ExternalLink, File, FileText, Image, Video } from 'lucide-react';
+import { ArrowLeft, Upload, Loader2, FolderOpen, ExternalLink, File, FileText, Image, Video, Trash2, Download, Play, ArrowUpRight, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { uploadToStorage, detectContentType } from '@/lib/storage';
+import { uploadToStorage, detectContentType, downloadFromUrl } from '@/lib/storage';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'digital-services': 'Digital Services',
@@ -179,6 +179,7 @@ export default function CustomerUpload() {
                 <div className="divide-y divide-border/30">
                   {files.map(c => {
                     const Icon = typeIcons[c.type] || File;
+                    const isPlayable = c.url && (c.type === 'video' || c.type === 'audio');
                     return (
                       <div key={c.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/20 transition-colors">
                         <div className="p-1.5 rounded bg-muted"><Icon className="h-3.5 w-3.5 text-muted-foreground" /></div>
@@ -188,10 +189,42 @@ export default function CustomerUpload() {
                         </div>
                         <StatusBadge status={c.status} />
                         {c.url && (
-                          <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
+                          <button onClick={() => downloadFromUrl(c.url, c.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                            <Download className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {c.url && (
+                          <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" title="Open">
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         )}
+                        {c.category !== 'ai-generated' && (
+                          <button
+                            onClick={async () => {
+                              const { error } = await supabase.from('content_assets').update({ category: 'ai-generated' }).eq('id', c.id);
+                              if (error) { toast.error('Failed to push'); return; }
+                              toast.success('Pushed to AI Generated', { description: c.title });
+                              setAssets(prev => prev.filter(x => x.id !== c.id));
+                            }}
+                            className="flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors"
+                            title="Push to AI Generated"
+                          >
+                            <ArrowUpRight className="h-3.5 w-3.5" />
+                            <Sparkles className="h-2.5 w-2.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={async () => {
+                            const { error } = await supabase.from('content_assets').delete().eq('id', c.id);
+                            if (error) { toast.error(error.message); return; }
+                            toast.success('Deleted');
+                            setAssets(prev => prev.filter(x => x.id !== c.id));
+                          }}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     );
                   })}
