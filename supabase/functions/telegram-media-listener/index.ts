@@ -29,14 +29,14 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function extractMedia(message: Record<string, unknown>): { fileId: string; type: string; fileName: string } | null {
+function extractMedia(message: Record<string, unknown>): { fileId: string; type: string; fileName: string; fileSize: number } | null {
   if (message.photo && Array.isArray(message.photo) && message.photo.length > 0) {
     const largest = message.photo[message.photo.length - 1] as Record<string, unknown>
-    return { fileId: largest.file_id as string, type: 'image', fileName: `photo_${Date.now()}.jpg` }
+    return { fileId: largest.file_id as string, type: 'image', fileName: `photo_${Date.now()}.jpg`, fileSize: (largest.file_size as number) || 0 }
   }
   if (message.video) {
     const v = message.video as Record<string, unknown>
-    return { fileId: v.file_id as string, type: 'video', fileName: (v.file_name as string) || `video_${Date.now()}.mp4` }
+    return { fileId: v.file_id as string, type: 'video', fileName: (v.file_name as string) || `video_${Date.now()}.mp4`, fileSize: (v.file_size as number) || 0 }
   }
   if (message.document) {
     const d = message.document as Record<string, unknown>
@@ -44,11 +44,11 @@ function extractMedia(message: Record<string, unknown>): { fileId: string; type:
     let docType = 'doc'
     if (mime.startsWith('image/')) docType = 'image'
     else if (mime.startsWith('video/')) docType = 'video'
-    return { fileId: d.file_id as string, type: docType, fileName: (d.file_name as string) || `file_${Date.now()}` }
+    return { fileId: d.file_id as string, type: docType, fileName: (d.file_name as string) || `file_${Date.now()}`, fileSize: (d.file_size as number) || 0 }
   }
   if (message.audio || message.voice) {
     const a = (message.audio || message.voice) as Record<string, unknown>
-    return { fileId: a.file_id as string, type: 'audio', fileName: (a.file_name as string) || `audio_${Date.now()}.ogg` }
+    return { fileId: a.file_id as string, type: 'audio', fileName: (a.file_name as string) || `audio_${Date.now()}.ogg`, fileSize: (a.file_size as number) || 0 }
   }
   return null
 }
@@ -113,7 +113,25 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
-        const media = pending.payload as { fileId: string; type: string; fileName: string }
+        const media = pending.payload as { fileId: string; type: string; fileName: string; fileSize?: number }
+
+        const TG_BOT_API_LIMIT = 20 * 1024 * 1024 // 20MB
+        const fileSizeBytes = media.fileSize || 0
+
+        // Telegram Bot API cannot download files >20MB via getFile
+        if (fileSizeBytes > TG_BOT_API_LIMIT) {
+          const sizeMB = Math.round(fileSizeBytes / (1024 * 1024))
+          await supabase.from('webhook_events').delete().eq('id', pendingId)
+          if (chatId && messageId) {
+            await tgPost(TG_TOKEN, 'editMessageText', {
+              chat_id: chatId, message_id: messageId,
+              text: `⚠️ <b>${media.fileName}</b> is ${sizeMB}MB — too large for Telegram download (20MB limit).\n\n📤 Upload it directly via the CRM dashboard:\n<a href="https://socooked.lovable.app/content">Open Content Library</a>`,
+              parse_mode: 'HTML',
+              disable_web_page_preview: true,
+            })
+          }
+          return new Response('ok')
+        }
 
         await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Saving to CRM...' })
 
@@ -640,7 +658,7 @@ Deno.serve(async (req) => {
       .insert({
         source: 'telegram',
         event_type: 'pending_media',
-        payload: { fileId: media.fileId, type: media.type, fileName: media.fileName },
+        payload: { fileId: media.fileId, type: media.type, fileName: media.fileName, fileSize: media.fileSize },
         processed: false,
       })
       .select('id')
@@ -656,10 +674,12 @@ Deno.serve(async (req) => {
     const caption = message.caption ? `\n💬 <i>${message.caption}</i>` : ''
     const fromName = message.from?.first_name || 'Someone'
     const groupLabel = isAllowedGroup ? ` (from ${fromName})` : ''
+    const sizeLabel = media.fileSize > 0 ? ` • ${Math.round(media.fileSize / (1024 * 1024))}MB` : ''
+    const tooLargeWarning = media.fileSize > 20 * 1024 * 1024 ? '\n⚠️ <i>Large file — will need dashboard upload if saved</i>' : ''
 
     await tgPost(TG_TOKEN, 'sendMessage', {
       chat_id: chatId,
-      text: `📎 <b>${media.fileName}</b> (${media.type})${groupLabel}${caption}\n\nSave to CRM?`,
+      text: `📎 <b>${media.fileName}</b> (${media.type}${sizeLabel})${groupLabel}${caption}${tooLargeWarning}\n\nSave to CRM?`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
