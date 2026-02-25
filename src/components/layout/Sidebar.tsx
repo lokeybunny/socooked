@@ -43,12 +43,42 @@ export function Sidebar() {
     lastSeenMessagesRef.current = localStorage.getItem('messages_last_seen');
 
     const checkNew = async () => {
-      const { data } = await supabase
+      // Get the latest read-tracker timestamp (marks when user last "read" emails)
+      const { data: readTracker } = await supabase
         .from('communications')
         .select('created_at')
+        .eq('provider', 'gmail-read-tracker')
         .order('created_at', { ascending: false })
         .limit(1);
-      if (data?.[0] && (!lastSeenMessagesRef.current || data[0].created_at > lastSeenMessagesRef.current)) {
+
+      const lastRead = readTracker?.[0]?.created_at || lastSeenMessagesRef.current;
+
+      // Only check for inbound emails from known customers
+      let query = supabase
+        .from('communications')
+        .select('id, from_address, created_at')
+        .eq('type', 'email')
+        .eq('direction', 'inbound')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (lastRead) {
+        query = query.gt('created_at', lastRead);
+      }
+
+      const { data: recent } = await query;
+      if (!recent?.length) return;
+
+      // Cross-check sender addresses against CRM customers
+      const senders = recent.map(r => r.from_address).filter(Boolean);
+      if (!senders.length) return;
+
+      const { data: matches } = await supabase
+        .from('customers')
+        .select('email')
+        .in('email', senders);
+
+      if (matches && matches.length > 0) {
         setHasNewMessages(true);
       }
     };
@@ -56,9 +86,29 @@ export function Sidebar() {
 
     const channel = supabase
       .channel('sidebar_messages_notif')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, () => {
-        if (location.pathname !== '/messages') {
-          setHasNewMessages(true);
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communications' }, (payload) => {
+        const row = payload.new as Record<string, unknown>;
+        // Only fire for inbound emails, skip read-trackers and outbound
+        if (
+          row.type === 'email' &&
+          row.direction === 'inbound' &&
+          row.provider !== 'gmail-read-tracker' &&
+          location.pathname !== '/messages'
+        ) {
+          // Quick check if sender is a known customer
+          const sender = row.from_address as string;
+          if (sender) {
+            supabase
+              .from('customers')
+              .select('id')
+              .eq('email', sender)
+              .limit(1)
+              .then(({ data }) => {
+                if (data && data.length > 0) {
+                  setHasNewMessages(true);
+                }
+              });
+          }
         }
       })
       .subscribe();
