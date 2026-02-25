@@ -141,27 +141,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Auto-delete the notification after 10 seconds to keep the chat clean
-    const messageId = telegramData.result?.message_id;
-    if (messageId) {
-      setTimeout(async () => {
-        try {
-          await fetch(
-            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteMessage`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                chat_id: TELEGRAM_CHAT_ID,
-                message_id: messageId,
-              }),
-            }
-          );
-        } catch (e) {
-          console.error("Auto-delete failed:", e);
-        }
-      }, 10_000);
-    }
 
     return new Response(
       JSON.stringify({ success: true }),
