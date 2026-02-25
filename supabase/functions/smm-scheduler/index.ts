@@ -25,6 +25,53 @@ async function logActivity(entityType: string, action: string, meta: Record<stri
   } catch (e) { console.error('[smm-scheduler] activity log error:', e); }
 }
 
+async function notifySchedulerFailure(action: string, error: string, profile?: string) {
+  const pstTime = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+  const problem = `Scheduler action "${action}" failed`;
+  const detail = error.substring(0, 500);
+
+  // Telegram
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
+      method: 'POST',
+      headers: {
+        'apikey': ANON_KEY,
+        'Authorization': `Bearer ${ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        record: {
+          id: crypto.randomUUID(),
+          entity_type: 'smm',
+          entity_id: null,
+          action: 'failed',
+          actor_id: null,
+          meta: { name: `🚨 SMM FAILURE: ${problem}`, detail, profile: profile || 'unknown', timestamp: pstTime },
+          created_at: new Date().toISOString(),
+        },
+      }),
+    });
+  } catch (e) { console.error('[smm-scheduler] telegram failure notify error:', e); }
+
+  // Email via gmail-api
+  try {
+    await fetch(`${SUPABASE_URL}/functions/v1/gmail-api`, {
+      method: 'POST',
+      headers: {
+        'apikey': SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        action: 'send',
+        to: 'warren@stu25.com',
+        subject: `STU25DEBUG: ${problem}`,
+        body: `SMM Scheduler Failure Alert\n\nAction: ${action}\nProfile: ${profile || 'unknown'}\nTime (PST): ${pstTime}\n\nError:\n${detail}`,
+      }),
+    });
+  } catch (e) { console.error('[smm-scheduler] email failure notify error:', e); }
+}
+
 // All available smm-api actions with descriptions for the AI
 const ACTIONS_MANIFEST = `
 You are an SMM Scheduler AI. You translate natural language into Upload-Post API calls.
@@ -204,6 +251,8 @@ serve(async (req) => {
           success: false,
           error: e.message,
         });
+        // Fire failure notifications
+        await notifySchedulerFailure(step.action, e.message, profile || step.body?.user);
       }
     }
 
