@@ -9,7 +9,7 @@ import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
-import Deals from "./pages/Deals";
+import Leads from "./pages/Deals";
 import Projects from "./pages/Projects";
 import Tasks from "./pages/Tasks";
 import Content from "./pages/Content";
@@ -18,9 +18,6 @@ import CustomerUpload from "./pages/CustomerUpload";
 import Threads from "./pages/Threads";
 import Invoices from "./pages/Invoices";
 import Templates from "./pages/Templates";
-import Boards from "./pages/Boards";
-import BoardView from "./pages/BoardView";
-import Leads from "./pages/Leads";
 import EmailPage from "./pages/Email";
 import PhonePage from "./pages/Phone";
 import PortalSign from "./pages/portal/PortalSign";
@@ -55,7 +52,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/customers" element={<Customers />} />
-            <Route path="/deals" element={<Deals />} />
+            <Route path="/leads" element={<Leads />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/content" element={<Content />} />
@@ -64,11 +61,8 @@ const App = () => (
             <Route path="/threads" element={<Threads />} />
             <Route path="/invoices" element={<Invoices />} />
             <Route path="/templates" element={<Templates />} />
-            <Route path="/leads" element={<Leads />} />
             <Route path="/messages" element={<EmailPage />} />
             <Route path="/phone" element={<PhonePage />} />
-            <Route path="/boards" element={<Boards />} />
-            <Route path="/boards/:boardId" element={<BoardView />} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/meetings" element={<Meetings />} />
