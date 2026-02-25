@@ -32,6 +32,7 @@ const ENTITY_ROUTE_MAP: Record<string, (id?: string) => string> = {
   email: () => '/email',
   phone: () => '/phone',
   communication: () => '/email',
+  smm: () => '/smm',
 };
 
 const getEntityIcon = (type: string) => {
@@ -48,6 +49,7 @@ const getEntityIcon = (type: string) => {
     thread: 'bg-cyan-500/10 text-cyan-500',
     content: 'bg-rose-500/10 text-rose-500',
     lead: 'bg-yellow-500/10 text-yellow-500',
+    smm: 'bg-fuchsia-500/10 text-fuchsia-500',
   };
   return colors[type] || 'bg-muted text-muted-foreground';
 };

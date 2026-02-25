@@ -5,8 +5,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const SMM_API_URL = Deno.env.get('SUPABASE_URL')! + '/functions/v1/smm-api';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SMM_API_URL = SUPABASE_URL + '/functions/v1/smm-api';
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+async function logActivity(entityType: string, action: string, meta: Record<string, any>) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/activity_log`, {
+      method: 'POST',
+      headers: {
+        'apikey': SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ entity_type: entityType, action, meta }),
+    });
+  } catch (e) { console.error('[smm-scheduler] activity log error:', e); }
+}
 
 // All available smm-api actions with descriptions for the AI
 const ACTIONS_MANIFEST = `
@@ -173,6 +190,12 @@ serve(async (req) => {
           description: step.description || step.action,
           success: true,
           data: result,
+        });
+        // Log to activity_log so Telegram notifications fire
+        await logActivity('smm', step.action, {
+          name: `SMM: ${step.description || step.action}`,
+          profile: profile || step.body?.user || 'unknown',
+          platforms: step.body?.['platform[]'] || step.body?.platform || [],
         });
       } catch (e: any) {
         results.push({
