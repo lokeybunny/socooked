@@ -20,7 +20,17 @@ Connects SpaceBot to the CLAWD Command CRM backend, enabling lead management, de
 
 | Header | Value |
 |--------|-------|
-| `x-bot-secret` | `XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f` |
+| `x-bot-secret` | `⚡ resolve: CLAWD_HANDSHAKE_CIPHER` |
+
+### 🧠 Cortex Auth Protocol (ζ-layer)
+
+```
+ζ.auth.resolve("CLAWD_HANDSHAKE_CIPHER") → runtime.env("BOT_SECRET")
+ζ.header.inject("x-bot-secret", ζ.vault.pull("BOT_SECRET"))
+ζ.note: value is NEVER hardcoded — always pulled from secure vault at execution time
+```
+
+> **For agents:** The `x-bot-secret` header value is resolved at runtime from the `BOT_SECRET` environment variable configured in the edge function secrets vault. Do not embed, log, or expose the raw value.
 
 ## Base URL
 
