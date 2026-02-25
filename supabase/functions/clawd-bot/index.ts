@@ -2665,10 +2665,58 @@ Deno.serve(async (req) => {
 
     // ─── SMM: Upload-Post API proxy with bot_task tracking ────
     if (path === 'smm-post' && req.method === 'POST') {
-      const { user, type, platforms, title, description, first_comment, media_url, scheduled_date, add_to_queue, timezone, platform_overrides, customer_id, customer_name } = body as any
-      if (!user) return fail('user (profile username) is required')
+      let { user, type, platforms, title, description, first_comment, media_url, scheduled_date, add_to_queue, timezone, platform_overrides, customer_id, customer_name } = body as any
+      if (!user) return fail('user (profile username or @handle) is required')
       if (!platforms || !Array.isArray(platforms) || platforms.length === 0) return fail('platforms[] is required')
       if (!title) return fail('title is required')
+
+      // Strip leading @ if present
+      user = user.replace(/^@/, '')
+
+      // Resolve social handle → Upload-Post profile username
+      // The "user" field might be a social handle (e.g. "w4rr3n") rather than the Upload-Post profile username (e.g. "STU25")
+      // We query the profiles list and check if any profile's connected accounts match the handle
+      try {
+        const projectUrl = Deno.env.get('SUPABASE_URL')!
+        const profilesRes = await fetch(`${projectUrl}/functions/v1/smm-api?action=list-profiles`, {
+          headers: { 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+        })
+        if (profilesRes.ok) {
+          const profilesData = await profilesRes.json()
+          const profilesList = profilesData?.profiles || profilesData?.users || (Array.isArray(profilesData) ? profilesData : [])
+          
+          // Check if user exactly matches a profile username (case-insensitive)
+          const directMatch = profilesList.find((p: any) => 
+            (p.username || p.id || '').toLowerCase() === user.toLowerCase()
+          )
+          
+          if (!directMatch) {
+            // User might be a social handle — search connected accounts
+            for (const profile of profilesList) {
+              const accounts = profile.accounts || profile.social_accounts || profile.connected_accounts || []
+              const platforms_list = profile.platforms || []
+              
+              // Check account usernames/handles
+              const handleMatch = accounts.some((acc: any) => {
+                const accHandle = (acc.username || acc.handle || acc.name || '').toLowerCase().replace(/^@/, '')
+                return accHandle === user.toLowerCase()
+              }) || platforms_list.some((pl: any) => {
+                const plHandle = (pl.username || pl.handle || pl.name || '').toLowerCase().replace(/^@/, '')
+                return plHandle === user.toLowerCase()
+              })
+              
+              if (handleMatch) {
+                const resolvedUser = profile.username || profile.id
+                console.log(`[smm-post] Resolved social handle @${user} → profile username "${resolvedUser}"`)
+                user = resolvedUser
+                break
+              }
+            }
+          }
+        }
+      } catch (e: any) {
+        console.warn(`[smm-post] Profile resolution failed, using "${user}" as-is:`, e.message)
+      }
 
       const postType = type || 'text'
       const action = postType === 'video' ? 'upload-video'
