@@ -1132,7 +1132,11 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
                                   <div key={a.id} className={`flex items-center gap-3 px-4 pl-16 py-3 hover:bg-muted/20 transition-colors ${newIds.has(a.id) ? 'new-content-highlight' : ''}`}>
                                     <div className="p-1.5 rounded bg-primary/10"><Icon className="h-4 w-4 text-primary" /></div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
+                                      <button
+                                        onClick={() => { navigator.clipboard.writeText(a.title); toast.success('Copied to clipboard', { description: a.title }); }}
+                                        className="text-sm font-medium text-foreground truncate block max-w-full text-left hover:text-primary transition-colors cursor-copy"
+                                        title="Click to copy filename"
+                                      >{a.title}</button>
                                       <span className="text-xs text-muted-foreground">
                                         {a.folder || 'No folder'} · {new Date(a.created_at).toLocaleTimeString()}
                                       </span>
