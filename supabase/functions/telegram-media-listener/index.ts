@@ -53,6 +53,96 @@ function extractMedia(message: Record<string, unknown>): { fileId: string; type:
   return null
 }
 
+// ─── Invoice Terminal via Telegram ───
+async function processInvoiceCommand(
+  chatId: number,
+  prompt: string,
+  history: { role: string; text: string }[],
+  tgToken: string,
+  supabaseUrl: string,
+  botSecret: string,
+  supabase: any,
+) {
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '⏳ Processing invoice command...', parse_mode: 'HTML' })
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/invoice-command`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-bot-secret': botSecret,
+      },
+      body: JSON.stringify({ prompt, history }),
+    })
+    const rawData = await res.json()
+    const result = rawData?.data || rawData
+
+    let replyText = ''
+
+    if (result?.type === 'clarify') {
+      replyText = `❓ ${result.message}`
+    } else if (result?.type === 'executed') {
+      const lines: string[] = []
+      for (const action of result.actions || []) {
+        if (action.success) {
+          lines.push(`✅ ${action.description}`)
+          if (action.data) {
+            const parts: string[] = []
+            if (action.data.invoice_number) parts.push(`#${action.data.invoice_number}`)
+            if (action.data.amount) parts.push(`$${Number(action.data.amount).toFixed(2)}`)
+            if (action.data.status) parts.push(action.data.status)
+            if (action.data.customer_name) parts.push(action.data.customer_name)
+            if (action.data.email_sent) parts.push('📧 email sent')
+            if (action.data.pdf_attached) parts.push('📎 PDF')
+            if (parts.length) lines.push(`  → ${parts.join(' · ')}`)
+          }
+        } else {
+          lines.push(`❌ ${action.description}: ${action.error || 'unknown'}`)
+        }
+      }
+      replyText = lines.join('\n') || '✅ Done.'
+    } else if (result?.type === 'message') {
+      replyText = result.message
+    } else {
+      replyText = `<pre>${JSON.stringify(result, null, 2).slice(0, 3500)}</pre>`
+    }
+
+    // Update conversation history in session (if active)
+    const { data: sessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'invoice_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .limit(1)
+
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0]
+      const payload = session.payload as { chat_id: number; history: any[]; created: number }
+      const newHistory = [
+        ...(payload.history || []),
+        { role: 'user', text: prompt },
+        { role: 'assistant', text: replyText.slice(0, 500) },
+      ].slice(-10) // keep last 10 turns
+
+      await supabase.from('webhook_events').update({
+        payload: { ...payload, history: newHistory },
+      }).eq('id', session.id)
+    }
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: replyText.slice(0, 4000),
+      parse_mode: 'HTML',
+    })
+  } catch (e: any) {
+    console.error('[invoice-tg] error:', e)
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `❌ <b>Invoice command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      parse_mode: 'HTML',
+    })
+  }
+}
+
 Deno.serve(async (req) => {
   console.log('[telegram-media-listener] request received:', req.method)
 
@@ -534,19 +624,56 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── /cancel command — abort active xpost session ───
+    // ─── /cancel command — abort active xpost or invoice session ───
     if (text.toLowerCase() === '/cancel') {
       const { data: sessions } = await supabase.from('webhook_events').select('id')
-        .eq('source', 'telegram').eq('event_type', 'xpost_session')
+        .eq('source', 'telegram')
+        .in('event_type', ['xpost_session', 'invoice_session'])
         .filter('payload->>chat_id', 'eq', String(chatId))
       if (sessions && sessions.length > 0) {
         await supabase.from('webhook_events').delete()
-          .eq('source', 'telegram').eq('event_type', 'xpost_session')
+          .eq('source', 'telegram')
+          .in('event_type', ['xpost_session', 'invoice_session'])
           .filter('payload->>chat_id', 'eq', String(chatId))
-        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Post cancelled.' })
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Session cancelled.' })
       } else {
         await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: 'ℹ️ Nothing to cancel.' })
       }
+      return new Response('ok')
+    }
+
+    // ─── /invoice command — prompt-driven invoicing via Invoice Terminal ───
+    if (text.toLowerCase().startsWith('/invoice')) {
+      const invoicePrompt = text.replace(/^\/invoice\s*/i, '').trim()
+
+      if (!invoicePrompt) {
+        // No inline prompt — enter invoice session mode (like xpost)
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'invoice_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'invoice_session',
+          payload: { chat_id: chatId, history: [], created: Date.now() },
+          processed: false,
+        })
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '💰 <b>Invoice Terminal active.</b>\n\n'
+            + 'Type your invoice commands naturally:\n'
+            + '• <code>Send Warren a paid invoice for $500</code>\n'
+            + '• <code>List all unpaid invoices</code>\n'
+            + '• <code>Mark INV-01055 as paid</code>\n\n'
+            + 'Send /cancel to exit invoice mode.',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      // Inline prompt — execute immediately
+      await processInvoiceCommand(chatId, invoicePrompt, [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
       return new Response('ok')
     }
 
@@ -564,6 +691,26 @@ Deno.serve(async (req) => {
         parse_mode: 'HTML',
       })
       return new Response('ok')
+    }
+
+    // ─── Check for active invoice session (multi-turn invoice terminal) ───
+    if (text && !text.startsWith('/')) {
+      const { data: invoiceSessions } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', 'invoice_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (invoiceSessions && invoiceSessions.length > 0) {
+        const session = invoiceSessions[0]
+        const sp = session.payload as { chat_id: number; history: any[]; created: number }
+
+        console.log('[invoice-tg] session active, processing:', text.slice(0, 100))
+
+        await processInvoiceCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+        return new Response('ok')
+      }
     }
 
     // ─── Check for active xpost session (user typing their post message) ───
