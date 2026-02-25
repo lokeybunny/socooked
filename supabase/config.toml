@@ -68,3 +68,9 @@ verify_jwt = false
 
 [functions.ig-dm-notify]
 verify_jwt = false
+
+[functions.smm-scheduler]
+verify_jwt = false
+
+[functions.invoice-scheduler]
+verify_jwt = false
