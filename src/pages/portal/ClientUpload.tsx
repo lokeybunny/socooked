@@ -48,12 +48,12 @@ export default function ClientUpload() {
       if (niche === 'mv') setShowMVLanding(true);
       setLoading(false);
 
-      // Fetch AI-generated assets assigned to this customer
+      // Fetch all published assets assigned to this customer
       const { data: assets } = await supabase
         .from('content_assets')
         .select('id, title, url, type, created_at, source')
         .eq('customer_id', data.id)
-        .in('source', ['ai-generated', 'higgsfield', 'nano-banana'])
+        .eq('status', 'published')
         .eq('status', 'published')
         .order('created_at', { ascending: false })
         .limit(50);
