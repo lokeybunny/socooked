@@ -204,6 +204,11 @@ export default function Invoices() {
     `;
   };
 
+  const getInvoiceEmailSubject = (inv: any) =>
+    inv?.status === 'paid'
+      ? `Invoice ${inv?.invoice_number || ''} — PAID IN FULL — Receipt from STU25`
+      : `Invoice ${inv?.invoice_number || ''} from STU25`;
+
   const sendInvoiceEmail = async (inv: any) => {
     const email = inv.customers?.email;
     if (!email) {
@@ -229,7 +234,7 @@ export default function Invoices() {
       if (!res.ok) throw new Error(data.error || 'Failed to send');
 
       toast.dismiss(sending);
-      toast.success(`Invoice PDF emailed to ${email}`);
+      toast.success(inv.status === 'paid' ? `Paid receipt PDF emailed to ${email}` : `Invoice PDF emailed to ${email}`);
       setDetailInvoice(null);
       load();
     } catch (e: any) {
@@ -581,7 +586,7 @@ export default function Invoices() {
               <StatusBadge status={inv.status} />
               <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                 {(inv.status === 'draft' || inv.status === 'sent') && <Button size="sm" variant="outline" onClick={() => openEdit(inv)}><Pencil className="h-3 w-3 mr-1" />Edit</Button>}
-                {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => openPreview(inv)}><Eye className="h-3 w-3 mr-1" />Preview & Send</Button>}
+                {(inv.status === 'draft' || inv.status === 'sent' || inv.status === 'paid') && <Button size="sm" variant="outline" onClick={() => openPreview(inv)}><Eye className="h-3 w-3 mr-1" />{inv.status === 'paid' ? 'Preview Receipt' : 'Preview & Send'}</Button>}
                 {inv.status === 'draft' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
                 {inv.status === 'sent' && <Button size="sm" variant="outline" onClick={() => markAs(inv.id, 'paid')}>Mark Paid</Button>}
                 {(inv.status === 'draft' || inv.status === 'sent') && <Button size="sm" variant="ghost" onClick={() => markAs(inv.id, 'void')}>Void</Button>}
@@ -672,7 +677,7 @@ export default function Invoices() {
 
                   <div className="flex gap-2">
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && <Button className="flex-1" variant="outline" onClick={() => { setDetailInvoice(null); openEdit(detailInvoice); }}><Pencil className="h-4 w-4 mr-2" />Edit</Button>}
-                    {detailInvoice.status === 'draft' && <Button className="flex-1" onClick={() => { setDetailInvoice(null); openPreview(detailInvoice); }}><Eye className="h-4 w-4 mr-2" />Preview & Send</Button>}
+                    {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent' || detailInvoice.status === 'paid') && <Button className="flex-1" onClick={() => { setDetailInvoice(null); openPreview(detailInvoice); }}><Eye className="h-4 w-4 mr-2" />{detailInvoice.status === 'paid' ? 'Preview Receipt' : 'Preview & Send'}</Button>}
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && <Button className="flex-1" variant="outline" onClick={() => markAs(detailInvoice.id, 'paid')}>Mark as Paid</Button>}
                     {(detailInvoice.status === 'draft' || detailInvoice.status === 'sent') && (
                       <Button variant="ghost" onClick={() => markAs(detailInvoice.id, 'void')}>Void</Button>
@@ -699,7 +704,7 @@ export default function Invoices() {
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground space-y-1">
                 <p><span className="font-medium text-foreground">To:</span> {previewInvoice?.customers?.email || 'No email'}</p>
-                <p><span className="font-medium text-foreground">Subject:</span> Invoice {previewInvoice?.invoice_number || ''} from STU25</p>
+                <p><span className="font-medium text-foreground">Subject:</span> {getInvoiceEmailSubject(previewInvoice)}</p>
               </div>
               <div className="border border-border rounded-lg p-4 bg-background">
                 <div
@@ -710,7 +715,7 @@ export default function Invoices() {
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setPreviewInvoice(null)}>Cancel</Button>
                 <Button onClick={confirmAndSend} disabled={!previewInvoice?.customers?.email} className="gap-1.5">
-                  <Send className="h-4 w-4" /> Send Invoice
+                  <Send className="h-4 w-4" /> {previewInvoice?.status === 'paid' ? 'Send Receipt' : 'Send Invoice'}
                 </Button>
               </div>
             </div>

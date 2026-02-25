@@ -39,6 +39,7 @@ interface LineItem {
   description: string
   quantity: number
   unit_price: number
+  amount?: number
 }
 
 interface InvoicePayload {
@@ -49,7 +50,8 @@ interface InvoicePayload {
   due_date?: string
   notes?: string
   tax_rate?: number
-  auto_send?: boolean
+  auto_send?: boolean | string
+  status?: 'draft' | 'sent' | 'paid' | 'void'
 }
 
 function formatCurrency(amount: number, currency = 'USD'): string {
@@ -485,6 +487,7 @@ Deno.serve(async (req) => {
     // POST /invoice-api - Create invoice
     if (req.method === 'POST' && (!path || path === 'invoice-api')) {
       const body: InvoicePayload = await req.json()
+      const shouldAutoSend = body.auto_send === true || body.auto_send === 'true'
 
       // Resolve customer
       let customerId = body.customer_id
@@ -501,16 +504,35 @@ Deno.serve(async (req) => {
       if (!customerId) return fail('Customer not found. Provide customer_id or customer_email.')
       if (!body.line_items || body.line_items.length === 0) return fail('line_items required')
 
+      const normalizedLineItems: LineItem[] = body.line_items.map((li: any) => {
+        const quantityRaw = Number(li?.quantity ?? 1)
+        const unitPriceRaw = Number(li?.unit_price ?? li?.amount ?? 0)
+        return {
+          description: String(li?.description || 'Item'),
+          quantity: Number.isFinite(quantityRaw) && quantityRaw > 0 ? quantityRaw : 1,
+          unit_price: Number.isFinite(unitPriceRaw) ? unitPriceRaw : 0,
+        }
+      })
+
+      const requestedTaxRate = Number(body.tax_rate ?? 0)
+      const taxRate = Number.isFinite(requestedTaxRate) ? requestedTaxRate : 0
+      const subtotal = normalizedLineItems.reduce((s, li) => s + li.quantity * li.unit_price, 0)
+      const total = subtotal + (subtotal * taxRate / 100)
+
+      const requestedStatus = typeof body.status === 'string' ? body.status.toLowerCase() : null
+      const normalizedStatus = requestedStatus && ['draft', 'sent', 'paid', 'void'].includes(requestedStatus)
+        ? requestedStatus
+        : null
+      const invoiceStatus = normalizedStatus ?? (shouldAutoSend ? 'sent' : 'draft')
+
       // ─── Duplicate guard: same customer + same amount within 30 minutes ───
-      const candidateSubtotal = body.line_items.reduce((s: number, li: LineItem) => s + li.quantity * li.unit_price, 0)
-      const candidateTotal = candidateSubtotal + (candidateSubtotal * (body.tax_rate || 0) / 100)
       const windowAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
 
       const { data: dupes } = await supabase
         .from('invoices')
         .select('id, invoice_number, status')
         .eq('customer_id', customerId)
-        .eq('amount', candidateTotal)
+        .eq('amount', total)
         .gte('created_at', windowAgo)
         .limit(1)
 
@@ -525,7 +547,7 @@ Deno.serve(async (req) => {
           .from('invoices')
           .select('id, invoice_number, status')
           .eq('customer_id', customerId)
-          .eq('amount', candidateTotal)
+          .eq('amount', total)
           .eq('due_date', body.due_date)
           .in('status', ['draft', 'sent'])
           .limit(1)
@@ -536,25 +558,24 @@ Deno.serve(async (req) => {
         }
       }
 
-      const taxRate = body.tax_rate || 0
-      const subtotal = body.line_items.reduce((s, li) => s + li.quantity * li.unit_price, 0)
-      const total = subtotal + (subtotal * taxRate / 100)
-
       const insertData: Record<string, unknown> = {
         customer_id: customerId,
-        line_items: body.line_items,
+        line_items: normalizedLineItems,
         subtotal,
         amount: total,
         tax_rate: taxRate,
         currency: body.currency || 'USD',
         due_date: body.due_date || null,
         notes: body.notes || null,
-        status: body.auto_send ? 'sent' : 'draft',
+        status: invoiceStatus,
         provider: 'manual',
       }
 
-      if (body.auto_send) {
+      if (invoiceStatus === 'sent' || shouldAutoSend) {
         insertData.sent_at = new Date().toISOString()
+      }
+      if (invoiceStatus === 'paid') {
+        insertData.paid_at = new Date().toISOString()
       }
 
       const { data: invoice, error } = await supabase
@@ -566,50 +587,55 @@ Deno.serve(async (req) => {
       if (error) return fail(error.message, 500)
 
       // If auto_send, generate invoice PDF and send as attachment via gmail-api
-      if (body.auto_send && invoice) {
+      if (shouldAutoSend && invoice) {
         const customerEmail = (invoice as any).customers?.email
         const customerName = (invoice as any).customers?.full_name || 'Customer'
+        const invNum = (invoice as any).invoice_number || 'Invoice'
 
-        if (customerEmail) {
-          try {
-            const invNum = (invoice as any).invoice_number || 'Invoice'
-            const pdfBase64 = await buildInvoicePdfBase64(invoice, customerName)
-            const emailBody = buildInvoiceAttachmentEmailHtml(invoice, customerName)
-            const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
+        if (!customerEmail) {
+          return fail(`Invoice ${invNum} was created but customer has no email address for delivery.`, 422)
+        }
 
-            const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
-            const gmailRes = await fetch(gmailUrl, {
-              method: 'POST',
-              headers: {
-                'apikey': serviceKey,
-                'Authorization': `Bearer ${serviceKey}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                to: customerEmail,
-                subject: `Invoice ${invNum} from STU25`,
-                body: emailBody,
-                attachments: [
-                  {
-                    filename: attachmentFilename,
-                    mimeType: 'application/pdf',
-                    data: pdfBase64,
-                  },
-                ],
-              }),
-            })
+        try {
+          const pdfBase64 = await buildInvoicePdfBase64(invoice, customerName)
+          const emailBody = buildInvoiceAttachmentEmailHtml(invoice, customerName)
+          const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
+          const emailSubject = invoice.status === 'paid'
+            ? `Invoice ${invNum} — PAID IN FULL — Receipt from STU25`
+            : `Invoice ${invNum} from STU25`
 
-            const gmailData = await gmailRes.json()
-            if (!gmailRes.ok) {
-              console.error('[invoice-api] auto_send email failed:', gmailData)
-            } else {
-              console.log(`[invoice-api] Auto-sent invoice PDF ${invNum} to ${customerEmail}`)
-              // Notify Telegram
-              await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, Number(invoice.amount), invoice.currency)
-            }
-          } catch (emailErr) {
-            console.error('[invoice-api] auto_send email error:', emailErr)
+          const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
+          const gmailRes = await fetch(gmailUrl, {
+            method: 'POST',
+            headers: {
+              'apikey': serviceKey,
+              'Authorization': `Bearer ${serviceKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              to: customerEmail,
+              subject: emailSubject,
+              body: emailBody,
+              attachments: [
+                {
+                  filename: attachmentFilename,
+                  mimeType: 'application/pdf',
+                  data: pdfBase64,
+                },
+              ],
+            }),
+          })
+
+          const gmailData = await gmailRes.json()
+          if (!gmailRes.ok) {
+            return fail(`Invoice ${invNum} was created but email sending failed: ${gmailData.error || 'Unknown error'}`, gmailRes.status)
           }
+
+          console.log(`[invoice-api] Auto-sent invoice PDF ${invNum} to ${customerEmail}`)
+          await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, Number(invoice.amount), invoice.currency)
+        } catch (emailErr) {
+          const message = emailErr instanceof Error ? emailErr.message : 'Unknown email error'
+          return fail(`Invoice was created but email sending failed: ${message}`, 500)
         }
       }
 
