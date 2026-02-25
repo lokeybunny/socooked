@@ -121,7 +121,7 @@ async function processInvoiceCommand(
         ...(payload.history || []),
         { role: 'user', text: prompt },
         { role: 'assistant', text: replyText.slice(0, 500) },
-      ].slice(-10) // keep last 10 turns
+      ].slice(-10)
 
       await supabase.from('webhook_events').update({
         payload: { ...payload, history: newHistory },
@@ -138,6 +138,93 @@ async function processInvoiceCommand(
     await tgPost(tgToken, 'sendMessage', {
       chat_id: chatId,
       text: `❌ <b>Invoice command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      parse_mode: 'HTML',
+    })
+  }
+}
+
+// ─── SMM Terminal via Telegram ───
+async function processSMMCommand(
+  chatId: number,
+  prompt: string,
+  history: { role: string; text: string }[],
+  tgToken: string,
+  supabaseUrl: string,
+  botSecret: string,
+  supabase: any,
+) {
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '⏳ Processing SMM command...', parse_mode: 'HTML' })
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/smm-command`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-bot-secret': botSecret,
+      },
+      body: JSON.stringify({ prompt, profile: 'STU25', history }),
+    })
+    const rawData = await res.json()
+    const result = rawData?.data || rawData
+
+    let replyText = ''
+
+    if (result?.type === 'clarify') {
+      replyText = `❓ ${result.message}`
+    } else if (result?.type === 'executed') {
+      const lines: string[] = []
+      for (const action of result.actions || []) {
+        if (action.success) {
+          lines.push(`✅ ${action.description}`)
+          if (action.data) {
+            const parts: string[] = []
+            if (action.data.request_id) parts.push(`🆔 ${action.data.request_id}`)
+            if (action.data.platforms) parts.push(`📡 ${Array.isArray(action.data.platforms) ? action.data.platforms.join(', ') : action.data.platforms}`)
+            if (action.data.scheduled_for) parts.push(`🕐 ${action.data.scheduled_for}`)
+            if (parts.length) lines.push(`  → ${parts.join(' · ')}`)
+          }
+        } else {
+          lines.push(`❌ ${action.description}: ${action.error || 'unknown'}`)
+        }
+      }
+      replyText = lines.join('\n') || '✅ Done.'
+    } else if (result?.type === 'message') {
+      replyText = result.message
+    } else {
+      replyText = `<pre>${JSON.stringify(result, null, 2).slice(0, 3500)}</pre>`
+    }
+
+    // Update conversation history in session
+    const { data: sessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'smm_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .limit(1)
+
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0]
+      const payload = session.payload as { chat_id: number; history: any[]; created: number }
+      const newHistory = [
+        ...(payload.history || []),
+        { role: 'user', text: prompt },
+        { role: 'assistant', text: replyText.slice(0, 500) },
+      ].slice(-10)
+
+      await supabase.from('webhook_events').update({
+        payload: { ...payload, history: newHistory },
+      }).eq('id', session.id)
+    }
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: replyText.slice(0, 4000),
+      parse_mode: 'HTML',
+    })
+  } catch (e: any) {
+    console.error('[smm-tg] error:', e)
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `❌ <b>SMM command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
       parse_mode: 'HTML',
     })
   }
@@ -380,6 +467,53 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── Menu callbacks: Invoice or SMM ───
+      if (data === 'menu_invoice') {
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Invoice Terminal' })
+        // Clear any existing sessions first
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        // Create invoice session
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'invoice_session',
+          payload: { chat_id: chatId, history: [], created: Date.now() },
+          processed: false,
+        })
+        if (chatId && messageId) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: chatId, message_id: messageId,
+            text: '💰 <b>Invoice Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your invoice commands naturally or /cancel to exit.</i>',
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
+      if (data === 'menu_smm') {
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'SMM Terminal' })
+        // Clear any existing sessions first
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').in('event_type', ['invoice_session', 'smm_session'])
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        // Create SMM session
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'smm_session',
+          payload: { chat_id: chatId, history: [], created: Date.now() },
+          processed: false,
+        })
+        if (chatId && messageId) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: chatId, message_id: messageId,
+            text: '📱 <b>SMM Terminal</b>\n\nWhat can I help you with today sir?\n\n<i>Type your social media commands naturally or /cancel to exit.</i>',
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
       await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Unknown action' })
       return new Response('ok')
     }
@@ -588,6 +722,22 @@ Deno.serve(async (req) => {
 
     // ─── /xpost command — interactive social posting ───
     const text = (message.text as string || '').trim()
+
+    // ─── /menu command — remote control with inline buttons ───
+    if (text.toLowerCase() === '/menu') {
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🎛 <b>Command Center</b>\n\nSelect a terminal to get started:',
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '💰 Invoice Terminal', callback_data: 'menu_invoice' }],
+            [{ text: '📱 SMM Terminal', callback_data: 'menu_smm' }],
+          ],
+        },
+      })
+      return new Response('ok')
+    }
     if (text.toLowerCase().startsWith('/xpost')) {
       console.log('[xpost] fetching profiles from Upload-Post')
 
@@ -624,16 +774,16 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── /cancel command — abort active xpost or invoice session ───
+    // ─── /cancel command — abort active sessions ───
     if (text.toLowerCase() === '/cancel') {
       const { data: sessions } = await supabase.from('webhook_events').select('id')
         .eq('source', 'telegram')
-        .in('event_type', ['xpost_session', 'invoice_session'])
+        .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
         .filter('payload->>chat_id', 'eq', String(chatId))
       if (sessions && sessions.length > 0) {
         await supabase.from('webhook_events').delete()
           .eq('source', 'telegram')
-          .in('event_type', ['xpost_session', 'invoice_session'])
+          .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
           .filter('payload->>chat_id', 'eq', String(chatId))
         await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Session cancelled.' })
       } else {
@@ -677,6 +827,37 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── /smm command — prompt-driven social media management ───
+    if (text.toLowerCase().startsWith('/smm')) {
+      const smmPrompt = text.replace(/^\/smm\s*/i, '').trim()
+
+      if (!smmPrompt) {
+        // No inline prompt — enter SMM session mode
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').in('event_type', ['smm_session', 'invoice_session'])
+          .filter('payload->>chat_id', 'eq', String(chatId))
+
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'smm_session',
+          payload: { chat_id: chatId, history: [], created: Date.now() },
+          processed: false,
+        })
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '📱 <b>SMM Terminal active.</b>\n\nWhat can I help you with today sir?\n\n'
+            + '<i>Type your social media commands naturally or /cancel to exit.</i>',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      // Inline prompt — execute immediately
+      await processSMMCommand(chatId, smmPrompt, [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+      return new Response('ok')
+    }
+
     // ─── /higs command — Higgsfield model reminder ───
     if (text.toLowerCase().startsWith('/higs')) {
       await tgPost(TG_TOKEN, 'sendMessage', {
@@ -713,7 +894,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Check for active xpost session (user typing their post message) ───
+    // ─── Check for active SMM session (multi-turn SMM terminal) ───
+    if (text && !text.startsWith('/')) {
+      const { data: smmSessions } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', 'smm_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (smmSessions && smmSessions.length > 0) {
+        const session = smmSessions[0]
+        const sp = session.payload as { chat_id: number; history: any[]; created: number }
+
+        console.log('[smm-tg] session active, processing:', text.slice(0, 100))
+
+        await processSMMCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+        return new Response('ok')
+      }
+    }
+
     if (text && !text.startsWith('/')) {
       const { data: sessions } = await supabase.from('webhook_events')
         .select('id, payload')
