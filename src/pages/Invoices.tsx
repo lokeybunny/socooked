@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Plus, Receipt, DollarSign, Hash, Calendar, Trash2, FileText, Send, Download, FileSpreadsheet, ChevronDown, Mail, Eye, Pencil } from 'lucide-react';
+import InvoiceTerminal from '@/components/invoices/InvoiceTerminal';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -722,6 +723,9 @@ export default function Invoices() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Persistent AI Invoice Terminal */}
+      <InvoiceTerminal />
     </AppLayout>
   );
 }
