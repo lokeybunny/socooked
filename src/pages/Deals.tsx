@@ -55,7 +55,7 @@ function StageColumn({ stage, deals, onDoubleClick }: { stage: string; deals: an
         ))}
         {deals.length === 0 && (
           <div className="border-2 border-dashed border-border rounded-xl p-6 text-center text-xs text-muted-foreground">
-            No deals
+            No leads
           </div>
         )}
       </div>
@@ -111,7 +111,7 @@ export default function Deals() {
       category: categoryGate.selectedCategory,
     }]);
     if (error) { toast.error(error.message); return; }
-    toast.success('Deal created');
+    toast.success('Lead created');
     setDialogOpen(false);
     setForm({ title: '', customer_id: '', stage: 'new', deal_value: '0', probability: '10' });
     loadAll();
@@ -120,7 +120,7 @@ export default function Deals() {
   const handleDelete = async (dealId: string) => {
     const { error } = await supabase.from('deals').delete().eq('id', dealId);
     if (error) { toast.error(error.message); return; }
-    toast.success('Deal deleted');
+    toast.success('Lead deleted');
     setDeleteTarget(null);
     setSelectedDeal(null);
     loadAll();
@@ -174,16 +174,16 @@ export default function Deals() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Deals Pipeline" {...categoryGate} pageKey="deals" totalCount={allDeals.length} countLabel="deals" categoryCounts={categoryCounts}>
+      <CategoryGate title="Leads Pipeline" {...categoryGate} pageKey="leads" totalCount={allDeals.length} countLabel="leads" categoryCounts={categoryCounts}>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <p className="text-muted-foreground text-sm">{deals.length} deals · ${deals.reduce((s, d) => s + Number(d.deal_value || 0), 0).toLocaleString()} total value</p>
+            <p className="text-muted-foreground text-sm">{deals.length} leads · ${deals.reduce((s, d) => s + Number(d.deal_value || 0), 0).toLocaleString()} total value</p>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button><Plus className="h-4 w-4 mr-2" />New Deal</Button>
+                <Button><Plus className="h-4 w-4 mr-2" />New Lead</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Create Deal</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>Create Lead</DialogTitle></DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
                   <div className="space-y-2"><Label>Title *</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} required /></div>
                   <div className="space-y-2">
@@ -233,7 +233,7 @@ export default function Deals() {
           </DndContext>
         </div>
 
-        {/* Deal Detail Modal */}
+        {/* Lead Detail Modal */}
         <Dialog open={!!selectedDeal} onOpenChange={(open) => { if (!open) setSelectedDeal(null); }}>
           <DialogContent>
             <DialogHeader><DialogTitle>{selectedDeal?.title}</DialogTitle></DialogHeader>
@@ -266,7 +266,7 @@ export default function Deals() {
                 )}
                 <div className="pt-2 border-t border-border">
                   <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(selectedDeal)}>
-                    <Trash2 className="h-4 w-4 mr-2" />Delete Deal
+                    <Trash2 className="h-4 w-4 mr-2" />Delete Lead
                   </Button>
                 </div>
               </div>

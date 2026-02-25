@@ -1,8 +1,8 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
-  LayoutGrid, LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
-  Radar, Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2,
+  LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
+  Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -13,10 +13,8 @@ const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/projects', icon: FolderKanban, label: 'Projects', botIcon: true },
   { to: '/customers', icon: Users, label: 'Customers', botIcon: true },
-  { to: '/deals', icon: Handshake, label: 'Deals', botIcon: true },
-  { to: '/boards', icon: LayoutGrid, label: 'Boards', botIcon: true },
+  { to: '/leads', icon: Handshake, label: 'Leads', botIcon: true },
   { to: '/invoices', icon: Receipt, label: 'Invoices', botIcon: true },
-  { to: '/leads', icon: Radar, label: 'Leads', botIcon: true },
   { to: '/messages', icon: Mail, label: 'E-Mail', botIcon: true },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar', botIcon: true },
   { to: '/custom-u', icon: Link2, label: 'Custom-U', botIcon: true },
