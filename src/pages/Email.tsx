@@ -21,6 +21,13 @@ import { format } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 
+interface AttachmentMeta {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
 interface GmailEmail {
   id: string;
   threadId: string;
@@ -32,6 +39,7 @@ interface GmailEmail {
   date: string;
   labelIds: string[];
   isUnread: boolean;
+  attachments?: AttachmentMeta[];
 }
 
 interface Attachment {
@@ -107,6 +115,7 @@ export default function EmailPage() {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [trashId, setTrashId] = useState<string | null>(null);
   const [trashing, setTrashing] = useState(false);
+  const [downloadingAtt, setDownloadingAtt] = useState<string | null>(null);
 
   // Load persisted read IDs from database on mount
   useEffect(() => {
@@ -295,6 +304,26 @@ export default function EmailPage() {
     finally { setTrashing(false); setTrashId(null); }
   };
 
+  const handleDownloadAttachment = async (messageId: string, att: AttachmentMeta) => {
+    setDownloadingAtt(att.attachmentId);
+    try {
+      const data = await callGmail(`attachment&messageId=${messageId}&attachmentId=${att.attachmentId}`);
+      if (!data?.data) throw new Error('No attachment data');
+      // Convert base64url to standard base64
+      const b64 = data.data.replace(/-/g, '+').replace(/_/g, '/');
+      const byteChars = atob(b64);
+      const byteArray = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([byteArray], { type: att.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = att.filename; a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${att.filename}`);
+    } catch (e: any) { toast.error(e.message || 'Failed to download attachment'); }
+    finally { setDownloadingAtt(null); }
+  };
+
   const readEmails = emails.filter(e => readIds.has(e.id));
 
   const filteredEmails = selectedCustomerEmail === 'all'
@@ -343,7 +372,14 @@ export default function EmailPage() {
                     {activeTab === 'sent' || (activeTab === 'customers' && email.from.toLowerCase().includes('warren@stu25.com')) ? `To: ${email.to}` : `From: ${email.from}`}
                   </p>
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-muted-foreground">{formatDate(email.date)}</p>
+                    {email.attachments && email.attachments.length > 0 && (
+                      <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                        <Paperclip className="h-3 w-3" /> {email.attachments.length}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
               <div className="flex items-center gap-1.5 shrink-0 mt-1">
@@ -381,6 +417,29 @@ export default function EmailPage() {
             <div className="border-t border-border pt-4">
               <div className="prose prose-sm dark:prose-invert max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: viewEmail.body || '<p class="text-muted-foreground">No content</p>' }} />
             </div>
+            {viewEmail.attachments && viewEmail.attachments.length > 0 && (
+              <div className="border-t border-border pt-4">
+                <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-1.5">
+                  <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  {viewEmail.attachments.length} Attachment{viewEmail.attachments.length > 1 ? 's' : ''}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {viewEmail.attachments.map((att) => (
+                    <button
+                      key={att.attachmentId}
+                      onClick={() => handleDownloadAttachment(viewEmail.id, att)}
+                      disabled={downloadingAtt === att.attachmentId}
+                      className="flex items-center gap-1.5 bg-muted hover:bg-accent rounded-md px-3 py-2 text-xs text-foreground transition-colors"
+                    >
+                      <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate max-w-[200px]">{att.filename}</span>
+                      <span className="text-muted-foreground">({formatFileSize(att.size)})</span>
+                      {downloadingAtt === att.attachmentId && <RefreshCw className="h-3 w-3 animate-spin" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {!replyOpen ? (
               <div className="border-t border-border pt-4">
                 <Button variant="outline" onClick={() => setReplyOpen(true)} className="gap-1.5"><Reply className="h-4 w-4" /> Reply</Button>

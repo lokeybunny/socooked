@@ -105,6 +105,33 @@ function extractBody(payload: any): string {
   return "";
 }
 
+interface AttachmentMeta {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
+function extractAttachments(payload: any, messageId: string): AttachmentMeta[] {
+  const attachments: AttachmentMeta[] = [];
+  function walk(parts: any[]) {
+    if (!parts) return;
+    for (const part of parts) {
+      if (part.filename && part.body?.attachmentId) {
+        attachments.push({
+          attachmentId: part.body.attachmentId,
+          filename: part.filename,
+          mimeType: part.mimeType || 'application/octet-stream',
+          size: part.body.size || 0,
+        });
+      }
+      if (part.parts) walk(part.parts);
+    }
+  }
+  if (payload.parts) walk(payload.parts);
+  return attachments;
+}
+
 interface SimplifiedEmail {
   id: string;
   threadId: string;
@@ -116,6 +143,7 @@ interface SimplifiedEmail {
   date: string;
   labelIds: string[];
   isUnread: boolean;
+  attachments: AttachmentMeta[];
 }
 
 async function getMessages(
@@ -154,6 +182,7 @@ async function getMessages(
     date: parseHeader(msg.payload?.headers, "Date"),
     labelIds: msg.labelIds || [],
     isUnread: (msg.labelIds || []).includes("UNREAD"),
+    attachments: extractAttachments(msg.payload || {}, msg.id),
   }));
 }
 
@@ -358,6 +387,7 @@ serve(async (req) => {
           date: parseHeader(msg.payload?.headers, "Date"),
           labelIds: msg.labelIds || [],
           isUnread: false,
+          attachments: extractAttachments(msg.payload || {}, msg.id || d.id),
         };
       });
 
@@ -396,9 +426,25 @@ serve(async (req) => {
         date: parseHeader(msg.payload?.headers, "Date"),
         labelIds: msg.labelIds || [],
         isUnread: false,
+        attachments: extractAttachments(msg.payload || {}, msg.id),
       };
 
       return new Response(JSON.stringify({ email }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "attachment") {
+      const msgId = url.searchParams.get("messageId");
+      const attId = url.searchParams.get("attachmentId");
+      if (!msgId || !attId) throw new Error("messageId and attachmentId required");
+      const res = await fetch(
+        `${GMAIL_API}/users/me/messages/${msgId}/attachments/${attId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const attData = await res.json();
+      if (!res.ok) throw new Error(`Attachment error: ${JSON.stringify(attData)}`);
+      return new Response(JSON.stringify({ data: attData.data, size: attData.size }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -555,7 +601,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use ?action=inbox|sent|drafts|message|send|trash|save-draft" }),
+      JSON.stringify({ error: "Unknown action. Use ?action=inbox|sent|drafts|message|send|trash|save-draft|attachment" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
