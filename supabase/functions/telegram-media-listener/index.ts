@@ -721,14 +721,37 @@ Deno.serve(async (req) => {
       }
 
       // Reply was to a bot message but no IG DM or email match found
+      // Check if there's an active session — if so, treat the reply text as a session command
       const replyFromBot = replyToMsg.from?.is_bot === true
       if (replyFromBot) {
-        console.log('[reply-router] No matching notification for message_id:', replyToId)
-        await tgPost(TG_TOKEN, 'sendMessage', {
-          chat_id: chatId,
-          text: '⚠️ <b>Could not route reply.</b>\nThis notification was sent before reply support was added, or it has expired. Please use the CRM directly.',
-          parse_mode: 'HTML',
-        })
+        const replyAsText = (message.text as string).trim()
+
+        // Check for active invoice session
+        const { data: invSess } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'invoice_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+          .limit(1)
+        if (invSess && invSess.length > 0) {
+          const sp = invSess[0].payload as { chat_id: number; history: any[]; created: number }
+          await processInvoiceCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+          return new Response('ok')
+        }
+
+        // Check for active SMM session
+        const { data: smmSess } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'smm_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+          .limit(1)
+        if (smmSess && smmSess.length > 0) {
+          const sp = smmSess[0].payload as { chat_id: number; history: any[]; created: number }
+          await processSMMCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+          return new Response('ok')
+        }
+
+        // No session active either — silently ignore instead of showing error
+        console.log('[reply-router] No matching notification or session for message_id:', replyToId, '— ignoring')
         return new Response('ok')
       }
     }
