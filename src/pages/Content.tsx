@@ -347,6 +347,7 @@ export default function Content() {
             onShare={handleShare}
             onRevokeShare={handleRevokeShare}
             onImagePreview={openImage}
+            onRefresh={loadAll}
           />
         ) : categoryGate.selectedCategory === 'telegram' ? (
           <TelegramManager
@@ -356,6 +357,7 @@ export default function Content() {
             onShare={handleShare}
             onRevokeShare={handleRevokeShare}
             onImagePreview={openImage}
+            onRefresh={loadAll}
           />
         ) : (
         <div className="space-y-6">
@@ -604,6 +606,7 @@ export default function Content() {
                                                         const { error } = await supabase.from('content_assets').update({ category: 'ai-generated' }).eq('id', c.id);
                                                         if (error) { toast.error('Failed to push'); return; }
                                                         toast.success('Pushed to AI Generated', { description: c.title });
+                                                        setAllContent(prev => prev.map(x => x.id === c.id ? { ...x, category: 'ai-generated' } : x));
                                                       }}
                                                       className="flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors"
                                                       title="Push to AI Generated"
@@ -819,13 +822,14 @@ function CustomerMeetingsSection({ categoryId, onPlay, onDownload, onDelete, onI
 }
 
 /* ─── Higgsfield AI Full Manager ──────────────────────── */
-function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare, onImagePreview }: {
+function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare, onImagePreview, onRefresh }: {
   onPlay: (url: string, title: string) => void;
   onDownload: (url: string, title: string) => void;
   onDelete: (id: string) => void;
   onShare: (id: string) => void;
   onRevokeShare: (id: string) => void;
   onImagePreview: (url: string, title: string) => void;
+  onRefresh?: () => void;
 }) {
   const [assets, setAssets] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -949,6 +953,8 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
                       const { error } = await supabase.from('content_assets').update({ category: 'ai-generated' }).eq('id', a.id);
                       if (error) { toast.error('Failed to push'); return; }
                       toast.success('Pushed to AI Generated', { description: a.title });
+                      setAssets(prev => prev.filter(x => x.id !== a.id));
+                      onRefresh?.();
                     }}
                     className="flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors"
                     title="Push to AI Generated"
@@ -970,13 +976,14 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
 }
 
 /* ─── Telegram Manager ──────────────────────── */
-function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare, onImagePreview }: {
+function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare, onImagePreview, onRefresh }: {
   onPlay: (url: string, title: string) => void;
   onDownload: (url: string, title: string) => void;
   onDelete: (id: string) => void;
   onShare: (id: string) => void;
   onRevokeShare: (id: string) => void;
   onImagePreview: (url: string, title: string) => void;
+  onRefresh?: () => void;
 }) {
   const [assets, setAssets] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
@@ -1221,7 +1228,8 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
                                           const { error } = await supabase.from('content_assets').update({ category: 'ai-generated' }).eq('id', a.id);
                                           if (error) { toast.error('Failed to push'); return; }
                                           toast.success('Pushed to AI Generated', { description: a.title });
-                                          setAssets(prev => prev.map(x => x.id === a.id ? { ...x, category: 'ai-generated' } : x));
+                                          setAssets(prev => prev.filter(x => x.id !== a.id));
+                                          onRefresh?.();
                                         }}
                                         className="flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors"
                                         title="Push to AI Generated"
