@@ -216,10 +216,10 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
 
         {/* Hub Tabs */}
         <Tabs defaultValue="tasks" className="flex-1 min-h-0">
-          <TabsList className={`grid w-full ${igHandle ? 'grid-cols-7' : 'grid-cols-6'}`}>
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
             <TabsTrigger value="emails" className="text-xs">Emails</TabsTrigger>
-            {igHandle && <TabsTrigger value="igdms" className="text-xs gap-1"><Instagram className="h-3 w-3" />DMs</TabsTrigger>}
+            <TabsTrigger value="igdms" className="text-xs gap-1"><Instagram className="h-3 w-3" />DMs</TabsTrigger>
             <TabsTrigger value="notes" className="text-xs">Notes</TabsTrigger>
             <TabsTrigger value="docs" className="text-xs">Content</TabsTrigger>
             <TabsTrigger value="money" className="text-xs">Money</TabsTrigger>
@@ -335,8 +335,10 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
             </TabsContent>
 
             {/* IG DMs */}
-            {igHandle && (
-              <TabsContent value="igdms" className="space-y-2 m-0">
+
+            <TabsContent value="igdms" className="space-y-2 m-0">
+              {igHandle ? (
+                <>
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                     <Instagram className="h-3 w-3" /> @{igHandle} DMs
@@ -468,8 +470,11 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
                     </div>
                   );
                 })}
-              </TabsContent>
-            )}
+              </>
+              ) : (
+                <EmptyState label="IG DMs — no Instagram handle set for this customer" />
+              )}
+            </TabsContent>
 
             {/* Notes */}
             <TabsContent value="notes" className="space-y-2 m-0">
