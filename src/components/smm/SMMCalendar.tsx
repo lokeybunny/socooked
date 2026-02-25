@@ -11,9 +11,9 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMont
 import { toast } from 'sonner';
 
 const STATUS_COLORS: Record<string, string> = {
-  scheduled: 'bg-primary/80', queued: 'bg-amber-500/80', completed: 'bg-emerald-500/80',
-  failed: 'bg-destructive/80', pending: 'bg-muted-foreground/60', in_progress: 'bg-amber-400/80',
-  cancelled: 'bg-muted-foreground/40',
+  scheduled: 'bg-primary', queued: 'bg-amber-500', completed: 'bg-emerald-500',
+  failed: 'bg-destructive', pending: 'bg-muted-foreground', in_progress: 'bg-amber-400',
+  cancelled: 'bg-muted-foreground/60',
 };
 
 export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost[]; onRefresh: () => void }) {
@@ -136,13 +136,13 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
       ) : (
         <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-            <div key={d} className="bg-muted p-2 text-center text-xs font-semibold text-foreground">{d}</div>
+            <div key={d} className="bg-muted p-2 text-center text-xs font-semibold text-foreground/90">{d}</div>
           ))}
           {days.map(day => {
             const dayPosts = getPostsForDay(day);
             const isToday = isSameDay(day, new Date());
             return (
-              <div key={day.toISOString()} className={`bg-card min-h-[80px] p-1.5 ${!isSameMonth(day, current) ? 'opacity-40' : ''}`}
+              <div key={day.toISOString()} className={`bg-card min-h-[80px] p-1.5 ${!isSameMonth(day, current) ? 'opacity-30' : ''}`}
                 onDragOver={e => e.preventDefault()} onDrop={() => handleDrop(day)}>
                 <p className={`text-xs font-medium mb-1 ${isToday ? 'text-primary font-bold' : 'text-foreground font-semibold'}`}>{format(day, 'd')}</p>
                 <div className="space-y-0.5">
@@ -152,7 +152,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
                       {p.title}
                     </button>
                   ))}
-                  {dayPosts.length > 3 && <p className="text-[10px] text-muted-foreground">+{dayPosts.length - 3} more</p>}
+                  {dayPosts.length > 3 && <p className="text-[10px] text-foreground/50">+{dayPosts.length - 3} more</p>}
                 </div>
               </div>
             );
