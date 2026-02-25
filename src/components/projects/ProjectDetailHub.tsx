@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Calendar, User, Tag, FolderOpen, Trash2, Mail, FileText, Receipt,
   PenTool, Phone, MessageSquare, Upload, Globe, Clock, Image, Video,
-  Send, Inbox, RefreshCw, Copy, StickyNote, Check, Instagram
+  Send, Inbox, RefreshCw, Copy, StickyNote, Check, Instagram, Play, Download, Eye
 } from 'lucide-react';
 import { smmApi } from '@/lib/smm/store';
 import { Input } from '@/components/ui/input';
@@ -55,6 +55,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   const [botTasks, setBotTasks] = useState<any[]>([]);
   const [previews, setPreviews] = useState<any[]>([]);
   const [contentAssets, setContentAssets] = useState<any[]>([]);
+  const [mediaPreview, setMediaPreview] = useState<{ url: string; title: string; type: string } | null>(null);
   const [customerNotes, setCustomerNotes] = useState('');
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -177,6 +178,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   );
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
@@ -216,7 +218,7 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
             <TabsTrigger value="emails" className="text-xs">Emails</TabsTrigger>
             {igHandle && <TabsTrigger value="igdms" className="text-xs gap-1"><Instagram className="h-3 w-3" />DMs</TabsTrigger>}
             <TabsTrigger value="notes" className="text-xs">Notes</TabsTrigger>
-            <TabsTrigger value="docs" className="text-xs">Sites</TabsTrigger>
+            <TabsTrigger value="docs" className="text-xs">Content</TabsTrigger>
             <TabsTrigger value="money" className="text-xs">Money</TabsTrigger>
             <TabsTrigger value="activity" className="text-xs">Activity</TabsTrigger>
           </TabsList>
@@ -476,18 +478,35 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
               {/* Content Assets */}
               <p className="text-xs font-medium text-muted-foreground">Assigned Content ({contentAssets.length})</p>
               {contentAssets.length === 0 && <EmptyState label="assigned content" />}
-              {contentAssets.map(a => (
-                <div key={a.id} className="glass-card p-3 flex items-center gap-3">
-                  {a.type === 'video' ? <Video className="h-4 w-4 text-primary" /> : <Image className="h-4 w-4 text-primary" />}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{a.title}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{a.type} · {a.source} · {a.status}</p>
+              {contentAssets.map(a => {
+                const isMedia = ['video', 'audio', 'image'].includes(a.type);
+                return (
+                  <div key={a.id} className="glass-card p-3 flex items-center gap-3">
+                    {a.type === 'video' ? <Video className="h-4 w-4 text-primary" /> : <Image className="h-4 w-4 text-primary" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{a.title}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{a.type} · {a.source} · {a.status}</p>
+                    </div>
+                    {isMedia && a.url && (
+                      <button
+                        onClick={() => setMediaPreview({ url: a.url, title: a.title, type: a.type })}
+                        className="text-muted-foreground hover:text-primary transition-colors"
+                        title="Quick preview"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {a.url && (
+                      <a href={a.url} download className="text-muted-foreground hover:text-primary transition-colors" title="Download">
+                        <Download className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    {a.url && (
+                      <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">View</a>
+                    )}
                   </div>
-                  {a.url && (
-                    <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">View</a>
-                  )}
-                </div>
-              ))}
+                );
+              })}
 
               {/* Documents */}
               {documents.length > 0 && (
@@ -614,5 +633,23 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
         </div>
       </DialogContent>
     </Dialog>
+
+      {/* Media Preview Popup */}
+      <Dialog open={!!mediaPreview} onOpenChange={(open) => { if (!open) setMediaPreview(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle className="truncate">{mediaPreview?.title}</DialogTitle></DialogHeader>
+          {mediaPreview?.type === 'image' ? (
+            <img src={mediaPreview.url} alt={mediaPreview.title} className="w-full rounded-lg max-h-[70vh] object-contain" />
+          ) : mediaPreview?.url ? (
+            <video src={mediaPreview.url} controls autoPlay className="w-full rounded-lg max-h-[70vh]" />
+          ) : null}
+          {mediaPreview?.url && (
+            <a href={mediaPreview.url} download className="inline-flex items-center gap-2 text-sm text-primary hover:underline mt-2">
+              <Download className="h-4 w-4" /> Download
+            </a>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
