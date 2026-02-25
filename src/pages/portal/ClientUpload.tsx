@@ -203,7 +203,7 @@ export default function ClientUpload() {
                 <Sparkles className="h-4 w-4 text-primary" />
                 Your AI-Generated Artwork
               </h3>
-              <div className="columns-2 sm:columns-3 gap-3 space-y-3">
+              <div className="columns-1 sm:columns-2 lg:columns-3 gap-3 space-y-3">
                 {paged.map(asset => (
                   <div key={asset.id} className="break-inside-avoid">
                     <AdaptiveMediaCard
@@ -239,7 +239,7 @@ export default function ClientUpload() {
               <Sparkles className="h-4 w-4 text-primary" />
               Sample Work
             </h3>
-            <div className="columns-3 gap-3 space-y-3">
+            <div className="columns-1 sm:columns-2 gap-3 space-y-3">
               {landingVideos.slice(0, 3).map((video, i) => (
                 <div key={video.id || i} className="break-inside-avoid">
                   <AdaptiveMediaCard
