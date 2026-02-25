@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Link2, Copy, ExternalLink, Search, RefreshCw, Trash2 } from 'lucide-react';
+import { Link2, Copy, ExternalLink, Search, RefreshCw, Trash2, Send } from 'lucide-react';
 import CortexTerminal from '@/components/terminal/CortexTerminal';
 
 
@@ -29,6 +29,7 @@ export default function CustomU() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [generating, setGenerating] = useState<string | null>(null);
+  const [sending, setSending] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 25;
 
@@ -77,6 +78,23 @@ export default function CustomU() {
   const copyLink = (token: string) => {
     navigator.clipboard.writeText(getUploadUrl(token));
     toast.success('Link copied to clipboard');
+  };
+
+  const handleSend = async (customerId: string, customerName: string) => {
+    setSending(customerId);
+    try {
+      const { data, error } = await supabase.functions.invoke('clawd-bot/send-portal-link', {
+        body: { customer_id: customerId },
+      });
+      if (error) { toast.error(error.message); return; }
+      if (data?.error) { toast.error(data.error); return; }
+      toast.success(`Portal link emailed to ${customerName}`);
+      load();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to send');
+    } finally {
+      setSending(null);
+    }
   };
 
   return (
@@ -128,6 +146,9 @@ export default function CustomU() {
                           <ExternalLink className="h-3.5 w-3.5" /> Open
                         </Button>
                       </a>
+                      <Button variant="default" size="sm" onClick={() => handleSend(c.id, c.full_name)} disabled={sending === c.id || !c.email} className="gap-1.5">
+                        <Send className="h-3.5 w-3.5" /> {sending === c.id ? 'Sending...' : 'Send'}
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => handleRegenerate(c.id)} disabled={generating === c.id} className="gap-1.5">
                         <RefreshCw className="h-3.5 w-3.5" /> New Link
                       </Button>

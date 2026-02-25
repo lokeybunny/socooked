@@ -2093,27 +2093,45 @@ Deno.serve(async (req) => {
       const portalUrl = `https://stu25.com/u/${token}`
       const customerFirst = cust.full_name.split(' ')[0]
 
-      // Build a clean HTML email
+      // Build a branded HTML email
       const emailBody = `
-<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-  <h2 style="color:#111;margin-bottom:8px;">Your Upload Portal Is Ready</h2>
-  <p style="color:#333;font-size:15px;line-height:1.6;">
-    Hi ${customerFirst},
-  </p>
-  <p style="color:#333;font-size:15px;line-height:1.6;">
-    We've created a personal upload portal just for you. You can use this link anytime to send us photos, videos, documents, or any other media files you'd like us to work with.
-  </p>
-  <p style="text-align:center;margin:28px 0;">
-    <a href="${portalUrl}" style="background-color:#111;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block;">
-      Open Your Upload Portal
-    </a>
-  </p>
-  <p style="color:#333;font-size:15px;line-height:1.6;">
-    <strong>Please bookmark or save this link</strong> — it will be your main portal for sharing media with us throughout our business journey together.
-  </p>
-  <p style="color:#888;font-size:13px;margin-top:24px;">
-    Direct link: <a href="${portalUrl}" style="color:#2563eb;">${portalUrl}</a>
-  </p>
+<div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;">
+  <!-- Header -->
+  <div style="background:#0a0a0a;padding:32px 40px;border-radius:12px 12px 0 0;text-align:center;">
+    <h1 style="color:#ffffff;font-size:20px;font-weight:700;margin:0;letter-spacing:0.5px;">STU25</h1>
+  </div>
+
+  <!-- Body -->
+  <div style="padding:40px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px;">
+    <h2 style="color:#111;font-size:22px;font-weight:700;margin:0 0 8px;">Your Custom Upload Portal</h2>
+    <p style="color:#666;font-size:14px;margin:0 0 24px;line-height:1.5;">
+      Hi ${customerFirst},
+    </p>
+
+    <!-- Upload Box -->
+    <div style="background:#f8f8f8;border:2px dashed #d4d4d4;border-radius:12px;padding:32px;text-align:center;margin:0 0 24px;">
+      <div style="font-size:36px;margin-bottom:12px;">📦</div>
+      <p style="color:#111;font-size:16px;font-weight:600;margin:0 0 8px;">Your upload portal is ready</p>
+      <p style="color:#888;font-size:13px;margin:0 0 20px;line-height:1.5;">
+        Upload photos, videos, documents & media files<br/>directly to our workspace — anytime, from any device.
+      </p>
+      <a href="${portalUrl}" style="background:#0a0a0a;color:#ffffff;padding:14px 48px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;display:inline-block;letter-spacing:0.3px;">
+        Enter
+      </a>
+    </div>
+
+    <p style="color:#555;font-size:14px;line-height:1.6;margin:0 0 16px;">
+      <strong>Bookmark this link</strong> — it's your personal portal for sharing media with us throughout our journey together.
+    </p>
+
+    <!-- Divider -->
+    <div style="border-top:1px solid #eee;margin:24px 0;"></div>
+
+    <p style="color:#aaa;font-size:12px;margin:0;line-height:1.5;">
+      Direct link: <a href="${portalUrl}" style="color:#2563eb;text-decoration:none;">${portalUrl}</a><br/>
+      This link is unique to you — please do not share it publicly.
+    </p>
+  </div>
 </div>`
 
       // Send via gmail-api proxy
