@@ -18,7 +18,7 @@ function base64url(data: Uint8Array): string {
     .replace(/=+$/, "");
 }
 
-async function getAccessToken(sa: any): Promise<string> {
+async function getAccessToken(sa: any, scope: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(
     new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" }))
@@ -28,7 +28,7 @@ async function getAccessToken(sa: any): Promise<string> {
       JSON.stringify({
         iss: sa.client_email,
         sub: IMPERSONATE_EMAIL,
-        scope: "https://mail.google.com/",
+        scope,
         aud: GOOGLE_TOKEN_URL,
         iat: now,
         exp: now + 3600,
@@ -301,9 +301,10 @@ serve(async (req) => {
       throw new Error(`GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON: ${parseError?.message}`);
     }
 
-    const token = await getAccessToken(sa);
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
+    const defaultScope = "https://www.googleapis.com/auth/gmail.modify";
+    const token = await getAccessToken(sa, defaultScope);
 
     if (action === "inbox") {
       const emails = await getMessages(token, "in:inbox category:primary", 30);
@@ -514,16 +515,22 @@ serve(async (req) => {
     if (action === "trash") {
       const { id } = await req.json();
       if (!id) throw new Error("id required");
-      // Permanently delete (not just trash) via Gmail API
-      const delRes = await fetch(`${GMAIL_API}/users/me/messages/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
+
+      // Move to Gmail Trash (supported by gmail.modify scope)
+      const trashRes = await fetch(`${GMAIL_API}/users/me/messages/${id}/trash`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
-      if (!delRes.ok) {
-        const errData = await delRes.text();
-        throw new Error(`Delete error: ${errData}`);
+
+      if (!trashRes.ok) {
+        const trashErr = await trashRes.text();
+        throw new Error(`Delete error: ${trashErr}`);
       }
-      return new Response(JSON.stringify({ success: true, deleted: id }), {
+
+      return new Response(JSON.stringify({ success: true, trashed: id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -548,7 +555,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action. Use ?action=inbox|sent|drafts|message|send|save-draft" }),
+      JSON.stringify({ error: "Unknown action. Use ?action=inbox|sent|drafts|message|send|trash|save-draft" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
