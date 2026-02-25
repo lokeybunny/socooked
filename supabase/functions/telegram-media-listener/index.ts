@@ -158,6 +158,120 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── /xpost callback: user picked a profile ───
+      if (data.startsWith('xp_prof:')) {
+        const profileUsername = data.replace('xp_prof:', '')
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: `Loading platforms for ${profileUsername}...` })
+
+        // Fetch profile details to get connected platforms
+        const profRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=get-profile&username=${encodeURIComponent(profileUsername)}`, {
+          headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        })
+        const profData = await profRes.json()
+        console.log('[xpost] profile data keys:', Object.keys(profData))
+
+        // Extract connected platforms from profile
+        const accounts = profData.accounts || profData.social_accounts || profData.connected_accounts || profData.platforms || []
+        const connectedPlatforms: { name: string; display: string }[] = []
+
+        if (Array.isArray(accounts)) {
+          for (const acc of accounts) {
+            const platName = (acc.platform || acc.name || acc.type || '').toLowerCase()
+            const handle = acc.username || acc.handle || acc.display_name || acc.name || platName
+            if (platName) {
+              connectedPlatforms.push({ name: platName, display: `${platName} (@${handle})` })
+            }
+          }
+        }
+
+        // Also check top-level platform fields
+        if (profData.connected_platforms && Array.isArray(profData.connected_platforms)) {
+          for (const cp of profData.connected_platforms) {
+            const platName = (cp.platform || cp.name || '').toLowerCase()
+            if (platName && !connectedPlatforms.find(p => p.name === platName)) {
+              connectedPlatforms.push({ name: platName, display: platName })
+            }
+          }
+        }
+
+        if (connectedPlatforms.length === 0) {
+          if (chatId && messageId) {
+            await tgPost(TG_TOKEN, 'editMessageText', {
+              chat_id: chatId, message_id: messageId,
+              text: `❌ <b>No connected platforms found for ${profileUsername}.</b>\nConnect platforms in the SMM dashboard first.`,
+              parse_mode: 'HTML',
+            })
+          }
+          return new Response('ok')
+        }
+
+        // Build platform selection keyboard (2 per row)
+        const platformEmojis: Record<string, string> = { x: '𝕏', twitter: '𝕏', instagram: '📸', facebook: '📘', linkedin: '💼', pinterest: '📌', tiktok: '🎵', youtube: '▶️' }
+        const rows: { text: string; callback_data: string }[][] = []
+        for (let i = 0; i < connectedPlatforms.length; i += 2) {
+          const row = connectedPlatforms.slice(i, i + 2).map(p => ({
+            text: `${platformEmojis[p.name] || '🌐'} ${p.display}`,
+            callback_data: `xp_plat:${profileUsername}:${p.name}`,
+          }))
+          rows.push(row)
+        }
+        rows.push([{ text: '❌ Cancel', callback_data: 'xp_cancel' }])
+
+        if (chatId && messageId) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: chatId, message_id: messageId,
+            text: `📡 <b>${profileUsername}</b> — Pick a platform:`,
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: rows },
+          })
+        }
+        return new Response('ok')
+      }
+
+      // ─── /xpost callback: user picked a platform → store session, ask for message ───
+      if (data.startsWith('xp_plat:')) {
+        const parts = data.replace('xp_plat:', '').split(':')
+        const profileUsername = parts[0]
+        const platform = parts.slice(1).join(':')
+
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: `Selected ${platform}` })
+
+        // Store xpost session in DB
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'xpost_session',
+          payload: { chat_id: chatId, profile: profileUsername, platform, created: Date.now() },
+          processed: false,
+        })
+
+        const platformEmojis: Record<string, string> = { x: '𝕏', twitter: '𝕏', instagram: '📸', facebook: '📘', linkedin: '💼', pinterest: '📌', tiktok: '🎵', youtube: '▶️' }
+        const emoji = platformEmojis[platform] || '🌐'
+
+        if (chatId && messageId) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: chatId, message_id: messageId,
+            text: `${emoji} <b>Ready to post to ${platform}</b> via <b>${profileUsername}</b>\n\n✏️ Type your message and send it. It will be posted immediately.\n\nSend /cancel to abort.`,
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
+      // ─── /xpost callback: cancel ───
+      if (data === 'xp_cancel') {
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Cancelled' })
+        if (chatId) {
+          // Clean up any active sessions for this chat
+          await supabase.from('webhook_events').delete()
+            .eq('source', 'telegram').eq('event_type', 'xpost_session')
+            .filter('payload->>chat_id', 'eq', String(chatId))
+        }
+        if (chatId && messageId) {
+          await tgPost(TG_TOKEN, 'editMessageText', { chat_id: chatId, message_id: messageId, text: '⏭ Post cancelled.' })
+        }
+        return new Response('ok')
+      }
+
       await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Unknown action' })
       return new Response('ok')
     }
@@ -364,8 +478,61 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── /higs command — Higgsfield model reminder ───
+    // ─── /xpost command — interactive social posting ───
     const text = (message.text as string || '').trim()
+    if (text.toLowerCase().startsWith('/xpost')) {
+      console.log('[xpost] fetching profiles from Upload-Post')
+
+      const profRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=list-profiles`, {
+        headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+      })
+      const profData = await profRes.json()
+      const profilesList = profData?.profiles || profData?.users || (Array.isArray(profData) ? profData : [])
+
+      if (!profilesList.length) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ No profiles connected to Upload-Post API.', parse_mode: 'HTML' })
+        return new Response('ok')
+      }
+
+      // Build numbered profile list with inline keyboard
+      let listText = '📱 <b>Select a profile to post from:</b>\n\n'
+      const rows: { text: string; callback_data: string }[][] = []
+      for (let i = 0; i < profilesList.length; i++) {
+        const p = profilesList[i]
+        const username = p.username || p.id || `profile_${i}`
+        const accts = p.accounts || p.social_accounts || p.connected_accounts || p.platforms || []
+        const platCount = Array.isArray(accts) ? accts.length : 0
+        listText += `<b>${i + 1}.</b> <code>${username}</code> — ${platCount} platform${platCount !== 1 ? 's' : ''}\n`
+        rows.push([{ text: `${i + 1}. ${username}`, callback_data: `xp_prof:${username}` }])
+      }
+      rows.push([{ text: '❌ Cancel', callback_data: 'xp_cancel' }])
+
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: listText,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: rows },
+      })
+      return new Response('ok')
+    }
+
+    // ─── /cancel command — abort active xpost session ───
+    if (text.toLowerCase() === '/cancel') {
+      const { data: sessions } = await supabase.from('webhook_events').select('id')
+        .eq('source', 'telegram').eq('event_type', 'xpost_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      if (sessions && sessions.length > 0) {
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'xpost_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Post cancelled.' })
+      } else {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: 'ℹ️ Nothing to cancel.' })
+      }
+      return new Response('ok')
+    }
+
+    // ─── /higs command — Higgsfield model reminder ───
     if (text.toLowerCase().startsWith('/higs')) {
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
@@ -379,6 +546,74 @@ Deno.serve(async (req) => {
         parse_mode: 'HTML',
       })
       return new Response('ok')
+    }
+
+    // ─── Check for active xpost session (user typing their post message) ───
+    if (text && !text.startsWith('/')) {
+      const { data: sessions } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', 'xpost_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (sessions && sessions.length > 0) {
+        const session = sessions[0]
+        const sp = session.payload as { profile: string; platform: string; chat_id: number }
+
+        // Delete session immediately
+        await supabase.from('webhook_events').delete().eq('id', session.id)
+
+        console.log('[xpost] posting to', sp.platform, 'via', sp.profile, ':', text.slice(0, 100))
+
+        // Normalize platform name for the API
+        const platformMap: Record<string, string> = { twitter: 'x', '𝕏': 'x' }
+        const apiPlatform = platformMap[sp.platform] || sp.platform
+
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏳ Posting...', parse_mode: 'HTML' })
+
+        const postRes = await fetch(`${SUPABASE_URL}/functions/v1/clawd-bot/smm-post`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-bot-secret': BOT_SECRET,
+          },
+          body: JSON.stringify({
+            user: sp.profile,
+            platforms: [apiPlatform],
+            title: text,
+            type: 'text',
+          }),
+        })
+        const postResult = await postRes.text()
+        console.log('[xpost] post result:', postRes.status, postResult.slice(0, 300))
+
+        let success = false
+        let requestId = ''
+        try {
+          const parsed = JSON.parse(postResult)
+          success = postRes.ok && parsed.success
+          requestId = parsed.request_id || parsed.data?.request_id || ''
+        } catch { /* ignore */ }
+
+        const platformEmojis: Record<string, string> = { x: '𝕏', twitter: '𝕏', instagram: '📸', facebook: '📘', linkedin: '💼', pinterest: '📌', tiktok: '🎵', youtube: '▶️' }
+        const emoji = platformEmojis[sp.platform] || '🌐'
+
+        if (success) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `✅ ${emoji} <b>Posted to ${sp.platform}</b> via <b>${sp.profile}</b>${requestId ? `\n🆔 <code>${requestId}</code>` : ''}`,
+            parse_mode: 'HTML',
+          })
+        } else {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ <b>Failed to post.</b>\n<code>${postResult.slice(0, 200)}</code>`,
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
     }
 
     const media = extractMedia(message)
