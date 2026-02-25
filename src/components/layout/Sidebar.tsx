@@ -23,7 +23,7 @@ const navItems = [
   { to: '/calendly', icon: CalendarClock, label: 'Calendly', botIcon: true },
   { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
   { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true },
-  { to: '/threads', icon: MessageSquare, label: 'Script AI' },
+  { to: '/threads', icon: MessageSquare, label: 'Script AI', highlight: true },
   { to: '/content', icon: FileText, label: 'Content', highlight: true },
   { to: '/templates', icon: FileCode2, label: 'Templates', highlight: true },
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
