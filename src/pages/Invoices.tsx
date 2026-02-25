@@ -51,7 +51,7 @@ export default function Invoices() {
 
   useEffect(() => { load(); }, []);
 
-  const subtotal = lineItems.reduce((sum, li) => sum + li.quantity * li.unit_price, 0);
+  const subtotal = lineItems.reduce((sum, li) => sum + (Number(li.quantity) || 0) * (Number(li.unit_price) || 0), 0);
   const taxAmount = subtotal * (parseFloat(form.tax_rate) || 0) / 100;
   const total = subtotal + taxAmount;
 
@@ -78,7 +78,7 @@ export default function Invoices() {
       tax_rate: String(inv.tax_rate || 0),
       status: inv.status === 'paid' ? 'paid' : 'draft',
     });
-    setLineItems(items.map(li => ({ description: li.description, quantity: li.quantity, unit_price: li.unit_price })));
+    setLineItems(items.map(li => ({ description: li.description || '', quantity: Number(li.quantity) || 1, unit_price: Number(li.unit_price) || 0 })));
     setDialogOpen(true);
   };
 
