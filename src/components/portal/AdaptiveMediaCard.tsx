@@ -64,7 +64,7 @@ export default function AdaptiveMediaCard({ id, url, title, type, onImageClick }
           download
           target="_blank"
           rel="noopener noreferrer"
-          className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors opacity-0 hover:opacity-100 focus:opacity-100 z-10"
+          className="absolute top-2 right-2 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors z-10"
           title="Download full quality"
           onClick={e => e.stopPropagation()}
         >
