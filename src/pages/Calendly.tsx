@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import CortexTerminal from '@/components/terminal/CortexTerminal';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -360,6 +361,13 @@ export default function Calendly() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CortexTerminal
+        module="availability"
+        label="Availability Terminal"
+        hint="manage slots, bookings & scheduling"
+        placeholder="add availability Monday 9am-5pm, cancel booking with John…"
+      />
     </AppLayout>
   );
 }

@@ -19,6 +19,8 @@ import {
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths,
   addWeeks, subWeeks, isSameDay, isSameMonth, startOfDay, endOfDay, parseISO, setHours, setMinutes } from 'date-fns';
 import { cn } from '@/lib/utils';
+import CortexTerminal from '@/components/terminal/CortexTerminal';
+import AIGenerationTerminal from '@/components/terminal/AIGenerationTerminal';
 
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
 
@@ -901,6 +903,15 @@ export default function CalendarPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        <CortexTerminal
+          module="calendar"
+          label="Calendar Terminal"
+          hint="create events, reschedule, query schedule"
+          placeholder="schedule a meeting next Friday at 10am, show this week's events…"
+        />
+
+        <AIGenerationTerminal />
     </div>
   </AppLayout>
   );
