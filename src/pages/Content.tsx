@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2, Download, Play, Music, Share2, Link2, Copy, Sparkles } from 'lucide-react';
+import { Plus, FileText, Image, Video, Globe, File, Search, Upload, FolderOpen, ExternalLink, Loader2, ChevronDown, ChevronRight, Smartphone, MessageSquare, Monitor, Users, Trash2, Download, Play, Music, Share2, Link2, Copy, Sparkles, ArrowUpRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES, type CategoryInfo } from '@/components/CategoryGate';
 import { uploadToStorage, detectContentType, downloadFromUrl } from '@/lib/storage';
@@ -1186,6 +1186,21 @@ function TelegramManager({ onPlay, onDownload, onDelete, onShare, onRevokeShare,
                                           <Share2 className="h-3.5 w-3.5" />
                                         </button>
                                       )
+                                    )}
+                                    {a.category !== 'ai-generated' && (
+                                      <button
+                                        onClick={async () => {
+                                          const { error } = await supabase.from('content_assets').update({ category: 'ai-generated' }).eq('id', a.id);
+                                          if (error) { toast.error('Failed to push'); return; }
+                                          toast.success('Pushed to AI Generated', { description: a.title });
+                                          setAssets(prev => prev.map(x => x.id === a.id ? { ...x, category: 'ai-generated' } : x));
+                                        }}
+                                        className="flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors"
+                                        title="Push to AI Generated"
+                                      >
+                                        <ArrowUpRight className="h-3.5 w-3.5" />
+                                        <Sparkles className="h-2.5 w-2.5" />
+                                      </button>
                                     )}
                                     <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                                       <Trash2 className="h-3.5 w-3.5" />
