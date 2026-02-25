@@ -953,9 +953,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Ignore ALL replies to other messages (Cortex stays quiet) ───
-    if (message.reply_to_message) {
-      console.log('[telegram-media-listener] ignoring reply to message:', message.reply_to_message.message_id)
+    // ─── Ignore text-only replies to other messages (Cortex stays quiet) ───
+    // BUT allow replies that contain media to fall through to media handler
+    if (message.reply_to_message && !extractMedia(message)) {
+      console.log('[telegram-media-listener] ignoring text reply to message:', message.reply_to_message.message_id)
       return new Response('ok')
     }
 
