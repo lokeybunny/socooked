@@ -137,9 +137,21 @@ function encodeBase64(bytes: Uint8Array): string {
 
 function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string {
   const invNum = inv.invoice_number || 'Invoice'
+  const isPaid = inv.status === 'paid'
   const dueDateStr = inv.due_date
     ? new Date(inv.due_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : null
+  const paidAtStr = inv.paid_at
+    ? new Date(inv.paid_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : null
+
+  const paidBanner = isPaid
+    ? `<div style="background:#059669;color:#ffffff;text-align:center;padding:10px 16px;font-size:16px;font-weight:bold;letter-spacing:1px;">✓ PAID IN FULL</div>`
+    : ''
+
+  const paidNote = isPaid
+    ? `<p style="margin:10px 0 0;font-size:14px;color:#059669;font-weight:600;">This invoice has been paid in full${paidAtStr ? ` on ${paidAtStr}` : ''}. No further action is required.</p>`
+    : `<p style="margin:14px 0 0;line-height:1.6;color:#6b7280;font-size:13px;">Please review the attached PDF for itemized details and payment terms.</p>`
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#1f2937;">
@@ -148,18 +160,18 @@ function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string
           <h2 style="margin:0;font-size:20px;letter-spacing:0.3px;">Invoice ${invNum}</h2>
           <p style="margin:6px 0 0;opacity:0.9;">STU25 Billing</p>
         </div>
+        ${paidBanner}
         <div style="padding:20px 22px;">
           <p style="margin:0 0 10px;font-size:15px;">Hi ${customerName},</p>
           <p style="margin:0 0 14px;line-height:1.6;color:#4b5563;">
-            Your invoice is attached as a professionally formatted PDF.
+            ${isPaid ? 'Your paid invoice receipt is attached as a professionally formatted PDF for your records.' : 'Your invoice is attached as a professionally formatted PDF.'}
           </p>
           <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px;">
             <p style="margin:0;font-size:14px;color:#374151;"><strong>Total:</strong> ${formatCurrency(Number(inv.amount || 0), inv.currency || 'USD')}</p>
-            ${dueDateStr ? `<p style="margin:6px 0 0;font-size:14px;color:#374151;"><strong>Due:</strong> ${dueDateStr}</p>` : ''}
+            ${isPaid ? `<p style="margin:6px 0 0;font-size:14px;color:#059669;font-weight:600;">Status: PAID IN FULL</p>` : ''}
+            ${dueDateStr && !isPaid ? `<p style="margin:6px 0 0;font-size:14px;color:#374151;"><strong>Due:</strong> ${dueDateStr}</p>` : ''}
           </div>
-          <p style="margin:14px 0 0;line-height:1.6;color:#6b7280;font-size:13px;">
-            Please review the attached PDF for itemized details and payment terms.
-          </p>
+          ${paidNote}
         </div>
       </div>
     </div>
@@ -251,6 +263,8 @@ async function buildInvoicePdfBase64(inv: any, customerName: string): Promise<st
   let totalsY = Math.max(y - 6, 158)
   if (totalsY < 158) totalsY = 158
 
+  const isPaid = inv.status === 'paid'
+
   page.drawRectangle({
     x: left + 320,
     y: totalsY - 66,
@@ -264,6 +278,51 @@ async function buildInvoicePdfBase64(inv: any, customerName: string): Promise<st
   page.drawText(`Subtotal: ${formatCurrency(subtotalVal, currency)}`, { x: left + 332, y: totalsY - 14, size: 9.5, font: regular, color: rgb(0.20, 0.24, 0.31) })
   page.drawText(`Tax (${taxRate}%): ${formatCurrency(taxAmt, currency)}`, { x: left + 332, y: totalsY - 30, size: 9.5, font: regular, color: rgb(0.20, 0.24, 0.31) })
   page.drawText(`Total: ${formatCurrency(totalVal, currency)}`, { x: left + 332, y: totalsY - 50, size: 11.5, font: bold, color: rgb(0.08, 0.14, 0.27) })
+
+  // ─── PAID IN FULL stamp ───
+  if (isPaid) {
+    // Large diagonal stamp
+    page.drawText('PAID IN FULL', {
+      x: left + 60,
+      y: totalsY - 20,
+      size: 38,
+      font: bold,
+      color: rgb(0.02, 0.59, 0.40),
+      opacity: 0.18,
+      rotate: { type: 'degrees' as const, angle: 25 },
+    })
+
+    // Solid status box next to totals
+    page.drawRectangle({
+      x: left,
+      y: totalsY - 66,
+      width: 150,
+      height: 28,
+      color: rgb(0.02, 0.59, 0.40),
+      borderColor: rgb(0.02, 0.50, 0.35),
+      borderWidth: 1,
+    })
+    page.drawText('✓ PAID IN FULL', {
+      x: left + 12,
+      y: totalsY - 57,
+      size: 12,
+      font: bold,
+      color: rgb(1, 1, 1),
+    })
+
+    const paidAtStr = inv.paid_at
+      ? `Paid: ${new Date(inv.paid_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`
+      : ''
+    if (paidAtStr) {
+      page.drawText(paidAtStr, {
+        x: left,
+        y: totalsY - 82,
+        size: 9,
+        font: regular,
+        color: rgb(0.02, 0.50, 0.35),
+      })
+    }
+  }
 
   if (notes) {
     let noteY = totalsY - 96
@@ -368,6 +427,11 @@ Deno.serve(async (req) => {
       const emailBody = buildInvoiceAttachmentEmailHtml(inv, customerName)
       const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
 
+      const isPaidInvoice = inv.status === 'paid'
+      const emailSubject = isPaidInvoice
+        ? `Invoice ${invNum} — PAID IN FULL — Receipt from STU25`
+        : `Invoice ${invNum} from STU25`
+
       // Send via gmail-api
       const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
       const gmailRes = await fetch(gmailUrl, {
@@ -379,7 +443,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           to: customerEmail,
-          subject: `Invoice ${invNum} from STU25`,
+          subject: emailSubject,
           body: emailBody,
           attachments: [
             {
@@ -393,11 +457,18 @@ Deno.serve(async (req) => {
       const gmailData = await gmailRes.json()
       if (!gmailRes.ok) return fail(gmailData.error || 'Failed to send email', gmailRes.status)
 
-      // Mark invoice as sent
-      await supabase.from('invoices').update({
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-      }).eq('id', invoice_id)
+      // Mark invoice as sent (only if not already paid)
+      if (inv.status !== 'paid') {
+        await supabase.from('invoices').update({
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+        }).eq('id', invoice_id)
+      } else {
+        // Just update sent_at for record keeping
+        await supabase.from('invoices').update({
+          sent_at: new Date().toISOString(),
+        }).eq('id', invoice_id)
+      }
 
       // Notify Telegram
       await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, totalVal, inv.currency)
