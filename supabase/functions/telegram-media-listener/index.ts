@@ -74,26 +74,6 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   const text = await res.text()
   console.log(`[tg:${method}]`, res.status, text.slice(0, 200))
 
-  // Auto-delete bot messages in group chats after 10 seconds
-  if ((method === 'sendMessage' || method === 'sendPhoto') && body.chat_id) {
-    const chatId = Number(body.chat_id)
-    if (ALLOWED_GROUP_IDS.includes(chatId)) {
-      try {
-        const parsed = JSON.parse(text)
-        const messageId = parsed?.result?.message_id
-        if (messageId) {
-          setTimeout(() => {
-            fetch(`${TG_API}${token}/deleteMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
-            }).catch(() => {})
-          }, 10_000)
-        }
-      } catch { /* ignore parse errors */ }
-    }
-  }
-
   return res
 }
 
@@ -1266,18 +1246,6 @@ Deno.serve(async (req) => {
     if (!isPrivate && !isAllowedGroup) {
       console.log('[telegram-media-listener] ignoring chat:', chatId, chatType)
       return new Response('ok')
-    }
-
-    // Auto-delete user messages in group chats after 10 seconds
-    const messageId = message.message_id
-    if (isAllowedGroup && messageId) {
-      setTimeout(() => {
-        fetch(`${TG_API}${TG_TOKEN}/deleteMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
-        }).catch(() => {})
-      }, 10_000)
     }
 
     // ─── /xpost command — interactive social posting ───
