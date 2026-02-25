@@ -14,6 +14,7 @@ import SMMStatus from '@/components/smm/SMMStatus';
 import SMMQueue from '@/components/smm/SMMQueue';
 import SMMAnalytics from '@/components/smm/SMMAnalytics';
 import SMMInstagram from '@/components/smm/SMMInstagram';
+import SMMTerminal from '@/components/smm/SMMTerminal';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
   Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw,
@@ -105,6 +106,9 @@ function SMMInner() {
           </div>
         </div>
       </div>
+
+      {/* Persistent AI Scheduler Terminal */}
+      {profileId && <SMMTerminal profileUsername={profileId} />}
     </AppLayout>
   );
 }
