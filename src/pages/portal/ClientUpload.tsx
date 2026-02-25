@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Upload, Loader2, CheckCircle, FileUp, AlertCircle, X, Sparkles, Download } from 'lucide-react';
 import { uploadToStorage, detectContentType } from '@/lib/storage';
 import MVClientLanding from '@/components/portal/MVClientLanding';
+import AdaptiveMediaCard from '@/components/portal/AdaptiveMediaCard';
 
 const CATEGORY_LABELS: Record<string, string> = {
   'digital-services': 'Digital Services',
@@ -202,21 +203,17 @@ export default function ClientUpload() {
                 <Sparkles className="h-4 w-4 text-primary" />
                 Your AI-Generated Artwork
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {paged.map(asset => asset.type === 'video' ? (
-                  <div key={asset.id} className="relative aspect-square rounded-xl overflow-hidden border border-border">
-                    <video src={asset.url} className="w-full h-full object-cover" controls preload="metadata" />
+              <div className="columns-2 sm:columns-3 gap-3 space-y-3">
+                {paged.map(asset => (
+                  <div key={asset.id} className="break-inside-avoid">
+                    <AdaptiveMediaCard
+                      id={asset.id}
+                      url={asset.url}
+                      title={asset.title}
+                      type={asset.type}
+                      onImageClick={setLightboxUrl}
+                    />
                   </div>
-                ) : (
-                  <button
-                    key={asset.id}
-                    onClick={() => setLightboxUrl(asset.url)}
-                    className="group relative aspect-square rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-all hover:shadow-lg"
-                  >
-                    <img src={asset.url} alt={asset.title} className="w-full h-full object-cover transition-transform group-hover:scale-105" loading="lazy" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <p className="absolute bottom-1.5 left-2 right-2 text-[10px] text-white truncate opacity-0 group-hover:opacity-100 transition-opacity">{asset.title}</p>
-                  </button>
                 ))}
               </div>
               <div className="flex items-center justify-between">
@@ -242,11 +239,15 @@ export default function ClientUpload() {
               <Sparkles className="h-4 w-4 text-primary" />
               Sample Work
             </h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="columns-3 gap-3 space-y-3">
               {landingVideos.slice(0, 3).map((video, i) => (
-                <div key={video.id || i} className="relative aspect-[9/16] rounded-xl overflow-hidden border border-border">
-                  <video src={video.url} className="w-full h-full object-cover" controls preload="metadata" />
-                  <p className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 text-[10px] text-white truncate">{video.title}</p>
+                <div key={video.id || i} className="break-inside-avoid">
+                  <AdaptiveMediaCard
+                    id={video.id || String(i)}
+                    url={video.url}
+                    title={video.title}
+                    type="video"
+                  />
                 </div>
               ))}
             </div>
