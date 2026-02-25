@@ -168,28 +168,28 @@ Deno.serve(async (req) => {
           headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
         })
         const profData = await profRes.json()
-        console.log('[xpost] profile data keys:', Object.keys(profData))
+        // Response shape: { success, profile: { username, social_accounts: { x: {...}, instagram: {...}, tiktok: "" } } }
+        const profile = profData.profile || profData
+        const socialAccounts = profile.social_accounts || profile.accounts || {}
+        console.log('[xpost] profile keys:', Object.keys(profile), 'social_accounts type:', typeof socialAccounts, 'keys:', Object.keys(socialAccounts))
 
-        // Extract connected platforms from profile
-        const accounts = profData.accounts || profData.social_accounts || profData.connected_accounts || profData.platforms || []
         const connectedPlatforms: { name: string; display: string }[] = []
 
-        if (Array.isArray(accounts)) {
-          for (const acc of accounts) {
+        if (typeof socialAccounts === 'object' && !Array.isArray(socialAccounts)) {
+          // Object format: { x: { handle, display_name }, instagram: { handle }, tiktok: "" }
+          for (const [platName, value] of Object.entries(socialAccounts)) {
+            // Empty string or null/false means not connected
+            if (!value || (typeof value === 'string' && !value.trim())) continue
+            const platData = value as Record<string, unknown>
+            const handle = (platData.handle || platData.username || platData.display_name || platName) as string
+            connectedPlatforms.push({ name: platName.toLowerCase(), display: `${platName} (@${handle})` })
+          }
+        } else if (Array.isArray(socialAccounts)) {
+          for (const acc of socialAccounts) {
             const platName = (acc.platform || acc.name || acc.type || '').toLowerCase()
-            const handle = acc.username || acc.handle || acc.display_name || acc.name || platName
+            const handle = acc.username || acc.handle || acc.display_name || platName
             if (platName) {
               connectedPlatforms.push({ name: platName, display: `${platName} (@${handle})` })
-            }
-          }
-        }
-
-        // Also check top-level platform fields
-        if (profData.connected_platforms && Array.isArray(profData.connected_platforms)) {
-          for (const cp of profData.connected_platforms) {
-            const platName = (cp.platform || cp.name || '').toLowerCase()
-            if (platName && !connectedPlatforms.find(p => p.name === platName)) {
-              connectedPlatforms.push({ name: platName, display: platName })
             }
           }
         }
