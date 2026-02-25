@@ -918,7 +918,7 @@ Deno.serve(async (req) => {
           if (sessions && sessions.length > 0) {
             await supabase.from('webhook_events').delete()
               .eq('source', 'telegram')
-              .in('event_type', ['xpost_session', 'invoice_session', 'smm_session'])
+              .in('event_type', ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session'])
               .filter('payload->>chat_id', 'eq', String(chatId))
             await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Session cancelled.', reply_markup: PERSISTENT_KEYBOARD })
           } else {
@@ -939,19 +939,7 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
-        // Check for active SMM session
-        const { data: smmSess } = await supabase.from('webhook_events')
-          .select('id, payload')
-          .eq('source', 'telegram').eq('event_type', 'smm_session')
-          .filter('payload->>chat_id', 'eq', String(chatId))
-          .limit(1)
-        if (smmSess && smmSess.length > 0) {
-          const sp = smmSess[0].payload as { chat_id: number; history: any[]; created: number }
-          await processSMMCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
-          return new Response('ok')
-        }
-
-        // Check for active module sessions (customer, calendar, calendly, meeting)
+        // Check for active module sessions (customer, calendar, calendly, meeting) — BEFORE SMM
         for (const mod of ['customer', 'calendar', 'calendly', 'meeting'] as const) {
           const { data: modSess } = await supabase.from('webhook_events')
             .select('id, payload')
@@ -963,6 +951,18 @@ Deno.serve(async (req) => {
             await processModuleCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, mod)
             return new Response('ok')
           }
+        }
+
+        // Check for active SMM session
+        const { data: smmSess } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'smm_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+          .limit(1)
+        if (smmSess && smmSess.length > 0) {
+          const sp = smmSess[0].payload as { chat_id: number; history: any[]; created: number }
+          await processSMMCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+          return new Response('ok')
         }
 
         // No session active either — silently ignore instead of showing error
@@ -1155,6 +1155,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Check for active module sessions (customer, calendar, calendly, meeting) — checked BEFORE SMM ───
+    if (text && !text.startsWith('/') && !isPersistentButton) {
+      for (const mod of ['customer', 'calendar', 'calendly', 'meeting'] as const) {
+        const { data: modSessions } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', `${mod}_session`)
+          .filter('payload->>chat_id', 'eq', String(chatId))
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (modSessions && modSessions.length > 0) {
+          const session = modSessions[0]
+          const sp = session.payload as { chat_id: number; history: any[]; created: number }
+          console.log(`[${mod}-tg] session active, processing:`, text.slice(0, 100))
+          await processModuleCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, mod)
+          return new Response('ok')
+        }
+      }
+    }
+
     // ─── Check for active SMM session (multi-turn SMM terminal) ───
     if (text && !text.startsWith('/') && !isPersistentButton) {
       const { data: smmSessions } = await supabase.from('webhook_events')
@@ -1172,26 +1192,6 @@ Deno.serve(async (req) => {
 
         await processSMMCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
         return new Response('ok')
-      }
-    }
-
-    // ─── Check for active module sessions (customer, calendar, calendly, meeting) ───
-    if (text && !text.startsWith('/') && !isPersistentButton) {
-      for (const mod of ['customer', 'calendar', 'calendly', 'meeting'] as const) {
-        const { data: modSessions } = await supabase.from('webhook_events')
-          .select('id, payload')
-          .eq('source', 'telegram').eq('event_type', `${mod}_session`)
-          .filter('payload->>chat_id', 'eq', String(chatId))
-          .order('created_at', { ascending: false })
-          .limit(1)
-
-        if (modSessions && modSessions.length > 0) {
-          const session = modSessions[0]
-          const sp = session.payload as { chat_id: number; history: any[]; created: number }
-          console.log(`[${mod}-tg] session active, processing:`, text.slice(0, 100))
-          await processModuleCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, mod)
-          return new Response('ok')
-        }
       }
     }
 
