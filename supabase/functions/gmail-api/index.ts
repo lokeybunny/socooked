@@ -511,6 +511,23 @@ serve(async (req) => {
       });
     }
 
+    if (action === "trash") {
+      const { id } = await req.json();
+      if (!id) throw new Error("id required");
+      // Permanently delete (not just trash) via Gmail API
+      const delRes = await fetch(`${GMAIL_API}/users/me/messages/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!delRes.ok) {
+        const errData = await delRes.text();
+        throw new Error(`Delete error: ${errData}`);
+      }
+      return new Response(JSON.stringify({ success: true, deleted: id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "save-draft") {
       const { to, subject, body } = await req.json();
       const raw = buildRawEmail(to || "", IMPERSONATE_EMAIL, subject || "", body || "");

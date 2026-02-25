@@ -11,8 +11,9 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   Filter, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check, User,
+  ChevronsUpDown, Check, User, BookOpen, Trash2,
 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 import { Textarea } from '@/components/ui/textarea';
@@ -104,6 +105,8 @@ export default function EmailPage() {
   const [replying, setReplying] = useState(false);
   const [replyAttachments, setReplyAttachments] = useState<Attachment[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [trashId, setTrashId] = useState<string | null>(null);
+  const [trashing, setTrashing] = useState(false);
 
   // Load persisted read IDs from database on mount
   useEffect(() => {
@@ -280,6 +283,20 @@ export default function EmailPage() {
     finally { setReplying(false); }
   };
 
+  const handleTrashEmail = async () => {
+    if (!trashId) return;
+    setTrashing(true);
+    try {
+      await callGmailPost('trash', { id: trashId });
+      toast.success('Email permanently deleted');
+      setEmails(prev => prev.filter(e => e.id !== trashId));
+      if (viewEmail?.id === trashId) setViewEmail(null);
+    } catch (e: any) { toast.error(e.message || 'Failed to delete'); }
+    finally { setTrashing(false); setTrashId(null); }
+  };
+
+  const readEmails = emails.filter(e => readIds.has(e.id));
+
   const filteredEmails = selectedCustomerEmail === 'all'
     ? emails
     : emails.filter((e) => {
@@ -315,12 +332,8 @@ export default function EmailPage() {
           const relatedToCustomer = isFromCustomer(email) || isToCustomer(email);
           const isDimmed = selectedCustomerEmail === 'all' && !relatedToCustomer;
           return (
-            <button
-              key={email.id}
-              onClick={() => handleOpenEmail(email)}
-              className={`w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors ${email.isUnread ? 'border-l-2 border-l-primary' : ''} ${isDimmed ? 'opacity-50' : ''} ${!isDimmed && relatedToCustomer && (activeTab === 'sent' || activeTab === 'customers') ? 'border-l-2 border-l-primary/70' : ''}`}
-            >
-              <div className="flex items-start gap-3 min-w-0">
+            <div key={email.id} className={`w-full text-left glass-card p-4 flex items-start justify-between gap-4 hover:bg-accent/50 transition-colors ${email.isUnread ? 'border-l-2 border-l-primary' : ''} ${isDimmed ? 'opacity-50' : ''} ${!isDimmed && relatedToCustomer && (activeTab === 'sent' || activeTab === 'customers') ? 'border-l-2 border-l-primary/70' : ''}`}>
+              <button onClick={() => handleOpenEmail(email)} className="flex items-start gap-3 min-w-0 flex-1 text-left">
                 <Mail className={`h-4 w-4 mt-0.5 shrink-0 ${isDimmed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
                 <div className="min-w-0">
                   <p className={`text-sm truncate ${isDimmed ? 'font-normal text-muted-foreground' : email.isUnread ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
@@ -332,16 +345,19 @@ export default function EmailPage() {
                   <p className="text-xs text-muted-foreground truncate mt-0.5">{email.snippet}</p>
                   <p className="text-xs text-muted-foreground mt-1">{formatDate(email.date)}</p>
                 </div>
-              </div>
+              </button>
               <div className="flex items-center gap-1.5 shrink-0 mt-1">
                 {readIds.has(email.id) && <Check className="h-4 w-4 text-red-500" />}
+                <button onClick={(e) => { e.stopPropagation(); setTrashId(email.id); }} className="p-1 text-muted-foreground hover:text-destructive transition-colors" title="Delete forever">
+                  <Trash2 className="h-4 w-4" />
+                </button>
                 {activeTab === 'drafts' ? (
                   <FileEdit className="h-4 w-4 text-muted-foreground" />
                 ) : (
                   <Eye className={`h-4 w-4 ${isDimmed ? 'text-muted-foreground/50' : 'text-muted-foreground'}`} />
                 )}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -426,6 +442,7 @@ export default function EmailPage() {
               <TabsTrigger value="inbox" className="gap-1.5"><Inbox className="h-3.5 w-3.5" /> Inbox</TabsTrigger>
               <TabsTrigger value="sent" className="gap-1.5"><Send className="h-3.5 w-3.5" /> Sent</TabsTrigger>
               <TabsTrigger value="drafts" className="gap-1.5"><FileEdit className="h-3.5 w-3.5" /> Drafts</TabsTrigger>
+              <TabsTrigger value="read" className="gap-1.5"><BookOpen className="h-3.5 w-3.5" /> Read</TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -478,8 +495,29 @@ export default function EmailPage() {
               ) : renderEmailList(filteredEmails)}
             </TabsContent>
           ))}
+          <TabsContent value="read">
+            {readEmails.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No read emails yet.</p>
+            ) : renderEmailList(readEmails)}
+          </TabsContent>
         </Tabs>
       </div>
+
+      {/* Trash Confirmation */}
+      <AlertDialog open={!!trashId} onOpenChange={(open) => { if (!open) setTrashId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Purge Email</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure you want to purge this email? This will permanently delete it from Gmail and cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleTrashEmail} disabled={trashing} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {trashing ? 'Deleting...' : 'Delete Forever'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Compose Dialog */}
       <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
