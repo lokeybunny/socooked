@@ -2958,6 +2958,40 @@ Deno.serve(async (req) => {
         }
 
         await logActivity(supabase, 'smm', null, 'smm-command', `SMM Command: ${(prompt as string).slice(0, 80)}`)
+
+        // Explicitly notify Telegram on successful SMM executions
+        if (data.type === 'executed' && Array.isArray(data.actions)) {
+          const successActions = data.actions.filter((a: any) => a.success)
+          if (successActions.length > 0) {
+            const summaryLines = successActions.map((a: any) => `✅ ${a.description || a.action}`).join('\n')
+            const failedActions = data.actions.filter((a: any) => !a.success)
+            const failLines = failedActions.length
+              ? '\n' + failedActions.map((a: any) => `❌ ${a.description || a.action}: ${a.error || 'unknown'}`).join('\n')
+              : ''
+            try {
+              const projectUrl = Deno.env.get('SUPABASE_URL')!
+              await fetch(`${projectUrl}/functions/v1/telegram-notify`, {
+                method: 'POST',
+                headers: {
+                  'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  entity_type: 'smm',
+                  action: 'created',
+                  meta: {
+                    message: `📱 *SMM via Cortex*\nProfile: *${smmProfile}*\n${summaryLines}${failLines}`,
+                  },
+                  created_at: new Date().toISOString(),
+                }),
+              })
+            } catch (tgErr) {
+              console.error('[smm-command] telegram notify error:', tgErr)
+            }
+          }
+        }
+
         return ok({ ...data, conversation_turns: newTurns.length })
       } catch (e: any) {
         return fail(e.message, 500)
