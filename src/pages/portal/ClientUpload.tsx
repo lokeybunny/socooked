@@ -172,7 +172,7 @@ export default function ClientUpload() {
 
   if (showMVLanding) {
     const firstName = customer?.full_name?.split(' ')[0] || 'there';
-    return <MVClientLanding firstName={firstName} onContinue={() => setShowMVLanding(false)} assignedAssets={aiAssets} />;
+    return <MVClientLanding firstName={firstName} onContinue={() => setShowMVLanding(false)} />;
   }
 
   const allMediaAssets = aiAssets.filter(a => (a.type === 'image' || a.type === 'video') && a.url);
