@@ -951,6 +951,20 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
+        // Check for active module sessions (customer, calendar, calendly, meeting)
+        for (const mod of ['customer', 'calendar', 'calendly', 'meeting'] as const) {
+          const { data: modSess } = await supabase.from('webhook_events')
+            .select('id, payload')
+            .eq('source', 'telegram').eq('event_type', `${mod}_session`)
+            .filter('payload->>chat_id', 'eq', String(chatId))
+            .limit(1)
+          if (modSess && modSess.length > 0) {
+            const sp = modSess[0].payload as { chat_id: number; history: any[]; created: number }
+            await processModuleCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, mod)
+            return new Response('ok')
+          }
+        }
+
         // No session active either — silently ignore instead of showing error
         console.log('[reply-router] No matching notification or session for message_id:', replyToId, '— ignoring')
         return new Response('ok')
@@ -1158,6 +1172,26 @@ Deno.serve(async (req) => {
 
         await processSMMCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
         return new Response('ok')
+      }
+    }
+
+    // ─── Check for active module sessions (customer, calendar, calendly, meeting) ───
+    if (text && !text.startsWith('/') && !isPersistentButton) {
+      for (const mod of ['customer', 'calendar', 'calendly', 'meeting'] as const) {
+        const { data: modSessions } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', `${mod}_session`)
+          .filter('payload->>chat_id', 'eq', String(chatId))
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (modSessions && modSessions.length > 0) {
+          const session = modSessions[0]
+          const sp = session.payload as { chat_id: number; history: any[]; created: number }
+          console.log(`[${mod}-tg] session active, processing:`, text.slice(0, 100))
+          await processModuleCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, mod)
+          return new Response('ok')
+        }
       }
     }
 
