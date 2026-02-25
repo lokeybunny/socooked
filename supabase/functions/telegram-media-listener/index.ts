@@ -66,8 +66,10 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'cancel' | null {
-  const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').trim().toLowerCase()
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | null {
+  // Strip leading emoji, @botname suffix, and normalize
+  const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
+  if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
   if (normalized === '/custom' || normalized === 'custom' || normalized === 'custom-u') return 'custom'
   if (normalized === '/invoice' || normalized === 'invoice') return 'invoice'
   if (normalized === '/smm' || normalized === 'smm') return 'smm'
@@ -864,6 +866,16 @@ Deno.serve(async (req) => {
         const replyAsText = (message.text as string).trim()
         const replyAction = resolvePersistentAction(replyAsText)
 
+        if (replyAction === 'start') {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:',
+            parse_mode: 'HTML',
+            reply_markup: PERSISTENT_KEYBOARD,
+          })
+          return new Response('ok')
+        }
+
         if (replyAction === 'custom') {
           await supabase.from('webhook_events').delete()
             .eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS)
@@ -1042,6 +1054,17 @@ Deno.serve(async (req) => {
     // ─── Persistent keyboard button presses — check BEFORE sessions ───
     const persistentAction = resolvePersistentAction(text)
     const isPersistentButton = persistentAction !== null
+
+    // ─── Start / Menu action — show the keyboard ───
+    if (persistentAction === 'start') {
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🎛 <b>Command Center</b>\n\nTap a button below to get started:',
+        parse_mode: 'HTML',
+        reply_markup: PERSISTENT_KEYBOARD,
+      })
+      return new Response('ok')
+    }
 
     // ─── Custom-U action ───
     if (persistentAction === 'custom') {
