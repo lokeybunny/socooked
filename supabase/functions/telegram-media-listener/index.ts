@@ -260,13 +260,90 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
-      // Reply was to a bot message but no IG DM match found (old notification without stored metadata)
+      // ─── Check if reply matches an EMAIL notification ───
+      const { data: matchedEmail } = await supabase
+        .from('communications')
+        .select('id, from_address, subject, metadata, customer_id')
+        .eq('type', 'email')
+        .eq('direction', 'inbound')
+        .filter('metadata->>telegram_message_id', 'eq', String(replyToId))
+        .limit(1)
+
+      if (matchedEmail && matchedEmail.length > 0) {
+        const emailRecord = matchedEmail[0]
+        const recipientEmail = emailRecord.from_address
+        const originalSubject = emailRecord.subject || '(no subject)'
+
+        if (!recipientEmail) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '❌ Cannot reply — no sender email found for this notification.',
+            parse_mode: 'HTML',
+          })
+          return new Response('ok')
+        }
+
+        console.log('[email-reply] Sending email reply to', recipientEmail, 'subject:', originalSubject)
+
+        // Send via gmail-api edge function
+        const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+        const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')
+        const BOT_SECRET_VAL = Deno.env.get('BOT_SECRET')
+
+        if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !BOT_SECRET_VAL) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Gmail API credentials not configured.' })
+          return new Response('ok')
+        }
+
+        const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`
+
+        const sendRes = await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'x-bot-secret': BOT_SECRET_VAL,
+          },
+          body: JSON.stringify({
+            to: recipientEmail,
+            subject: replySubject,
+            body: replyText,
+          }),
+        })
+
+        const sendData = await sendRes.text()
+        console.log('[email-reply] gmail-api response:', sendRes.status, sendData.slice(0, 300))
+
+        if (sendRes.ok) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `✅ <b>Email reply sent to ${recipientEmail}</b>\n📋 ${replySubject}`,
+            parse_mode: 'HTML',
+          })
+        } else {
+          let errorMsg = sendData.slice(0, 200)
+          // Check for anti-spam cooldown
+          if (sendRes.status === 429) {
+            errorMsg = 'Anti-spam cooldown active — wait 3 minutes before sending another email to this recipient.'
+          }
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `❌ <b>Failed to send email reply.</b>\n<code>${errorMsg}</code>`,
+            parse_mode: 'HTML',
+          })
+        }
+
+        return new Response('ok')
+      }
+
+      // Reply was to a bot message but no IG DM or email match found
       const replyFromBot = replyToMsg.from?.is_bot === true
       if (replyFromBot) {
-        console.log('[ig-reply] No matching IG notification for message_id:', replyToId)
+        console.log('[reply-router] No matching notification for message_id:', replyToId)
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: '⚠️ <b>Could not route reply.</b>\nThis notification was sent before reply support was added. Please use the IG DMs tab in the Project Hub to reply, or wait for a new notification.',
+          text: '⚠️ <b>Could not route reply.</b>\nThis notification was sent before reply support was added, or it has expired. Please use the CRM directly.',
           parse_mode: 'HTML',
         })
         return new Response('ok')

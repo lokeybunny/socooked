@@ -286,6 +286,9 @@ Deno.serve(async (req) => {
         `💬 ${trimmedBody}`,
         ``,
         `🔗 [View in CRM](https://stu25.com/messages)`,
+        ``,
+        `💬 _Reply to this message to respond via email_`,
+      ].join('\n');
 
       // Send Telegram notification
       const tgRes = await fetch(
@@ -301,7 +304,13 @@ Deno.serve(async (req) => {
         }
       );
 
+      // Extract telegram_message_id for reply routing
+      let telegramMessageId: number | null = null;
       if (tgRes.ok) {
+        try {
+          const tgData = await tgRes.json();
+          telegramMessageId = tgData.result?.message_id || null;
+        } catch {}
         notifiedCount++;
         // Record notification to prevent duplicates
         await supabase.from("webhook_events").insert({
@@ -313,6 +322,7 @@ Deno.serve(async (req) => {
             subject,
             is_customer: true,
             customer_id: customer.id,
+            telegram_message_id: telegramMessageId,
           },
           processed: true,
         });
@@ -339,6 +349,11 @@ Deno.serve(async (req) => {
               provider: "gmail",
               external_id: msg.id,
               customer_id: customer.id,
+              metadata: {
+                telegram_message_id: telegramMessageId,
+                gmail_thread_id: msg.threadId || null,
+                source: "gmail-poll",
+              },
             });
           }
         }
