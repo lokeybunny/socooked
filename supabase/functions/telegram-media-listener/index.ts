@@ -52,6 +52,10 @@ async function ensureBotCommands(token: string) {
 }
 
 async function tgPost(token: string, method: string, body: Record<string, unknown>) {
+  // Always attach the persistent keyboard to sendMessage calls unless a custom reply_markup is set
+  if (method === 'sendMessage' && !body.reply_markup) {
+    body.reply_markup = PERSISTENT_KEYBOARD
+  }
   const res = await fetch(`${TG_API}${token}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
