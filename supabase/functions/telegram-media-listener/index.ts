@@ -199,7 +199,7 @@ async function processSMMCommand(
   botSecret: string,
   supabase: any,
 ) {
-  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '⏳ Processing SMM command...', parse_mode: 'HTML' })
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🧠 Thinking a bit...', parse_mode: 'HTML' })
 
   try {
     const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/smm-command`, {
