@@ -198,26 +198,28 @@ export default function CustomerUpload() {
                             <ExternalLink className="h-3.5 w-3.5" />
                           </a>
                         )}
-                        {c.category !== 'ai-generated' && (
-                          <button
-                            onClick={async () => {
-                              const { error } = await supabase.from('content_assets').update({ category: 'ai-generated' }).eq('id', c.id);
-                              if (error) { toast.error('Failed to push'); return; }
-                              toast.success('Pushed to AI Generated', { description: c.title });
-                              setAssets(prev => prev.map(x => x.id === c.id ? { ...x, category: 'ai-generated' } : x));
-                            }}
-                            className="flex items-center gap-0.5 text-emerald-500/70 hover:text-emerald-400 transition-colors"
-                            title="Push to AI Generated"
-                          >
-                            <ArrowUpRight className="h-3.5 w-3.5" />
-                            <Sparkles className="h-2.5 w-2.5" />
-                          </button>
-                        )}
-                        {c.category === 'ai-generated' && (
-                          <span className="flex items-center gap-0.5 text-emerald-500/50" title="Already in AI Generated">
-                            <Sparkles className="h-3 w-3" />
-                          </span>
-                        )}
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (c.category === 'ai-generated') {
+                              toast.info('Already in AI Generated');
+                              return;
+                            }
+                            const { error } = await supabase.from('content_assets').update({ category: 'ai-generated' }).eq('id', c.id);
+                            if (error) { toast.error('Failed to push: ' + error.message); return; }
+                            toast.success('Pushed to AI Generated', { description: c.title });
+                            setAssets(prev => prev.map(x => x.id === c.id ? { ...x, category: 'ai-generated' } : x));
+                          }}
+                          className={`flex items-center gap-0.5 p-1 rounded transition-colors ${
+                            c.category === 'ai-generated'
+                              ? 'text-emerald-500/50 cursor-default'
+                              : 'text-emerald-500/70 hover:text-emerald-400 hover:bg-emerald-500/10'
+                          }`}
+                          title={c.category === 'ai-generated' ? 'Already in AI Generated' : 'Push to AI Generated'}
+                        >
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                          <Sparkles className="h-2.5 w-2.5" />
+                        </button>
                         <button
                           onClick={async () => {
                             const { error } = await supabase.from('content_assets').delete().eq('id', c.id);
