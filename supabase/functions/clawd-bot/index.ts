@@ -2771,9 +2771,30 @@ Deno.serve(async (req) => {
           body: JSON.stringify(smmBody),
         })
         const smmData = await smmRes.json()
+        console.log(`[smm-post] API response status=${smmRes.status}:`, JSON.stringify(smmData).substring(0, 500))
 
         if (!smmRes.ok) {
           if (botTask?.id) await supabase.from('bot_tasks').update({ status: 'failed', meta: { error: smmData } }).eq('id', botTask.id)
+          // Notify Telegram about the failure
+          try {
+            const tgProjectUrl = Deno.env.get('SUPABASE_URL')!
+            await fetch(`${tgProjectUrl}/functions/v1/telegram-notify`, {
+              method: 'POST',
+              headers: {
+                'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                entity_type: 'smm',
+                action: 'failed',
+                meta: {
+                  message: `❌ *SMM Post Failed*\nProfile: *${user}*\nPlatforms: ${platforms.join(', ')}\nError: ${JSON.stringify(smmData).substring(0, 200)}`,
+                },
+                created_at: new Date().toISOString(),
+              }),
+            })
+          } catch (tgErr) { console.error('[smm-post] telegram fail notify error:', tgErr) }
           return fail(`Upload-Post API error: ${JSON.stringify(smmData)}`, 502)
         }
 
@@ -2786,6 +2807,31 @@ Deno.serve(async (req) => {
         }
 
         await logActivity(supabase, 'bot_task', botTask?.id, 'smm_post_created', taskTitle)
+
+        // Explicit Telegram notification on successful post
+        try {
+          const statusLabel = scheduled_date ? '🕐 Scheduled' : add_to_queue ? '📥 Queued' : '🚀 Posted'
+          const reqId = smmData.request_id ? `\nRequest ID: \`${smmData.request_id}\`` : ''
+          const jobId = smmData.job_id ? `\nJob ID: \`${smmData.job_id}\`` : ''
+          const tgProjectUrl = Deno.env.get('SUPABASE_URL')!
+          await fetch(`${tgProjectUrl}/functions/v1/telegram-notify`, {
+            method: 'POST',
+            headers: {
+              'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              entity_type: 'smm',
+              action: 'created',
+              meta: {
+                message: `📱 *SMM ${statusLabel}*\nProfile: *${user}*\nPlatforms: *${platforms.join(', ')}*\n📝 ${title.substring(0, 100)}${reqId}${jobId}`,
+              },
+              created_at: new Date().toISOString(),
+            }),
+          })
+        } catch (tgErr) { console.error('[smm-post] telegram success notify error:', tgErr) }
+
         return ok({ bot_task_id: botTask?.id, ...smmData })
       } catch (e: any) {
         if (botTask?.id) await supabase.from('bot_tasks').update({ status: 'failed', meta: { error: e.message } }).eq('id', botTask.id)
