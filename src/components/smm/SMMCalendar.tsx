@@ -32,7 +32,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const calEnd = endOfWeek(monthEnd);
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
-  const scheduledPosts = useMemo(() => posts.filter(p => p.scheduled_date && (p.status === 'scheduled' || p.status === 'queued')), [posts]);
+  const scheduledPosts = useMemo(() => posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status)), [posts]);
   const getPostsForDay = (day: Date) => scheduledPosts.filter(p => p.scheduled_date && isSameDay(new Date(p.scheduled_date), day));
 
   const openDetail = (post: ScheduledPost) => {
