@@ -331,11 +331,6 @@ serve(async (req) => {
     // Debug: log what we're about to send for upload actions
     if (action.startsWith('upload-')) {
       console.log(`[smm-api] action=${action} method=${method} apiUrl=${apiUrl}`);
-      if (body instanceof FormData) {
-        const entries: string[] = [];
-        (body as FormData).forEach((v, k) => entries.push(`${k}=${v}`));
-        console.log(`[smm-api] FormData entries:`, entries.join(' | '));
-      }
     }
 
     const fetchOpts: RequestInit = { method, headers: authHeaders };
@@ -364,13 +359,18 @@ serve(async (req) => {
     }
 
     if (!response.ok) {
-      console.error(`Upload-Post API error [${response.status}] for action=${action}: ${responseText}`);
+      console.error(`[smm-api] Upload-Post API error [${response.status}] for action=${action}: ${responseText}`);
       // Fire failure notifications (Telegram + Email)
       await notifySMMFailure(action, response.status, responseText);
       return new Response(responseText, {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Log response for upload actions so we can debug async issues
+    if (action.startsWith('upload-') && action !== 'upload-status') {
+      console.log(`[smm-api] ✅ action=${action} status=${response.status} response:`, responseText.substring(0, 500));
     }
 
     // Log upload/post/schedule/DM actions to activity_log for Telegram notifications
