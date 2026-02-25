@@ -50,7 +50,7 @@ export default function InvoiceTerminal() {
           text: l.text.replace(/^> /, ''),
         }));
 
-      const { data, error } = await supabase.functions.invoke('invoice-scheduler', {
+      const { data, error } = await supabase.functions.invoke('clawd-bot/invoice-command', {
         body: { prompt: cmd, history },
       });
 
@@ -60,10 +60,13 @@ export default function InvoiceTerminal() {
         return;
       }
 
-      if (data?.type === 'clarify') {
-        addLine('info', `? ${data.message}`);
-      } else if (data?.type === 'executed') {
-        for (const action of data.actions || []) {
+      // Unwrap clawd-bot envelope: { success, data: { type, actions, message } }
+      const result = data?.data || data;
+
+      if (result?.type === 'clarify') {
+        addLine('info', `? ${result.message}`);
+      } else if (result?.type === 'executed') {
+        for (const action of result.actions || []) {
           if (action.success) {
             addLine('success', `✓ ${action.description}`);
             if (action.data) {
@@ -74,10 +77,10 @@ export default function InvoiceTerminal() {
             addLine('error', `✗ ${action.description}: ${action.error || 'Unknown error'}`);
           }
         }
-      } else if (data?.type === 'message') {
-        addLine('output', data.message);
+      } else if (result?.type === 'message') {
+        addLine('output', result.message);
       } else {
-        addLine('output', JSON.stringify(data, null, 2));
+        addLine('output', JSON.stringify(result, null, 2));
       }
     } catch (e: any) {
       addLine('error', `✗ ${e.message}`);
