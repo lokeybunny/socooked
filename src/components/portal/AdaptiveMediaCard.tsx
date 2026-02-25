@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { Download } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { Download, Play } from 'lucide-react';
 
 interface AdaptiveMediaCardProps {
   id: string;
@@ -9,14 +9,37 @@ interface AdaptiveMediaCardProps {
   onImageClick?: (url: string) => void;
 }
 
-/**
- * Renders media in its native aspect ratio.
- * - Videos: uses onLoadedMetadata to detect dimensions, streams with preload="metadata"
- * - Images: uses onLoad to detect natural dimensions
- * Both render at native aspect ratio (landscape, portrait, or square).
- */
+const isExternalUrl = (url: string) => {
+  if (url.startsWith('data:')) return false;
+  try { return new URL(url).origin !== window.location.origin; }
+  catch { return false; }
+};
+
+function extractVideoFrame(videoUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    if (isExternalUrl(videoUrl)) video.crossOrigin = 'anonymous';
+    video.src = videoUrl;
+    video.muted = true;
+    video.playsInline = true;
+    video.onloadeddata = () => { video.currentTime = 1; };
+    video.onseeked = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d')?.drawImage(video, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      } catch { reject(new Error('CORS blocked canvas export')); }
+    };
+    video.onerror = () => reject(new Error('Video load failed'));
+  });
+}
+
 export default function AdaptiveMediaCard({ id, url, title, type, onImageClick }: AdaptiveMediaCardProps) {
   const [aspect, setAspect] = useState<'landscape' | 'portrait' | 'square' | null>(null);
+  const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const classify = useCallback((w: number, h: number) => {
@@ -26,21 +49,24 @@ export default function AdaptiveMediaCard({ id, url, title, type, onImageClick }
     else setAspect('square');
   }, []);
 
+  // Extract first frame thumbnail for videos
+  useEffect(() => {
+    if (type !== 'video') return;
+    extractVideoFrame(url)
+      .then(setThumbnail)
+      .catch(() => setThumbnail(null));
+  }, [url, type]);
+
   const handleVideoMeta = useCallback(() => {
     const v = videoRef.current;
-    if (v && v.videoWidth && v.videoHeight) {
-      classify(v.videoWidth, v.videoHeight);
-    }
+    if (v && v.videoWidth && v.videoHeight) classify(v.videoWidth, v.videoHeight);
   }, [classify]);
 
   const handleImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
-    if (img.naturalWidth && img.naturalHeight) {
-      classify(img.naturalWidth, img.naturalHeight);
-    }
+    if (img.naturalWidth && img.naturalHeight) classify(img.naturalWidth, img.naturalHeight);
   }, [classify]);
 
-  // Aspect ratio class — show native proportions
   const aspectClass =
     aspect === 'portrait' ? 'aspect-[9/16]' :
     aspect === 'landscape' ? 'aspect-video' :
@@ -49,16 +75,34 @@ export default function AdaptiveMediaCard({ id, url, title, type, onImageClick }
   if (type === 'video') {
     return (
       <div className={`relative rounded-xl overflow-hidden border border-border bg-black transition-all ${aspect ? aspectClass : 'aspect-video'}`}>
-        <video
-          ref={videoRef}
-          src={url}
-          className="w-full h-full object-contain"
-          controls
-          preload="metadata"
-          playsInline
-          onLoadedMetadata={handleVideoMeta}
-          controlsList="nodownload"
-        />
+        {!playing && thumbnail ? (
+          <>
+            <img src={thumbnail} alt={title} className="w-full h-full object-contain" onLoad={e => {
+              const img = e.currentTarget;
+              if (img.naturalWidth && img.naturalHeight) classify(img.naturalWidth, img.naturalHeight);
+            }} />
+            <button
+              onClick={() => setPlaying(true)}
+              className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors"
+            >
+              <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
+                <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
+              </div>
+            </button>
+          </>
+        ) : (
+          <video
+            ref={videoRef}
+            src={url}
+            className="w-full h-full object-contain"
+            controls
+            autoPlay={playing}
+            preload="metadata"
+            playsInline
+            onLoadedMetadata={handleVideoMeta}
+            controlsList="nodownload"
+          />
+        )}
         <a
           href={url}
           download
