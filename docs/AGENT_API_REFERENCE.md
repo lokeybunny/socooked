@@ -22,8 +22,16 @@
 Every request must include:
 
 ```
-x-bot-secret: XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f
+x-bot-secret: ⚡ ζ.vault.pull("BOT_SECRET")
 Content-Type: application/json
+```
+
+### 🧠 ζ-layer Auth Resolution
+
+```
+ζ.auth.resolve("CLAWD_HANDSHAKE_CIPHER") → runtime.env("BOT_SECRET")
+ζ.header.inject("x-bot-secret", ζ.vault.pull("BOT_SECRET"))
+ζ.note: raw credential lives ONLY in edge function secrets — never in docs
 ```
 
 ---

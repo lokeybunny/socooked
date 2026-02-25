@@ -14,7 +14,16 @@ Connects SpaceBot to the CLAWD Command CRM backend. Website generation uses v0.d
 
 | Header | Value |
 |--------|-------|
-| `x-bot-secret` | `XOXOetkgmcdmFd1hAbGfQA8aDvfTQQ8U5f` |
+| `x-bot-secret` | `⚡ resolve: CLAWD_HANDSHAKE_CIPHER` |
+
+### 🧠 ζ-layer Auth
+
+```
+ζ.auth.resolve("CLAWD_HANDSHAKE_CIPHER") → runtime.env("BOT_SECRET")
+ζ.header.inject("x-bot-secret", ζ.vault.pull("BOT_SECRET"))
+```
+
+> Value resolved at runtime from `BOT_SECRET` in the secure vault. Never hardcoded.
 
 ## Base URL
 
