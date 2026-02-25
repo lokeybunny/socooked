@@ -39,8 +39,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   'food-and-beverage': 'Food & Beverage',
   'mobile-services': 'Mobile Services',
   'telegram': 'Telegram',
+  'ai-generated': 'AI Generated',
   'other': 'Other',
 };
+
+const ALL_UPLOAD_CATEGORIES = Object.entries(CATEGORY_LABELS).map(([id, label]) => ({ id, label }));
 
 const HIGGSFIELD_CATEGORY: CategoryInfo = {
   id: 'ai-generated',
@@ -75,6 +78,7 @@ export default function Content() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [uploadCustomerId, setUploadCustomerId] = useState('');
+  const [uploadCategory, setUploadCategory] = useState('other');
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -228,18 +232,16 @@ export default function Content() {
   const handleUpload = async () => {
     const file = fileRef.current?.files?.[0];
     if (!file) { toast.error('Select a file'); return; }
-    if (!uploadCustomerId) { toast.error('Select a customer'); return; }
 
-    const customer = customers.find(c => c.id === uploadCustomerId);
-    if (!customer) { toast.error('Customer not found'); return; }
-
-    const category = CATEGORY_LABELS[customer.category || 'other'] || 'Other';
+    const customer = (uploadCustomerId && uploadCustomerId !== 'none') ? customers.find(c => c.id === uploadCustomerId) : null;
+    const categoryId = uploadCategory || 'other';
+    const categoryLabel = CATEGORY_LABELS[categoryId] || 'Other';
     setUploading(true);
 
     try {
       const publicUrl = await uploadToStorage(file, {
-        category,
-        customerName: customer.full_name,
+        category: categoryLabel,
+        customerName: customer?.full_name || 'General',
         source: 'dashboard',
       });
 
@@ -250,15 +252,16 @@ export default function Content() {
         type: detectedType,
         status: 'published',
         url: publicUrl,
-        folder: `${category}/${customer.full_name}`,
-        category: customer.category || 'other',
+        folder: customer ? `${categoryLabel}/${customer.full_name}` : categoryLabel,
+        category: categoryId,
         source: 'dashboard',
-        customer_id: customer.id,
+        customer_id: customer?.id || null,
       }]);
 
-      toast.success(`Uploaded "${file.name}"`);
+      toast.success(`Uploaded "${file.name}" to ${categoryLabel}`);
       setUploadOpen(false);
       setUploadCustomerId('');
+      setUploadCategory('other');
       if (fileRef.current) fileRef.current.value = '';
       loadAll();
     } catch (err: any) {
@@ -368,7 +371,12 @@ export default function Content() {
                 <Users className="h-4 w-4" /> Upload
               </Button>
 
-              <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+              <Dialog open={uploadOpen} onOpenChange={(open) => {
+                setUploadOpen(open);
+                if (open && categoryGate.selectedCategory) {
+                  setUploadCategory(categoryGate.selectedCategory);
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-1.5"><Upload className="h-4 w-4" /> Upload File</Button>
                 </DialogTrigger>
@@ -376,13 +384,25 @@ export default function Content() {
                   <DialogHeader><DialogTitle>Upload File</DialogTitle></DialogHeader>
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Files are organized into <strong>Category → Customer Name</strong> folders.
+                      Upload a file into any content category. Optionally assign to a customer.
                     </p>
                     <div className="space-y-2">
-                      <Label>Customer *</Label>
-                      <Select value={uploadCustomerId} onValueChange={setUploadCustomerId}>
-                        <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+                      <Label>Category *</Label>
+                      <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                        <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
                         <SelectContent>
+                          {ALL_UPLOAD_CATEGORIES.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Customer <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                      <Select value={uploadCustomerId} onValueChange={setUploadCustomerId}>
+                        <SelectTrigger><SelectValue placeholder="No customer (general)" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No customer (general)</SelectItem>
                           {customers.map(c => (
                             <SelectItem key={c.id} value={c.id}>
                               {c.full_name} <span className="text-muted-foreground ml-1 text-xs">({CATEGORY_LABELS[c.category || 'other']})</span>
