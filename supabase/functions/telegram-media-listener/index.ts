@@ -881,8 +881,6 @@ Deno.serve(async (req) => {
             reply_markup: PERSISTENT_KEYBOARD,
           })
           return new Response('ok')
-          })
-          return new Response('ok')
         }
 
         const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session']
