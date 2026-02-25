@@ -334,9 +334,35 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
             {/* IG DMs */}
             {igHandle && (
               <TabsContent value="igdms" className="space-y-2 m-0">
-                <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <Instagram className="h-3 w-3" /> @{igHandle} DMs
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                    <Instagram className="h-3 w-3" /> @{igHandle} DMs
+                  </p>
+                  {igConversations.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const lines: string[] = [];
+                        igConversations.forEach(conv => {
+                          lines.push(`--- @${conv.participant} ---`);
+                          (conv.messages || []).slice().reverse().forEach(msg => {
+                            const who = msg.from.toLowerCase() !== conv.participant.toLowerCase() ? 'You' : `@${conv.participant}`;
+                            const ts = msg.timestamp ? format(new Date(msg.timestamp), 'MMM d, h:mm a') : '';
+                            const text = msg.text || msg.attachment_url || '(media)';
+                            lines.push(`[${ts}] ${who}: ${text}`);
+                          });
+                          lines.push('');
+                        });
+                        navigator.clipboard.writeText(lines.join('\n'));
+                        toast.success('DM thread copied to clipboard');
+                      }}
+                      className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                      title="Copy entire DM thread"
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copy Thread
+                    </button>
+                  )}
+                </div>
                 {igLoading && (
                   <div className="flex items-center gap-2 py-4 justify-center">
                     <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
