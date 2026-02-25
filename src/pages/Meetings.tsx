@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import CortexTerminal from '@/components/terminal/CortexTerminal';
 
 const PER_PAGE = 25;
 
@@ -294,6 +295,13 @@ export default function Meetings() {
             )}
           </>
         )}
+
+        <CortexTerminal
+          module="meetings"
+          label="Meetings Terminal"
+          hint="create, manage & control meetings"
+          placeholder="create a meeting with John tomorrow at 2pm, delete meeting XYZ…"
+        />
       </div>
     </AppLayout>
   );
