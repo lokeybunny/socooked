@@ -111,6 +111,7 @@ async function callAI(prompt: string, userMessage: string): Promise<string> {
 
 async function executeAction(step: any): Promise<any> {
   const { action, method, endpoint, params, body } = step;
+  const BOT_SECRET = Deno.env.get('BOT_SECRET') || '';
 
   let url = '';
   if (endpoint === 'invoice-api') {
@@ -132,8 +133,9 @@ async function executeAction(step: any): Promise<any> {
   const fetchOpts: RequestInit = {
     method: method || (body ? 'POST' : 'GET'),
     headers: {
-      'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-      'apikey': SERVICE_ROLE_KEY,
+      'Authorization': `Bearer ${ANON_KEY}`,
+      'apikey': ANON_KEY,
+      'x-bot-secret': BOT_SECRET,
       'Content-Type': 'application/json',
     },
   };
