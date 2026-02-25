@@ -28,7 +28,7 @@ async function getAccessToken(sa: any): Promise<string> {
       JSON.stringify({
         iss: sa.client_email,
         sub: IMPERSONATE_EMAIL,
-        scope: "https://www.googleapis.com/auth/gmail.modify",
+        scope: "https://mail.google.com/",
         aud: GOOGLE_TOKEN_URL,
         iat: now,
         exp: now + 3600,
