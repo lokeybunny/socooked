@@ -54,6 +54,10 @@ function SMMInner() {
 
   const filtered = filterPosts(posts, profileId, platform);
 
+  // Derive set of connected platform keys from all profiles
+  const connectedPlatforms = new Set<string>();
+  profiles.forEach(p => p.connected_platforms.filter(cp => cp.connected).forEach(cp => connectedPlatforms.add(cp.platform)));
+
   return (
     <AppLayout>
       <div className="space-y-4 animate-fade-in">
@@ -72,7 +76,7 @@ function SMMInner() {
 
         <div className="flex gap-4">
           {/* Platform Rail */}
-          <SMMPlatformRail posts={posts} unreadCounts={UNREAD_COUNTS} />
+          <SMMPlatformRail posts={posts} unreadCounts={UNREAD_COUNTS} connectedPlatforms={connectedPlatforms} />
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">

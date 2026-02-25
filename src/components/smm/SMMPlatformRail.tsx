@@ -5,9 +5,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 interface Props {
   posts: ScheduledPost[];
   unreadCounts: Record<string, number>;
+  connectedPlatforms: Set<string>;
 }
 
-export default function SMMPlatformRail({ posts, unreadCounts }: Props) {
+export default function SMMPlatformRail({ posts, unreadCounts, connectedPlatforms }: Props) {
   const { platform, setPlatform } = useSMMContext();
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
@@ -28,26 +29,33 @@ export default function SMMPlatformRail({ posts, unreadCounts }: Props) {
         if (!meta) return null;
         const badges = getBadges(p);
         const isActive = platform === p;
+        const isConnected = p === 'all' || connectedPlatforms.has(p);
 
         return (
           <Tooltip key={p}>
             <TooltipTrigger asChild>
-              <button onClick={() => setPlatform(p)}
+              <button
+                onClick={() => isConnected && setPlatform(p)}
+                disabled={!isConnected}
                 className={`relative w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
-                  isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  !isConnected
+                    ? 'opacity-25 cursor-not-allowed'
+                    : isActive
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}>
                 <meta.icon className="w-5 h-5" />
-                {badges && badges.failed24h > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-destructive text-[8px] text-white flex items-center justify-center font-bold">
+                {isConnected && badges && badges.failed24h > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-destructive text-[8px] text-destructive-foreground flex items-center justify-center font-bold">
                     {badges.failed24h}
                   </span>
                 )}
-                {badges && badges.unread > 0 && !badges.failed24h && (
+                {isConnected && badges && badges.unread > 0 && !badges.failed24h && (
                   <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-primary text-[8px] text-primary-foreground flex items-center justify-center font-bold">
                     {badges.unread}
                   </span>
                 )}
-                {badges && badges.scheduledToday > 0 && !badges.failed24h && !badges.unread && (
+                {isConnected && badges && badges.scheduledToday > 0 && !badges.failed24h && !badges.unread && (
                   <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 text-[8px] text-foreground flex items-center justify-center font-bold">
                     {badges.scheduledToday}
                   </span>
@@ -56,12 +64,14 @@ export default function SMMPlatformRail({ posts, unreadCounts }: Props) {
             </TooltipTrigger>
             <TooltipContent side="right" className="text-xs">
               <p className="font-medium">{meta.label}</p>
-              {badges && (
+              {!isConnected ? (
+                <p className="text-muted-foreground">Not connected</p>
+              ) : badges ? (
                 <p className="text-muted-foreground">
                   {badges.scheduledToday} today · {badges.failed24h} failed
                   {badges.unread > 0 && ` · ${badges.unread} unread`}
                 </p>
-              )}
+              ) : null}
             </TooltipContent>
           </Tooltip>
         );
