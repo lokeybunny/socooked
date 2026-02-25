@@ -11,7 +11,6 @@ import { supabase } from '@/integrations/supabase/client';
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/projects', icon: FolderKanban, label: 'Projects', botIcon: true },
   { to: '/customers', icon: Users, label: 'Customers', botIcon: true },
   { to: '/leads', icon: Handshake, label: 'Leads', botIcon: true },
   { to: '/invoices', icon: Receipt, label: 'Invoices', botIcon: true },
@@ -28,6 +27,7 @@ const navItems = [
   { to: '/previews', icon: Sparkles, label: 'Previews', highlight: true },
   { to: '/landing', icon: Layers, label: 'Landing', highlight: true },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
+  { to: '/projects', icon: FolderKanban, label: 'Projects', greenItem: true },
 ];
 
 export function Sidebar() {
@@ -152,7 +152,7 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, icon: Icon, label, botIcon, highlight }, idx) => {
+          {navItems.map(({ to, icon: Icon, label, botIcon, highlight, greenItem }, idx) => {
             const isActive = location.pathname === to;
             const showDot = to === '/messages' && hasNewMessages;
             const nextItem = navItems[idx + 1];
@@ -165,9 +165,11 @@ export function Sidebar() {
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
                   isActive
                     ? "bg-accent text-foreground"
-                    : highlight
-                      ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    : greenItem
+                      ? "text-emerald-500 hover:bg-accent hover:text-emerald-400"
+                      : highlight
+                        ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   isGrouped && "mb-0"
                 )}
                >
