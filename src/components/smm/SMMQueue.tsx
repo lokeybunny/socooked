@@ -128,7 +128,7 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
             <Clock className="h-5 w-5 text-primary shrink-0" />
             <div>
               <p className="text-sm font-semibold text-foreground">Next Queue Slot</p>
-              <p className="text-xs text-muted-foreground">{nextSlot.next_slot || nextSlot.slot_time || 'No upcoming slot'}</p>
+              <p className="text-xs text-muted-foreground">{typeof nextSlot.next_slot === 'object' && nextSlot.next_slot ? (nextSlot.next_slot.datetime_local || nextSlot.next_slot.datetime_utc || 'No upcoming slot') : (nextSlot.next_slot || nextSlot.slot_time || 'No upcoming slot')}</p>
             </div>
           </div>
         )}
