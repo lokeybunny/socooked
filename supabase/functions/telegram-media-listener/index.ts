@@ -24,8 +24,7 @@ const PERSISTENT_KEYBOARD = {
     [{ text: '💰 Invoice' }, { text: '📱 SMM' }],
     [{ text: '👤 Customer' }, { text: '📅 Calendar' }],
     [{ text: '🗓 Calendly' }, { text: '🤝 Meeting' }],
-    [{ text: '📧 Email' }, { text: '📦 Custom' }],
-    [{ text: '🤖 AI Assistant' }, { text: '➡️ More' }],
+    [{ text: '📦 Custom' }, { text: '➡️ More' }],
     [{ text: '❌ Cancel' }],
   ],
   resize_keyboard: true,
@@ -35,7 +34,8 @@ const PERSISTENT_KEYBOARD = {
 const PAGE_2_KEYBOARD = {
   keyboard: [
     [{ text: '🌐 Web Dev' }, { text: '🍌 Banana' }],
-    [{ text: '🎬 Higgsfield' }, { text: '❌ Cancel' }],
+    [{ text: '🎬 Higgsfield' }, { text: '🤖 AI Assistant' }],
+    [{ text: '📧 Email' }, { text: '❌ Cancel' }],
     [{ text: '⬅️ Back' }],
   ],
   resize_keyboard: true,
