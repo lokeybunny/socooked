@@ -13,6 +13,77 @@ const corsHeaders = {
 }
 
 // Direct function call helper — calls edge functions with proper auth
+const FUNCTION_ALIASES: Record<string, string> = {
+  'clawd-bot/generate-content': 'nano-banana/generate',
+  'clawd-bot/invoice-command': 'invoice-scheduler',
+  'clawd-bot/email-command': 'email-command',
+  'image-generator': 'nano-banana/generate',
+  'nano-banana': 'nano-banana/generate',
+}
+
+function safeLower(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+function normalizeFunctionPath(step: any): string {
+  const raw = String(step?.function || step?.endpoint || '').trim()
+  let fnPath = raw
+    .replace(/^\/+functions\/v1\//i, '')
+    .replace(/^functions\/v1\//i, '')
+    .replace(/^\/+/, '')
+
+  const normalized = safeLower(fnPath).replace(/\/+$/, '')
+  if (FUNCTION_ALIASES[normalized]) return FUNCTION_ALIASES[normalized]
+
+  const moduleName = safeLower(step?.module)
+  if (!normalized || normalized === 'unknown') {
+    if (moduleName === 'image_gen' || moduleName === 'image') return 'nano-banana/generate'
+    if (moduleName === 'invoice') return 'invoice-scheduler'
+    if (moduleName === 'email') return 'email-command'
+  }
+
+  return fnPath || 'unknown'
+}
+
+function getValueAtPath(obj: any, path: string): unknown {
+  return path.split('.').reduce((acc: any, key: string) => acc?.[key], obj)
+}
+
+function extractImageUrl(result: any): string | null {
+  return result?.output_url || result?.url || result?.image_url || result?.preview_url || null
+}
+
+function interpolateStepRefs(value: any, stepResults: Record<number, any>): any {
+  if (typeof value === 'string') {
+    return value.replace(/\{\{step_(\d+)_result(?:\.([a-zA-Z0-9_.-]+))?\}\}/g, (_m, stepStr, fieldPath) => {
+      const prev = stepResults[Number(stepStr)]
+      if (!prev) return ''
+      if (!fieldPath) return JSON.stringify(prev)
+      if (fieldPath === 'url') {
+        return extractImageUrl(prev) || String(getValueAtPath(prev, fieldPath) || '')
+      }
+      const resolved = getValueAtPath(prev, fieldPath)
+      if (resolved === undefined || resolved === null) return ''
+      if (typeof resolved === 'object') return JSON.stringify(resolved)
+      return String(resolved)
+    })
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => interpolateStepRefs(item, stepResults))
+  }
+
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = interpolateStepRefs(v, stepResults)
+    }
+    return out
+  }
+
+  return value
+}
+
 async function callFunction(
   supabaseUrl: string,
   functionPath: string,
@@ -73,6 +144,14 @@ Deno.serve(async (req) => {
     const customerCtx = (customers || []).map((c: any) =>
       `- ${c.full_name} (email: ${c.email || 'none'}, id: ${c.id}, category: ${c.category || 'other'})`
     ).join('\n')
+
+    const primaryCustomer = (customers || []).find((c: any) => {
+      const full = (c.full_name || '').toLowerCase()
+      if (!full) return false
+      if (prompt.toLowerCase().includes(full)) return true
+      const nameTokens = full.split(/\s+/).filter((t: string) => t.length > 2)
+      return nameTokens.some((token: string) => prompt.toLowerCase().includes(token))
+    }) || null
 
     const systemPrompt = `You are CLAWDbot AI Assistant — an autonomous orchestrator that decomposes complex multi-step requests into sequential API actions across ALL CRM modules.
 
@@ -160,6 +239,10 @@ RESPOND WITH JSON ONLY:
 CRITICAL RULES:
 - Resolve customer names to IDs/emails from the customer list above
 - Order steps logically (generate image BEFORE email that uses it)
+- For IMAGE_GEN: use function "nano-banana/generate" only
+- For INVOICE: use function "invoice-scheduler" only
+- For EMAIL: use function "email-command" only
+- Never use legacy endpoints like clawd-bot/generate-content or clawd-bot/invoice-command
 - For IMAGE_GEN: the prompt should be descriptive (what the image looks like)
 - For EMAIL: the prompt must be FULLY self-contained with recipient name, subject, and message intent — do NOT reference other steps
 - For INVOICE: the prompt must include customer name, amount, and what it's for
@@ -231,7 +314,8 @@ CRITICAL RULES:
 
       for (const step of parsed.steps) {
         try {
-          let body = { ...(step.body || {}) }
+          const stepNumber = typeof step.step === 'number' ? step.step : (results.length + 1)
+          let body = interpolateStepRefs({ ...(step.body || {}) }, stepResults)
 
           // Inject results from previous steps
           if (step.inject_from_step && typeof step.inject_from_step === 'object') {
@@ -239,12 +323,14 @@ CRITICAL RULES:
               const refStep = parseInt(refStepStr)
               const prev = stepResults[refStep]
               if (prev) {
-                // Auto-inject image URL into email/other prompts
-                const imageUrl = prev.url || prev.image_url || prev.preview_url
+                const hinted = typeof fieldHint === 'string' ? getValueAtPath(prev, fieldHint) : undefined
+                const hintedUrl = typeof hinted === 'string' ? hinted : null
+                const imageUrl = hintedUrl || extractImageUrl(prev)
+
                 if (imageUrl && typeof body.prompt === 'string') {
-                  body.prompt = body.prompt + `\n\nAttach/include this image: ${imageUrl}`
+                  body.prompt = `${body.prompt}\n\nAttach/include this image: ${imageUrl}`
                 }
-                // Also inject as direct field
+
                 if (imageUrl) body.image_url = imageUrl
                 if (prev.preview_url) body.preview_url = prev.preview_url
                 if (prev.edit_url) body.edit_url = prev.edit_url
@@ -262,7 +348,7 @@ CRITICAL RULES:
                   const refField = match[2]
                   const prev = stepResults[refStep]
                   if (prev) {
-                    const val = refField.split('.').reduce((obj: any, key: string) => obj?.[key], prev)
+                    const val = getValueAtPath(prev, refField)
                     if (val !== undefined) body[field] = val
                   }
                 }
@@ -270,31 +356,71 @@ CRITICAL RULES:
             }
           }
 
-          const fnPath = step.function || step.endpoint
+          const fnPath = normalizeFunctionPath(step)
+
+          if (fnPath === 'nano-banana/generate' && !body.provider) {
+            body.provider = 'nano-banana'
+          }
+
+          if (fnPath === 'email-command' && typeof body.prompt === 'string') {
+            const promptLower = body.prompt.toLowerCase()
+            const mentionsKnownCustomer = (customers || []).some((c: any) => {
+              const full = (c.full_name || '').toLowerCase()
+              return full && promptLower.includes(full)
+            })
+            const hasDirectEmail = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(body.prompt)
+
+            if (!mentionsKnownCustomer && !hasDirectEmail && primaryCustomer) {
+              const recipientLabel = primaryCustomer.email
+                ? `${primaryCustomer.full_name} (${primaryCustomer.email})`
+                : `${primaryCustomer.full_name}`
+              body.prompt = `Send this email to ${recipientLabel}. ${body.prompt}`
+            }
+
+            body.prompt = body.prompt
+              .replace(/love taking (his|her|your) money/gi, 'express appreciation for receiving payment')
+              .replace(/taking your money/gi, 'receiving your payment')
+          }
+
+          body = interpolateStepRefs(body, stepResults)
+
           const { ok: isOk, data: resultData, status } = await callFunction(
             SUPABASE_URL, fnPath, body, BOT_SECRET, SERVICE_KEY
           )
 
-          stepResults[step.step] = resultData
+          stepResults[stepNumber] = resultData
+
+          const nestedActionFailure = Array.isArray(resultData?.actions)
+            ? resultData.actions.find((action: any) => action?.success === false)
+            : null
+
+          const explicitError =
+            resultData?.error ||
+            (resultData?.success === false ? (resultData?.error || 'Request failed') : undefined) ||
+            (resultData?.type === 'clarify' ? resultData?.message : undefined) ||
+            (nestedActionFailure?.error || undefined)
+
+          const success = isOk && !explicitError
 
           results.push({
-            step: step.step,
+            step: stepNumber,
             module: step.module,
-            success: isOk,
+            success,
             description: step.description,
             data: resultData,
-            error: isOk ? undefined : (resultData?.error || `HTTP ${status}`),
+            error: success ? undefined : (explicitError || `HTTP ${status}`),
           })
         } catch (e: any) {
-          console.error(`[ai-assistant] step ${step.step} error:`, e.message)
+          const stepNumber = typeof step.step === 'number' ? step.step : (results.length + 1)
+          console.error(`[ai-assistant] step ${stepNumber} error:`, e.message)
           results.push({
-            step: step.step,
+            step: stepNumber,
             module: step.module,
             success: false,
             description: step.description,
             error: e.message,
           })
-          stepResults[step.step] = { error: e.message }
+          stepResults[stepNumber] = { error: e.message }
         }
       }
 
