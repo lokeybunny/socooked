@@ -468,14 +468,14 @@ serve(async (req) => {
         );
       }
 
-      // ─── Anti-spam: block duplicate emails to same recipient within 3 minutes ───
+      // ─── Anti-spam: block duplicate emails to same recipient within 60 seconds ───
       const recipientLower = to.toLowerCase().trim();
-      const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+      const spamWindowAgo = new Date(Date.now() - 60 * 1000).toISOString();
 
       const saJson2 = Deno.env.get("SUPABASE_URL");
       const saKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
       if (saJson2 && saKey) {
-        const checkUrl = `${saJson2}/rest/v1/communications?to_address=eq.${encodeURIComponent(recipientLower)}&type=eq.email&direction=eq.outbound&created_at=gte.${encodeURIComponent(threeMinAgo)}&select=id,subject&limit=1`;
+        const checkUrl = `${saJson2}/rest/v1/communications?to_address=eq.${encodeURIComponent(recipientLower)}&type=eq.email&direction=eq.outbound&created_at=gte.${encodeURIComponent(spamWindowAgo)}&select=id,subject&limit=1`;
         const checkRes = await fetch(checkUrl, {
           headers: {
             apikey: saKey,
@@ -487,7 +487,7 @@ serve(async (req) => {
           if (recent && recent.length > 0) {
             return new Response(
               JSON.stringify({
-                error: `Email to ${to} blocked — another email was sent to this recipient less than 3 minutes ago (subject: "${recent[0].subject || 'unknown'}"). Wait before sending again.`,
+                error: `Email to ${to} blocked — another email was sent to this recipient less than 60 seconds ago (subject: "${recent[0].subject || 'unknown'}"). Wait before sending again.`,
                 blocked: true,
                 recent_id: recent[0].id,
               }),
