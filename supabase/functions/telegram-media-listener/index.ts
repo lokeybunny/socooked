@@ -25,7 +25,8 @@ const PERSISTENT_KEYBOARD = {
     [{ text: '👤 Customer' }, { text: '📅 Calendar' }],
     [{ text: '🗓 Calendly' }, { text: '🤝 Meeting' }],
     [{ text: '📧 Email' }, { text: '📦 Custom' }],
-    [{ text: '➡️ More' }, { text: '❌ Cancel' }],
+    [{ text: '🤖 AI Assistant' }, { text: '➡️ More' }],
+    [{ text: '❌ Cancel' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -57,6 +58,7 @@ async function ensureBotCommands(token: string) {
     { command: 'meeting', description: '🤝 Meeting Terminal' },
     { command: 'email', description: '📧 AI Email Composer' },
     { command: 'custom', description: '📦 Custom-U Portal Links' },
+    { command: 'assistant', description: '🤖 AI Assistant — multi-module orchestrator' },
     { command: 'webdev', description: '🌐 Web Dev Terminal' },
     { command: 'banana', description: '🍌 Nano Banana Image Gen' },
     { command: 'higgsfield', description: '🎬 Higgsfield AI Generate' },
@@ -103,7 +105,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'higgsfield' | 'email' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'higgsfield' | 'email' | 'assistant' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -121,7 +123,99 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'banana' || normalized === '/banana') return 'banana'
   if (normalized === 'higgsfield' || normalized === '/higgsfield') return 'higgsfield'
   if (normalized === 'email' || normalized === '/email') return 'email'
+  if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
   return null
+}
+
+// ─── AI Assistant via Telegram (multi-module orchestrator) ───
+async function processAssistantCommand(
+  chatId: number,
+  prompt: string,
+  history: { role: string; text: string }[],
+  tgToken: string,
+  supabaseUrl: string,
+  botSecret: string,
+  supabase: any,
+) {
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🤖 <b>AI Assistant thinking...</b>\n\n<i>Decomposing your request into steps...</i>', parse_mode: 'HTML' })
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/ai-assistant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-bot-secret': botSecret,
+      },
+      body: JSON.stringify({ prompt, history, chat_id: String(chatId) }),
+    })
+    const result = await res.json()
+
+    let replyText = ''
+
+    if (result?.type === 'clarify') {
+      replyText = `❓ ${result.message}`
+    } else if (result?.type === 'executed') {
+      const lines: string[] = []
+      if (result.summary) lines.push(`📋 <b>${result.summary}</b>\n`)
+      for (const step of result.steps || []) {
+        const icon = step.success ? '✅' : '❌'
+        lines.push(`${icon} <b>Step ${step.step}</b> [${step.module}]: ${step.description}`)
+        if (!step.success && step.error) {
+          lines.push(`   ⚠️ ${step.error}`)
+        }
+        if (step.success && step.data) {
+          const parts: string[] = []
+          if (step.data.url) parts.push(`🔗 ${step.data.url}`)
+          if (step.data.preview_url) parts.push(`🔗 <a href="${step.data.preview_url}">Preview</a>`)
+          if (step.data.edit_url) parts.push(`<a href="${step.data.edit_url}">Edit</a>`)
+          if (step.data.invoice_number) parts.push(`#${step.data.invoice_number}`)
+          if (step.data.amount) parts.push(`$${Number(step.data.amount).toFixed(2)}`)
+          if (step.data.to) parts.push(`📨 ${step.data.to}`)
+          if (step.data.subject) parts.push(`"${step.data.subject}"`)
+          if (step.data.email_sent) parts.push('📧 sent')
+          if (step.data.message && typeof step.data.message === 'string') parts.push(step.data.message.slice(0, 100))
+          if (parts.length) lines.push(`   → ${parts.join(' · ')}`)
+        }
+      }
+      replyText = lines.join('\n') || '✅ All steps completed.'
+    } else if (result?.type === 'message') {
+      replyText = result.message
+    } else {
+      replyText = `<pre>${JSON.stringify(result, null, 2).slice(0, 3500)}</pre>`
+    }
+
+    // Update conversation history
+    const { data: sessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'assistant_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .limit(1)
+
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0]
+      const payload = session.payload as any
+      const newHistory = [
+        ...(payload.history || []),
+        { role: 'user', text: prompt },
+        { role: 'assistant', text: replyText.slice(0, 500) },
+      ].slice(-10)
+      await supabase.from('webhook_events').update({ payload: { ...payload, history: newHistory } }).eq('id', session.id)
+    }
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: replyText.slice(0, 4000),
+      parse_mode: 'HTML',
+      disable_web_page_preview: false,
+    })
+  } catch (e: any) {
+    console.error('[assistant-tg] error:', e)
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `❌ <b>AI Assistant failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      parse_mode: 'HTML',
+    })
+  }
 }
 
 // ─── Email Terminal via Telegram (AI-powered email composer) ───
@@ -1144,8 +1238,8 @@ Deno.serve(async (req) => {
     if (isGroup && !isAllowedGroup) return new Response('ok')
 
     // Session types we track
-    const ALL_SESSIONS = ['invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
-    const ALL_REPLY_SESSIONS = ['invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
+    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
 
     // ─── Check for persistent button / slash command ───
     const action = resolvePersistentAction(text)
@@ -1261,6 +1355,7 @@ Deno.serve(async (req) => {
       banana: 'banana_session',
       higgsfield: 'higgsfield_session',
       email: 'email_session',
+      assistant: 'assistant_session',
     }
 
     if (action && SESSION_MAP[action]) {
@@ -1277,6 +1372,7 @@ Deno.serve(async (req) => {
         banana: '🍌 Banana Image Gen',
         higgsfield: '🎬 Higgsfield AI',
         email: '📧 AI Email Composer',
+        assistant: '🤖 AI Assistant',
       }
       const hints: Record<string, string> = {
         invoice: 'Try: "Create an invoice for Bryan, $500 for web design"',
@@ -1290,6 +1386,7 @@ Deno.serve(async (req) => {
         banana: 'Try: "A futuristic city at sunset in cyberpunk style"',
         higgsfield: 'Try: "A cat playing piano" or attach an image for video',
         email: 'Try: "Send Bryan an email telling him how great he is"',
+        assistant: 'Try: "Build Warren a website, then email him the link, and send a $500 invoice"',
       }
 
       // Clean up old sessions for this module
@@ -1345,7 +1442,9 @@ Deno.serve(async (req) => {
         }
 
         // Route to the correct processor
-        if (sessionType === 'invoice_session') {
+        if (sessionType === 'assistant_session') {
+          await processAssistantCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+        } else if (sessionType === 'invoice_session') {
           await processInvoiceCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
         } else if (sessionType === 'smm_session') {
           await processSMMCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
