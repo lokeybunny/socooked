@@ -600,8 +600,10 @@ async function processHiggsFieldCommand(
   botSecret: string,
   supabase: any,
   imageUrl?: string,
+  sessionGenType?: string,
+  sessionModel?: string,
 ) {
-  const isVideo = !!imageUrl
+  const isVideo = !!imageUrl || sessionGenType === 'video'
   await tgPost(tgToken, 'sendMessage', {
     chat_id: chatId,
     text: isVideo ? '🎬 Generating video from image...' : '🎨 Generating image with Higgsfield...',
@@ -609,13 +611,15 @@ async function processHiggsFieldCommand(
   })
 
   try {
-    // Detect model from prompt (e.g. "use flux" or "model: dop/turbo")
-    let model: string | undefined
+    // Use session-selected model, or detect from prompt as fallback
+    let model: string | undefined = sessionModel
     let cleanPrompt = prompt
-    const modelMatch = prompt.match(/\b(?:model[:\s]*)?((higgsfield-ai\/\S+|flux|iris))\b/i)
-    if (modelMatch) {
-      model = modelMatch[1]
-      cleanPrompt = prompt.replace(modelMatch[0], '').trim()
+    if (!model) {
+      const modelMatch = prompt.match(/\b(?:model[:\s]*)?((higgsfield-ai\/\S+|flux|iris))\b/i)
+      if (modelMatch) {
+        model = modelMatch[1]
+        cleanPrompt = prompt.replace(modelMatch[0], '').trim()
+      }
     }
 
     // Detect aspect ratio
@@ -1063,6 +1067,81 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── Higgsfield callbacks: type selection ───
+      if (data === 'hf_type:image' || data === 'hf_type:video') {
+        const genType = data.replace('hf_type:', '')
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: `${genType === 'video' ? '🎬 Video' : '🎨 Image'} selected` })
+
+        const imageModels = [
+          { id: 'higgsfield-ai/soul/standard', label: '🌟 Soul Standard' },
+          { id: 'higgsfield-ai/soul/turbo', label: '⚡ Soul Turbo' },
+          { id: 'flux', label: '📷 FLUX' },
+        ]
+        const videoModels = [
+          { id: 'higgsfield-ai/dop/standard', label: '🎥 DOP Standard' },
+          { id: 'higgsfield-ai/dop/turbo', label: '⚡ DOP Turbo' },
+        ]
+        const models = genType === 'video' ? videoModels : imageModels
+        const rows = models.map(m => [{ text: m.label, callback_data: `hf_model:${genType}:${m.id}` }])
+        rows.push([{ text: '❌ Cancel', callback_data: 'hf_cancel' }])
+
+        if (chatId && messageId) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: chatId, message_id: messageId,
+            text: `${genType === 'video' ? '🎬' : '🎨'} <b>${genType === 'video' ? 'Video' : 'Image'} Generation</b>\n\nSelect a model:`,
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: rows },
+          })
+        }
+        return new Response('ok')
+      }
+
+      // ─── Higgsfield callbacks: model selection → activate session ───
+      if (data.startsWith('hf_model:')) {
+        const parts = data.replace('hf_model:', '').split(':')
+        const genType = parts[0] // 'image' or 'video'
+        const modelId = parts.slice(1).join(':') // model ID may contain colons
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: `Model: ${modelId}` })
+
+        // Clear sessions and create Higgsfield session with pre-selected type + model
+        const ALL_SESSIONS_CB = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session']
+        if (chatId) {
+          await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS_CB).filter('payload->>chat_id', 'eq', String(chatId))
+          await supabase.from('webhook_events').insert({
+            source: 'telegram',
+            event_type: 'higgsfield_session',
+            payload: { chat_id: chatId, history: [], created: Date.now(), gen_type: genType, model: modelId },
+            processed: false,
+          })
+        }
+
+        const isVideo = genType === 'video'
+        const promptHint = isVideo
+          ? '📎 <b>Send a photo</b> to animate into video, or type a motion prompt with a reference image.'
+          : 'Type your image prompt. Include details like lighting, mood, composition.\n\n• <code>A futuristic storefront with neon signs at dusk 16:9 1080p</code>'
+
+        if (chatId && messageId) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: chatId, message_id: messageId,
+            text: `${isVideo ? '🎬' : '🎨'} <b>Higgsfield — ${isVideo ? 'Video' : 'Image'}</b>\n🔧 Model: <code>${modelId}</code>\n\n${promptHint}\n\n<i>Send /cancel to exit.</i>`,
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
+      // ─── Higgsfield callbacks: cancel ───
+      if (data === 'hf_cancel') {
+        await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Cancelled' })
+        if (chatId) {
+          await supabase.from('webhook_events').delete().eq('source', 'telegram').eq('event_type', 'higgsfield_session').filter('payload->>chat_id', 'eq', String(chatId))
+        }
+        if (chatId && messageId) {
+          await tgPost(TG_TOKEN, 'editMessageText', { chat_id: chatId, message_id: messageId, text: '⏭ Higgsfield cancelled.' })
+        }
+        return new Response('ok')
+      }
+
       await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: 'Unknown action' })
       return new Response('ok')
     }
@@ -1370,8 +1449,15 @@ Deno.serve(async (req) => {
         }
         if (replyAction === 'higgsfield') {
           await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
-          await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'higgsfield_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🎬 <b>Higgsfield AI Terminal</b>\n\nGenerate images or videos with Higgsfield AI.\n\n• <code>A futuristic storefront with neon signs at dusk</code>\n• <code>use flux: modern barbershop interior 16:9 1080p</code>\n• 📎 <b>Send a photo</b> to animate it into a video\n\n<i>Type your prompt, attach an image, or tap ❌ Cancel to exit.</i>', parse_mode: 'HTML', reply_markup: PAGE_2_KEYBOARD })
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '🎬 <b>Higgsfield AI Terminal</b>\n\nWhat would you like to generate?',
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: [
+              [{ text: '🎨 Image', callback_data: 'hf_type:image' }, { text: '🎬 Video', callback_data: 'hf_type:video' }],
+              [{ text: '❌ Cancel', callback_data: 'hf_cancel' }],
+            ]},
+          })
           return new Response('ok')
         }
 
@@ -1449,8 +1535,8 @@ Deno.serve(async (req) => {
           .filter('payload->>chat_id', 'eq', String(chatId))
           .limit(1)
         if (hfSess && hfSess.length > 0) {
-          const sp = hfSess[0].payload as { chat_id: number; history: any[]; created: number }
-          await processHiggsFieldCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+          const sp = hfSess[0].payload as { chat_id: number; history: any[]; created: number; gen_type?: string; model?: string }
+          await processHiggsFieldCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, undefined, sp.gen_type, sp.model)
           return new Response('ok')
         }
 
@@ -1643,12 +1729,14 @@ Deno.serve(async (req) => {
     // ─── Higgsfield action ───
     if (persistentAction === 'higgsfield') {
       await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
-      await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'higgsfield_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: '🎬 <b>Higgsfield AI Terminal</b>\n\nGenerate images or videos with Higgsfield AI.\n\n• <code>A futuristic storefront with neon signs at dusk</code>\n• <code>use flux: modern barbershop interior 16:9 1080p</code>\n• 📎 <b>Send a photo</b> to animate it into a video\n• <code>model: higgsfield-ai/soul/turbo</code> to specify model\n\n<i>Type your prompt, attach an image, or tap ❌ Cancel to exit.</i>',
+        text: '🎬 <b>Higgsfield AI Terminal</b>\n\nWhat would you like to generate?',
         parse_mode: 'HTML',
-        reply_markup: PAGE_2_KEYBOARD,
+        reply_markup: { inline_keyboard: [
+          [{ text: '🎨 Image', callback_data: 'hf_type:image' }, { text: '🎬 Video', callback_data: 'hf_type:video' }],
+          [{ text: '❌ Cancel', callback_data: 'hf_cancel' }],
+        ]},
       })
       return new Response('ok')
     }
@@ -1780,21 +1868,14 @@ Deno.serve(async (req) => {
         await supabase.from('webhook_events').delete()
           .eq('source', 'telegram').in('event_type', ALL_SESSIONS)
           .filter('payload->>chat_id', 'eq', String(chatId))
-        await supabase.from('webhook_events').insert({
-          source: 'telegram',
-          event_type: 'higgsfield_session',
-          payload: { chat_id: chatId, history: [], created: Date.now() },
-          processed: false,
-        })
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: '🎬 <b>Higgsfield AI Terminal active.</b>\n\n'
-            + 'Type your generation prompts:\n'
-            + '• <code>A cinematic sunset over neon mountains 16:9</code>\n'
-            + '• <code>use flux: elegant restaurant interior 1080p</code>\n'
-            + '• 📎 Send a photo to animate into video\n\n'
-            + 'Send /cancel to exit.',
+          text: '🎬 <b>Higgsfield AI Terminal</b>\n\nWhat would you like to generate?',
           parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: [
+            [{ text: '🎨 Image', callback_data: 'hf_type:image' }, { text: '🎬 Video', callback_data: 'hf_type:video' }],
+            [{ text: '❌ Cancel', callback_data: 'hf_cancel' }],
+          ]},
         })
         return new Response('ok')
       }
@@ -1871,9 +1952,9 @@ Deno.serve(async (req) => {
 
       if (hfSessions && hfSessions.length > 0) {
         const session = hfSessions[0]
-        const sp = session.payload as { chat_id: number; history: any[]; created: number }
+        const sp = session.payload as { chat_id: number; history: any[]; created: number; gen_type?: string; model?: string }
         console.log('[higgsfield-tg] session active, processing:', text.slice(0, 100))
-        await processHiggsFieldCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+        await processHiggsFieldCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, undefined, sp.gen_type, sp.model)
         return new Response('ok')
       }
     }
@@ -2064,8 +2145,8 @@ Deno.serve(async (req) => {
           const imageUrl = pubUrl.publicUrl
 
           console.log('[higgsfield-tg] reference image uploaded for video:', imageUrl)
-          const sp = hfMediaSess[0].payload as { chat_id: number; history: any[]; created: number }
-          await processHiggsFieldCommand(chatId, caption, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, imageUrl)
+          const sp = hfMediaSess[0].payload as { chat_id: number; history: any[]; created: number; gen_type?: string; model?: string }
+          await processHiggsFieldCommand(chatId, caption, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, imageUrl, sp.gen_type, sp.model)
           return new Response('ok')
         } catch (e: any) {
           console.error('[higgsfield-tg] reference image error:', e)
