@@ -14,7 +14,15 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
-    const { prompt, history } = await req.json()
+    const rawBody = await req.text()
+    let body: any = {}
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {}
+    } catch {
+      body = { prompt: rawBody }
+    }
+
+    const { prompt, history } = body
     if (!prompt) {
       return new Response(JSON.stringify({ type: 'message', message: 'Please provide a command.' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -78,7 +86,7 @@ IMPORTANT: Always resolve customer names to their IDs from the list above when u
 
     // Call Gemini
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-    const geminiRes = await fetch('https://api.lovable.dev/v1/chat/completions', {
+    const geminiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -95,8 +103,37 @@ IMPORTANT: Always resolve customer names to their IDs from the list above when u
       }),
     })
 
-    const geminiData = await geminiRes.json()
-    const rawText = geminiData.choices?.[0]?.message?.content || ''
+    const geminiPayload = await geminiRes.text()
+    if (!geminiRes.ok) {
+      throw new Error(`Model request failed (${geminiRes.status}): ${geminiPayload.slice(0, 200)}`)
+    }
+
+    let rawText = ''
+    try {
+      const geminiData = JSON.parse(geminiPayload)
+      rawText = geminiData.choices?.[0]?.message?.content || ''
+    } catch {
+      // Fallback for SSE-style responses (data: ...)
+      const lines = geminiPayload
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.replace(/^data:\s*/, ''))
+        .filter((line) => line && line !== '[DONE]')
+
+      for (const line of lines) {
+        try {
+          const chunk = JSON.parse(line)
+          rawText += chunk.choices?.[0]?.delta?.content || chunk.choices?.[0]?.message?.content || ''
+        } catch {
+          // ignore malformed chunk
+        }
+      }
+
+      if (!rawText.trim()) {
+        throw new Error(`Model response was not valid JSON: ${geminiPayload.slice(0, 200)}`)
+      }
+    }
 
     // Extract JSON from response (handle markdown code blocks, mixed text, etc.)
     let parsed: any
