@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.invoice-scheduler]
 verify_jwt = false
+
+[functions.invoice-cleanup]
+verify_jwt = false
