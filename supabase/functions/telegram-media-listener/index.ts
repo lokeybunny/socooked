@@ -604,6 +604,17 @@ async function processHiggsFieldCommand(
   sessionModel?: string,
 ) {
   const isVideo = !!imageUrl || sessionGenType === 'video'
+
+  // Video requires a source image — guard against missing image_url
+  if (isVideo && !imageUrl) {
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: '⚠️ <b>Video generation requires a source image.</b>\n\n📎 Send a photo first, then I\'ll animate it into a video with your prompt.\n\n<i>Attach an image and try again.</i>',
+      parse_mode: 'HTML',
+    })
+    return
+  }
+
   await tgPost(tgToken, 'sendMessage', {
     chat_id: chatId,
     text: isVideo ? '🎬 Generating video from image...' : '🎨 Generating image with Higgsfield...',
