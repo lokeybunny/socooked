@@ -45,20 +45,43 @@ let commandsRegistered = false
 async function ensureBotCommands(token: string) {
   if (commandsRegistered) return
   commandsRegistered = true
-  await tgPost(token, 'setMyCommands', {
-    commands: [
-      { command: 'custom', description: '📦 Custom-U Portal Links' },
-      { command: 'invoice', description: '💰 Invoice Terminal' },
-      { command: 'smm', description: '📱 SMM Terminal' },
-      { command: 'customer', description: '👤 Customer Terminal' },
-      { command: 'calendar', description: '📅 Calendar Terminal' },
-      { command: 'calendly', description: '🗓 Availability Setup' },
-      { command: 'meeting', description: '🤝 Meeting Terminal' },
-      { command: 'xpost', description: '📡 Quick post to social media' },
-      { command: 'cancel', description: '❌ Cancel active session' },
-      { command: 'higs', description: '🎬 Higgsfield model list' },
-    ],
+
+  const allCommands = [
+    { command: 'menu', description: '📋 Open Command Center' },
+    { command: 'invoice', description: '💰 Invoice Terminal' },
+    { command: 'smm', description: '📱 SMM Terminal' },
+    { command: 'customer', description: '👤 Customer Terminal' },
+    { command: 'calendar', description: '📅 Calendar Terminal' },
+    { command: 'calendly', description: '🗓 Availability Setup' },
+    { command: 'meeting', description: '🤝 Meeting Terminal' },
+    { command: 'custom', description: '📦 Custom-U Portal Links' },
+    { command: 'webdev', description: '🌐 Web Dev Terminal' },
+    { command: 'banana', description: '🍌 Nano Banana Image Gen' },
+    { command: 'xpost', description: '📡 Quick post to social media' },
+    { command: 'higs', description: '🎬 Higgsfield model list' },
+    { command: 'cancel', description: '❌ Cancel active session' },
+  ]
+
+  // Register commands globally (default scope — all private chats)
+  await fetch(`${TG_API}${token}/setMyCommands`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commands: allCommands }),
   })
+
+  // Register commands for the specific group chat so autocomplete works there too
+  for (const groupId of ALLOWED_GROUP_IDS) {
+    await fetch(`${TG_API}${token}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        commands: allCommands,
+        scope: { type: 'chat', chat_id: groupId },
+      }),
+    })
+  }
+
+  console.log('[ensureBotCommands] registered', allCommands.length, 'commands globally + per-group')
 }
 
 async function tgPost(token: string, method: string, body: Record<string, unknown>) {
