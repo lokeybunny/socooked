@@ -170,10 +170,12 @@ AVAILABLE MODULES (each calls a DIRECT edge function):
    body: { prompt: "natural language email instruction" }
    The prompt should be self-contained, e.g.: "Send Warren Thompson (warren@email.com) an email with subject 'Your Website is Ready' telling him his website has been completed. Attach this image: [URL]"
 
-3. INVOICE — Create/send invoices
+3. INVOICE — Create/send invoices (ALWAYS with PDF)
    function: invoice-scheduler
    body: { prompt: "natural language invoice instruction" }
-   e.g.: "Create a $500 invoice for Warren Thompson for web design services and send it"
+   CRITICAL: EVERY invoice prompt MUST end with "and send it". This ensures a professional PDF is always generated and emailed to the customer. Even paid invoices get a PDF receipt attached.
+   e.g.: "Create a $500 paid invoice for Warren Thompson for web design services and send it"
+   e.g.: "Create a $200 invoice for Bryan for consulting and send it"
 
 4. WEBSITE — Generate websites via v0
    function: prompt-machine
@@ -360,6 +362,14 @@ CRITICAL RULES:
 
           if (fnPath === 'nano-banana/generate' && !body.provider) {
             body.provider = 'nano-banana'
+          }
+
+          // INVOICE: always ensure PDF is generated and sent
+          if (fnPath === 'invoice-scheduler' && typeof body.prompt === 'string') {
+            const lower = body.prompt.toLowerCase()
+            if (!lower.includes('send it') && !lower.includes('auto_send') && !lower.includes('and email')) {
+              body.prompt = body.prompt.trimEnd().replace(/\.?$/, '') + ' and send it.'
+            }
           }
 
           if (fnPath === 'email-command' && typeof body.prompt === 'string') {
