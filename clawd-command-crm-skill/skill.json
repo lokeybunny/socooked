@@ -146,8 +146,8 @@
     { "name": "crm_email_sent", "description": "Get sent emails", "method": "GET", "path": "/clawd-bot/email?action=sent" },
     { "name": "crm_email_drafts", "description": "Get draft emails", "method": "GET", "path": "/clawd-bot/email?action=drafts" },
     { "name": "crm_email_read", "description": "Read a specific email by message ID. Params: ?action=message&id=MSG_ID", "method": "GET", "path": "/clawd-bot/email" },
-    { "name": "crm_email_send", "description": "Send email from warren@stu25.com. Body: {\"to\":\"...\",\"subject\":\"...\",\"body\":\"<html>\"}", "method": "POST", "path": "/clawd-bot/email" },
-    { "name": "crm_email_save_draft", "description": "Save email as draft. Body: {\"action\":\"save-draft\",\"to\":\"...\",\"subject\":\"...\",\"body\":\"...\"}", "method": "POST", "path": "/clawd-bot/email" },
+    { "name": "crm_email_send", "description": "Send email from warren@stu25.com. Body: {\"to\": \"recipient@example.com\", \"subject\": \"Subject line\", \"body\": \"<p>HTML body</p>\"}. THIS IS THE PRIMARY EMAIL SENDING ACTION — use it whenever asked to send any email (welcome, follow-up, custom, etc). Emails are queued and delivered within 5-8 minutes.", "method": "POST", "path": "/clawd-bot/email" },
+    { "name": "crm_email_save_draft", "description": "Save email as draft. Body: {\"action\": \"save-draft\", \"to\": \"...\", \"subject\": \"...\", \"body\": \"...\"}", "method": "POST", "path": "/clawd-bot/email" },
     { "name": "crm_generate_website", "description": "Generate website via V0.dev API. Body: {\"prompt\":\"Build a landing page for...\",\"customer_id\":\"optional-uuid\",\"category\":\"digital-services\"}. Returns preview_url, edit_url, thread_id.", "method": "POST", "path": "/clawd-bot/generate-website" }
   ]
 }
