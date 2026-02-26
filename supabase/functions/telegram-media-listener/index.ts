@@ -24,8 +24,8 @@ const PERSISTENT_KEYBOARD = {
     [{ text: '💰 Invoice' }, { text: '📱 SMM' }],
     [{ text: '👤 Customer' }, { text: '📅 Calendar' }],
     [{ text: '🗓 Calendly' }, { text: '🤝 Meeting' }],
-    [{ text: '📦 Custom' }, { text: '➡️ More' }],
-    [{ text: '❌ Cancel' }],
+    [{ text: '📧 Email' }, { text: '📦 Custom' }],
+    [{ text: '➡️ More' }, { text: '❌ Cancel' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -55,6 +55,7 @@ async function ensureBotCommands(token: string) {
     { command: 'calendar', description: '📅 Calendar Terminal' },
     { command: 'calendly', description: '🗓 Availability Setup' },
     { command: 'meeting', description: '🤝 Meeting Terminal' },
+    { command: 'email', description: '📧 AI Email Composer' },
     { command: 'custom', description: '📦 Custom-U Portal Links' },
     { command: 'webdev', description: '🌐 Web Dev Terminal' },
     { command: 'banana', description: '🍌 Nano Banana Image Gen' },
@@ -102,7 +103,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'higgsfield' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'higgsfield' | 'email' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -119,7 +120,96 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'web dev' || normalized === 'webdev' || normalized === '/webdev') return 'webdev'
   if (normalized === 'banana' || normalized === '/banana') return 'banana'
   if (normalized === 'higgsfield' || normalized === '/higgsfield') return 'higgsfield'
+  if (normalized === 'email' || normalized === '/email') return 'email'
   return null
+}
+
+// ─── Email Terminal via Telegram (AI-powered email composer) ───
+async function processEmailCommand(
+  chatId: number,
+  prompt: string,
+  history: { role: string; text: string }[],
+  tgToken: string,
+  supabaseUrl: string,
+  botSecret: string,
+  supabase: any,
+) {
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🧠 Composing email...', parse_mode: 'HTML' })
+
+  try {
+    const res = await fetch(`${supabaseUrl}/functions/v1/email-command`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-bot-secret': botSecret,
+      },
+      body: JSON.stringify({ prompt, history }),
+    })
+    const rawData = await res.json()
+    const result = rawData?.data || rawData
+
+    let replyText = ''
+
+    if (result?.type === 'clarify') {
+      replyText = `❓ ${result.message}`
+    } else if (result?.type === 'executed') {
+      const lines: string[] = []
+      for (const action of result.actions || []) {
+        if (action.success) {
+          lines.push(`✅ ${action.description}`)
+          if (action.data) {
+            const parts: string[] = []
+            if (action.data.to) parts.push(`📨 ${action.data.to}`)
+            if (action.data.subject) parts.push(`📋 "${action.data.subject}"`)
+            if (action.data.email_sent) parts.push('📧 sent')
+            if (parts.length) lines.push(`  → ${parts.join(' · ')}`)
+            if (action.data.summary) lines.push(`\n💡 ${action.data.summary}`)
+          }
+        } else {
+          lines.push(`❌ ${action.description}: ${action.error || 'unknown'}`)
+        }
+      }
+      replyText = lines.join('\n') || '✅ Done.'
+    } else if (result?.type === 'message') {
+      replyText = result.message
+    } else {
+      replyText = `<pre>${JSON.stringify(result, null, 2).slice(0, 3500)}</pre>`
+    }
+
+    // Update conversation history in session
+    const { data: sessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'email_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .limit(1)
+
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0]
+      const payload = session.payload as { chat_id: number; history: any[]; created: number }
+      const newHistory = [
+        ...(payload.history || []),
+        { role: 'user', text: prompt },
+        { role: 'assistant', text: replyText.slice(0, 500) },
+      ].slice(-10)
+
+      await supabase.from('webhook_events').update({
+        payload: { ...payload, history: newHistory },
+      }).eq('id', session.id)
+    }
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: replyText.slice(0, 4000),
+      parse_mode: 'HTML',
+    })
+  } catch (e: any) {
+    console.error('[email-tg] error:', e)
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `❌ <b>Email command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      parse_mode: 'HTML',
+    })
+  }
 }
 
 function extractMedia(message: Record<string, unknown>): { fileId: string; type: string; fileName: string; fileSize: number } | null {
@@ -1115,7 +1205,7 @@ Deno.serve(async (req) => {
         await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cb.id, text: `Model: ${modelId}` })
 
         // Clear sessions and create Higgsfield session with pre-selected type + model
-        const ALL_SESSIONS_CB = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session']
+        const ALL_SESSIONS_CB = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
         if (chatId) {
           await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS_CB).filter('payload->>chat_id', 'eq', String(chatId))
           await supabase.from('webhook_events').insert({
@@ -1349,7 +1439,7 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
-        const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session']
+        const ALL_REPLY_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
 
         if (replyAction === 'custom') {
           await supabase.from('webhook_events').delete()
@@ -1471,8 +1561,18 @@ Deno.serve(async (req) => {
           })
           return new Response('ok')
         }
+        if (replyAction === 'email') {
+          await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+          await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'email_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: '📧 <b>AI Email Composer</b>\n\nTell me who to email and what to say.\n\n<i>Type your email command naturally or tap ❌ Cancel to exit.</i>',
+            parse_mode: 'HTML',
+            reply_markup: PERSISTENT_KEYBOARD,
+          })
+          return new Response('ok')
+        }
 
-        if (replyAction === 'cancel') {
           const { data: sessions } = await supabase.from('webhook_events').select('id')
             .eq('source', 'telegram')
             .in('event_type', ALL_REPLY_SESSIONS)
@@ -1480,7 +1580,7 @@ Deno.serve(async (req) => {
           if (sessions && sessions.length > 0) {
             await supabase.from('webhook_events').delete()
               .eq('source', 'telegram')
-              .in('event_type', ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session'])
+              .in('event_type', ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'email_session'])
               .filter('payload->>chat_id', 'eq', String(chatId))
             await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏭ Session cancelled.', reply_markup: PERSISTENT_KEYBOARD })
           } else {
@@ -1551,6 +1651,18 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
+        // Check for active Email session
+        const { data: emailSess } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'email_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+          .limit(1)
+        if (emailSess && emailSess.length > 0) {
+          const sp = emailSess[0].payload as { chat_id: number; history: any[]; created: number }
+          await processEmailCommand(chatId, replyAsText, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+          return new Response('ok')
+        }
+
         const { data: smmSess } = await supabase.from('webhook_events')
           .select('id, payload')
           .eq('source', 'telegram').eq('event_type', 'smm_session')
@@ -1566,7 +1678,7 @@ Deno.serve(async (req) => {
         console.log('[reply-router] No active session, auto-detecting intent from:', replyAsText.slice(0, 80))
 
         const intentText = replyAsText.toLowerCase()
-        let autoModule: 'customer' | 'invoice' | 'calendar' | 'meeting' | null = null
+        let autoModule: 'customer' | 'invoice' | 'calendar' | 'meeting' | 'email' | null = null
 
         if (/\b(customer|lead|prospect|client|contact|create\s+a?\s*customer|add\s+customer|new\s+customer)\b/i.test(intentText)) {
           autoModule = 'customer'
@@ -1574,6 +1686,8 @@ Deno.serve(async (req) => {
           autoModule = 'invoice'
         } else if (/\b(meeting|book|schedule\s+a?\s*call|zoom|video\s+call)\b/i.test(intentText)) {
           autoModule = 'meeting'
+        } else if (/\b(email|send\s+.*\s+(an?\s+)?email|mail\s+to|write\s+.*\s+email|draft\s+email)\b/i.test(intentText)) {
+          autoModule = 'email'
         } else if (/\b(calendar|event|appointment|reminder|schedule)\b/i.test(intentText)) {
           autoModule = 'calendar'
         }
@@ -1586,6 +1700,8 @@ Deno.serve(async (req) => {
 
           if (autoModule === 'invoice') {
             await processInvoiceCommand(chatId, replyAsText, [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+          } else if (autoModule === 'email') {
+            await processEmailCommand(chatId, replyAsText, [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
           } else {
             await processModuleCommand(chatId, replyAsText, [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, autoModule)
           }
@@ -1640,7 +1756,7 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session']
+    const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
 
     // ─── Custom-U action ───
     if (persistentAction === 'custom') {
@@ -1752,6 +1868,24 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Email action (AI Email Composer) ───
+    if (persistentAction === 'email') {
+      await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({ source: 'telegram', event_type: 'email_session', payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '📧 <b>AI Email Composer</b>\n\n'
+          + 'Tell me who to email and what to say — I\'ll craft and send it.\n\n'
+          + '• <code>Send Bryan an email telling him how awesome he is</code>\n'
+          + '• <code>Email Warren about the project deadline next week</code>\n'
+          + '• <code>Draft a follow-up to Michael about the invoice</code>\n\n'
+          + '<i>Type your email command naturally or tap ❌ Cancel to exit.</i>',
+        parse_mode: 'HTML',
+        reply_markup: PERSISTENT_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
     // ─── Cancel action ───
     if (persistentAction === 'cancel') {
       const { data: sessions } = await supabase.from('webhook_events').select('id').eq('source', 'telegram').in('event_type', ALL_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
@@ -1769,7 +1903,7 @@ Deno.serve(async (req) => {
     const isBotReply = message.reply_to_message?.from?.is_bot === true
     if (!isPrivate && !isPersistentButton && !text.startsWith('/') && !isBotReply) {
       // Check if there's an active session for this chat — if so, allow the message through
-      const ALL_CHECK_SESSIONS = ['invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'xpost_session', 'higgsfield_session']
+      const ALL_CHECK_SESSIONS = ['invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'xpost_session', 'higgsfield_session', 'email_session']
       const { data: activeSessions } = await supabase.from('webhook_events')
         .select('id')
         .eq('source', 'telegram')
@@ -1894,6 +2028,56 @@ Deno.serve(async (req) => {
       // Inline prompt — execute immediately
       await processHiggsFieldCommand(chatId, hfPrompt, [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
       return new Response('ok')
+    }
+
+    // ─── /email command — AI-powered email composer ───
+    if (text.toLowerCase().startsWith('/email')) {
+      const emailPrompt = text.replace(/^\/email\s*/i, '').trim()
+
+      if (!emailPrompt) {
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').in('event_type', ALL_SESSIONS)
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'email_session',
+          payload: { chat_id: chatId, history: [], created: Date.now() },
+          processed: false,
+        })
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '📧 <b>AI Email Composer active.</b>\n\n'
+            + 'Tell me who to email and what to say:\n'
+            + '• <code>Send Bryan a thank you email for the project</code>\n'
+            + '• <code>Email Michael about the deadline next Friday</code>\n'
+            + '• <code>Write Warren a follow-up about the invoice</code>\n\n'
+            + 'Send /cancel to exit email mode.',
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      // Inline prompt — execute immediately
+      await processEmailCommand(chatId, emailPrompt, [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+      return new Response('ok')
+    }
+
+    // ─── Check for active Email session ───
+    if (text && !text.startsWith('/') && !isPersistentButton) {
+      const { data: emailSessions } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', 'email_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (emailSessions && emailSessions.length > 0) {
+        const session = emailSessions[0]
+        const sp = session.payload as { chat_id: number; history: any[]; created: number }
+        console.log('[email-tg] session active, processing:', text.slice(0, 100))
+        await processEmailCommand(chatId, text, sp.history || [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+        return new Response('ok')
+      }
     }
 
     // ─── Check for active invoice session (multi-turn invoice terminal) ───

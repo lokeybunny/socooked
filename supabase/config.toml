@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.invoice-cleanup]
 verify_jwt = false
+
+[functions.email-command]
+verify_jwt = false
