@@ -1389,6 +1389,18 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── In GROUP chats, ignore free text that isn't a button press, /command, or reply to bot ───
+    // This prevents the bot from reacting to other bots' messages or casual conversation
+    const isBotReply = message.reply_to_message?.from?.is_bot === true
+    if (!isPrivate && !isPersistentButton && !text.startsWith('/') && !isBotReply) {
+      // In groups: only react to button presses, slash commands, replies to bot, or media
+      const mediaInMsg = extractMedia(message)
+      if (!mediaInMsg) {
+        console.log('[telegram-media-listener] group free-text ignored (no button/command/reply):', text.slice(0, 80))
+        return new Response('ok')
+      }
+    }
+
     // ─── /invoice command — prompt-driven invoicing via Invoice Terminal ───
     if (text.toLowerCase().startsWith('/invoice')) {
       const invoicePrompt = text.replace(/^\/invoice\s*/i, '').trim()
