@@ -34,6 +34,7 @@ const SOURCE_CONFIG: Record<string, { label: string; icon: typeof Palette; color
 
 const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string }> = {
   completed: { icon: CheckCircle2, color: 'text-emerald-400' },
+  generating: { icon: Loader2, color: 'text-violet-400' },
   pending: { icon: Clock, color: 'text-amber-400' },
   in_progress: { icon: Loader2, color: 'text-blue-400' },
   failed: { icon: XCircle, color: 'text-destructive' },
@@ -66,9 +67,18 @@ export default function Previews() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setPreviews(data as unknown as ApiPreview[]);
-      // Auto-expand all clients on first load
-      // Keep all clients collapsed by default
+      const items = data as unknown as ApiPreview[];
+      setPreviews(items);
+      // Auto-expand groups that have generating/in_progress items
+      const activeGroups = new Set<string>();
+      items.forEach(p => {
+        if (p.status === 'generating' || p.status === 'in_progress') {
+          activeGroups.add(p.customer_id || '__uncategorized');
+        }
+      });
+      if (activeGroups.size > 0) {
+        setExpandedClients(prev => new Set([...prev, ...activeGroups]));
+      }
     }
     setLoading(false);
   }
