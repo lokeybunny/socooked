@@ -145,10 +145,10 @@ TAILWIND CSS RULE (mandatory):
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Resolve customer_id — DO NOT create a dummy customer; leave null if not provided
-    let resolvedCustomerId = customer_id || null
+    // Resolve customer_id — REQUIRED for proper CRM association
+    const resolvedCustomerId = customer_id || null
     if (!resolvedCustomerId) {
-      console.warn('[v0-designer] No customer_id provided — preview will appear under Uncategorized')
+      console.error('[v0-designer] No customer_id provided — this will cause orphaned previews. Cortex MUST pass customer_id.')
     }
 
     // All CRM writes in parallel
