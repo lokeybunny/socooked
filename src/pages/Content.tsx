@@ -89,6 +89,7 @@ export default function Content() {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [collapsedCustomers, setCollapsedCustomers] = useState<Set<string>>(new Set());
   const [collapsedSources, setCollapsedSources] = useState<Set<string>>(new Set());
+  const initialCollapseApplied = useRef(false);
 
   // Video preview state
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -172,6 +173,41 @@ export default function Content() {
     }
     return sorted;
   }, [content]);
+
+  // Auto-collapse everything on first load except groups with items from last 24h
+  useEffect(() => {
+    if (initialCollapseApplied.current || grouped.length === 0) return;
+    initialCollapseApplied.current = true;
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+    const hasRecent = (files: any[]) => files.some(f => now - new Date(f.created_at).getTime() < DAY);
+
+    const catCollapse = new Set<string>();
+    const custCollapse = new Set<string>();
+    const srcCollapse = new Set<string>();
+
+    for (const group of grouped) {
+      let catHasRecent = false;
+      for (const cust of group.customers) {
+        const custKey = `${group.category}::${cust.name}`;
+        let custHasRecent = false;
+        for (const srcGroup of cust.sources) {
+          const srcKey = `${custKey}::${srcGroup.source}`;
+          if (hasRecent(srcGroup.files)) {
+            custHasRecent = true;
+          } else {
+            srcCollapse.add(srcKey);
+          }
+        }
+        if (custHasRecent) catHasRecent = true; else custCollapse.add(custKey);
+      }
+      if (!catHasRecent) catCollapse.add(group.category);
+    }
+
+    setCollapsedCategories(catCollapse);
+    setCollapsedCustomers(custCollapse);
+    setCollapsedSources(srcCollapse);
+  }, [grouped]);
 
   const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
     acc[cat.id] = allContent.filter(c => (c.category || 'other') === cat.id).length;
