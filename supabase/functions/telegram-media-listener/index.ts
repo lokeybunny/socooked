@@ -904,12 +904,619 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   try {
+    await ensureBotCommands(TG_TOKEN)
+
     const rawBody = await req.text()
-    console.log('[telegram-media-listener] test body:', rawBody.slice(0, 100))
-    return new Response('ok-test')
-  } catch (err) {
+    console.log('[telegram-media-listener] body:', rawBody.slice(0, 300))
+    const update = JSON.parse(rawBody)
+
+    // ─── CALLBACK QUERIES (inline button presses) ───
+    if (update.callback_query) {
+      const cbq = update.callback_query
+      const cbData = cbq.data as string
+      const cbChatId = cbq.message?.chat?.id
+
+      // Answer the callback to remove loading spinner
+      await tgPost(TG_TOKEN, 'answerCallbackQuery', { callback_query_id: cbq.id })
+
+      // ─── xpost flow callbacks ───
+      if (cbData.startsWith('xpost_profile_') || cbData.startsWith('xpost_platform_') || cbData === 'xpost_cancel') {
+        if (cbData === 'xpost_cancel') {
+          await supabase.from('webhook_events').delete()
+            .eq('source', 'telegram').eq('event_type', 'xpost_session')
+            .filter('payload->>chat_id', 'eq', String(cbChatId))
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: cbChatId, text: '❌ Post cancelled.' })
+          return new Response('ok')
+        }
+
+        // Look up xpost session
+        const { data: xSessions } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'xpost_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+          .order('created_at', { ascending: false }).limit(1)
+
+        if (xSessions && xSessions.length > 0) {
+          const xs = xSessions[0]
+          const xp = xs.payload as any
+
+          if (cbData.startsWith('xpost_profile_')) {
+            const profileIdx = parseInt(cbData.replace('xpost_profile_', ''))
+            const selectedProfile = xp.profiles?.[profileIdx]
+            if (selectedProfile) {
+              // Update session with selected profile, ask for platform
+              await supabase.from('webhook_events').update({
+                payload: { ...xp, step: 'platform', selected_profile: selectedProfile },
+              }).eq('id', xs.id)
+
+              const platformButtons = [
+                [{ text: '𝕏 X (Twitter)', callback_data: 'xpost_platform_x' }],
+                [{ text: '📸 Instagram', callback_data: 'xpost_platform_instagram' }],
+                [{ text: '❌ Cancel', callback_data: 'xpost_cancel' }],
+              ]
+              await tgPost(TG_TOKEN, 'sendMessage', {
+                chat_id: cbChatId,
+                text: `✅ Profile: <b>${selectedProfile.name || selectedProfile.platform_username}</b>\n\nSelect platform:`,
+                parse_mode: 'HTML',
+                reply_markup: { inline_keyboard: platformButtons },
+              })
+            }
+          } else if (cbData.startsWith('xpost_platform_')) {
+            const platform = cbData.replace('xpost_platform_', '')
+            await supabase.from('webhook_events').update({
+              payload: { ...xp, step: 'message', platform },
+            }).eq('id', xs.id)
+            await tgPost(TG_TOKEN, 'sendMessage', {
+              chat_id: cbChatId,
+              text: `✅ Platform: <b>${platform}</b>\n\n📝 Now type your post message:`,
+              parse_mode: 'HTML',
+            })
+          }
+        }
+        return new Response('ok')
+      }
+
+      // ─── Higgsfield model selection callbacks ───
+      if (cbData.startsWith('higs_model_')) {
+        const model = cbData.replace('higs_model_', '')
+        // Update higgsfield session with selected model
+        const { data: hSessions } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'higgsfield_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+          .limit(1)
+
+        if (hSessions && hSessions.length > 0) {
+          const hs = hSessions[0]
+          const hp = hs.payload as any
+          await supabase.from('webhook_events').update({
+            payload: { ...hp, model },
+          }).eq('id', hs.id)
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: `✅ Model set: <code>${model}</code>\n\nNow send your prompt (optionally attach an image for video generation).`,
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
+      // ─── Higgsfield gen type selection ───
+      if (cbData === 'higs_type_image' || cbData === 'higs_type_video') {
+        const genType = cbData === 'higs_type_video' ? 'video' : 'image'
+        const { data: hSessions } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'higgsfield_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+          .limit(1)
+
+        if (hSessions && hSessions.length > 0) {
+          const hs = hSessions[0]
+          const hp = hs.payload as any
+          await supabase.from('webhook_events').update({
+            payload: { ...hp, gen_type: genType },
+          }).eq('id', hs.id)
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: `✅ Type: <b>${genType}</b>\n\nNow send your prompt${genType === 'video' ? ' and attach a source image' : ''}:`,
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
+      // ─── Media save/skip callbacks ───
+      if (cbData.startsWith('save_') || cbData.startsWith('skip_')) {
+        const action = cbData.startsWith('save_') ? 'save' : 'skip'
+        const eventId = cbData.replace(/^(save_|skip_)/, '')
+
+        if (action === 'skip') {
+          await supabase.from('webhook_events').update({ processed: true }).eq('id', eventId)
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: '⏭️ Skipped.',
+          })
+          return new Response('ok')
+        }
+
+        // Save — retrieve pending media
+        const { data: pendingEvent } = await supabase.from('webhook_events')
+          .select('*').eq('id', eventId).single()
+
+        if (!pendingEvent) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: '⚠️ Media expired or already processed.',
+          })
+          return new Response('ok')
+        }
+
+        const mediaPayload = pendingEvent.payload as any
+        const fileId = mediaPayload.file_id
+        const fileName = mediaPayload.file_name || 'file'
+        const mediaType = mediaPayload.type || 'doc'
+
+        // Get file URL from Telegram
+        const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_id: fileId }),
+        })
+        const fileInfo = await fileInfoRes.json()
+        const filePath = fileInfo.result?.file_path
+
+        if (!filePath) {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: '❌ Could not retrieve file from Telegram.',
+          })
+          return new Response('ok')
+        }
+
+        // Download the file
+        const downloadUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
+        const fileRes = await fetch(downloadUrl)
+        const fileBlob = await fileRes.blob()
+        const fileBuffer = await fileBlob.arrayBuffer()
+
+        // Upload to Supabase storage
+        const storagePath = `telegram/${Date.now()}_${fileName}`
+        const { error: uploadErr } = await supabase.storage
+          .from('content-uploads')
+          .upload(storagePath, new Uint8Array(fileBuffer), {
+            contentType: fileBlob.type || 'application/octet-stream',
+            upsert: false,
+          })
+
+        if (uploadErr) {
+          console.error('[save] upload error:', uploadErr)
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: `❌ Upload failed: ${uploadErr.message}`,
+          })
+          return new Response('ok')
+        }
+
+        // Get public URL
+        const { data: urlData } = supabase.storage.from('content-uploads').getPublicUrl(storagePath)
+        const publicUrl = urlData?.publicUrl || ''
+
+        // Save to content_assets
+        await supabase.from('content_assets').insert({
+          title: fileName,
+          type: mediaType,
+          url: publicUrl,
+          source: 'telegram',
+          status: 'draft',
+          category: 'Telegram',
+          tags: ['telegram', mediaType],
+        })
+
+        // Mark event processed
+        await supabase.from('webhook_events').update({ processed: true }).eq('id', eventId)
+
+        await tgPost(TG_TOKEN, 'editMessageText', {
+          chat_id: cbChatId,
+          message_id: cbq.message.message_id,
+          text: `✅ Saved <b>${fileName}</b> to CRM content library.`,
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
+      return new Response('ok')
+    }
+
+    // ─── MESSAGE HANDLING ───
+    const message = update.message
+    if (!message) return new Response('ok')
+
+    const chatId = message.chat.id
+    const text = (message.text || message.caption || '').trim()
+    const isGroup = message.chat.type === 'group' || message.chat.type === 'supergroup'
+    const isAllowedGroup = isGroup && ALLOWED_GROUP_IDS.includes(chatId)
+
+    // In groups, only respond to allowed groups
+    if (isGroup && !isAllowedGroup) return new Response('ok')
+
+    // Session types we track
+    const ALL_SESSIONS = ['invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
+    const ALL_REPLY_SESSIONS = ['invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
+
+    // ─── Check for persistent button / slash command ───
+    const action = resolvePersistentAction(text)
+
+    if (action === 'cancel') {
+      // Clean up all sessions for this chat
+      for (const sessionType of ALL_SESSIONS) {
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', sessionType)
+          .filter('payload->>chat_id', 'eq', String(chatId))
+      }
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ All sessions cancelled. Pick a command to start fresh.' })
+      return new Response('ok')
+    }
+
+    if (action === 'more') {
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📋 <b>Page 2</b> — More tools:', parse_mode: 'HTML', reply_markup: PAGE_2_KEYBOARD })
+      return new Response('ok')
+    }
+
+    if (action === 'back') {
+      await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📋 <b>Main Menu</b>', parse_mode: 'HTML', reply_markup: PERSISTENT_KEYBOARD })
+      return new Response('ok')
+    }
+
+    if (action === 'start') {
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🤖 <b>CLAWDbot Command Center</b>\n\nTap a button or type a command. I\'m ready to help with invoices, customers, emails, social media, and more.\n\n<i>Tip: Type naturally — "Send Bryan an email about the project update" — and I\'ll handle the rest.</i>',
+        parse_mode: 'HTML',
+        reply_markup: PERSISTENT_KEYBOARD,
+      })
+      return new Response('ok')
+    }
+
+    // ─── Handle /xpost command ───
+    if (text.toLowerCase().startsWith('/xpost')) {
+      // Fetch SMM profiles
+      try {
+        const profilesRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=profiles`, {
+          headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`, 'apikey': Deno.env.get('SUPABASE_ANON_KEY')! },
+        })
+        const profilesData = await profilesRes.json()
+        const profiles = profilesData?.profiles || profilesData?.data?.profiles || []
+
+        if (!profiles.length) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ No SMM profiles found. Add profiles in the SMM dashboard first.' })
+          return new Response('ok')
+        }
+
+        // Create xpost session
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'xpost_session',
+          payload: { chat_id: chatId, step: 'profile', profiles, created: Date.now() },
+        })
+
+        const profileButtons = profiles.map((p: any, i: number) => [{
+          text: `${p.platform === 'x' ? '𝕏' : '📸'} ${p.name || p.platform_username}`,
+          callback_data: `xpost_profile_${i}`,
+        }])
+        profileButtons.push([{ text: '❌ Cancel', callback_data: 'xpost_cancel' }])
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '📡 <b>Quick Post</b>\n\nSelect a profile:',
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: profileButtons },
+        })
+      } catch (e: any) {
+        console.error('[xpost] error:', e)
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed to load profiles: ${e.message}` })
+      }
+      return new Response('ok')
+    }
+
+    // ─── Handle /higs command (model list) ───
+    if (text.toLowerCase().startsWith('/higs')) {
+      const modelButtons = [
+        [{ text: '🎨 Flux (Image)', callback_data: 'higs_model_flux' }],
+        [{ text: '🌸 Iris (Image)', callback_data: 'higs_model_iris' }],
+        [{ text: '🎬 Image → Video', callback_data: 'higs_type_video' }],
+        [{ text: '🖼️ Image Only', callback_data: 'higs_type_image' }],
+      ]
+      // Create/update higgsfield session
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'higgsfield_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'higgsfield_session',
+        payload: { chat_id: chatId, history: [], created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🎬 <b>Higgsfield AI</b>\n\nSelect a model or generation type:',
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: modelButtons },
+      })
+      return new Response('ok')
+    }
+
+    // ─── Start a new module session ───
+    const SESSION_MAP: Record<string, string> = {
+      invoice: 'invoice_session',
+      smm: 'smm_session',
+      customer: 'customer_session',
+      calendar: 'calendar_session',
+      meeting: 'meeting_session',
+      calendly: 'calendly_session',
+      custom: 'custom_session',
+      webdev: 'webdev_session',
+      banana: 'banana_session',
+      higgsfield: 'higgsfield_session',
+      email: 'email_session',
+    }
+
+    if (action && SESSION_MAP[action]) {
+      const sessionType = SESSION_MAP[action]
+      const labels: Record<string, string> = {
+        invoice: '💰 Invoice Terminal',
+        smm: '📱 SMM Terminal',
+        customer: '👤 Customer Terminal',
+        calendar: '📅 Calendar Terminal',
+        meeting: '🤝 Meeting Terminal',
+        calendly: '🗓 Calendly Terminal',
+        custom: '📦 Custom-U Terminal',
+        webdev: '🌐 Web Dev Terminal',
+        banana: '🍌 Banana Image Gen',
+        higgsfield: '🎬 Higgsfield AI',
+        email: '📧 AI Email Composer',
+      }
+      const hints: Record<string, string> = {
+        invoice: 'Try: "Create an invoice for Bryan, $500 for web design"',
+        smm: 'Try: "Post about our new website launch on X"',
+        customer: 'Try: "Add a new customer John Smith, email john@example.com"',
+        calendar: 'Try: "Schedule a meeting with Bryan next Tuesday at 2pm"',
+        meeting: 'Try: "Create a meeting room for the team"',
+        calendly: 'Try: "Set my availability Mon-Fri 9am-5pm"',
+        custom: 'Try: "Generate a portal link for Bryan"',
+        webdev: 'Try: "Build a landing page for a coffee shop"',
+        banana: 'Try: "A futuristic city at sunset in cyberpunk style"',
+        higgsfield: 'Try: "A cat playing piano" or attach an image for video',
+        email: 'Try: "Send Bryan an email telling him how great he is"',
+      }
+
+      // Clean up old sessions for this module
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', sessionType)
+        .filter('payload->>chat_id', 'eq', String(chatId))
+
+      // Create new session
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: sessionType,
+        payload: { chat_id: chatId, history: [], created: Date.now() },
+      })
+
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: `${labels[action]} <b>activated!</b>\n\n${hints[action]}\n\n<i>Type your command or /cancel to exit.</i>`,
+        parse_mode: 'HTML',
+      })
+      return new Response('ok')
+    }
+
+    // ─── Check for active sessions and route text to them ───
+    for (const sessionType of ALL_REPLY_SESSIONS) {
+      const { data: sessions } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', sessionType)
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .eq('processed', false)
+        .order('created_at', { ascending: false }).limit(1)
+
+      if (sessions && sessions.length > 0) {
+        const session = sessions[0]
+        const sp = session.payload as any
+        const history = sp.history || []
+
+        // Check for media in the message (for banana/higgsfield)
+        const media = extractMedia(message)
+        let imageUrl: string | undefined
+
+        if (media && (sessionType === 'banana_session' || sessionType === 'higgsfield_session')) {
+          // Get file URL
+          const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ file_id: media.fileId }),
+          })
+          const fileInfo = await fileInfoRes.json()
+          const filePath = fileInfo.result?.file_path
+          if (filePath) {
+            imageUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
+          }
+        }
+
+        // Route to the correct processor
+        if (sessionType === 'invoice_session') {
+          await processInvoiceCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+        } else if (sessionType === 'smm_session') {
+          await processSMMCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+        } else if (sessionType === 'email_session') {
+          await processEmailCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+        } else if (sessionType === 'webdev_session') {
+          await processWebDevCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+        } else if (sessionType === 'banana_session') {
+          await processBananaCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl)
+        } else if (sessionType === 'higgsfield_session') {
+          await processHiggsFieldCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl, sp.gen_type, sp.model)
+        } else {
+          // customer, calendar, meeting, calendly, custom
+          const mod = sessionType.replace('_session', '') as any
+          await processModuleCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, mod)
+        }
+        return new Response('ok')
+      }
+    }
+
+    // ─── Handle xpost session text (message step) ───
+    const { data: xSessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'xpost_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .eq('processed', false)
+      .order('created_at', { ascending: false }).limit(1)
+
+    if (xSessions && xSessions.length > 0) {
+      const xs = xSessions[0]
+      const xp = xs.payload as any
+
+      if (xp.step === 'message' && text) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📡 Posting...' })
+        try {
+          const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=quick-post`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+            },
+            body: JSON.stringify({
+              profile_id: xp.selected_profile?.id,
+              platform: xp.platform,
+              message: text,
+            }),
+          })
+          const postData = await postRes.json()
+          if (postData?.error) {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ ${postData.error}` })
+          } else {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ Posted to ${xp.platform}!` })
+          }
+        } catch (e: any) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Post failed: ${e.message}` })
+        }
+        // Clean up session
+        await supabase.from('webhook_events').delete().eq('id', xs.id)
+        return new Response('ok')
+      }
+    }
+
+    // ─── Auto-intent detection for free text ───
+    if (text && !isGroup) {
+      const lower = text.toLowerCase()
+
+      // Email intent
+      if (/\b(send|write|draft|compose|email|mail)\b.*\b(email|mail|message|note)\b/i.test(text) ||
+          /\b(email|mail)\b.*\b(to|for|about)\b/i.test(text)) {
+        // Auto-create email session and process
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'email_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'email_session',
+          payload: { chat_id: chatId, history: [], created: Date.now() },
+        })
+        await processEmailCommand(chatId, text, [], TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+        return new Response('ok')
+      }
+
+      // Invoice intent
+      if (/\b(invoice|bill|charge|payment)\b/i.test(lower)) {
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'invoice_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'invoice_session',
+          payload: { chat_id: chatId, history: [], created: Date.now() },
+        })
+        await processInvoiceCommand(chatId, text, [], TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+        return new Response('ok')
+      }
+
+      // SMM intent
+      if (/\b(post|tweet|publish|schedule)\b.*\b(social|twitter|x|instagram|ig)\b/i.test(lower) ||
+          /\b(social media|smm)\b/i.test(lower)) {
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').eq('event_type', 'smm_session')
+          .filter('payload->>chat_id', 'eq', String(chatId))
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'smm_session',
+          payload: { chat_id: chatId, history: [], created: Date.now() },
+        })
+        await processSMMCommand(chatId, text, [], TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+        return new Response('ok')
+      }
+    }
+
+    // ─── MEDIA HANDLING (ask before saving) ───
+    const media = extractMedia(message)
+    if (media) {
+      const MAX_SIZE = 20 * 1024 * 1024
+      if (media.fileSize > MAX_SIZE) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `⚠️ File too large (${(media.fileSize / 1024 / 1024).toFixed(1)}MB). Max is 20MB.` })
+        return new Response('ok')
+      }
+
+      // Store pending media in webhook_events
+      const { data: inserted } = await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'pending_media',
+        payload: {
+          chat_id: chatId,
+          file_id: media.fileId,
+          file_name: media.fileName,
+          type: media.type,
+          file_size: media.fileSize,
+          caption: text || null,
+        },
+        processed: false,
+      }).select('id').single()
+
+      if (inserted) {
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `📎 <b>${media.fileName}</b> (${media.type})\n\nSave to CRM content library?`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Save', callback_data: `save_${inserted.id}` },
+                { text: '⏭️ Skip', callback_data: `skip_${inserted.id}` },
+              ],
+            ],
+          },
+        })
+      }
+      return new Response('ok')
+    }
+
+    // ─── In groups, ignore free text without media or commands ───
+    if (isGroup) return new Response('ok')
+
+    // ─── Fallback for unrecognized text in DMs ───
+    if (text) {
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🤖 I didn\'t catch that. Tap a button below or type /menu to see all commands.\n\n<i>Tip: You can also just describe what you need — "Send Bryan an email" or "Create an invoice for $500"</i>',
+        parse_mode: 'HTML',
+      })
+    }
+
+    return new Response('ok')
+
+  } catch (err: any) {
     console.error('[telegram-media-listener] ERROR:', err)
     return new Response(JSON.stringify({ error: String(err) }), { status: 500, headers: corsHeaders })
   }
 })
-
