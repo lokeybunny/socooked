@@ -1232,8 +1232,38 @@ Deno.serve(async (req) => {
           return new Response('ok')
         }
 
-        // No session active either — silently ignore instead of showing error
-        console.log('[reply-router] No matching notification or session for message_id:', replyToId, '— ignoring')
+        // No session active — auto-detect intent and route to correct module
+        console.log('[reply-router] No active session, auto-detecting intent from:', replyAsText.slice(0, 80))
+
+        const intentText = replyAsText.toLowerCase()
+        let autoModule: 'customer' | 'invoice' | 'calendar' | 'meeting' | null = null
+
+        if (/\b(customer|lead|prospect|client|contact|create\s+a?\s*customer|add\s+customer|new\s+customer)\b/i.test(intentText)) {
+          autoModule = 'customer'
+        } else if (/\b(invoice|bill|payment|charge|receipt)\b/i.test(intentText)) {
+          autoModule = 'invoice'
+        } else if (/\b(meeting|book|schedule\s+a?\s*call|zoom|video\s+call)\b/i.test(intentText)) {
+          autoModule = 'meeting'
+        } else if (/\b(calendar|event|appointment|reminder|schedule)\b/i.test(intentText)) {
+          autoModule = 'calendar'
+        }
+
+        if (autoModule) {
+          console.log('[reply-router] Auto-detected module:', autoModule)
+          // Create session and process in one go
+          await supabase.from('webhook_events').delete().eq('source', 'telegram').in('event_type', ALL_REPLY_SESSIONS).filter('payload->>chat_id', 'eq', String(chatId))
+          await supabase.from('webhook_events').insert({ source: 'telegram', event_type: `${autoModule}_session`, payload: { chat_id: chatId, history: [], created: Date.now() }, processed: false })
+
+          if (autoModule === 'invoice') {
+            await processInvoiceCommand(chatId, replyAsText, [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase)
+          } else {
+            await processModuleCommand(chatId, replyAsText, [], TG_TOKEN, SUPABASE_URL!, BOT_SECRET!, supabase, autoModule)
+          }
+          return new Response('ok')
+        }
+
+        // Truly unrecognized — silently ignore
+        console.log('[reply-router] No intent detected, ignoring')
         return new Response('ok')
       }
     }
@@ -1393,11 +1423,24 @@ Deno.serve(async (req) => {
     // This prevents the bot from reacting to other bots' messages or casual conversation
     const isBotReply = message.reply_to_message?.from?.is_bot === true
     if (!isPrivate && !isPersistentButton && !text.startsWith('/') && !isBotReply) {
-      // In groups: only react to button presses, slash commands, replies to bot, or media
-      const mediaInMsg = extractMedia(message)
-      if (!mediaInMsg) {
-        console.log('[telegram-media-listener] group free-text ignored (no button/command/reply):', text.slice(0, 80))
-        return new Response('ok')
+      // Check if there's an active session for this chat — if so, allow the message through
+      const ALL_CHECK_SESSIONS = ['invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'xpost_session']
+      const { data: activeSessions } = await supabase.from('webhook_events')
+        .select('id')
+        .eq('source', 'telegram')
+        .in('event_type', ALL_CHECK_SESSIONS)
+        .filter('payload->>chat_id', 'eq', String(chatId))
+        .limit(1)
+
+      if (!activeSessions || activeSessions.length === 0) {
+        // No active session — check for media, otherwise ignore
+        const mediaInMsg = extractMedia(message)
+        if (!mediaInMsg) {
+          console.log('[telegram-media-listener] group free-text ignored (no button/command/reply/session):', text.slice(0, 80))
+          return new Response('ok')
+        }
+      } else {
+        console.log('[telegram-media-listener] group free-text allowed — active session found for chat:', chatId)
       }
     }
 
