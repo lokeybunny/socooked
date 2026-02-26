@@ -76,12 +76,27 @@ TAILWIND CSS RULE (mandatory):
 
     // Call v0 API
     let chatRes: Response
+    let fellBackToNew = false
     if (isEdit) {
       chatRes = await fetch(`${V0_API_URL}/v1/chats/${existingChatId}/messages`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${v0Key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: enrichedPrompt, responseMode: 'async' }),
       })
+      // Fallback: if chat_id is stale/invalid, create a new chat instead of failing
+      if (chatRes.status === 404) {
+        console.warn(`[v0-designer] Chat ${existingChatId} not found — falling back to new chat creation`)
+        fellBackToNew = true
+        chatRes = await fetch(`${V0_API_URL}/v1/chats`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${v0Key}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: enrichedPrompt,
+            system: 'You are an expert web designer. Build clean, modern, responsive websites using React and Tailwind CSS.',
+            responseMode: 'async',
+          }),
+        })
+      }
     } else {
       chatRes = await fetch(`${V0_API_URL}/v1/chats`, {
         method: 'POST',
@@ -103,8 +118,9 @@ TAILWIND CSS RULE (mandatory):
     }
 
     const chatData = await chatRes.json()
-    const chatId = isEdit ? existingChatId : chatData.id
-    const editUrl = isEdit ? `https://v0.app/chat/${existingChatId}` : (chatData.webUrl || `https://v0.app/chat/${chatData.id}`)
+    const effectiveIsEdit = isEdit && !fellBackToNew
+    const chatId = effectiveIsEdit ? existingChatId : chatData.id
+    const editUrl = effectiveIsEdit ? `https://v0.app/chat/${existingChatId}` : (chatData.webUrl || `https://v0.app/chat/${chatData.id}`)
 
     console.log(`[v0-designer] Got edit_url instantly: ${editUrl}`)
 
@@ -159,7 +175,7 @@ TAILWIND CSS RULE (mandatory):
     // Fire remaining CRM ops in parallel
     await Promise.all([
       // api_previews
-      isEdit
+      effectiveIsEdit
         ? supabase.from('api_previews').update({
             preview_url: null, edit_url: editUrl, status: 'generating',
             meta: { chat_id: chatId, version_status: 'generating', last_edit_prompt: prompt },
@@ -184,8 +200,8 @@ TAILWIND CSS RULE (mandatory):
       // activity_log
       supabase.from('activity_log').insert({
         entity_type: 'conversation_thread', entity_id: threadId || null,
-        action: isEdit ? 'v0_design_edited' : 'v0_design_generated',
-        meta: { name: `V0 ${isEdit ? 'Edit' : 'Design'}: ${prompt.substring(0, 80)}`, chat_id: chatId },
+        action: effectiveIsEdit ? 'v0_design_edited' : 'v0_design_generated',
+        meta: { name: `V0 ${effectiveIsEdit ? 'Edit' : 'Design'}: ${prompt.substring(0, 80)}`, chat_id: chatId },
       }),
     ])
 
