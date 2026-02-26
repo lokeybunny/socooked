@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.email-command]
 verify_jwt = false
+
+[functions.ai-assistant]
+verify_jwt = false
