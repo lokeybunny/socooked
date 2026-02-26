@@ -60,8 +60,9 @@ export default function ClientUpload() {
         .limit(50);
       setAiAssets(assets || []);
 
-      // If no AI assets, fetch landing page videos
-      if (!assets || assets.length === 0) {
+      // Only fetch MV landing videos for MV clients (portal_niche === 'mv' or mv_client flag)
+      const isMvClient = niche === 'mv';
+      if (isMvClient && (!assets || assets.length === 0)) {
         const { data: cfg } = await supabase
           .from('site_configs')
           .select('content')
