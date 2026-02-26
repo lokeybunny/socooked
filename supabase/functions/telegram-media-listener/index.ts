@@ -1418,6 +1418,7 @@ Deno.serve(async (req) => {
 
     const ALL_SESSIONS = ['xpost_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'calendly_session', 'meeting_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session']
 
+    const isPersistentButton = !!resolvePersistentAction(text)
     const persistentAction = isPersistentButton ? resolvePersistentAction(text) : null
 
     // ─── Invoice action ───
