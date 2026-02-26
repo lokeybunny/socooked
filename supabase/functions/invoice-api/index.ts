@@ -525,20 +525,24 @@ Deno.serve(async (req) => {
         : null
       const invoiceStatus = normalizedStatus ?? (shouldAutoSend ? 'sent' : 'draft')
 
-      // ─── Duplicate guard: same customer + same amount within 30 minutes ───
-      const windowAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      // ─── Duplicate guard: same customer + same amount within 2 minutes ───
+      // Short window prevents accidental double-clicks but allows repeated AI Assistant tests
+      const skipDupeCheck = body.skip_dupe_check === true
+      if (!skipDupeCheck) {
+        const windowAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
 
-      const { data: dupes } = await supabase
-        .from('invoices')
-        .select('id, invoice_number, status')
-        .eq('customer_id', customerId)
-        .eq('amount', total)
-        .gte('created_at', windowAgo)
-        .limit(1)
+        const { data: dupes } = await supabase
+          .from('invoices')
+          .select('id, invoice_number, status')
+          .eq('customer_id', customerId)
+          .eq('amount', total)
+          .gte('created_at', windowAgo)
+          .limit(1)
 
-      if (dupes && dupes.length > 0) {
-        const d = dupes[0]
-        return fail(`Duplicate invoice blocked. Invoice ${d.invoice_number || d.id} (${d.status}) for this customer with the same amount was created within the last 30 minutes. If intentional, wait or change the amount.`, 409)
+        if (dupes && dupes.length > 0) {
+          const d = dupes[0]
+          return fail(`Duplicate invoice blocked. Invoice ${d.invoice_number || d.id} (${d.status}) for this customer with the same amount was created within the last 2 minutes. If intentional, wait a moment.`, 409)
+        }
       }
 
       // ─── Secondary guard: same customer + same due_date + same amount (any time) ───
