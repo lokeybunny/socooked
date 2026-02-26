@@ -145,20 +145,10 @@ TAILWIND CSS RULE (mandatory):
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Resolve customer_id
-    let resolvedCustomerId = customer_id
+    // Resolve customer_id — DO NOT create a dummy customer; leave null if not provided
+    let resolvedCustomerId = customer_id || null
     if (!resolvedCustomerId) {
-      const { data: existing } = await supabase.from('customers')
-        .select('id').eq('full_name', 'V0 Designer Bot').limit(1).single()
-      if (existing) {
-        resolvedCustomerId = existing.id
-      } else {
-        const { data: newCustomer } = await supabase.from('customers').insert({
-          full_name: 'V0 Designer Bot', status: 'active', source: 'system',
-          notes: 'System customer for V0 web design outputs', category: 'digital-services',
-        }).select('id').single()
-        resolvedCustomerId = newCustomer?.id
-      }
+      console.warn('[v0-designer] No customer_id provided — preview will appear under Uncategorized')
     }
 
     // All CRM writes in parallel
