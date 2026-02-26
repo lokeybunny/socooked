@@ -98,13 +98,34 @@ IMPORTANT: Always resolve customer names to their IDs from the list above when u
     const geminiData = await geminiRes.json()
     const rawText = geminiData.choices?.[0]?.message?.content || ''
 
-    // Extract JSON from response
+    // Extract JSON from response (handle markdown code blocks, mixed text, etc.)
     let parsed: any
     try {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/)
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { type: 'message', message: rawText }
+      // Strip markdown code fences
+      let cleaned = rawText
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim()
+
+      // Find JSON boundaries
+      const jsonStart = cleaned.search(/[\{\[]/)
+      if (jsonStart === -1) throw new Error('No JSON found')
+      const startChar = cleaned[jsonStart]
+      const endChar = startChar === '[' ? ']' : '}'
+      const jsonEnd = cleaned.lastIndexOf(endChar)
+      if (jsonEnd === -1) throw new Error('No closing bracket')
+
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+
+      // Fix common LLM quirks
+      cleaned = cleaned
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
+        .replace(/[\x00-\x1F\x7F]/g, '')
+
+      parsed = JSON.parse(cleaned)
     } catch {
-      parsed = { type: 'message', message: rawText }
+      parsed = { type: 'message', message: rawText || 'Sorry, I could not process that request.' }
     }
 
     if (parsed.type === 'clarify' || parsed.type === 'message') {
