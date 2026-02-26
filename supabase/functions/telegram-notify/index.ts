@@ -11,6 +11,8 @@ const ACTION_EMOJI: Record<string, string> = {
   updated: "🔵",
   deleted: "🔴",
   moved: "🔀",
+  sent: "📨",
+  draft_saved: "📝",
 };
 
 const ENTITY_EMOJI: Record<string, string> = {
@@ -37,6 +39,8 @@ const ENTITY_EMOJI: Record<string, string> = {
   label: "🏷️",
   checklist: "☑️",
   website: "🌐",
+  email: "📧",
+  "scheduled-email": "⏰",
 };
 
 function formatMessage(entry: {
@@ -79,6 +83,11 @@ function formatMessage(entry: {
     return msg;
   }
 
+  // Email sent notification — special formatting
+  if ((entry.entity_type === "email" || entry.entity_type === "scheduled-email") && entry.action === "sent") {
+    return `📨 📧 *Email Sent*\n${nameStr ? `📋 ${nameStr}\n` : ""}🕐 ${time} PST`;
+  }
+
   let msg = customMsg
     ? `${actionEmoji} ${entityEmoji} ${customMsg}\n🕐 ${time} PST`
     : `${actionEmoji} ${entityEmoji} *${entity}*${nameStr} was *${entry.action}*\n🕐 ${time} PST`;
@@ -117,6 +126,7 @@ Deno.serve(async (req) => {
     }
 
     const message = formatMessage(entry);
+    console.log(`[telegram-notify] entity=${entry.entity_type} action=${entry.action} message_preview=${message.substring(0, 80)}`);
 
     const telegramRes = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
