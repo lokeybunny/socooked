@@ -15,15 +15,17 @@ import SMMQueue from '@/components/smm/SMMQueue';
 import SMMAnalytics from '@/components/smm/SMMAnalytics';
 import SMMInstagram from '@/components/smm/SMMInstagram';
 import SMMTerminal from '@/components/smm/SMMTerminal';
+import SMMSchedule from '@/components/smm/SMMSchedule';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
-  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw,
+  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Platform, ScheduledPost } from '@/lib/smm/types';
 
 const TABS = [
   { value: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { value: 'schedule', label: 'Schedule', icon: Sparkles },
   { value: 'profiles', label: 'Accounts', icon: Users },
   { value: 'composer', label: 'Composer', icon: PenLine },
   { value: 'calendar', label: 'Calendar', icon: CalendarDays },
@@ -94,6 +96,7 @@ function SMMInner() {
               </div>
 
               <TabsContent value="overview"><SMMOverview posts={filtered} allPosts={posts} profiles={profiles} /></TabsContent>
+              <TabsContent value="schedule"><SMMSchedule profiles={profiles} /></TabsContent>
               <TabsContent value="profiles"><SMMProfiles profiles={profiles} onRefresh={refresh} /></TabsContent>
               <TabsContent value="composer"><SMMComposer profiles={profiles} onRefresh={refresh} /></TabsContent>
               <TabsContent value="calendar"><SMMCalendar posts={filtered} onRefresh={refresh} /></TabsContent>

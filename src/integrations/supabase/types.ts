@@ -1572,6 +1572,78 @@ export type Database = {
           },
         ]
       }
+      smm_brand_prompts: {
+        Row: {
+          category: string
+          created_at: string
+          effectiveness_score: number | null
+          example_output: string | null
+          id: string
+          niche: string | null
+          profile_username: string
+          prompt_text: string
+          times_used: number | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          effectiveness_score?: number | null
+          example_output?: string | null
+          id?: string
+          niche?: string | null
+          profile_username: string
+          prompt_text: string
+          times_used?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          effectiveness_score?: number | null
+          example_output?: string | null
+          id?: string
+          niche?: string | null
+          profile_username?: string
+          prompt_text?: string
+          times_used?: number | null
+        }
+        Relationships: []
+      }
+      smm_content_plans: {
+        Row: {
+          brand_context: Json
+          created_at: string
+          id: string
+          plan_name: string
+          platform: string
+          profile_username: string
+          schedule_items: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_context?: Json
+          created_at?: string
+          id?: string
+          plan_name: string
+          platform: string
+          profile_username: string
+          schedule_items?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_context?: Json
+          created_at?: string
+          id?: string
+          plan_name?: string
+          platform?: string
+          profile_username?: string
+          schedule_items?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assignee_id: string | null
