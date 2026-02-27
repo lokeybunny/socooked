@@ -532,7 +532,7 @@ export default function PhonePage() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-          <p className="text-muted-foreground mt-1">Softphone + audio transcription workspace.</p>
+          <p className="text-muted-foreground mt-1">RingCentral + audio transcription workspace.</p>
         </div>
 
         {/* Two-column layout: Left = Transcription, Right = RingCentral */}
@@ -851,16 +851,16 @@ export default function PhonePage() {
 
           </div>
 
-          {/* ─── Right Column: RingCentral Softphone ─── */}
+          {/* ─── Right Column: RingCentral ─── */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Phone className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Softphone</h2>
+              <h2 className="text-lg font-semibold text-foreground">RingCentral</h2>
             </div>
             <div className="glass-card overflow-hidden rounded-xl">
               <iframe
                 src={RC_EMBED_URL}
-                title="RingCentral Softphone"
+                title="RingCentral"
                 className="w-full border-0"
                 style={{ height: '600px' }}
                 allow="microphone; autoplay"
