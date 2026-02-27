@@ -42,9 +42,9 @@ const PAGE_2_KEYBOARD = {
   is_persistent: true,
 }
 
-// Register bot commands + set persistent keyboard on first call
+// Register bot commands — fire-and-forget, non-blocking, once per cold boot
 let commandsRegistered = false
-async function ensureBotCommands(token: string) {
+function ensureBotCommandsBg(token: string) {
   if (commandsRegistered) return
   commandsRegistered = true
 
@@ -67,30 +67,29 @@ async function ensureBotCommands(token: string) {
     { command: 'cancel', description: '❌ Cancel active session' },
   ]
 
-  // Register commands globally (default scope — all private chats)
-  await fetch(`${TG_API}${token}/setMyCommands`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ commands: allCommands }),
-  })
-
-  // Register commands for the specific group chat so autocomplete works there too
-  for (const groupId of ALLOWED_GROUP_IDS) {
-    await fetch(`${TG_API}${token}/setMyCommands`, {
+  // Fire-and-forget: register commands in background, don't block the response
+  const promises = [
+    fetch(`${TG_API}${token}/setMyCommands`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        commands: allCommands,
-        scope: { type: 'chat', chat_id: groupId },
-      }),
-    })
-  }
-
-  console.log('[ensureBotCommands] registered', allCommands.length, 'commands globally + per-group')
+      body: JSON.stringify({ commands: allCommands }),
+    }).catch(() => {}),
+    ...ALLOWED_GROUP_IDS.map(groupId =>
+      fetch(`${TG_API}${token}/setMyCommands`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          commands: allCommands,
+          scope: { type: 'chat', chat_id: groupId },
+        }),
+      }).catch(() => {})
+    ),
+  ]
+  // Don't await — let it happen in background
+  Promise.all(promises).then(() => console.log('[cmds] registered')).catch(() => {})
 }
 
 async function tgPost(token: string, method: string, body: Record<string, unknown>) {
-  // Always attach the persistent keyboard to sendMessage calls unless a custom reply_markup is set
   if (method === 'sendMessage' && !body.reply_markup) {
     body.reply_markup = PERSISTENT_KEYBOARD
   }
@@ -100,8 +99,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
     body: JSON.stringify(body),
   })
   const text = await res.text()
-  console.log(`[tg:${method}]`, res.status, text.slice(0, 200))
-
+  if (!res.ok) console.log(`[tg:${method}] ERR ${res.status}`, text.slice(0, 150))
   return res
 }
 
@@ -979,7 +977,7 @@ async function processHiggsFieldCommand(
 }
 
 Deno.serve(async (req) => {
-  console.log('[telegram-media-listener] request received:', req.method)
+  // minimal logging — only log errors
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -998,10 +996,10 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   try {
-    await ensureBotCommands(TG_TOKEN)
+    ensureBotCommandsBg(TG_TOKEN) // non-blocking
 
     const rawBody = await req.text()
-    console.log('[telegram-media-listener] body:', rawBody.slice(0, 300))
+    console.log('[tg] in:', rawBody.slice(0, 150))
     const update = JSON.parse(rawBody)
 
     // ─── CALLBACK QUERIES (inline button presses) ───
@@ -1237,10 +1235,9 @@ Deno.serve(async (req) => {
     // In groups, only respond to allowed groups
     if (isGroup && !isAllowedGroup) return new Response('ok')
 
-    // ─── IG DM Reply: detect reply-to an IG DM notification ───
-    if (text && message.reply_to_message) {
+    // ─── IG DM Reply: only check in private chats with reply-to ───
+    if (text && !isGroup && message.reply_to_message) {
       const repliedMsgId = message.reply_to_message.message_id
-      // Look up if this Telegram message_id was logged as an IG DM notification
       const { data: igComm } = await supabase
         .from('communications')
         .select('id, from_address, metadata, customer_id')
@@ -1288,7 +1285,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Session types we track
+    // Session types we track (moved to module-level constants for performance)
     const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
     const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
 
@@ -1460,60 +1457,58 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── Check for active sessions and route text to them ───
-    for (const sessionType of ALL_REPLY_SESSIONS) {
-      const { data: sessions } = await supabase.from('webhook_events')
-        .select('id, payload')
-        .eq('source', 'telegram').eq('event_type', sessionType)
-        .filter('payload->>chat_id', 'eq', String(chatId))
-        .eq('processed', false)
-        .order('created_at', { ascending: false }).limit(1)
+    // ─── Check for active sessions (SINGLE query instead of 12) ───
+    const { data: activeSessions } = await supabase.from('webhook_events')
+      .select('id, event_type, payload')
+      .eq('source', 'telegram')
+      .in('event_type', ALL_REPLY_SESSIONS)
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .eq('processed', false)
+      .order('created_at', { ascending: false }).limit(1)
 
-      if (sessions && sessions.length > 0) {
-        const session = sessions[0]
-        const sp = session.payload as any
-        const history = sp.history || []
+    if (activeSessions && activeSessions.length > 0) {
+      const session = activeSessions[0]
+      const sessionType = session.event_type
+      const sp = session.payload as any
+      const history = sp.history || []
 
-        // Check for media in the message (for banana/higgsfield)
-        const media = extractMedia(message)
-        let imageUrl: string | undefined
+      // Check for media in the message (for banana/higgsfield)
+      const media = extractMedia(message)
+      let imageUrl: string | undefined
 
-        if (media && (sessionType === 'banana_session' || sessionType === 'higgsfield_session')) {
-          // Get file URL
-          const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ file_id: media.fileId }),
-          })
-          const fileInfo = await fileInfoRes.json()
-          const filePath = fileInfo.result?.file_path
-          if (filePath) {
-            imageUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
-          }
+      if (media && (sessionType === 'banana_session' || sessionType === 'higgsfield_session')) {
+        const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_id: media.fileId }),
+        })
+        const fileInfo = await fileInfoRes.json()
+        const filePath = fileInfo.result?.file_path
+        if (filePath) {
+          imageUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
         }
-
-        // Route to the correct processor
-        if (sessionType === 'assistant_session') {
-          await processAssistantCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
-        } else if (sessionType === 'invoice_session') {
-          await processInvoiceCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
-        } else if (sessionType === 'smm_session') {
-          await processSMMCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
-        } else if (sessionType === 'email_session') {
-          await processEmailCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
-        } else if (sessionType === 'webdev_session') {
-          await processWebDevCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
-        } else if (sessionType === 'banana_session') {
-          await processBananaCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl)
-        } else if (sessionType === 'higgsfield_session') {
-          await processHiggsFieldCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl, sp.gen_type, sp.model)
-        } else {
-          // customer, calendar, meeting, calendly, custom
-          const mod = sessionType.replace('_session', '') as any
-          await processModuleCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, mod)
-        }
-        return new Response('ok')
       }
+
+      // Route to the correct processor
+      if (sessionType === 'assistant_session') {
+        await processAssistantCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+      } else if (sessionType === 'invoice_session') {
+        await processInvoiceCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+      } else if (sessionType === 'smm_session') {
+        await processSMMCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+      } else if (sessionType === 'email_session') {
+        await processEmailCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+      } else if (sessionType === 'webdev_session') {
+        await processWebDevCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+      } else if (sessionType === 'banana_session') {
+        await processBananaCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl)
+      } else if (sessionType === 'higgsfield_session') {
+        await processHiggsFieldCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl, sp.gen_type, sp.model)
+      } else {
+        const mod = sessionType.replace('_session', '') as any
+        await processModuleCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, mod)
+      }
+      return new Response('ok')
     }
 
     // ─── Handle xpost session text (message step) ───
