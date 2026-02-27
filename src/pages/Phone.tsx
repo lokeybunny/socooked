@@ -875,15 +875,17 @@ export default function PhonePage() {
                 </div>
               </TabsContent>
               <TabsContent value="gvoice">
-                <div className="glass-card overflow-hidden rounded-xl">
-                  <iframe
-                    src="https://voice.google.com"
-                    title="Google Voice"
-                    className="w-full border-0"
-                    style={{ height: '600px' }}
-                    allow="microphone; autoplay"
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-                  />
+                <div className="glass-card overflow-hidden rounded-xl flex flex-col items-center justify-center text-center gap-4" style={{ height: '600px' }}>
+                  <Phone className="h-12 w-12 text-primary/40" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Google Voice</h3>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-xs">Google Voice cannot be embedded directly due to security restrictions. Open it in a new tab to use it.</p>
+                  </div>
+                  <Button asChild>
+                    <a href="https://voice.google.com" target="_blank" rel="noopener noreferrer" className="gap-2">
+                      Open Google Voice <ArrowUpRight className="h-4 w-4" />
+                    </a>
+                  </Button>
                 </div>
               </TabsContent>
             </Tabs>
