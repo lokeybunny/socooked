@@ -1237,6 +1237,57 @@ Deno.serve(async (req) => {
     // In groups, only respond to allowed groups
     if (isGroup && !isAllowedGroup) return new Response('ok')
 
+    // ─── IG DM Reply: detect reply-to an IG DM notification ───
+    if (text && message.reply_to_message) {
+      const repliedMsgId = message.reply_to_message.message_id
+      // Look up if this Telegram message_id was logged as an IG DM notification
+      const { data: igComm } = await supabase
+        .from('communications')
+        .select('id, from_address, metadata, customer_id')
+        .eq('type', 'instagram')
+        .eq('direction', 'inbound')
+        .eq('provider', 'upload-post-dm-notify')
+        .filter('metadata->>telegram_message_id', 'eq', String(repliedMsgId))
+        .limit(1)
+
+      if (igComm && igComm.length > 0) {
+        const comm = igComm[0]
+        const meta = comm.metadata as any
+        const recipientUsername = meta?.ig_username || comm.from_address
+        const participantId = meta?.participant_id
+
+        if (participantId) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📨 Sending DM to @${recipientUsername}...` })
+          try {
+            const smmRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=ig-dm-send`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+                'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+              },
+              body: JSON.stringify({
+                platform: 'instagram',
+                user: 'STU25',
+                recipient_id: participantId,
+                message: text,
+              }),
+            })
+            const smmData = await smmRes.json()
+            if (smmData?.error) {
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ DM failed: ${smmData.error}` })
+            } else {
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ DM sent to @${recipientUsername}` })
+            }
+          } catch (e: any) {
+            console.error('[ig-dm-reply] error:', e)
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed to send DM: ${e.message}` })
+          }
+          return new Response('ok')
+        }
+      }
+    }
+
     // Session types we track
     const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
     const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
