@@ -42,9 +42,9 @@ const PAGE_2_KEYBOARD = {
   is_persistent: true,
 }
 
-// Register bot commands + set persistent keyboard on first call
+// Register bot commands (fire-and-forget, non-blocking)
 let commandsRegistered = false
-async function ensureBotCommands(token: string) {
+function ensureBotCommands(token: string) {
   if (commandsRegistered) return
   commandsRegistered = true
 
@@ -67,26 +67,25 @@ async function ensureBotCommands(token: string) {
     { command: 'cancel', description: '❌ Cancel active session' },
   ]
 
-  // Register commands globally (default scope — all private chats)
-  await fetch(`${TG_API}${token}/setMyCommands`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ commands: allCommands }),
-  })
-
-  // Register commands for the specific group chat so autocomplete works there too
-  for (const groupId of ALLOWED_GROUP_IDS) {
-    await fetch(`${TG_API}${token}/setMyCommands`, {
+  // Fire-and-forget: register commands in background (don't block webhook response)
+  Promise.all([
+    fetch(`${TG_API}${token}/setMyCommands`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        commands: allCommands,
-        scope: { type: 'chat', chat_id: groupId },
-      }),
-    })
-  }
-
-  console.log('[ensureBotCommands] registered', allCommands.length, 'commands globally + per-group')
+      body: JSON.stringify({ commands: allCommands }),
+    }),
+    ...ALLOWED_GROUP_IDS.map(groupId =>
+      fetch(`${TG_API}${token}/setMyCommands`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          commands: allCommands,
+          scope: { type: 'chat', chat_id: groupId },
+        }),
+      })
+    ),
+  ]).then(() => console.log('[ensureBotCommands] registered', allCommands.length, 'commands'))
+    .catch(e => console.error('[ensureBotCommands] error:', e))
 }
 
 async function tgPost(token: string, method: string, body: Record<string, unknown>) {
@@ -995,14 +994,44 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Missing config' }), { status: 500, headers: corsHeaders })
   }
 
+  // ─── Read body once upfront ───
+  const bodyText = await req.text()
+  
+  // ─── Admin actions (set-webhook, get-webhook-info) ───
+  try {
+    const bodyJson = bodyText ? JSON.parse(bodyText) : null
+    if (bodyJson?.action === 'set-webhook') {
+      const webhookUrl = `${SUPABASE_URL}/functions/v1/telegram-media-listener`
+      const res = await fetch(`${TG_API}${TG_TOKEN}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: webhookUrl,
+          allowed_updates: ['message', 'callback_query'],
+        }),
+      })
+      const data = await res.json()
+      console.log('[set-webhook] result:', JSON.stringify(data))
+      return new Response(JSON.stringify({ webhook_url: webhookUrl, telegram_response: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (bodyJson?.action === 'get-webhook-info') {
+      const res = await fetch(`${TG_API}${TG_TOKEN}/getWebhookInfo`)
+      const data = await res.json()
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+  } catch { /* not JSON or no action — normal webhook flow */ }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   try {
-    await ensureBotCommands(TG_TOKEN)
+    ensureBotCommands(TG_TOKEN)
 
-    const rawBody = await req.text()
-    console.log('[telegram-media-listener] body:', rawBody.slice(0, 300))
-    const update = JSON.parse(rawBody)
+    console.log('[telegram-media-listener] body:', bodyText.slice(0, 300))
+    const update = JSON.parse(bodyText)
 
     // ─── CALLBACK QUERIES (inline button presses) ───
     if (update.callback_query) {
