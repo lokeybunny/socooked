@@ -42,9 +42,9 @@ const PAGE_2_KEYBOARD = {
   is_persistent: true,
 }
 
-// Register bot commands (fire-and-forget, non-blocking)
+// Register bot commands + set persistent keyboard on first call
 let commandsRegistered = false
-function ensureBotCommands(token: string) {
+async function ensureBotCommands(token: string) {
   if (commandsRegistered) return
   commandsRegistered = true
 
@@ -67,25 +67,26 @@ function ensureBotCommands(token: string) {
     { command: 'cancel', description: '❌ Cancel active session' },
   ]
 
-  // Fire-and-forget: register commands in background (don't block webhook response)
-  Promise.all([
-    fetch(`${TG_API}${token}/setMyCommands`, {
+  // Register commands globally (default scope — all private chats)
+  await fetch(`${TG_API}${token}/setMyCommands`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commands: allCommands }),
+  })
+
+  // Register commands for the specific group chat so autocomplete works there too
+  for (const groupId of ALLOWED_GROUP_IDS) {
+    await fetch(`${TG_API}${token}/setMyCommands`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commands: allCommands }),
-    }),
-    ...ALLOWED_GROUP_IDS.map(groupId =>
-      fetch(`${TG_API}${token}/setMyCommands`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          commands: allCommands,
-          scope: { type: 'chat', chat_id: groupId },
-        }),
-      })
-    ),
-  ]).then(() => console.log('[ensureBotCommands] registered', allCommands.length, 'commands'))
-    .catch(e => console.error('[ensureBotCommands] error:', e))
+      body: JSON.stringify({
+        commands: allCommands,
+        scope: { type: 'chat', chat_id: groupId },
+      }),
+    })
+  }
+
+  console.log('[ensureBotCommands] registered', allCommands.length, 'commands globally + per-group')
 }
 
 async function tgPost(token: string, method: string, body: Record<string, unknown>) {
@@ -994,47 +995,14 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Missing config' }), { status: 500, headers: corsHeaders })
   }
 
-  // ─── Read body once upfront ───
-  const bodyText = await req.text()
-  
-  // ─── Admin actions (set-webhook, get-webhook-info) ───
-  try {
-    const bodyJson = bodyText ? JSON.parse(bodyText) : null
-    if (bodyJson?.action === 'set-webhook') {
-      const webhookUrl = `${SUPABASE_URL}/functions/v1/telegram-media-listener`
-      const res = await fetch(`${TG_API}${TG_TOKEN}/setWebhook`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: webhookUrl,
-          allowed_updates: ['message', 'callback_query'],
-        }),
-      })
-      const data = await res.json()
-      console.log('[set-webhook] result:', JSON.stringify(data))
-      return new Response(JSON.stringify({ webhook_url: webhookUrl, telegram_response: data }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    if (bodyJson?.action === 'get-webhook-info') {
-      const res = await fetch(`${TG_API}${TG_TOKEN}/getWebhookInfo`)
-      const data = await res.json()
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-  } catch { /* not JSON or no action — normal webhook flow */ }
-
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   try {
-    ensureBotCommands(TG_TOKEN)
+    await ensureBotCommands(TG_TOKEN)
 
-    console.log('[telegram-media-listener] body:', bodyText.slice(0, 300))
-    if (!bodyText || bodyText.trim().length === 0) {
-      return new Response('ok', { headers: corsHeaders })
-    }
-    const update = JSON.parse(bodyText)
+    const rawBody = await req.text()
+    console.log('[telegram-media-listener] body:', rawBody.slice(0, 300))
+    const update = JSON.parse(rawBody)
 
     // ─── CALLBACK QUERIES (inline button presses) ───
     if (update.callback_query) {

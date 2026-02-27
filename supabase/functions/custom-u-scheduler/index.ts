@@ -85,12 +85,12 @@ If the user asks something unrelated, respond:
 IMPORTANT: Always resolve customer names to their IDs from the list above. If a name isn't found, ask for clarification.
 When sending a portal link, use the send-portal-link endpoint (it auto-generates token if needed AND emails them).`
 
-    const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')
-    const geminiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+    const geminiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',

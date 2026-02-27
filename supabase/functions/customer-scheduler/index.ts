@@ -84,13 +84,13 @@ IMPORTANT: Always resolve customer names to their IDs from the list above when u
       { role: 'user', parts: [{ text: prompt }] },
     ]
 
-    // Call OpenRouter
-    const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')
-    const geminiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // Call Gemini
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+    const geminiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',

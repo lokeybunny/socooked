@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const BOT_SECRET = Deno.env.get('BOT_SECRET')!
-    const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
@@ -252,13 +252,13 @@ CRITICAL RULES:
 - If something is unclear, respond: { "type": "clarify", "message": "..." }
 - Output ONLY valid JSON. No markdown, no commentary, no code fences.`
 
-    console.log('[ai-assistant] calling OpenRouter with prompt:', prompt.slice(0, 200))
+    console.log('[ai-assistant] calling Gemini with prompt:', prompt.slice(0, 200))
 
-    const geminiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const geminiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',

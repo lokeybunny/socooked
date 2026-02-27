@@ -15,7 +15,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const RC_EMBED_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html';
 const CALL_TYPES = [
@@ -533,7 +532,7 @@ export default function PhonePage() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">Phone</h1>
-          <p className="text-muted-foreground mt-1">RingCentral + audio transcription workspace.</p>
+          <p className="text-muted-foreground mt-1">Softphone + audio transcription workspace.</p>
         </div>
 
         {/* Two-column layout: Left = Transcription, Right = RingCentral */}
@@ -852,45 +851,22 @@ export default function PhonePage() {
 
           </div>
 
-          {/* ─── Right Column: Phone Embeds ─── */}
+          {/* ─── Right Column: RingCentral Softphone ─── */}
           <div className="space-y-4">
-            <div className="glass-card rounded-xl px-4 py-3 mb-3 flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Phone className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium text-muted-foreground">Your Number:</span>
-              <span className="text-base font-semibold text-foreground tracking-wide">(424) 465-1253</span>
+              <h2 className="text-lg font-semibold text-foreground">Softphone</h2>
             </div>
-            <Tabs defaultValue="ringcentral" className="w-full">
-              <TabsList className="mb-2">
-                <TabsTrigger value="ringcentral">RingCentral</TabsTrigger>
-                <TabsTrigger value="gvoice">GVoice</TabsTrigger>
-              </TabsList>
-              <TabsContent value="ringcentral">
-                <div className="glass-card overflow-hidden rounded-xl">
-                  <iframe
-                    src={RC_EMBED_URL}
-                    title="RingCentral"
-                    className="w-full border-0"
-                    style={{ height: '600px' }}
-                    allow="microphone; autoplay"
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-                  />
-                </div>
-              </TabsContent>
-              <TabsContent value="gvoice">
-                <div className="glass-card overflow-hidden rounded-xl flex flex-col items-center justify-center text-center gap-4" style={{ height: '600px' }}>
-                  <Phone className="h-12 w-12 text-primary/40" />
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">Google Voice</h3>
-                    <p className="text-sm text-muted-foreground mt-1 max-w-xs">Google Voice cannot be embedded directly due to security restrictions. Open it in a new tab to use it.</p>
-                  </div>
-                  <Button asChild>
-                    <a href="https://voice.google.com/u/1/calls" target="_blank" rel="noopener noreferrer" className="gap-2">
-                      Open Google Voice <ArrowUpRight className="h-4 w-4" />
-                    </a>
-                  </Button>
-                </div>
-              </TabsContent>
-            </Tabs>
+            <div className="glass-card overflow-hidden rounded-xl">
+              <iframe
+                src={RC_EMBED_URL}
+                title="RingCentral Softphone"
+                className="w-full border-0"
+                style={{ height: '600px' }}
+                allow="microphone; autoplay"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+              />
+            </div>
 
             {/* ─── Recent Transcriptions (grouped by customer) ─── */}
             <div className="space-y-4">
