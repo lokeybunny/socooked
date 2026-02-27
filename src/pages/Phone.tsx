@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 const RC_EMBED_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html';
 const CALL_TYPES = [
@@ -851,22 +852,41 @@ export default function PhonePage() {
 
           </div>
 
-          {/* ─── Right Column: RingCentral ─── */}
+          {/* ─── Right Column: Phone Embeds ─── */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Phone className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">RingCentral</h2>
-            </div>
-            <div className="glass-card overflow-hidden rounded-xl">
-              <iframe
-                src={RC_EMBED_URL}
-                title="RingCentral"
-                className="w-full border-0"
-                style={{ height: '600px' }}
-                allow="microphone; autoplay"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-              />
-            </div>
+            <Tabs defaultValue="ringcentral" className="w-full">
+              <div className="flex items-center gap-2 mb-2">
+                <Phone className="h-5 w-5 text-primary" />
+                <TabsList>
+                  <TabsTrigger value="ringcentral">RingCentral</TabsTrigger>
+                  <TabsTrigger value="gvoice">GVoice</TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="ringcentral">
+                <div className="glass-card overflow-hidden rounded-xl">
+                  <iframe
+                    src={RC_EMBED_URL}
+                    title="RingCentral"
+                    className="w-full border-0"
+                    style={{ height: '600px' }}
+                    allow="microphone; autoplay"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="gvoice">
+                <div className="glass-card overflow-hidden rounded-xl">
+                  <iframe
+                    src="https://voice.google.com"
+                    title="Google Voice"
+                    className="w-full border-0"
+                    style={{ height: '600px' }}
+                    allow="microphone; autoplay"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
 
             {/* ─── Recent Transcriptions (grouped by customer) ─── */}
             <div className="space-y-4">
