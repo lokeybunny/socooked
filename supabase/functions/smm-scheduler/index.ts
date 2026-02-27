@@ -167,7 +167,7 @@ async function callAI(prompt: string, userMessage: string): Promise<string> {
         { role: 'user', content: userMessage },
       ],
       temperature: 0.1,
-      max_tokens: 2000,
+      max_tokens: 8000,
     }),
   });
 
@@ -253,7 +253,71 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const parsed = JSON.parse(jsonMatch[1]);
+    let cleanedJson = jsonMatch[1].trim();
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanedJson);
+    } catch (_e) {
+      console.warn('[smm-scheduler] Initial JSON parse failed, attempting repair…');
+      // Strip control characters
+      cleanedJson = cleanedJson.replace(/[\x00-\x1F\x7F]/g, '');
+      // Fix trailing commas
+      cleanedJson = cleanedJson.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+
+      // Try to close truncated JSON — find outermost bracket type
+      const firstChar = cleanedJson.trim()[0];
+      if (firstChar === '{' || firstChar === '[') {
+        const openBracket = firstChar;
+        const closeBracket = openBracket === '{' ? '}' : ']';
+        let depth = 0;
+        let lastValidPos = -1;
+        let inString = false;
+        let escaped = false;
+        for (let i = 0; i < cleanedJson.length; i++) {
+          const c = cleanedJson[i];
+          if (escaped) { escaped = false; continue; }
+          if (c === '\\') { escaped = true; continue; }
+          if (c === '"') { inString = !inString; continue; }
+          if (inString) continue;
+          if (c === '{' || c === '[') depth++;
+          if (c === '}' || c === ']') { depth--; if (depth === 0) { lastValidPos = i; break; } }
+        }
+
+        if (lastValidPos > 0) {
+          cleanedJson = cleanedJson.substring(0, lastValidPos + 1);
+        } else {
+          // Truncated — try to close it by removing trailing incomplete element
+          // Remove last incomplete array element or object property
+          cleanedJson = cleanedJson.replace(/,\s*\{[^}]*$/s, '');
+          cleanedJson = cleanedJson.replace(/,\s*"[^"]*$/s, '');
+          // Close all remaining open brackets
+          let opens = 0; let closes = 0;
+          for (const c of cleanedJson) {
+            if (!inString) {
+              if (c === '{' || c === '[') opens++;
+              if (c === '}' || c === ']') closes++;
+            }
+          }
+          for (let i = 0; i < opens - closes; i++) {
+            // Try to guess bracket type from context
+            cleanedJson += (cleanedJson.lastIndexOf('[') > cleanedJson.lastIndexOf('{') ? ']' : '}');
+          }
+          // Fix trailing commas again after surgery
+          cleanedJson = cleanedJson.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        }
+      }
+
+      try {
+        parsed = JSON.parse(cleanedJson);
+      } catch (repairError: any) {
+        console.error('[smm-scheduler] JSON repair failed:', repairError.message);
+        return new Response(JSON.stringify({
+          type: 'message',
+          message: 'The AI generated a response that was too long and got truncated. Please try a simpler request (e.g. fewer days or a single platform).',
+          actions: [],
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
 
     // If AI needs clarification
     if (parsed.clarify) {
