@@ -855,7 +855,7 @@ export default function PhonePage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Phone className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Softphone</h2>
+              <h2 className="text-lg font-semibold text-foreground">(424) 465-1253</h2>
             </div>
             <div className="glass-card overflow-hidden rounded-xl">
               <iframe
