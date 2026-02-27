@@ -30,22 +30,13 @@ async function notifySchedulerFailure(action: string, error: string, profile?: s
   const problem = `Scheduler action "${action}" failed`;
   const detail = error.substring(0, 500);
 
-  // Telegram
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
       method: 'POST',
-      headers: {
-        'apikey': ANON_KEY,
-        'Authorization': `Bearer ${ANON_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         record: {
-          id: crypto.randomUUID(),
-          entity_type: 'smm',
-          entity_id: null,
-          action: 'failed',
-          actor_id: null,
+          id: crypto.randomUUID(), entity_type: 'smm', entity_id: null, action: 'failed', actor_id: null,
           meta: { name: `🚨 SMM FAILURE: ${problem}`, detail, profile: profile || 'unknown', timestamp: pstTime },
           created_at: new Date().toISOString(),
         },
@@ -53,101 +44,154 @@ async function notifySchedulerFailure(action: string, error: string, profile?: s
     });
   } catch (e) { console.error('[smm-scheduler] telegram failure notify error:', e); }
 
-  // Email via gmail-api
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/gmail-api`, {
       method: 'POST',
-      headers: {
-        'apikey': SERVICE_ROLE_KEY,
-        'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        action: 'send',
-        to: 'warren@stu25.com',
-        subject: `STU25DEBUG: ${problem}`,
+        action: 'send', to: 'warren@stu25.com', subject: `STU25DEBUG: ${problem}`,
         body: `SMM Scheduler Failure Alert\n\nAction: ${action}\nProfile: ${profile || 'unknown'}\nTime (PST): ${pstTime}\n\nError:\n${detail}`,
       }),
     });
   } catch (e) { console.error('[smm-scheduler] email failure notify error:', e); }
 }
 
-// All available smm-api actions with descriptions for the AI
+// ─── MASSIVE SMM EXPERT PROMPT ───
 const ACTIONS_MANIFEST = `
-You are an SMM Scheduler AI. You translate natural language into Upload-Post API calls OR content schedule plans.
+You are Cortex — an elite Social Media Manager AI with deep expertise in content strategy, platform algorithms, audience growth, and brand storytelling.
 Current UTC time: {{NOW}}
+User timezone: PST (UTC-8)
 
-CONTENT SCHEDULE MODE:
-If the user asks to "create a schedule", "plan content", "generate a content plan", or similar — return a JSON object with type "content_plan":
+═══════════════════════════════════════════
+PHASE 1: DISCOVERY & QUALIFICATION
+═══════════════════════════════════════════
+
+BEFORE creating ANY content plan, you MUST ask the user clarifying questions using the "clarify" response type.
+Act as a professional social media strategist conducting a brand intake.
+
+MANDATORY QUESTIONS TO ASK (return as clarify):
+If the user hasn't provided this information, you MUST ask before proceeding:
+
+1. BRAND IDENTITY:
+   - "What is your brand/business name and what do you do? (e.g., 'STU25 — creative agency specializing in web design & branding')"
+   - "What industry/niche are you in?"
+
+2. TARGET AUDIENCE:
+   - "Who is your ideal customer? (age range, interests, pain points)"
+   - "What action do you want followers to take? (visit website, DM, buy product, book call)"
+
+3. CONTENT PREFERENCES:
+   - "What content style resonates with your brand? (educational, entertaining, behind-the-scenes, luxury/aspirational, raw/authentic, corporate/professional)"
+   - "Do you have any brand colors, fonts, or visual guidelines I should follow?"
+   - "Any competitors or accounts whose style you admire?"
+
+4. GOALS & KPIs:
+   - "What's your primary goal? (grow followers, drive sales, build authority, increase engagement, generate leads)"
+   - "How many posts per week do you want? (I recommend 7-14 for aggressive growth)"
+
+5. EXISTING ASSETS:
+   - "Do you have any existing photos, videos, or brand assets I should work with?"
+   - "Any upcoming events, launches, or promotions to include?"
+
+FORMAT for asking questions:
+{ "clarify": "Your professional question here. Be conversational but strategic." }
+
+You may ask multiple rounds of questions. Once you have enough context, proceed to content planning.
+
+If the user says "just do it" or provides enough context upfront, skip to planning but use smart defaults.
+
+═══════════════════════════════════════════
+PHASE 2: CONTENT PLAN GENERATION
+═══════════════════════════════════════════
+
+Once you have enough brand context, return a content plan JSON. CRITICAL: Keep responses compact — maximum 7 schedule items per response to avoid truncation. If the user wants more, they can ask for "week 2" etc.
+
+RESPONSE FORMAT:
 {
   "type": "content_plan",
   "platform": "instagram|facebook|tiktok|x",
-  "plan_name": "Week of [date]",
+  "plan_name": "Short plan name",
   "brand_context": {
-    "niche": "detected niche of the brand",
-    "voice": "brand voice description",
-    "audience": "target audience",
-    "keywords": ["keyword1", "keyword2"],
+    "niche": "detected niche",
+    "voice": "brand voice (max 20 words)",
+    "audience": "target audience (max 20 words)",
+    "keywords": ["kw1", "kw2", "kw3"],
     "hashtag_sets": { "primary": ["tag1","tag2"], "trending": ["tag3"] }
   },
   "schedule_items": [
     {
-      "id": "unique-id",
+      "id": "unique-short-id",
       "date": "YYYY-MM-DD",
       "time": "HH:mm",
       "type": "image|video|text|carousel",
-      "caption": "Full caption text",
+      "caption": "Caption text (keep under 200 chars)",
       "hashtags": ["tag1", "tag2"],
-      "media_prompt": "Detailed visual description for AI image/video generation",
-      "status": "planned"
+      "media_prompt": "Visual description for AI generation (scene, lighting, mood, composition — max 100 words)",
+      "status": "draft"
     }
   ]
 }
 
-BRAND STRATEGY RULES:
-- Think like an expert social media manager for the brand's niche
-- Mix content types: educational, entertaining, promotional, behind-the-scenes
-- Use platform-specific best practices (Reels for IG, short-form for TikTok, threads for X)
-- Include optimal posting times for the platform
-- Generate 7-14 posts per week minimum
-- Write media_prompt as detailed visual descriptions for AI image generation (describe scene, lighting, mood, composition)
-- Vary hashtag sets between posts, mix popular + niche tags
-- Instagram/TikTok content should be visually focused
-- X content can be text-heavy with occasional images
-- Facebook can mix formats
+CRITICAL RULES:
+- Maximum 7 items per schedule_items array (prevents JSON truncation)
+- Keep captions concise — under 200 characters
+- Keep media_prompt under 100 words — be specific but brief
+- Keep hashtags to 5-7 per post max
+- All items start with status "draft" — user must approve before going live
+- Use design-intent language for media_prompt (describe the scene, NOT "generate an image of…")
 
-AVAILABLE ACTIONS (call via smm-api edge function):
-1. upload-video — Post a video. Body: { user, title, description?, video (url), "platform[]": ["facebook","instagram",...], scheduled_date? (ISO 8601 UTC), add_to_queue? (bool), first_comment?, timezone? }
-2. upload-photos — Post photos. Body: { user, title, description?, "platform[]": [...], scheduled_date?, add_to_queue?, first_comment? }
-3. upload-text — Post text only. ONLY supports: facebook, x, linkedin. Instagram/tiktok/youtube/pinterest do NOT support text-only posts. Body: { user, title, description?, "platform[]": [...], scheduled_date?, add_to_queue?, first_comment? }
-4. upload-document — Post a document. Body: { user, title, description?, document (url), "platform[]": [...], scheduled_date? }
-5. list-scheduled — List all scheduled posts. No body needed.
-6. cancel-scheduled — Cancel a scheduled post. Params: job_id
-7. edit-scheduled — Edit a scheduled post. Params: job_id. Body: { scheduled_date?, title?, caption? }
-8. upload-status — Check upload status. Params: request_id? or job_id?
-9. upload-history — View post history. Params: user?, page?, limit?
-10. queue-settings — Get queue settings. Params: profile (username)
-11. update-queue-settings — Update queue settings. Body: { profile, timezone, slots: [{day:0-6, time:"HH:mm"}] }
-12. queue-preview — Preview upcoming queue slots. Params: profile
-13. queue-next-slot — Get next available queue slot. Params: profile
-14. analytics — Get analytics. Params: profile_username, platforms? (comma-separated)
-15. ig-conversations — List IG DM conversations. Params: user
-16. ig-dm-send — Send IG DM. Body: { platform:"instagram", user, recipient_id, message }
-17. ig-comments — Get comments on IG post. Params: user, post_id
-18. ig-comment-reply — Reply to IG comment. Body: { platform:"instagram", user, comment_id, message }
-19. ig-media — List IG media. Params: user
+MEDIA GENERATION STRATEGY:
+- Items with type "image" → will be generated by Nano Banana (Google Gemini image model)
+- Items with type "video" → will be generated by Higgsfield AI (video generation)
+- Items with type "text" → no media needed (X/Facebook only)
+- Items with type "carousel" → multiple images generated by Nano Banana
+- Media is NOT generated immediately — it's queued for generation 48 hours before the scheduled date to save on API credits
+- Until generated, items show as "template" placeholders in the preview
+
+CONTENT MIX (per 7 posts):
+- 2 educational/value posts (tips, how-to, stats)
+- 2 engagement posts (questions, polls, hot takes)
+- 1 promotional post (product/service showcase)
+- 1 behind-the-scenes/personal post
+- 1 trending/timely post (current events, memes, trends)
+
+PLATFORM-SPECIFIC RULES:
+- Instagram: Reels > static posts. Carousel for education. Stories for engagement. No text-only.
+- TikTok: All content should be video. Trending sounds. Hook in first 3 seconds.
+- X: Text-heavy OK. Threads for long-form. Images optional. Hot takes perform well.
+- Facebook: Mix of formats. Longer captions OK. Groups/community focus.
+
+POSTING TIMES (PST, convert to UTC for dates):
+- Instagram: 10am, 2pm, 6pm PST
+- TikTok: 9am, 12pm, 7pm PST
+- X: 8am, 12pm, 5pm PST
+- Facebook: 9am, 1pm, 4pm PST
+
+═══════════════════════════════════════════
+PHASE 3: DIRECT API ACTIONS
+═══════════════════════════════════════════
+
+For direct posting/scheduling actions (not content planning), return an array of steps:
+
+AVAILABLE ACTIONS:
+1. upload-video — Body: { user, title, video (url), "platform[]": [...], scheduled_date? (ISO UTC), first_comment? }
+2. upload-photos — Body: { user, title, "platform[]": [...], scheduled_date?, first_comment? }
+3. upload-text — ONLY: facebook, x, linkedin. Body: { user, title, "platform[]": [...], scheduled_date? }
+4. list-scheduled — No body needed.
+5. cancel-scheduled — Params: job_id
+6. edit-scheduled — Params: job_id. Body: { scheduled_date?, title?, caption? }
+7. upload-status — Params: request_id? or job_id?
+8. upload-history — Params: user?, page?, limit?
+9. analytics — Params: profile_username, platforms?
+
+FORMAT: [{ "action": "...", "params": {...}, "body": {...}, "description": "human-readable" }]
 
 RULES:
-- The "user" field is the profile username (e.g. "STU25").
-- Platform names for API: facebook, instagram, x, linkedin, tiktok, youtube, pinterest (NOT "twitter" — use "x")
-- IMPORTANT: The body key for platforms MUST be "platform[]" (with brackets), e.g. { "platform[]": ["instagram", "x"] }
-- Instagram, TikTok, YouTube, and Pinterest require media (video or photos) — they do NOT support text-only posts.
-- For scheduling, convert any relative times to ISO 8601 UTC. User is in PST (UTC-8).
-- Return a JSON array of steps. Each step: { "action": "...", "params": {...}, "body": {...}, "description": "human-readable" }
-- If the request is unclear, return: { "clarify": "question to ask" }
-- Never fabricate data. If you need info (like a job_id), say so.
-- For multi-platform posts, use a single call with platform[] array.
-- If user tries to post text to Instagram, tell them Instagram requires an image or video.
+- "user" = profile username (e.g. "STU25")
+- Platform key MUST be "platform[]" (with brackets)
+- Instagram/TikTok/YouTube/Pinterest require media — no text-only
+- Convert times to ISO 8601 UTC. User is PST (UTC-8)
+- If unclear: { "clarify": "question" }
 `;
 
 async function callAI(prompt: string, userMessage: string): Promise<string> {
@@ -166,8 +210,8 @@ async function callAI(prompt: string, userMessage: string): Promise<string> {
         { role: 'system', content: prompt },
         { role: 'user', content: userMessage },
       ],
-      temperature: 0.1,
-      max_tokens: 8000,
+      temperature: 0.2,
+      max_tokens: 4000,
     }),
   });
 
@@ -180,31 +224,74 @@ async function callAI(prompt: string, userMessage: string): Promise<string> {
   return data.choices?.[0]?.message?.content || '';
 }
 
+function repairJson(raw: string): any {
+  // Strip markdown fences
+  let cleaned = raw.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '').trim();
+
+  // Find JSON boundaries
+  const jsonMatch = cleaned.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (!jsonMatch) throw new Error('No JSON found in response');
+  cleaned = jsonMatch[1];
+
+  // First attempt
+  try { return JSON.parse(cleaned); } catch (_e) { /* continue */ }
+
+  // Strip control chars, fix trailing commas
+  cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '').replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+
+  // Try again
+  try { return JSON.parse(cleaned); } catch (_e) { /* continue */ }
+
+  // Truncation repair — remove last incomplete item, close brackets
+  cleaned = cleaned.replace(/,\s*\{[^}]*$/s, '');
+  cleaned = cleaned.replace(/,\s*"[^"]*$/s, '');
+  cleaned = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+
+  // Count and close open brackets
+  let opens = 0, closes = 0;
+  let inStr = false, esc = false;
+  for (const c of cleaned) {
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{' || c === '[') opens++;
+    if (c === '}' || c === ']') closes++;
+  }
+  // Build closing sequence based on order of opens
+  const openStack: string[] = [];
+  inStr = false; esc = false;
+  for (const c of cleaned) {
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === '{') openStack.push('}');
+    if (c === '[') openStack.push(']');
+    if (c === '}' || c === ']') openStack.pop();
+  }
+  cleaned += openStack.reverse().join('');
+  cleaned = cleaned.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+
+  return JSON.parse(cleaned);
+}
+
 async function executeSMMAction(action: string, params?: Record<string, string>, body?: any): Promise<any> {
   const searchParams = new URLSearchParams({ action });
   if (params) Object.entries(params).forEach(([k, v]) => { if (v) searchParams.set(k, v); });
-
   const url = `${SMM_API_URL}?${searchParams}`;
 
-  // Normalize body: ensure "platform" arrays become "platform[]"
   if (body && typeof body === 'object') {
     if (body.platform && !body['platform[]']) {
       body['platform[]'] = Array.isArray(body.platform) ? body.platform : [body.platform];
       delete body.platform;
     }
-    // Also add title from description if missing (text posts need it)
-    if (!body.title && body.description) {
-      body.title = body.description;
-    }
+    if (!body.title && body.description) body.title = body.description;
   }
 
   const fetchOpts: RequestInit = {
     method: body ? 'POST' : 'GET',
-    headers: {
-      'Authorization': `Bearer ${ANON_KEY}`,
-      'apikey': ANON_KEY,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${ANON_KEY}`, 'apikey': ANON_KEY, 'Content-Type': 'application/json' },
   };
   if (body) fetchOpts.body = JSON.stringify(body);
 
@@ -214,12 +301,31 @@ async function executeSMMAction(action: string, params?: Record<string, string>,
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, profile, history } = await req.json();
+    const { prompt, profile, history, action: directAction } = await req.json();
+
+    // ─── Direct action: push-live ───
+    if (directAction === 'push-live') {
+      const { plan_id } = await req.json().catch(() => ({}));
+      // Handled by the client — just update status
+      if (plan_id) {
+        await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans?id=eq.${plan_id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({ status: 'live' }),
+        });
+        await logActivity('smm', 'schedule_pushed_live', { name: '🔴 Schedule pushed to LIVE', plan_id, profile });
+      }
+      return new Response(JSON.stringify({ type: 'success', message: 'Schedule pushed to LIVE' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!prompt) {
       return new Response(JSON.stringify({ error: 'prompt is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -229,23 +335,24 @@ serve(async (req) => {
     const now = new Date().toISOString();
     const systemPrompt = ACTIONS_MANIFEST.replace('{{NOW}}', now);
 
-    // Build context with history
-    const contextParts = [];
+    // Build context with conversation history
+    const contextParts: string[] = [];
     if (profile) contextParts.push(`Active profile: ${profile}`);
     if (history?.length) {
-      contextParts.push('Recent conversation:\n' + history.map((h: any) => `${h.role}: ${h.text}`).join('\n'));
+      contextParts.push('Conversation so far:\n' + history.map((h: any) => `${h.role}: ${h.text}`).join('\n'));
     }
-    const fullPrompt = contextParts.length
-      ? `${prompt}\n\nContext:\n${contextParts.join('\n')}`
-      : prompt;
+    const fullPrompt = contextParts.length ? `${prompt}\n\nContext:\n${contextParts.join('\n')}` : prompt;
 
-    // Step 1: AI parses the intent
+    // Call AI
     const aiResponse = await callAI(systemPrompt, fullPrompt);
-    console.log('[smm-scheduler] AI response:', aiResponse);
+    console.log('[smm-scheduler] AI response length:', aiResponse.length);
 
-    // Extract JSON from the response
-    const jsonMatch = aiResponse.match(/```(?:json)?\s*([\s\S]*?)```/) || aiResponse.match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
-    if (!jsonMatch) {
+    // Try to extract JSON
+    let parsed: any;
+    try {
+      parsed = repairJson(aiResponse);
+    } catch (_e) {
+      // No JSON found — treat as plain text message or clarification
       return new Response(JSON.stringify({
         type: 'message',
         message: aiResponse,
@@ -253,73 +360,7 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    let cleanedJson = jsonMatch[1].trim();
-    let parsed: any;
-    try {
-      parsed = JSON.parse(cleanedJson);
-    } catch (_e) {
-      console.warn('[smm-scheduler] Initial JSON parse failed, attempting repair…');
-      // Strip control characters
-      cleanedJson = cleanedJson.replace(/[\x00-\x1F\x7F]/g, '');
-      // Fix trailing commas
-      cleanedJson = cleanedJson.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-
-      // Try to close truncated JSON — find outermost bracket type
-      const firstChar = cleanedJson.trim()[0];
-      if (firstChar === '{' || firstChar === '[') {
-        const openBracket = firstChar;
-        const closeBracket = openBracket === '{' ? '}' : ']';
-        let depth = 0;
-        let lastValidPos = -1;
-        let inString = false;
-        let escaped = false;
-        for (let i = 0; i < cleanedJson.length; i++) {
-          const c = cleanedJson[i];
-          if (escaped) { escaped = false; continue; }
-          if (c === '\\') { escaped = true; continue; }
-          if (c === '"') { inString = !inString; continue; }
-          if (inString) continue;
-          if (c === '{' || c === '[') depth++;
-          if (c === '}' || c === ']') { depth--; if (depth === 0) { lastValidPos = i; break; } }
-        }
-
-        if (lastValidPos > 0) {
-          cleanedJson = cleanedJson.substring(0, lastValidPos + 1);
-        } else {
-          // Truncated — try to close it by removing trailing incomplete element
-          // Remove last incomplete array element or object property
-          cleanedJson = cleanedJson.replace(/,\s*\{[^}]*$/s, '');
-          cleanedJson = cleanedJson.replace(/,\s*"[^"]*$/s, '');
-          // Close all remaining open brackets
-          let opens = 0; let closes = 0;
-          for (const c of cleanedJson) {
-            if (!inString) {
-              if (c === '{' || c === '[') opens++;
-              if (c === '}' || c === ']') closes++;
-            }
-          }
-          for (let i = 0; i < opens - closes; i++) {
-            // Try to guess bracket type from context
-            cleanedJson += (cleanedJson.lastIndexOf('[') > cleanedJson.lastIndexOf('{') ? ']' : '}');
-          }
-          // Fix trailing commas again after surgery
-          cleanedJson = cleanedJson.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
-        }
-      }
-
-      try {
-        parsed = JSON.parse(cleanedJson);
-      } catch (repairError: any) {
-        console.error('[smm-scheduler] JSON repair failed:', repairError.message);
-        return new Response(JSON.stringify({
-          type: 'message',
-          message: 'The AI generated a response that was too long and got truncated. Please try a simpler request (e.g. fewer days or a single platform).',
-          actions: [],
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
-    }
-
-    // If AI needs clarification
+    // Clarification
     if (parsed.clarify) {
       return new Response(JSON.stringify({
         type: 'clarify',
@@ -330,33 +371,31 @@ serve(async (req) => {
 
     // ─── Content Plan Mode ───
     if (parsed.type === 'content_plan') {
-      // Save plan to smm_content_plans table
       const planPayload = {
         profile_username: profile || 'STU25',
         platform: parsed.platform || 'instagram',
         plan_name: parsed.plan_name || `Content Plan ${new Date().toLocaleDateString()}`,
-        status: 'active',
+        status: 'draft', // Always starts as draft — user must push to live
         brand_context: parsed.brand_context || {},
-        schedule_items: (parsed.schedule_items || []).map((item: any, idx: number) => ({
+        schedule_items: (parsed.schedule_items || []).map((item: any) => ({
           ...item,
           id: item.id || crypto.randomUUID(),
-          status: item.status || 'planned',
+          status: 'draft', // All items start as draft
+          media_url: null, // No media generated yet — will be generated 48hrs before
         })),
       };
 
       const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans`, {
         method: 'POST',
         headers: {
-          'apikey': SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation',
+          'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json', 'Prefer': 'return=representation',
         },
         body: JSON.stringify(planPayload),
       });
       const insertData = await insertRes.json();
 
-      // Also save brand prompts from the media_prompt fields
+      // Save brand prompts
       const brandPrompts = (parsed.schedule_items || [])
         .filter((item: any) => item.media_prompt)
         .map((item: any) => ({
@@ -371,10 +410,8 @@ serve(async (req) => {
         await fetch(`${SUPABASE_URL}/rest/v1/smm_brand_prompts`, {
           method: 'POST',
           headers: {
-            'apikey': SERVICE_ROLE_KEY,
-            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal',
+            'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json', 'Prefer': 'return=minimal',
           },
           body: JSON.stringify(brandPrompts),
         });
@@ -385,11 +422,12 @@ serve(async (req) => {
         profile: planPayload.profile_username,
         platform: planPayload.platform,
         items_count: planPayload.schedule_items.length,
+        status: 'draft',
       });
 
       return new Response(JSON.stringify({
         type: 'content_plan',
-        message: `Created content plan "${planPayload.plan_name}" with ${planPayload.schedule_items.length} posts`,
+        message: `Created draft plan "${planPayload.plan_name}" with ${planPayload.schedule_items.length} posts. Review the schedule and hit "Schedule to LIVE" when ready. Media will be generated 48 hours before each post date.`,
         plan: insertData,
         actions: [],
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -402,24 +440,14 @@ serve(async (req) => {
     for (const step of steps) {
       try {
         const result = await executeSMMAction(step.action, step.params, step.body);
-        results.push({
-          action: step.action,
-          description: step.description || step.action,
-          success: true,
-          data: result,
-        });
+        results.push({ action: step.action, description: step.description || step.action, success: true, data: result });
         await logActivity('smm', step.action, {
           name: `SMM: ${step.description || step.action}`,
           profile: profile || step.body?.user || 'unknown',
           platforms: step.body?.['platform[]'] || step.body?.platform || [],
         });
       } catch (e: any) {
-        results.push({
-          action: step.action,
-          description: step.description || step.action,
-          success: false,
-          error: e.message,
-        });
+        results.push({ action: step.action, description: step.description || step.action, success: false, error: e.message });
         await notifySchedulerFailure(step.action, e.message, profile || step.body?.user);
       }
     }
