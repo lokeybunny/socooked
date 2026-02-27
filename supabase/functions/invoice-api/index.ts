@@ -181,7 +181,7 @@ function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string
 }
 
 async function buildInvoicePdfBase64(inv: any, customerName: string): Promise<string> {
-  const { PDFDocument, StandardFonts, rgb } = await import('npm:pdf-lib@1.17.1')
+  const { PDFDocument, StandardFonts, rgb } = await import('https://esm.sh/pdf-lib@1.17.1')
 
   const lineItems: LineItem[] = Array.isArray(inv.line_items) ? inv.line_items : []
   const subtotalVal = Number(inv.subtotal || inv.amount || 0)
