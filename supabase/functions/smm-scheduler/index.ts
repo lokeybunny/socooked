@@ -74,8 +74,47 @@ async function notifySchedulerFailure(action: string, error: string, profile?: s
 
 // All available smm-api actions with descriptions for the AI
 const ACTIONS_MANIFEST = `
-You are an SMM Scheduler AI. You translate natural language into Upload-Post API calls.
+You are an SMM Scheduler AI. You translate natural language into Upload-Post API calls OR content schedule plans.
 Current UTC time: {{NOW}}
+
+CONTENT SCHEDULE MODE:
+If the user asks to "create a schedule", "plan content", "generate a content plan", or similar — return a JSON object with type "content_plan":
+{
+  "type": "content_plan",
+  "platform": "instagram|facebook|tiktok|x",
+  "plan_name": "Week of [date]",
+  "brand_context": {
+    "niche": "detected niche of the brand",
+    "voice": "brand voice description",
+    "audience": "target audience",
+    "keywords": ["keyword1", "keyword2"],
+    "hashtag_sets": { "primary": ["tag1","tag2"], "trending": ["tag3"] }
+  },
+  "schedule_items": [
+    {
+      "id": "unique-id",
+      "date": "YYYY-MM-DD",
+      "time": "HH:mm",
+      "type": "image|video|text|carousel",
+      "caption": "Full caption text",
+      "hashtags": ["tag1", "tag2"],
+      "media_prompt": "Detailed visual description for AI image/video generation",
+      "status": "planned"
+    }
+  ]
+}
+
+BRAND STRATEGY RULES:
+- Think like an expert social media manager for the brand's niche
+- Mix content types: educational, entertaining, promotional, behind-the-scenes
+- Use platform-specific best practices (Reels for IG, short-form for TikTok, threads for X)
+- Include optimal posting times for the platform
+- Generate 7-14 posts per week minimum
+- Write media_prompt as detailed visual descriptions for AI image generation (describe scene, lighting, mood, composition)
+- Vary hashtag sets between posts, mix popular + niche tags
+- Instagram/TikTok content should be visually focused
+- X content can be text-heavy with occasional images
+- Facebook can mix formats
 
 AVAILABLE ACTIONS (call via smm-api edge function):
 1. upload-video — Post a video. Body: { user, title, description?, video (url), "platform[]": ["facebook","instagram",...], scheduled_date? (ISO 8601 UTC), add_to_queue? (bool), first_comment?, timezone? }
@@ -225,7 +264,74 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Step 2: Execute each action
+    // ─── Content Plan Mode ───
+    if (parsed.type === 'content_plan') {
+      // Save plan to smm_content_plans table
+      const planPayload = {
+        profile_username: profile || 'STU25',
+        platform: parsed.platform || 'instagram',
+        plan_name: parsed.plan_name || `Content Plan ${new Date().toLocaleDateString()}`,
+        status: 'active',
+        brand_context: parsed.brand_context || {},
+        schedule_items: (parsed.schedule_items || []).map((item: any, idx: number) => ({
+          ...item,
+          id: item.id || crypto.randomUUID(),
+          status: item.status || 'planned',
+        })),
+      };
+
+      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans`, {
+        method: 'POST',
+        headers: {
+          'apikey': SERVICE_ROLE_KEY,
+          'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation',
+        },
+        body: JSON.stringify(planPayload),
+      });
+      const insertData = await insertRes.json();
+
+      // Also save brand prompts from the media_prompt fields
+      const brandPrompts = (parsed.schedule_items || [])
+        .filter((item: any) => item.media_prompt)
+        .map((item: any) => ({
+          profile_username: profile || 'STU25',
+          category: item.type === 'video' ? 'video_concept' : 'visual',
+          niche: parsed.brand_context?.niche || null,
+          prompt_text: item.media_prompt,
+          example_output: item.caption,
+        }));
+
+      if (brandPrompts.length) {
+        await fetch(`${SUPABASE_URL}/rest/v1/smm_brand_prompts`, {
+          method: 'POST',
+          headers: {
+            'apikey': SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify(brandPrompts),
+        });
+      }
+
+      await logActivity('smm', 'content_plan_created', {
+        name: `📅 Content plan: ${planPayload.plan_name}`,
+        profile: planPayload.profile_username,
+        platform: planPayload.platform,
+        items_count: planPayload.schedule_items.length,
+      });
+
+      return new Response(JSON.stringify({
+        type: 'content_plan',
+        message: `Created content plan "${planPayload.plan_name}" with ${planPayload.schedule_items.length} posts`,
+        plan: insertData,
+        actions: [],
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ─── Standard Action Mode ───
     const steps = Array.isArray(parsed) ? parsed : [parsed];
     const results: any[] = [];
 
@@ -238,7 +344,6 @@ serve(async (req) => {
           success: true,
           data: result,
         });
-        // Log to activity_log so Telegram notifications fire
         await logActivity('smm', step.action, {
           name: `SMM: ${step.description || step.action}`,
           profile: profile || step.body?.user || 'unknown',
@@ -251,7 +356,6 @@ serve(async (req) => {
           success: false,
           error: e.message,
         });
-        // Fire failure notifications
         await notifySchedulerFailure(step.action, e.message, profile || step.body?.user);
       }
     }
