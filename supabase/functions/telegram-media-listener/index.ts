@@ -1031,6 +1031,9 @@ Deno.serve(async (req) => {
     ensureBotCommands(TG_TOKEN)
 
     console.log('[telegram-media-listener] body:', bodyText.slice(0, 300))
+    if (!bodyText || bodyText.trim().length === 0) {
+      return new Response('ok', { headers: corsHeaders })
+    }
     const update = JSON.parse(bodyText)
 
     // ─── CALLBACK QUERIES (inline button presses) ───
