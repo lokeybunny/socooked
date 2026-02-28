@@ -17,57 +17,23 @@ const IMPERSONATE_EMAIL = "WarrentheCreativeyt@gmail.com";
 const GVOICE_SENDER = "voice-noreply@google.com";
 const TG_API = "https://api.telegram.org/bot";
 
-function base64url(data: Uint8Array): string {
-  return btoa(String.fromCharCode(...data))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
-
-async function getAccessToken(sa: any, scope: string): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  const header = base64url(
-    new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" }))
-  );
-  const payload = base64url(
-    new TextEncoder().encode(
-      JSON.stringify({
-        iss: sa.client_email,
-        sub: IMPERSONATE_EMAIL,
-        scope,
-        aud: GOOGLE_TOKEN_URL,
-        iat: now,
-        exp: now + 3600,
-      })
-    )
-  );
-  const signingInput = `${header}.${payload}`;
-
-  const pemBody = sa.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\s/g, "");
-  const keyData = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    keyData,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sig = new Uint8Array(
-    await crypto.subtle.sign(
-      "RSASSA-PKCS1-v1_5",
-      cryptoKey,
-      new TextEncoder().encode(signingInput)
-    )
-  );
-  const jwt = `${signingInput}.${base64url(sig)}`;
+async function getAccessToken(): Promise<string> {
+  const clientId = Deno.env.get("GMAIL_CLIENT_ID");
+  const clientSecret = Deno.env.get("GMAIL_CLIENT_SECRET");
+  const refreshToken = Deno.env.get("GVOICE_REFRESH_TOKEN");
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error("GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, or GVOICE_REFRESH_TOKEN not configured");
+  }
 
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+    }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(`Token error: ${JSON.stringify(data)}`);
@@ -150,9 +116,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const saJson = Deno.env.get("GVOICE_SERVICE_ACCOUNT_JSON");
-    if (!saJson) throw new Error("GVOICE_SERVICE_ACCOUNT_JSON not configured");
-
     const TG_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
     const TG_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
     if (!TG_TOKEN || !TG_CHAT_ID) throw new Error("Telegram config missing");
@@ -161,35 +124,11 @@ serve(async (req) => {
     const SUPABASE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // Parse service account
-    let sa: any;
-    // Try multiple parse strategies for service account JSON
-    const cleaned = saJson.trim();
-    const parseAttempts: (() => any)[] = [
-      () => JSON.parse(cleaned),
-      () => JSON.parse(cleaned.replace(/\\n/g, "\n")),
-      () => JSON.parse(cleaned.replace(/\\\\n/g, "\n")),
-      () => JSON.parse(cleaned.replace(/\n/g, "\\n")),
-    ];
-    for (const attempt of parseAttempts) {
-      try { sa = attempt(); break; } catch (_e) { /* skip */ }
-    }
-    if (!sa) {
-      console.error("[gvoice-poll] JSON parse failed. First 100 chars:", cleaned.slice(0, 100));
-      throw new Error("Failed to parse GVOICE_SERVICE_ACCOUNT_JSON");
-    }
-    if (!sa.client_email || !sa.private_key) {
-      throw new Error("GVOICE_SERVICE_ACCOUNT_JSON missing client_email or private_key");
-    }
-    console.log("[gvoice-poll] SA parsed OK, email:", sa.client_email);
+    const token = await getAccessToken();
+    console.log("[gvoice-poll] OAuth2 token obtained OK");
 
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
-
-    const scope = action === "reply" 
-      ? "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send"
-      : "https://www.googleapis.com/auth/gmail.modify";
-    const token = await getAccessToken(sa, scope);
 
     // ─── Reply action: send an email reply to a GVoice thread ───
     if (action === "reply") {
