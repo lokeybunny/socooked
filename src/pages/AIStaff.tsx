@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Bot, Cpu, Palette, Share2, Radar, ArrowRight, Activity, CheckCircle2, Clock, AlertCircle, ExternalLink, Search, Wrench, Inbox, Brain, Send } from 'lucide-react';
+import { Bot, Cpu, Palette, Share2, Radar, ArrowRight, Activity, CheckCircle2, Clock, AlertCircle, ExternalLink, Search, Wrench, Inbox, Brain, Send, Loader2, OctagonX } from 'lucide-react';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -146,12 +147,14 @@ function AgentNode({ agent, tasks, activities, isSelected, onSelect }: {
 }
 
 /* ── Activity feed panel ─────────────────────────────────── */
-function ActivityPanel({ agent, tasks, activities, previews, navigate }: {
+function ActivityPanel({ agent, tasks, activities, previews, navigate, onPurge, purging }: {
   agent: typeof AGENTS[number];
   tasks: BotTask[];
   activities: ActivityItem[];
   previews: ApiPreview[];
   navigate: (path: string) => void;
+  onPurge: () => void;
+  purging: boolean;
 }) {
   const entityLinks: Record<string, string> = {
     customer: '/customers',
@@ -196,7 +199,19 @@ function ActivityPanel({ agent, tasks, activities, previews, navigate }: {
       {/* Active tasks */}
       {tasks.length > 0 ? (
         <div className="space-y-2 mb-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tasks ({tasks.length})</p>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tasks ({tasks.length})</p>
+            {tasks.some(t => t.status === 'queued' || t.status === 'in_progress') && (
+              <button
+                onClick={onPurge}
+                disabled={purging}
+                className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
+              >
+                {purging ? <Loader2 className="h-3 w-3 animate-spin" /> : <OctagonX className="h-3 w-3" />}
+                Purge All
+              </button>
+            )}
+          </div>
           {tasks.slice(0, 8).map(task => (
             <div key={task.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors">
               <div className="flex items-center gap-2 min-w-0">
@@ -274,6 +289,7 @@ export default function AIStaff() {
   const [smmConversations, setSmmConversations] = useState<any[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<AgentId>('clawd-main');
   const [loading, setLoading] = useState(true);
+  const [purging, setPurging] = useState(false);
 
   const load = useCallback(async () => {
     const [bt, al, pv, sp, sc] = await Promise.all([
@@ -290,6 +306,22 @@ export default function AIStaff() {
     setSmmConversations(sc.data || []);
     setLoading(false);
   }, []);
+
+  const handlePurgeAll = useCallback(async () => {
+    setPurging(true);
+    try {
+      const { error } = await supabase
+        .from('bot_tasks')
+        .update({ status: 'failed' })
+        .in('status', ['queued', 'in_progress']);
+      if (error) throw error;
+      toast.success('All queued & in-progress bot tasks purged');
+      await load();
+    } catch (e: any) {
+      toast.error(`Purge failed: ${e.message}`);
+    }
+    setPurging(false);
+  }, [load]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -653,6 +685,8 @@ export default function AIStaff() {
             activities={agentActivities(selected.id)}
             previews={previews}
             navigate={navigate}
+            onPurge={handlePurgeAll}
+            purging={purging}
           />
         </AnimatePresence>
 
