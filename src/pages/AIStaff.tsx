@@ -324,8 +324,8 @@ export default function AIStaff() {
       // 3. Purge in-progress SMM schedule items (set generating → failed)
       const { data: activePlans } = await supabase
         .from('smm_content_plans')
-        .select('id,schedule_items')
-        .in('status', ['draft', 'live']);
+        .select('id,schedule_items,status')
+        .not('status', 'eq', 'archived');
       if (activePlans) {
         for (const plan of activePlans) {
           const items = (plan.schedule_items || []) as any[];
@@ -336,6 +336,13 @@ export default function AIStaff() {
           }
         }
       }
+
+      // 4. Delete recent system/cortex SMM conversations that show as active tasks
+      await supabase
+        .from('smm_conversations')
+        .delete()
+        .eq('source', 'system')
+        .eq('role', 'cortex');
 
       toast.success('All queued & in-progress jobs purged across all bots');
       await load();
