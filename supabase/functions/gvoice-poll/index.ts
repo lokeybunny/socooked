@@ -13,7 +13,7 @@ const corsHeaders = {
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
-const IMPERSONATE_EMAIL = "WarrentheCreativeyt@gmail.com";
+const IMPERSONATE_EMAIL = "warren@stu25.com";
 const GVOICE_SENDER = "voice-noreply@google.com";
 const TG_API = "https://api.telegram.org/bot";
 
@@ -150,8 +150,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const saJson = Deno.env.get("GVOICE_SERVICE_ACCOUNT_JSON");
-    if (!saJson) throw new Error("GVOICE_SERVICE_ACCOUNT_JSON not configured");
+    const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
+    if (!saJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured");
 
     const TG_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
     const TG_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
@@ -183,10 +183,13 @@ serve(async (req) => {
     }
     console.log("[gvoice-poll] SA parsed OK, email:", sa.client_email);
 
-    const token = await getAccessToken(sa, "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send");
-
     const url = new URL(req.url);
     const action = url.searchParams.get("action");
+
+    const scope = action === "reply" 
+      ? "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send"
+      : "https://www.googleapis.com/auth/gmail.modify";
+    const token = await getAccessToken(sa, scope);
 
     // ─── Reply action: send an email reply to a GVoice thread ───
     if (action === "reply") {
@@ -248,7 +251,7 @@ serve(async (req) => {
 
     // ─── Default: Poll for new GVoice emails ───
     // Fetch recent emails from voice-noreply@google.com
-    const query = `subject:(702) 701-6192 in:inbox newer_than:1h`;
+    const query = `subject:(702) 701-6192 in:inbox newer_than:1d`;
     const listUrl = `${GMAIL_API}/users/me/messages?q=${encodeURIComponent(query)}&maxResults=10`;
     const listRes = await fetch(listUrl, {
       headers: { Authorization: `Bearer ${token}` },
