@@ -2,9 +2,10 @@ import type { ScheduledPost } from '@/lib/smm/types';
 import { PLATFORM_META } from '@/lib/smm/context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink } from 'lucide-react';
+import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import VideoThumbnail from '@/components/ui/VideoThumbnail';
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -33,7 +34,25 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
   if (compact) {
     return (
       <div className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors group">
-        {post.preview_url && <img src={post.preview_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" />}
+        {post.preview_url && (
+          post.type === 'video' && post.media_url ? (
+            <div className="w-8 h-8 rounded overflow-hidden shrink-0">
+              <VideoThumbnail src={post.media_url} title={post.title} className="w-8 h-8" videoClassName="w-full h-full object-cover" controls={false} />
+            </div>
+          ) : (
+            <img src={post.preview_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+          )
+        )}
+        {!post.preview_url && post.type === 'video' && post.media_url && (
+          <div className="w-8 h-8 rounded overflow-hidden shrink-0">
+            <VideoThumbnail src={post.media_url} title={post.title} className="w-8 h-8" videoClassName="w-full h-full object-cover" controls={false} />
+          </div>
+        )}
+        {!post.preview_url && !(post.type === 'video' && post.media_url) && (
+          <div className="w-8 h-8 rounded bg-muted shrink-0 flex items-center justify-center">
+            <Play className="h-3 w-3 text-muted-foreground" />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">{post.title}</p>
           <div className="flex items-center gap-2 mt-0.5">
@@ -63,7 +82,17 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
   return (
     <div className="glass-card p-4 space-y-3 hover:border-primary/30 transition-colors">
       <div className="flex items-start gap-3">
-        {post.preview_url && <img src={post.preview_url} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />}
+        {post.type === 'video' && post.media_url ? (
+          <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
+            <VideoThumbnail src={post.media_url} title={post.title} className="w-16 h-16" videoClassName="w-full h-full object-cover" />
+          </div>
+        ) : post.preview_url ? (
+          <img src={post.preview_url} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
+        ) : (
+          <div className="w-16 h-16 rounded-lg bg-muted shrink-0 flex items-center justify-center">
+            <Play className="h-5 w-5 text-muted-foreground" />
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-foreground truncate">{post.title}</p>
