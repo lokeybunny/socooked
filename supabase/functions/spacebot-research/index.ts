@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
         const moralisBase = "https://solana-gateway.moralis.io/token/mainnet/exchange/pumpfun";
 
         const [newRes, bondRes, gradRes] = await Promise.all([
-          fetch(`${moralisBase}/new?limit=150`, { headers: moralisHeaders }),
+          fetch(`${moralisBase}/new?limit=100`, { headers: moralisHeaders }),
           fetch(`${moralisBase}/bonding?limit=100`, { headers: moralisHeaders }),
           fetch(`${moralisBase}/graduated?limit=50`, { headers: moralisHeaders }),
         ]);
@@ -345,9 +345,9 @@ Analyze. Find the narratives printing RIGHT NOW. Be ruthless.`;
           if (grokRes.ok) {
             const grokData = await grokRes.json();
             const content = grokData.choices?.[0]?.message?.content || "";
+            console.log(`Grok response length: ${content.length}, preview: ${content.slice(0, 200)}`);
             try {
               const cleaned = content.replace(/```json/g, "").replace(/```/g, "").trim();
-              // Find JSON boundaries
               const jsonStart = cleaned.indexOf("{");
               const jsonEnd = cleaned.lastIndexOf("}");
               if (jsonStart >= 0 && jsonEnd > jsonStart) {
@@ -355,10 +355,15 @@ Analyze. Find the narratives printing RIGHT NOW. Be ruthless.`;
                 reasoning = grokResult.reasoning_summary || grokResult.chain_of_thought?.slice(0, 500) || content.slice(0, 500);
               } else {
                 reasoning = content.slice(0, 500);
+                console.log(`Grok: no JSON boundaries found in response`);
               }
-            } catch {
+            } catch (parseErr: any) {
               reasoning = content.slice(0, 500) || reasoning;
+              console.log(`Grok JSON parse error: ${parseErr.message}`);
             }
+          } else {
+            const errBody = await grokRes.text().catch(() => "");
+            console.log(`Grok API failed: ${grokRes.status} — ${errBody.slice(0, 300)}`);
           }
         } catch { /* timeout */ }
 
