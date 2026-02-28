@@ -439,12 +439,41 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     if (!currentPlan) return;
     setPushingLive(true);
     try {
+      // 1. Mark the plan as live
       const { error } = await supabase
         .from('smm_content_plans')
         .update({ status: 'live' } as any)
         .eq('id', currentPlan.id);
       if (error) throw error;
-      toast.success('🔴 Schedule is now LIVE! Media will auto-generate 48hrs before each post.');
+
+      // 2. Create calendar events for each schedule item
+      const calendarEvents = items.map(item => {
+        const startTime = item.time
+          ? `${item.date}T${item.time}:00`
+          : `${item.date}T12:00:00`;
+        return {
+          title: `📱 [${currentPlan.platform.toUpperCase()}] ${item.caption?.substring(0, 60) || item.type}`,
+          description: `${item.caption || ''}\n\nType: ${item.type}\nHashtags: ${(item.hashtags || []).join(' ')}\nPlan: ${currentPlan.plan_name}`,
+          start_time: startTime,
+          end_time: new Date(new Date(startTime).getTime() + 30 * 60000).toISOString(),
+          source: 'smm',
+          source_id: item.id,
+          category: 'smm',
+          color: currentPlan.platform === 'instagram' ? '#E1306C' :
+                 currentPlan.platform === 'facebook' ? '#1877F2' :
+                 currentPlan.platform === 'tiktok' ? '#010101' :
+                 currentPlan.platform === 'x' ? '#1DA1F2' : '#3b82f6',
+        };
+      });
+
+      if (calendarEvents.length > 0) {
+        const { error: calError } = await supabase
+          .from('calendar_events')
+          .insert(calendarEvents);
+        if (calError) console.error('Calendar insert error:', calError);
+      }
+
+      toast.success(`🔴 Schedule is now LIVE! ${calendarEvents.length} events added to calendar.`);
       await fetchPlans();
     } catch (e: any) {
       toast.error(`Failed to push live: ${e.message}`);
@@ -530,21 +559,38 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             </AlertDialog>
           )}
 
-          {/* ─── THE RED BUTTON ─── */}
+          {/* ─── PUSH LIVE BUTTON ─── */}
           {currentPlan && isDraft && (
-            <Button
-              size="sm"
-              onClick={handlePushLive}
-              disabled={pushingLive}
-              className="gap-1.5 bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20 font-bold"
-            >
-              {pushingLive ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Zap className="h-3.5 w-3.5" />
-              )}
-              Schedule to LIVE
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  disabled={pushingLive}
+                  className="gap-1.5 bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-600/20 font-bold"
+                >
+                  {pushingLive ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="h-3.5 w-3.5" />
+                  )}
+                  PUSH LIVE
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Push Schedule Live?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will push the {currentPlan.platform} content schedule live and add {items.length} post{items.length !== 1 ? 's' : ''} to your calendar. Media will auto-generate 48 hours before each post date.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handlePushLive} className="bg-green-600 hover:bg-green-700 text-white">
+                    Yes, Push Live
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
 
           {isLive && (
