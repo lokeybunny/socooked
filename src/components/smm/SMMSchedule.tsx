@@ -27,6 +27,7 @@ import {
   AlertCircle, Loader2, RotateCcw, Pencil, Upload, Trash2,
 } from 'lucide-react';
 import { uploadToStorage } from '@/lib/storage';
+import VideoThumbnail from '@/components/ui/VideoThumbnail';
 import type { SMMProfile } from '@/lib/smm/types';
 import { format, parseISO, isToday, differenceInHours } from 'date-fns';
 
@@ -309,12 +310,13 @@ function InstagramFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; o
             <div className="relative">
               <AspectRatio ratio={1}>
                 {item.media_url ? (
-                  <img src={item.media_url} alt={item.caption} className="w-full h-full object-cover" />
+                  item.type === 'video' && /\.(mp4|mov|webm|m3u8)/i.test(item.media_url) ? (
+                    <VideoThumbnail src={item.media_url} title={item.caption} className="w-full h-full" videoClassName="w-full h-full object-cover" controls={false} />
+                  ) : (
+                    <img src={item.media_url} alt={item.caption} className="w-full h-full object-cover" />
+                  )
                 ) : (
                   <MediaPlaceholder item={item} />
-                )}
-                {item.type === 'video' && item.media_url && (
-                  <div className="absolute top-1 right-1"><Play className="h-3 w-3 text-white drop-shadow" /></div>
                 )}
               </AspectRatio>
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 text-white text-xs">
@@ -337,7 +339,11 @@ function InstagramFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; o
               <span className="text-[10px] text-muted-foreground ml-auto">{format(parseISO(item.date), 'MMM d, h:mm a')}</span>
             </div>
             {item.media_url ? (
-              <img src={item.media_url} alt="" className="w-full rounded-md max-h-64 object-cover" />
+              item.type === 'video' && /\.(mp4|mov|webm|m3u8)/i.test(item.media_url) ? (
+                <VideoThumbnail src={item.media_url} title={item.caption} className="w-full rounded-md max-h-64 overflow-hidden" videoClassName="w-full max-h-64 object-cover" />
+              ) : (
+                <img src={item.media_url} alt="" className="w-full rounded-md max-h-64 object-cover" />
+              )
             ) : (
               <div className="w-full h-40 rounded-md overflow-hidden"><MediaPlaceholder item={item} /></div>
             )}
