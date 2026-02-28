@@ -188,7 +188,8 @@ function ScheduleItemModal({
     onOpenChange(false);
   };
 
-  const isVideo = type === 'video' || (mediaUrl && /\.(mp4|mov|webm)/i.test(mediaUrl));
+  // Only use <video> tag if the URL is actually a video file, not a fallback image
+  const isActualVideo = mediaUrl && /\.(mp4|mov|webm|m3u8)/i.test(mediaUrl);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -205,7 +206,7 @@ function ScheduleItemModal({
             <Label>Media</Label>
         <div className="w-full rounded-lg overflow-hidden border border-border/50 relative group">
               {mediaUrl ? (
-                isVideo ? (
+                isActualVideo ? (
                   <video src={mediaUrl} controls playsInline className="w-full max-h-64 object-contain bg-black relative z-10" />
                 ) : (
                   <img src={mediaUrl} alt="" className="w-full max-h-64 object-cover" />
@@ -214,7 +215,7 @@ function ScheduleItemModal({
                 <div className="w-full h-48"><MediaPlaceholder item={item} /></div>
               )}
               {/* Overlay actions – pointer-events-none on overlay, re-enable on buttons; hidden for video to not block controls */}
-              <div className={`absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 ${isVideo && mediaUrl ? 'pointer-events-none z-0' : ''}`}>
+              <div className={`absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 ${isActualVideo && mediaUrl ? 'pointer-events-none z-0' : ''}`}>
                 <Button
                   size="sm"
                   variant="secondary"
