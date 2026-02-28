@@ -45,6 +45,7 @@ interface ScheduleItem {
   media_url?: string;
   carousel_urls?: string[];
   status: 'draft' | 'generating' | 'ready' | 'published' | 'failed' | 'planned';
+  favorited?: boolean;
 }
 
 interface ContentPlan {
@@ -88,6 +89,27 @@ function StatusBadge({ status }: { status: string }) {
     <Badge variant="outline" className={`text-[10px] px-1.5 py-0 gap-1 ${c.bg}`}>
       {c.icon} {status}
     </Badge>
+  );
+}
+
+// ─── Favorite Style Checkmark ───
+function FavoriteCheckmark({ 
+  itemId, favorited, onToggle 
+}: { 
+  itemId: string; favorited: boolean; onToggle: (id: string) => void 
+}) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onToggle(itemId); }}
+      className={`absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 ${
+        favorited
+          ? 'bg-green-500 text-white shadow-lg shadow-green-500/40 scale-110'
+          : 'bg-black/40 text-white/60 hover:bg-black/60 hover:text-white hover:scale-105'
+      }`}
+      title={favorited ? 'Style favorited — AI will copy this style' : 'Mark as favorite style'}
+    >
+      <CheckCircle2 className={`h-4 w-4 ${favorited ? 'fill-white' : ''}`} />
+    </button>
   );
 }
 
@@ -602,7 +624,7 @@ function ScheduleItemModal({
 
 // ─── Platform Feed Renderers ───
 
-function InstagramFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void }) {
+function InstagramFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
   return (
     <div className="space-y-0">
       <div className="flex items-center gap-3 p-4 border-b border-border/50">
@@ -625,6 +647,7 @@ function InstagramFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; o
                   <MediaPlaceholder item={item} />
                 )}
               </AspectRatio>
+              {item.media_url && <FavoriteCheckmark itemId={item.id} favorited={!!item.favorited} onToggle={onToggleFavorite} />}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 text-white text-xs">
                 <Pencil className="h-4 w-4" />
               </div>
@@ -640,7 +663,7 @@ function InstagramFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; o
   );
 }
 
-function FacebookFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void }) {
+function FacebookFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
@@ -654,11 +677,14 @@ function FacebookFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; on
             <MoreHorizontal className="h-4 w-4 text-muted-foreground ml-auto" />
           </div>
           <p className="px-3 pb-2 text-xs">{item.caption}</p>
-          {item.media_url ? (
-            <img src={item.media_url} alt="" className="w-full max-h-52 object-cover" />
-          ) : item.type !== 'text' ? (
-            <div className="w-full h-36"><MediaPlaceholder item={item} /></div>
-          ) : null}
+          <div className="relative">
+            {item.media_url ? (
+              <img src={item.media_url} alt="" className="w-full max-h-52 object-cover" />
+            ) : item.type !== 'text' ? (
+              <div className="w-full h-36"><MediaPlaceholder item={item} /></div>
+            ) : null}
+            {item.media_url && <FavoriteCheckmark itemId={item.id} favorited={!!item.favorited} onToggle={onToggleFavorite} />}
+          </div>
           <div className="flex items-center justify-around p-2 border-t border-border/30 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><ThumbsUp className="h-3.5 w-3.5" /> Like</span>
             <span className="flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" /> Comment</span>
@@ -671,7 +697,7 @@ function FacebookFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; on
   );
 }
 
-function TikTokFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void }) {
+function TikTokFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
@@ -681,6 +707,7 @@ function TikTokFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onIt
           ) : (
             <div className="w-full h-full"><MediaPlaceholder item={item} /></div>
           )}
+          {item.media_url && <FavoriteCheckmark itemId={item.id} favorited={!!item.favorited} onToggle={onToggleFavorite} />}
           <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
             <p className="text-white text-xs font-semibold mb-1">@STU25</p>
             <p className="text-white/90 text-[11px] line-clamp-2">{item.caption}</p>
@@ -701,7 +728,7 @@ function TikTokFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onIt
   );
 }
 
-function XFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void }) {
+function XFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
   return (
     <div className="divide-y divide-border/30">
       {items.map((item) => (
@@ -718,11 +745,14 @@ function XFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onItemCli
                 <p className="text-xs text-sky-500">{item.hashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}</p>
               )}
               {(item.type === 'image' || item.type === 'video') && (
-                item.media_url ? (
-                  <img src={item.media_url} alt="" className="w-full rounded-xl max-h-48 object-cover mt-2 border border-border/30" />
-                ) : (
-                  <div className="w-full h-32 rounded-xl mt-2 overflow-hidden"><MediaPlaceholder item={item} /></div>
-                )
+                <div className="relative">
+                  {item.media_url ? (
+                    <img src={item.media_url} alt="" className="w-full rounded-xl max-h-48 object-cover mt-2 border border-border/30" />
+                  ) : (
+                    <div className="w-full h-32 rounded-xl mt-2 overflow-hidden"><MediaPlaceholder item={item} /></div>
+                  )}
+                  {item.media_url && <FavoriteCheckmark itemId={item.id} favorited={!!item.favorited} onToggle={onToggleFavorite} />}
+                </div>
               )}
               <div className="flex items-center justify-between text-muted-foreground pt-1 max-w-xs">
                 <MessageCircle className="h-3.5 w-3.5" /><Repeat2 className="h-3.5 w-3.5" />
@@ -1140,6 +1170,22 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     setEditModalOpen(true);
   };
 
+  const handleToggleFavorite = async (itemId: string) => {
+    if (!currentPlan) return;
+    const newItems = items.map(i => i.id === itemId ? { ...i, favorited: !i.favorited } : i);
+    const { error } = await supabase
+      .from('smm_content_plans')
+      .update({ schedule_items: newItems as any, updated_at: new Date().toISOString() } as any)
+      .eq('id', currentPlan.id);
+    if (error) {
+      toast.error('Failed to update favorite');
+    } else {
+      const wasFavorited = items.find(i => i.id === itemId)?.favorited;
+      toast.success(wasFavorited ? 'Style unfavorited' : '✅ Style favorited — AI will match this when regenerating');
+      await fetchPlans();
+    }
+  };
+
   const fetchPlans = useCallback(async () => {
     if (!profileId) return;
     setLoading(true);
@@ -1194,8 +1240,21 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
       const body: any = { plan_id: planId };
       if (dates) body.force_dates = dates;
       if (hasExistingContent) body.force_regenerate = true;
+
+      // Pass favorited items' style info so AI copies their style
+      const favoritedItems = items.filter(i => i.favorited && i.media_url);
+      if (favoritedItems.length > 0) {
+        body.style_references = favoritedItems.map(i => ({
+          id: i.id,
+          media_url: i.media_url,
+          media_prompt: i.media_prompt,
+          caption: i.caption,
+          type: i.type,
+        }));
+        toast.info(`Using ${favoritedItems.length} favorited style(s) as reference for generation.`);
+      }
       
-      if (hasExistingContent) {
+      if (hasExistingContent && favoritedItems.length === 0) {
         toast.info('Regenerating content — old content stays visible until new content is ready.');
       }
       
@@ -1632,10 +1691,10 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Platform Preview */}
                 <div className="lg:col-span-2 rounded-xl border border-border/50 bg-card overflow-hidden max-h-[700px] overflow-y-auto">
-                  {p.value === 'instagram' && <InstagramFeedPreview items={items} onItemClick={handleItemClick} />}
-                  {p.value === 'facebook' && <FacebookFeedPreview items={items} onItemClick={handleItemClick} />}
-                  {p.value === 'tiktok' && <TikTokFeedPreview items={items} onItemClick={handleItemClick} />}
-                  {p.value === 'x' && <XFeedPreview items={items} onItemClick={handleItemClick} />}
+                  {p.value === 'instagram' && <InstagramFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
+                  {p.value === 'facebook' && <FacebookFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
+                  {p.value === 'tiktok' && <TikTokFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
+                  {p.value === 'x' && <XFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
                 </div>
 
                 {/* Sidebar */}

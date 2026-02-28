@@ -61,6 +61,7 @@ async function varyPrompt(
   mediaType: string,
   brandContext: { niche?: string; voice?: string; audience?: string; keywords?: string[]; reference_images?: string[] },
   caption: string,
+  styleReferences?: { media_prompt?: string; caption?: string; type?: string }[],
 ): Promise<string> {
   if (!LOVABLE_API_KEY) return originalPrompt;
 
@@ -72,9 +73,13 @@ async function varyPrompt(
       ? `\n- CRITICAL: The brand owner has uploaded reference photos of themselves. Every prompt MUST describe a scene featuring a specific real person as the main subject — describe them in a professional setting relevant to the niche. The person should be the hero of each image, shown confidently and authentically.`
       : '';
 
+    const styleDirective = (styleReferences && styleReferences.length > 0)
+      ? `\n- STYLE MATCHING: The user has favorited specific posts as style references. Your new prompt MUST match the same visual style, mood, color palette, composition approach, and aesthetic. Here are the favorited style references:\n${styleReferences.map((s, i) => `  ${i + 1}. Prompt: "${s.media_prompt || s.caption || 'N/A'}"`).join('\n')}\n  Match their visual language closely while creating NEW content (different subject/scene but SAME style).`
+      : '';
+
     const systemMsg = `You are a creative director for social media visuals. Given an original image/video prompt and brand context, write a COMPLETELY NEW visual prompt that:
 - Is for the same brand niche and audience but with a TOTALLY DIFFERENT creative concept, angle, composition, and mood
-- Uses design-intent language (describe scenes, lighting, mood, colors) — NOT commands like "generate" or "create"${personDirective}
+- Uses design-intent language (describe scenes, lighting, mood, colors) — NOT commands like "generate" or "create"${personDirective}${styleDirective}
 - Is 1-3 sentences max, vivid and specific
 - Never repeats the original prompt's concept — come up with something fresh
 
@@ -512,6 +517,7 @@ serve(async (req) => {
     let planId: string | null = null;
     let singleItem: { id: string; type: string; prompt: string } | null = null;
     let forceRegenerate = false;
+    let styleReferences: { id: string; media_url: string; media_prompt?: string; caption?: string; type?: string }[] = [];
 
     if (req.method === 'POST') {
       try {
@@ -520,6 +526,7 @@ serve(async (req) => {
         planId = body.plan_id || null;
         singleItem = body.single_item || null;
         forceRegenerate = body.force_regenerate === true;
+        styleReferences = body.style_references || [];
       } catch { /* no body */ }
     }
 
@@ -564,6 +571,13 @@ serve(async (req) => {
         // If regenerating a single item, skip all others
         if (singleItem && item.id !== singleItem.id) continue;
 
+        // Skip favorited items during bulk regeneration — they're the style references
+        if (!singleItem && styleReferences.length > 0 && item.favorited) {
+          console.log(`[smm-media-gen] Skipping favorited item ${item.id} — used as style reference`);
+          skipped++;
+          continue;
+        }
+
         // Skip non-media items
         if (item.type === 'text') continue;
         if (!item.media_prompt && !item.caption) continue;
@@ -583,12 +597,12 @@ serve(async (req) => {
         items[i].status = 'generating';
 
         const captionSnippet = (item.caption || '').substring(0, 50);
-        await cortexStatus(plan.profile_username, plan.platform, `🎨 Generating ${item.type} for ${itemDate}…\n"${captionSnippet}…"`);
+        await cortexStatus(plan.profile_username, plan.platform, `🎨 Generating ${item.type} for ${itemDate}…\n"${captionSnippet}…"${styleReferences.length > 0 ? '\n⭐ Matching favorited style' : ''}`);
 
         const basePrompt = item.media_prompt || `Create a visually striking social media ${item.type} post: ${item.caption}`;
         
-        // Always generate a fresh varied prompt using AI + brand context
-        const prompt = await varyPrompt(basePrompt, item.type, plan.brand_context || {}, item.caption || '');
+        // Always generate a fresh varied prompt using AI + brand context + style references
+        const prompt = await varyPrompt(basePrompt, item.type, plan.brand_context || {}, item.caption || '', styleReferences.length > 0 ? styleReferences : undefined);
         // Save the new prompt back to the item for reference
         items[i].media_prompt = prompt;
         
