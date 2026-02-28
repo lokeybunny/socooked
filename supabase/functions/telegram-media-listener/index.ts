@@ -1515,6 +1515,57 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── GVoice Reply: reply to a GVoice notification → send email reply ───
+    if (text && !isGroup && message.reply_to_message) {
+      const repliedMsgId = message.reply_to_message.message_id
+      const { data: gvComm } = await supabase
+        .from('communications')
+        .select('id, from_address, metadata, phone_number')
+        .eq('type', 'phone')
+        .eq('direction', 'inbound')
+        .eq('provider', 'gvoice-poll')
+        .filter('metadata->>telegram_message_id', 'eq', String(repliedMsgId))
+        .limit(1)
+
+      if (gvComm && gvComm.length > 0) {
+        const comm = gvComm[0]
+        const meta = comm.metadata as any
+        const phone = comm.phone_number || comm.from_address || 'unknown'
+        const threadId = meta?.thread_id
+        const gmailId = meta?.gmail_id
+
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📨 Sending reply to ${phone} via Google Voice...` })
+
+        try {
+          // Build email reply via gvoice-reply action
+          const replyRes = await fetch(`${SUPABASE_URL}/functions/v1/gvoice-poll?action=reply`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+            },
+            body: JSON.stringify({
+              thread_id: threadId,
+              gmail_id: gmailId,
+              message: text,
+              phone,
+            }),
+          })
+          const replyData = await replyRes.json()
+          if (replyData?.error) {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Reply failed: ${replyData.error}` })
+          } else {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ Reply sent to ${phone}` })
+          }
+        } catch (e: any) {
+          console.error('[gvoice-reply] error:', e)
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed to send reply: ${e.message}` })
+        }
+        return new Response('ok')
+      }
+    }
+
     // Session types we track (moved to module-level constants for performance)
     const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
     const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
