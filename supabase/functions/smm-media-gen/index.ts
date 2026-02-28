@@ -228,8 +228,8 @@ async function generateCarousel(prompt: string, count = 3): Promise<string[] | n
   console.log(`[smm-media-gen] Carousel complete: ${urls.length}/${count} slides`);
   return urls;
 }
-/* ────── VIDEO GENERATION — Higgsfield API (submit + poll) ────── */
-async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<string | null> {
+/* ────── VIDEO — Submit to Higgsfield, return request_id ────── */
+async function submitVideoToHiggsfield(prompt: string, sourceImageUrl?: string): Promise<{ requestId: string; sourceImage: string } | null> {
   if (!HIGGSFIELD_API_KEY || !HIGGSFIELD_CLIENT_SECRET) {
     console.error('[smm-media-gen] Higgsfield credentials not configured');
     return null;
@@ -252,13 +252,7 @@ async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<s
     }
 
     console.log('[smm-media-gen] Submitting video to Higgsfield...');
-
-    // 1) Submit generation request
-    const hfPayload: Record<string, unknown> = {
-      prompt,
-      image_url: sourceImageUrl,
-      duration: 5,
-    };
+    const hfPayload: Record<string, unknown> = { prompt, image_url: sourceImageUrl, duration: 5 };
 
     const submitRes = await fetch(`${HIGGSFIELD_BASE}/${model}`, {
       method: 'POST',
@@ -284,15 +278,33 @@ async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<s
       return null;
     }
 
-    // 2) Poll for completion (max ~3 minutes, check every 15s)
-    const maxAttempts = 12;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise(r => setTimeout(r, 15000)); // wait 15s
+    return { requestId, sourceImage: sourceImageUrl };
+  } catch (e) {
+    console.error('[smm-media-gen] Video submit error:', e);
+    return null;
+  }
+}
 
-      console.log(`[smm-media-gen] Polling Higgsfield attempt ${attempt + 1}/${maxAttempts}...`);
+/* ────── VIDEO — Poll Higgsfield until completion ────── */
+async function pollHiggsfield(requestId: string): Promise<string | null> {
+  const authValue = `Key ${HIGGSFIELD_API_KEY}:${HIGGSFIELD_CLIENT_SECRET}`;
+  const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai';
+  const maxAttempts = 48; // 48 × 10s = ~8 minutes
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await new Promise(r => setTimeout(r, 10000));
+
+    console.log(`[smm-media-gen] Polling Higgsfield attempt ${attempt + 1}/${maxAttempts}...`);
+    try {
       const pollRes = await fetch(`${HIGGSFIELD_BASE}/requests/${requestId}/status`, {
         headers: { 'Authorization': authValue },
       });
+
+      if (!pollRes.ok) {
+        console.warn(`[smm-media-gen] Poll HTTP error: ${pollRes.status} — retrying…`);
+        continue;
+      }
+
       const pollData = await pollRes.json();
       console.log('[smm-media-gen] Poll status:', pollData.status);
 
@@ -310,14 +322,93 @@ async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<s
         console.error('[smm-media-gen] Higgsfield generation failed:', pollData.status);
         return null;
       }
-      // Otherwise keep polling (queued, in_progress, etc.)
+    } catch (pollErr) {
+      console.warn('[smm-media-gen] Poll network error — retrying…', pollErr);
+      continue;
+    }
+  }
+
+  console.error(`[smm-media-gen] Higgsfield timed out after ${maxAttempts} polls`);
+  return null;
+}
+
+/* ────── VIDEO — Full generate (submit + poll) ────── */
+async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<string | null> {
+  const submission = await submitVideoToHiggsfield(prompt, sourceImageUrl);
+  if (!submission) return null;
+  return await pollHiggsfield(submission.requestId);
+}
+
+/* ────── BACKGROUND VIDEO POLL — Updates plan item when Higgsfield finishes ────── */
+async function backgroundVideoPoll(
+  requestId: string,
+  planId: string,
+  itemId: string,
+  profileUsername: string,
+  platform: string,
+  caption: string,
+) {
+  try {
+    const videoUrl = await pollHiggsfield(requestId);
+
+    // Fetch current plan state
+    const planRes = await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans?id=eq.${planId}&select=schedule_items`, {
+      headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}` },
+    });
+    const plans = await planRes.json();
+    if (!plans?.[0]) return;
+
+    const items = plans[0].schedule_items as any[];
+    const idx = items.findIndex((i: any) => i.id === itemId);
+    if (idx === -1) return;
+
+    if (videoUrl) {
+      items[idx].media_url = videoUrl;
+      items[idx].status = 'ready';
+      delete items[idx].hf_request_id;
+
+      await cortexStatus(profileUsername, platform, `✅ 🎬 Video ready — saved to Content Library`);
+      await logActivity('media_generated', {
+        name: `🎨 Media generated: video`,
+        profile: profileUsername, platform, item_id: itemId, media_url: videoUrl,
+      });
+
+      // Save to content_assets
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/content_assets`, {
+          method: 'POST',
+          headers: {
+            'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({
+            title: (caption || 'SMM video').substring(0, 120),
+            type: 'video', url: videoUrl, source: 'ai-generated',
+            category: 'AI Generated', folder: 'AI Generated', status: 'published',
+            tags: ['smm', platform || 'social', profileUsername || '', 'video'].filter(Boolean),
+          }),
+        });
+      } catch (e) { console.error('[smm-media-gen] content_assets insert error:', e); }
+    } else {
+      items[idx].status = 'failed';
+      delete items[idx].hf_request_id;
+      await cortexStatus(profileUsername, platform, `❌ Video generation failed — try again with a different prompt`);
+      await logActivity('media_generation_failed', {
+        name: `❌ Media gen failed: video`, profile: profileUsername, item_id: itemId,
+      });
     }
 
-    console.error('[smm-media-gen] Higgsfield timed out after polling');
-    return null;
+    // Save updated plan
+    await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans?id=eq.${planId}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ schedule_items: items, updated_at: new Date().toISOString() }),
+    });
   } catch (e) {
-    console.error('[smm-media-gen] Video generation error:', e);
-    return null;
+    console.error('[smm-media-gen] Background video poll error:', e);
   }
 }
 
@@ -430,10 +521,40 @@ serve(async (req) => {
         let carouselUrls: string[] | null = null;
 
         if (item.type === 'video') {
-          await cortexStatus(plan.profile_username, plan.platform, `🎬 Submitting video to Higgsfield AI…`);
-          mediaUrl = await generateVideo(prompt);
-          if (!mediaUrl) {
-            await cortexStatus(plan.profile_username, plan.platform, `⚠️ Video generation failed — falling back to image…`);
+          await cortexStatus(plan.profile_username, plan.platform, `🎬 Submitting video to Higgsfield AI… (takes 2-5 min)`);
+          
+          // Submit to Higgsfield — get request_id fast, then poll in background
+          const submission = await submitVideoToHiggsfield(prompt);
+          if (submission) {
+            // Save "generating" status + request_id immediately so UI knows it's in progress
+            items[i].status = 'generating';
+            items[i].hf_request_id = submission.requestId;
+            items[i].media_url = submission.sourceImage; // show source image as placeholder
+            
+            // Save progress now
+            await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans?id=eq.${plan.id}`, {
+              method: 'PATCH',
+              headers: {
+                'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+              },
+              body: JSON.stringify({ schedule_items: items, updated_at: new Date().toISOString() }),
+            });
+
+            await cortexStatus(plan.profile_username, plan.platform, `⏳ Video submitted (ID: ${submission.requestId.substring(0, 8)}…). Polling Higgsfield until ready…`);
+
+            // Fire background poll — this runs independently of the HTTP response
+            // Using a self-invoking async function that keeps polling
+            backgroundVideoPoll(
+              submission.requestId, plan.id, item.id,
+              plan.profile_username, plan.platform, item.caption || '',
+            ).catch(e => console.error('[smm-media-gen] Background poll error:', e));
+
+            generated++;
+            // Skip the rest of the normal flow for this item — background handles it
+            continue;
+          } else {
+            await cortexStatus(plan.profile_username, plan.platform, `⚠️ Video submission failed — falling back to image…`);
             mediaUrl = await generateImage(prompt);
           }
         } else if (item.type === 'carousel') {
