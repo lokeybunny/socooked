@@ -418,7 +418,7 @@ async function processInvoiceCommand(
   }
 }
 
-// ─── SMM Terminal via Telegram ───
+// ─── SMM Terminal via Telegram (Prompt mode — direct actions) ───
 async function processSMMCommand(
   chatId: number,
   prompt: string,
@@ -500,6 +500,125 @@ async function processSMMCommand(
     await tgPost(tgToken, 'sendMessage', {
       chat_id: chatId,
       text: `❌ <b>SMM command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      parse_mode: 'HTML',
+    })
+  }
+}
+
+// ─── SMM Strategist via Telegram (Cortex content planner — synced with web app) ───
+async function processSMMStrategist(
+  chatId: number,
+  prompt: string,
+  history: { role: string; text: string }[],
+  tgToken: string,
+  supabaseUrl: string,
+  supabase: any,
+  profileUsername: string,
+  platform: string,
+) {
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🧠 <b>Cortex Strategist</b> thinking...', parse_mode: 'HTML' })
+
+  try {
+    // 1. Save user message to shared conversation table
+    await supabase.from('smm_conversations').insert({
+      profile_username: profileUsername,
+      platform,
+      source: 'telegram',
+      role: 'user',
+      message: prompt,
+      meta: { chat_id: chatId },
+    })
+
+    // 2. Call smm-scheduler with full history from shared table
+    const { data: convHistory } = await supabase.from('smm_conversations')
+      .select('role, message')
+      .eq('profile_username', profileUsername)
+      .eq('platform', platform)
+      .order('created_at', { ascending: true })
+      .limit(30)
+
+    const formattedHistory = (convHistory || []).map((m: any) => ({
+      role: m.role === 'cortex' ? 'assistant' : m.role,
+      text: m.message,
+    }))
+
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+    const res = await fetch(`${supabaseUrl}/functions/v1/smm-scheduler`, {
+      method: 'POST',
+      headers: {
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        profile: profileUsername,
+        history: formattedHistory,
+      }),
+    })
+    const result = await res.json()
+
+    let replyText = ''
+    if (result?.type === 'clarify') {
+      replyText = result.message
+    } else if (result?.type === 'content_plan') {
+      replyText = `✅ ${result.message}`
+    } else if (result?.type === 'message') {
+      replyText = result.message
+    } else {
+      replyText = result?.message || 'Done.'
+    }
+
+    // 3. Save Cortex response to shared conversation table
+    await supabase.from('smm_conversations').insert({
+      profile_username: profileUsername,
+      platform,
+      source: 'telegram',
+      role: 'cortex',
+      message: replyText,
+      meta: { chat_id: chatId, type: result?.type || 'message' },
+    })
+
+    // 4. Update session history
+    const { data: sessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'smm_strategist_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .limit(1)
+
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0]
+      const payload = session.payload as any
+      const newHistory = [
+        ...(payload.history || []),
+        { role: 'user', text: prompt },
+        { role: 'assistant', text: replyText.slice(0, 500) },
+      ].slice(-20)
+      await supabase.from('webhook_events').update({
+        payload: { ...payload, history: newHistory },
+      }).eq('id', session.id)
+    }
+
+    // 5. Format Telegram reply
+    let tgReply = ''
+    if (result?.type === 'clarify') {
+      tgReply = `❓ ${replyText}`
+    } else if (result?.type === 'content_plan') {
+      tgReply = `📅 <b>Content Plan Created!</b>\n\n${replyText}\n\n<i>View & edit in the app → Content Schedule tab</i>`
+    } else {
+      tgReply = replyText
+    }
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: tgReply.slice(0, 4000),
+      parse_mode: 'HTML',
+    })
+  } catch (e: any) {
+    console.error('[smm-strategist-tg] error:', e)
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `❌ <b>Strategist failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
       parse_mode: 'HTML',
     })
   }
@@ -1117,6 +1236,39 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── SMM mode selection callbacks ───
+      if (cbData === 'smm_mode_prompt' || cbData === 'smm_mode_strategist') {
+        // Clean up any old SMM sessions
+        await supabase.from('webhook_events').delete()
+          .eq('source', 'telegram').in('event_type', ['smm_session', 'smm_strategist_session'])
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+
+        if (cbData === 'smm_mode_prompt') {
+          await supabase.from('webhook_events').insert({
+            source: 'telegram',
+            event_type: 'smm_session',
+            payload: { chat_id: cbChatId, history: [], created: Date.now() },
+          })
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: '📝 <b>SMM Prompt Mode</b> activated!\n\nDirect commands for posting, scheduling, and analytics.\n\n<i>Try: "Post about our new website launch on X"</i>',
+            parse_mode: 'HTML',
+          })
+        } else {
+          await supabase.from('webhook_events').insert({
+            source: 'telegram',
+            event_type: 'smm_strategist_session',
+            payload: { chat_id: cbChatId, history: [], created: Date.now(), profile: 'STU25', platform: 'instagram' },
+          })
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: '🧠 <b>Cortex SMM Strategist</b> activated!\n\nI\'ll help you build a full content strategy. Conversations sync in real-time with the web app.\n\n<i>Tell me about your brand and what platforms you want to plan for.</i>',
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
       // ─── Media save/skip callbacks ───
       if (cbData.startsWith('save_') || cbData.startsWith('skip_')) {
         const action = cbData.startsWith('save_') ? 'save' : 'skip'
@@ -1286,8 +1438,8 @@ Deno.serve(async (req) => {
     }
 
     // Session types we track (moved to module-level constants for performance)
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
-    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
+    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
 
     // ─── Check for persistent button / slash command ───
     const action = resolvePersistentAction(text)
@@ -1406,6 +1558,26 @@ Deno.serve(async (req) => {
       assistant: 'assistant_session',
     }
 
+    // ─── SMM special handling: show mode selection ───
+    if (action === 'smm') {
+      // Clean up old SMM sessions
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').in('event_type', ['smm_session', 'smm_strategist_session'])
+        .filter('payload->>chat_id', 'eq', String(chatId))
+
+      const modeButtons = [
+        [{ text: '📝 Prompt — Direct posting & scheduling', callback_data: 'smm_mode_prompt' }],
+        [{ text: '🧠 Strategist — Content planning (synced with app)', callback_data: 'smm_mode_strategist' }],
+      ]
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '📱 <b>SMM — Choose Mode:</b>\n\n📝 <b>Prompt</b> — Direct posting, scheduling, analytics\n🧠 <b>Strategist</b> — Cortex content planner (real-time sync with web app)',
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: modeButtons },
+      })
+      return new Response('ok')
+    }
+
     if (action && SESSION_MAP[action]) {
       const sessionType = SESSION_MAP[action]
       const labels: Record<string, string> = {
@@ -1496,6 +1668,10 @@ Deno.serve(async (req) => {
         await processInvoiceCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
       } else if (sessionType === 'smm_session') {
         await processSMMCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
+      } else if (sessionType === 'smm_strategist_session') {
+        const profile = sp.profile || 'STU25'
+        const platform = sp.platform || 'instagram'
+        await processSMMStrategist(chatId, text, history, TG_TOKEN, SUPABASE_URL, supabase, profile, platform)
       } else if (sessionType === 'email_session') {
         await processEmailCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
       } else if (sessionType === 'webdev_session') {

@@ -399,12 +399,57 @@ function EmptySchedule({ onGenerate }: { onGenerate: () => void }) {
   );
 }
 
-// ─── Cortex Chat Panel ───
+// ─── Cortex Chat Panel (synced with Telegram via smm_conversations table) ───
 function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string; platform: string; onPlanCreated: () => void }) {
-  const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
+  const [messages, setMessages] = useState<{ id?: string; role: string; text: string; source?: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Load existing conversation from shared table
+  useEffect(() => {
+    const loadConversation = async () => {
+      const { data } = await supabase
+        .from('smm_conversations')
+        .select('id, role, message, source, created_at')
+        .eq('profile_username', profileId)
+        .eq('platform', platform)
+        .order('created_at', { ascending: true })
+        .limit(50);
+      if (data) {
+        setMessages(data.map(m => ({ id: m.id, role: m.role, text: m.message, source: m.source })));
+      }
+      setInitialLoaded(true);
+    };
+    loadConversation();
+  }, [profileId, platform]);
+
+  // Subscribe to realtime updates (Telegram messages appear instantly)
+  useEffect(() => {
+    const channel = supabase
+      .channel(`smm-conv-${profileId}-${platform}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'smm_conversations',
+        filter: `profile_username=eq.${profileId}`,
+      }, (payload: any) => {
+        const row = payload.new;
+        if (row.platform !== platform) return;
+        setMessages(prev => {
+          // Avoid duplicates
+          if (prev.some(m => m.id === row.id)) return prev;
+          return [...prev, { id: row.id, role: row.role, text: row.message, source: row.source }];
+        });
+        // If a content plan was created from Telegram, refresh plans
+        if (row.role === 'cortex' && row.meta?.type === 'content_plan') {
+          onPlanCreated();
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profileId, platform, onPlanCreated]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -414,33 +459,60 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
     const msg = text || input.trim();
     if (!msg || loading) return;
     setInput('');
-    const userMsg = { role: 'user', text: msg };
+
+    // 1. Save user message to shared table
+    const { data: inserted } = await supabase.from('smm_conversations').insert({
+      profile_username: profileId,
+      platform,
+      source: 'web',
+      role: 'user',
+      message: msg,
+    }).select('id').single();
+
+    const userMsg = { id: inserted?.id, role: 'user', text: msg, source: 'web' };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
 
     try {
+      // Build history from all messages
+      const history = messages.map(m => ({
+        role: m.role === 'cortex' ? 'assistant' : m.role,
+        text: m.text,
+      }));
+      history.push({ role: 'user', text: msg });
+
       const { data, error } = await supabase.functions.invoke('smm-scheduler', {
-        body: {
-          prompt: msg,
-          profile: profileId,
-          history: [...messages, userMsg],
-        },
+        body: { prompt: msg, profile: profileId, history },
       });
 
       if (error) throw error;
 
+      let responseText = '';
       if (data?.type === 'clarify') {
-        setMessages(prev => [...prev, { role: 'cortex', text: data.message }]);
+        responseText = data.message;
       } else if (data?.type === 'content_plan') {
-        setMessages(prev => [...prev, { role: 'cortex', text: `✅ ${data.message}` }]);
+        responseText = `✅ ${data.message}`;
         onPlanCreated();
       } else if (data?.type === 'message') {
-        setMessages(prev => [...prev, { role: 'cortex', text: data.message }]);
+        responseText = data.message;
       } else {
-        setMessages(prev => [...prev, { role: 'cortex', text: data?.message || 'Done.' }]);
+        responseText = data?.message || 'Done.';
       }
+
+      // 2. Save cortex response to shared table
+      await supabase.from('smm_conversations').insert({
+        profile_username: profileId,
+        platform,
+        source: 'web',
+        role: 'cortex',
+        message: responseText,
+        meta: { type: data?.type || 'message' },
+      });
+
+      setMessages(prev => [...prev, { role: 'cortex', text: responseText, source: 'web' }]);
     } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'cortex', text: `❌ Error: ${e.message}` }]);
+      const errorText = `❌ Error: ${e.message}`;
+      setMessages(prev => [...prev, { role: 'cortex', text: errorText, source: 'web' }]);
     }
     setLoading(false);
   };
@@ -453,9 +525,12 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
         <Badge variant="outline" className="text-[9px] ml-auto">{platform}</Badge>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2">
-        {messages.length === 0 && (
+        {!initialLoaded ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+        ) : messages.length === 0 ? (
           <div className="text-center py-8 space-y-2">
             <p className="text-xs text-muted-foreground">👋 Tell Cortex about your brand and what you want to schedule.</p>
+            <p className="text-[10px] text-muted-foreground">💬 Conversations sync in real-time with Telegram</p>
             <div className="flex flex-wrap gap-1 justify-center">
               {[
                 'Create a week of Instagram content for my restaurant',
@@ -472,14 +547,17 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
               ))}
             </div>
           </div>
-        )}
+        ) : null}
         {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={msg.id || i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-[85%] rounded-lg px-3 py-2 text-xs ${
               msg.role === 'user'
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-foreground'
             }`}>
+              {msg.source === 'telegram' && (
+                <span className="text-[9px] opacity-60 block mb-0.5">via Telegram</span>
+              )}
               {msg.text}
             </div>
           </div>
