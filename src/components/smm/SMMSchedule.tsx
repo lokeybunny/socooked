@@ -1112,14 +1112,14 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     if (!currentPlan) return;
     setPushingLive(true);
     try {
-      // Set plan back to draft
+      // 1. Set plan back to draft
       const { error } = await supabase
         .from('smm_content_plans')
         .update({ status: 'draft' } as any)
         .eq('id', currentPlan.id);
       if (error) throw error;
 
-      // Remove calendar events created by push live
+      // 2. Remove calendar events created by push live
       const itemIds = items.map(i => i.id);
       if (itemIds.length > 0) {
         await supabase
@@ -1129,7 +1129,34 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           .in('source_id', itemIds);
       }
 
-      toast.success('Reverted to draft — calendar events removed.');
+      // 3. Cancel scheduled posts in Upload-Post API queue
+      let cancelled = 0;
+      try {
+        const allPosts = await smmApi.getPosts();
+        const scheduledPosts = allPosts.filter(
+          p => p.status === 'scheduled' && p.platforms.includes(
+            (currentPlan.platform === 'twitter' ? 'x' : currentPlan.platform) as any
+          )
+        );
+        for (const post of scheduledPosts) {
+          try {
+            await smmApi.cancelPost(post.job_id);
+            cancelled++;
+          } catch (cancelErr) {
+            console.warn(`[revert] Could not cancel post ${post.job_id}:`, cancelErr);
+          }
+        }
+      } catch (fetchErr) {
+        console.warn('[revert] Could not fetch posts to cancel:', fetchErr);
+      }
+
+      // 4. Clear retry items
+      setRetryItems([]);
+
+      const msg = cancelled > 0
+        ? `Reverted to draft — ${cancelled} queued post(s) cancelled, calendar events removed.`
+        : 'Reverted to draft — calendar events removed.';
+      toast.success(msg);
       await fetchPlans();
     } catch (e: any) {
       toast.error(`Failed to revert: ${e.message}`);
