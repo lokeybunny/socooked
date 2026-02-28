@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSMMContext, PLATFORM_META } from '@/lib/smm/context';
+import { smmApi } from '@/lib/smm/store';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -1034,9 +1035,59 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         if (calError) console.error('Calendar insert error:', calError);
       }
 
-      toast.success(`🔴 Schedule is now LIVE! ${calendarEvents.length} events added to calendar.`);
-      await fetchPlans();
+      // 3. Schedule each post to the social media platform via Upload-Post API
+      const apiPlatform = currentPlan.platform === 'twitter' ? 'x' : currentPlan.platform;
+      let scheduled = 0;
+      let failed = 0;
 
+      for (const item of items) {
+        // Skip items that aren't ready (no media for image/video types)
+        if (item.type !== 'text' && !item.media_url) {
+          console.warn(`[push-live] Skipping item ${item.id} — no media_url`);
+          failed++;
+          continue;
+        }
+
+        try {
+          const scheduledDate = item.time
+            ? `${item.date}T${item.time}:00`
+            : `${item.date}T12:00:00`;
+
+          // Build post title from caption + hashtags
+          const hashtagStr = (item.hashtags || []).map(h => `#${h}`).join(' ');
+          const title = item.caption
+            ? `${item.caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
+            : hashtagStr || item.type;
+
+          // Determine the post type for Upload-Post API
+          let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
+          if (item.type === 'video') postType = 'video';
+          else if (item.type === 'image' || item.type === 'carousel') postType = 'photos';
+
+          await smmApi.createPost({
+            user: currentPlan.profile_username,
+            type: postType,
+            platforms: [apiPlatform as any],
+            title,
+            media_url: item.media_url,
+            scheduled_date: scheduledDate,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          });
+
+          scheduled++;
+        } catch (postErr: any) {
+          console.error(`[push-live] Failed to schedule item ${item.id}:`, postErr);
+          failed++;
+        }
+      }
+
+      const summary = [];
+      summary.push(`${calendarEvents.length} calendar events added`);
+      if (scheduled > 0) summary.push(`${scheduled} post(s) scheduled to ${currentPlan.platform}`);
+      if (failed > 0) summary.push(`${failed} failed`);
+
+      toast.success(`🟢 Schedule is LIVE! ${summary.join(', ')}.`);
+      await fetchPlans();
 
     } catch (e: any) {
       toast.error(`Failed to push live: ${e.message}`);
