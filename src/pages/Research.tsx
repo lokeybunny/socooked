@@ -57,13 +57,21 @@ interface TweetSource {
 
 interface Narrative {
   name: string;
-  bundle_score: number;
-  suggested_tickers: string[];
-  why_bundle: string;
+  symbol: string;
+  description: string;
+  narrative_rating: number;
+  rating_justification: string;
   tweet_sources: TweetSource[];
+  on_chain_evidence: string;
   competition: string;
   deploy_window: string;
   risk: string;
+  website?: string;
+  twitter_source_url?: string;
+  // Legacy compat
+  bundle_score?: number;
+  suggested_tickers?: string[];
+  why_bundle?: string;
 }
 
 export default function Research() {
@@ -575,117 +583,207 @@ export default function Research() {
           </div>
         )}
 
-        {/* ══════ Cortex Top Narratives Panel ══════ */}
+        {/* ══════ Cortex Analyst Report ══════ */}
         {selectedSource === 'x' && topNarratives.length > 0 && (
           <div className="glass-card rounded-lg overflow-hidden border border-emerald-500/30">
-            <div className="px-4 py-3 bg-emerald-500/5 border-b border-emerald-500/20 flex items-center gap-2">
-              <Brain className="h-4 w-4 text-emerald-500" />
-              <span className="text-sm font-bold text-foreground">🎯 Warren's Bundle Queue — Top {topNarratives.length} Narratives to Deploy</span>
+            <div className="px-4 py-3 bg-emerald-500/5 border-b border-emerald-500/20 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-emerald-500" />
+                <span className="text-sm font-bold text-foreground">📊 Cortex Analyst Report — {topNarratives.length} Narratives</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-xs"
+                onClick={() => {
+                  const report = topNarratives.map((n, i) => {
+                    const rating = n.narrative_rating ?? n.bundle_score ?? 0;
+                    const lines = [
+                      `━━━ #${i + 1} — ${rating}/10 ━━━`,
+                      `Name: ${n.name}`,
+                      `Symbol: ${n.symbol || n.suggested_tickers?.[0] || '—'}`,
+                      `Description: ${n.description || n.why_bundle || '—'}`,
+                      `Rating: ${rating}/10 — ${n.rating_justification || n.why_bundle || ''}`,
+                      `On-Chain: ${n.on_chain_evidence || '—'}`,
+                      `Competition: ${n.competition}`,
+                      `Window: ${n.deploy_window}`,
+                      `Risk: ${n.risk || '—'}`,
+                    ];
+                    if (n.twitter_source_url || n.tweet_sources?.[0]?.url) {
+                      lines.push(`Twitter: ${n.twitter_source_url || n.tweet_sources[0].url}`);
+                    }
+                    if (n.website) lines.push(`Website: ${n.website}`);
+                    if (n.tweet_sources?.length) {
+                      lines.push(`Sources:`);
+                      n.tweet_sources.slice(0, 3).forEach(tw => {
+                        lines.push(`  ${tw.user} (${tw.engagement}): "${tw.text.slice(0, 100)}"`);
+                        if (tw.url) lines.push(`  ${tw.url}`);
+                      });
+                    }
+                    return lines.join('\n');
+                  }).join('\n\n');
+                  const header = `CORTEX ANALYST REPORT — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}\nSolana / Pump.fun Narrative Intelligence\n${'═'.repeat(50)}\n`;
+                  const footer = `\n${'═'.repeat(50)}\n${cycleReasoning || ''}`;
+                  navigator.clipboard.writeText(header + report + footer);
+                  toast.success('Full report copied to clipboard');
+                }}
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy Full Report
+              </Button>
             </div>
             <div className="p-4 space-y-4">
-              {/* Cortex Reasoning Summary */}
+              {/* Analyst Summary */}
               {cycleReasoning && cycleReasoning !== 'No AI analysis available' && (
                 <div className="p-3 rounded-lg bg-muted/30 border border-border">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Brain className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-xs font-bold text-foreground">Cortex Analysis</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Brain className="h-3.5 w-3.5 text-primary" /> Analyst Summary
+                    </span>
+                    <button
+                      onClick={() => copyToClipboard(cycleReasoning)}
+                      className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    >
+                      <Copy className="h-2.5 w-2.5" /> Copy
+                    </button>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{cycleReasoning}</p>
                 </div>
               )}
 
-              {topNarratives.map((n, i) => (
-                <div key={i} className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border">
-                  {/* Header: rank + name + bundle score */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-foreground">{i + 1}.</span>
-                      <span className="font-semibold text-foreground">{n.name}</span>
-                    </div>
-                    <div className={cn(
-                      "px-2.5 py-1 rounded-full text-xs font-bold",
-                      n.bundle_score >= 8 ? "bg-primary/20 text-primary" :
-                      n.bundle_score >= 6 ? "bg-accent/20 text-accent-foreground" :
-                      "bg-muted text-muted-foreground"
-                    )}>
-                      {n.bundle_score}/10 Bundle
-                    </div>
-                  </div>
+              {topNarratives.map((n, i) => {
+                const rating = n.narrative_rating ?? n.bundle_score ?? 0;
+                const copyCard = () => {
+                  const text = [
+                    `Name: ${n.name}`,
+                    `Symbol: ${n.symbol || n.suggested_tickers?.[0] || '—'}`,
+                    `Description: ${n.description || n.why_bundle || '—'}`,
+                    `Rating: ${rating}/10`,
+                    `${n.rating_justification || n.why_bundle || ''}`,
+                    n.twitter_source_url ? `Twitter: ${n.twitter_source_url}` : '',
+                    n.website ? `Website: ${n.website}` : '',
+                  ].filter(Boolean).join('\n');
+                  copyToClipboard(text);
+                };
 
-                  {/* Why Bundle */}
-                  <div className="p-2.5 rounded-md bg-primary/5 border border-primary/10">
-                    <p className="text-xs text-foreground leading-relaxed">
-                      <Zap className="h-3 w-3 inline mr-1 text-primary" />
-                      <strong>Why Bundle:</strong> {n.why_bundle}
-                    </p>
-                  </div>
-
-                  {/* Bundler-ready: suggested tickers (click to copy) */}
-                  <div className="p-3 rounded-md bg-background border border-border space-y-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Bundler Ready — Suggested Tickers</span>
-                    <div className="flex flex-wrap gap-2">
-                      {n.suggested_tickers?.map((t, j) => (
-                        <button
-                          key={j}
-                          onClick={() => { navigator.clipboard.writeText(t.replace('$', '')); toast.success(`Copied ${t}`); }}
-                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary/10 text-primary font-mono font-bold hover:bg-primary/20 transition-colors cursor-pointer"
-                        >
-                          {t}
-                          <Copy className="h-2.5 w-2.5 opacity-60" />
+                return (
+                  <div key={i} className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border">
+                    {/* Header: rank + name + rating */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-foreground">{i + 1}.</span>
+                        <span className="font-semibold text-foreground">{n.name}</span>
+                        {n.symbol && (
+                          <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">${n.symbol}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={copyCard} className="text-muted-foreground hover:text-foreground">
+                          <Copy className="h-3.5 w-3.5" />
                         </button>
-                      ))}
+                        <div className={cn(
+                          "px-2.5 py-1 rounded-full text-xs font-bold",
+                          rating >= 8 ? "bg-primary/20 text-primary" :
+                          rating >= 6 ? "bg-accent/20 text-accent-foreground" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          {rating}/10
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Meta row */}
-                  <div className="flex items-center gap-3 text-[10px] flex-wrap">
-                    <span className={cn(
-                      "flex items-center gap-1 font-semibold",
-                      n.deploy_window === 'NOW' ? "text-primary" : "text-muted-foreground"
-                    )}>
-                      <Target className="h-3 w-3" /> {n.deploy_window}
-                    </span>
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <TrendingUp className="h-3 w-3" /> {n.competition}
-                    </span>
-                    {n.risk && (
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <AlertCircle className="h-3 w-3" /> {n.risk}
+                    {/* Pump.fun Deploy Fields */}
+                    <div className="grid gap-2 p-3 rounded-md bg-background border border-border">
+                      <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
+                        <span className="text-muted-foreground font-medium">Name</span>
+                        <span className="text-foreground font-semibold">{n.name}</span>
+                      </div>
+                      <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
+                        <span className="text-muted-foreground font-medium">Symbol</span>
+                        <span className="text-foreground font-mono font-bold">{n.symbol || n.suggested_tickers?.[0] || '—'}</span>
+                      </div>
+                      <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
+                        <span className="text-muted-foreground font-medium">Description</span>
+                        <span className="text-foreground">{n.description || n.why_bundle || '—'}</span>
+                      </div>
+                      {(n.twitter_source_url || n.tweet_sources?.[0]?.url) && (
+                        <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
+                          <span className="text-muted-foreground font-medium">Twitter/X</span>
+                          <a href={n.twitter_source_url || n.tweet_sources[0].url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                            {n.twitter_source_url || n.tweet_sources[0].url}
+                          </a>
+                        </div>
+                      )}
+                      {n.website && (
+                        <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
+                          <span className="text-muted-foreground font-medium">Website</span>
+                          <span className="text-foreground">{n.website}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Rating Justification */}
+                    <div className="p-2.5 rounded-md bg-primary/5 border border-primary/10">
+                      <p className="text-xs text-foreground leading-relaxed">
+                        <Zap className="h-3 w-3 inline mr-1 text-primary" />
+                        <strong>{rating}/10 —</strong> {n.rating_justification || n.why_bundle || 'No justification provided'}
+                      </p>
+                    </div>
+
+                    {/* On-chain evidence */}
+                    {n.on_chain_evidence && (
+                      <div className="p-2.5 rounded-md bg-muted/20 border border-border">
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          <TrendingUp className="h-3 w-3 inline mr-1 text-emerald-500" />
+                          <strong className="text-foreground">On-Chain:</strong> {n.on_chain_evidence}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Meta row */}
+                    <div className="flex items-center gap-3 text-[10px] flex-wrap">
+                      <span className={cn(
+                        "flex items-center gap-1 font-semibold",
+                        n.deploy_window === 'NOW' ? "text-primary" : "text-muted-foreground"
+                      )}>
+                        <Target className="h-3 w-3" /> {n.deploy_window}
                       </span>
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <TrendingUp className="h-3 w-3" /> {n.competition}
+                      </span>
+                      {n.risk && (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <AlertCircle className="h-3 w-3" /> {n.risk}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Tweet Sources */}
+                    {n.tweet_sources?.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">X Sources</span>
+                        {n.tweet_sources.slice(0, 4).map((tw, j) => (
+                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-background/60 border border-border">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-[10px] font-semibold text-foreground">{tw.user}</span>
+                                <span className="text-[10px] text-muted-foreground">{tw.engagement}</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                              {tw.url && (
+                                <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1">
+                                  <ExternalLink className="h-2.5 w-2.5" /> View on X
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
+                );
+              })}
 
-                  {/* Tweet Sources — X post proof */}
-                  {n.tweet_sources?.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-border">
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">X Sources</span>
-                      {n.tweet_sources.slice(0, 4).map((tw, j) => (
-                        <div key={j} className="flex gap-2.5 p-2 rounded-md bg-background/60 border border-border">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className="text-[10px] font-semibold text-foreground">{tw.user}</span>
-                              <span className="text-[10px] text-muted-foreground">{tw.engagement}</span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
-                            {tw.url && (
-                              <a
-                                href={tw.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1"
-                              >
-                                <ExternalLink className="h-2.5 w-2.5" /> View on X
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {/* Top tweets that didn't match a narrative */}
+              {/* Top tweets fallback */}
               {topTweets.length > 0 && topNarratives.length === 0 && (
                 <div className="space-y-2">
                   <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -727,7 +825,12 @@ export default function Research() {
               {cycleChainOfThought && (
                 <details className="text-xs">
                   <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">Chain-of-Thought Reasoning</summary>
-                  <p className="mt-2 text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-lg">{cycleChainOfThought}</p>
+                  <div className="mt-2 flex justify-end">
+                    <button onClick={() => copyToClipboard(cycleChainOfThought)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1">
+                      <Copy className="h-2.5 w-2.5" /> Copy
+                    </button>
+                  </div>
+                  <p className="mt-1 text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-lg">{cycleChainOfThought}</p>
                 </details>
               )}
 
@@ -741,10 +844,6 @@ export default function Research() {
                   </ul>
                 </details>
               )}
-
-              <p className="text-[10px] text-muted-foreground text-center">
-                Say "Hey Zyla" anytime to force a new cycle.
-              </p>
             </div>
           </div>
         )}

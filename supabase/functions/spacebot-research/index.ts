@@ -312,7 +312,7 @@ Deno.serve(async (req) => {
         stats.matches = matched.filter(m => m.tweet_velocity > 0).length;
         send("progress", { step: 5, label: "Cross-referencing tweets ↔ tokens", status: "done", detail: `${stats.matches} token-tweet narrative clusters identified` });
 
-        // ── STEP 6: Lovable AI (GPT-5) Chain-of-Thought analysis ────
+        // ── STEP 6: Lovable AI Chain-of-Thought analysis ────
         send("progress", { step: 6, label: "Cortex reasoning engine (Lovable AI)", status: "running", detail: "Running Chain-of-Thought narrative analysis..." });
 
         const top15 = matched.slice(0, 15);
@@ -322,53 +322,61 @@ Deno.serve(async (req) => {
 
         const tweetThemes = tweets.slice(0, 50).map((tw: any) => (tw.full_text || tw.text || "").slice(0, 200)).join("\n---\n");
 
-        const systemPrompt = `You are Cortex — warren.guru's autonomous narrative intelligence engine for Pump.fun bundle deployments on Solana.
+        const systemPrompt = `You are Cortex — a senior data analyst specializing in Solana memecoin narratives on Pump.fun.
 
-YOUR OPERATOR: Warren Guru (warren.guru). When he wakes up, he expects a curated list of narratives ready to deploy into his bundler. Your ONLY job is to make that list perfect.
+YOUR MISSION: Analyze LIVE Solana data from the last 24 hours and produce a deployment-ready analyst report. Each narrative you identify must be cross-referenced against real, live token data from Pump.fun/DexScreener to validate it's actually trending RIGHT NOW on Solana.
 
-CRITICAL RULES:
-1. DO NOT recommend already-launched tokens. Warren deploys NEW tokens into narratives. He needs the NARRATIVE THEME, not a specific $TICKER to buy.
-2. Every narrative MUST include the X/Twitter post source(s) that prove the narrative is heating up.
-3. Score every narrative 1-10 for "Bundle Deploy Value" — how profitable it would be to launch a Pump.fun token riding this narrative RIGHT NOW.
-4. Think like a bundler operator: What name/theme/ticker would print if deployed in the next 1-4 hours?
+CRITICAL: Only use data from TODAY. Every recommendation must be backed by:
+1. Live on-chain Solana data (Pump.fun tokens, DexScreener metrics)
+2. Real X/Twitter posts from the last 24 hours proving the narrative exists
+3. A clear 1-10 NARRATIVE RATING with specific justification
 
-BUNDLE DEPLOY VALUE SCORING (1-10):
-- 10: Viral narrative exploding RIGHT NOW, no tokens exist yet, massive engagement, CT is foaming
-- 8-9: Strong emerging narrative, 1-2 early tokens but room for a better-named/better-timed deploy
-- 6-7: Solid theme with proven engagement, moderate competition, still has upside window
-- 4-5: Narrative exists but getting crowded or slowing down
-- 1-3: Dead/dying narrative, too late, or too niche to print
+NARRATIVE RATING (1-10):
+- 10: Untokenized viral narrative exploding on CT right now. Zero competition. Massive engagement. Deploy immediately.
+- 8-9: Strong emerging narrative with proven engagement. 1-2 early tokens but clear room for a better deploy.
+- 6-7: Solid theme, moderate engagement, some competition but still has a window.
+- 4-5: Narrative exists but crowding fast or engagement plateauing.
+- 1-3: Dead/dying, too late, or too niche. Skip.
 
-WHAT MAKES A GREAT BUNDLE NARRATIVE:
-- Cultural moment (celebrity tweet, news event, viral meme) that CT hasn't fully tokenized yet
-- Rising tweet velocity with high engagement but few/no tokens matching the theme
-- Broad enough theme that a well-named token could capture the entire narrative
-- Timing: the 2-6 hour window AFTER CT notices but BEFORE 10+ tokens flood the theme
+WHAT MAKES A 10/10 NARRATIVE:
+- A cultural moment (celebrity tweet, breaking news, viral meme) that crypto Twitter noticed but hasn't fully tokenized
+- High tweet velocity + engagement with few or no matching tokens on Pump.fun
+- Broad enough that a well-named token captures the whole theme
+- Timing: 1-4 hour window before the narrative gets flooded
 
-PAST WINNING PATTERNS (learn from these):
+DEPLOYMENT FIELDS (for each narrative, provide Pump.fun-ready fields):
+- Name: The token name you'd use on Pump.fun
+- Symbol: The ticker (3-5 chars, all caps)
+- Description: A short Pump.fun description (1-2 sentences, catchy, memetic)
+- Twitter/X: The source tweet URL proving this narrative
+- Website: Suggested website name if applicable (optional)
+
+PAST WINNING PATTERNS:
 ${memory.past_wins.length > 0 ? memory.past_wins.slice(-10).join("\n") : "No history yet — first cycle."}
-
-You MUST use Chain-of-Thought reasoning. Think step by step.
 
 Return ONLY valid JSON (no markdown, no backticks):
 {
-  "chain_of_thought": "Step-by-step reasoning: what narratives are emerging, which have bundle potential, why",
+  "chain_of_thought": "Step-by-step reasoning analyzing today's Solana landscape, what's trending, what's missing",
   "top_narratives": [
     {
-      "name": "Narrative theme (e.g. 'AI Girlfriend Coins')",
-      "bundle_score": 9,
-      "suggested_tickers": ["$EXAMPLE1", "$EXAMPLE2"],
-      "why_bundle": "Specific reason this is a great bundle deploy right now — data-backed",
+      "name": "Pump.fun token name",
+      "symbol": "TICKER",
+      "description": "Pump.fun token description — catchy, memetic, 1-2 sentences",
+      "narrative_rating": 9,
+      "rating_justification": "Specific data-backed reason for this exact rating — cite tweet engagement numbers, token counts, timing",
       "tweet_sources": [
-        {"user": "@handle", "text": "tweet excerpt proving the narrative", "url": "https://x.com/...", "engagement": "5.2K likes"}
+        {"user": "@handle", "text": "exact tweet text proving narrative", "url": "https://x.com/...", "engagement": "5.2K likes, 1.1K RTs"}
       ],
+      "on_chain_evidence": "What the DexScreener/Moralis data shows — existing tokens in this niche, their volume, whether they're pumping or dumping",
       "competition": "None / 1-2 early tokens / Crowded",
       "deploy_window": "NOW / 1-2h / 2-4h / Closing",
-      "risk": "One sentence on what could kill this narrative"
+      "risk": "One sentence on what could kill this narrative",
+      "website": "optional suggested website",
+      "twitter_source_url": "primary tweet URL"
     }
   ],
-  "new_search_terms": ["3 evolved X search queries targeting untokenized narratives for next cycle"],
-  "reasoning_summary": "Brief market mood + which narratives Warren should deploy first when he wakes up"
+  "new_search_terms": ["3 evolved X search queries for next cycle"],
+  "reasoning_summary": "2-3 sentence analyst brief: today's Solana narrative landscape + top pick with rating justification"
 }`;
 
         const userMsg = `CYCLE: ${new Date().toISOString()}
@@ -389,7 +397,7 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
             method: "POST",
             headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model: "openai/gpt-5",
+              model: "google/gemini-3-flash-preview",
               temperature: 0.3,
               max_tokens: 4000,
               messages: [
@@ -435,8 +443,8 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
         }
         if (aiResult?.top_narratives?.length) {
           const wins = aiResult.top_narratives
-            .filter((n: any) => n.bundle_score >= 7)
-            .map((n: any) => `[${new Date().toISOString().split("T")[0]}] ${n.name} (${n.bundle_score}/10) — ${n.why_bundle?.slice(0, 100)}`);
+            .filter((n: any) => (n.narrative_rating ?? n.bundle_score ?? 0) >= 7)
+            .map((n: any) => `[${new Date().toISOString().split("T")[0]}] ${n.name} ($${n.symbol || '?'}) (${n.narrative_rating ?? n.bundle_score}/10) — ${(n.rating_justification || n.why_bundle || '').slice(0, 100)}`);
           memory.past_wins = [...memory.past_wins, ...wins].slice(-30);
         }
         memory.last_cycle = new Date().toISOString();
@@ -471,15 +479,15 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
 
         const narrativesToPost = aiResult?.top_narratives?.slice(0, 8) || [];
         for (const n of narrativesToPost) {
-          const tickers = n.suggested_tickers?.join(", ") || "—";
+          const rating = n.narrative_rating ?? n.bundle_score ?? 0;
           const sources = n.tweet_sources?.map((s: any) => s.url).filter(Boolean) || [];
           await pushFinding(
-            `🎯 ${n.name} — Bundle Score: ${n.bundle_score}/10`,
-            `Deploy: ${n.deploy_window} | Tickers: ${tickers} | Competition: ${n.competition} | ${n.why_bundle}`,
-            sources[0] || "",
+            `📊 ${n.name} ($${n.symbol || '?'}) — ${rating}/10`,
+            `${n.rating_justification || n.why_bundle || n.description || ''} | Window: ${n.deploy_window} | Competition: ${n.competition}`,
+            n.twitter_source_url || sources[0] || "",
             "trend",
-            { ...n, type: "bundle_narrative" },
-            ["cortex", "bundle", `score-${n.bundle_score}`, ...(n.suggested_tickers || []).map((t: string) => t.replace("$", ""))]
+            { ...n, type: "narrative_report" },
+            ["cortex", "narrative", `rating-${rating}`, n.symbol?.toLowerCase()].filter(Boolean) as string[]
           );
         }
 
