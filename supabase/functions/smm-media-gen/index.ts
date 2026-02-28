@@ -59,17 +59,22 @@ async function cortexStatus(profileUsername: string, platform: string, message: 
 async function varyPrompt(
   originalPrompt: string,
   mediaType: string,
-  brandContext: { niche?: string; voice?: string; audience?: string; keywords?: string[] },
+  brandContext: { niche?: string; voice?: string; audience?: string; keywords?: string[]; reference_images?: string[] },
   caption: string,
 ): Promise<string> {
   if (!LOVABLE_API_KEY) return originalPrompt;
 
+  const hasCustomPerson = ((brandContext.reference_images || []) as string[]).length > 0;
+
   try {
     console.log('[smm-media-gen] Generating varied prompt via AI…');
+    const personDirective = hasCustomPerson
+      ? `\n- CRITICAL: The brand owner has uploaded reference photos of themselves. Every prompt MUST describe a scene featuring a specific real person as the main subject — describe them in a professional setting relevant to the niche. The person should be the hero of each image, shown confidently and authentically.`
+      : '';
+
     const systemMsg = `You are a creative director for social media visuals. Given an original image/video prompt and brand context, write a COMPLETELY NEW visual prompt that:
 - Is for the same brand niche and audience but with a TOTALLY DIFFERENT creative concept, angle, composition, and mood
-- Uses design-intent language (describe scenes, lighting, mood, colors) — NOT commands like "generate" or "create"
-- Depicts real, diverse people smiling within this niche when appropriate
+- Uses design-intent language (describe scenes, lighting, mood, colors) — NOT commands like "generate" or "create"${personDirective}
 - Is 1-3 sentences max, vivid and specific
 - Never repeats the original prompt's concept — come up with something fresh
 
@@ -80,6 +85,7 @@ Brand context:
 - Keywords: ${(brandContext.keywords || []).join(', ') || 'none'}
 - Media type: ${mediaType}
 - Post caption for context: "${caption.substring(0, 200)}"
+${hasCustomPerson ? '- PERSON MODE ACTIVE: The brand owner\'s face/likeness will be injected via reference photo. Describe scenes WITH this person as the central figure.' : ''}
 
 Return ONLY the new prompt text, nothing else.`;
 
@@ -133,7 +139,7 @@ async function generateImageWithReference(prompt: string, referenceImageUrl: str
           role: 'user',
           content: [
             { type: 'image_url', image_url: { url: referenceImageUrl } },
-            { type: 'text', text: prompt },
+            { type: 'text', text: `This is a photo of a real person. Generate a new image that features THIS EXACT PERSON (same face, same likeness, same identity) in the following scene. The person must be clearly recognizable and prominently featured.\n\nScene: ${prompt}` },
           ],
         }],
         modalities: ['image', 'text'],
