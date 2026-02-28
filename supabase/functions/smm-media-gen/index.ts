@@ -55,6 +55,69 @@ async function cortexStatus(profileUsername: string, platform: string, message: 
   } catch (e) { console.error('[smm-media-gen] cortex status error:', e); }
 }
 
+/* ────── PROMPT VARIATION — AI-powered creative rewrite ────── */
+async function varyPrompt(
+  originalPrompt: string,
+  mediaType: string,
+  brandContext: { niche?: string; voice?: string; audience?: string; keywords?: string[] },
+  caption: string,
+): Promise<string> {
+  if (!LOVABLE_API_KEY) return originalPrompt;
+
+  try {
+    console.log('[smm-media-gen] Generating varied prompt via AI…');
+    const systemMsg = `You are a creative director for social media visuals. Given an original image/video prompt and brand context, write a COMPLETELY NEW visual prompt that:
+- Is for the same brand niche and audience but with a TOTALLY DIFFERENT creative concept, angle, composition, and mood
+- Uses design-intent language (describe scenes, lighting, mood, colors) — NOT commands like "generate" or "create"
+- Depicts real, diverse people smiling within this niche when appropriate
+- Is 1-3 sentences max, vivid and specific
+- Never repeats the original prompt's concept — come up with something fresh
+
+Brand context:
+- Niche: ${brandContext.niche || 'general'}
+- Voice: ${brandContext.voice || 'professional'}
+- Audience: ${brandContext.audience || 'general'}
+- Keywords: ${(brandContext.keywords || []).join(', ') || 'none'}
+- Media type: ${mediaType}
+- Post caption for context: "${caption.substring(0, 200)}"
+
+Return ONLY the new prompt text, nothing else.`;
+
+    const res = await fetch('https://api.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-lite',
+        messages: [
+          { role: 'system', content: systemMsg },
+          { role: 'user', content: `Original prompt: "${originalPrompt}"\n\nWrite a completely different creative prompt for the same brand:` },
+        ],
+        max_tokens: 300,
+        temperature: 1.0,
+      }),
+    });
+
+    if (!res.ok) {
+      console.error('[smm-media-gen] Prompt variation API error:', res.status);
+      return originalPrompt;
+    }
+
+    const data = await res.json();
+    const varied = data.choices?.[0]?.message?.content?.trim();
+    if (varied && varied.length > 20) {
+      console.log(`[smm-media-gen] Varied prompt: "${varied.substring(0, 100)}…"`);
+      return varied;
+    }
+    return originalPrompt;
+  } catch (e) {
+    console.error('[smm-media-gen] Prompt variation error:', e);
+    return originalPrompt;
+  }
+}
+
 /* ────── IMAGE GENERATION — Lovable AI (Nano Banana) ────── */
 async function generateImage(prompt: string): Promise<string | null> {
   if (!LOVABLE_API_KEY) { console.error('[smm-media-gen] LOVABLE_API_KEY not configured'); return null; }
@@ -351,7 +414,18 @@ serve(async (req) => {
         const captionSnippet = (item.caption || '').substring(0, 50);
         await cortexStatus(plan.profile_username, plan.platform, `🎨 Generating ${item.type} for ${itemDate}…\n"${captionSnippet}…"`);
 
-        const prompt = item.media_prompt || `Create a visually striking social media ${item.type} post: ${item.caption}`;
+        const basePrompt = item.media_prompt || `Create a visually striking social media ${item.type} post: ${item.caption}`;
+        
+        // On regeneration, create a totally fresh prompt using AI + brand context
+        const prompt = isRegenRequest
+          ? await varyPrompt(basePrompt, item.type, plan.brand_context || {}, item.caption || '')
+          : basePrompt;
+        
+        if (isRegenRequest) {
+          // Save the new prompt back to the item for reference
+          items[i].media_prompt = prompt;
+        }
+        
         let mediaUrl: string | null = null;
         let carouselUrls: string[] | null = null;
 
