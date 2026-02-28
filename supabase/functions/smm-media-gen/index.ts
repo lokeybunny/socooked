@@ -269,14 +269,23 @@ serve(async (req) => {
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        if (item.media_url && item.status === 'ready') { skipped++; continue; }
+
+        // Skip non-media items
         if (item.type === 'text') continue;
         if (!item.media_prompt && !item.caption) continue;
-        if (item.status !== 'draft' && item.status !== 'failed' && item.status !== 'planned') { skipped++; continue; }
+
+        // Detect video items that got a .png fallback — they need re-generation
+        const isVideoWithImageFallback = item.type === 'video' && item.media_url && /\.(png|jpg|jpeg|webp)$/i.test(item.media_url);
+
+        if (item.media_url && item.status === 'ready' && !isVideoWithImageFallback) { skipped++; continue; }
+        if (!isVideoWithImageFallback && item.status !== 'draft' && item.status !== 'failed' && item.status !== 'planned') { skipped++; continue; }
 
         const itemDate = item.date;
         if (!targetDates.has(itemDate)) { skipped++; continue; }
 
+        if (isVideoWithImageFallback) {
+          console.log(`[smm-media-gen] Re-generating video (had .png fallback) for ${itemDate}`);
+        }
         console.log(`[smm-media-gen] Generating ${item.type} for "${(item.caption || '').substring(0, 40)}…" on ${itemDate}`);
         items[i].status = 'generating';
 
