@@ -2,10 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 /**
  * SMM Media Generator — generates images (Nano Banana) and videos (Higgsfield)
- * for scheduled content plan items that are within 48 hours of their post date.
+ * for scheduled content plan items.
  *
- * Called on a cron schedule or manually. Only processes items in "live" plans
- * that have status "draft" and are within the 48-hour generation window.
+ * By default, generates media for the next 2 calendar days from now.
+ * Accepts optional `force_dates` (array of YYYY-MM-DD) to generate for specific dates.
+ * Accepts optional `plan_id` to limit to a single plan.
  */
 
 const corsHeaders = {
@@ -86,7 +87,6 @@ async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<s
   if (!HIGGSFIELD_API_KEY) { console.error('[smm-media-gen] HIGGSFIELD_API_KEY not configured'); return null; }
 
   try {
-    // Use Higgsfield API to start video generation
     const res = await fetch(`${SUPABASE_URL}/functions/v1/higgsfield-api`, {
       method: 'POST',
       headers: {
@@ -106,7 +106,6 @@ async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<s
     }
 
     const data = await res.json();
-    // Higgsfield is async — return the task ID for polling
     return data.video_url || data.task_id || null;
   } catch (e) {
     console.error('[smm-media-gen] Video generation error:', e);
@@ -114,25 +113,64 @@ async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<s
   }
 }
 
+/** Get next N calendar day strings in YYYY-MM-DD format */
+function getNextNDays(n: number): string[] {
+  const dates: string[] = [];
+  const now = new Date();
+  // Include today + next N days
+  for (let i = 0; i <= n; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+  return dates;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    // Fetch all LIVE content plans
-    const plansRes = await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans?status=eq.live&select=*`, {
+    // Parse optional body params
+    let forceDates: string[] | null = null;
+    let planId: string | null = null;
+
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        forceDates = body.force_dates || null;
+        planId = body.plan_id || null;
+      } catch { /* no body */ }
+    }
+
+    // Determine which dates to generate for
+    // Default: next 2 calendar days (today + tomorrow + day after)
+    const targetDates = new Set(forceDates || getNextNDays(2));
+    console.log('[smm-media-gen] Target dates:', [...targetDates]);
+
+    // Fetch content plans (live or draft if force_dates specified)
+    let plansQuery = `${SUPABASE_URL}/rest/v1/smm_content_plans?select=*`;
+    if (planId) {
+      plansQuery += `&id=eq.${planId}`;
+    } else if (forceDates) {
+      // When forcing specific dates, process both live and draft plans
+      plansQuery += `&status=in.(live,draft)`;
+    } else {
+      plansQuery += `&status=eq.live`;
+    }
+
+    const plansRes = await fetch(plansQuery, {
       headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}` },
     });
     const plans = await plansRes.json();
 
     if (!Array.isArray(plans) || plans.length === 0) {
-      return new Response(JSON.stringify({ message: 'No live plans found', generated: 0 }), {
+      return new Response(JSON.stringify({ message: 'No plans found', generated: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const now = new Date();
-    const cutoff = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours from now
     let generated = 0;
+    let skipped = 0;
 
     for (const plan of plans) {
       const items = (plan.schedule_items || []) as any[];
@@ -140,25 +178,33 @@ serve(async (req) => {
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        // Skip if already generated or not a media type
-        if (item.status !== 'draft' || !item.media_prompt) continue;
+        // Skip if already ready with media, or not a media type
+        if (item.media_url && item.status === 'ready') { skipped++; continue; }
         if (item.type === 'text') continue;
+        if (!item.media_prompt && !item.caption) continue;
+        // For force_dates, also retry failed items
+        if (item.status !== 'draft' && item.status !== 'failed' && item.status !== 'planned') { skipped++; continue; }
 
-        // Check if within 48-hour window
-        const postDate = new Date(`${item.date}T${item.time || '12:00'}:00Z`);
-        if (postDate > cutoff) continue; // Not within window yet
-        if (postDate < now) continue; // Already past
+        // Check if this item's date is in our target dates
+        const itemDate = item.date; // YYYY-MM-DD
+        if (!targetDates.has(itemDate)) { skipped++; continue; }
 
-        console.log(`[smm-media-gen] Generating ${item.type} for "${item.caption?.substring(0, 40)}…"`);
+        console.log(`[smm-media-gen] Generating ${item.type} for "${(item.caption || '').substring(0, 40)}…" on ${itemDate}`);
         items[i].status = 'generating';
 
+        const prompt = item.media_prompt || `Create a visually striking social media ${item.type} post: ${item.caption}`;
         let mediaUrl: string | null = null;
 
         if (item.type === 'video') {
-          mediaUrl = await generateVideo(item.media_prompt);
+          // Try video generation; if it fails, fall back to generating a still image
+          mediaUrl = await generateVideo(prompt);
+          if (!mediaUrl) {
+            console.log('[smm-media-gen] Video gen failed, falling back to image for', item.id);
+            mediaUrl = await generateImage(prompt);
+          }
         } else {
           // image or carousel
-          mediaUrl = await generateImage(item.media_prompt);
+          mediaUrl = await generateImage(prompt);
         }
 
         if (mediaUrl) {
@@ -170,6 +216,7 @@ serve(async (req) => {
             profile: plan.profile_username,
             platform: plan.platform,
             item_id: item.id,
+            date: itemDate,
             media_url: mediaUrl,
           });
         } else {
@@ -178,6 +225,7 @@ serve(async (req) => {
             name: `❌ Media gen failed: ${item.type}`,
             profile: plan.profile_username,
             item_id: item.id,
+            date: itemDate,
           });
         }
         updated = true;
@@ -197,8 +245,10 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({
-      message: `Media generation complete. Generated ${generated} asset(s).`,
+      message: `Media generation complete. Generated ${generated} asset(s), skipped ${skipped}.`,
       generated,
+      skipped,
+      target_dates: [...targetDates],
       plans_processed: plans.length,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
