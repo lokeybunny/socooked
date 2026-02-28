@@ -44,18 +44,33 @@ export default function VideoThumbnail({
 }: VideoThumbnailProps) {
   const [thumb, setThumb] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [failed, setFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setThumb(null);
     setPlaying(false);
-    extractFirstFrame(src).then(setThumb).catch(() => setThumb(null));
+    setFailed(false);
+    extractFirstFrame(src)
+      .then(setThumb)
+      .catch(() => setFailed(true));
   }, [src]);
 
-  if (!playing && thumb) {
+  // Not playing: show thumbnail or poster with play overlay
+  if (!playing) {
     return (
       <div className={`relative cursor-pointer ${className}`} onClick={() => setPlaying(true)}>
-        <img src={thumb} alt={title || 'Video thumbnail'} className={videoClassName} />
+        {thumb ? (
+          <img src={thumb} alt={title || 'Video thumbnail'} className={videoClassName} />
+        ) : (
+          <video
+            src={src}
+            className={videoClassName}
+            muted
+            playsInline
+            preload="metadata"
+          />
+        )}
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors">
           <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
             <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
