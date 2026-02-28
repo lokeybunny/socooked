@@ -120,22 +120,28 @@ function InstagramFeedPreview({ items }: { items: ScheduleItem[] }) {
         <span className="text-sm font-semibold text-foreground">STU25</span>
         <span className="ml-auto text-xs text-muted-foreground">Schedule Preview</span>
       </div>
-      <div className="grid grid-cols-3 gap-0.5 p-0.5">
+      <div className="grid grid-cols-3 gap-1 p-1">
         {items.map((item) => (
-          <div key={item.id} className="relative group cursor-pointer">
-            <AspectRatio ratio={1}>
-              {item.media_url ? (
-                <img src={item.media_url} alt={item.caption} className="w-full h-full object-cover" />
-              ) : (
-                <MediaPlaceholder item={item} />
-              )}
-              {item.type === 'video' && item.media_url && (
-                <div className="absolute top-1 right-1"><Play className="h-3 w-3 text-white drop-shadow" /></div>
-              )}
-            </AspectRatio>
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 text-white text-xs">
-              <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> —</span>
-              <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> —</span>
+          <div key={item.id} className="group cursor-pointer">
+            <div className="relative">
+              <AspectRatio ratio={1}>
+                {item.media_url ? (
+                  <img src={item.media_url} alt={item.caption} className="w-full h-full object-cover" />
+                ) : (
+                  <MediaPlaceholder item={item} />
+                )}
+                {item.type === 'video' && item.media_url && (
+                  <div className="absolute top-1 right-1"><Play className="h-3 w-3 text-white drop-shadow" /></div>
+                )}
+              </AspectRatio>
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 text-white text-xs">
+                <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> —</span>
+                <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> —</span>
+              </div>
+            </div>
+            <div className="px-1 py-1.5 space-y-0.5">
+              <p className="text-[10px] leading-tight line-clamp-2"><span className="font-semibold">STU25</span> {item.caption}</p>
+              <p className="text-[9px] text-muted-foreground">{format(parseISO(item.date), 'MMM d')} · {item.type}</p>
             </div>
           </div>
         ))}
