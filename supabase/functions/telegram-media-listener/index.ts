@@ -1598,8 +1598,11 @@ Deno.serve(async (req) => {
     }
 
     // ─── Gmail Reply: reply to a gmail-poll notification (DMs + allowed groups) ───
+    // Replies via warren@stu25.com (service account)
     if (text && (!isGroup || isAllowedGroup) && message.reply_to_message) {
       const repliedMsgId = message.reply_to_message.message_id
+
+      // Check communications table
       const { data: gmailComm } = await supabase
         .from('communications')
         .select('id, from_address, subject, metadata, customer_id')
@@ -1609,17 +1612,42 @@ Deno.serve(async (req) => {
         .filter('metadata->>telegram_message_id', 'eq', String(repliedMsgId))
         .limit(1)
 
+      // Also check webhook_events as fallback
+      let senderEmail = ''
+      let threadId = ''
+      let gmailId = ''
+      let gmailMatched = false
+
       if (gmailComm && gmailComm.length > 0) {
         const comm = gmailComm[0]
-        const senderEmail = comm.from_address || 'unknown'
         const meta = comm.metadata as any
-        const threadId = meta?.gmail_thread_id
-        const gmailId = meta?.gmail_id || comm.id
+        senderEmail = comm.from_address || 'unknown'
+        threadId = meta?.gmail_thread_id || ''
+        gmailId = meta?.gmail_id || comm.id
+        gmailMatched = true
+      } else {
+        const { data: weMatch } = await supabase
+          .from('webhook_events')
+          .select('payload')
+          .eq('source', 'gmail')
+          .eq('event_type', 'email_notification')
+          .filter('payload->>telegram_message_id', 'eq', String(repliedMsgId))
+          .limit(1)
 
-        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📨 Sending reply to ${senderEmail} via warrenthecreativeyt@gmail.com...` })
+        if (weMatch && weMatch.length > 0) {
+          const wp = weMatch[0].payload as any
+          senderEmail = wp?.from || 'unknown'
+          threadId = wp?.gmail_thread_id || ''
+          gmailId = wp?.gmail_id || ''
+          gmailMatched = true
+        }
+      }
+
+      if (gmailMatched) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📨 Sending reply to ${senderEmail} via warren@stu25.com...` })
 
         try {
-          const replyRes = await fetch(`${SUPABASE_URL}/functions/v1/gvoice-poll?action=reply`, {
+          const replyRes = await fetch(`${SUPABASE_URL}/functions/v1/gmail-poll?action=reply`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1630,14 +1658,14 @@ Deno.serve(async (req) => {
               thread_id: threadId,
               gmail_id: gmailId,
               message: text,
-              phone: senderEmail,
+              to_email: senderEmail,
             }),
           })
           const replyData = await replyRes.json()
           if (replyData?.error) {
             await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Reply failed: ${replyData.error}` })
           } else {
-            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ Reply sent to ${senderEmail}` })
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ Reply sent to ${senderEmail} via warren@stu25.com` })
           }
         } catch (e: any) {
           console.error('[gmail-reply] error:', e)

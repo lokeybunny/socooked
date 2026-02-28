@@ -91,10 +91,109 @@ Deno.serve(async (req) => {
     const isInternal = req.headers.get("x-internal") === "true";
     const botSecret = req.headers.get("x-bot-secret");
     const validBot = botSecret === Deno.env.get("BOT_SECRET");
+    // Also allow service-role auth (from telegram-media-listener)
+    const authHeader = req.headers.get("Authorization") || "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const isServiceRole = authHeader === `Bearer ${serviceKey}`;
 
-    if (!isInternal && !validBot) {
+    if (!isInternal && !validBot && !isServiceRole) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action");
+
+    // ─── Reply action: send email reply via warren@stu25.com ───
+    if (action === "reply") {
+      const { thread_id, gmail_id, message, to_email } = await req.json();
+      if (!message) throw new Error("message required");
+      if (!to_email) throw new Error("to_email required");
+
+      // Build service account access token with gmail.modify scope
+      const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
+      if (!saJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured");
+      let sa: any;
+      for (const attempt of [
+        () => JSON.parse(saJson),
+        () => JSON.parse(saJson.replace(/\\n/g, "\n")),
+        () => JSON.parse(saJson.replace(/\\\\n/g, "\n")),
+      ]) {
+        try { sa = attempt(); break; } catch {}
+      }
+      if (!sa) throw new Error("Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON");
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const jwtH = base64url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
+      const jwtP = base64url(new TextEncoder().encode(JSON.stringify({
+        iss: sa.client_email,
+        sub: IMPERSONATE_EMAIL,
+        scope: "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send",
+        aud: GOOGLE_TOKEN_URL,
+        iat: nowSec,
+        exp: nowSec + 3600,
+      })));
+      const sigInput = `${jwtH}.${jwtP}`;
+      const pemB = sa.private_key.replace(/-----BEGIN PRIVATE KEY-----/, "").replace(/-----END PRIVATE KEY-----/, "").replace(/\s/g, "");
+      const kd = Uint8Array.from(atob(pemB), (c) => c.charCodeAt(0));
+      const ck = await crypto.subtle.importKey("pkcs8", kd, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]);
+      const s = new Uint8Array(await crypto.subtle.sign("RSASSA-PKCS1-v1_5", ck, new TextEncoder().encode(sigInput)));
+      const jwtToken = `${sigInput}.${base64url(s)}`;
+      const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwtToken}`,
+      });
+      const tokenData = await tokenRes.json();
+      if (!tokenRes.ok) throw new Error(`Token error: ${JSON.stringify(tokenData)}`);
+      const replyToken = tokenData.access_token;
+
+      // Build raw MIME reply
+      const rawLines = [
+        `From: ${IMPERSONATE_EMAIL}`,
+        `To: ${to_email}`,
+        `Subject: Re: ${to_email}`,
+        `In-Reply-To: ${gmail_id || ""}`,
+        `Content-Type: text/plain; charset=UTF-8`,
+        `MIME-Version: 1.0`,
+        "",
+        message,
+      ];
+      const raw = btoa(unescape(encodeURIComponent(rawLines.join("\r\n"))))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+
+      const sendRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${replyToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ raw, threadId: thread_id || undefined }),
+      });
+      const sendData = await sendRes.json();
+      if (!sendRes.ok) throw new Error(`Send error: ${JSON.stringify(sendData)}`);
+
+      // Log outbound communication
+      const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      await supabase.from("communications").insert({
+        type: "email",
+        direction: "outbound",
+        subject: `Re: ${to_email}`,
+        body: message.slice(0, 2000),
+        from_address: IMPERSONATE_EMAIL,
+        to_address: to_email,
+        status: "sent",
+        provider: "gmail-poll-reply",
+        external_id: sendData.id,
+        metadata: { gmail_id: sendData.id, thread_id: thread_id },
+      });
+
+      console.log(`[gmail-poll] Reply sent to ${to_email} via ${IMPERSONATE_EMAIL}`);
+      return new Response(JSON.stringify({ success: true, id: sendData.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
