@@ -247,6 +247,12 @@ serve(async (req) => {
       const body = extractBody(msg.payload || {});
       const { phone, content, type } = parseGVoiceEmail(subject, body);
       
+      // Skip if no phone number detected — only forward actual texts/calls, not generic emails
+      if (!phone || !/\d{3,}/.test(phone.replace(/\D/g, ''))) {
+        console.log(`[gvoice-poll] Skipping msg ${m.id} — no phone number detected in subject: "${subject}"`);
+        continue;
+      }
+
       // The actual reply address is in Reply-To header (e.g. 14244651253.17027016192.xxx@txt.voice.google.com)
       const effectiveReplyTo = replyTo || from || GVOICE_SENDER;
       console.log(`[gvoice-poll] Reply-To: ${replyTo}, From: ${from}, Effective: ${effectiveReplyTo}`);
