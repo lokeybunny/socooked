@@ -37,6 +37,17 @@ const SOURCE_LABELS: Record<string, string> = Object.fromEntries(RESEARCH_SOURCE
 const FINDING_TYPES = ['lead', 'competitor', 'resource', 'trend', 'other'] as const;
 const STATUSES = ['new', 'reviewed', 'converted', 'dismissed'] as const;
 
+interface MatchedTweet {
+  text: string;
+  user: string;
+  favorites: number;
+  retweets: number;
+  url: string;
+  profile_pic: string;
+  media_url: string;
+  token_symbol?: string;
+}
+
 interface Narrative {
   name: string;
   confidence: number;
@@ -63,7 +74,9 @@ export default function Research() {
   const [progressLog, setProgressLog] = useState<Array<{ step: number; label: string; status: string; detail: string; ts: string }>>([]);
   const [showLog, setShowLog] = useState(false);
   const [topNarratives, setTopNarratives] = useState<Narrative[]>([]);
+  const [topTweets, setTopTweets] = useState<MatchedTweet[]>([]);
   const [cycleChainOfThought, setCycleChainOfThought] = useState('');
+  const [cycleReasoning, setCycleReasoning] = useState('');
   const [evolvedQueries, setEvolvedQueries] = useState<string[]>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -219,7 +232,9 @@ export default function Research() {
     setGenerating(true);
     setProgressLog([]);
     setTopNarratives([]);
+    setTopTweets([]);
     setCycleChainOfThought('');
+    setCycleReasoning('');
     setEvolvedQueries([]);
     setShowLog(true);
 
@@ -297,8 +312,14 @@ export default function Research() {
               if (data.top_narratives?.length) {
                 setTopNarratives(data.top_narratives);
               }
+              if (data.top_tweets?.length) {
+                setTopTweets(data.top_tweets);
+              }
               if (data.chain_of_thought) {
                 setCycleChainOfThought(data.chain_of_thought);
+              }
+              if (data.reasoning) {
+                setCycleReasoning(data.reasoning);
               }
               if (data.evolved_queries?.length) {
                 setEvolvedQueries(data.evolved_queries);
@@ -555,8 +576,19 @@ export default function Research() {
               <span className="text-sm font-bold text-foreground">Cortex Cycle Complete — Top {topNarratives.length} Narratives Right Now</span>
             </div>
             <div className="p-4 space-y-4">
+              {/* Cortex Reasoning Summary */}
+              {cycleReasoning && cycleReasoning !== 'No Grok analysis available' && (
+                <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Brain className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs font-bold text-foreground">Cortex Analysis</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{cycleReasoning}</p>
+                </div>
+              )}
+
               {topNarratives.map((n, i) => (
-                <div key={i} className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
+                <div key={i} className="space-y-3 p-3 rounded-lg bg-muted/30 border border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg font-bold text-foreground">{i + 1}.</span>
@@ -564,16 +596,23 @@ export default function Research() {
                     </div>
                     <div className={cn(
                       "px-2 py-0.5 rounded-full text-xs font-bold",
-                      n.confidence >= 90 ? "bg-emerald-500/20 text-emerald-500" :
-                      n.confidence >= 75 ? "bg-amber-500/20 text-amber-500" :
+                      n.confidence >= 90 ? "bg-primary/20 text-primary" :
+                      n.confidence >= 75 ? "bg-accent/20 text-accent-foreground" :
                       "bg-muted text-muted-foreground"
                     )}>
                       {n.confidence}/100
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    <strong className="text-foreground">Why 100x:</strong> {n.why_100x}
-                  </p>
+
+                  {/* Why 100x — Cortex reasoning */}
+                  <div className="p-2.5 rounded-md bg-primary/5 border border-primary/10">
+                    <p className="text-xs text-foreground leading-relaxed">
+                      <Zap className="h-3 w-3 inline mr-1 text-primary" />
+                      <strong>Why 100x:</strong> {n.why_100x}
+                    </p>
+                  </div>
+
+                  {/* Example tokens + metadata */}
                   <div className="flex flex-wrap gap-1.5">
                     {n.example_tokens?.map((t, j) => (
                       <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono font-medium">{t}</span>
@@ -582,16 +621,107 @@ export default function Research() {
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">MCAP: {n.mcap_range}</span>
                     )}
                   </div>
+
                   <div className="flex items-center gap-3 text-[10px]">
-                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                    <span className="flex items-center gap-1 text-primary">
                       <Target className="h-3 w-3" /> {n.timing}
                     </span>
                     <span className="flex items-center gap-1 text-muted-foreground">
                       <TrendingUp className="h-3 w-3" /> {n.strategy}
                     </span>
                   </div>
+
+                  {/* Matched tweets for this narrative */}
+                  {(() => {
+                    const narrativeTweets = topTweets.filter(tw => 
+                      n.example_tokens?.some(t => t.replace('$', '').toLowerCase() === tw.token_symbol?.toLowerCase())
+                    );
+                    if (narrativeTweets.length === 0) return null;
+                    return (
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Supporting Tweets</span>
+                        {narrativeTweets.slice(0, 3).map((tw, j) => (
+                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-background/60 border border-border">
+                            {/* Profile pic or media */}
+                            {(tw.media_url || tw.profile_pic) && (
+                              <div className="shrink-0">
+                                <img
+                                  src={tw.media_url || tw.profile_pic}
+                                  alt=""
+                                  className={cn(
+                                    "object-cover bg-muted",
+                                    tw.media_url ? "w-16 h-16 rounded-md" : "w-8 h-8 rounded-full"
+                                  )}
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                {!tw.media_url && tw.profile_pic && (
+                                  <img src={tw.profile_pic} alt="" className="w-4 h-4 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                )}
+                                <span className="text-[10px] font-semibold text-foreground">@{tw.user}</span>
+                                <span className="text-[10px] text-muted-foreground">❤ {tw.favorites} · 🔁 {tw.retweets}</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                              {tw.url && (
+                                <a
+                                  href={tw.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1"
+                                >
+                                  <ExternalLink className="h-2.5 w-2.5" /> View on X
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
+
+              {/* Top tweets that didn't match a narrative */}
+              {topTweets.length > 0 && topNarratives.length === 0 && (
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5" /> Top Tweets Found
+                  </span>
+                  {topTweets.slice(0, 6).map((tw, j) => (
+                    <div key={j} className="flex gap-2.5 p-2.5 rounded-md bg-muted/30 border border-border">
+                      {(tw.media_url || tw.profile_pic) && (
+                        <div className="shrink-0">
+                          <img
+                            src={tw.media_url || tw.profile_pic}
+                            alt=""
+                            className={cn(
+                              "object-cover bg-muted",
+                              tw.media_url ? "w-16 h-16 rounded-md" : "w-8 h-8 rounded-full"
+                            )}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-[10px] font-semibold text-foreground">@{tw.user}</span>
+                          <span className="text-[10px] px-1 rounded bg-primary/10 text-primary font-mono">${tw.token_symbol}</span>
+                          <span className="text-[10px] text-muted-foreground">❤ {tw.favorites} · 🔁 {tw.retweets}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                        {tw.url && (
+                          <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1">
+                            <ExternalLink className="h-2.5 w-2.5" /> View on X
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {cycleChainOfThought && (
                 <details className="text-xs">
