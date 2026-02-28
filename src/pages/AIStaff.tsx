@@ -436,7 +436,7 @@ export default function AIStaff() {
         const readyCount = items.filter((i: any) => i.status === 'ready').length;
         const genCount = items.filter((i: any) => i.status === 'generating').length;
         const totalCount = items.length;
-        const planStatus = genCount > 0 ? 'in_progress' : p.status === 'live' ? 'completed' : 'queued';
+        const planStatus = genCount > 0 ? 'in_progress' : 'completed';
         return {
           id: `plan-${p.id}`,
           title: `📋 ${p.plan_name} — ${readyCount}/${totalCount} ready${genCount > 0 ? ` (${genCount} generating)` : ''}`,
