@@ -1825,8 +1825,18 @@ Deno.serve(async (req) => {
 
     if (activeSessions && activeSessions.length > 0) {
       const session = activeSessions[0]
-      const sessionType = session.event_type
       const sp = session.payload as any
+
+      // Auto-expire sessions older than 15 minutes — stale sessions should not catch free text
+      const sessionAge = Date.now() - (sp.created || 0)
+      const SESSION_TTL = 15 * 60 * 1000 // 15 minutes
+      if (sessionAge > SESSION_TTL) {
+        await supabase.from('webhook_events').delete().eq('id', session.id)
+        // Session expired, fall through to silence
+        return new Response('ok')
+      }
+
+      const sessionType = session.event_type
       const history = sp.history || []
 
       // Check for media in the message (for banana/higgsfield)
@@ -2010,14 +2020,7 @@ Deno.serve(async (req) => {
     // ─── In groups, ignore free text without media or commands ───
     if (isGroup) return new Response('ok')
 
-    // ─── Fallback for unrecognized text in DMs ───
-    if (text) {
-      await tgPost(TG_TOKEN, 'sendMessage', {
-        chat_id: chatId,
-        text: '🤖 I didn\'t catch that. Tap a button below or type /menu to see all commands.\n\n<i>Tip: You can also just describe what you need — "Send Bryan an email" or "Create an invoice for $500"</i>',
-        parse_mode: 'HTML',
-      })
-    }
+    // ─── DMs: stay silent for unrecognized free text (command-only policy) ───
 
     return new Response('ok')
 
