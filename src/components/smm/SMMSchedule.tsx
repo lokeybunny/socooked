@@ -25,6 +25,7 @@ import {
   Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send,
   ThumbsUp, Repeat2, Eye, Play, Zap, Clock, CheckCircle2,
   AlertCircle, Loader2, RotateCcw, Pencil, Upload, Trash2,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { uploadToStorage } from '@/lib/storage';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
@@ -115,6 +116,108 @@ function MediaPlaceholder({ item }: { item: ScheduleItem }) {
           <span className="text-[9px] text-muted-foreground/60">Template</span>
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Carousel Slide Editor (swipeable single-image view with per-slide edit) ───
+function CarouselSlideEditor({
+  carouselUrls, onUrlsChange, onRegenerate, onFileUpload, fileInputRef, uploading, regenerating,
+}: {
+  carouselUrls: string[];
+  onUrlsChange: (urls: string[]) => void;
+  onRegenerate: () => void;
+  onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  uploading: boolean;
+  regenerating: boolean;
+}) {
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [slideFileRef] = useState(() => ({ current: null as HTMLInputElement | null }));
+
+  const total = carouselUrls.length;
+  const prev = () => setActiveSlide(i => Math.max(0, i - 1));
+  const next = () => setActiveSlide(i => Math.min(total - 1, i + 1));
+
+  const handleSlideReplace = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) { toast.error('Please upload an image'); return; }
+    try {
+      const url = await uploadToStorage(file, {
+        category: 'smm', customerName: 'schedule', source: 'smm-carousel', fileName: file.name,
+      });
+      const updated = [...carouselUrls];
+      updated[activeSlide] = url;
+      onUrlsChange(updated);
+      toast.success(`Slide ${activeSlide + 1} replaced`);
+    } catch (err: any) {
+      toast.error(err.message || 'Upload failed');
+    }
+    if (slideFileRef.current) slideFileRef.current.value = '';
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Large single-image view with arrows */}
+      <div className="relative rounded-lg overflow-hidden border border-border/50 bg-muted/20">
+        <AspectRatio ratio={1}>
+          <img
+            src={carouselUrls[activeSlide]}
+            alt={`Slide ${activeSlide + 1}`}
+            className="w-full h-full object-cover transition-all duration-200"
+          />
+        </AspectRatio>
+
+        {/* Slide counter */}
+        <div className="absolute top-2 right-2 bg-black/60 text-white text-[11px] px-2 py-0.5 rounded-full font-medium">
+          {activeSlide + 1} / {total}
+        </div>
+
+        {/* Left arrow */}
+        {activeSlide > 0 && (
+          <button onClick={prev} className="absolute left-1.5 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        )}
+        {/* Right arrow */}
+        {activeSlide < total - 1 && (
+          <button onClick={next} className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 transition-colors">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        )}
+      </div>
+
+      {/* Dot indicators */}
+      <div className="flex items-center justify-center gap-1.5">
+        {carouselUrls.map((_, idx) => (
+          <button
+            key={idx}
+            onClick={() => setActiveSlide(idx)}
+            className={`h-1.5 rounded-full transition-all ${
+              idx === activeSlide ? 'w-4 bg-primary' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Per-slide actions */}
+      <div className="flex gap-2">
+        <input
+          ref={el => { slideFileRef.current = el; }}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleSlideReplace}
+        />
+        <Button size="sm" variant="outline" className="gap-1.5 text-xs flex-1" onClick={() => slideFileRef.current?.click()} disabled={uploading}>
+          {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+          Replace Slide {activeSlide + 1}
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 text-xs flex-1" onClick={onRegenerate} disabled={regenerating}>
+          {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {regenerating ? 'Generating…' : 'Re-gen All'}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -311,33 +414,21 @@ function ScheduleItemModal({
           {/* Media Preview + Upload */}
           <div className="space-y-2">
             <Label>Media {type === 'carousel' && item.carousel_urls?.length ? `(${item.carousel_urls.length} slides)` : ''}</Label>
-            {/* Carousel slides preview */}
+            {/* Carousel slides preview — swipeable single-image view */}
             {type === 'carousel' && item.carousel_urls && item.carousel_urls.length > 1 ? (
-              <div className="space-y-2">
-                <div className="grid grid-cols-3 gap-1.5 rounded-lg overflow-hidden border border-border/50">
-                  {item.carousel_urls.map((url, idx) => (
-                    <div key={idx} className="relative group/slide">
-                      <AspectRatio ratio={1}>
-                        <img src={url} alt={`Slide ${idx + 1}`} className="w-full h-full object-cover" />
-                      </AspectRatio>
-                      <div className="absolute bottom-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1 rounded">{idx + 1}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="gap-1.5 text-xs flex-1" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                    {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                    Replace
-                  </Button>
-                  <Button size="sm" variant="outline" className="gap-1.5 text-xs flex-1" onClick={handleRegenerate} disabled={regenerating}>
-                    {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    {regenerating ? 'Generating…' : 'Re-generate All'}
-                  </Button>
-                  <Button size="sm" variant="destructive" className="gap-1.5 text-xs" onClick={handleRemoveMedia}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
+              <CarouselSlideEditor
+                carouselUrls={item.carousel_urls}
+                onUrlsChange={(urls) => {
+                  // Update the item's carousel_urls in local state (saved on Save)
+                  item.carousel_urls = urls;
+                  setMediaUrl(urls[0]); // keep main media_url in sync
+                }}
+                onRegenerate={handleRegenerate}
+                onFileUpload={handleFileUpload}
+                fileInputRef={fileInputRef}
+                uploading={uploading}
+                regenerating={regenerating}
+              />
             ) : (
               <>
                 <div className="w-full rounded-lg overflow-hidden border border-border/50 relative group">
