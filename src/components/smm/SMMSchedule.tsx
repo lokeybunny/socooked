@@ -26,7 +26,7 @@ import {
   Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send,
   ThumbsUp, Repeat2, Eye, Play, Zap, Clock, CheckCircle2,
   AlertCircle, Loader2, RotateCcw, Pencil, Upload, Trash2,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ImagePlus, X,
 } from 'lucide-react';
 import { uploadToStorage } from '@/lib/storage';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
@@ -59,6 +59,7 @@ interface ContentPlan {
     audience?: string;
     keywords?: string[];
     hashtag_sets?: Record<string, string[]>;
+    reference_images?: string[];
   };
   schedule_items: ScheduleItem[];
   created_at: string;
@@ -756,6 +757,182 @@ function EmptySchedule({ onGenerate }: { onGenerate: () => void }) {
   );
 }
 
+// ─── Custom Brand Images Dialog ───
+function CustomBrandDialog({
+  open,
+  onOpenChange,
+  profileId,
+  currentPlan,
+  onUpdated,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  profileId: string;
+  currentPlan: ContentPlan | null;
+  onUpdated: () => void;
+}) {
+  const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [dragging, setDragging] = useState(false);
+
+  // Load existing reference images from brand_context
+  useEffect(() => {
+    if (open && currentPlan?.brand_context?.reference_images) {
+      setImages((currentPlan.brand_context as any).reference_images || []);
+    } else if (open) {
+      setImages([]);
+    }
+  }, [open, currentPlan]);
+
+  const handleFiles = async (files: FileList | File[]) => {
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) { toast.error('Only image files are allowed'); return; }
+    setUploading(true);
+    const newUrls: string[] = [];
+    for (const file of imageFiles) {
+      try {
+        const url = await uploadToStorage(file, {
+          category: 'smm-brand',
+          customerName: profileId,
+          source: 'custom-brand',
+          fileName: file.name,
+        });
+        newUrls.push(url);
+      } catch (err: any) {
+        toast.error(`Failed to upload ${file.name}: ${err.message}`);
+      }
+    }
+    if (newUrls.length > 0) {
+      setImages(prev => [...prev, ...newUrls]);
+      toast.success(`${newUrls.length} image(s) uploaded`);
+    }
+    setUploading(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
+  };
+
+  const handleRemoveImage = (idx: number) => {
+    setImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSave = async () => {
+    if (!currentPlan) {
+      // Save as standalone brand context if no plan exists yet
+      // Store in content_assets as brand reference images
+      for (const url of images) {
+        await supabase.from('content_assets').insert({
+          title: `Brand Reference — ${profileId}`,
+          type: 'image',
+          url,
+          source: 'custom-brand',
+          folder: `Brand References/${profileId}`,
+          status: 'published',
+          tags: ['brand-reference', profileId],
+        });
+      }
+      toast.success('Brand images saved to content library');
+      onOpenChange(false);
+      return;
+    }
+
+    // Update brand_context with reference_images
+    const updatedContext = {
+      ...(currentPlan.brand_context || {}),
+      reference_images: images,
+    };
+    const { error } = await supabase
+      .from('smm_content_plans')
+      .update({ brand_context: updatedContext as any, updated_at: new Date().toISOString() } as any)
+      .eq('id', currentPlan.id);
+    if (error) {
+      toast.error('Failed to save: ' + error.message);
+    } else {
+      toast.success(`${images.length} brand reference image(s) saved — Banana2 will use these for content generation.`);
+      onUpdated();
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ImagePlus className="h-4 w-4" /> Custom Brand Images
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-muted-foreground">
+          Upload images of your brand (products, locations, team, etc.). These will be used as reference images
+          with Banana2 AI to generate branded content with different angles, locations, and advertisements for your niche.
+        </p>
+
+        {/* Drop zone */}
+        <div
+          onDragOver={e => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+            dragging ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-primary/30'
+          }`}
+          onClick={() => {
+            const inp = document.createElement('input');
+            inp.type = 'file';
+            inp.accept = 'image/*';
+            inp.multiple = true;
+            inp.onchange = (e) => {
+              const files = (e.target as HTMLInputElement).files;
+              if (files) handleFiles(files);
+            };
+            inp.click();
+          }}
+        >
+          {uploading ? (
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="text-xs text-muted-foreground">Uploading…</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <Upload className="h-6 w-6 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Drag & drop images here, or click to browse</span>
+            </div>
+          )}
+        </div>
+
+        {/* Image grid */}
+        {images.length > 0 && (
+          <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+            {images.map((url, idx) => (
+              <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/50">
+                <AspectRatio ratio={1}>
+                  <img src={url} alt={`Brand ${idx + 1}`} className="w-full h-full object-cover" />
+                </AspectRatio>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleRemoveImage(idx); }}
+                  className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} className="gap-1.5" disabled={uploading}>
+            <CheckCircle2 className="h-3.5 w-3.5" /> Save {images.length} Image{images.length !== 1 ? 's' : ''}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Cortex Chat Panel (synced with Telegram via smm_conversations table) ───
 function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string; platform: string; onPlanCreated: () => void }) {
   const [messages, setMessages] = useState<{ id?: string; role: string; text: string; source?: string }[]>([]);
@@ -956,6 +1133,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const [retryItems, setRetryItems] = useState<any[]>([]);
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [customDialogOpen, setCustomDialogOpen] = useState(false);
 
   const handleItemClick = (item: ScheduleItem) => {
     setEditingItem(item);
@@ -1326,7 +1504,17 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             </AlertDialog>
           )}
 
-          {/* ─── GENERATE AI BUTTON (draft or live) ─── */}
+          {/* Custom Brand Images Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+            onClick={() => setCustomDialogOpen(true)}
+          >
+            <ImagePlus className="h-3.5 w-3.5" />
+            Custom
+          </Button>
+
           {currentPlan && (
             <Button
               variant="outline"
@@ -1517,6 +1705,14 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         onSave={handleSaveItem}
         planIsLive={isLive}
         plan={currentPlan || null}
+      />
+
+      <CustomBrandDialog
+        open={customDialogOpen}
+        onOpenChange={setCustomDialogOpen}
+        profileId={profileId || 'STU25'}
+        currentPlan={currentPlan || null}
+        onUpdated={fetchPlans}
       />
     </div>
   );

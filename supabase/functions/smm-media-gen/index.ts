@@ -118,7 +118,75 @@ Return ONLY the new prompt text, nothing else.`;
   }
 }
 
-/* ────── IMAGE GENERATION — Lovable AI (Nano Banana) ────── */
+/* ────── IMAGE GENERATION WITH REFERENCE — Banana2 (image-to-image) ────── */
+async function generateImageWithReference(prompt: string, referenceImageUrl: string): Promise<string | null> {
+  if (!LOVABLE_API_KEY) { console.error('[smm-media-gen] LOVABLE_API_KEY not configured'); return null; }
+
+  try {
+    console.log('[smm-media-gen] Generating image via Banana2 (reference image)...');
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'google/gemini-3-pro-image-preview',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: referenceImageUrl } },
+            { type: 'text', text: prompt },
+          ],
+        }],
+        modalities: ['image', 'text'],
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('[smm-media-gen] Banana2 error:', res.status, err);
+      // Fall back to Banana1 (no reference)
+      console.log('[smm-media-gen] Falling back to Banana1...');
+      return generateImage(prompt);
+    }
+
+    const data = await res.json();
+    const choice = data.choices?.[0]?.message;
+    const base64Url = choice?.images?.[0]?.image_url?.url
+      || choice?.content?.find?.((p: any) => p.type === 'image_url')?.image_url?.url
+      || null;
+    if (!base64Url) {
+      console.error('[smm-media-gen] No image in Banana2 response, falling back to Banana1');
+      return generateImage(prompt);
+    }
+
+    // Upload base64 to Supabase storage
+    const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, '');
+    const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+    const fileName = `smm/generated/${crypto.randomUUID()}.png`;
+
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/content-uploads/${fileName}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'Content-Type': 'image/png', 'x-upsert': 'true',
+      },
+      body: binaryData,
+    });
+
+    if (!uploadRes.ok) {
+      console.error('[smm-media-gen] Upload failed:', await uploadRes.text());
+      return null;
+    }
+
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/content-uploads/${fileName}`;
+    console.log('[smm-media-gen] Banana2 image uploaded:', publicUrl);
+    return publicUrl;
+  } catch (e) {
+    console.error('[smm-media-gen] Banana2 error:', e);
+    return generateImage(prompt);
+  }
+}
+
+/* ────── IMAGE GENERATION — Lovable AI (Nano Banana / Banana1) ────── */
 async function generateImage(prompt: string): Promise<string | null> {
   if (!LOVABLE_API_KEY) { console.error('[smm-media-gen] LOVABLE_API_KEY not configured'); return null; }
 
@@ -564,8 +632,16 @@ serve(async (req) => {
             mediaUrl = carouselUrls[0]; // Primary thumbnail
           }
         } else {
-          // image → Lovable AI
-          mediaUrl = await generateImage(prompt);
+          // image → Check for brand reference images (use Banana2) or Banana1
+          const referenceImages = (plan.brand_context?.reference_images || []) as string[];
+          if (referenceImages.length > 0) {
+            // Pick a random reference image for variety
+            const refImg = referenceImages[Math.floor(Math.random() * referenceImages.length)];
+            console.log(`[smm-media-gen] Using Banana2 with reference image: ${refImg}`);
+            mediaUrl = await generateImageWithReference(prompt, refImg);
+          } else {
+            mediaUrl = await generateImage(prompt);
+          }
         }
 
         if (mediaUrl) {
