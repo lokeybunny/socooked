@@ -5,6 +5,7 @@ import { Sparkles } from 'lucide-react';
 
 const AI_TABS = [
   { id: 'nanob', label: 'NanoB', hint: 'Gemini image generation & editing', placeholder: 'generate a hero banner for a tech startup…' },
+  { id: 'banana2', label: 'Banana2', hint: 'Gemini 3 Pro image generation', placeholder: 'a photorealistic portrait in golden hour light…' },
   { id: 'kling3', label: 'Kling3', hint: 'Video generation (coming soon)', placeholder: 'create a 5s product reveal animation…' },
   { id: 'seed2', label: 'Seed2', hint: 'Seed-based generation (coming soon)', placeholder: 'generate variations from seed…' },
 ] as const;

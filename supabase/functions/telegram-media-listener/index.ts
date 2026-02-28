@@ -34,9 +34,9 @@ const PERSISTENT_KEYBOARD = {
 const PAGE_2_KEYBOARD = {
   keyboard: [
     [{ text: '🌐 Web Dev' }, { text: '🍌 Banana' }],
-    [{ text: '🎬 Higgsfield' }, { text: '🤖 AI Assistant' }],
-    [{ text: '📧 Email' }, { text: '❌ Cancel' }],
-    [{ text: '⬅️ Back' }],
+    [{ text: '🍌2️⃣ Banana2' }, { text: '🎬 Higgsfield' }],
+    [{ text: '🤖 AI Assistant' }, { text: '📧 Email' }],
+    [{ text: '❌ Cancel' }, { text: '⬅️ Back' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -61,6 +61,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'assistant', description: '🤖 AI Assistant — multi-module orchestrator' },
     { command: 'webdev', description: '🌐 Web Dev Terminal' },
     { command: 'banana', description: '🍌 Nano Banana Image Gen' },
+    { command: 'banana2', description: '🍌2️⃣ Banana2 — Gemini 3 Image Gen' },
     { command: 'higgsfield', description: '🎬 Higgsfield AI Generate' },
     { command: 'xpost', description: '📡 Quick post to social media' },
     { command: 'higs', description: '🎬 Higgsfield model list' },
@@ -103,7 +104,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'higgsfield' | 'email' | 'assistant' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -118,6 +119,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'more' || normalized === '/more') return 'more'
   if (normalized === 'back' || normalized === '/back') return 'back'
   if (normalized === 'web dev' || normalized === 'webdev' || normalized === '/webdev') return 'webdev'
+  if (normalized === 'banana2' || normalized === '/banana2') return 'banana2'
   if (normalized === 'banana' || normalized === '/banana') return 'banana'
   if (normalized === 'higgsfield' || normalized === '/higgsfield') return 'higgsfield'
   if (normalized === 'email' || normalized === '/email') return 'email'
@@ -913,6 +915,84 @@ async function processBananaCommand(
   }
 }
 
+// ─── Banana2 (Gemini 3 Pro Image) Terminal via Telegram ───
+async function processBanana2Command(
+  chatId: number,
+  prompt: string,
+  history: { role: string; text: string }[],
+  tgToken: string,
+  supabaseUrl: string,
+  botSecret: string,
+  supabase: any,
+  imageUrl?: string,
+) {
+  const editMode = !!imageUrl
+  await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: editMode ? '🍌2️⃣ Editing image with Banana2...' : '🍌2️⃣ Generating image with Banana2 (Gemini 3)...', parse_mode: 'HTML' })
+
+  try {
+    const payload: Record<string, unknown> = { prompt, provider: 'nano-banana', model: 'google/gemini-3-pro-image-preview' }
+    if (imageUrl) payload.image_url = imageUrl
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/generate-content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-bot-secret': botSecret,
+      },
+      body: JSON.stringify(payload),
+    })
+    const rawData = await res.json()
+    const result = rawData?.data || rawData
+
+    let replyText = ''
+
+    if (result?.url) {
+      replyText = `🍌2️⃣ <b>Banana2 Image Generated!</b>\n\n🔗 <a href="${result.url}">View Image</a>\n📋 <i>${prompt.slice(0, 200)}</i>`
+      try {
+        await tgPost(tgToken, 'sendPhoto', { chat_id: chatId, photo: result.url, caption: `🍌2️⃣ ${prompt.slice(0, 200)}` })
+      } catch (_e) { /* fallback to text link */ }
+    } else if (result?.content_asset_id || result?.id) {
+      replyText = `✅ <b>Banana2 image created!</b>\n🆔 <code>${result.content_asset_id || result.id}</code>\n\nCheck the Content Library for your image.`
+    } else if (result?.error) {
+      replyText = `❌ ${result.error}`
+    } else {
+      replyText = `<pre>${JSON.stringify(result, null, 2).slice(0, 3500)}</pre>`
+    }
+
+    // Update conversation history
+    const { data: sessions } = await supabase.from('webhook_events')
+      .select('id, payload')
+      .eq('source', 'telegram').eq('event_type', 'banana2_session')
+      .filter('payload->>chat_id', 'eq', String(chatId))
+      .limit(1)
+
+    if (sessions && sessions.length > 0) {
+      const session = sessions[0]
+      const payload = session.payload as { chat_id: number; history: any[]; created: number }
+      const newHistory = [
+        ...(payload.history || []),
+        { role: 'user', text: prompt },
+        { role: 'assistant', text: replyText.slice(0, 500) },
+      ].slice(-10)
+      await supabase.from('webhook_events').update({ payload: { ...payload, history: newHistory } }).eq('id', session.id)
+    }
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: replyText.slice(0, 4000),
+      parse_mode: 'HTML',
+      disable_web_page_preview: false,
+    })
+  } catch (e: any) {
+    console.error('[banana2-tg] error:', e)
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `❌ <b>Banana2 command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      parse_mode: 'HTML',
+    })
+  }
+}
+
 // ─── Higgsfield AI Terminal via Telegram ───
 async function processHiggsFieldCommand(
   chatId: number,
@@ -1645,8 +1725,8 @@ Deno.serve(async (req) => {
     }
 
     // Session types we track (moved to module-level constants for performance)
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
-    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session']
+    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session']
 
     // action already resolved above (before reply guard)
 
@@ -1759,6 +1839,7 @@ Deno.serve(async (req) => {
       custom: 'custom_session',
       webdev: 'webdev_session',
       banana: 'banana_session',
+      banana2: 'banana2_session',
       higgsfield: 'higgsfield_session',
       email: 'email_session',
       assistant: 'assistant_session',
@@ -1796,6 +1877,7 @@ Deno.serve(async (req) => {
         custom: '📦 Custom-U Terminal',
         webdev: '🌐 Web Dev Terminal',
         banana: '🍌 Banana Image Gen',
+        banana2: '🍌2️⃣ Banana2 (Gemini 3)',
         higgsfield: '🎬 Higgsfield AI',
         email: '📧 AI Email Composer',
         assistant: '🤖 AI Assistant',
@@ -1810,6 +1892,7 @@ Deno.serve(async (req) => {
         custom: 'Try: "Generate a portal link for Bryan"',
         webdev: 'Try: "Build a landing page for a coffee shop"',
         banana: 'Try: "A futuristic city at sunset in cyberpunk style"',
+        banana2: 'Try: "A photorealistic portrait of a woman in golden hour light"',
         higgsfield: 'Try: "A cat playing piano" or attach an image for video',
         email: 'Try: "Send Bryan an email telling him how great he is"',
         assistant: 'Try: "Build Warren a website, then email him the link, and send a $500 invoice"',
@@ -1864,7 +1947,7 @@ Deno.serve(async (req) => {
       const media = extractMedia(message)
       let imageUrl: string | undefined
 
-      if (media && (sessionType === 'banana_session' || sessionType === 'higgsfield_session')) {
+      if (media && (sessionType === 'banana_session' || sessionType === 'banana2_session' || sessionType === 'higgsfield_session')) {
         const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1894,6 +1977,8 @@ Deno.serve(async (req) => {
         await processWebDevCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase)
       } else if (sessionType === 'banana_session') {
         await processBananaCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl)
+      } else if (sessionType === 'banana2_session') {
+        await processBanana2Command(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl)
       } else if (sessionType === 'higgsfield_session') {
         await processHiggsFieldCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl, sp.gen_type, sp.model)
       } else {

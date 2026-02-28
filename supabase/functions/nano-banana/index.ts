@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 const LOVABLE_AI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions'
-const MODEL = 'google/gemini-2.5-flash-image'
+const DEFAULT_MODEL = 'google/gemini-2.5-flash-image'
 
 function ok(data: unknown, status = 200) {
   return new Response(JSON.stringify({ success: true, data }), {
@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
 
     // ─── GENERATE: Submit image generation via Gemini nano banana ──────
     if (path === 'generate' && req.method === 'POST') {
-      const { prompt, customer_id, customer_name, image_url } = body as any
+      const { prompt, customer_id, customer_name, image_url, model: requestedModel } = body as any
+      const MODEL = requestedModel || DEFAULT_MODEL
 
       if (!prompt) return fail('prompt is required')
 
