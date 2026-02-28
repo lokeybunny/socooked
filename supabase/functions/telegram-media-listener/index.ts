@@ -1533,6 +1533,7 @@ Deno.serve(async (req) => {
       let phone = ''
       let threadId = ''
       let gmailId = ''
+      let replyTo = ''
       let matched = false
 
       if (gvComm && gvComm.length > 0) {
@@ -1541,6 +1542,7 @@ Deno.serve(async (req) => {
         phone = comm.phone_number || comm.from_address || 'unknown'
         threadId = meta?.thread_id || ''
         gmailId = meta?.gmail_id || ''
+        replyTo = meta?.reply_to || ''
         matched = true
       } else {
         // Fallback: check webhook_events for the telegram_message_id
@@ -1557,6 +1559,7 @@ Deno.serve(async (req) => {
           phone = wp?.phone || 'unknown'
           threadId = wp?.thread_id || ''
           gmailId = wp?.gmail_id || ''
+          replyTo = wp?.reply_to || ''
           matched = true
         }
       }
@@ -1577,6 +1580,7 @@ Deno.serve(async (req) => {
               gmail_id: gmailId,
               message: text,
               phone,
+              reply_to: replyTo,
             }),
           })
           const replyData = await replyRes.json()

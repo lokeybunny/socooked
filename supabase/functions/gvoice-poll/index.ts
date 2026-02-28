@@ -132,13 +132,14 @@ serve(async (req) => {
 
     // ─── Reply action: send an email reply to a GVoice thread ───
     if (action === "reply") {
-      const { thread_id, gmail_id, message, phone } = await req.json();
+      const { thread_id, gmail_id, message, phone, reply_to } = await req.json();
       if (!message) throw new Error("message required");
 
-      // Determine recipient: if phone looks like an email, send directly to it;
-      // otherwise it's a GVoice text → reply to voice-noreply@google.com thread
+      // Use the stored Reply-To address (e.g. 14244651253.17027016192.xxx@txt.voice.google.com)
+      // This is the actual address Gmail uses when you hit reply on a GVoice text email
       const isEmail = phone && phone.includes("@");
-      const recipient = isEmail ? phone : GVOICE_SENDER;
+      const recipient = reply_to || (isEmail ? phone : GVOICE_SENDER);
+      console.log(`[gvoice-reply] Using recipient: ${recipient} (reply_to=${reply_to}, phone=${phone})`);
       const replySubject = isEmail
         ? `Re: ${phone}`
         : `Re: Google Voice text from ${phone || "unknown"}`;
@@ -230,8 +231,14 @@ serve(async (req) => {
 
       const subject = parseHeader(msg.payload?.headers, "Subject");
       const date = parseHeader(msg.payload?.headers, "Date");
+      const replyTo = parseHeader(msg.payload?.headers, "Reply-To");
+      const from = parseHeader(msg.payload?.headers, "From");
       const body = extractBody(msg.payload || {});
       const { phone, content, type } = parseGVoiceEmail(subject, body);
+      
+      // The actual reply address is in Reply-To header (e.g. 14244651253.17027016192.xxx@txt.voice.google.com)
+      const effectiveReplyTo = replyTo || from || GVOICE_SENDER;
+      console.log(`[gvoice-poll] Reply-To: ${replyTo}, From: ${from}, Effective: ${effectiveReplyTo}`);
 
       // Build Telegram message
       const typeIcon = type === "voicemail" ? "🎙️" : type === "missed_call" ? "📵" : "💬";
@@ -276,6 +283,7 @@ serve(async (req) => {
           telegram_message_id: telegramMessageId ? String(telegramMessageId) : null,
           gvoice_type: type,
           source_email: IMPERSONATE_EMAIL,
+          reply_to: effectiveReplyTo,
         },
       });
       if (commErr) console.error("[gvoice-poll] communications insert error:", commErr);
@@ -284,7 +292,7 @@ serve(async (req) => {
       await supabase.from("webhook_events").insert({
         source: "gvoice-poll",
         event_type: "gvoice_forwarded",
-        payload: { gmail_id: m.id, thread_id: msg.threadId, telegram_message_id: telegramMessageId, phone: phone || null },
+        payload: { gmail_id: m.id, thread_id: msg.threadId, telegram_message_id: telegramMessageId, phone: phone || null, reply_to: effectiveReplyTo },
         processed: true,
       });
 
