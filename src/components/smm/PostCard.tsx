@@ -7,6 +7,9 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
 
+const isVideoUrl = (url?: string) => url && /\.(mp4|mov|webm|m3u8|avi)/i.test(url);
+const getVideoSrc = (post: ScheduledPost) => post.media_url || post.preview_url || '';
+
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
   scheduled: 'bg-primary/10 text-primary',
@@ -34,21 +37,13 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
   if (compact) {
     return (
       <div className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors group">
-        {post.preview_url && (
-          post.type === 'video' && post.media_url ? (
-            <div className="w-8 h-8 rounded overflow-hidden shrink-0">
-              <VideoThumbnail src={post.media_url} title={post.title} className="w-8 h-8" videoClassName="w-full h-full object-cover" controls={false} />
-            </div>
-          ) : (
-            <img src={post.preview_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
-          )
-        )}
-        {!post.preview_url && post.type === 'video' && post.media_url && (
+        {(post.type === 'video' || isVideoUrl(post.media_url) || isVideoUrl(post.preview_url)) && (post.media_url || post.preview_url) ? (
           <div className="w-8 h-8 rounded overflow-hidden shrink-0">
-            <VideoThumbnail src={post.media_url} title={post.title} className="w-8 h-8" videoClassName="w-full h-full object-cover" controls={false} />
+            <VideoThumbnail src={getVideoSrc(post)} title={post.title} className="w-8 h-8" videoClassName="w-full h-full object-cover" controls={false} />
           </div>
-        )}
-        {!post.preview_url && !(post.type === 'video' && post.media_url) && (
+        ) : post.preview_url ? (
+          <img src={post.preview_url} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+        ) : (
           <div className="w-8 h-8 rounded bg-muted shrink-0 flex items-center justify-center">
             <Play className="h-3 w-3 text-muted-foreground" />
           </div>
@@ -82,9 +77,9 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
   return (
     <div className="glass-card p-4 space-y-3 hover:border-primary/30 transition-colors">
       <div className="flex items-start gap-3">
-        {post.type === 'video' && post.media_url ? (
+        {(post.type === 'video' || isVideoUrl(post.media_url) || isVideoUrl(post.preview_url)) && (post.media_url || post.preview_url) ? (
           <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
-            <VideoThumbnail src={post.media_url} title={post.title} className="w-16 h-16" videoClassName="w-full h-full object-cover" />
+            <VideoThumbnail src={getVideoSrc(post)} title={post.title} className="w-16 h-16" videoClassName="w-full h-full object-cover" />
           </div>
         ) : post.preview_url ? (
           <img src={post.preview_url} alt="" className="w-16 h-16 rounded-lg object-cover shrink-0" />
