@@ -118,19 +118,42 @@ async function generateImage(prompt: string): Promise<string | null> {
   }
 }
 
-/* ────── CAROUSEL GENERATION — Multiple images ────── */
+/* ────── CAROUSEL GENERATION — Multiple images with retry ────── */
 async function generateCarousel(prompt: string, count = 3): Promise<string[] | null> {
   console.log(`[smm-media-gen] Generating carousel (${count} images)…`);
   const urls: string[] = [];
+  const maxRetries = 2;
 
   for (let i = 0; i < count; i++) {
+    let slideUrl: string | null = null;
+    let attempt = 0;
     const slidePrompt = `Slide ${i + 1} of ${count} for a social media carousel. ${prompt}. Make this slide visually distinct from the others while maintaining a cohesive theme.`;
-    const url = await generateImage(slidePrompt);
-    if (url) {
-      urls.push(url);
+
+    while (attempt <= maxRetries && !slideUrl) {
+      if (attempt > 0) {
+        console.log(`[smm-media-gen] Retrying slide ${i + 1} (attempt ${attempt + 1}/${maxRetries + 1})…`);
+        await new Promise(r => setTimeout(r, 2000 * attempt));
+      }
+      slideUrl = await generateImage(slidePrompt);
+      attempt++;
+    }
+
+    if (slideUrl) {
+      urls.push(slideUrl);
       console.log(`[smm-media-gen] Carousel slide ${i + 1}/${count} ready`);
     } else {
-      console.error(`[smm-media-gen] Carousel slide ${i + 1}/${count} failed`);
+      console.error(`[smm-media-gen] Carousel slide ${i + 1}/${count} failed after ${maxRetries + 1} attempts`);
+    }
+  }
+
+  // If we didn't hit the target count, do a final fill pass for missing slots
+  if (urls.length > 0 && urls.length < count) {
+    const missing = count - urls.length;
+    console.log(`[smm-media-gen] Filling ${missing} missing carousel slot(s)…`);
+    for (let j = 0; j < missing; j++) {
+      const fillPrompt = `Additional slide for a social media carousel. ${prompt}. Fresh perspective, visually distinct.`;
+      const fillUrl = await generateImage(fillPrompt);
+      if (fillUrl) urls.push(fillUrl);
     }
   }
 
@@ -139,15 +162,8 @@ async function generateCarousel(prompt: string, count = 3): Promise<string[] | n
     return null;
   }
 
-  // Ensure at least 2 images for a valid carousel; retry once if we only got 1
-  if (urls.length < 2) {
-    console.log('[smm-media-gen] Only 1 slide succeeded, retrying for a 2nd…');
-    const retry = await generateImage(`Slide 2 of ${count} for carousel. ${prompt}. Different angle or perspective.`);
-    if (retry) urls.push(retry);
-  }
-
   console.log(`[smm-media-gen] Carousel complete: ${urls.length}/${count} slides`);
-  return urls.length >= 2 ? urls : null;
+  return urls;
 }
 /* ────── VIDEO GENERATION — Higgsfield API (submit + poll) ────── */
 async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<string | null> {
