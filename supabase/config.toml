@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.ai-assistant]
 verify_jwt = false
+
+[functions.smm-command]
+verify_jwt = false
