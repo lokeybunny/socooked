@@ -1566,6 +1566,55 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Gmail Reply: reply to a gmail-poll notification → send email reply via gmail-api ───
+    if (text && !isGroup && message.reply_to_message) {
+      const repliedMsgId = message.reply_to_message.message_id
+      const { data: gmailComm } = await supabase
+        .from('communications')
+        .select('id, from_address, subject, metadata, customer_id')
+        .eq('type', 'email')
+        .eq('direction', 'inbound')
+        .eq('provider', 'gmail')
+        .filter('metadata->>telegram_message_id', 'eq', String(repliedMsgId))
+        .limit(1)
+
+      if (gmailComm && gmailComm.length > 0) {
+        const comm = gmailComm[0]
+        const senderEmail = comm.from_address || 'unknown'
+        const originalSubject = comm.subject || ''
+        const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`
+
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📨 Sending email reply to ${senderEmail}...` })
+
+        try {
+          const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+          const replyRes = await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${ANON_KEY}`,
+              'apikey': ANON_KEY,
+            },
+            body: JSON.stringify({
+              to: senderEmail,
+              subject: replySubject,
+              body: text,
+            }),
+          })
+          const replyData = await replyRes.json()
+          if (replyData?.error || replyData?.blocked) {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Reply failed: ${replyData.error || 'blocked'}` })
+          } else {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ Email reply sent to ${senderEmail}` })
+          }
+        } catch (e: any) {
+          console.error('[gmail-reply] error:', e)
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed to send reply: ${e.message}` })
+        }
+        return new Response('ok')
+      }
+    }
+
     // Session types we track (moved to module-level constants for performance)
     const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
     const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
