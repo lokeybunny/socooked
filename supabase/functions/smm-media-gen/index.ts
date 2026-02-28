@@ -250,10 +250,18 @@ async function generateImage(prompt: string): Promise<string | null> {
 }
 
 /* ────── CAROUSEL GENERATION — Multiple images with retry ────── */
-async function generateCarousel(prompt: string, count = 3): Promise<string[] | null> {
-  console.log(`[smm-media-gen] Generating carousel (${count} images)…`);
+async function generateCarousel(prompt: string, count = 3, referenceImages?: string[]): Promise<string[] | null> {
+  console.log(`[smm-media-gen] Generating carousel (${count} images)… ${referenceImages?.length ? 'with Banana2 references' : 'Banana1'}`);
   const urls: string[] = [];
   const maxRetries = 2;
+
+  const genSlide = async (slidePrompt: string) => {
+    if (referenceImages && referenceImages.length > 0) {
+      const refImg = referenceImages[Math.floor(Math.random() * referenceImages.length)];
+      return generateImageWithReference(slidePrompt, refImg);
+    }
+    return generateImage(slidePrompt);
+  };
 
   for (let i = 0; i < count; i++) {
     let slideUrl: string | null = null;
@@ -265,7 +273,7 @@ async function generateCarousel(prompt: string, count = 3): Promise<string[] | n
         console.log(`[smm-media-gen] Retrying slide ${i + 1} (attempt ${attempt + 1}/${maxRetries + 1})…`);
         await new Promise(r => setTimeout(r, 2000 * attempt));
       }
-      slideUrl = await generateImage(slidePrompt);
+      slideUrl = await genSlide(slidePrompt);
       attempt++;
     }
 
@@ -277,13 +285,11 @@ async function generateCarousel(prompt: string, count = 3): Promise<string[] | n
     }
   }
 
-  // If we didn't hit the target count, do a final fill pass for missing slots
   if (urls.length > 0 && urls.length < count) {
     const missing = count - urls.length;
     console.log(`[smm-media-gen] Filling ${missing} missing carousel slot(s)…`);
     for (let j = 0; j < missing; j++) {
-      const fillPrompt = `Additional slide for a social media carousel. ${prompt}. Fresh perspective, visually distinct.`;
-      const fillUrl = await generateImage(fillPrompt);
+      const fillUrl = await genSlide(`Additional slide for a social media carousel. ${prompt}. Fresh perspective, visually distinct.`);
       if (fillUrl) urls.push(fillUrl);
     }
   }
@@ -623,11 +629,18 @@ serve(async (req) => {
             continue;
           } else {
             await cortexStatus(plan.profile_username, plan.platform, `⚠️ Video submission failed — falling back to image…`);
-            mediaUrl = await generateImage(prompt);
+            const referenceImages = (plan.brand_context?.reference_images || []) as string[];
+            if (referenceImages.length > 0) {
+              const refImg = referenceImages[Math.floor(Math.random() * referenceImages.length)];
+              mediaUrl = await generateImageWithReference(prompt, refImg);
+            } else {
+              mediaUrl = await generateImage(prompt);
+            }
           }
         } else if (item.type === 'carousel') {
           await cortexStatus(plan.profile_username, plan.platform, `📸 Generating carousel slides…`);
-          carouselUrls = await generateCarousel(prompt, 3);
+          const referenceImages = (plan.brand_context?.reference_images || []) as string[];
+          carouselUrls = await generateCarousel(prompt, 3, referenceImages.length > 0 ? referenceImages : undefined);
           if (carouselUrls) {
             mediaUrl = carouselUrls[0]; // Primary thumbnail
           }
