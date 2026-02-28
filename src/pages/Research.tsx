@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
@@ -37,6 +37,17 @@ const SOURCE_LABELS: Record<string, string> = Object.fromEntries(RESEARCH_SOURCE
 const FINDING_TYPES = ['lead', 'competitor', 'resource', 'trend', 'other'] as const;
 const STATUSES = ['new', 'reviewed', 'converted', 'dismissed'] as const;
 
+interface Narrative {
+  name: string;
+  confidence: number;
+  why_100x: string;
+  example_tokens: string[];
+  token_addresses?: string[];
+  mcap_range?: string;
+  timing: string;
+  strategy: string;
+}
+
 export default function Research() {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [allFindings, setAllFindings] = useState<any[]>([]);
@@ -51,6 +62,9 @@ export default function Research() {
   const [generating, setGenerating] = useState(false);
   const [progressLog, setProgressLog] = useState<Array<{ step: number; label: string; status: string; detail: string; ts: string }>>([]);
   const [showLog, setShowLog] = useState(false);
+  const [topNarratives, setTopNarratives] = useState<Narrative[]>([]);
+  const [cycleChainOfThought, setCycleChainOfThought] = useState('');
+  const [evolvedQueries, setEvolvedQueries] = useState<string[]>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // New finding form
@@ -196,15 +210,22 @@ export default function Research() {
   };
 
   // Spacebot last cycle info
-  const spacebotFindings = allFindings.filter(f => f.created_by === 'spacebot');
-  const lastSpacebotPush = spacebotFindings[0]?.created_at;
-  const spacebotCycleCount = spacebotFindings.length;
-  const isSpacebotRecent = lastSpacebotPush && (Date.now() - new Date(lastSpacebotPush).getTime()) < 20 * 60 * 1000; // within 20min
+  const cortexFindings = allFindings.filter(f => f.created_by === 'cortex' || f.created_by === 'spacebot');
+  const lastCortexPush = cortexFindings[0]?.created_at;
+  const cortexCycleCount = cortexFindings.length;
+  const isCortexRecent = lastCortexPush && (Date.now() - new Date(lastCortexPush).getTime()) < 20 * 60 * 1000;
 
   const handleGenerate = async () => {
     setGenerating(true);
     setProgressLog([]);
+    setTopNarratives([]);
+    setCycleChainOfThought('');
+    setEvolvedQueries([]);
     setShowLog(true);
+
+    // Add initial entry immediately so the log panel is visible
+    const now = () => new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setProgressLog([{ step: -1, label: 'Cortex activated', status: 'done', detail: '🚀 Researching live narratives now...', ts: now() }]);
 
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/spacebot-research`;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -219,53 +240,81 @@ export default function Research() {
         },
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200)}`);
+      }
 
-      const reader = res.body?.getReader();
+      if (!res.body) throw new Error('No response body');
+
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
 
-      while (reader) {
+      while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
 
-        let currentEvent = '';
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            currentEvent = line.slice(7).trim();
-          } else if (line.startsWith('data: ') && currentEvent) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        // Process complete SSE messages (separated by double newline)
+        const messages = buffer.split('\n\n');
+        buffer = messages.pop() || ''; // Keep incomplete last chunk
 
-              if (currentEvent === 'progress') {
-                setProgressLog(prev => {
-                  const existing = prev.findIndex(p => p.step === data.step && p.label === data.label);
-                  const entry = { step: data.step, label: data.label, status: data.status, detail: data.detail, ts: now };
-                  if (existing >= 0) {
-                    const updated = [...prev];
-                    updated[existing] = entry;
-                    return updated;
-                  }
-                  return [...prev, entry];
-                });
-              } else if (currentEvent === 'complete') {
-                toast.success(`Research complete: ${data.stats?.tweets ?? 0} tweets, ${data.stats?.tokens ?? 0} tokens, ${data.stats?.matches ?? 0} matches`);
-                load();
-              } else if (currentEvent === 'error') {
-                toast.error(data.message || 'Generation failed');
-              }
-            } catch { /* skip bad JSON */ }
-            currentEvent = '';
+        for (const msg of messages) {
+          if (!msg.trim()) continue;
+
+          const lines = msg.split('\n');
+          let eventType = '';
+          let dataStr = '';
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              eventType = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              dataStr += line.slice(6);
+            }
           }
+
+          if (!eventType || !dataStr) continue;
+
+          try {
+            const data = JSON.parse(dataStr);
+            const ts = now();
+
+            if (eventType === 'progress') {
+              setProgressLog(prev => {
+                const existing = prev.findIndex(p => p.step === data.step && p.label === data.label);
+                const entry = { step: data.step, label: data.label, status: data.status, detail: data.detail, ts };
+                if (existing >= 0) {
+                  const updated = [...prev];
+                  updated[existing] = entry;
+                  return updated;
+                }
+                return [...prev, entry];
+              });
+            } else if (eventType === 'complete') {
+              if (data.top_narratives?.length) {
+                setTopNarratives(data.top_narratives);
+              }
+              if (data.chain_of_thought) {
+                setCycleChainOfThought(data.chain_of_thought);
+              }
+              if (data.evolved_queries?.length) {
+                setEvolvedQueries(data.evolved_queries);
+              }
+              toast.success(`Cortex cycle complete: ${data.stats?.tweets ?? 0} tweets, ${data.stats?.tokens ?? 0} tokens, ${data.stats?.matches ?? 0} clusters`);
+              load();
+            } else if (eventType === 'error') {
+              toast.error(data.message || 'Generation failed');
+              setProgressLog(prev => [...prev, { step: 99, label: 'Error', status: 'error', detail: data.message || 'Unknown error', ts }]);
+            }
+          } catch { /* skip bad JSON */ }
         }
       }
     } catch (err: any) {
       toast.error(err.message || 'Research generation failed');
+      setProgressLog(prev => [...prev, { step: 99, label: 'Connection error', status: 'error', detail: err.message || 'Failed to connect', ts: now() }]);
     } finally {
       setGenerating(false);
     }
@@ -292,36 +341,37 @@ export default function Research() {
             </div>
           </div>
 
-          {/* Spacebot Status Indicator */}
+          {/* Cortex Status Indicator */}
           <div className="w-full max-w-md mx-auto">
             <div className="glass-card rounded-lg px-4 py-3 flex items-center gap-3">
               <div className={cn(
                 "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
-                isSpacebotRecent ? "bg-emerald-500/15" : "bg-muted"
+                isCortexRecent ? "bg-emerald-500/15" : "bg-muted"
               )}>
-                <Activity className={cn(
+                <Brain className={cn(
                   "h-4 w-4",
-                  isSpacebotRecent ? "text-emerald-500 animate-pulse" : "text-muted-foreground"
+                  isCortexRecent ? "text-emerald-500 animate-pulse" : "text-muted-foreground"
                 )} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-foreground">spacebot</span>
+                  <span className="text-sm font-medium text-foreground">Cortex</span>
+                  <span className="text-[10px] text-muted-foreground italic">aka Zyla</span>
                   <span className={cn(
                     "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
-                    isSpacebotRecent
+                    isCortexRecent
                       ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                      : lastSpacebotPush
+                      : lastCortexPush
                         ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
                         : "bg-muted text-muted-foreground"
                   )}>
-                    {isSpacebotRecent ? 'LIVE' : lastSpacebotPush ? 'IDLE' : 'NEVER RUN'}
+                    {isCortexRecent ? 'LIVE' : lastCortexPush ? 'IDLE' : 'NEVER RUN'}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
-                  {lastSpacebotPush
-                    ? `Last cycle ${formatDistanceToNow(new Date(lastSpacebotPush), { addSuffix: true })} · ${spacebotCycleCount} findings`
-                    : 'No data pushed yet — run spacebot.sh to begin'}
+                  {lastCortexPush
+                    ? `Last cycle ${formatDistanceToNow(new Date(lastCortexPush), { addSuffix: true })} · ${cortexCycleCount} findings`
+                    : 'No cycles yet — click X (Twitter) → Generate Research to begin'}
                 </p>
               </div>
             </div>
@@ -384,8 +434,12 @@ export default function Research() {
                 disabled={generating}
                 className="gap-1.5"
               >
-                <Zap className={`h-4 w-4 ${generating ? 'animate-pulse' : ''}`} />
-                {generating ? 'Generating...' : 'Generate Research'}
+                {generating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Brain className="h-4 w-4" />
+                )}
+                {generating ? 'Cortex running...' : 'Generate Research'}
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -442,15 +496,15 @@ export default function Research() {
           </Select>
         </div>
 
-        {/* Live Progress Log */}
-        {selectedSource === 'x' && showLog && progressLog.length > 0 && (
+        {/* ══════ Cortex Pipeline Log ══════ */}
+        {selectedSource === 'x' && showLog && (
           <div className="glass-card rounded-lg overflow-hidden border border-border">
             <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
               <div className="flex items-center gap-2">
                 <Terminal className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-semibold text-foreground">spacebot pipeline</span>
+                <span className="text-xs font-semibold text-foreground">cortex pipeline</span>
                 {generating && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                {!generating && progressLog.some(p => p.status === 'done') && (
+                {!generating && progressLog.length > 1 && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">COMPLETE</span>
                 )}
               </div>
@@ -458,9 +512,15 @@ export default function Research() {
                 Hide
               </Button>
             </div>
-            <div className="max-h-64 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-xs">
+            <div className="max-h-72 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-xs">
+              {progressLog.length === 0 && generating && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Connecting to Cortex engine...</span>
+                </div>
+              )}
               {progressLog.map((entry, i) => (
-                <div key={`${entry.step}-${entry.label}-${i}`} className="flex items-start gap-2 animate-fade-in">
+                <div key={`${entry.step}-${i}`} className="flex items-start gap-2 animate-fade-in">
                   <span className="text-muted-foreground shrink-0 w-16">{entry.ts}</span>
                   <span className="shrink-0">
                     {entry.status === 'running' ? (
@@ -476,13 +536,84 @@ export default function Research() {
                       "font-medium",
                       entry.status === 'running' ? "text-foreground" : entry.status === 'done' ? "text-muted-foreground" : "text-destructive"
                     )}>
-                      [{entry.step}] {entry.label}
+                      {entry.step >= 0 ? `[${entry.step}] ` : ''}{entry.label}
                     </span>
-                    <p className="text-muted-foreground truncate">{entry.detail}</p>
+                    <p className="text-muted-foreground break-words">{entry.detail}</p>
                   </div>
                 </div>
               ))}
               <div ref={logEndRef} />
+            </div>
+          </div>
+        )}
+
+        {/* ══════ Cortex Top Narratives Panel ══════ */}
+        {selectedSource === 'x' && topNarratives.length > 0 && (
+          <div className="glass-card rounded-lg overflow-hidden border border-emerald-500/30">
+            <div className="px-4 py-3 bg-emerald-500/5 border-b border-emerald-500/20 flex items-center gap-2">
+              <Brain className="h-4 w-4 text-emerald-500" />
+              <span className="text-sm font-bold text-foreground">Cortex Cycle Complete — Top {topNarratives.length} Narratives Right Now</span>
+            </div>
+            <div className="p-4 space-y-4">
+              {topNarratives.map((n, i) => (
+                <div key={i} className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-foreground">{i + 1}.</span>
+                      <span className="font-semibold text-foreground">{n.name}</span>
+                    </div>
+                    <div className={cn(
+                      "px-2 py-0.5 rounded-full text-xs font-bold",
+                      n.confidence >= 90 ? "bg-emerald-500/20 text-emerald-500" :
+                      n.confidence >= 75 ? "bg-amber-500/20 text-amber-500" :
+                      "bg-muted text-muted-foreground"
+                    )}>
+                      {n.confidence}/100
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <strong className="text-foreground">Why 100x:</strong> {n.why_100x}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {n.example_tokens?.map((t, j) => (
+                      <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono font-medium">{t}</span>
+                    ))}
+                    {n.mcap_range && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">MCAP: {n.mcap_range}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                      <Target className="h-3 w-3" /> {n.timing}
+                    </span>
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <TrendingUp className="h-3 w-3" /> {n.strategy}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {cycleChainOfThought && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">Chain-of-Thought Reasoning</summary>
+                  <p className="mt-2 text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-lg">{cycleChainOfThought}</p>
+                </details>
+              )}
+
+              {evolvedQueries.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">Evolved Search Queries (next cycle)</summary>
+                  <ul className="mt-2 space-y-1">
+                    {evolvedQueries.map((q, i) => (
+                      <li key={i} className="text-muted-foreground font-mono bg-muted/30 px-2 py-1 rounded text-[10px]">{q}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+
+              <p className="text-[10px] text-muted-foreground text-center">
+                Say "Hey Zyla" anytime to force a new cycle.
+              </p>
             </div>
           </div>
         )}
