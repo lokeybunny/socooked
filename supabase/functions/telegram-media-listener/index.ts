@@ -605,6 +605,28 @@ async function processSMMStrategist(
       tgReply = `❓ ${replyText}`
     } else if (result?.type === 'content_plan') {
       tgReply = `📅 <b>Content Plan Created!</b>\n\n${replyText}\n\n<i>View & edit in the app → Content Schedule tab</i>`
+
+      // Ask if they want to generate media for the week
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: tgReply.slice(0, 4000),
+        parse_mode: 'HTML',
+      })
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: '🎨 <b>Would you like me to generate images and videos for the week?</b>\n\n<i>I\'ll use AI to create visuals for each scheduled post.</i>',
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Yes, generate media', callback_data: 'smm_gen_yes' },
+              { text: '⏭️ Not now', callback_data: 'smm_gen_no' },
+            ],
+          ],
+        },
+      })
+      // Already sent — skip the final send below
+      return
     } else {
       tgReply = replyText
     }
@@ -1231,6 +1253,62 @@ Deno.serve(async (req) => {
             chat_id: cbChatId,
             text: `✅ Type: <b>${genType}</b>\n\nNow send your prompt${genType === 'video' ? ' and attach a source image' : ''}:`,
             parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
+      // ─── SMM Generate AI callback ───
+      if (cbData === 'smm_gen_yes' || cbData === 'smm_gen_no') {
+        if (cbData === 'smm_gen_no') {
+          await tgPost(TG_TOKEN, 'editMessageText', {
+            chat_id: cbChatId,
+            message_id: cbq.message.message_id,
+            text: '👍 No problem — you can generate media anytime from the app or by typing "generate media" here.',
+          })
+          return new Response('ok')
+        }
+
+        // Yes — trigger smm-media-gen for the full week
+        await tgPost(TG_TOKEN, 'editMessageText', {
+          chat_id: cbChatId,
+          message_id: cbq.message.message_id,
+          text: '🎨 <b>Generating media for the week...</b>\n\n<i>This may take a few minutes. I\'ll notify you when it\'s done.</i>',
+          parse_mode: 'HTML',
+        })
+
+        try {
+          // Get dates for the next 7 days
+          const dates: string[] = []
+          const now = new Date()
+          for (let i = 0; i <= 7; i++) {
+            const d = new Date(now)
+            d.setDate(d.getDate() + i)
+            dates.push(d.toISOString().split('T')[0])
+          }
+
+          const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+          const genRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-media-gen`, {
+            method: 'POST',
+            headers: {
+              'apikey': ANON_KEY,
+              'Authorization': `Bearer ${ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ force_dates: dates }),
+          })
+          const genResult = await genRes.json()
+
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: `✅ <b>Media generation complete!</b>\n\n${genResult?.message || `Generated ${genResult?.generated || 0} asset(s)`}`,
+            parse_mode: 'HTML',
+          })
+        } catch (e: any) {
+          console.error('[smm-gen-tg] error:', e)
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: `❌ Media generation failed: ${e.message}`,
           })
         }
         return new Response('ok')
