@@ -136,7 +136,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
       ) : (
         <div className="grid grid-cols-7 gap-px bg-border rounded-xl overflow-hidden">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-            <div key={d} className="bg-muted p-2 text-center text-xs font-semibold text-foreground/90">{d}</div>
+            <div key={d} className="bg-muted p-2 text-center text-xs font-bold text-foreground">{d}</div>
           ))}
           {days.map(day => {
             const dayPosts = getPostsForDay(day);
@@ -144,7 +144,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
             return (
               <div key={day.toISOString()} className={`bg-card min-h-[80px] p-1.5 ${!isSameMonth(day, current) ? 'opacity-30' : ''}`}
                 onDragOver={e => e.preventDefault()} onDrop={() => handleDrop(day)}>
-                <p className={`text-xs font-medium mb-1 ${isToday ? 'text-primary font-bold' : 'text-foreground font-semibold'}`}>{format(day, 'd')}</p>
+                <p className={`text-xs mb-1 ${isToday ? 'text-primary font-bold' : 'text-foreground font-bold'}`}>{format(day, 'd')}</p>
                 <div className="space-y-0.5">
                   {dayPosts.slice(0, 3).map(p => (
                     <button key={p.id} draggable onDragStart={() => setDragId(p.id)} onClick={() => openDetail(p)}
