@@ -242,16 +242,20 @@ Deno.serve(async (req) => {
             const txt = (tw.full_text || tw.text || "").toLowerCase();
             return (name.length > 2 && txt.includes(name)) || (sym.length > 1 && txt.includes(sym)) || txt.includes(addr.slice(0, 12));
           });
+          // Map Tweet Scraper V2 output fields correctly
+          const getLikes = (tw: any) => tw.likeCount || tw.favorite_count || tw.likes || 0;
+          const getRTs = (tw: any) => tw.retweetCount || tw.retweet_count || tw.retweets || 0;
+          const getUser = (tw: any) => tw.author?.userName || tw.user?.screen_name || (typeof tw.author === 'string' ? tw.author : '') || "unknown";
           return {
             token: tok,
             matched_tweets: matchedTweets.slice(0, 8).map((tw: any) => ({
               text: (tw.full_text || tw.text || "").slice(0, 280),
-              user: tw.user?.screen_name || tw.author || "unknown",
-              favorites: tw.favorite_count || tw.likes || 0,
-              retweets: tw.retweet_count || tw.retweets || 0,
+              user: getUser(tw),
+              favorites: getLikes(tw),
+              retweets: getRTs(tw),
             })),
             tweet_velocity: matchedTweets.length,
-            total_engagement: matchedTweets.reduce((sum: number, tw: any) => sum + (tw.favorite_count || tw.likes || 0) + (tw.retweet_count || tw.retweets || 0), 0),
+            total_engagement: matchedTweets.reduce((sum: number, tw: any) => sum + getLikes(tw) + getRTs(tw), 0),
           };
         }).sort((a, b) => b.total_engagement - a.total_engagement || b.tweet_velocity - a.tweet_velocity);
 
