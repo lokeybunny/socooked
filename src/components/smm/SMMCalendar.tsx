@@ -11,9 +11,9 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMont
 import { toast } from 'sonner';
 
 const STATUS_COLORS: Record<string, string> = {
-  scheduled: 'bg-primary', queued: 'bg-amber-500', completed: 'bg-emerald-500',
-  failed: 'bg-destructive', pending: 'bg-muted-foreground', in_progress: 'bg-amber-400',
-  cancelled: 'bg-muted-foreground/60',
+  scheduled: 'bg-blue-600 text-white', queued: 'bg-amber-600 text-white', completed: 'bg-emerald-600 text-white',
+  failed: 'bg-red-600 text-white', pending: 'bg-zinc-500 text-white', in_progress: 'bg-orange-500 text-white',
+  cancelled: 'bg-zinc-600 text-white',
 };
 
 export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost[]; onRefresh: () => void }) {
@@ -120,7 +120,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
                         <td key={d.toISOString()} className="p-1 align-top">
                           {dayPosts.map(post => (
                             <button key={post.id} onClick={() => openDetail(post)}
-                              className={`w-full text-left px-1.5 py-0.5 rounded text-[10px] text-foreground mb-0.5 truncate ${STATUS_COLORS[post.status]}`}>
+                              className={`w-full text-left px-1.5 py-0.5 rounded text-[10px] font-semibold mb-0.5 truncate ${STATUS_COLORS[post.status] || 'bg-blue-600 text-white'}`}>
                               {post.title}
                             </button>
                           ))}
@@ -148,7 +148,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
                 <div className="space-y-0.5">
                   {dayPosts.slice(0, 3).map(p => (
                     <button key={p.id} draggable onDragStart={() => setDragId(p.id)} onClick={() => openDetail(p)}
-                      className={`w-full text-left text-[11px] font-medium text-foreground px-1.5 py-0.5 rounded truncate ${STATUS_COLORS[p.status]}`}>
+                      className={`w-full text-left text-[11px] font-semibold px-1.5 py-0.5 rounded truncate ${STATUS_COLORS[p.status] || 'bg-blue-600 text-white'}`}>
                       {p.title}
                     </button>
                   ))}
