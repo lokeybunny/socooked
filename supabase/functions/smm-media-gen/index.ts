@@ -353,10 +353,9 @@ serve(async (req) => {
             date: itemDate,
           });
         }
-        updated = true;
-      }
 
-      if (updated) {
+        // Save after EACH item to prevent timeout data loss
+        console.log(`[smm-media-gen] Saving progress after item ${i + 1}/${items.length}...`);
         await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans?id=eq.${plan.id}`, {
           method: 'PATCH',
           headers: {
