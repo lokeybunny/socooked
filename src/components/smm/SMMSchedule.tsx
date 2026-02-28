@@ -1528,11 +1528,11 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               variant="outline"
               size="sm"
               className="gap-1.5 text-xs border-purple-500/30 text-purple-600 hover:bg-purple-500/10"
-              disabled={generating}
+              disabled={generating || items.some(i => i.status === 'generating')}
               onClick={() => currentPlan && triggerMediaGen(currentPlan.id, getFullWeekDates())}
             >
-              {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Image className="h-3.5 w-3.5" />}
-              Generate AI
+              {generating || items.some(i => i.status === 'generating') ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Image className="h-3.5 w-3.5" />}
+              {generating || items.some(i => i.status === 'generating') ? 'Generating…' : 'Generate AI'}
             </Button>
           )}
 
