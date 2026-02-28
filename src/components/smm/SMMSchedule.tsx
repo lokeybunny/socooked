@@ -722,6 +722,34 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     }
   };
 
+  const [generating, setGenerating] = useState(false);
+
+  const triggerMediaGen = async (planId: string, dates?: string[]) => {
+    setGenerating(true);
+    try {
+      const body: any = { plan_id: planId };
+      if (dates) body.force_dates = dates;
+      const { data, error } = await supabase.functions.invoke('smm-media-gen', { body });
+      if (error) throw error;
+      toast.success(`🎨 ${data?.message || 'Media generation triggered'}`);
+      await fetchPlans();
+    } catch (e: any) {
+      toast.error(`Media gen failed: ${e.message}`);
+    }
+    setGenerating(false);
+  };
+
+  const getNext2Days = (): string[] => {
+    const dates: string[] = [];
+    const now = new Date();
+    for (let i = 0; i <= 2; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+    return dates;
+  };
+
   const handlePushLive = async () => {
     if (!currentPlan) return;
     setPushingLive(true);
@@ -762,6 +790,14 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
       toast.success(`🔴 Schedule is now LIVE! ${calendarEvents.length} events added to calendar.`);
       await fetchPlans();
+
+      // 3. Auto-trigger media generation for next 2 days
+      const next2 = getNext2Days();
+      const draftItems = items.filter(i => i.status === 'draft' && next2.includes(i.date) && i.type !== 'text');
+      if (draftItems.length > 0) {
+        toast.info(`🎨 Auto-generating media for ${draftItems.length} upcoming post(s)…`);
+        triggerMediaGen(currentPlan.id, next2);
+      }
     } catch (e: any) {
       toast.error(`Failed to push live: ${e.message}`);
     }
@@ -810,7 +846,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               <>
                 {currentPlan.plan_name}
                 {isDraft && <span className="ml-2 text-yellow-600">● Draft — review & push live</span>}
-                {isLive && <span className="ml-2 text-green-600">● Live — media auto-generates 48hrs before posts</span>}
+                {isLive && <span className="ml-2 text-green-600">● Live — media auto-generates for next 2 days</span>}
               </>
             ) : 'Chat with Cortex to build your content strategy'}
           </p>
@@ -867,7 +903,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Push Schedule Live?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will push the {currentPlan.platform} content schedule live and add {items.length} post{items.length !== 1 ? 's' : ''} to your calendar. Media will auto-generate 48 hours before each post date.
+                    This will push the {currentPlan.platform} content schedule live and add {items.length} post{items.length !== 1 ? 's' : ''} to your calendar. Media will auto-generate for the next 2 days immediately.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -881,9 +917,21 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           )}
 
           {isLive && (
-            <Badge className="bg-green-600 text-white text-[10px] gap-1">
-              <CheckCircle2 className="h-3 w-3" /> LIVE
-            </Badge>
+            <>
+              <Badge className="bg-green-600 text-white text-[10px] gap-1">
+                <CheckCircle2 className="h-3 w-3" /> LIVE
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                disabled={generating}
+                onClick={() => currentPlan && triggerMediaGen(currentPlan.id, getNext2Days())}
+              >
+                {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Image className="h-3.5 w-3.5" />}
+                Generate Media
+              </Button>
+            </>
           )}
         </div>
       </div>
