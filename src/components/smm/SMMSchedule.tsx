@@ -917,6 +917,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const [pushingLive, setPushingLive] = useState(false);
 
   const [resetting, setResetting] = useState(false);
+  const [retryItems, setRetryItems] = useState<any[]>([]);
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
 
@@ -1039,6 +1040,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
       const apiPlatform = currentPlan.platform === 'twitter' ? 'x' : currentPlan.platform;
       let scheduled = 0;
       let failed = 0;
+      const failedItems: any[] = [];
 
       for (const item of items) {
         // Skip items that aren't ready (no media for image/video types)
@@ -1082,14 +1084,20 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           scheduled++;
         } catch (postErr: any) {
           console.error(`[push-live] Failed to schedule item ${item.id}:`, postErr);
+          failedItems.push(item);
           failed++;
         }
+      }
+
+      // Store failed items for retry
+      if (failedItems.length > 0) {
+        setRetryItems(failedItems);
       }
 
       const summary = [];
       summary.push(`${calendarEvents.length} calendar events added`);
       if (scheduled > 0) summary.push(`${scheduled} post(s) scheduled to ${currentPlan.platform}`);
-      if (failed > 0) summary.push(`${failed} failed`);
+      if (failed > 0) summary.push(`${failed} failed (use Retry button)`);
 
       toast.success(`🟢 Schedule is LIVE! ${summary.join(', ')}.`);
       await fetchPlans();
@@ -1128,6 +1136,54 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     }
     setPushingLive(false);
   };
+  const handleRetryFailed = async () => {
+    if (!currentPlan || retryItems.length === 0) return;
+    setPushingLive(true);
+    const apiPlatform = currentPlan.platform === 'twitter' ? 'x' : currentPlan.platform;
+    let scheduled = 0;
+    const stillFailed: any[] = [];
+
+    for (const item of retryItems) {
+      try {
+        const scheduledDate = item.time
+          ? `${item.date}T${item.time}:00`
+          : `${item.date}T12:00:00`;
+
+        const hashtagStr = (item.hashtags || []).map((h: string) => h.startsWith('#') ? h : `#${h}`).join(' ');
+        const title = item.caption
+          ? `${item.caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
+          : hashtagStr || item.type;
+
+        const isActualVideo = item.media_url && (
+          item.media_url.endsWith('.mp4') || item.media_url.endsWith('.mov') ||
+          item.media_url.endsWith('.webm') || item.media_url.includes('higgsfield')
+        );
+        let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
+        if (item.type === 'video' && isActualVideo) postType = 'video';
+        else if (item.type === 'video' || item.type === 'image' || item.type === 'carousel') postType = 'photos';
+
+        await smmApi.createPost({
+          user: currentPlan.profile_username,
+          type: postType,
+          platforms: [apiPlatform as any],
+          title,
+          media_url: item.media_url,
+          scheduled_date: scheduledDate,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
+        scheduled++;
+      } catch (err: any) {
+        console.error(`[retry] Failed item ${item.id}:`, err);
+        stillFailed.push(item);
+      }
+    }
+
+    setRetryItems(stillFailed);
+    if (scheduled > 0) toast.success(`✅ Retried: ${scheduled} post(s) scheduled successfully.`);
+    if (stillFailed.length > 0) toast.error(`${stillFailed.length} still failed — check media URLs.`);
+    setPushingLive(false);
+  };
+
 
   const handleReset = async () => {
     if (!profileId) return;
@@ -1265,6 +1321,19 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             >
               {pushingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
               Revert to Draft
+            </Button>
+          )}
+
+          {retryItems.length > 0 && isLive && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs border-orange-500/30 text-orange-600 hover:bg-orange-500/10"
+              disabled={pushingLive}
+              onClick={handleRetryFailed}
+            >
+              {pushingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Retry {retryItems.length} Failed
             </Button>
           )}
 
