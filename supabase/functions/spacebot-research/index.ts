@@ -246,6 +246,15 @@ Deno.serve(async (req) => {
           const getLikes = (tw: any) => tw.likeCount || tw.favorite_count || tw.likes || 0;
           const getRTs = (tw: any) => tw.retweetCount || tw.retweet_count || tw.retweets || 0;
           const getUser = (tw: any) => tw.author?.userName || tw.user?.screen_name || (typeof tw.author === 'string' ? tw.author : '') || "unknown";
+          const getTweetUrl = (tw: any) => tw.url || tw.twitterUrl || (tw.id ? `https://x.com/i/status/${tw.id}` : "");
+          const getProfilePic = (tw: any) => tw.author?.profilePicture || tw.user?.profile_image_url_https || "";
+          const getTweetMedia = (tw: any) => {
+            // Extract first image from tweet media
+            if (tw.media?.length > 0) return tw.media[0]?.media_url_https || tw.media[0]?.url || "";
+            if (tw.entities?.media?.length > 0) return tw.entities.media[0]?.media_url_https || "";
+            if (tw.extendedEntities?.media?.length > 0) return tw.extendedEntities.media[0]?.media_url_https || "";
+            return "";
+          };
           return {
             token: tok,
             matched_tweets: matchedTweets.slice(0, 8).map((tw: any) => ({
@@ -253,6 +262,9 @@ Deno.serve(async (req) => {
               user: getUser(tw),
               favorites: getLikes(tw),
               retweets: getRTs(tw),
+              url: getTweetUrl(tw),
+              profile_pic: getProfilePic(tw),
+              media_url: getTweetMedia(tw),
             })),
             tweet_velocity: matchedTweets.length,
             total_engagement: matchedTweets.reduce((sum: number, tw: any) => sum + getLikes(tw) + getRTs(tw), 0),
@@ -417,13 +429,20 @@ Analyze. Find the narratives printing RIGHT NOW. Be ruthless.`;
         send("progress", { step: 7, label: "Saving findings to database", status: "done", detail: `Pushed 1 cycle report + ${tokensToPost.length} token findings` });
 
         // ── Send final result with narratives ───────────────────────────
+        // Build top tweets across all matched tokens for the UI
+        const topTweets = matched
+          .flatMap(m => m.matched_tweets.map((tw: any) => ({ ...tw, token_symbol: m.token.baseToken?.symbol || "?" })))
+          .sort((a: any, b: any) => (b.favorites + b.retweets) - (a.favorites + a.retweets))
+          .slice(0, 12);
+
         send("complete", {
           success: true,
           stats,
           top_narratives: grokResult?.top_narratives || [],
-          reasoning: reasoning.slice(0, 500),
-          chain_of_thought: grokResult?.chain_of_thought?.slice(0, 300) || "",
+          reasoning: reasoning.slice(0, 800),
+          chain_of_thought: grokResult?.chain_of_thought?.slice(0, 1000) || "",
           evolved_queries: memory.search_terms,
+          top_tweets: topTweets,
         });
       } catch (err: any) {
         send("error", { message: err.message || "Unknown error" });
