@@ -24,8 +24,9 @@ import {
   CalendarPlus, Sparkles, RefreshCw, Image, Video, Type, Hash,
   Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send,
   ThumbsUp, Repeat2, Eye, Play, Zap, Clock, CheckCircle2,
-  AlertCircle, Loader2, RotateCcw, Pencil,
+  AlertCircle, Loader2, RotateCcw, Pencil, Upload, Trash2,
 } from 'lucide-react';
+import { uploadToStorage } from '@/lib/storage';
 import type { SMMProfile } from '@/lib/smm/types';
 import { format, parseISO, isToday, differenceInHours } from 'date-fns';
 
@@ -130,6 +131,9 @@ function ScheduleItemModal({
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [type, setType] = useState<ScheduleItem['type']>('image');
+  const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (item) {
@@ -138,16 +142,53 @@ function ScheduleItemModal({
       setDate(item.date || '');
       setTime(item.time || '');
       setType(item.type);
+      setMediaUrl(item.media_url);
     }
   }, [item]);
 
   if (!item) return null;
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/');
+    const isImage = file.type.startsWith('image/');
+    if (!isVideo && !isImage) {
+      toast.error('Please upload an image or video file');
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadToStorage(file, {
+        category: 'smm',
+        customerName: 'schedule',
+        source: 'smm-schedule',
+        fileName: file.name,
+      });
+      setMediaUrl(url);
+      if (isVideo && type !== 'video') setType('video');
+      if (isImage && type === 'video') setType('image');
+      toast.success('Media uploaded');
+    } catch (err: any) {
+      toast.error(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveMedia = () => {
+    setMediaUrl(undefined);
+    toast('Media removed');
+  };
+
   const handleSave = () => {
     const parsed = hashtags.split(',').map(h => h.trim().replace(/^#/, '')).filter(Boolean);
-    onSave({ ...item, caption, hashtags: parsed, date, time, type });
+    onSave({ ...item, caption, hashtags: parsed, date, time, type, media_url: mediaUrl });
     onOpenChange(false);
   };
+
+  const isVideo = type === 'video' || (mediaUrl && /\.(mp4|mov|webm)/i.test(mediaUrl));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -159,13 +200,46 @@ function ScheduleItemModal({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Media Preview */}
-          <div className="w-full rounded-lg overflow-hidden border border-border/50">
-            {item.media_url ? (
-              <img src={item.media_url} alt="" className="w-full max-h-64 object-cover" />
-            ) : (
-              <div className="w-full h-48"><MediaPlaceholder item={item} /></div>
-            )}
+          {/* Media Preview + Upload */}
+          <div className="space-y-2">
+            <Label>Media</Label>
+            <div className="w-full rounded-lg overflow-hidden border border-border/50 relative group">
+              {mediaUrl ? (
+                isVideo ? (
+                  <video src={mediaUrl} controls className="w-full max-h-64 object-cover" />
+                ) : (
+                  <img src={mediaUrl} alt="" className="w-full max-h-64 object-cover" />
+                )
+              ) : (
+                <div className="w-full h-48"><MediaPlaceholder item={item} /></div>
+              )}
+              {/* Overlay actions */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  {mediaUrl ? 'Replace' : 'Upload'}
+                </Button>
+                {mediaUrl && (
+                  <Button size="sm" variant="destructive" className="gap-1.5 text-xs" onClick={handleRemoveMedia}>
+                    <Trash2 className="h-3.5 w-3.5" /> Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            {uploading && <p className="text-xs text-muted-foreground animate-pulse">Uploading…</p>}
           </div>
 
           <div className="space-y-2">
@@ -209,7 +283,7 @@ function ScheduleItemModal({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} className="gap-1.5">
+          <Button onClick={handleSave} className="gap-1.5" disabled={uploading}>
             <CheckCircle2 className="h-3.5 w-3.5" /> Save Changes
           </Button>
         </DialogFooter>
