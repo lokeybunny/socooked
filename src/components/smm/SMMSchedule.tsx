@@ -257,15 +257,15 @@ function ScheduleItemModal({
         <div className="w-full rounded-lg overflow-hidden border border-border/50 relative group">
               {mediaUrl ? (
                 isActualVideo ? (
-                  <video src={mediaUrl} controls playsInline className="w-full max-h-64 object-contain bg-black relative z-10" />
+                  <VideoThumbnail src={mediaUrl} title={caption} className="w-full max-h-64" videoClassName="w-full max-h-64 object-contain bg-black" controls={false} />
                 ) : (
                   <img src={mediaUrl} alt="" className="w-full max-h-64 object-cover" />
                 )
               ) : (
                 <div className="w-full h-48"><MediaPlaceholder item={item} /></div>
               )}
-              {/* Overlay actions – pointer-events-none on overlay, re-enable on buttons; hidden for video to not block controls */}
-              <div className={`absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 ${isActualVideo && mediaUrl ? 'pointer-events-none z-0' : ''}`}>
+              {/* Overlay actions */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                 <Button
                   size="sm"
                   variant="secondary"
