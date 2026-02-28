@@ -566,11 +566,9 @@ serve(async (req) => {
         const isVideoWithImageFallback = item.type === 'video' && item.media_url && /\.(png|jpg|jpeg|webp)$/i.test(item.media_url);
         const isRegenRequest = singleItem && item.id === singleItem.id;
 
-        if (!isRegenRequest && !forceRegenerate && item.media_url && item.status === 'ready' && !isVideoWithImageFallback) { skipped++; continue; }
-        if (!isRegenRequest && !forceRegenerate && !isVideoWithImageFallback && item.status !== 'draft' && item.status !== 'failed' && item.status !== 'planned') { skipped++; continue; }
-
+        // NEVER skip — always regenerate all items with fresh prompts and new media
+        // Old content stays visible until new content replaces it (handled per-item save below)
         const itemDate = item.date;
-        if (!isRegenRequest && !targetDates.has(itemDate)) { skipped++; continue; }
 
         if (isVideoWithImageFallback) {
           console.log(`[smm-media-gen] Re-generating video (had .png fallback) for ${itemDate}`);
@@ -583,15 +581,10 @@ serve(async (req) => {
 
         const basePrompt = item.media_prompt || `Create a visually striking social media ${item.type} post: ${item.caption}`;
         
-        // On regeneration, create a totally fresh prompt using AI + brand context
-        const prompt = isRegenRequest
-          ? await varyPrompt(basePrompt, item.type, plan.brand_context || {}, item.caption || '')
-          : basePrompt;
-        
-        if (isRegenRequest) {
-          // Save the new prompt back to the item for reference
-          items[i].media_prompt = prompt;
-        }
+        // Always generate a fresh varied prompt using AI + brand context
+        const prompt = await varyPrompt(basePrompt, item.type, plan.brand_context || {}, item.caption || '');
+        // Save the new prompt back to the item for reference
+        items[i].media_prompt = prompt;
         
         let mediaUrl: string | null = null;
         let carouselUrls: string[] | null = null;
