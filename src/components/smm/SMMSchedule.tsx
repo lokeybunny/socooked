@@ -203,22 +203,22 @@ function ScheduleItemModal({
           {/* Media Preview + Upload */}
           <div className="space-y-2">
             <Label>Media</Label>
-            <div className="w-full rounded-lg overflow-hidden border border-border/50 relative group">
+        <div className="w-full rounded-lg overflow-hidden border border-border/50 relative group">
               {mediaUrl ? (
                 isVideo ? (
-                  <video src={mediaUrl} controls className="w-full max-h-64 object-cover" />
+                  <video src={mediaUrl} controls playsInline className="w-full max-h-64 object-contain bg-black relative z-10" />
                 ) : (
                   <img src={mediaUrl} alt="" className="w-full max-h-64 object-cover" />
                 )
               ) : (
                 <div className="w-full h-48"><MediaPlaceholder item={item} /></div>
               )}
-              {/* Overlay actions */}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+              {/* Overlay actions – pointer-events-none on overlay, re-enable on buttons; hidden for video to not block controls */}
+              <div className={`absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 ${isVideo && mediaUrl ? 'pointer-events-none z-0' : ''}`}>
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="gap-1.5 text-xs"
+                  className="gap-1.5 text-xs pointer-events-auto"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                 >
@@ -226,7 +226,7 @@ function ScheduleItemModal({
                   {mediaUrl ? 'Replace' : 'Upload'}
                 </Button>
                 {mediaUrl && (
-                  <Button size="sm" variant="destructive" className="gap-1.5 text-xs" onClick={handleRemoveMedia}>
+                  <Button size="sm" variant="destructive" className="gap-1.5 text-xs pointer-events-auto" onClick={handleRemoveMedia}>
                     <Trash2 className="h-3.5 w-3.5" /> Remove
                   </Button>
                 )}
