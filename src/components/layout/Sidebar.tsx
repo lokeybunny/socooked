@@ -20,14 +20,14 @@ const navItems = [
   { to: '/calendly', icon: CalendarClock, label: 'Calendly', botIcon: true },
   { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
   { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true },
-  { to: '/projects', icon: FolderKanban, label: 'Web', botIcon: true },
+  { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
   { to: '/threads', icon: MessageSquare, label: 'Analyze', highlight: true },
   { to: '/content', icon: FileText, label: 'Content', highlight: true },
   { to: '/templates', icon: FileCode2, label: 'Templates', highlight: true },
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
-  { to: '/previews', icon: Sparkles, label: 'Previews', highlight: true },
   { to: '/landing', icon: Layers, label: 'Landing', highlight: true },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
+  { to: '/projects', icon: FolderKanban, label: 'Projects', highlight: true },
 ];
 
 export function Sidebar() {
