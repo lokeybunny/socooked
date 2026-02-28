@@ -259,7 +259,7 @@ serve(async (req) => {
       const telegramMessageId = tgData?.result?.message_id;
 
       // Log to communications table with telegram_message_id for reply support
-      await supabase.from("communications").insert({
+      const { error: commErr } = await supabase.from("communications").insert({
         type: "phone",
         direction: "inbound",
         subject: subject,
@@ -278,12 +278,13 @@ serve(async (req) => {
           source_email: IMPERSONATE_EMAIL,
         },
       });
+      if (commErr) console.error("[gvoice-poll] communications insert error:", commErr);
 
-      // Mark as forwarded to prevent duplicates
+      // Mark as forwarded — store gmail_id, thread_id, phone for reply fallback
       await supabase.from("webhook_events").insert({
         source: "gvoice-poll",
         event_type: "gvoice_forwarded",
-        payload: { gmail_id: m.id, telegram_message_id: telegramMessageId },
+        payload: { gmail_id: m.id, thread_id: msg.threadId, telegram_message_id: telegramMessageId, phone: phone || null },
         processed: true,
       });
 
