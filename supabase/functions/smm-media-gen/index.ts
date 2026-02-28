@@ -505,6 +505,7 @@ serve(async (req) => {
     let forceDates: string[] | null = null;
     let planId: string | null = null;
     let singleItem: { id: string; type: string; prompt: string } | null = null;
+    let forceRegenerate = false;
 
     if (req.method === 'POST') {
       try {
@@ -512,6 +513,7 @@ serve(async (req) => {
         forceDates = body.force_dates || null;
         planId = body.plan_id || null;
         singleItem = body.single_item || null;
+        forceRegenerate = body.force_regenerate === true;
       } catch { /* no body */ }
     }
 
@@ -564,8 +566,8 @@ serve(async (req) => {
         const isVideoWithImageFallback = item.type === 'video' && item.media_url && /\.(png|jpg|jpeg|webp)$/i.test(item.media_url);
         const isRegenRequest = singleItem && item.id === singleItem.id;
 
-        if (!isRegenRequest && item.media_url && item.status === 'ready' && !isVideoWithImageFallback) { skipped++; continue; }
-        if (!isRegenRequest && !isVideoWithImageFallback && item.status !== 'draft' && item.status !== 'failed' && item.status !== 'planned') { skipped++; continue; }
+        if (!isRegenRequest && !forceRegenerate && item.media_url && item.status === 'ready' && !isVideoWithImageFallback) { skipped++; continue; }
+        if (!isRegenRequest && !forceRegenerate && !isVideoWithImageFallback && item.status !== 'draft' && item.status !== 'failed' && item.status !== 'planned') { skipped++; continue; }
 
         const itemDate = item.date;
         if (!isRegenRequest && !targetDates.has(itemDate)) { skipped++; continue; }

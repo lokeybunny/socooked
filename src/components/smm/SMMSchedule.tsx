@@ -1189,8 +1189,16 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const triggerMediaGen = async (planId: string, dates?: string[]) => {
     setGenerating(true);
     try {
+      // Check if items already have generated content — if so, force regenerate
+      const hasExistingContent = items.some(i => i.media_url && i.status === 'ready');
       const body: any = { plan_id: planId };
       if (dates) body.force_dates = dates;
+      if (hasExistingContent) body.force_regenerate = true;
+      
+      if (hasExistingContent) {
+        toast.info('Regenerating content — old content stays visible until new content is ready.');
+      }
+      
       const { data, error } = await supabase.functions.invoke('smm-media-gen', { body });
       if (error) throw error;
       toast.success(`🎨 ${data?.message || 'Media generation triggered'}`);
