@@ -192,8 +192,8 @@ serve(async (req) => {
 
     // ─── Default: Poll for new GVoice emails ───
     // Fetch recent emails from voice-noreply@google.com
-    const query = `from:voice-noreply@google.com in:inbox newer_than:1d`;
-    const listUrl = `${GMAIL_API}/users/me/messages?q=${encodeURIComponent(query)}&maxResults=15`;
+    const query = `in:inbox newer_than:7d`;
+    const listUrl = `${GMAIL_API}/users/me/messages?q=${encodeURIComponent(query)}&maxResults=3`;
     const listRes = await fetch(listUrl, {
       headers: { Authorization: `Bearer ${token}` },
     });
