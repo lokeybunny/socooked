@@ -1518,6 +1518,8 @@ Deno.serve(async (req) => {
     // ─── GVoice Reply: reply to a GVoice notification → send email reply (DMs + allowed groups) ───
     if (text && (!isGroup || isAllowedGroup) && message.reply_to_message) {
       const repliedMsgId = message.reply_to_message.message_id
+
+      // Try communications table first
       const { data: gvComm } = await supabase
         .from('communications')
         .select('id, from_address, metadata, phone_number')
@@ -1527,17 +1529,42 @@ Deno.serve(async (req) => {
         .filter('metadata->>telegram_message_id', 'eq', String(repliedMsgId))
         .limit(1)
 
+      // Fallback to webhook_events if no communications match
+      let phone = ''
+      let threadId = ''
+      let gmailId = ''
+      let matched = false
+
       if (gvComm && gvComm.length > 0) {
         const comm = gvComm[0]
         const meta = comm.metadata as any
-        const phone = comm.phone_number || comm.from_address || 'unknown'
-        const threadId = meta?.thread_id
-        const gmailId = meta?.gmail_id
+        phone = comm.phone_number || comm.from_address || 'unknown'
+        threadId = meta?.thread_id || ''
+        gmailId = meta?.gmail_id || ''
+        matched = true
+      } else {
+        // Fallback: check webhook_events for the telegram_message_id
+        const { data: weMatch } = await supabase
+          .from('webhook_events')
+          .select('payload')
+          .eq('source', 'gvoice-poll')
+          .eq('event_type', 'gvoice_forwarded')
+          .filter('payload->>telegram_message_id', 'eq', String(repliedMsgId))
+          .limit(1)
 
+        if (weMatch && weMatch.length > 0) {
+          const wp = weMatch[0].payload as any
+          phone = wp?.phone || 'unknown'
+          threadId = wp?.thread_id || ''
+          gmailId = wp?.gmail_id || ''
+          matched = true
+        }
+      }
+
+      if (matched) {
         await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `💬 Replying to text from ${phone} via WarrentheCreativeyt@gmail.com...` })
 
         try {
-          // Build email reply via gvoice-reply action
           const replyRes = await fetch(`${SUPABASE_URL}/functions/v1/gvoice-poll?action=reply`, {
             method: 'POST',
             headers: {
