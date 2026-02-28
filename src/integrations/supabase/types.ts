@@ -1441,6 +1441,62 @@ export type Database = {
           },
         ]
       }
+      research_findings: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          finding_type: string
+          id: string
+          raw_data: Json
+          source_url: string | null
+          status: string
+          summary: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          finding_type?: string
+          id?: string
+          raw_data?: Json
+          source_url?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          finding_type?: string
+          id?: string
+          raw_data?: Json
+          source_url?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_findings_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ringcentral_tokens: {
         Row: {
           access_token: string

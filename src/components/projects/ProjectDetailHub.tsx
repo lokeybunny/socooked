@@ -55,6 +55,8 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
   const [botTasks, setBotTasks] = useState<any[]>([]);
   const [previews, setPreviews] = useState<any[]>([]);
   const [contentAssets, setContentAssets] = useState<any[]>([]);
+  const [textMessages, setTextMessages] = useState<any[]>([]);
+  const [textsCopied, setTextsCopied] = useState(false);
   const [mediaPreview, setMediaPreview] = useState<{ url: string; title: string; type: string } | null>(null);
   const [customerNotes, setCustomerNotes] = useState('');
   const [notesEditing, setNotesEditing] = useState(false);
@@ -118,6 +120,15 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
       setBotTasks(tk || []);
       setPreviews(pr || []);
       setContentAssets(ca || []);
+
+      // Filter text messages (GVoice SMS) from communications
+      const smsMessages = (e || []).filter((c: any) =>
+        c.type === 'sms' || c.type === 'text' || c.type === 'voicemail' ||
+        (c.provider && c.provider.includes('gvoice'))
+      ).sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      setTextMessages(smsMessages);
+      setTextsCopied(false);
+
       setLoading(false);
 
       // Fetch Gmail emails for this customer in background
@@ -216,9 +227,10 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
 
         {/* Hub Tabs */}
         <Tabs defaultValue="tasks" className="flex-1 min-h-0">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="tasks" className="text-xs">Tasks</TabsTrigger>
             <TabsTrigger value="emails" className="text-xs">Emails</TabsTrigger>
+            <TabsTrigger value="texts" className="text-xs gap-1"><Phone className="h-3 w-3" />Texts</TabsTrigger>
             <TabsTrigger value="igdms" className="text-xs gap-1"><Instagram className="h-3 w-3" />DMs</TabsTrigger>
             <TabsTrigger value="notes" className="text-xs">Notes</TabsTrigger>
             <TabsTrigger value="docs" className="text-xs">Content</TabsTrigger>
@@ -332,6 +344,66 @@ export function ProjectDetailHub({ project, open, onClose, onDelete }: ProjectDe
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            {/* Texts (GVoice SMS) */}
+            <TabsContent value="texts" className="space-y-2 m-0">
+              <div className="flex items-center justify-between">
+                <SectionCount items={textMessages} label="text messages" />
+                {textMessages.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => {
+                      const lines = textMessages.map((msg: any) => {
+                        const dir = msg.direction === 'inbound' ? '← ' : '→ ';
+                        const ts = format(new Date(msg.created_at), 'MMM d, h:mm a');
+                        const from = msg.direction === 'inbound' ? (msg.phone_number || msg.from_address || 'Unknown') : 'You';
+                        return `[${ts}] ${dir}${from}: ${msg.body || '(no content)'}`;
+                      });
+                      navigator.clipboard.writeText(lines.join('\n'));
+                      setTextsCopied(true);
+                      toast.success('Text history copied to clipboard');
+                      setTimeout(() => setTextsCopied(false), 2000);
+                    }}
+                  >
+                    {textsCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {textsCopied ? 'Copied' : 'Copy All'}
+                  </Button>
+                )}
+              </div>
+              {textMessages.length === 0 && <EmptyState label="text messages" />}
+              {textMessages.map((msg: any) => {
+                const isInbound = msg.direction === 'inbound';
+                return (
+                  <div
+                    key={msg.id}
+                    className={`glass-card p-3 space-y-1 ${isInbound ? 'border-l-2 border-l-primary' : 'border-l-2 border-l-muted-foreground/30'}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {isInbound ? <Inbox className="h-3 w-3 text-primary" /> : <Send className="h-3 w-3 text-muted-foreground" />}
+                      <span className="text-xs font-medium">
+                        {isInbound ? (msg.phone_number || msg.from_address || 'Unknown') : 'You'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        {format(new Date(msg.created_at), 'MMM d, h:mm a')}
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(msg.body || '');
+                          toast.success('Message copied');
+                        }}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </div>
+                    {msg.body && <p className="text-sm text-foreground whitespace-pre-wrap">{msg.body}</p>}
+                    {msg.subject && <p className="text-xs text-muted-foreground">{msg.subject}</p>}
+                  </div>
+                );
+              })}
             </TabsContent>
 
             {/* IG DMs */}
