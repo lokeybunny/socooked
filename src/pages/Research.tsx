@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
@@ -48,6 +48,7 @@ export default function Research() {
   const [converting, setConverting] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [generating, setGenerating] = useState(false);
 
   // New finding form
   const [title, setTitle] = useState('');
@@ -197,6 +198,21 @@ export default function Research() {
   const spacebotCycleCount = spacebotFindings.length;
   const isSpacebotRecent = lastSpacebotPush && (Date.now() - new Date(lastSpacebotPush).getTime()) < 20 * 60 * 1000; // within 20min
 
+  const handleGenerate = async () => {
+    setGenerating(true);
+    toast.info('Starting research cycle — this may take 1-2 minutes...');
+    try {
+      const { data, error } = await supabase.functions.invoke('spacebot-research');
+      if (error) throw error;
+      toast.success(`Research complete: ${data?.stats?.tweets ?? 0} tweets, ${data?.stats?.tokens ?? 0} tokens, ${data?.stats?.matches ?? 0} matches`);
+      load();
+    } catch (err: any) {
+      toast.error(err.message || 'Research generation failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   // ── Category gate (source selector) ──
   if (!selectedSource) {
     return (
@@ -298,6 +314,17 @@ export default function Research() {
         <div className="flex items-center justify-between">
           <p className="text-muted-foreground text-sm">{filtered.length} findings</p>
           <div className="flex items-center gap-2">
+            {selectedSource === 'x' && (
+              <Button
+                size="sm"
+                onClick={handleGenerate}
+                disabled={generating}
+                className="gap-1.5"
+              >
+                <Zap className={`h-4 w-4 ${generating ? 'animate-pulse' : ''}`} />
+                {generating ? 'Generating...' : 'Generate Research'}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
