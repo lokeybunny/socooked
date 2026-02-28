@@ -10,15 +10,31 @@ const V0_API_URL = 'https://api.v0.dev'
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
-  // Auth — only bot or internal calls
+  // Auth — bot secret, internal calls, OR authenticated Supabase user
   const botSecret = req.headers.get('x-bot-secret')
   const expectedSecret = Deno.env.get('BOT_SECRET')
   const internalCall = req.headers.get('x-internal') === 'true'
+  const authHeader = req.headers.get('authorization')
 
+  let isAuthedUser = false
   if (!internalCall && !(botSecret && expectedSecret && botSecret === expectedSecret)) {
-    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    // Try JWT auth for dashboard users
+    if (authHeader?.startsWith('Bearer ')) {
+      const supaCheck = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { global: { headers: { Authorization: authHeader } } }
+      )
+      const { data: { user } } = await supaCheck.auth.getUser()
+      if (user) {
+        isAuthedUser = true
+      }
+    }
+    if (!isAuthedUser) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
   }
 
   const v0Key = Deno.env.get('V0_API_KEY')

@@ -5,9 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface ApiPreview {
   id: string;
@@ -27,6 +34,12 @@ interface ApiPreview {
   customers?: { full_name: string; email: string | null } | null;
 }
 
+interface Customer {
+  id: string;
+  full_name: string;
+  category: string | null;
+}
+
 const SOURCE_CONFIG: Record<string, { label: string; icon: typeof Palette; color: string }> = {
   'v0-designer': { label: 'V0.dev', icon: Palette, color: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
   'higgsfield': { label: 'Higgsfield', icon: Video, color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
@@ -40,12 +53,136 @@ const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string }
   failed: { icon: XCircle, color: 'text-destructive' },
 };
 
+// ─── Generate Website Modal ───
+function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onGenerated: () => void;
+}) {
+  const [prompt, setPrompt] = useState('');
+  const [customerId, setCustomerId] = useState<string>('');
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [result, setResult] = useState<{ edit_url: string; chat_id: string } | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      supabase.from('customers').select('id, full_name, category').order('full_name').then(({ data }) => {
+        if (data) setCustomers(data);
+      });
+      setResult(null);
+      setPrompt('');
+      setCustomerId('');
+    }
+  }, [open]);
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) { toast.error('Please enter a design prompt'); return; }
+    if (!customerId) { toast.error('Please select a client'); return; }
+
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('v0-designer', {
+        body: { prompt: prompt.trim(), customer_id: customerId },
+      });
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Generation failed');
+
+      setResult(data.data);
+      toast.success('Website generation started! The preview will appear once V0 finishes building.');
+      onGenerated();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to start generation');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5 text-primary" /> Generate Website
+          </DialogTitle>
+        </DialogHeader>
+
+        {result ? (
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+              <Rocket className="h-6 w-6 text-primary shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">Generation in progress!</p>
+                <p className="text-xs text-muted-foreground mt-0.5">V0 is building your website. The preview will update automatically when ready.</p>
+              </div>
+            </div>
+            <a
+              href={result.edit_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open in V0 Editor
+            </a>
+            <DialogFooter>
+              <Button onClick={() => onOpenChange(false)}>Close</Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Client</Label>
+              <Select value={customerId} onValueChange={setCustomerId}>
+                <SelectTrigger><SelectValue placeholder="Select a client…" /></SelectTrigger>
+                <SelectContent>
+                  {customers.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.full_name}
+                      {c.category && <span className="text-muted-foreground ml-1.5">· {c.category}</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Design Prompt</Label>
+              <Textarea
+                rows={6}
+                value={prompt}
+                onChange={e => setPrompt(e.target.value)}
+                placeholder={`Describe the website you want to generate…\n\nExample: "Build a modern landing page for a premium barbershop called 'The Gentlemen's Cut'. Hero section with a dramatic photo, services grid, gallery, testimonials, and a booking CTA. Dark luxury aesthetic with gold accents."`}
+                className="text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Be descriptive — include sections, style, colors, and imagery. The AI will auto-generate all visuals.
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button onClick={handleGenerate} disabled={generating} className="gap-1.5">
+                {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {generating ? 'Generating…' : 'Generate Website'}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Main Page ───
 export default function Previews() {
   const [previews, setPreviews] = useState<ApiPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
+  const [showGenerate, setShowGenerate] = useState(false);
 
   useEffect(() => {
     fetchPreviews();
@@ -69,7 +206,6 @@ export default function Previews() {
     if (!error && data) {
       const items = data as unknown as ApiPreview[];
       setPreviews(items);
-      // Auto-expand groups that have generating/in_progress items
       const activeGroups = new Set<string>();
       items.forEach(p => {
         if (p.status === 'generating' || p.status === 'in_progress') {
@@ -127,14 +263,19 @@ export default function Previews() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Previews</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">Web Previews</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              All API-generated work — organized by client
+              All API-generated websites — organized by client
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>{previews.length} total asset{previews.length !== 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setShowGenerate(true)} className="gap-1.5">
+              <Plus className="h-4 w-4" /> Generate Website
+            </Button>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>{previews.length} total asset{previews.length !== 1 ? 's' : ''}</span>
+            </div>
           </div>
         </div>
 
@@ -191,11 +332,14 @@ export default function Previews() {
           </div>
         ) : sortedGroups.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Sparkles className="h-10 w-10 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium text-foreground">No previews yet</h3>
+            <Globe className="h-10 w-10 text-muted-foreground/30 mb-4" />
+            <h3 className="text-lg font-medium text-foreground">No web previews yet</h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-              When APIs like V0.dev or Higgsfield generate work, it will appear here organized by client.
+              Click "Generate Website" to create your first AI-powered website, or use the Telegram bot.
             </p>
+            <Button onClick={() => setShowGenerate(true)} className="mt-4 gap-1.5">
+              <Plus className="h-4 w-4" /> Generate Website
+            </Button>
           </div>
         ) : (
           <div className="space-y-2">
@@ -203,7 +347,6 @@ export default function Previews() {
               const isExpanded = expandedClients.has(clientId);
               return (
                 <div key={clientId} className="border border-border rounded-lg overflow-hidden bg-card">
-                  {/* Client header */}
                   <button
                     onClick={() => toggleClient(clientId)}
                     className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent/50 transition-colors"
@@ -231,7 +374,6 @@ export default function Previews() {
                     </div>
                   </button>
 
-                  {/* Previews grid */}
                   {isExpanded && (
                     <div className="px-4 pb-4 pt-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {group.previews.map(preview => {
@@ -245,7 +387,6 @@ export default function Previews() {
                             key={preview.id}
                             className="group border border-border rounded-lg p-4 hover:border-primary/30 transition-all bg-background"
                           >
-                            {/* Card header */}
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center gap-2 min-w-0">
                                 <SrcIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -256,24 +397,20 @@ export default function Previews() {
                               <StatusIcon className={cn('h-4 w-4 shrink-0', statusConfig.color, preview.status === 'in_progress' && 'animate-spin')} />
                             </div>
 
-                            {/* Title */}
                             <h4 className="text-sm font-medium text-foreground leading-snug line-clamp-2 mb-1">
                               {preview.title}
                             </h4>
 
-                            {/* Prompt excerpt */}
                             {preview.prompt && (
                               <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
                                 {preview.prompt}
                               </p>
                             )}
 
-                            {/* Date */}
                             <p className="text-[11px] text-muted-foreground mb-3">
                               {format(new Date(preview.created_at), 'MMM d, yyyy · h:mm a')}
                             </p>
 
-                            {/* Actions */}
                             <div className="flex gap-2">
                               {preview.preview_url && (
                                 <a
@@ -312,6 +449,12 @@ export default function Previews() {
           </div>
         )}
       </div>
+
+      <GenerateWebsiteModal
+        open={showGenerate}
+        onOpenChange={setShowGenerate}
+        onGenerated={fetchPreviews}
+      />
     </AppLayout>
   );
 }
