@@ -570,35 +570,6 @@ function InstagramFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; o
           </div>
         ))}
       </div>
-      <div className="divide-y divide-border/30 mt-2">
-        {items.slice(0, 3).map((item) => (
-          <div key={`feed-${item.id}`} className="p-3 space-y-2 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => onItemClick?.(item)}>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-pink-500 to-yellow-500" />
-              <span className="text-xs font-semibold">STU25</span>
-              <span className="text-[10px] text-muted-foreground ml-auto">{format(parseISO(item.date), 'MMM d, h:mm a')}</span>
-            </div>
-            {item.media_url ? (
-              item.type === 'video' && /\.(mp4|mov|webm|m3u8)/i.test(item.media_url) ? (
-                <VideoThumbnail src={item.media_url} title={item.caption} className="w-full rounded-md max-h-64 overflow-hidden" videoClassName="w-full max-h-64 object-cover" />
-              ) : (
-                <img src={item.media_url} alt="" className="w-full rounded-md max-h-64 object-cover" />
-              )
-            ) : (
-              <div className="w-full h-40 rounded-md overflow-hidden"><MediaPlaceholder item={item} /></div>
-            )}
-            <div className="flex items-center gap-4 text-muted-foreground">
-              <Heart className="h-4 w-4" /><MessageCircle className="h-4 w-4" /><Send className="h-4 w-4" />
-              <Bookmark className="h-4 w-4 ml-auto" />
-            </div>
-            <p className="text-xs"><span className="font-semibold">STU25</span> {item.caption}</p>
-            {item.hashtags?.length > 0 && (
-              <p className="text-xs text-pink-500">{item.hashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}</p>
-            )}
-            <StatusBadge status={item.status} />
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
