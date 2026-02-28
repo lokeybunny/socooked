@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
@@ -49,6 +49,9 @@ export default function Research() {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [generating, setGenerating] = useState(false);
+  const [progressLog, setProgressLog] = useState<Array<{ step: number; label: string; status: string; detail: string; ts: string }>>([]);
+  const [showLog, setShowLog] = useState(false);
+  const logEndRef = useRef<HTMLDivElement>(null);
 
   // New finding form
   const [title, setTitle] = useState('');
@@ -200,18 +203,78 @@ export default function Research() {
 
   const handleGenerate = async () => {
     setGenerating(true);
-    toast.info('Starting research cycle — this may take 1-2 minutes...');
+    setProgressLog([]);
+    setShowLog(true);
+
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/spacebot-research`;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
     try {
-      const { data, error } = await supabase.functions.invoke('spacebot-research');
-      if (error) throw error;
-      toast.success(`Research complete: ${data?.stats?.tweets ?? 0} tweets, ${data?.stats?.tokens ?? 0} tokens, ${data?.stats?.matches ?? 0} matches`);
-      load();
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let currentEvent = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith('data: ') && currentEvent) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+              if (currentEvent === 'progress') {
+                setProgressLog(prev => {
+                  const existing = prev.findIndex(p => p.step === data.step && p.label === data.label);
+                  const entry = { step: data.step, label: data.label, status: data.status, detail: data.detail, ts: now };
+                  if (existing >= 0) {
+                    const updated = [...prev];
+                    updated[existing] = entry;
+                    return updated;
+                  }
+                  return [...prev, entry];
+                });
+              } else if (currentEvent === 'complete') {
+                toast.success(`Research complete: ${data.stats?.tweets ?? 0} tweets, ${data.stats?.tokens ?? 0} tokens, ${data.stats?.matches ?? 0} matches`);
+                load();
+              } else if (currentEvent === 'error') {
+                toast.error(data.message || 'Generation failed');
+              }
+            } catch { /* skip bad JSON */ }
+            currentEvent = '';
+          }
+        }
+      }
     } catch (err: any) {
       toast.error(err.message || 'Research generation failed');
     } finally {
       setGenerating(false);
     }
   };
+
+  // Auto-scroll log
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [progressLog]);
 
   // ── Category gate (source selector) ──
   if (!selectedSource) {
@@ -378,6 +441,51 @@ export default function Research() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Live Progress Log */}
+        {selectedSource === 'x' && showLog && progressLog.length > 0 && (
+          <div className="glass-card rounded-lg overflow-hidden border border-border">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Terminal className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-foreground">spacebot pipeline</span>
+                {generating && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                {!generating && progressLog.some(p => p.status === 'done') && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">COMPLETE</span>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => setShowLog(false)}>
+                Hide
+              </Button>
+            </div>
+            <div className="max-h-64 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-xs">
+              {progressLog.map((entry, i) => (
+                <div key={`${entry.step}-${entry.label}-${i}`} className="flex items-start gap-2 animate-fade-in">
+                  <span className="text-muted-foreground shrink-0 w-16">{entry.ts}</span>
+                  <span className="shrink-0">
+                    {entry.status === 'running' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    ) : entry.status === 'done' ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                    ) : (
+                      <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <span className={cn(
+                      "font-medium",
+                      entry.status === 'running' ? "text-foreground" : entry.status === 'done' ? "text-muted-foreground" : "text-destructive"
+                    )}>
+                      [{entry.step}] {entry.label}
+                    </span>
+                    <p className="text-muted-foreground truncate">{entry.detail}</p>
+                  </div>
+                </div>
+              ))}
+              <div ref={logEndRef} />
+            </div>
+          </div>
+        )}
 
         {/* Findings Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
