@@ -374,7 +374,7 @@ async function submitVideoToHiggsfield(prompt: string, sourceImageUrl?: string):
 async function pollHiggsfield(requestId: string): Promise<string | null> {
   const authValue = `Key ${HIGGSFIELD_API_KEY}:${HIGGSFIELD_CLIENT_SECRET}`;
   const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai';
-  const maxAttempts = 48; // 48 × 10s = ~8 minutes
+  const maxAttempts = 60; // 60 × 10s = ~10 minutes (Higgsfield can be slow)
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     await new Promise(r => setTimeout(r, 10000));
@@ -601,8 +601,9 @@ serve(async (req) => {
 
         const basePrompt = item.media_prompt || `Create a visually striking social media ${item.type} post: ${item.caption}`;
         
-        // Always generate a fresh varied prompt using AI + brand context + style references
-        const prompt = await varyPrompt(basePrompt, item.type, plan.brand_context || {}, item.caption || '', styleReferences.length > 0 ? styleReferences : undefined);
+        // Style references only apply to image/carousel — NOT video (Higgsfield has its own workflow)
+        const useStyleRefs = item.type !== 'video' && styleReferences.length > 0 ? styleReferences : undefined;
+        const prompt = await varyPrompt(basePrompt, item.type, plan.brand_context || {}, item.caption || '', useStyleRefs);
         // Save the new prompt back to the item for reference
         items[i].media_prompt = prompt;
         
