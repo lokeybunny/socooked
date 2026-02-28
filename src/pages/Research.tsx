@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -190,6 +191,12 @@ export default function Research() {
     }
   };
 
+  // Spacebot last cycle info
+  const spacebotFindings = allFindings.filter(f => f.created_by === 'spacebot');
+  const lastSpacebotPush = spacebotFindings[0]?.created_at;
+  const spacebotCycleCount = spacebotFindings.length;
+  const isSpacebotRecent = lastSpacebotPush && (Date.now() - new Date(lastSpacebotPush).getTime()) < 20 * 60 * 1000; // within 20min
+
   // ── Category gate (source selector) ──
   if (!selectedSource) {
     return (
@@ -205,6 +212,42 @@ export default function Research() {
               <span className="text-sm text-muted-foreground">total findings</span>
             </div>
           </div>
+
+          {/* Spacebot Status Indicator */}
+          <div className="w-full max-w-md mx-auto">
+            <div className="glass-card rounded-lg px-4 py-3 flex items-center gap-3">
+              <div className={cn(
+                "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
+                isSpacebotRecent ? "bg-emerald-500/15" : "bg-muted"
+              )}>
+                <Activity className={cn(
+                  "h-4 w-4",
+                  isSpacebotRecent ? "text-emerald-500 animate-pulse" : "text-muted-foreground"
+                )} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-foreground">spacebot</span>
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                    isSpacebotRecent
+                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                      : lastSpacebotPush
+                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                        : "bg-muted text-muted-foreground"
+                  )}>
+                    {isSpacebotRecent ? 'LIVE' : lastSpacebotPush ? 'IDLE' : 'NEVER RUN'}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground truncate">
+                  {lastSpacebotPush
+                    ? `Last cycle ${formatDistanceToNow(new Date(lastSpacebotPush), { addSuffix: true })} · ${spacebotCycleCount} findings`
+                    : 'No data pushed yet — run spacebot.sh to begin'}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
             {RESEARCH_SOURCES.map(src => {
               const count = categoryCounts[src.id] || 0;
