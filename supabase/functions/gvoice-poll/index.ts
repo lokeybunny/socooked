@@ -135,16 +135,18 @@ serve(async (req) => {
       const { thread_id, gmail_id, message, phone } = await req.json();
       if (!message) throw new Error("message required");
 
-      // Google Voice texts come from voice-noreply@google.com but replies
-      // need to go to the phone number's GVoice SMS address.
-      // The simplest approach: reply to the original thread via Gmail API
-      const replySubject = `Re: Google Voice text from ${phone || "unknown"}`;
+      // Determine recipient: if phone looks like an email, send directly to it;
+      // otherwise it's a GVoice text → reply to voice-noreply@google.com thread
+      const isEmail = phone && phone.includes("@");
+      const recipient = isEmail ? phone : GVOICE_SENDER;
+      const replySubject = isEmail
+        ? `Re: ${phone}`
+        : `Re: Google Voice text from ${phone || "unknown"}`;
       
       // Build raw reply MIME
-      const boundary = `boundary_${crypto.randomUUID().replace(/-/g, "")}`;
       const rawLines = [
         `From: ${IMPERSONATE_EMAIL}`,
-        `To: ${GVOICE_SENDER}`,
+        `To: ${recipient}`,
         `Subject: ${replySubject}`,
         `In-Reply-To: ${gmail_id || ""}`,
         `Content-Type: text/plain; charset=UTF-8`,

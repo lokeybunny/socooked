@@ -1566,7 +1566,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Gmail Reply: reply to a gmail-poll notification → send email reply via gmail-api ───
+    // ─── Gmail Reply: reply to a gmail-poll notification → send via warrenthecreativeyt@gmail.com ───
     if (text && !isGroup && message.reply_to_message) {
       const repliedMsgId = message.reply_to_message.message_id
       const { data: gmailComm } = await supabase
@@ -1581,31 +1581,32 @@ Deno.serve(async (req) => {
       if (gmailComm && gmailComm.length > 0) {
         const comm = gmailComm[0]
         const senderEmail = comm.from_address || 'unknown'
-        const originalSubject = comm.subject || ''
-        const replySubject = originalSubject.startsWith('Re:') ? originalSubject : `Re: ${originalSubject}`
+        const meta = comm.metadata as any
+        const threadId = meta?.gmail_thread_id
+        const gmailId = meta?.gmail_id || comm.id
 
-        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📨 Sending email reply to ${senderEmail}...` })
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📨 Sending reply to ${senderEmail} via warrenthecreativeyt@gmail.com...` })
 
         try {
-          const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
-          const replyRes = await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
+          const replyRes = await fetch(`${SUPABASE_URL}/functions/v1/gvoice-poll?action=reply`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${ANON_KEY}`,
-              'apikey': ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
             },
             body: JSON.stringify({
-              to: senderEmail,
-              subject: replySubject,
-              body: text,
+              thread_id: threadId,
+              gmail_id: gmailId,
+              message: text,
+              phone: senderEmail,
             }),
           })
           const replyData = await replyRes.json()
-          if (replyData?.error || replyData?.blocked) {
-            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Reply failed: ${replyData.error || 'blocked'}` })
+          if (replyData?.error) {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Reply failed: ${replyData.error}` })
           } else {
-            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ Email reply sent to ${senderEmail}` })
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ Reply sent to ${senderEmail}` })
           }
         } catch (e: any) {
           console.error('[gmail-reply] error:', e)
