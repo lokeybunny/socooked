@@ -186,32 +186,30 @@ function ActivityPanel({ agent, tasks, activities, previews, navigate, onPurge, 
       exit={{ opacity: 0, y: 12 }}
       className="mt-6 rounded-xl border border-border bg-card p-5"
     >
-      <div className="flex items-center gap-3 mb-4">
-        <div className={cn("p-2 rounded-lg bg-gradient-to-br", agent.color)}>
-          <agent.icon className="h-4 w-4 text-white" />
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2 rounded-lg bg-gradient-to-br", agent.color)}>
+            <agent.icon className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">{agent.label}</h3>
+            <p className="text-xs text-muted-foreground">{agent.role} — Live Activity</p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">{agent.label}</h3>
-          <p className="text-xs text-muted-foreground">{agent.role} — Live Activity</p>
-        </div>
+        <button
+          onClick={onPurge}
+          disabled={purging}
+          className="flex items-center gap-1 text-[10px] px-2.5 py-1.5 rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+        >
+          {purging ? <Loader2 className="h-3 w-3 animate-spin" /> : <OctagonX className="h-3 w-3" />}
+          Purge All
+        </button>
       </div>
 
       {/* Active tasks */}
       {tasks.length > 0 ? (
         <div className="space-y-2 mb-4">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tasks ({tasks.length})</p>
-            {tasks.some(t => t.status === 'queued' || t.status === 'in_progress') && (
-              <button
-                onClick={onPurge}
-                disabled={purging}
-                className="flex items-center gap-1 text-[10px] text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
-              >
-                {purging ? <Loader2 className="h-3 w-3 animate-spin" /> : <OctagonX className="h-3 w-3" />}
-                Purge All
-              </button>
-            )}
-          </div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tasks ({tasks.length})</p>
           {tasks.slice(0, 8).map(task => (
             <div key={task.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors">
               <div className="flex items-center gap-2 min-w-0">
