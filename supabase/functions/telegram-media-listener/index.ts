@@ -868,11 +868,13 @@ async function processBananaCommand(
     let replyText = ''
 
     const imageOutputUrl = result?.url || result?.output_url
+    let photoSent = false
     if (imageOutputUrl) {
       replyText = `🍌 <b>Image Generated!</b>\n\n🔗 <a href="${imageOutputUrl}">View Image</a>\n📋 <i>${prompt.slice(0, 200)}</i>`
       // Try to send the image directly
       try {
         await tgPost(tgToken, 'sendPhoto', { chat_id: chatId, photo: imageOutputUrl, caption: `🍌 ${prompt.slice(0, 200)}` })
+        photoSent = true
       } catch (_e) { /* fallback to text link above */ }
     } else if (result?.content_asset_id || result?.id) {
       replyText = `✅ <b>Image created!</b>\n🆔 <code>${result.content_asset_id || result.id}</code>\n\nCheck the Content Library for your image.`
@@ -900,12 +902,14 @@ async function processBananaCommand(
       await supabase.from('webhook_events').update({ payload: { ...payload, history: newHistory } }).eq('id', session.id)
     }
 
-    await tgPost(tgToken, 'sendMessage', {
-      chat_id: chatId,
-      text: replyText.slice(0, 4000),
-      parse_mode: 'HTML',
-      disable_web_page_preview: false,
-    })
+    if (!photoSent) {
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: replyText.slice(0, 4000),
+        parse_mode: 'HTML',
+        disable_web_page_preview: false,
+      })
+    }
   } catch (e: any) {
     console.error('[banana-tg] error:', e)
     await tgPost(tgToken, 'sendMessage', {
@@ -948,10 +952,12 @@ async function processBanana2Command(
     let replyText = ''
 
     const imageOutputUrl = result?.url || result?.output_url
+    let photoSent = false
     if (imageOutputUrl) {
       replyText = `🍌2️⃣ <b>Banana2 Image Generated!</b>\n\n🔗 <a href="${imageOutputUrl}">View Image</a>\n📋 <i>${prompt.slice(0, 200)}</i>`
       try {
         await tgPost(tgToken, 'sendPhoto', { chat_id: chatId, photo: imageOutputUrl, caption: `🍌2️⃣ ${prompt.slice(0, 200)}` })
+        photoSent = true
       } catch (_e) { /* fallback to text link */ }
     } else if (result?.content_asset_id || result?.id) {
       replyText = `✅ <b>Banana2 image created!</b>\n🆔 <code>${result.content_asset_id || result.id}</code>\n\nCheck the Content Library for your image.`
@@ -979,12 +985,14 @@ async function processBanana2Command(
       await supabase.from('webhook_events').update({ payload: { ...payload, history: newHistory } }).eq('id', session.id)
     }
 
-    await tgPost(tgToken, 'sendMessage', {
-      chat_id: chatId,
-      text: replyText.slice(0, 4000),
-      parse_mode: 'HTML',
-      disable_web_page_preview: false,
-    })
+    if (!photoSent) {
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: replyText.slice(0, 4000),
+        parse_mode: 'HTML',
+        disable_web_page_preview: false,
+      })
+    }
   } catch (e: any) {
     console.error('[banana2-tg] error:', e)
     await tgPost(tgToken, 'sendMessage', {

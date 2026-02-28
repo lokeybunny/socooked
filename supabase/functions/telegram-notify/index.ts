@@ -125,6 +125,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Skip nano_banana image completions — the telegram-media-listener already sends the photo
+    if (entry.action === 'nano_banana_image_completed') {
+      return new Response(
+        JSON.stringify({ success: true, skipped: 'nano_banana handled by listener' }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const message = formatMessage(entry);
     console.log(`[telegram-notify] entity=${entry.entity_type} action=${entry.action} message_preview=${message.substring(0, 80)}`);
 

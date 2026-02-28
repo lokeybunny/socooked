@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Bot, Cpu, Palette, Share2, Radar, ArrowRight, Activity, CheckCircle2, Clock, AlertCircle, ExternalLink, Search, Wrench, Inbox, Brain } from 'lucide-react';
+import { Bot, Cpu, Palette, Share2, Radar, ArrowRight, Activity, CheckCircle2, Clock, AlertCircle, ExternalLink, Search, Wrench, Inbox, Brain, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -13,7 +13,7 @@ const AGENTS = [
   { id: 'social-media', label: 'Social Media', role: 'Upload-Post API — Publisher', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: true, group: 'clawd' },
   { id: 'content-manager', label: 'Higgsfield AI', role: 'Content Agent — Video/Image', icon: Bot, color: 'from-amber-500 to-orange-600', ring: 'ring-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', pulse: 'bg-amber-500', connected: true, group: 'clawd' },
   { id: 'nano-banana', label: 'Nano Banana', role: 'Image AI — Gemini Flash', icon: Palette, color: 'from-yellow-400 to-amber-500', ring: 'ring-yellow-400/30', bg: 'bg-yellow-400/10', text: 'text-yellow-400', pulse: 'bg-yellow-400', connected: true, group: 'clawd' },
-  { id: 'gmail-bot', label: 'SM Planner', role: 'Social Media Planner — Scheduler', icon: Inbox, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500', connected: true, group: 'clawd' },
+  { id: 'gmail-bot', label: 'Telegram', role: 'Bot Command Center — All Activity', icon: Send, color: 'from-[#2AABEE] to-[#229ED9]', ring: 'ring-[#2AABEE]/30', bg: 'bg-[#2AABEE]/10', text: 'text-[#2AABEE]', pulse: 'bg-[#2AABEE]', connected: true, group: 'clawd' },
   { id: 'crm-maintenance', label: 'Zyla - Cortex', role: 'Operations Agent — Cortex AI', icon: Brain, color: 'from-indigo-500 to-blue-600', ring: 'ring-indigo-500/30', bg: 'bg-indigo-500/10', text: 'text-indigo-400', pulse: 'bg-indigo-500', connected: true, group: 'standalone' },
   { id: 'research-finder', label: 'Research Finder', role: 'Research Agent — Coming Soon', icon: Search, color: 'from-teal-500 to-emerald-600', ring: 'ring-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', pulse: 'bg-teal-500', connected: false, group: 'standalone' },
 ] as const;
@@ -340,6 +340,11 @@ export default function AIStaff() {
       return hfTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
     }
 
+    if (id === 'gmail-bot') {
+      // Telegram agent: show ALL bot tasks
+      return tasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 10);
+    }
+
     const botTasks = tasks.filter(t => t.bot_agent === id);
     
     if (id === 'web-designer') {
@@ -397,10 +402,8 @@ export default function AIStaff() {
       );
     }
     if (id === 'gmail-bot') {
-      return activities.filter(a => 
-        a.action.startsWith('smm_') ||
-        (a.entity_type === 'bot_task' && (a.meta as any)?.name?.includes('📱'))
-      );
+      // Show ALL activity — this is the Telegram bot command center
+      return activities.slice(0, 20);
     }
     if (id === 'crm-maintenance') {
       return activities.filter(a => 
