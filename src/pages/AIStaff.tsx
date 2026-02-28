@@ -270,18 +270,24 @@ export default function AIStaff() {
   const [tasks, setTasks] = useState<BotTask[]>([]);
   const [previews, setPreviews] = useState<ApiPreview[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [smmPlans, setSmmPlans] = useState<any[]>([]);
+  const [smmConversations, setSmmConversations] = useState<any[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<AgentId>('clawd-main');
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [bt, al, pv] = await Promise.all([
+    const [bt, al, pv, sp, sc] = await Promise.all([
       supabase.from('bot_tasks').select('*').order('updated_at', { ascending: false }).limit(100),
       supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(50),
       supabase.from('api_previews').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('smm_content_plans').select('id,profile_username,platform,plan_name,status,updated_at,schedule_items').order('updated_at', { ascending: false }).limit(20),
+      supabase.from('smm_conversations').select('id,role,message,source,platform,profile_username,created_at').order('created_at', { ascending: false }).limit(30),
     ]);
     setTasks((bt.data || []) as BotTask[]);
     setActivities((al.data || []) as ActivityItem[]);
     setPreviews((pv.data || []) as ApiPreview[]);
+    setSmmPlans(sp.data || []);
+    setSmmConversations(sc.data || []);
     setLoading(false);
   }, []);
 
@@ -318,6 +324,8 @@ export default function AIStaff() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_tasks' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'api_previews' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'smm_content_plans' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'smm_conversations' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load]);
@@ -329,20 +337,83 @@ export default function AIStaff() {
     if (!agentMeta(id)?.connected) return [];
     
     if (id === 'nano-banana') {
-      // Nano Banana tasks are stored under bot_agent 'content-manager' but have meta.provider = 'nano-banana'
       const nanaTasks = tasks.filter(t => t.bot_agent === 'content-manager' && (t.meta as any)?.provider === 'nano-banana');
       return nanaTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
     }
     
     if (id === 'content-manager') {
-      // Exclude nano-banana tasks from the Higgsfield content manager
       const hfTasks = tasks.filter(t => t.bot_agent === 'content-manager' && (t.meta as any)?.provider !== 'nano-banana');
       return hfTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 5);
     }
 
     if (id === 'gmail-bot') {
-      // Telegram agent: show ALL bot tasks
       return tasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 10);
+    }
+
+    if (id === 'social-media') {
+      // Synthesize tasks from SMM data sources
+      const smmBotTasks = tasks.filter(t => 
+        t.bot_agent === 'social-media' ||
+        t.bot_agent === 'smm' ||
+        (t.meta as any)?.provider === 'smm' ||
+        (t.meta as any)?.provider === 'upload-post' ||
+        (t.meta as any)?.name?.includes('📱') ||
+        (t.meta as any)?.name?.toLowerCase()?.includes('smm') ||
+        (t.meta as any)?.name?.toLowerCase()?.includes('social') ||
+        (t.meta as any)?.name?.toLowerCase()?.includes('instagram') ||
+        (t.meta as any)?.name?.toLowerCase()?.includes('media gen') ||
+        t.title?.toLowerCase()?.includes('social') ||
+        t.title?.toLowerCase()?.includes('smm') ||
+        t.title?.toLowerCase()?.includes('instagram') ||
+        t.title?.toLowerCase()?.includes('content plan') ||
+        t.title?.toLowerCase()?.includes('post')
+      );
+
+      // Synthesize tasks from content plans
+      const planTasks: BotTask[] = smmPlans.map(p => {
+        const items = (p.schedule_items || []) as any[];
+        const readyCount = items.filter((i: any) => i.status === 'ready').length;
+        const genCount = items.filter((i: any) => i.status === 'generating').length;
+        const totalCount = items.length;
+        const planStatus = genCount > 0 ? 'in_progress' : p.status === 'live' ? 'completed' : 'queued';
+        return {
+          id: `plan-${p.id}`,
+          title: `📋 ${p.plan_name} — ${readyCount}/${totalCount} ready${genCount > 0 ? ` (${genCount} generating)` : ''}`,
+          status: planStatus,
+          priority: 'medium',
+          bot_agent: 'social-media',
+          customer_id: null,
+          created_at: p.updated_at,
+          updated_at: p.updated_at,
+          description: null,
+          meta: { platform: p.platform, profile: p.profile_username },
+        };
+      });
+
+      // Synthesize from recent system conversations (generation status)
+      const recentGenMsgs = smmConversations
+        .filter(c => c.source === 'system' && c.role === 'cortex')
+        .slice(0, 5)
+        .map(c => ({
+          id: `smm-msg-${c.id}`,
+          title: c.message?.substring(0, 100) || 'SMM activity',
+          status: c.message?.includes('✅') ? 'completed' : c.message?.includes('❌') ? 'failed' : c.message?.includes('⚡') || c.message?.includes('🎨') ? 'in_progress' : 'queued',
+          priority: 'low' as string,
+          bot_agent: 'social-media',
+          customer_id: null,
+          created_at: c.created_at,
+          updated_at: c.created_at,
+          description: null,
+          meta: { platform: c.platform, profile: c.profile_username, source: 'conversation' },
+        }));
+
+      const existingIds = new Set(smmBotTasks.map(t => t.id));
+      const merged = [
+        ...smmBotTasks,
+        ...planTasks.filter(t => !existingIds.has(t.id)),
+        ...recentGenMsgs.filter(t => !existingIds.has(t.id)),
+      ];
+      return merged.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 15);
     }
 
     const botTasks = tasks.filter(t => t.bot_agent === id);
@@ -396,10 +467,29 @@ export default function AIStaff() {
       );
     }
     if (id === 'social-media') {
-      return activities.filter(a => 
-        a.action.startsWith('smm_') ||
-        (a.entity_type === 'bot_task' && (a.meta as any)?.name?.includes('📱'))
-      );
+      return activities.filter(a => {
+        const name = ((a.meta as any)?.name || '').toLowerCase();
+        const action = a.action.toLowerCase();
+        return (
+          action.startsWith('smm_') ||
+          action.includes('media_gen') ||
+          action.includes('content_plan') ||
+          action.includes('post_published') ||
+          action.includes('post_scheduled') ||
+          a.entity_type === 'smm' ||
+          a.entity_type === 'smm_content_plans' ||
+          a.entity_type === 'smm_conversations' ||
+          name.includes('📱') ||
+          name.includes('smm') ||
+          name.includes('social') ||
+          name.includes('instagram') ||
+          name.includes('media gen') ||
+          name.includes('carousel') ||
+          name.includes('content plan') ||
+          name.includes('upload-post') ||
+          name.includes('schedule')
+        );
+      }).slice(0, 15);
     }
     if (id === 'gmail-bot') {
       // Show ALL activity — this is the Telegram bot command center
