@@ -30,9 +30,12 @@ async function getXBearerToken(clientId: string, clientSecret: string): Promise<
 
 /** Search recent tweets via X API v2 */
 async function searchTweets(bearer: string, query: string, maxResults = 100): Promise<any[]> {
+  // X free tier only returns tweets from the last 7 days; restrict to 24h for freshness
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const params = new URLSearchParams({
     query,
     max_results: String(Math.min(maxResults, 100)),
+    start_time: since,
     "tweet.fields": "public_metrics,created_at,author_id,entities",
     expansions: "author_id",
     "user.fields": "username,profile_image_url",
