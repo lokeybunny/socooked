@@ -150,16 +150,18 @@ Deno.serve(async (req) => {
       if (!tokenRes.ok) throw new Error(`Token error: ${JSON.stringify(tokenData)}`);
       const replyToken = tokenData.access_token;
 
-      // Build raw MIME reply
+      // Build raw MIME reply with signature
+      const EMAIL_SIGNATURE = `<br/><br/><div style="margin-top:20px;padding-top:12px;border-top:1px solid #ccc;font-family:Arial,sans-serif;font-size:13px;color:#555;"><strong style="color:#111;">Warren Thompson</strong><br/><a href="https://stu25.com" style="color:#2754C5;text-decoration:none;">STU25.com</a><br/><a href="tel:+14244651253" style="color:#555;text-decoration:none;">(424) 465-1253</a> (cell) | <a href="tel:+17028322317" style="color:#555;text-decoration:none;">(702) 832-2317</a> (office)</div>`;
+      const htmlBody = `<div style="font-family:Arial,sans-serif;">${message.replace(/\n/g, '<br/>')}</div>${EMAIL_SIGNATURE}`;
       const rawLines = [
         `From: ${IMPERSONATE_EMAIL}`,
         `To: ${to_email}`,
         `Subject: Re: ${to_email}`,
         `In-Reply-To: ${gmail_id || ""}`,
-        `Content-Type: text/plain; charset=UTF-8`,
+        `Content-Type: text/html; charset=UTF-8`,
         `MIME-Version: 1.0`,
         "",
-        message,
+        htmlBody,
       ];
       const raw = btoa(unescape(encodeURIComponent(rawLines.join("\r\n"))))
         .replace(/\+/g, "-")

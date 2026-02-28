@@ -50,8 +50,9 @@ const EMAIL_SIGNATURE = `
 <br/><br/>
 <div style="margin-top:20px;padding-top:12px;border-top:1px solid #ccc;font-family:Arial,sans-serif;font-size:13px;color:#555;">
   <strong style="color:#111;">Warren Thompson</strong><br/>
-  CEO of <a href="https://stu25.com" style="color:#2754C5;text-decoration:none;">STU25.com</a><br/>
-  <a href="tel:+17029976750" style="color:#555;text-decoration:none;">(702) 997-6750</a>
+  <a href="https://stu25.com" style="color:#2754C5;text-decoration:none;">STU25.com</a><br/>
+  <a href="tel:+14244651253" style="color:#555;text-decoration:none;">(424) 465-1253</a> (cell) |
+  <a href="tel:+17028322317" style="color:#555;text-decoration:none;">(702) 832-2317</a> (office)
 </div>`;
 
 function buildRawEmail(to: string, subject: string, body: string): string {
