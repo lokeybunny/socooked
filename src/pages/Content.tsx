@@ -890,6 +890,8 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
   const [assets, setAssets] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 25;
   const initialIdsRef = useRef<Set<string> | null>(null);
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
 
@@ -929,10 +931,20 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
     loadAssets();
   };
 
+  const totalPages = Math.ceil(assets.length / ITEMS_PER_PAGE);
+  const paginatedAssets = assets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-muted-foreground text-sm">{assets.length} Higgsfield AI assets</p>
+        <p className="text-muted-foreground text-sm">{assets.length} AI assets</p>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
+            <span className="text-xs text-muted-foreground">Page {currentPage} of {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -940,12 +952,12 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
       ) : assets.length === 0 ? (
         <div className="text-center py-16 space-y-3">
           <Sparkles className="h-10 w-10 text-muted-foreground/40 mx-auto" />
-          <p className="text-muted-foreground">No Higgsfield AI content yet.</p>
-          <p className="text-sm text-muted-foreground/60">Assets will appear here automatically once the Higgsfield API is connected.</p>
+          <p className="text-muted-foreground">No AI content yet.</p>
+          <p className="text-sm text-muted-foreground/60">Assets will appear here automatically once connected.</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {assets.map(a => {
+          {paginatedAssets.map(a => {
             const Icon = typeIcons[a.type] || File;
             const isPlayable = (a.type === 'video' || a.type === 'audio') && a.url;
             return (
@@ -958,49 +970,29 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
                   </span>
                 </div>
 
-                {/* Assign to customer */}
-                <Select
-                  value={a.customer_id || ''}
-                  onValueChange={(v) => handleAssignCustomer(a.id, v)}
-                >
-                  <SelectTrigger className="w-36 h-7 text-xs">
-                    <SelectValue placeholder="Assign…" />
-                  </SelectTrigger>
+                <Select value={a.customer_id || ''} onValueChange={(v) => handleAssignCustomer(a.id, v)}>
+                  <SelectTrigger className="w-36 h-7 text-xs"><SelectValue placeholder="Assign…" /></SelectTrigger>
                   <SelectContent>
-                    {a.customer_id && (
-                      <SelectItem key="__unassign__" value="__unassign__" className="text-xs text-destructive">Unassign</SelectItem>
-                    )}
-                    {customers.map(c => (
-                      <SelectItem key={c.id} value={c.id} className="text-xs">{c.full_name}</SelectItem>
-                    ))}
+                    {a.customer_id && <SelectItem key="__unassign__" value="__unassign__" className="text-xs text-destructive">Unassign</SelectItem>}
+                    {customers.map(c => <SelectItem key={c.id} value={c.id} className="text-xs">{c.full_name}</SelectItem>)}
                   </SelectContent>
                 </Select>
 
                 <StatusBadge status={a.status} />
                 {a.type === 'image' && a.url && (
-                  <button onClick={() => onImagePreview(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="View image">
-                    <Image className="h-4 w-4" />
-                  </button>
+                  <button onClick={() => onImagePreview(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="View image"><Image className="h-4 w-4" /></button>
                 )}
                 {isPlayable && (
-                  <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play">
-                    <Play className="h-3.5 w-3.5" />
-                  </button>
+                  <button onClick={() => onPlay(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Play"><Play className="h-3.5 w-3.5" /></button>
                 )}
                 {a.url && (
-                  <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download">
-                    <Download className="h-3.5 w-3.5" />
-                  </button>
+                  <button onClick={() => onDownload(a.url, a.title)} className="text-muted-foreground hover:text-primary transition-colors" title="Download"><Download className="h-3.5 w-3.5" /></button>
                 )}
                 {a.url && (
                   a.share_token ? (
-                    <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link">
-                      <Link2 className="h-3.5 w-3.5" />
-                    </button>
+                    <button onClick={() => onRevokeShare(a.id)} className="text-primary hover:text-destructive transition-colors" title="Revoke share link"><Link2 className="h-3.5 w-3.5" /></button>
                   ) : (
-                    <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link">
-                      <Share2 className="h-3.5 w-3.5" />
-                    </button>
+                    <button onClick={() => onShare(a.id)} className="text-muted-foreground hover:text-primary transition-colors" title="Create share link"><Share2 className="h-3.5 w-3.5" /></button>
                   )
                 )}
                 {a.category !== 'ai-generated' && (
@@ -1015,16 +1007,21 @@ function HiggsFieldManager({ onPlay, onDownload, onDelete, onShare, onRevokeShar
                     className="flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors"
                     title="Push to AI Generated"
                   >
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                    <Sparkles className="h-2.5 w-2.5" />
+                    <ArrowUpRight className="h-3.5 w-3.5" /><Sparkles className="h-2.5 w-2.5" />
                   </button>
                 )}
-                <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <button onClick={() => handleDelete(a.id)} className="text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>Previous</Button>
+          <span className="text-xs text-muted-foreground">Page {currentPage} of {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>Next</Button>
         </div>
       )}
     </div>

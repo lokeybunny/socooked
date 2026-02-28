@@ -150,8 +150,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
-    if (!saJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured");
+    const saJson = Deno.env.get("GVOICE_SERVICE_ACCOUNT_JSON");
+    if (!saJson) throw new Error("GVOICE_SERVICE_ACCOUNT_JSON not configured");
 
     const TG_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
     const TG_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
@@ -163,7 +163,7 @@ serve(async (req) => {
 
     // Parse service account
     let sa: any;
-    const parseAttempts = [
+    const parseAttempts: (() => any)[] = [
       () => JSON.parse(saJson),
       () => JSON.parse(saJson.replace(/\\n/g, "\n")),
       () => JSON.parse(saJson.replace(/\\\\n/g, "\n")),
@@ -171,10 +171,72 @@ serve(async (req) => {
     for (const attempt of parseAttempts) {
       try { sa = attempt(); break; } catch (_e) { /* skip */ }
     }
-    if (!sa) throw new Error("Failed to parse GOOGLE_SERVICE_ACCOUNT_JSON");
+    if (!sa) throw new Error("Failed to parse GVOICE_SERVICE_ACCOUNT_JSON");
 
-    const token = await getAccessToken(sa, "https://www.googleapis.com/auth/gmail.modify");
+    const token = await getAccessToken(sa, "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send");
 
+    const url = new URL(req.url);
+    const action = url.searchParams.get("action");
+
+    // ─── Reply action: send an email reply to a GVoice thread ───
+    if (action === "reply") {
+      const { thread_id, gmail_id, message, phone } = await req.json();
+      if (!message) throw new Error("message required");
+
+      // Google Voice texts come from voice-noreply@google.com but replies
+      // need to go to the phone number's GVoice SMS address.
+      // The simplest approach: reply to the original thread via Gmail API
+      const replySubject = `Re: Google Voice text from ${phone || "unknown"}`;
+      
+      // Build raw reply MIME
+      const boundary = `boundary_${crypto.randomUUID().replace(/-/g, "")}`;
+      const rawLines = [
+        `From: ${IMPERSONATE_EMAIL}`,
+        `To: ${GVOICE_SENDER}`,
+        `Subject: ${replySubject}`,
+        `In-Reply-To: ${gmail_id || ""}`,
+        `Content-Type: text/plain; charset=UTF-8`,
+        `MIME-Version: 1.0`,
+        "",
+        message,
+      ];
+      const raw = btoa(unescape(encodeURIComponent(rawLines.join("\r\n"))))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+
+      const sendRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ raw, threadId: thread_id || undefined }),
+      });
+      const sendData = await sendRes.json();
+      if (!sendRes.ok) throw new Error(`Send error: ${JSON.stringify(sendData)}`);
+
+      // Log outbound communication
+      await supabase.from("communications").insert({
+        type: "phone",
+        direction: "outbound",
+        subject: replySubject,
+        body: message.slice(0, 2000),
+        from_address: IMPERSONATE_EMAIL,
+        to_address: phone || GVOICE_SENDER,
+        status: "sent",
+        provider: "gvoice-reply",
+        external_id: sendData.id,
+        phone_number: phone || null,
+        metadata: { gmail_id: sendData.id, thread_id: thread_id },
+      });
+
+      return new Response(JSON.stringify({ success: true, id: sendData.id }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Default: Poll for new GVoice emails ───
     // Fetch recent emails from voice-noreply@google.com
     const query = `from:${GVOICE_SENDER} in:inbox newer_than:1h`;
     const listUrl = `${GMAIL_API}/users/me/messages?q=${encodeURIComponent(query)}&maxResults=10`;
