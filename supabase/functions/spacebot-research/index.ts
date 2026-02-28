@@ -9,20 +9,83 @@ const corsHeaders = {
 const MEMORY_SITE_ID = "cortex-agent";
 const MEMORY_SECTION = "search-memory";
 
+/** OAuth 2.0 Client Credentials → Bearer token for X API v2 */
+async function getXBearerToken(clientId: string, clientSecret: string): Promise<string> {
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+  const res = await fetch("https://api.x.com/oauth2/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => "");
+    throw new Error(`X OAuth2 token failed (${res.status}): ${err}`);
+  }
+  const data = await res.json();
+  return data.access_token;
+}
+
+/** Search recent tweets via X API v2 */
+async function searchTweets(bearer: string, query: string, maxResults = 100): Promise<any[]> {
+  const params = new URLSearchParams({
+    query,
+    max_results: String(Math.min(maxResults, 100)),
+    "tweet.fields": "public_metrics,created_at,author_id,entities",
+    expansions: "author_id",
+    "user.fields": "username,profile_image_url",
+  });
+  const res = await fetch(`https://api.x.com/2/tweets/search/recent?${params}`, {
+    headers: { Authorization: `Bearer ${bearer}` },
+  });
+  if (!res.ok) {
+    const err = await res.text().catch(() => "");
+    console.log(`X search failed (${res.status}): ${err.slice(0, 200)}`);
+    return [];
+  }
+  const json = await res.json();
+  // Map users by author_id for easy lookup
+  const usersMap = new Map<string, any>();
+  for (const u of json.includes?.users || []) {
+    usersMap.set(u.id, u);
+  }
+  return (json.data || []).map((tw: any) => {
+    const user = usersMap.get(tw.author_id) || {};
+    return {
+      id: tw.id,
+      text: tw.text,
+      full_text: tw.text,
+      user: { screen_name: user.username || "", profile_image_url_https: user.profile_image_url || "" },
+      favorite_count: tw.public_metrics?.like_count || 0,
+      retweet_count: tw.public_metrics?.retweet_count || 0,
+      created_at: tw.created_at,
+    };
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const APIFY_TOKEN = Deno.env.get("APIFY_TOKEN");
+  const TWITTER_CLIENT_ID = Deno.env.get("TWITTER_CLIENT_ID");
+  const TWITTER_CLIENT_SECRET = Deno.env.get("TWITTER_CLIENT_SECRET");
   const MORALIS_API_KEY = Deno.env.get("MORALIS_API_KEY");
-  const GROK_API_KEY = Deno.env.get("GROK_API_KEY");
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  if (!APIFY_TOKEN || !MORALIS_API_KEY || !GROK_API_KEY) {
+  if (!TWITTER_CLIENT_ID || !TWITTER_CLIENT_SECRET || !MORALIS_API_KEY) {
     return new Response(
-      JSON.stringify({ error: "Missing API keys (APIFY_TOKEN, MORALIS_API_KEY, GROK_API_KEY)" }),
+      JSON.stringify({ error: "Missing API keys (TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET, MORALIS_API_KEY)" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  if (!LOVABLE_API_KEY) {
+    return new Response(
+      JSON.stringify({ error: "Missing LOVABLE_API_KEY" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -50,14 +113,14 @@ Deno.serve(async (req) => {
       try {
         const stats: Record<string, number> = {};
 
-        // ── STEP 0: Load persistent memory (search terms + past wins) ───
+        // ── STEP 0: Load persistent memory ───
         send("progress", { step: 0, label: "Loading Cortex memory", status: "running", detail: "Reading persistent search terms & past winning narratives..." });
 
         let memory: { search_terms: string[]; past_wins: string[]; last_cycle: string | null } = {
           search_terms: [
-            '("pump.fun" OR pumpfun OR "new memecoin") (ai OR cat OR agent OR celebrity OR frog OR dog OR political) min_faves:150',
-            '("solana memecoin" OR "$SOL" OR "pump fun") (launch OR moon OR 100x OR narrative) min_faves:100',
-            '("pump.fun" OR pumpfun) (trending OR viral OR breaking) min_faves:200',
+            '("pump.fun" OR pumpfun OR "new memecoin") (ai OR cat OR agent OR celebrity OR frog OR dog OR political)',
+            '("solana memecoin" OR "$SOL" OR "pump fun") (launch OR moon OR 100x OR narrative)',
+            '("pump.fun" OR pumpfun) (trending OR viral OR breaking)',
           ],
           past_wins: [],
           last_cycle: null,
@@ -80,37 +143,48 @@ Deno.serve(async (req) => {
 
         send("progress", { step: 0, label: "Loading Cortex memory", status: "done", detail: `Loaded ${memory.search_terms.length} search queries, ${memory.past_wins.length} past wins` });
 
-        // ── STEP 1: Scrape tweets via Apify ─────────────────────────────
-        send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "running", detail: `Sending ${memory.search_terms.length} search queries to tweet scraper...` });
+        // ── STEP 1: Authenticate with X API via OAuth 2.0 ────────────
+        send("progress", { step: 1, label: "Authenticating with X API (OAuth 2.0)", status: "running", detail: "Getting bearer token via Client Credentials..." });
 
-        const searchPayload = {
-          searchTerms: memory.search_terms,
-          sort: "Latest",
-          maxItems: 400,
-          onlyVerifiedUsers: false,
-          includeSearchTerms: true,
-        };
+        let xBearer: string;
+        try {
+          xBearer = await getXBearerToken(TWITTER_CLIENT_ID!, TWITTER_CLIENT_SECRET!);
+        } catch (e: any) {
+          send("progress", { step: 1, label: "Authenticating with X API (OAuth 2.0)", status: "error", detail: e.message });
+          send("error", { message: `X OAuth2 auth failed: ${e.message}` });
+          controller.close();
+          return;
+        }
+        send("progress", { step: 1, label: "Authenticating with X API (OAuth 2.0)", status: "done", detail: "Bearer token acquired ✓" });
+
+        // ── STEP 2: Search tweets via X API v2 ──────────────────────
+        send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: "running", detail: `Sending ${memory.search_terms.length} search queries...` });
 
         let tweets: any[] = [];
-        try {
-          const apifyRes = await fetch(
-            `https://api.apify.com/v2/acts/apidojo~tweet-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(searchPayload),
-              signal: AbortSignal.timeout(180_000),
-            }
-          );
-          if (apifyRes.ok) tweets = await apifyRes.json();
-        } catch { /* timeout ok */ }
+        for (const query of memory.search_terms) {
+          try {
+            const results = await searchTweets(xBearer, query, 100);
+            tweets.push(...results);
+          } catch (e: any) {
+            console.log(`Search query failed: ${e.message}`);
+          }
+          // Rate limit courtesy
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        // Deduplicate by tweet id
+        const seenIds = new Set<string>();
+        tweets = tweets.filter(tw => {
+          if (seenIds.has(tw.id)) return false;
+          seenIds.add(tw.id);
+          return true;
+        });
         stats.tweets = tweets.length;
-        send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "done", detail: `Scraped ${tweets.length} tweets from X` });
+        send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: "done", detail: `Found ${tweets.length} unique tweets from X` });
 
-        // ── STEP 2: Moralis Pump.fun tokens ─────────────────────────────
-        send("progress", { step: 2, label: "Fetching Pump.fun tokens via Moralis", status: "running", detail: "Pulling new (150), bonding (100) & graduated (50) tokens..." });
+        // ── STEP 3: Moralis Pump.fun tokens ─────────────────────────
+        send("progress", { step: 3, label: "Fetching Pump.fun tokens via Moralis", status: "running", detail: "Pulling new (100), bonding (100) & graduated (50) tokens..." });
 
-        const moralisHeaders = { "X-API-Key": MORALIS_API_KEY };
+        const moralisHeaders = { "X-API-Key": MORALIS_API_KEY! };
         const moralisBase = "https://solana-gateway.moralis.io/token/mainnet/exchange/pumpfun";
 
         const [newRes, bondRes, gradRes] = await Promise.all([
@@ -119,17 +193,13 @@ Deno.serve(async (req) => {
           fetch(`${moralisBase}/graduated?limit=50`, { headers: moralisHeaders }),
         ]);
 
-        // Moralis returns { result: [...] } or raw array depending on endpoint
         const extractTokens = (data: any): any[] => {
           if (Array.isArray(data)) return data;
           if (data?.result && Array.isArray(data.result)) return data.result;
           if (data?.tokens && Array.isArray(data.tokens)) return data.tokens;
           if (data?.data && Array.isArray(data.data)) return data.data;
-          // If it's an object with token-like keys, wrap it
           if (data && typeof data === 'object' && !Array.isArray(data)) {
-            const keys = Object.keys(data);
-            // Check if any value is an array of objects
-            for (const key of keys) {
+            for (const key of Object.keys(data)) {
               if (Array.isArray(data[key]) && data[key].length > 0 && typeof data[key][0] === 'object') {
                 return data[key];
               }
@@ -138,39 +208,13 @@ Deno.serve(async (req) => {
           return [];
         };
 
-        let newTokensRaw: any = [];
-        let bondTokensRaw: any = [];
-        let gradTokensRaw: any = [];
+        let newTokensRaw: any[] = [];
+        let bondTokensRaw: any[] = [];
+        let gradTokensRaw: any[] = [];
 
-        try {
-          if (newRes.ok) {
-            const raw = await newRes.json();
-            newTokensRaw = extractTokens(raw);
-            console.log(`Moralis new response type: ${typeof raw}, isArray: ${Array.isArray(raw)}, keys: ${typeof raw === 'object' ? Object.keys(raw).join(',') : 'n/a'}, extracted: ${newTokensRaw.length}`);
-          } else {
-            console.log(`Moralis new failed: ${newRes.status} ${await newRes.text().catch(() => '')}`);
-          }
-        } catch (e: any) { console.log(`Moralis new parse error: ${e.message}`); }
-
-        try {
-          if (bondRes.ok) {
-            const raw = await bondRes.json();
-            bondTokensRaw = extractTokens(raw);
-            console.log(`Moralis bonding response extracted: ${bondTokensRaw.length}`);
-          } else {
-            console.log(`Moralis bonding failed: ${bondRes.status}`);
-          }
-        } catch (e: any) { console.log(`Moralis bonding parse error: ${e.message}`); }
-
-        try {
-          if (gradRes.ok) {
-            const raw = await gradRes.json();
-            gradTokensRaw = extractTokens(raw);
-            console.log(`Moralis graduated response extracted: ${gradTokensRaw.length}`);
-          } else {
-            console.log(`Moralis graduated failed: ${gradRes.status}`);
-          }
-        } catch (e: any) { console.log(`Moralis graduated parse error: ${e.message}`); }
+        try { if (newRes.ok) newTokensRaw = extractTokens(await newRes.json()); else await newRes.text(); } catch {}
+        try { if (bondRes.ok) bondTokensRaw = extractTokens(await bondRes.json()); else await bondRes.text(); } catch {}
+        try { if (gradRes.ok) gradTokensRaw = extractTokens(await gradRes.json()); else await gradRes.text(); } catch {}
 
         const allTokensMap = new Map<string, any>();
         const getAddr = (t: any) => t.tokenAddress || t.address || t.mint || t.token_address || t.contractAddress || "";
@@ -189,11 +233,11 @@ Deno.serve(async (req) => {
         stats.new_tokens = newTokensRaw.length;
         stats.bonding_tokens = bondTokensRaw.length;
         stats.graduated_tokens = gradTokensRaw.length;
-        send("progress", { step: 2, label: "Fetching Pump.fun tokens via Moralis", status: "done", detail: `${stats.tokens} unique tokens (${stats.new_tokens} new, ${stats.bonding_tokens} bonding, ${stats.graduated_tokens} graduated)` });
+        send("progress", { step: 3, label: "Fetching Pump.fun tokens via Moralis", status: "done", detail: `${stats.tokens} unique tokens (${stats.new_tokens} new, ${stats.bonding_tokens} bonding, ${stats.graduated_tokens} graduated)` });
 
-        // ── STEP 3: DexScreener enrichment ──────────────────────────────
+        // ── STEP 4: DexScreener enrichment ──────────────────────────
         const addresses = allTokens.map(getAddr).filter(Boolean).slice(0, 30);
-        send("progress", { step: 3, label: "DexScreener performance validation", status: "running", detail: `Enriching ${addresses.length} tokens with price, volume, MCAP, liquidity...` });
+        send("progress", { step: 4, label: "DexScreener performance validation", status: "running", detail: `Enriching ${addresses.length} tokens...` });
 
         const enriched: any[] = [];
         for (let i = 0; i < addresses.length; i++) {
@@ -221,18 +265,18 @@ Deno.serve(async (req) => {
                   stage: allTokensMap.get(addresses[i])?._stage || "unknown",
                 });
               }
-            }
-          } catch { /* skip */ }
+            } else { await dexRes.text(); }
+          } catch {}
           if ((i + 1) % 5 === 0) {
-            send("progress", { step: 3, label: "DexScreener performance validation", status: "running", detail: `${i + 1}/${addresses.length} enriched (${enriched.length} with live pairs)` });
+            send("progress", { step: 4, label: "DexScreener performance validation", status: "running", detail: `${i + 1}/${addresses.length} enriched (${enriched.length} with live pairs)` });
           }
           await new Promise((r) => setTimeout(r, 200));
         }
         stats.enriched = enriched.length;
-        send("progress", { step: 3, label: "DexScreener performance validation", status: "done", detail: `${enriched.length} tokens validated with on-chain metrics` });
+        send("progress", { step: 4, label: "DexScreener performance validation", status: "done", detail: `${enriched.length} tokens validated with on-chain metrics` });
 
-        // ── STEP 4: Match tweets to tokens (narrative clustering) ───────
-        send("progress", { step: 4, label: "Cross-referencing tweets ↔ tokens", status: "running", detail: "Clustering narratives from tweet mentions + token data..." });
+        // ── STEP 5: Match tweets to tokens ───────────────────────────
+        send("progress", { step: 5, label: "Cross-referencing tweets ↔ tokens", status: "running", detail: "Clustering narratives..." });
 
         const matched = enriched.map((tok) => {
           const name = (tok.baseToken?.name || "").toLowerCase();
@@ -242,19 +286,11 @@ Deno.serve(async (req) => {
             const txt = (tw.full_text || tw.text || "").toLowerCase();
             return (name.length > 2 && txt.includes(name)) || (sym.length > 1 && txt.includes(sym)) || txt.includes(addr.slice(0, 12));
           });
-          // Map Tweet Scraper V2 output fields correctly
-          const getLikes = (tw: any) => tw.likeCount || tw.favorite_count || tw.likes || 0;
-          const getRTs = (tw: any) => tw.retweetCount || tw.retweet_count || tw.retweets || 0;
-          const getUser = (tw: any) => tw.author?.userName || tw.user?.screen_name || (typeof tw.author === 'string' ? tw.author : '') || "unknown";
-          const getTweetUrl = (tw: any) => tw.url || tw.twitterUrl || (tw.id ? `https://x.com/i/status/${tw.id}` : "");
-          const getProfilePic = (tw: any) => tw.author?.profilePicture || tw.user?.profile_image_url_https || "";
-          const getTweetMedia = (tw: any) => {
-            // Extract first image from tweet media
-            if (tw.media?.length > 0) return tw.media[0]?.media_url_https || tw.media[0]?.url || "";
-            if (tw.entities?.media?.length > 0) return tw.entities.media[0]?.media_url_https || "";
-            if (tw.extendedEntities?.media?.length > 0) return tw.extendedEntities.media[0]?.media_url_https || "";
-            return "";
-          };
+          const getLikes = (tw: any) => tw.favorite_count || tw.likeCount || 0;
+          const getRTs = (tw: any) => tw.retweet_count || tw.retweetCount || 0;
+          const getUser = (tw: any) => tw.user?.screen_name || tw.author?.userName || "unknown";
+          const getTweetUrl = (tw: any) => tw.url || (tw.id ? `https://x.com/i/status/${tw.id}` : "");
+          const getProfilePic = (tw: any) => tw.user?.profile_image_url_https || "";
           return {
             token: tok,
             matched_tweets: matchedTweets.slice(0, 8).map((tw: any) => ({
@@ -264,7 +300,6 @@ Deno.serve(async (req) => {
               retweets: getRTs(tw),
               url: getTweetUrl(tw),
               profile_pic: getProfilePic(tw),
-              media_url: getTweetMedia(tw),
             })),
             tweet_velocity: matchedTweets.length,
             total_engagement: matchedTweets.reduce((sum: number, tw: any) => sum + getLikes(tw) + getRTs(tw), 0),
@@ -272,10 +307,10 @@ Deno.serve(async (req) => {
         }).sort((a, b) => b.total_engagement - a.total_engagement || b.tweet_velocity - a.tweet_velocity);
 
         stats.matches = matched.filter(m => m.tweet_velocity > 0).length;
-        send("progress", { step: 4, label: "Cross-referencing tweets ↔ tokens", status: "done", detail: `${stats.matches} token-tweet narrative clusters identified` });
+        send("progress", { step: 5, label: "Cross-referencing tweets ↔ tokens", status: "done", detail: `${stats.matches} token-tweet narrative clusters identified` });
 
-        // ── STEP 5: Grok-4 Chain-of-Thought analysis ────────────────────
-        send("progress", { step: 5, label: "Cortex reasoning engine (Grok-4)", status: "running", detail: "Running Chain-of-Thought narrative analysis..." });
+        // ── STEP 6: Lovable AI (GPT-5) Chain-of-Thought analysis ────
+        send("progress", { step: 6, label: "Cortex reasoning engine (Lovable AI)", status: "running", detail: "Running Chain-of-Thought narrative analysis..." });
 
         const top15 = matched.slice(0, 15);
         const topSummary = top15.map((m, i) =>
@@ -344,14 +379,14 @@ ${tweetThemes.slice(0, 3000) || "No tweets"}
 
 Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. Score them 1-10. Include the X post sources. Be ruthless.`;
 
-        let grokResult: any = null;
-        let reasoning = "No Grok analysis available";
+        let aiResult: any = null;
+        let reasoning = "No AI analysis available";
         try {
-          const grokRes = await fetch("https://api.x.ai/v1/chat/completions", {
+          const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
             method: "POST",
-            headers: { Authorization: `Bearer ${GROK_API_KEY}`, "Content-Type": "application/json" },
+            headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
             body: JSON.stringify({
-              model: "grok-4",
+              model: "openai/gpt-5",
               temperature: 0.3,
               max_tokens: 4000,
               messages: [
@@ -359,51 +394,50 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
                 { role: "user", content: userMsg },
               ],
             }),
-            signal: AbortSignal.timeout(90_000),
+            signal: AbortSignal.timeout(120_000),
           });
-          if (grokRes.ok) {
-            const grokData = await grokRes.json();
-            const content = grokData.choices?.[0]?.message?.content || "";
-            console.log(`Grok response length: ${content.length}, preview: ${content.slice(0, 200)}`);
+          if (aiRes.ok) {
+            const aiData = await aiRes.json();
+            const content = aiData.choices?.[0]?.message?.content || "";
+            console.log(`AI response length: ${content.length}`);
             try {
               const cleaned = content.replace(/```json/g, "").replace(/```/g, "").trim();
               const jsonStart = cleaned.indexOf("{");
               const jsonEnd = cleaned.lastIndexOf("}");
               if (jsonStart >= 0 && jsonEnd > jsonStart) {
-                grokResult = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
-                reasoning = grokResult.reasoning_summary || grokResult.chain_of_thought?.slice(0, 500) || content.slice(0, 500);
+                aiResult = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
+                reasoning = aiResult.reasoning_summary || aiResult.chain_of_thought?.slice(0, 500) || content.slice(0, 500);
               } else {
                 reasoning = content.slice(0, 500);
-                console.log(`Grok: no JSON boundaries found in response`);
               }
             } catch (parseErr: any) {
               reasoning = content.slice(0, 500) || reasoning;
-              console.log(`Grok JSON parse error: ${parseErr.message}`);
+              console.log(`AI JSON parse error: ${parseErr.message}`);
             }
           } else {
-            const errBody = await grokRes.text().catch(() => "");
-            console.log(`Grok API failed: ${grokRes.status} — ${errBody.slice(0, 300)}`);
+            const errBody = await aiRes.text().catch(() => "");
+            console.log(`AI gateway failed: ${aiRes.status} — ${errBody.slice(0, 300)}`);
+            if (aiRes.status === 429) reasoning = "Rate limited — try again shortly";
+            if (aiRes.status === 402) reasoning = "Credits exhausted — add funds in Lovable settings";
           }
         } catch { /* timeout */ }
 
-        send("progress", { step: 5, label: "Cortex reasoning engine (Grok-4)", status: "done", detail: grokResult ? `Identified ${grokResult.top_narratives?.length || 0} top narratives` : "Analysis complete (raw)" });
+        send("progress", { step: 6, label: "Cortex reasoning engine (Lovable AI)", status: "done", detail: aiResult ? `Identified ${aiResult.top_narratives?.length || 0} top narratives` : "Analysis complete (raw)" });
 
-        // ── STEP 6: Self-evolution — update memory ──────────────────────
-        send("progress", { step: 6, label: "Self-evolution — updating memory", status: "running", detail: "Saving new search terms + winning patterns..." });
+        // ── STEP 7: Self-evolution — update memory ──────────────────
+        send("progress", { step: 7, label: "Self-evolution — updating memory", status: "running", detail: "Saving new search terms + winning patterns..." });
 
-        if (grokResult?.new_search_terms?.length) {
-          memory.search_terms = grokResult.new_search_terms.slice(0, 5);
+        if (aiResult?.new_search_terms?.length) {
+          memory.search_terms = aiResult.new_search_terms.slice(0, 5);
         }
-        // Add winning narratives to memory
-        if (grokResult?.top_narratives?.length) {
-          const wins = grokResult.top_narratives
+        if (aiResult?.top_narratives?.length) {
+          const wins = aiResult.top_narratives
             .filter((n: any) => n.bundle_score >= 7)
             .map((n: any) => `[${new Date().toISOString().split("T")[0]}] ${n.name} (${n.bundle_score}/10) — ${n.why_bundle?.slice(0, 100)}`);
           memory.past_wins = [...memory.past_wins, ...wins].slice(-30);
         }
         memory.last_cycle = new Date().toISOString();
 
-        // Upsert memory to site_configs
         const { data: existing } = await supabase
           .from("site_configs")
           .select("id")
@@ -417,10 +451,10 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           await supabase.from("site_configs").insert({ site_id: MEMORY_SITE_ID, section: MEMORY_SECTION, content: memory as any, is_published: false });
         }
 
-        send("progress", { step: 6, label: "Self-evolution — updating memory", status: "done", detail: `Saved ${memory.search_terms.length} evolved queries + ${memory.past_wins.length} past wins` });
+        send("progress", { step: 7, label: "Self-evolution — updating memory", status: "done", detail: `Saved ${memory.search_terms.length} evolved queries + ${memory.past_wins.length} past wins` });
 
-        // ── STEP 7: Push findings ───────────────────────────────────────
-        send("progress", { step: 7, label: "Saving findings to database", status: "running", detail: "Pushing cycle report + token findings..." });
+        // ── STEP 8: Push findings ───────────────────────────────────
+        send("progress", { step: 8, label: "Saving findings to database", status: "running", detail: "Pushing cycle report + token findings..." });
 
         const cycleTitle = `🧠 Cortex Cycle — ${new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
         await pushFinding(
@@ -428,12 +462,11 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           reasoning,
           "",
           "trend",
-          { ...stats, reasoning, top_narratives: grokResult?.top_narratives || [], chain_of_thought: grokResult?.chain_of_thought || "" },
+          { ...stats, reasoning, top_narratives: aiResult?.top_narratives || [], chain_of_thought: aiResult?.chain_of_thought || "" },
           ["cortex", "narrative", "cycle-report"]
         );
 
-        // Push individual narrative findings (bundler-ready)
-        const narrativesToPost = grokResult?.top_narratives?.slice(0, 8) || [];
+        const narrativesToPost = aiResult?.top_narratives?.slice(0, 8) || [];
         for (const n of narrativesToPost) {
           const tickers = n.suggested_tickers?.join(", ") || "—";
           const sources = n.tweet_sources?.map((s: any) => s.url).filter(Boolean) || [];
@@ -448,10 +481,9 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
         }
 
         stats.findings_pushed = 1 + narrativesToPost.length;
-        send("progress", { step: 7, label: "Saving findings to database", status: "done", detail: `Pushed 1 cycle report + ${narrativesToPost.length} narrative findings` });
+        send("progress", { step: 8, label: "Saving findings to database", status: "done", detail: `Pushed 1 cycle report + ${narrativesToPost.length} narrative findings` });
 
-        // ── Send final result with narratives ───────────────────────────
-        // Build top tweets across all matched tokens for the UI
+        // ── Send final result ───────────────────────────────────────
         const topTweets = matched
           .flatMap(m => m.matched_tweets.map((tw: any) => ({ ...tw, token_symbol: m.token.baseToken?.symbol || "?" })))
           .sort((a: any, b: any) => (b.favorites + b.retweets) - (a.favorites + a.retweets))
@@ -460,9 +492,9 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
         send("complete", {
           success: true,
           stats,
-          top_narratives: grokResult?.top_narratives || [],
+          top_narratives: aiResult?.top_narratives || [],
           reasoning: reasoning.slice(0, 800),
-          chain_of_thought: grokResult?.chain_of_thought?.slice(0, 1000) || "",
+          chain_of_thought: aiResult?.chain_of_thought?.slice(0, 1000) || "",
           evolved_queries: memory.search_terms,
           top_tweets: topTweets,
         });
