@@ -1060,9 +1060,14 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             : hashtagStr || item.type;
 
           // Determine the post type for Upload-Post API
+          // Check actual media URL to detect fallback (video items that fell back to images)
+          const isActualVideo = item.media_url && (
+            item.media_url.endsWith('.mp4') || item.media_url.endsWith('.mov') ||
+            item.media_url.endsWith('.webm') || item.media_url.includes('higgsfield')
+          );
           let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
-          if (item.type === 'video') postType = 'video';
-          else if (item.type === 'image' || item.type === 'carousel') postType = 'photos';
+          if (item.type === 'video' && isActualVideo) postType = 'video';
+          else if (item.type === 'video' || item.type === 'image' || item.type === 'carousel') postType = 'photos';
 
           await smmApi.createPost({
             user: currentPlan.profile_username,
