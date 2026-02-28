@@ -1,0 +1,2 @@
+ALTER TABLE public.webhook_events DROP CONSTRAINT IF EXISTS webhook_events_source_check;
+ALTER TABLE public.webhook_events ADD CONSTRAINT webhook_events_source_check CHECK (source IN ('spacebot', 'ringcentral', 'instagram', 'manychat', 'telegram', 'gmail', 'system', 'v0', 'manual', 'gvoice-poll'));
