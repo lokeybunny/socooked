@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
       const jwtP = base64url(new TextEncoder().encode(JSON.stringify({
         iss: sa.client_email,
         sub: IMPERSONATE_EMAIL,
-        scope: "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send",
+        scope: "https://www.googleapis.com/auth/gmail.modify",
         aud: GOOGLE_TOKEN_URL,
         iat: nowSec,
         exp: nowSec + 3600,
