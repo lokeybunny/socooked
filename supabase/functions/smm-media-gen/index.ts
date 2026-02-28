@@ -263,6 +263,28 @@ serve(async (req) => {
           items[i].media_url = mediaUrl;
           items[i].status = 'ready';
           generated++;
+
+          // Also insert into content_assets so it shows in Content Library → AI Generated
+          try {
+            await fetch(`${SUPABASE_URL}/rest/v1/content_assets`, {
+              method: 'POST',
+              headers: {
+                'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+              },
+              body: JSON.stringify({
+                title: (item.caption || `SMM ${item.type}`).substring(0, 120),
+                type: item.type === 'video' ? 'video' : 'image',
+                url: mediaUrl,
+                source: 'ai-generated',
+                category: 'AI Generated',
+                folder: 'AI Generated',
+                status: 'published',
+                tags: ['smm', plan.platform || 'social', plan.profile_username || ''].filter(Boolean),
+              }),
+            });
+          } catch (e) { console.error('[smm-media-gen] content_assets insert error:', e); }
+
           await logActivity('media_generated', {
             name: `🎨 Media generated: ${item.type}`,
             profile: plan.profile_username,
