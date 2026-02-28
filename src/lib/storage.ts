@@ -15,12 +15,13 @@ export async function uploadToStorage(
     fileName?: string;
   }
 ): Promise<string> {
-  const name = opts.fileName || (file instanceof File ? file.name : 'file');
-  const safeCat = opts.category.replace(/[^a-zA-Z0-9-_ &]/g, '');
-  const safeCust = opts.customerName.replace(/[^a-zA-Z0-9-_ &]/g, '');
-  const safeSrc = (opts.source || 'dashboard').replace(/[^a-zA-Z0-9-_ &]/g, '');
+  const rawName = opts.fileName || (file instanceof File ? file.name : 'file');
+  const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const safeCat = opts.category.replace(/[^a-zA-Z0-9-_]/g, '');
+  const safeCust = opts.customerName.replace(/[^a-zA-Z0-9-_]/g, '');
+  const safeSrc = (opts.source || 'dashboard').replace(/[^a-zA-Z0-9-_]/g, '');
   const timestamp = Date.now();
-  const path = `${safeCat}/${safeCust}/${safeSrc}/${timestamp}_${name}`;
+  const path = `${safeCat}/${safeCust}/${safeSrc}/${timestamp}_${safeName}`;
 
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     cacheControl: '3600',
