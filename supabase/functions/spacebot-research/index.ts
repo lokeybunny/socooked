@@ -397,9 +397,9 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
         // Add winning narratives to memory
         if (grokResult?.top_narratives?.length) {
           const wins = grokResult.top_narratives
-            .filter((n: any) => n.confidence >= 80)
-            .map((n: any) => `[${new Date().toISOString().split("T")[0]}] ${n.name} (${n.confidence}/100) — ${n.why_100x?.slice(0, 100)}`);
-          memory.past_wins = [...memory.past_wins, ...wins].slice(-30); // Keep last 30
+            .filter((n: any) => n.bundle_score >= 7)
+            .map((n: any) => `[${new Date().toISOString().split("T")[0]}] ${n.name} (${n.bundle_score}/10) — ${n.why_bundle?.slice(0, 100)}`);
+          memory.past_wins = [...memory.past_wins, ...wins].slice(-30);
         }
         memory.last_cycle = new Date().toISOString();
 
@@ -432,25 +432,23 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           ["cortex", "narrative", "cycle-report"]
         );
 
-        // Push individual token findings for matched tokens
-        const tokensToPost = matched.filter((m) => m.tweet_velocity > 0).slice(0, 10);
-        for (const m of tokensToPost) {
-          const sym = m.token.baseToken?.symbol || "?";
-          const narrative = grokResult?.top_narratives?.find((n: any) =>
-            n.example_tokens?.some((t: string) => t.replace("$", "").toLowerCase() === sym.toLowerCase())
-          );
+        // Push individual narrative findings (bundler-ready)
+        const narrativesToPost = grokResult?.top_narratives?.slice(0, 8) || [];
+        for (const n of narrativesToPost) {
+          const tickers = n.suggested_tickers?.join(", ") || "—";
+          const sources = n.tweet_sources?.map((s: any) => s.url).filter(Boolean) || [];
           await pushFinding(
-            `🪙 ${sym} — ${m.tweet_velocity} tweets, MCAP $${Number(m.token.mcap).toLocaleString()}`,
-            `$${sym} | Stage: ${m.token.stage} | MCAP: $${Number(m.token.mcap).toLocaleString()} | Vol24h: $${Number(m.token.volume24h).toLocaleString()} | Liq: $${Number(m.token.liquidity).toLocaleString()} | Δ1h: ${m.token.priceChange1h}% | Δ24h: ${m.token.priceChange24h}% | Tweets: ${m.tweet_velocity} | Engagement: ${m.total_engagement}${narrative ? ` | Narrative: ${narrative.name} (${narrative.confidence}/100)` : ""}`,
-            m.token.url || "",
-            "lead",
-            { ...m.token, matched_tweets: m.matched_tweets, narrative: narrative || null },
-            ["cortex", "pump.fun", sym, m.token.tokenAddress || "", m.token.stage || ""]
+            `🎯 ${n.name} — Bundle Score: ${n.bundle_score}/10`,
+            `Deploy: ${n.deploy_window} | Tickers: ${tickers} | Competition: ${n.competition} | ${n.why_bundle}`,
+            sources[0] || "",
+            "trend",
+            { ...n, type: "bundle_narrative" },
+            ["cortex", "bundle", `score-${n.bundle_score}`, ...(n.suggested_tickers || []).map((t: string) => t.replace("$", ""))]
           );
         }
 
-        stats.findings_pushed = 1 + tokensToPost.length;
-        send("progress", { step: 7, label: "Saving findings to database", status: "done", detail: `Pushed 1 cycle report + ${tokensToPost.length} token findings` });
+        stats.findings_pushed = 1 + narrativesToPost.length;
+        send("progress", { step: 7, label: "Saving findings to database", status: "done", detail: `Pushed 1 cycle report + ${narrativesToPost.length} narrative findings` });
 
         // ── Send final result with narratives ───────────────────────────
         // Build top tweets across all matched tokens for the UI

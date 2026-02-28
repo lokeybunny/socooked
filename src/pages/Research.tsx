@@ -48,15 +48,22 @@ interface MatchedTweet {
   token_symbol?: string;
 }
 
+interface TweetSource {
+  user: string;
+  text: string;
+  url: string;
+  engagement: string;
+}
+
 interface Narrative {
   name: string;
-  confidence: number;
-  why_100x: string;
-  example_tokens: string[];
-  token_addresses?: string[];
-  mcap_range?: string;
-  timing: string;
-  strategy: string;
+  bundle_score: number;
+  suggested_tickers: string[];
+  why_bundle: string;
+  tweet_sources: TweetSource[];
+  competition: string;
+  deploy_window: string;
+  risk: string;
 }
 
 export default function Research() {
@@ -573,7 +580,7 @@ export default function Research() {
           <div className="glass-card rounded-lg overflow-hidden border border-emerald-500/30">
             <div className="px-4 py-3 bg-emerald-500/5 border-b border-emerald-500/20 flex items-center gap-2">
               <Brain className="h-4 w-4 text-emerald-500" />
-              <span className="text-sm font-bold text-foreground">Cortex Cycle Complete — Top {topNarratives.length} Narratives Right Now</span>
+              <span className="text-sm font-bold text-foreground">🎯 Warren's Bundle Queue — Top {topNarratives.length} Narratives to Deploy</span>
             </div>
             <div className="p-4 space-y-4">
               {/* Cortex Reasoning Summary */}
@@ -588,99 +595,93 @@ export default function Research() {
               )}
 
               {topNarratives.map((n, i) => (
-                <div key={i} className="space-y-3 p-3 rounded-lg bg-muted/30 border border-border">
+                <div key={i} className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border">
+                  {/* Header: rank + name + bundle score */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg font-bold text-foreground">{i + 1}.</span>
                       <span className="font-semibold text-foreground">{n.name}</span>
                     </div>
                     <div className={cn(
-                      "px-2 py-0.5 rounded-full text-xs font-bold",
-                      n.confidence >= 90 ? "bg-primary/20 text-primary" :
-                      n.confidence >= 75 ? "bg-accent/20 text-accent-foreground" :
+                      "px-2.5 py-1 rounded-full text-xs font-bold",
+                      n.bundle_score >= 8 ? "bg-primary/20 text-primary" :
+                      n.bundle_score >= 6 ? "bg-accent/20 text-accent-foreground" :
                       "bg-muted text-muted-foreground"
                     )}>
-                      {n.confidence}/100
+                      {n.bundle_score}/10 Bundle
                     </div>
                   </div>
 
-                  {/* Why 100x — Cortex reasoning */}
+                  {/* Why Bundle */}
                   <div className="p-2.5 rounded-md bg-primary/5 border border-primary/10">
                     <p className="text-xs text-foreground leading-relaxed">
                       <Zap className="h-3 w-3 inline mr-1 text-primary" />
-                      <strong>Why 100x:</strong> {n.why_100x}
+                      <strong>Why Bundle:</strong> {n.why_bundle}
                     </p>
                   </div>
 
-                  {/* Example tokens + metadata */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {n.example_tokens?.map((t, j) => (
-                      <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-mono font-medium">{t}</span>
-                    ))}
-                    {n.mcap_range && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">MCAP: {n.mcap_range}</span>
+                  {/* Bundler-ready: suggested tickers (click to copy) */}
+                  <div className="p-3 rounded-md bg-background border border-border space-y-2">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Bundler Ready — Suggested Tickers</span>
+                    <div className="flex flex-wrap gap-2">
+                      {n.suggested_tickers?.map((t, j) => (
+                        <button
+                          key={j}
+                          onClick={() => { navigator.clipboard.writeText(t.replace('$', '')); toast.success(`Copied ${t}`); }}
+                          className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-primary/10 text-primary font-mono font-bold hover:bg-primary/20 transition-colors cursor-pointer"
+                        >
+                          {t}
+                          <Copy className="h-2.5 w-2.5 opacity-60" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Meta row */}
+                  <div className="flex items-center gap-3 text-[10px] flex-wrap">
+                    <span className={cn(
+                      "flex items-center gap-1 font-semibold",
+                      n.deploy_window === 'NOW' ? "text-primary" : "text-muted-foreground"
+                    )}>
+                      <Target className="h-3 w-3" /> {n.deploy_window}
+                    </span>
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <TrendingUp className="h-3 w-3" /> {n.competition}
+                    </span>
+                    {n.risk && (
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <AlertCircle className="h-3 w-3" /> {n.risk}
+                      </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 text-[10px]">
-                    <span className="flex items-center gap-1 text-primary">
-                      <Target className="h-3 w-3" /> {n.timing}
-                    </span>
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <TrendingUp className="h-3 w-3" /> {n.strategy}
-                    </span>
-                  </div>
-
-                  {/* Matched tweets for this narrative */}
-                  {(() => {
-                    const narrativeTweets = topTweets.filter(tw => 
-                      n.example_tokens?.some(t => t.replace('$', '').toLowerCase() === tw.token_symbol?.toLowerCase())
-                    );
-                    if (narrativeTweets.length === 0) return null;
-                    return (
-                      <div className="space-y-2 pt-2 border-t border-border">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Supporting Tweets</span>
-                        {narrativeTweets.slice(0, 3).map((tw, j) => (
-                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-background/60 border border-border">
-                            {/* Profile pic or media */}
-                            {(tw.media_url || tw.profile_pic) && (
-                              <div className="shrink-0">
-                                <img
-                                  src={tw.media_url || tw.profile_pic}
-                                  alt=""
-                                  className={cn(
-                                    "object-cover bg-muted",
-                                    tw.media_url ? "w-16 h-16 rounded-md" : "w-8 h-8 rounded-full"
-                                  )}
-                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                              </div>
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                {!tw.media_url && tw.profile_pic && (
-                                  <img src={tw.profile_pic} alt="" className="w-4 h-4 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                )}
-                                <span className="text-[10px] font-semibold text-foreground">@{tw.user}</span>
-                                <span className="text-[10px] text-muted-foreground">❤ {tw.favorites} · 🔁 {tw.retweets}</span>
-                              </div>
-                              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
-                              {tw.url && (
-                                <a
-                                  href={tw.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1"
-                                >
-                                  <ExternalLink className="h-2.5 w-2.5" /> View on X
-                                </a>
-                              )}
+                  {/* Tweet Sources — X post proof */}
+                  {n.tweet_sources?.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-border">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">X Sources</span>
+                      {n.tweet_sources.slice(0, 4).map((tw, j) => (
+                        <div key={j} className="flex gap-2.5 p-2 rounded-md bg-background/60 border border-border">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-[10px] font-semibold text-foreground">{tw.user}</span>
+                              <span className="text-[10px] text-muted-foreground">{tw.engagement}</span>
                             </div>
+                            <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                            {tw.url && (
+                              <a
+                                href={tw.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" /> View on X
+                              </a>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
 
