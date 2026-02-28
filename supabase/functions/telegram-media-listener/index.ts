@@ -1616,6 +1616,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── If this is a reply-to-message and no handler matched, stay silent ───
+    // This prevents the bot from treating replies as session input
+    if (message.reply_to_message && !isGroup) {
+      return new Response('ok')
+    }
+
     // Session types we track (moved to module-level constants for performance)
     const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
     const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
