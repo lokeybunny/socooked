@@ -13,6 +13,8 @@ const ACTION_EMOJI: Record<string, string> = {
   moved: "🔀",
   sent: "📨",
   draft_saved: "📝",
+  media_generated: "🎨",
+  media_generation_failed: "❌",
 };
 
 const ENTITY_EMOJI: Record<string, string> = {
@@ -41,6 +43,7 @@ const ENTITY_EMOJI: Record<string, string> = {
   website: "🌐",
   email: "📧",
   "scheduled-email": "⏰",
+  smm: "🍌",
 };
 
 function formatMessage(entry: {
@@ -86,6 +89,26 @@ function formatMessage(entry: {
   // Email sent notification — special formatting
   if ((entry.entity_type === "email" || entry.entity_type === "scheduled-email") && entry.action === "sent") {
     return `📨 📧 *Email Sent*\n${nameStr ? `📋 ${nameStr}\n` : ""}🕐 ${time} PST`;
+  }
+
+  // SMM Media Generation — Nano Banana notifications
+  if (entry.entity_type === "smm" && (entry.action === "media_generated" || entry.action === "media_generation_failed")) {
+    const model = entry.meta?.model || "Nano Banana";
+    const isCustom = entry.meta?.custom_references === true;
+    const platform = entry.meta?.platform || "social";
+    const date = entry.meta?.date || "";
+    const mediaUrl = entry.meta?.media_url || "";
+    const profile = entry.meta?.profile || "";
+
+    if (entry.action === "media_generated") {
+      let msg = `🍌 *${model}*\n${nameStr}\n📱 ${platform} • ${date}\n👤 Profile: *${profile}*`;
+      if (isCustom) msg += `\n🖼️ Custom reference active`;
+      msg += `\n🕐 ${time} PST`;
+      if (mediaUrl) msg += `\n🔗 [View Asset](${mediaUrl})`;
+      return msg;
+    } else {
+      return `❌ 🍌 *${model} Failed*\n${nameStr}\n📱 ${platform} • ${date}\n🕐 ${time} PST`;
+    }
   }
 
   let msg = customMsg
