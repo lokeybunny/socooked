@@ -192,8 +192,8 @@ serve(async (req) => {
 
     // ─── Default: Poll for new GVoice emails ───
     // Fetch recent emails from voice-noreply@google.com
-    const query = `subject:(702) 701-6192 in:inbox newer_than:1d`;
-    const listUrl = `${GMAIL_API}/users/me/messages?q=${encodeURIComponent(query)}&maxResults=10`;
+    const query = `from:voice-noreply@google.com in:inbox newer_than:1d`;
+    const listUrl = `${GMAIL_API}/users/me/messages?q=${encodeURIComponent(query)}&maxResults=15`;
     const listRes = await fetch(listUrl, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -210,16 +210,15 @@ serve(async (req) => {
     let forwarded = 0;
 
     for (const m of messages) {
-      // Check if already forwarded
-      const { data: existing } = await supabase
-        .from("webhook_events")
-        .select("id")
-        .eq("source", "gvoice-poll")
-        .eq("event_type", "gvoice_forwarded")
-        .filter("payload->>gmail_id", "eq", m.id)
-        .limit(1);
-
-      if (existing && existing.length > 0) continue;
+      // Skip dedup check for testing — allow duplicates
+      // const { data: existing } = await supabase
+      //   .from("webhook_events")
+      //   .select("id")
+      //   .eq("source", "gvoice-poll")
+      //   .eq("event_type", "gvoice_forwarded")
+      //   .filter("payload->>gmail_id", "eq", m.id)
+      //   .limit(1);
+      // if (existing && existing.length > 0) continue;
 
       // Fetch full message
       const msgRes = await fetch(
