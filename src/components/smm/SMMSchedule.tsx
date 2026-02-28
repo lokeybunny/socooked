@@ -575,16 +575,16 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
       }
 
       // 2. Save cortex response to shared table
-      await supabase.from('smm_conversations').insert({
+      const { data: cortexInserted } = await supabase.from('smm_conversations').insert({
         profile_username: profileId,
         platform,
         source: 'web',
         role: 'cortex',
         message: responseText,
         meta: { type: data?.type || 'message' },
-      });
+      }).select('id').single();
 
-      setMessages(prev => [...prev, { role: 'cortex', text: responseText, source: 'web' }]);
+      setMessages(prev => [...prev, { id: cortexInserted?.id, role: 'cortex', text: responseText, source: 'web' }]);
     } catch (e: any) {
       const errorText = `❌ Error: ${e.message}`;
       setMessages(prev => [...prev, { role: 'cortex', text: errorText, source: 'web' }]);
