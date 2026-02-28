@@ -107,8 +107,19 @@ function parseGVoiceEmail(subject: string, body: string): { phone: string; conte
   else if (/text\s+message/i.test(subject)) type = "text";
   else if (/missed\s+call/i.test(subject)) type = "missed_call";
 
-  const content = stripHtml(body).slice(0, 1500);
-  return { phone, content, type };
+  let content = stripHtml(body);
+
+  // Strip Google Voice boilerplate footer
+  content = content
+    .replace(/To respond to this text message,?\s*reply to this email or visit Google Voice\.?/gi, "")
+    .replace(/YOUR ACCOUNT\s+HELP CENTER/gi, "")
+    .replace(/HELP FORUM/gi, "")
+    .replace(/This email was sent to you because you indicated that you'd like to receive\s*email notifications for text messages\.?\s*If you don't want to receive such\s*emails in the future,?\s*please update your email notification settings\s*\.?/gi, "")
+    .replace(/Google\s+LLC\s*1600\s+Amphitheatre\s+Pkwy\s*Mountain\s+View\s+CA\s+94043\s+USA/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return { phone, content: content.slice(0, 1500), type };
 }
 
 serve(async (req) => {
@@ -211,15 +222,15 @@ serve(async (req) => {
     let forwarded = 0;
 
     for (const m of messages) {
-      // Skip dedup check for testing — allow duplicates
-      // const { data: existing } = await supabase
-      //   .from("webhook_events")
-      //   .select("id")
-      //   .eq("source", "gvoice-poll")
-      //   .eq("event_type", "gvoice_forwarded")
-      //   .filter("payload->>gmail_id", "eq", m.id)
-      //   .limit(1);
-      // if (existing && existing.length > 0) continue;
+      // Dedup: skip if we already forwarded this gmail_id
+      const { data: existing } = await supabase
+        .from("webhook_events")
+        .select("id")
+        .eq("source", "gvoice-poll")
+        .eq("event_type", "gvoice_forwarded")
+        .filter("payload->>gmail_id", "eq", m.id)
+        .limit(1);
+      if (existing && existing.length > 0) continue;
 
       // Fetch full message
       const msgRes = await fetch(
