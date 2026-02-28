@@ -441,10 +441,10 @@ async function backgroundVideoPoll(
       items[idx].status = 'ready';
       delete items[idx].hf_request_id;
 
-      await cortexStatus(profileUsername, platform, `✅ 🎬 Video ready — saved to Content Library`);
+      await cortexStatus(profileUsername, platform, `✅ 🎬 Video ready via Higgsfield — saved to Content Library`);
       await logActivity('media_generated', {
-        name: `🎨 Media generated: video`,
-        profile: profileUsername, platform, item_id: itemId, media_url: videoUrl,
+        name: `🎨 Higgsfield — video generated`,
+        profile: profileUsername, platform, model: 'Higgsfield', item_id: itemId, media_url: videoUrl,
       });
 
       // Save to content_assets
@@ -652,6 +652,10 @@ serve(async (req) => {
           }
         }
 
+        // Determine which model was used for notification context
+        const referenceImagesUsed = ((plan.brand_context?.reference_images || []) as string[]).length > 0;
+        const modelLabel = referenceImagesUsed ? 'Nano Banana 2 (Custom)' : 'Nano Banana 1';
+
         if (mediaUrl) {
           items[i].media_url = mediaUrl;
           if (carouselUrls && carouselUrls.length > 1) {
@@ -662,7 +666,7 @@ serve(async (req) => {
 
           const slideCount = carouselUrls ? carouselUrls.length : 1;
           await cortexStatus(plan.profile_username, plan.platform,
-            `✅ ${item.type === 'video' ? '🎬' : item.type === 'carousel' ? `📸 ${slideCount} slides` : '🖼️'} ${item.type} ready for ${itemDate} — saved to Content Library`);
+            `✅ ${item.type === 'video' ? '🎬' : item.type === 'carousel' ? `📸 ${slideCount} slides` : '🖼️'} ${item.type} ready for ${itemDate} via ${modelLabel} — saved to Content Library`);
 
           // Insert into content_assets — for carousels, insert each slide
           const urlsToSave = carouselUrls || [mediaUrl];
@@ -682,16 +686,18 @@ serve(async (req) => {
                   category: 'AI Generated',
                   folder: 'AI Generated',
                   status: 'published',
-                  tags: ['smm', plan.platform || 'social', plan.profile_username || '', item.type === 'carousel' ? 'carousel' : ''].filter(Boolean),
+                  tags: ['smm', plan.platform || 'social', plan.profile_username || '', item.type === 'carousel' ? 'carousel' : '', referenceImagesUsed ? 'banana2' : 'banana1'].filter(Boolean),
                 }),
               });
             } catch (e) { console.error('[smm-media-gen] content_assets insert error:', e); }
           }
 
           await logActivity('media_generated', {
-            name: `🎨 Media generated: ${item.type}`,
+            name: `🎨 ${modelLabel} — ${item.type} generated for ${itemDate}`,
             profile: plan.profile_username,
             platform: plan.platform,
+            model: modelLabel,
+            custom_references: referenceImagesUsed,
             item_id: item.id,
             date: itemDate,
             media_url: mediaUrl,
