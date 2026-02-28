@@ -223,12 +223,14 @@ serve(async (req) => {
   try {
     let forceDates: string[] | null = null;
     let planId: string | null = null;
+    let singleItem: { id: string; type: string; prompt: string } | null = null;
 
     if (req.method === 'POST') {
       try {
         const body = await req.json();
         forceDates = body.force_dates || null;
         planId = body.plan_id || null;
+        singleItem = body.single_item || null;
       } catch { /* no body */ }
     }
 
@@ -270,18 +272,22 @@ serve(async (req) => {
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
 
+        // If regenerating a single item, skip all others
+        if (singleItem && item.id !== singleItem.id) continue;
+
         // Skip non-media items
         if (item.type === 'text') continue;
         if (!item.media_prompt && !item.caption) continue;
 
         // Detect video items that got a .png fallback — they need re-generation
         const isVideoWithImageFallback = item.type === 'video' && item.media_url && /\.(png|jpg|jpeg|webp)$/i.test(item.media_url);
+        const isRegenRequest = singleItem && item.id === singleItem.id;
 
-        if (item.media_url && item.status === 'ready' && !isVideoWithImageFallback) { skipped++; continue; }
-        if (!isVideoWithImageFallback && item.status !== 'draft' && item.status !== 'failed' && item.status !== 'planned') { skipped++; continue; }
+        if (!isRegenRequest && item.media_url && item.status === 'ready' && !isVideoWithImageFallback) { skipped++; continue; }
+        if (!isRegenRequest && !isVideoWithImageFallback && item.status !== 'draft' && item.status !== 'failed' && item.status !== 'planned') { skipped++; continue; }
 
         const itemDate = item.date;
-        if (!targetDates.has(itemDate)) { skipped++; continue; }
+        if (!isRegenRequest && !targetDates.has(itemDate)) { skipped++; continue; }
 
         if (isVideoWithImageFallback) {
           console.log(`[smm-media-gen] Re-generating video (had .png fallback) for ${itemDate}`);

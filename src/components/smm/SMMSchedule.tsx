@@ -134,6 +134,7 @@ function ScheduleItemModal({
   const [type, setType] = useState<ScheduleItem['type']>('image');
   const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
   const [uploading, setUploading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -181,6 +182,54 @@ function ScheduleItemModal({
   const handleRemoveMedia = () => {
     setMediaUrl(undefined);
     toast('Media removed');
+  };
+
+  const handleRegenerate = async () => {
+    if (!item.media_prompt && !caption) {
+      toast.error('No prompt available for regeneration');
+      return;
+    }
+    setRegenerating(true);
+    try {
+      const prompt = item.media_prompt || `Create a visually striking social media ${type} post: ${caption}`;
+      const { data, error } = await supabase.functions.invoke('smm-media-gen', {
+        body: { 
+          force_dates: [date],
+          plan_id: null,
+          single_item: { id: item.id, type, prompt },
+        },
+      });
+      if (error) throw error;
+      // Refetch the plan to get updated media_url
+      toast.success('Regeneration started — media will update shortly');
+      // Poll for the updated item (check every 3s, max 60s)
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        const { data: plans } = await supabase
+          .from('smm_content_plans')
+          .select('schedule_items')
+          .limit(1);
+        if (plans?.[0]) {
+          const items = plans[0].schedule_items as any[];
+          const updated = items.find((i: any) => i.id === item.id);
+          if (updated?.media_url && updated.media_url !== mediaUrl) {
+            setMediaUrl(updated.media_url);
+            clearInterval(poll);
+            setRegenerating(false);
+            toast.success('Media regenerated!');
+          }
+        }
+        if (attempts >= 20) {
+          clearInterval(poll);
+          setRegenerating(false);
+          toast('Regeneration is still in progress — check back soon');
+        }
+      }, 3000);
+    } catch (err: any) {
+      toast.error(err.message || 'Regeneration failed');
+      setRegenerating(false);
+    }
   };
 
   const handleSave = () => {
@@ -232,6 +281,16 @@ function ScheduleItemModal({
                     <Trash2 className="h-3.5 w-3.5" /> Remove
                   </Button>
                 )}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 text-xs pointer-events-auto"
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                >
+                  {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  {regenerating ? 'Generating…' : 'Re-generate'}
+                </Button>
               </div>
             </div>
             <input
