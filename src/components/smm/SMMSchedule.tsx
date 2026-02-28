@@ -791,13 +791,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
       toast.success(`🔴 Schedule is now LIVE! ${calendarEvents.length} events added to calendar.`);
       await fetchPlans();
 
-      // 3. Auto-trigger media generation for next 2 days
-      const next2 = getNext2Days();
-      const draftItems = items.filter(i => i.status === 'draft' && next2.includes(i.date) && i.type !== 'text');
-      if (draftItems.length > 0) {
-        toast.info(`🎨 Auto-generating media for ${draftItems.length} upcoming post(s)…`);
-        triggerMediaGen(currentPlan.id, next2);
-      }
+
     } catch (e: any) {
       toast.error(`Failed to push live: ${e.message}`);
     }
@@ -882,6 +876,20 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             </AlertDialog>
           )}
 
+          {/* ─── GENERATE AI BUTTON (draft or live) ─── */}
+          {currentPlan && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs border-purple-500/30 text-purple-600 hover:bg-purple-500/10"
+              disabled={generating}
+              onClick={() => currentPlan && triggerMediaGen(currentPlan.id, getNext2Days())}
+            >
+              {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Image className="h-3.5 w-3.5" />}
+              Generate AI
+            </Button>
+          )}
+
           {/* ─── PUSH LIVE BUTTON ─── */}
           {currentPlan && isDraft && (
             <AlertDialog>
@@ -903,7 +911,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Push Schedule Live?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will push the {currentPlan.platform} content schedule live and add {items.length} post{items.length !== 1 ? 's' : ''} to your calendar. Media will auto-generate for the next 2 days immediately.
+                    This will push the {currentPlan.platform} content schedule live and add {items.length} post{items.length !== 1 ? 's' : ''} to your calendar.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -917,21 +925,9 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           )}
 
           {isLive && (
-            <>
-              <Badge className="bg-green-600 text-white text-[10px] gap-1">
-                <CheckCircle2 className="h-3 w-3" /> LIVE
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs"
-                disabled={generating}
-                onClick={() => currentPlan && triggerMediaGen(currentPlan.id, getNext2Days())}
-              >
-                {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Image className="h-3.5 w-3.5" />}
-                Generate Media
-              </Button>
-            </>
+            <Badge className="bg-green-600 text-white text-[10px] gap-1">
+              <CheckCircle2 className="h-3 w-3" /> LIVE
+            </Badge>
           )}
         </div>
       </div>
