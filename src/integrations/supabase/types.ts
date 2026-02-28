@@ -1644,6 +1644,39 @@ export type Database = {
         }
         Relationships: []
       }
+      smm_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          meta: Json
+          platform: string
+          profile_username: string
+          role: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          meta?: Json
+          platform?: string
+          profile_username?: string
+          role?: string
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          meta?: Json
+          platform?: string
+          profile_username?: string
+          role?: string
+          source?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assignee_id: string | null
