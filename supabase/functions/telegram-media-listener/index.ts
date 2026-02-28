@@ -1616,9 +1616,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── If this is a reply-to-message and no handler matched, stay silent ───
+    // ─── Check for persistent button / slash command BEFORE reply guard ───
+    const action = resolvePersistentAction(text)
+
+    // ─── If this is a reply-to-message and no button/command matched, stay silent ───
     // This prevents the bot from treating replies as session input
-    if (message.reply_to_message && (!isGroup || isAllowedGroup)) {
+    if (message.reply_to_message && (!isGroup || isAllowedGroup) && !action) {
       return new Response('ok')
     }
 
@@ -1626,8 +1629,7 @@ Deno.serve(async (req) => {
     const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'xpost_session', 'email_session']
     const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'higgsfield_session', 'email_session']
 
-    // ─── Check for persistent button / slash command ───
-    const action = resolvePersistentAction(text)
+    // action already resolved above (before reply guard)
 
     if (action === 'cancel') {
       // Clean up all sessions for this chat
