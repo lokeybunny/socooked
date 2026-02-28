@@ -25,7 +25,7 @@ const navItems: NavItem[] = [
   { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
   { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true, divider: 'Services' },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
-  { to: '/threads', icon: MessageSquare, label: 'Analyze', highlight: true },
+  { to: '/threads', icon: MessageSquare, label: 'Analyze', highlight: true, divider: ' ' },
   { to: '/content', icon: FileText, label: 'Content', highlight: true },
   { to: '/templates', icon: FileCode2, label: 'Templates', highlight: true },
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
@@ -165,13 +165,14 @@ export function Sidebar() {
               <div key={to}>
                 {divider && (
                   <div className={cn("flex items-center gap-2 px-3 pt-4 pb-1.5", collapsed && "justify-center")}>
-                    {!collapsed && (
+                    {!collapsed && divider.trim() ? (
                       <>
                         <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60 font-medium">{divider}</span>
                         <div className="flex-1 h-px bg-border/40" />
                       </>
+                    ) : (
+                      <div className="flex-1 h-px bg-border/40" />
                     )}
-                    {collapsed && <div className="w-6 h-px bg-border/40" />}
                   </div>
                 )}
                 <NavLink
