@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
-import { Bot, Cpu, Palette, Share2, Radar, ArrowRight, Activity, CheckCircle2, Clock, AlertCircle, ExternalLink, Search, Wrench, Mail, Inbox, Brain } from 'lucide-react';
+import { Bot, Cpu, Palette, Share2, Radar, ArrowRight, Activity, CheckCircle2, Clock, AlertCircle, ExternalLink, Search, Wrench, Inbox, Brain } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -13,10 +13,9 @@ const AGENTS = [
   { id: 'social-media', label: 'Social Media', role: 'Upload-Post API — Publisher', icon: Share2, color: 'from-pink-500 to-rose-600', ring: 'ring-pink-500/30', bg: 'bg-pink-500/10', text: 'text-pink-400', pulse: 'bg-pink-500', connected: true, group: 'clawd' },
   { id: 'content-manager', label: 'Higgsfield AI', role: 'Content Agent — Video/Image', icon: Bot, color: 'from-amber-500 to-orange-600', ring: 'ring-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', pulse: 'bg-amber-500', connected: true, group: 'clawd' },
   { id: 'nano-banana', label: 'Nano Banana', role: 'Image AI — Gemini Flash', icon: Palette, color: 'from-yellow-400 to-amber-500', ring: 'ring-yellow-400/30', bg: 'bg-yellow-400/10', text: 'text-yellow-400', pulse: 'bg-yellow-400', connected: true, group: 'clawd' },
-  { id: 'research-finder', label: 'Research Finder', role: 'Research Agent — Coming Soon', icon: Search, color: 'from-teal-500 to-emerald-600', ring: 'ring-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', pulse: 'bg-teal-500', connected: false, group: 'clawd' },
+  { id: 'gmail-bot', label: 'SM Planner', role: 'Social Media Planner — Scheduler', icon: Inbox, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500', connected: true, group: 'clawd' },
   { id: 'crm-maintenance', label: 'Zyla - Cortex', role: 'Operations Agent — Cortex AI', icon: Brain, color: 'from-indigo-500 to-blue-600', ring: 'ring-indigo-500/30', bg: 'bg-indigo-500/10', text: 'text-indigo-400', pulse: 'bg-indigo-500', connected: true, group: 'standalone' },
-  { id: 'email-bot', label: 'E-Mail', role: 'Email Agent — Outbound/Inbound', icon: Mail, color: 'from-sky-500 to-blue-600', ring: 'ring-sky-500/30', bg: 'bg-sky-500/10', text: 'text-sky-400', pulse: 'bg-sky-500', connected: true, group: 'standalone' },
-  { id: 'gmail-bot', label: 'SM Planner', role: 'Social Media Planner — Scheduler', icon: Inbox, color: 'from-emerald-500 to-green-600', ring: 'ring-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', pulse: 'bg-emerald-500', connected: true, group: 'standalone' },
+  { id: 'research-finder', label: 'Research Finder', role: 'Research Agent — Coming Soon', icon: Search, color: 'from-teal-500 to-emerald-600', ring: 'ring-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', pulse: 'bg-teal-500', connected: false, group: 'standalone' },
 ] as const;
 
 type AgentId = typeof AGENTS[number]['id'];
@@ -397,12 +396,10 @@ export default function AIStaff() {
         (a.entity_type === 'bot_task' && (a.meta as any)?.name?.includes('📱'))
       );
     }
-    if (id === 'email-bot' || id === 'gmail-bot') {
+    if (id === 'gmail-bot') {
       return activities.filter(a => 
-        a.entity_type === 'communication' ||
-        a.action.startsWith('email_') ||
-        a.action.startsWith('gmail_') ||
-        (a.meta as any)?.name?.toLowerCase().includes('email')
+        a.action.startsWith('smm_') ||
+        (a.entity_type === 'bot_task' && (a.meta as any)?.name?.includes('📱'))
       );
     }
     if (id === 'crm-maintenance') {
@@ -527,11 +524,9 @@ export default function AIStaff() {
               <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Bot 2 — Intuitive AI Thinker</span>
             </div>
             <div className="flex items-center justify-center flex-1 gap-2">
-              {/* Zyla - Cortex (main) */}
               {(() => {
                 const zyla = standaloneAgents.find(a => a.id === 'crm-maintenance')!;
-                const emailBot = standaloneAgents.find(a => a.id === 'email-bot')!;
-                const gmailBot = standaloneAgents.find(a => a.id === 'gmail-bot')!;
+                const research = standaloneAgents.find(a => a.id === 'research-finder')!;
                 return (
                   <>
                     <AgentNode
@@ -541,28 +536,14 @@ export default function AIStaff() {
                       isSelected={selectedAgent === zyla.id}
                       onSelect={() => setSelectedAgent(zyla.id)}
                     />
-                    <FlowLine active={true} />
-                    <div className="flex flex-col gap-2 items-center">
-                      <AgentNode
-                        agent={emailBot}
-                        tasks={agentTasks(emailBot.id)}
-                        activities={agentActivities(emailBot.id)}
-                        isSelected={selectedAgent === emailBot.id}
-                        onSelect={() => setSelectedAgent(emailBot.id)}
-                      />
-                      <div className="flex items-center gap-1">
-                        <svg width="24" height="24" viewBox="0 0 24 24" className="overflow-visible">
-                          <line x1="12" y1="0" x2="12" y2="24" stroke="hsl(var(--primary))" strokeWidth="2" strokeDasharray="4 3" opacity="0.5" />
-                        </svg>
-                      </div>
-                      <AgentNode
-                        agent={gmailBot}
-                        tasks={agentTasks(gmailBot.id)}
-                        activities={agentActivities(gmailBot.id)}
-                        isSelected={selectedAgent === gmailBot.id}
-                        onSelect={() => setSelectedAgent(gmailBot.id)}
-                      />
-                    </div>
+                    <FlowLine active={false} />
+                    <AgentNode
+                      agent={research}
+                      tasks={agentTasks(research.id)}
+                      activities={agentActivities(research.id)}
+                      isSelected={selectedAgent === research.id}
+                      onSelect={() => setSelectedAgent(research.id)}
+                    />
                   </>
                 );
               })()}
