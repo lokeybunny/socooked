@@ -138,12 +138,14 @@ MEDIA GENERATION STRATEGY:
 - Media is NOT generated immediately — it's queued for generation 48 hours before the scheduled date to save on API credits
 - Until generated, items show as "template" placeholders in the preview
 
-CONTENT MIX (per 7 posts):
+CONTENT MIX (per 7 posts) — MANDATORY MINIMUMS:
+- AT LEAST 2 posts MUST have type "video" — this is a hard requirement, never generate a week with fewer than 2 videos
 - 2 educational/value posts (tips, how-to, stats)
 - 2 engagement posts (questions, polls, hot takes)
 - 1 promotional post (product/service showcase)
 - 1 behind-the-scenes/personal post
 - 1 trending/timely post (current events, memes, trends)
+- Videos perform 3-5x better on all platforms — always include them
 
 PLATFORM-SPECIFIC RULES:
 - Instagram: Reels > static posts. Carousel for education. Stories for engagement. No text-only.
@@ -367,12 +369,31 @@ serve(async (req) => {
         plan_name: parsed.plan_name || `Content Plan ${new Date().toLocaleDateString()}`,
         status: 'draft', // Always starts as draft — user must push to live
         brand_context: parsed.brand_context || {},
-        schedule_items: (parsed.schedule_items || []).map((item: any) => ({
-          ...item,
-          id: item.id || crypto.randomUUID(),
-          status: 'draft', // All items start as draft
-          media_url: null, // No media generated yet — will be generated 48hrs before
-        })),
+        schedule_items: (() => {
+          const items = (parsed.schedule_items || []).map((item: any) => ({
+            ...item,
+            id: item.id || crypto.randomUUID(),
+            status: 'draft',
+            media_url: null,
+          }));
+
+          // Enforce minimum 2 videos per week
+          const videoCount = items.filter((it: any) => it.type === 'video').length;
+          if (videoCount < 2) {
+            const nonVideoItems = items.filter((it: any) => it.type !== 'video' && it.type !== 'text');
+            let toConvert = 2 - videoCount;
+            for (const it of nonVideoItems) {
+              if (toConvert <= 0) break;
+              it.type = 'video';
+              if (it.media_prompt) {
+                it.media_prompt = `Short, dynamic video: ${it.media_prompt}`;
+              }
+              toConvert--;
+            }
+            console.log(`[smm-scheduler] Enforced min 2 videos — converted ${2 - videoCount - toConvert} items to video`);
+          }
+          return items;
+        })(),
       };
 
       const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans`, {
