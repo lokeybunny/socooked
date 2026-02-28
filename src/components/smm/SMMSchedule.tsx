@@ -1164,6 +1164,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
+  const [purging, setPurging] = useState(false);
 
   const handleItemClick = (item: ScheduleItem) => {
     setEditingItem(item);
@@ -1184,6 +1185,26 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
       toast.success(wasFavorited ? 'Style unfavorited' : '✅ Style favorited — AI will match this when regenerating');
       await fetchPlans();
     }
+  };
+
+  const handlePurgeGenerating = async () => {
+    if (!currentPlan) return;
+    setPurging(true);
+    try {
+      const newItems = items.map(i =>
+        i.status === 'generating' ? { ...i, status: 'failed' as const, hf_request_id: undefined } : i
+      );
+      const { error } = await supabase
+        .from('smm_content_plans')
+        .update({ schedule_items: newItems as any, updated_at: new Date().toISOString() } as any)
+        .eq('id', currentPlan.id);
+      if (error) throw error;
+      toast.success('All generating tasks purged.');
+      await fetchPlans();
+    } catch (e: any) {
+      toast.error(`Purge failed: ${e.message}`);
+    }
+    setPurging(false);
   };
 
   const fetchPlans = useCallback(async () => {
@@ -1723,7 +1744,21 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
                   {/* Timeline */}
                   <Card className="p-3 space-y-2">
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timeline</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Timeline</h4>
+                      {items.some(i => i.status === 'generating') && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] text-destructive hover:bg-destructive/10 gap-1"
+                          onClick={handlePurgeGenerating}
+                          disabled={purging}
+                        >
+                          {purging ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                          Purge
+                        </Button>
+                      )}
+                    </div>
                     {todayItems.length > 0 && (
                       <div>
                         <p className="text-[10px] font-medium text-primary mb-1">Today</p>
