@@ -34,6 +34,27 @@ async function logActivity(action: string, meta: Record<string, any>) {
   } catch (e) { console.error('[smm-media-gen] log error:', e); }
 }
 
+/** Post a status message to the Cortex SMM Strategist chat panel via smm_conversations */
+async function cortexStatus(profileUsername: string, platform: string, message: string) {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/smm_conversations`, {
+      method: 'POST',
+      headers: {
+        'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({
+        profile_username: profileUsername,
+        platform,
+        source: 'system',
+        role: 'cortex',
+        message,
+        meta: { type: 'media_gen_status' },
+      }),
+    });
+  } catch (e) { console.error('[smm-media-gen] cortex status error:', e); }
+}
+
 /* ────── IMAGE GENERATION — Lovable AI (Nano Banana) ────── */
 async function generateImage(prompt: string): Promise<string | null> {
   if (!LOVABLE_API_KEY) { console.error('[smm-media-gen] LOVABLE_API_KEY not configured'); return null; }
@@ -226,6 +247,10 @@ serve(async (req) => {
 
     let generated = 0;
     let skipped = 0;
+    const firstPlan = plans[0];
+
+    // Announce generation start
+    await cortexStatus(firstPlan.profile_username, firstPlan.platform, `⚡ Starting AI media generation for ${[...targetDates].length} day(s)…`);
 
     for (const plan of plans) {
       const items = (plan.schedule_items || []) as any[];
@@ -244,14 +269,17 @@ serve(async (req) => {
         console.log(`[smm-media-gen] Generating ${item.type} for "${(item.caption || '').substring(0, 40)}…" on ${itemDate}`);
         items[i].status = 'generating';
 
+        const captionSnippet = (item.caption || '').substring(0, 50);
+        await cortexStatus(plan.profile_username, plan.platform, `🎨 Generating ${item.type} for ${itemDate}…\n"${captionSnippet}…"`);
+
         const prompt = item.media_prompt || `Create a visually striking social media ${item.type} post: ${item.caption}`;
         let mediaUrl: string | null = null;
 
         if (item.type === 'video') {
-          // Try video via Higgsfield; fallback to image via Lovable AI
+          await cortexStatus(plan.profile_username, plan.platform, `🎬 Submitting video to Higgsfield AI…`);
           mediaUrl = await generateVideo(prompt);
           if (!mediaUrl) {
-            console.log('[smm-media-gen] Video failed, falling back to image');
+            await cortexStatus(plan.profile_username, plan.platform, `⚠️ Video generation failed — falling back to image…`);
             mediaUrl = await generateImage(prompt);
           }
         } else {
@@ -263,6 +291,8 @@ serve(async (req) => {
           items[i].media_url = mediaUrl;
           items[i].status = 'ready';
           generated++;
+
+          await cortexStatus(plan.profile_username, plan.platform, `✅ ${item.type === 'video' ? '🎬' : '🖼️'} ${item.type} ready for ${itemDate} — saved to Content Library`);
 
           // Also insert into content_assets so it shows in Content Library → AI Generated
           try {
@@ -295,6 +325,7 @@ serve(async (req) => {
           });
         } else {
           items[i].status = 'failed';
+          await cortexStatus(plan.profile_username, plan.platform, `❌ Failed to generate ${item.type} for ${itemDate}`);
           await logActivity('media_generation_failed', {
             name: `❌ Media gen failed: ${item.type}`,
             profile: plan.profile_username,
@@ -316,6 +347,13 @@ serve(async (req) => {
         });
       }
     }
+
+    // Summary message
+    await cortexStatus(firstPlan.profile_username, firstPlan.platform,
+      generated > 0
+        ? `🏁 Done! Generated ${generated} asset(s)${skipped > 0 ? `, skipped ${skipped}` : ''}. Check your schedule & Content Library.`
+        : `⚠️ No new assets generated (${skipped} skipped — already ready or out of date range).`
+    );
 
     return new Response(JSON.stringify({
       message: `Media generation complete. Generated ${generated} asset(s), skipped ${skipped}.`,
