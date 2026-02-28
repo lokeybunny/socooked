@@ -163,15 +163,25 @@ serve(async (req) => {
 
     // Parse service account
     let sa: any;
+    // Try multiple parse strategies for service account JSON
+    const cleaned = saJson.trim();
     const parseAttempts: (() => any)[] = [
-      () => JSON.parse(saJson),
-      () => JSON.parse(saJson.replace(/\\n/g, "\n")),
-      () => JSON.parse(saJson.replace(/\\\\n/g, "\n")),
+      () => JSON.parse(cleaned),
+      () => JSON.parse(cleaned.replace(/\\n/g, "\n")),
+      () => JSON.parse(cleaned.replace(/\\\\n/g, "\n")),
+      () => JSON.parse(cleaned.replace(/\n/g, "\\n")),
     ];
     for (const attempt of parseAttempts) {
       try { sa = attempt(); break; } catch (_e) { /* skip */ }
     }
-    if (!sa) throw new Error("Failed to parse GVOICE_SERVICE_ACCOUNT_JSON");
+    if (!sa) {
+      console.error("[gvoice-poll] JSON parse failed. First 100 chars:", cleaned.slice(0, 100));
+      throw new Error("Failed to parse GVOICE_SERVICE_ACCOUNT_JSON");
+    }
+    if (!sa.client_email || !sa.private_key) {
+      throw new Error("GVOICE_SERVICE_ACCOUNT_JSON missing client_email or private_key");
+    }
+    console.log("[gvoice-poll] SA parsed OK, email:", sa.client_email);
 
     const token = await getAccessToken(sa, "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send");
 
