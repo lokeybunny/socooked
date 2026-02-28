@@ -739,10 +739,10 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     setGenerating(false);
   };
 
-  const getNext2Days = (): string[] => {
+  const getFullWeekDates = (): string[] => {
     const dates: string[] = [];
     const now = new Date();
-    for (let i = 0; i <= 2; i++) {
+    for (let i = 0; i <= 7; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() + i);
       dates.push(d.toISOString().split('T')[0]);
@@ -840,7 +840,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               <>
                 {currentPlan.plan_name}
                 {isDraft && <span className="ml-2 text-yellow-600">● Draft — review & push live</span>}
-                {isLive && <span className="ml-2 text-green-600">● Live — media auto-generates for next 2 days</span>}
+                {isLive && <span className="ml-2 text-green-600">● Live</span>}
               </>
             ) : 'Chat with Cortex to build your content strategy'}
           </p>
@@ -883,7 +883,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               size="sm"
               className="gap-1.5 text-xs border-purple-500/30 text-purple-600 hover:bg-purple-500/10"
               disabled={generating}
-              onClick={() => currentPlan && triggerMediaGen(currentPlan.id, getNext2Days())}
+              onClick={() => currentPlan && triggerMediaGen(currentPlan.id, getFullWeekDates())}
             >
               {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Image className="h-3.5 w-3.5" />}
               Generate AI
