@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
-  Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2,
+  Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -10,7 +10,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 type NavItem = {
-  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string;
+  to: string; icon: any; label: string; botIcon?: boolean; highlight?: boolean; divider?: string; green?: boolean;
 };
 
 const navItems: NavItem[] = [
@@ -31,6 +31,7 @@ const navItems: NavItem[] = [
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
   { to: '/landing', icon: Layers, label: 'Landing', highlight: true },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
+  { to: '/research', icon: Search, label: 'Research', green: true },
   { to: '/projects', icon: FolderKanban, label: 'Projects', highlight: true },
 ];
 
@@ -156,7 +157,7 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, icon: Icon, label, botIcon, highlight, divider }, idx) => {
+          {navItems.map(({ to, icon: Icon, label, botIcon, highlight, divider, green }, idx) => {
             const isActive = location.pathname === to;
             const showDot = to === '/messages' && hasNewMessages;
             const nextItem = navItems[idx + 1];
@@ -181,9 +182,11 @@ export function Sidebar() {
                     "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-normal transition-colors duration-100",
                     isActive
                       ? "bg-accent text-foreground"
-                      : highlight
-                        ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                      : green
+                        ? "text-emerald-500 hover:bg-accent hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                        : highlight
+                          ? "text-red-500 hover:bg-accent hover:text-red-600 dark:text-emerald-400 dark:hover:text-emerald-300"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground",
                     isGrouped && "mb-0"
                   )}
                 >
