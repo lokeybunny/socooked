@@ -119,25 +119,76 @@ Deno.serve(async (req) => {
           fetch(`${moralisBase}/graduated?limit=50`, { headers: moralisHeaders }),
         ]);
 
-        const newTokens = newRes.ok ? await newRes.json() : [];
-        const bondTokens = bondRes.ok ? await bondRes.json() : [];
-        const gradTokens = gradRes.ok ? await gradRes.json() : [];
+        // Moralis returns { result: [...] } or raw array depending on endpoint
+        const extractTokens = (data: any): any[] => {
+          if (Array.isArray(data)) return data;
+          if (data?.result && Array.isArray(data.result)) return data.result;
+          if (data?.tokens && Array.isArray(data.tokens)) return data.tokens;
+          if (data?.data && Array.isArray(data.data)) return data.data;
+          // If it's an object with token-like keys, wrap it
+          if (data && typeof data === 'object' && !Array.isArray(data)) {
+            const keys = Object.keys(data);
+            // Check if any value is an array of objects
+            for (const key of keys) {
+              if (Array.isArray(data[key]) && data[key].length > 0 && typeof data[key][0] === 'object') {
+                return data[key];
+              }
+            }
+          }
+          return [];
+        };
+
+        let newTokensRaw: any = [];
+        let bondTokensRaw: any = [];
+        let gradTokensRaw: any = [];
+
+        try {
+          if (newRes.ok) {
+            const raw = await newRes.json();
+            newTokensRaw = extractTokens(raw);
+            console.log(`Moralis new response type: ${typeof raw}, isArray: ${Array.isArray(raw)}, keys: ${typeof raw === 'object' ? Object.keys(raw).join(',') : 'n/a'}, extracted: ${newTokensRaw.length}`);
+          } else {
+            console.log(`Moralis new failed: ${newRes.status} ${await newRes.text().catch(() => '')}`);
+          }
+        } catch (e: any) { console.log(`Moralis new parse error: ${e.message}`); }
+
+        try {
+          if (bondRes.ok) {
+            const raw = await bondRes.json();
+            bondTokensRaw = extractTokens(raw);
+            console.log(`Moralis bonding response extracted: ${bondTokensRaw.length}`);
+          } else {
+            console.log(`Moralis bonding failed: ${bondRes.status}`);
+          }
+        } catch (e: any) { console.log(`Moralis bonding parse error: ${e.message}`); }
+
+        try {
+          if (gradRes.ok) {
+            const raw = await gradRes.json();
+            gradTokensRaw = extractTokens(raw);
+            console.log(`Moralis graduated response extracted: ${gradTokensRaw.length}`);
+          } else {
+            console.log(`Moralis graduated failed: ${gradRes.status}`);
+          }
+        } catch (e: any) { console.log(`Moralis graduated parse error: ${e.message}`); }
 
         const allTokensMap = new Map<string, any>();
-        const getAddr = (t: any) => t.tokenAddress || t.address || t.mint || t.token_address || "";
-        for (const t of [
-          ...(Array.isArray(newTokens) ? newTokens : []),
-          ...(Array.isArray(bondTokens) ? bondTokens : []),
-          ...(Array.isArray(gradTokens) ? gradTokens : []),
-        ]) {
-          const addr = getAddr(t);
-          if (addr && !allTokensMap.has(addr)) allTokensMap.set(addr, { ...t, _stage: Array.isArray(newTokens) && newTokens.includes(t) ? "new" : Array.isArray(bondTokens) && bondTokens.includes(t) ? "bonding" : "graduated" });
-        }
+        const getAddr = (t: any) => t.tokenAddress || t.address || t.mint || t.token_address || t.contractAddress || "";
+        const tagStage = (tokens: any[], stage: string) => {
+          for (const t of tokens) {
+            const addr = getAddr(t);
+            if (addr && !allTokensMap.has(addr)) allTokensMap.set(addr, { ...t, _stage: stage });
+          }
+        };
+        tagStage(newTokensRaw, "new");
+        tagStage(bondTokensRaw, "bonding");
+        tagStage(gradTokensRaw, "graduated");
+
         const allTokens = [...allTokensMap.values()].slice(0, 60);
         stats.tokens = allTokens.length;
-        stats.new_tokens = Array.isArray(newTokens) ? newTokens.length : 0;
-        stats.bonding_tokens = Array.isArray(bondTokens) ? bondTokens.length : 0;
-        stats.graduated_tokens = Array.isArray(gradTokens) ? gradTokens.length : 0;
+        stats.new_tokens = newTokensRaw.length;
+        stats.bonding_tokens = bondTokensRaw.length;
+        stats.graduated_tokens = gradTokensRaw.length;
         send("progress", { step: 2, label: "Fetching Pump.fun tokens via Moralis", status: "done", detail: `${stats.tokens} unique tokens (${stats.new_tokens} new, ${stats.bonding_tokens} bonding, ${stats.graduated_tokens} graduated)` });
 
         // ── STEP 3: DexScreener enrichment ──────────────────────────────
