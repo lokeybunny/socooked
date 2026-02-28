@@ -124,14 +124,25 @@ async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<s
   const model = 'higgsfield-ai/dop/standard';
 
   try {
+    // Higgsfield requires a source image — generate one first if not provided
+    if (!sourceImageUrl) {
+      console.log('[smm-media-gen] Generating source image for video...');
+      sourceImageUrl = await generateImage(`Still frame for video: ${prompt}`) ?? undefined;
+      if (!sourceImageUrl) {
+        console.error('[smm-media-gen] Failed to generate source image for video');
+        return null;
+      }
+      console.log('[smm-media-gen] Source image ready:', sourceImageUrl);
+    }
+
     console.log('[smm-media-gen] Submitting video to Higgsfield...');
 
     // 1) Submit generation request
-    const hfPayload: Record<string, unknown> = { prompt };
-    if (sourceImageUrl) {
-      hfPayload.image_url = sourceImageUrl;
-      hfPayload.duration = 5;
-    }
+    const hfPayload: Record<string, unknown> = {
+      prompt,
+      image_url: sourceImageUrl,
+      duration: 5,
+    };
 
     const submitRes = await fetch(`${HIGGSFIELD_BASE}/${model}`, {
       method: 'POST',
