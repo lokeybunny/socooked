@@ -584,7 +584,7 @@ export default function Research() {
             </div>
             <div className="p-4 space-y-4">
               {/* Cortex Reasoning Summary */}
-              {cycleReasoning && cycleReasoning !== 'No Grok analysis available' && (
+              {cycleReasoning && cycleReasoning !== 'No AI analysis available' && (
                 <div className="p-3 rounded-lg bg-muted/30 border border-border">
                   <div className="flex items-center gap-2 mb-2">
                     <Brain className="h-3.5 w-3.5 text-primary" />
