@@ -315,11 +315,11 @@ export default function AIStaff() {
         .in('status', ['queued', 'in_progress']);
       if (error) throw error;
 
-      // 2. Purge all non-terminal api_previews
+      // 2. Purge all non-terminal api_previews (pending, generating, queued, in_progress, etc.)
       await supabase
         .from('api_previews')
         .update({ status: 'failed' })
-        .not('status', 'in', '("completed","failed")');
+        .in('status', ['pending', 'generating', 'queued', 'in_progress', 'processing']);
 
       // 3. Purge in-progress SMM schedule items (set generating → failed)
       const { data: activePlans } = await supabase
