@@ -41,6 +41,7 @@ export default function Research() {
   const [allFindings, setAllFindings] = useState<any[]>([]);
   const [findings, setFindings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoryNewFlags, setCategoryNewFlags] = useState<Record<string, boolean>>({});
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [converting, setConverting] = useState<string | null>(null);
@@ -69,6 +70,37 @@ export default function Research() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Check for new findings per category using localStorage timestamps
+  useEffect(() => {
+    const flags: Record<string, boolean> = {};
+    RESEARCH_SOURCES.forEach(src => {
+      const lastSeen = localStorage.getItem(`research_last_seen_${src.id}`);
+      const catFindings = allFindings.filter(f => normSource(f.category) === src.id);
+      const latest = catFindings[0]?.created_at;
+      flags[src.id] = !!(latest && (!lastSeen || latest > lastSeen));
+    });
+    setCategoryNewFlags(flags);
+  }, [allFindings]);
+
+  // Realtime subscription for new research findings
+  useEffect(() => {
+    const channel = supabase
+      .channel('research_new_findings')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'research_findings' }, () => {
+        load();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Mark category as seen when selected
+  useEffect(() => {
+    if (selectedSource) {
+      localStorage.setItem(`research_last_seen_${selectedSource}`, new Date().toISOString());
+      setCategoryNewFlags(prev => ({ ...prev, [selectedSource]: false }));
+    }
+  }, [selectedSource]);
 
   useEffect(() => {
     if (selectedSource) {
@@ -176,14 +208,19 @@ export default function Research() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
             {RESEARCH_SOURCES.map(src => {
               const count = categoryCounts[src.id] || 0;
+              const hasNew = categoryNewFlags[src.id];
               return (
                 <button
                   key={src.id}
                   onClick={() => setSelectedSource(src.id)}
                   className="group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-emerald-500/40 transition-all relative"
                 >
+                  {hasNew && (
+                    <span className="absolute top-2 right-2 h-3 w-3 rounded-full bg-destructive border-2 border-background animate-pulse" />
+                  )}
                   <span className={cn(
                     "absolute top-3 right-3 flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full text-xs font-semibold",
+                    hasNew ? "top-3 right-7" : "",
                     count > 0 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"
                   )}>
                     {count}
