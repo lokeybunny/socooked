@@ -225,12 +225,14 @@ function CarouselSlideEditor({
 
 // ─── Schedule Item Edit Modal ───
 function ScheduleItemModal({
-  item, open, onOpenChange, onSave,
+  item, open, onOpenChange, onSave, planIsLive, plan,
 }: {
   item: ScheduleItem | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSave: (updated: ScheduleItem) => void;
+  planIsLive?: boolean;
+  plan?: ContentPlan | null;
 }) {
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('');
@@ -240,6 +242,7 @@ function ScheduleItemModal({
   const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
   const [uploading, setUploading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [pushingSingle, setPushingSingle] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -399,6 +402,56 @@ function ScheduleItemModal({
     onOpenChange(false);
   };
 
+  const handlePushSingleLive = async () => {
+    if (!item || !plan) return;
+    // First save changes
+    const parsed = hashtags.split(',').map(h => h.trim().replace(/^#/, '')).filter(Boolean);
+    const updated = { ...item, caption, hashtags: parsed, date, time, type, media_url: mediaUrl };
+    onSave(updated);
+
+    setPushingSingle(true);
+    try {
+      const apiPlatform = plan.platform === 'twitter' ? 'x' : plan.platform;
+      const scheduledDate = time ? `${date}T${time}:00` : `${date}T12:00:00`;
+      const hashtagStr = parsed.map(h => h.startsWith('#') ? h : `#${h}`).join(' ');
+      const title = caption
+        ? `${caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
+        : hashtagStr || type;
+
+      // Determine post type
+      const isActualVideo = mediaUrl && (
+        mediaUrl.endsWith('.mp4') || mediaUrl.endsWith('.mov') ||
+        mediaUrl.endsWith('.webm') || mediaUrl.includes('higgsfield')
+      );
+      let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
+      if (type === 'video' && isActualVideo) postType = 'video';
+      else if (type === 'video' || type === 'image' || type === 'carousel') postType = 'photos';
+
+      // Skip if no media for non-text types
+      if (postType !== 'text' && !mediaUrl) {
+        toast.error('No media attached — upload or generate media first.');
+        setPushingSingle(false);
+        return;
+      }
+
+      await smmApi.createPost({
+        user: plan.profile_username,
+        type: postType,
+        platforms: [apiPlatform as any],
+        title,
+        media_url: mediaUrl,
+        scheduled_date: scheduledDate,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      });
+
+      toast.success('✅ Post re-pushed live! The updated version will replace the existing one on schedule.');
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(`Failed to push: ${e.message}`);
+    }
+    setPushingSingle(false);
+  };
+
   // Only use <video> tag if the URL is actually a video file, not a fallback image
   const isActualVideo = mediaUrl && /\.(mp4|mov|webm|m3u8)/i.test(mediaUrl);
 
@@ -523,11 +576,23 @@ function ScheduleItemModal({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} className="gap-1.5" disabled={uploading}>
-            <CheckCircle2 className="h-3.5 w-3.5" /> Save Changes
-          </Button>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          {planIsLive && (
+            <Button
+              onClick={handlePushSingleLive}
+              disabled={uploading || pushingSingle}
+              className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+            >
+              {pushingSingle ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Re-push Live
+            </Button>
+          )}
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button onClick={handleSave} className="gap-1.5" disabled={uploading}>
+              <CheckCircle2 className="h-3.5 w-3.5" /> Save Changes
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1450,6 +1515,8 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         onSave={handleSaveItem}
+        planIsLive={isLive}
+        plan={currentPlan || null}
       />
     </div>
   );
