@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.smm-media-gen]
 verify_jwt = false
+
+[functions.gvoice-poll]
+verify_jwt = false
