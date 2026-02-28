@@ -8,14 +8,37 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Check, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import type { LucideIcon } from 'lucide-react';
+
+/* ── X (Twitter) icon ── */
+const XIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+  </svg>
+);
+
+interface SourceCategory { id: string; label: string; icon: LucideIcon | (({ className }: { className?: string }) => JSX.Element); description: string }
+
+const RESEARCH_SOURCES: SourceCategory[] = [
+  { id: 'google-maps', label: 'Google Maps', icon: MapPin, description: 'Local businesses, reviews & map listings' },
+  { id: 'x', label: 'X (Twitter)', icon: XIcon as any, description: 'Tweets, trends & social mentions' },
+  { id: 'yelp', label: 'Yelp', icon: Star, description: 'Business reviews, ratings & listings' },
+  { id: 'instagram', label: 'Instagram', icon: Instagram, description: 'Profiles, posts & engagement data' },
+  { id: 'other', label: 'Other', icon: Search, description: 'Web scrapes, APIs & misc sources' },
+];
+
+const SOURCE_LABELS: Record<string, string> = Object.fromEntries(RESEARCH_SOURCES.map(s => [s.id, s.label]));
 
 const FINDING_TYPES = ['lead', 'competitor', 'resource', 'trend', 'other'] as const;
 const STATUSES = ['new', 'reviewed', 'converted', 'dismissed'] as const;
 
 export default function Research() {
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [allFindings, setAllFindings] = useState<any[]>([]);
   const [findings, setFindings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -29,7 +52,11 @@ export default function Research() {
   const [sourceUrl, setSourceUrl] = useState('');
   const [summary, setSummary] = useState('');
   const [findingType, setFindingType] = useState<string>('lead');
+  const [findingSource, setFindingSource] = useState<string>('other');
   const [creating, setCreating] = useState(false);
+
+  const validSources = RESEARCH_SOURCES.map(s => s.id);
+  const normSource = (c: string | null) => (c && validSources.includes(c) ? c : 'other');
 
   const load = async () => {
     setLoading(true);
@@ -37,11 +64,24 @@ export default function Research() {
       .from('research_findings')
       .select('*, customers(full_name, email)')
       .order('created_at', { ascending: false });
-    setFindings(data || []);
+    setAllFindings(data || []);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    if (selectedSource) {
+      setFindings(allFindings.filter(f => normSource(f.category) === selectedSource));
+    } else {
+      setFindings(allFindings);
+    }
+  }, [selectedSource, allFindings]);
+
+  const categoryCounts = RESEARCH_SOURCES.reduce((acc, src) => {
+    acc[src.id] = allFindings.filter(f => normSource(f.category) === src.id).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   const filtered = findings.filter(f => {
     if (filterType !== 'all' && f.finding_type !== filterType) return false;
@@ -57,12 +97,13 @@ export default function Research() {
       source_url: sourceUrl.trim() || null,
       summary: summary.trim() || null,
       finding_type: findingType,
+      category: findingSource,
       created_by: 'manual',
     }]);
     if (error) { toast.error(error.message); setCreating(false); return; }
     toast.success('Finding added');
     setDialogOpen(false);
-    setTitle(''); setSourceUrl(''); setSummary(''); setFindingType('lead');
+    setTitle(''); setSourceUrl(''); setSummary(''); setFindingType('lead'); setFindingSource('other');
     setCreating(false);
     load();
   };
@@ -70,18 +111,16 @@ export default function Research() {
   const handleConvertToClient = async (finding: any) => {
     setConverting(finding.id);
     try {
-      // Create customer — existing triggers auto-create deal + project
       const { data: cust, error: custErr } = await supabase.from('customers').insert([{
         full_name: finding.title,
         source: 'research',
         status: 'lead',
-        notes: `From research: ${finding.summary || ''}\n${finding.source_url || ''}`.trim(),
-        category: finding.category || null,
+        notes: `From research (${SOURCE_LABELS[finding.category] || 'Other'}): ${finding.summary || ''}\n${finding.source_url || ''}`.trim(),
+        category: null,
       }]).select().single();
 
       if (custErr) { toast.error(custErr.message); setConverting(null); return; }
 
-      // Link finding to customer and mark converted
       await supabase.from('research_findings')
         .update({ customer_id: cust.id, status: 'converted' })
         .eq('id', finding.id);
@@ -108,17 +147,76 @@ export default function Research() {
     toast.success('Copied to clipboard');
   };
 
+  const sourceIcon = (cat: string, className?: string) => {
+    const cls = className || 'h-3 w-3';
+    switch (cat) {
+      case 'google-maps': return <MapPin className={cls} />;
+      case 'x': return <XIcon className={cls} />;
+      case 'yelp': return <Star className={cls} />;
+      case 'instagram': return <Instagram className={cls} />;
+      default: return <Search className={cls} />;
+    }
+  };
+
+  // ── Category gate (source selector) ──
+  if (!selectedSource) {
+    return (
+      <AppLayout>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-fade-in">
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-bold text-foreground flex items-center justify-center gap-2">
+              <Search className="h-7 w-7 text-emerald-500" /> Research
+            </h1>
+            <p className="text-muted-foreground">Select a source to browse findings</p>
+            <div className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full bg-muted/60 border border-border">
+              <span className="text-2xl font-bold text-foreground">{allFindings.length}</span>
+              <span className="text-sm text-muted-foreground">total findings</span>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
+            {RESEARCH_SOURCES.map(src => {
+              const count = categoryCounts[src.id] || 0;
+              return (
+                <button
+                  key={src.id}
+                  onClick={() => setSelectedSource(src.id)}
+                  className="group glass-card p-6 rounded-xl text-left space-y-3 hover:ring-2 hover:ring-emerald-500/40 transition-all relative"
+                >
+                  <span className={cn(
+                    "absolute top-3 right-3 flex items-center justify-center h-6 min-w-6 px-1.5 rounded-full text-xs font-semibold",
+                    count > 0 ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-muted text-muted-foreground"
+                  )}>
+                    {count}
+                  </span>
+                  <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
+                    {sourceIcon(src.id, 'h-5 w-5 text-emerald-500')}
+                  </div>
+                  <h3 className="font-semibold text-foreground">{src.label}</h3>
+                  <p className="text-sm text-muted-foreground">{src.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // ── Filtered findings view ──
+  const activeSrc = RESEARCH_SOURCES.find(s => s.id === selectedSource);
+
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedSource(null)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold text-foreground">{activeSrc?.label || ''} Research</h1>
+        </div>
+
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Search className="h-6 w-6 text-emerald-500" />
-              Research
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">SpaceBot findings & lead research</p>
-          </div>
+          <p className="text-muted-foreground text-sm">{filtered.length} findings</p>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -133,12 +231,20 @@ export default function Research() {
                   <Input placeholder="Title / Name" value={title} onChange={e => setTitle(e.target.value)} />
                   <Input placeholder="Source URL (optional)" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} />
                   <Textarea placeholder="Summary..." value={summary} onChange={e => setSummary(e.target.value)} rows={3} />
-                  <Select value={findingType} onValueChange={setFindingType}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {FINDING_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select value={findingType} onValueChange={setFindingType}>
+                      <SelectTrigger className="text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
+                      <SelectContent>
+                        {FINDING_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select value={findingSource} onValueChange={setFindingSource}>
+                      <SelectTrigger className="text-xs"><SelectValue placeholder="Source" /></SelectTrigger>
+                      <SelectContent>
+                        {RESEARCH_SOURCES.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Button onClick={handleCreate} disabled={creating} className="w-full">
                     {creating ? 'Adding...' : 'Add Finding'}
                   </Button>
@@ -164,7 +270,6 @@ export default function Research() {
               {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          <span className="text-xs text-muted-foreground ml-auto">{filtered.length} findings</span>
         </div>
 
         {/* Findings Grid */}
@@ -177,7 +282,10 @@ export default function Research() {
               </div>
               {f.summary && <p className="text-xs text-muted-foreground line-clamp-3">{f.summary}</p>}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium capitalize">{f.finding_type}</span>
+                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">
+                  {sourceIcon(normSource(f.category))} {SOURCE_LABELS[normSource(f.category)] || 'Other'}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium capitalize">{f.finding_type}</span>
                 <span className="text-[10px] text-muted-foreground">{f.created_by}</span>
                 <span className="text-[10px] text-muted-foreground">· {format(new Date(f.created_at), 'MMM d, h:mm a')}</span>
               </div>
@@ -203,7 +311,7 @@ export default function Research() {
                     onClick={() => handleConvertToClient(f)}
                     disabled={converting === f.id}
                   >
-                    <UserPlus className="h-3 w-3" /> {converting === f.id ? 'Converting...' : 'Convert to Client'}
+                    <UserPlus className="h-3 w-3" /> {converting === f.id ? 'Converting...' : 'Convert'}
                   </Button>
                 )}
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-destructive ml-auto" onClick={() => setDeleteId(f.id)}>
@@ -214,7 +322,7 @@ export default function Research() {
           ))}
           {filtered.length === 0 && !loading && (
             <div className="col-span-full text-center py-16 text-muted-foreground">
-              No research findings yet. SpaceBot will populate this, or add manually.
+              No findings from {activeSrc?.label || 'this source'} yet.
             </div>
           )}
         </div>
