@@ -1534,7 +1534,7 @@ Deno.serve(async (req) => {
         const threadId = meta?.thread_id
         const gmailId = meta?.gmail_id
 
-        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📨 Sending reply to ${phone} via Google Voice...` })
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `💬 Replying to text from ${phone} via WarrentheCreativeyt@gmail.com...` })
 
         try {
           // Build email reply via gvoice-reply action
@@ -1553,10 +1553,10 @@ Deno.serve(async (req) => {
             }),
           })
           const replyData = await replyRes.json()
-          if (replyData?.error) {
-            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Reply failed: ${replyData.error}` })
+          if (!replyRes.ok || replyData?.error) {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Text reply failed: ${replyData?.error || 'Unknown error'}` })
           } else {
-            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ Reply sent to ${phone}` })
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `✅ Text reply sent to ${phone} successfully` })
           }
         } catch (e: any) {
           console.error('[gvoice-reply] error:', e)
