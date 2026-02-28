@@ -1515,8 +1515,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── GVoice Reply: reply to a GVoice notification → send email reply ───
-    if (text && !isGroup && message.reply_to_message) {
+    // ─── GVoice Reply: reply to a GVoice notification → send email reply (DMs + allowed groups) ───
+    if (text && (!isGroup || isAllowedGroup) && message.reply_to_message) {
       const repliedMsgId = message.reply_to_message.message_id
       const { data: gvComm } = await supabase
         .from('communications')
@@ -1566,8 +1566,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Gmail Reply: reply to a gmail-poll notification → send via warrenthecreativeyt@gmail.com ───
-    if (text && !isGroup && message.reply_to_message) {
+    // ─── Gmail Reply: reply to a gmail-poll notification (DMs + allowed groups) ───
+    if (text && (!isGroup || isAllowedGroup) && message.reply_to_message) {
       const repliedMsgId = message.reply_to_message.message_id
       const { data: gmailComm } = await supabase
         .from('communications')
@@ -1618,7 +1618,7 @@ Deno.serve(async (req) => {
 
     // ─── If this is a reply-to-message and no handler matched, stay silent ───
     // This prevents the bot from treating replies as session input
-    if (message.reply_to_message && !isGroup) {
+    if (message.reply_to_message && (!isGroup || isAllowedGroup)) {
       return new Response('ok')
     }
 
