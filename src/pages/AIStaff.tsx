@@ -310,12 +310,36 @@ export default function AIStaff() {
   const handlePurgeAll = useCallback(async () => {
     setPurging(true);
     try {
+      // 1. Purge all queued/in_progress bot_tasks
       const { error } = await supabase
         .from('bot_tasks')
         .update({ status: 'failed' })
         .in('status', ['queued', 'in_progress']);
       if (error) throw error;
-      toast.success('All queued & in-progress bot tasks purged');
+
+      // 2. Purge pending/generating api_previews
+      await supabase
+        .from('api_previews')
+        .update({ status: 'failed' })
+        .in('status', ['pending', 'generating']);
+
+      // 3. Purge in-progress SMM schedule items (set generating → failed)
+      const { data: activePlans } = await supabase
+        .from('smm_content_plans')
+        .select('id,schedule_items')
+        .in('status', ['draft', 'live']);
+      if (activePlans) {
+        for (const plan of activePlans) {
+          const items = (plan.schedule_items || []) as any[];
+          const hasGenerating = items.some((i: any) => i.status === 'generating');
+          if (hasGenerating) {
+            const patched = items.map((i: any) => i.status === 'generating' ? { ...i, status: 'failed', hf_request_id: undefined } : i);
+            await supabase.from('smm_content_plans').update({ schedule_items: patched }).eq('id', plan.id);
+          }
+        }
+      }
+
+      toast.success('All queued & in-progress jobs purged across all bots');
       await load();
     } catch (e: any) {
       toast.error(`Purge failed: ${e.message}`);
