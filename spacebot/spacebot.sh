@@ -52,29 +52,27 @@ MORALIS_GRADUATED="$SCRIPT_DIR/moralis_graduated.json"
 ENRICHED_FILE="$SCRIPT_DIR/enriched_tokens.json"
 GROK_RESPONSE="$SCRIPT_DIR/grok_response.json"
 
-# ─── Validate required environment variables ─────────────────────────────────
+# ─── Hardcoded credentials (fall back to env vars if set) ────────────────────
+APIFY_TOKEN="${APIFY_TOKEN:-apify_api_vrFlTbyEL2i5L1owUjK6uAopthhJaP1tZfcN}"
+MORALIS_API_KEY="${MORALIS_API_KEY:-}"
+GROK_API_KEY="${GROK_API_KEY:-}"
+SUPABASE_URL="${SUPABASE_URL:-https://mziuxsfxevjnmdwnrqjs.supabase.co}"
+SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aXV4c2Z4ZXZqbm1kd25ycWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjgzMzQsImV4cCI6MjA4Njc0NDMzNH0.APi_x5YBKa8bOKpjLGiJUBB5qxi3rKKxWiApQAlf78c}"
+
 log_section "ENVIRONMENT CHECK"
 
 MISSING=0
 for VAR in APIFY_TOKEN MORALIS_API_KEY GROK_API_KEY SUPABASE_URL SUPABASE_ANON_KEY; do
   if [ -z "${!VAR:-}" ]; then
-    log_error "Missing required env var: \$$VAR"
+    log_error "Missing: \$$VAR"
     MISSING=1
   else
-    log_info "\$$VAR is set"
+    log_info "\$$VAR ✓"
   fi
 done
 
 if [ "$MISSING" -eq 1 ]; then
-  echo ""
-  log_error "╔══════════════════════════════════════════════════════════════╗"
-  log_error "║  FATAL: Set all required env vars before running spacebot  ║"
-  log_error "║  export APIFY_TOKEN=...                                    ║"
-  log_error "║  export MORALIS_API_KEY=...                                ║"
-  log_error "║  export GROK_API_KEY=...                                   ║"
-  log_error "║  export SUPABASE_URL=...                                   ║"
-  log_error "║  export SUPABASE_ANON_KEY=...                              ║"
-  log_error "╚══════════════════════════════════════════════════════════════╝"
+  log_error "FATAL: MORALIS_API_KEY and GROK_API_KEY must be set. Export them or edit spacebot.sh line 57-58."
   exit 1
 fi
 
