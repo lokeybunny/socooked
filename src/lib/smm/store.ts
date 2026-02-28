@@ -179,7 +179,9 @@ export const smmApi = {
     if (post.media_url) {
       if (post.type === 'video') formBody.video = post.media_url;
       else if (post.type === 'document') formBody.document = post.media_url;
-      // Photos via URL need photos[] array
+      else if (post.type === 'photos') {
+        formBody['photos[]'] = [post.media_url];
+      }
     }
 
     // Platform-specific overrides
