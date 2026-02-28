@@ -78,9 +78,15 @@ async function generateImage(prompt: string): Promise<string | null> {
     }
 
     const data = await res.json();
-    const base64Url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    console.log('[smm-media-gen] Image response keys:', JSON.stringify(Object.keys(data)));
+    const choice = data.choices?.[0]?.message;
+    // Try multiple response shapes
+    const base64Url = choice?.images?.[0]?.image_url?.url
+      || choice?.content?.find?.((p: any) => p.type === 'image_url')?.image_url?.url
+      || (typeof choice?.content === 'string' && choice.content.match(/data:image[^"'\s]+/)?.[0])
+      || null;
     if (!base64Url) {
-      console.error('[smm-media-gen] No image in response');
+      console.error('[smm-media-gen] No image in response. Choice:', JSON.stringify(choice).substring(0, 500));
       return null;
     }
 
