@@ -1054,7 +1054,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             : `${item.date}T12:00:00`;
 
           // Build post title from caption + hashtags
-          const hashtagStr = (item.hashtags || []).map(h => `#${h}`).join(' ');
+          const hashtagStr = (item.hashtags || []).map(h => h.startsWith('#') ? h : `#${h}`).join(' ');
           const title = item.caption
             ? `${item.caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
             : hashtagStr || item.type;
