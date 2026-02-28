@@ -18,11 +18,11 @@ const GVOICE_SENDER = "voice-noreply@google.com";
 const TG_API = "https://api.telegram.org/bot";
 
 async function getAccessToken(): Promise<string> {
-  const clientId = Deno.env.get("GMAIL_CLIENT_ID");
-  const clientSecret = Deno.env.get("GMAIL_CLIENT_SECRET");
+  const clientId = Deno.env.get("GVOICE_CLIENT_ID");
+  const clientSecret = Deno.env.get("GVOICE_CLIENT_SECRET");
   const refreshToken = Deno.env.get("GVOICE_REFRESH_TOKEN");
   if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error("GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, or GVOICE_REFRESH_TOKEN not configured");
+    throw new Error("GVOICE_CLIENT_ID, GVOICE_CLIENT_SECRET, or GVOICE_REFRESH_TOKEN not configured");
   }
 
   const res = await fetch(GOOGLE_TOKEN_URL, {
