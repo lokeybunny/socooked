@@ -119,8 +119,8 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'more' || normalized === '/more') return 'more'
   if (normalized === 'back' || normalized === '/back') return 'back'
   if (normalized === 'web dev' || normalized === 'webdev' || normalized === '/webdev') return 'webdev'
-  if (normalized === 'banana2' || normalized === '/banana2') return 'banana2'
-  if (normalized === 'banana' || normalized === '/banana') return 'banana'
+  if (normalized === 'banana2' || normalized === '/banana2' || /banana\s*2/.test(normalized) || /^2.*banana2$/i.test(normalized)) return 'banana2'
+  if ((normalized === 'banana' || normalized === '/banana') && !/banana2/.test(normalized)) return 'banana'
   if (normalized === 'higgsfield' || normalized === '/higgsfield') return 'higgsfield'
   if (normalized === 'email' || normalized === '/email') return 'email'
   if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
@@ -867,11 +867,12 @@ async function processBananaCommand(
 
     let replyText = ''
 
-    if (result?.url) {
-      replyText = `🍌 <b>Image Generated!</b>\n\n🔗 <a href="${result.url}">View Image</a>\n📋 <i>${prompt.slice(0, 200)}</i>`
+    const imageOutputUrl = result?.url || result?.output_url
+    if (imageOutputUrl) {
+      replyText = `🍌 <b>Image Generated!</b>\n\n🔗 <a href="${imageOutputUrl}">View Image</a>\n📋 <i>${prompt.slice(0, 200)}</i>`
       // Try to send the image directly
       try {
-        await tgPost(tgToken, 'sendPhoto', { chat_id: chatId, photo: result.url, caption: `🍌 ${prompt.slice(0, 200)}` })
+        await tgPost(tgToken, 'sendPhoto', { chat_id: chatId, photo: imageOutputUrl, caption: `🍌 ${prompt.slice(0, 200)}` })
       } catch (_e) { /* fallback to text link above */ }
     } else if (result?.content_asset_id || result?.id) {
       replyText = `✅ <b>Image created!</b>\n🆔 <code>${result.content_asset_id || result.id}</code>\n\nCheck the Content Library for your image.`
@@ -946,10 +947,11 @@ async function processBanana2Command(
 
     let replyText = ''
 
-    if (result?.url) {
-      replyText = `🍌2️⃣ <b>Banana2 Image Generated!</b>\n\n🔗 <a href="${result.url}">View Image</a>\n📋 <i>${prompt.slice(0, 200)}</i>`
+    const imageOutputUrl = result?.url || result?.output_url
+    if (imageOutputUrl) {
+      replyText = `🍌2️⃣ <b>Banana2 Image Generated!</b>\n\n🔗 <a href="${imageOutputUrl}">View Image</a>\n📋 <i>${prompt.slice(0, 200)}</i>`
       try {
-        await tgPost(tgToken, 'sendPhoto', { chat_id: chatId, photo: result.url, caption: `🍌2️⃣ ${prompt.slice(0, 200)}` })
+        await tgPost(tgToken, 'sendPhoto', { chat_id: chatId, photo: imageOutputUrl, caption: `🍌2️⃣ ${prompt.slice(0, 200)}` })
       } catch (_e) { /* fallback to text link */ }
     } else if (result?.content_asset_id || result?.id) {
       replyText = `✅ <b>Banana2 image created!</b>\n🆔 <code>${result.content_asset_id || result.id}</code>\n\nCheck the Content Library for your image.`
