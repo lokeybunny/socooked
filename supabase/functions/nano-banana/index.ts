@@ -6,7 +6,9 @@ const corsHeaders = {
 }
 
 const LOVABLE_AI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions'
+const GOOGLE_GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const DEFAULT_MODEL = 'google/gemini-2.5-flash-image'
+const BANANA2_MODEL = 'gemini-2.0-flash-preview-image-generation'
 
 function ok(data: unknown, status = 200) {
   return new Response(JSON.stringify({ success: true, data }), {
@@ -26,7 +28,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-  if (!LOVABLE_API_KEY) return fail('LOVABLE_API_KEY not configured', 500)
+  const GOOGLE_GEMINI_API_KEY = Deno.env.get('GOOGLE_GEMINI_API_KEY')
 
   // Auth check
   const botSecret = req.headers.get('x-bot-secret')
@@ -96,19 +98,56 @@ Deno.serve(async (req) => {
         meta: { type: 'image', model: MODEL, provider: 'nano-banana', customer_name: customer_name || null },
       }).select('id').single()
 
-      // Call Lovable AI Gateway (synchronous — returns the image directly)
-      const aiRes = await fetch(LOVABLE_AI_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          messages,
-          modalities: ['image', 'text'],
-        }),
-      })
+      const isBanana2 = MODEL.includes('gemini-3') || MODEL.includes('gemini-2.0-flash-preview-image')
+      let aiRes: Response
+
+      if (isBanana2) {
+        // ─── Banana2: Direct Google Gemini API ───
+        if (!GOOGLE_GEMINI_API_KEY) return fail('GOOGLE_GEMINI_API_KEY not configured for Banana2', 500)
+
+        const geminiModel = BANANA2_MODEL
+        const geminiUrl = `${GOOGLE_GEMINI_URL}/models/${geminiModel}:generateContent?key=${GOOGLE_GEMINI_API_KEY}`
+
+        const parts: any[] = []
+        if (image_url) {
+          // Fetch image and convert to base64 for Gemini
+          try {
+            const imgRes = await fetch(image_url)
+            const imgBuf = await imgRes.arrayBuffer()
+            const imgBase64 = btoa(String.fromCharCode(...new Uint8Array(imgBuf)))
+            const mimeType = imgRes.headers.get('content-type') || 'image/jpeg'
+            parts.push({ inline_data: { mime_type: mimeType, data: imgBase64 } })
+          } catch (e) {
+            console.error('[nano-banana] failed to fetch reference image:', e)
+          }
+        }
+        parts.push({ text: prompt })
+
+        aiRes = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts }],
+            generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+          }),
+        })
+      } else {
+        // ─── Banana1: Lovable AI Gateway ───
+        if (!LOVABLE_API_KEY) return fail('LOVABLE_API_KEY not configured', 500)
+
+        aiRes = await fetch(LOVABLE_AI_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: MODEL,
+            messages,
+            modalities: ['image', 'text'],
+          }),
+        })
+      }
 
       if (!aiRes.ok) {
         const errText = await aiRes.text()
@@ -120,43 +159,58 @@ Deno.serve(async (req) => {
       }
 
       const aiData = await aiRes.json()
-      console.log('[nano-banana] response received, choices:', aiData.choices?.length)
-
-      // Extract image from response
-      const choice = aiData.choices?.[0]
-      const messageContent = choice?.message
+      console.log('[nano-banana] response received')
 
       let outputUrl: string | null = null
       let base64Data: string | null = null
 
-      // Check the images array (primary response format for Gemini image models)
-      if (messageContent?.images && Array.isArray(messageContent.images)) {
-        for (const img of messageContent.images) {
-          if (img.type === 'image_url' && img.image_url?.url) {
-            if (img.image_url.url.startsWith('data:')) {
-              base64Data = img.image_url.url
-            } else {
-              outputUrl = img.image_url.url
+      if (isBanana2) {
+        // ─── Parse Google Gemini native response ───
+        const candidates = aiData.candidates || []
+        for (const candidate of candidates) {
+          const parts = candidate.content?.parts || []
+          for (const part of parts) {
+            if (part.inlineData) {
+              base64Data = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
+              break
             }
-            break
           }
+          if (base64Data) break
         }
-      }
+      } else {
+        // ─── Parse Lovable AI Gateway (OpenAI-compatible) response ───
+        const choice = aiData.choices?.[0]
+        const messageContent = choice?.message
 
-      // Fallback: check content field
-      const content = messageContent?.content
-      if (!outputUrl && !base64Data) {
-        if (typeof content === 'string' && content.startsWith('http')) {
-          outputUrl = content.trim()
-        } else if (Array.isArray(content)) {
-          for (const part of content) {
-            if (part.type === 'image_url' && part.image_url?.url) {
-              if (part.image_url.url.startsWith('data:')) {
-                base64Data = part.image_url.url
+        // Check the images array
+        if (messageContent?.images && Array.isArray(messageContent.images)) {
+          for (const img of messageContent.images) {
+            if (img.type === 'image_url' && img.image_url?.url) {
+              if (img.image_url.url.startsWith('data:')) {
+                base64Data = img.image_url.url
               } else {
-                outputUrl = part.image_url.url
+                outputUrl = img.image_url.url
               }
               break
+            }
+          }
+        }
+
+        // Fallback: check content field
+        const content = messageContent?.content
+        if (!outputUrl && !base64Data) {
+          if (typeof content === 'string' && content.startsWith('http')) {
+            outputUrl = content.trim()
+          } else if (Array.isArray(content)) {
+            for (const part of content) {
+              if (part.type === 'image_url' && part.image_url?.url) {
+                if (part.image_url.url.startsWith('data:')) {
+                  base64Data = part.image_url.url
+                } else {
+                  outputUrl = part.image_url.url
+                }
+                break
+              }
             }
           }
         }
@@ -195,7 +249,8 @@ Deno.serve(async (req) => {
       const now = new Date()
       const dateLabel = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       const timeLabel = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-      const assetTitle = `${customer_name || 'AI'} — Nano Banana — ${dateLabel} ${timeLabel}`
+      const providerLabel = isBanana2 ? 'Banana2' : 'Nano Banana'
+      const assetTitle = `${customer_name || 'AI'} — ${providerLabel} — ${dateLabel} ${timeLabel}`
 
       const { data: contentAsset } = await supabase.from('content_assets').insert({
         title: assetTitle,
