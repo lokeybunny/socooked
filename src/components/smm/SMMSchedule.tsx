@@ -189,45 +189,101 @@ function ScheduleItemModal({
       toast.error('No prompt available for regeneration');
       return;
     }
+
+    // For videos, warn user it takes time
+    if (type === 'video') {
+      toast.info('Video generation takes 1-3 minutes. You can close this modal — the thumbnail will update automatically.', { duration: 6000 });
+    }
+
     setRegenerating(true);
+    const originalMediaUrl = mediaUrl;
+
     try {
       const prompt = item.media_prompt || `Create a visually striking social media ${type} post: ${caption}`;
-      const { data, error } = await supabase.functions.invoke('smm-media-gen', {
+      
+      // Fire the edge function — it may take minutes for video, so we don't await the full result
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120000); // 2min client timeout
+
+      const invokePromise = supabase.functions.invoke('smm-media-gen', {
         body: { 
           force_dates: [date],
-          plan_id: null,
           single_item: { id: item.id, type, prompt },
         },
       });
-      if (error) throw error;
-      // Refetch the plan to get updated media_url
-      toast.success('Regeneration started — media will update shortly');
-      // Poll for the updated item (check every 3s, max 60s)
+
+      // For images, we can usually wait for the result (fast)
+      if (type !== 'video') {
+        const { data, error } = await invokePromise;
+        clearTimeout(timeout);
+        if (error) throw error;
+
+        // Check result
+        if (data?.generated > 0) {
+          // Fetch updated URL from the plan
+          const { data: plans } = await supabase
+            .from('smm_content_plans')
+            .select('schedule_items')
+            .limit(1);
+          if (plans?.[0]) {
+            const updatedItem = (plans[0].schedule_items as any[]).find((i: any) => i.id === item.id);
+            if (updatedItem?.media_url) {
+              setMediaUrl(updatedItem.media_url);
+              toast.success('Media regenerated!');
+            } else {
+              toast.error('Generation completed but no media was produced. Try again.');
+            }
+          }
+        } else {
+          toast.error(data?.message || 'Regeneration failed — try again');
+        }
+        setRegenerating(false);
+        return;
+      }
+
+      // For videos: don't block, use realtime subscription to detect change
+      toast.success('Video generation submitted. The preview will update when ready.');
+      
+      // Subscribe to plan updates via polling (realtime may not be enabled on this table)
       let attempts = 0;
+      const maxAttempts = 40; // ~2 min at 3s intervals
       const poll = setInterval(async () => {
         attempts++;
-        const { data: plans } = await supabase
-          .from('smm_content_plans')
-          .select('schedule_items')
-          .limit(1);
-        if (plans?.[0]) {
-          const items = plans[0].schedule_items as any[];
-          const updated = items.find((i: any) => i.id === item.id);
-          if (updated?.media_url && updated.media_url !== mediaUrl) {
-            setMediaUrl(updated.media_url);
-            clearInterval(poll);
-            setRegenerating(false);
-            toast.success('Media regenerated!');
+        try {
+          const { data: plans } = await supabase
+            .from('smm_content_plans')
+            .select('schedule_items')
+            .limit(1);
+          if (plans?.[0]) {
+            const updatedItem = (plans[0].schedule_items as any[]).find((i: any) => i.id === item.id);
+            if (updatedItem?.media_url && updatedItem.media_url !== originalMediaUrl && updatedItem.status === 'ready') {
+              setMediaUrl(updatedItem.media_url);
+              clearInterval(poll);
+              setRegenerating(false);
+              toast.success('Video regenerated!');
+              return;
+            }
+            if (updatedItem?.status === 'failed') {
+              clearInterval(poll);
+              setRegenerating(false);
+              toast.error('Video generation failed — try again or use a different prompt');
+              return;
+            }
           }
-        }
-        if (attempts >= 20) {
+        } catch {}
+        if (attempts >= maxAttempts) {
           clearInterval(poll);
           setRegenerating(false);
-          toast('Regeneration is still in progress — check back soon');
+          toast('Video generation is still in progress — refresh the page to check later', { duration: 5000 });
         }
       }, 3000);
+
     } catch (err: any) {
-      toast.error(err.message || 'Regeneration failed');
+      if (err?.name === 'AbortError') {
+        toast('Generation is still running in the background — check back in a minute', { duration: 5000 });
+      } else {
+        toast.error(err.message || 'Regeneration failed');
+      }
       setRegenerating(false);
     }
   };
