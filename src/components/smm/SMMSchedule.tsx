@@ -10,10 +10,15 @@ import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   CalendarPlus, Sparkles, RefreshCw, Image, Video, Type, Hash,
   Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send,
   ThumbsUp, Repeat2, Eye, Play, Zap, Clock, CheckCircle2,
-  AlertCircle, Loader2,
+  AlertCircle, Loader2, RotateCcw,
 } from 'lucide-react';
 import type { SMMProfile } from '@/lib/smm/types';
 import { format, parseISO, isToday, differenceInHours } from 'date-fns';
@@ -399,6 +404,8 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const [activePlatform, setActivePlatform] = useState('instagram');
   const [pushingLive, setPushingLive] = useState(false);
 
+  const [resetting, setResetting] = useState(false);
+
   const fetchPlans = useCallback(async () => {
     if (!profileId) return;
     setLoading(true);
@@ -445,6 +452,25 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     setPushingLive(false);
   };
 
+  const handleReset = async () => {
+    if (!profileId) return;
+    setResetting(true);
+    try {
+      const platformsToReset = ['instagram', 'facebook', 'tiktok', 'x'];
+      const { error } = await supabase
+        .from('smm_content_plans')
+        .delete()
+        .eq('profile_username', profileId)
+        .in('platform', platformsToReset);
+      if (error) throw error;
+      toast.success('Content schedule reset — all platform plans cleared.');
+      await fetchPlans();
+    } catch (e: any) {
+      toast.error(`Failed to reset: ${e.message}`);
+    }
+    setResetting(false);
+  };
+
   const todayItems = items.filter(i => { try { return isToday(parseISO(i.date)); } catch { return false; } });
   const upcomingItems = items.filter(i => { try { return !isToday(parseISO(i.date)); } catch { return true; } });
 
@@ -477,6 +503,32 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           <Button variant="outline" size="sm" onClick={fetchPlans} disabled={loading} className="gap-1.5">
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>
+
+          {/* Reset Button */}
+          {plans.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10" disabled={resetting}>
+                  {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                  Reset
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Reset Content Schedule?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete all content plans for Instagram, Facebook, TikTok, and X. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleReset} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Yes, Reset All
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
 
           {/* ─── THE RED BUTTON ─── */}
           {currentPlan && isDraft && (
