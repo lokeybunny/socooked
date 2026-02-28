@@ -13,7 +13,7 @@ const corsHeaders = {
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1";
-const IMPERSONATE_EMAIL = "WarrentheCreativeyt@gmail.com";
+const IMPERSONATE_EMAIL = "warren@stu25.com";
 const GVOICE_SENDER = "voice-noreply@google.com";
 const TG_API = "https://api.telegram.org/bot";
 
@@ -150,8 +150,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const saJson = Deno.env.get("GVOICE_SERVICE_ACCOUNT_JSON");
-    if (!saJson) throw new Error("GVOICE_SERVICE_ACCOUNT_JSON not configured");
+    const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
+    if (!saJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON not configured");
 
     const TG_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
     const TG_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
