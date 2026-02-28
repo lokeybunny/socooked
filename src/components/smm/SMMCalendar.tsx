@@ -146,13 +146,12 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
                 onDragOver={e => e.preventDefault()} onDrop={() => handleDrop(day)}>
                 <p className={`text-xs mb-1 ${isToday ? 'text-primary font-bold' : 'text-foreground font-bold'}`}>{format(day, 'd')}</p>
                 <div className="space-y-0.5">
-                  {dayPosts.slice(0, 3).map(p => (
+                  {dayPosts.map(p => (
                     <button key={p.id} draggable onDragStart={() => setDragId(p.id)} onClick={() => openDetail(p)}
                       className={`w-full text-left text-[11px] font-semibold px-1.5 py-0.5 rounded truncate ${STATUS_COLORS[p.status] || 'bg-blue-600 text-white'}`}>
                       {p.title}
                     </button>
                   ))}
-                  {dayPosts.length > 3 && <p className="text-[10px] text-foreground/50">+{dayPosts.length - 3} more</p>}
                 </div>
               </div>
             );
