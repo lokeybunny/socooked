@@ -434,30 +434,48 @@ function ScheduleItemModal({
                 <div className="w-full rounded-lg overflow-hidden border border-border/50 relative group">
                   {mediaUrl ? (
                     isActualVideo ? (
-                      <VideoThumbnail src={mediaUrl} title={caption} className="w-full max-h-64" videoClassName="w-full max-h-64 object-contain bg-black" controls={false} />
+                      <VideoThumbnail src={mediaUrl} title={caption} className="w-full max-h-64" videoClassName="w-full max-h-64 object-contain bg-black" controls={true} />
                     ) : (
                       <img src={mediaUrl} alt="" className="w-full max-h-64 object-cover" />
                     )
                   ) : (
                     <div className="w-full h-48"><MediaPlaceholder item={item} /></div>
                   )}
-                  {/* Overlay actions */}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                    <Button size="sm" variant="secondary" className="gap-1.5 text-xs pointer-events-auto" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                      {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                      {mediaUrl ? 'Replace' : 'Upload'}
-                    </Button>
-                    {mediaUrl && (
-                      <Button size="sm" variant="destructive" className="gap-1.5 text-xs pointer-events-auto" onClick={handleRemoveMedia}>
-                        <Trash2 className="h-3.5 w-3.5" /> Remove
+                  {/* Overlay actions — only for non-video (images/text) */}
+                  {!isActualVideo && (
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <Button size="sm" variant="secondary" className="gap-1.5 text-xs pointer-events-auto" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                        {mediaUrl ? 'Replace' : 'Upload'}
                       </Button>
-                    )}
-                    <Button size="sm" variant="secondary" className="gap-1.5 text-xs pointer-events-auto" onClick={handleRegenerate} disabled={regenerating}>
+                      {mediaUrl && (
+                        <Button size="sm" variant="destructive" className="gap-1.5 text-xs pointer-events-auto" onClick={handleRemoveMedia}>
+                          <Trash2 className="h-3.5 w-3.5" /> Remove
+                        </Button>
+                      )}
+                      <Button size="sm" variant="secondary" className="gap-1.5 text-xs pointer-events-auto" onClick={handleRegenerate} disabled={regenerating}>
+                        {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                        {regenerating ? 'Generating…' : 'Re-generate'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {/* Actions below video for video type */}
+                {isActualVideo && (
+                  <div className="flex gap-2 mt-2">
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs flex-1" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                      {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      Replace
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs flex-1" onClick={handleRegenerate} disabled={regenerating}>
                       {regenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                       {regenerating ? 'Generating…' : 'Re-generate'}
                     </Button>
+                    <Button size="sm" variant="destructive" className="gap-1.5 text-xs" onClick={handleRemoveMedia}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                </div>
+                )}
               </>
             )}
             <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileUpload} />
