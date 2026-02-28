@@ -118,6 +118,37 @@ async function generateImage(prompt: string): Promise<string | null> {
   }
 }
 
+/* ────── CAROUSEL GENERATION — Multiple images ────── */
+async function generateCarousel(prompt: string, count = 3): Promise<string[] | null> {
+  console.log(`[smm-media-gen] Generating carousel (${count} images)…`);
+  const urls: string[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const slidePrompt = `Slide ${i + 1} of ${count} for a social media carousel. ${prompt}. Make this slide visually distinct from the others while maintaining a cohesive theme.`;
+    const url = await generateImage(slidePrompt);
+    if (url) {
+      urls.push(url);
+      console.log(`[smm-media-gen] Carousel slide ${i + 1}/${count} ready`);
+    } else {
+      console.error(`[smm-media-gen] Carousel slide ${i + 1}/${count} failed`);
+    }
+  }
+
+  if (urls.length === 0) {
+    console.error('[smm-media-gen] All carousel slides failed');
+    return null;
+  }
+
+  // Ensure at least 2 images for a valid carousel; retry once if we only got 1
+  if (urls.length < 2) {
+    console.log('[smm-media-gen] Only 1 slide succeeded, retrying for a 2nd…');
+    const retry = await generateImage(`Slide 2 of ${count} for carousel. ${prompt}. Different angle or perspective.`);
+    if (retry) urls.push(retry);
+  }
+
+  console.log(`[smm-media-gen] Carousel complete: ${urls.length}/${count} slides`);
+  return urls.length >= 2 ? urls : null;
+}
 /* ────── VIDEO GENERATION — Higgsfield API (submit + poll) ────── */
 async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<string | null> {
   if (!HIGGSFIELD_API_KEY || !HIGGSFIELD_CLIENT_SECRET) {
@@ -306,6 +337,7 @@ serve(async (req) => {
 
         const prompt = item.media_prompt || `Create a visually striking social media ${item.type} post: ${item.caption}`;
         let mediaUrl: string | null = null;
+        let carouselUrls: string[] | null = null;
 
         if (item.type === 'video') {
           await cortexStatus(plan.profile_username, plan.platform, `🎬 Submitting video to Higgsfield AI…`);
@@ -314,38 +346,52 @@ serve(async (req) => {
             await cortexStatus(plan.profile_username, plan.platform, `⚠️ Video generation failed — falling back to image…`);
             mediaUrl = await generateImage(prompt);
           }
+        } else if (item.type === 'carousel') {
+          await cortexStatus(plan.profile_username, plan.platform, `📸 Generating carousel slides…`);
+          carouselUrls = await generateCarousel(prompt, 3);
+          if (carouselUrls) {
+            mediaUrl = carouselUrls[0]; // Primary thumbnail
+          }
         } else {
-          // image or carousel → Lovable AI
+          // image → Lovable AI
           mediaUrl = await generateImage(prompt);
         }
 
         if (mediaUrl) {
           items[i].media_url = mediaUrl;
+          if (carouselUrls && carouselUrls.length > 1) {
+            items[i].carousel_urls = carouselUrls;
+          }
           items[i].status = 'ready';
           generated++;
 
-          await cortexStatus(plan.profile_username, plan.platform, `✅ ${item.type === 'video' ? '🎬' : '🖼️'} ${item.type} ready for ${itemDate} — saved to Content Library`);
+          const slideCount = carouselUrls ? carouselUrls.length : 1;
+          await cortexStatus(plan.profile_username, plan.platform,
+            `✅ ${item.type === 'video' ? '🎬' : item.type === 'carousel' ? `📸 ${slideCount} slides` : '🖼️'} ${item.type} ready for ${itemDate} — saved to Content Library`);
 
-          // Also insert into content_assets so it shows in Content Library → AI Generated
-          try {
-            await fetch(`${SUPABASE_URL}/rest/v1/content_assets`, {
-              method: 'POST',
-              headers: {
-                'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-                'Content-Type': 'application/json', 'Prefer': 'return=minimal',
-              },
-              body: JSON.stringify({
-                title: (item.caption || `SMM ${item.type}`).substring(0, 120),
-                type: item.type === 'video' ? 'video' : 'image',
-                url: mediaUrl,
-                source: 'ai-generated',
-                category: 'AI Generated',
-                folder: 'AI Generated',
-                status: 'published',
-                tags: ['smm', plan.platform || 'social', plan.profile_username || ''].filter(Boolean),
-              }),
-            });
-          } catch (e) { console.error('[smm-media-gen] content_assets insert error:', e); }
+          // Insert into content_assets — for carousels, insert each slide
+          const urlsToSave = carouselUrls || [mediaUrl];
+          for (const assetUrl of urlsToSave) {
+            try {
+              await fetch(`${SUPABASE_URL}/rest/v1/content_assets`, {
+                method: 'POST',
+                headers: {
+                  'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+                  'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+                },
+                body: JSON.stringify({
+                  title: (item.caption || `SMM ${item.type}`).substring(0, 120),
+                  type: item.type === 'video' ? 'video' : 'image',
+                  url: assetUrl,
+                  source: 'ai-generated',
+                  category: 'AI Generated',
+                  folder: 'AI Generated',
+                  status: 'published',
+                  tags: ['smm', plan.platform || 'social', plan.profile_username || '', item.type === 'carousel' ? 'carousel' : ''].filter(Boolean),
+                }),
+              });
+            } catch (e) { console.error('[smm-media-gen] content_assets insert error:', e); }
+          }
 
           await logActivity('media_generated', {
             name: `🎨 Media generated: ${item.type}`,
