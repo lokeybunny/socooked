@@ -1,12 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 /**
- * SMM Media Generator — generates images (Nano Banana) and videos (Higgsfield)
- * for scheduled content plan items.
+ * SMM Media Generator
+ * - Images: Lovable AI (Nano Banana / gemini-2.5-flash-image)
+ * - Videos: Higgsfield API (submit + poll loop)
  *
- * By default, generates media for the next 2 calendar days from now.
- * Accepts optional `force_dates` (array of YYYY-MM-DD) to generate for specific dates.
- * Accepts optional `plan_id` to limit to a single plan.
+ * Generates media for the next 2 calendar days by default.
+ * Accepts optional `force_dates` and `plan_id`.
  */
 
 const corsHeaders = {
@@ -19,6 +19,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 const HIGGSFIELD_API_KEY = Deno.env.get('HIGGSFIELD_API_KEY');
+const HIGGSFIELD_CLIENT_SECRET = Deno.env.get('HIGGSFIELD_CLIENT_SECRET');
 
 async function logActivity(action: string, meta: Record<string, any>) {
   try {
@@ -33,10 +34,12 @@ async function logActivity(action: string, meta: Record<string, any>) {
   } catch (e) { console.error('[smm-media-gen] log error:', e); }
 }
 
+/* ────── IMAGE GENERATION — Lovable AI (Nano Banana) ────── */
 async function generateImage(prompt: string): Promise<string | null> {
   if (!LOVABLE_API_KEY) { console.error('[smm-media-gen] LOVABLE_API_KEY not configured'); return null; }
 
   try {
+    console.log('[smm-media-gen] Generating image via Lovable AI...');
     const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}`, 'Content-Type': 'application/json' },
@@ -49,15 +52,18 @@ async function generateImage(prompt: string): Promise<string | null> {
 
     if (!res.ok) {
       const err = await res.text();
-      console.error('[smm-media-gen] Nano Banana error:', res.status, err);
+      console.error('[smm-media-gen] Lovable AI error:', res.status, err);
       return null;
     }
 
     const data = await res.json();
     const base64Url = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!base64Url) return null;
+    if (!base64Url) {
+      console.error('[smm-media-gen] No image in response');
+      return null;
+    }
 
-    // Upload to Supabase storage
+    // Upload base64 to Supabase storage
     const base64Data = base64Url.replace(/^data:image\/\w+;base64,/, '');
     const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
     const fileName = `smm/generated/${crypto.randomUUID()}.png`;
@@ -76,37 +82,91 @@ async function generateImage(prompt: string): Promise<string | null> {
       return null;
     }
 
-    return `${SUPABASE_URL}/storage/v1/object/public/content-uploads/${fileName}`;
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/content-uploads/${fileName}`;
+    console.log('[smm-media-gen] Image uploaded:', publicUrl);
+    return publicUrl;
   } catch (e) {
     console.error('[smm-media-gen] Image generation error:', e);
     return null;
   }
 }
 
+/* ────── VIDEO GENERATION — Higgsfield API (submit + poll) ────── */
 async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<string | null> {
-  if (!HIGGSFIELD_API_KEY) { console.error('[smm-media-gen] HIGGSFIELD_API_KEY not configured'); return null; }
+  if (!HIGGSFIELD_API_KEY || !HIGGSFIELD_CLIENT_SECRET) {
+    console.error('[smm-media-gen] Higgsfield credentials not configured');
+    return null;
+  }
+
+  const authValue = `Key ${HIGGSFIELD_API_KEY}:${HIGGSFIELD_CLIENT_SECRET}`;
+  const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai';
+  const model = 'higgsfield-ai/dop/standard';
 
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/higgsfield-api`, {
+    console.log('[smm-media-gen] Submitting video to Higgsfield...');
+
+    // 1) Submit generation request
+    const hfPayload: Record<string, unknown> = { prompt };
+    if (sourceImageUrl) {
+      hfPayload.image_url = sourceImageUrl;
+      hfPayload.duration = 5;
+    }
+
+    const submitRes = await fetch(`${HIGGSFIELD_BASE}/${model}`, {
       method: 'POST',
       headers: {
-        'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json',
+        'Authorization': authValue,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
-      body: JSON.stringify({
-        action: 'create',
-        model: 'soul-turbo',
-        prompt,
-        image_url: sourceImageUrl || null,
-      }),
+      body: JSON.stringify(hfPayload),
     });
 
-    if (!res.ok) {
-      console.error('[smm-media-gen] Higgsfield error:', await res.text());
+    const submitData = await submitRes.json();
+    console.log('[smm-media-gen] Higgsfield submit:', JSON.stringify(submitData));
+
+    if (!submitRes.ok) {
+      console.error('[smm-media-gen] Higgsfield submit error:', submitRes.status, submitData);
       return null;
     }
 
-    const data = await res.json();
-    return data.video_url || data.task_id || null;
+    const requestId = submitData.request_id;
+    if (!requestId) {
+      console.error('[smm-media-gen] No request_id from Higgsfield');
+      return null;
+    }
+
+    // 2) Poll for completion (max ~3 minutes, check every 15s)
+    const maxAttempts = 12;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(r => setTimeout(r, 15000)); // wait 15s
+
+      console.log(`[smm-media-gen] Polling Higgsfield attempt ${attempt + 1}/${maxAttempts}...`);
+      const pollRes = await fetch(`${HIGGSFIELD_BASE}/requests/${requestId}/status`, {
+        headers: { 'Authorization': authValue },
+      });
+      const pollData = await pollRes.json();
+      console.log('[smm-media-gen] Poll status:', pollData.status);
+
+      if (pollData.status === 'completed') {
+        const videoUrl = pollData.video?.url || pollData.images?.[0]?.url || null;
+        if (videoUrl) {
+          console.log('[smm-media-gen] Video ready:', videoUrl);
+          return videoUrl;
+        }
+        console.error('[smm-media-gen] Completed but no URL found');
+        return null;
+      }
+
+      if (pollData.status === 'failed' || pollData.status === 'nsfw') {
+        console.error('[smm-media-gen] Higgsfield generation failed:', pollData.status);
+        return null;
+      }
+      // Otherwise keep polling (queued, in_progress, etc.)
+    }
+
+    console.error('[smm-media-gen] Higgsfield timed out after polling');
+    return null;
   } catch (e) {
     console.error('[smm-media-gen] Video generation error:', e);
     return null;
@@ -117,7 +177,6 @@ async function generateVideo(prompt: string, sourceImageUrl?: string): Promise<s
 function getNextNDays(n: number): string[] {
   const dates: string[] = [];
   const now = new Date();
-  // Include today + next N days
   for (let i = 0; i <= n; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() + i);
@@ -130,7 +189,6 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    // Parse optional body params
     let forceDates: string[] | null = null;
     let planId: string | null = null;
 
@@ -142,17 +200,14 @@ serve(async (req) => {
       } catch { /* no body */ }
     }
 
-    // Determine which dates to generate for
-    // Default: next 2 calendar days (today + tomorrow + day after)
     const targetDates = new Set(forceDates || getNextNDays(2));
     console.log('[smm-media-gen] Target dates:', [...targetDates]);
 
-    // Fetch content plans (live or draft if force_dates specified)
+    // Fetch content plans
     let plansQuery = `${SUPABASE_URL}/rest/v1/smm_content_plans?select=*`;
     if (planId) {
       plansQuery += `&id=eq.${planId}`;
     } else if (forceDates) {
-      // When forcing specific dates, process both live and draft plans
       plansQuery += `&status=in.(live,draft)`;
     } else {
       plansQuery += `&status=eq.live`;
@@ -178,15 +233,12 @@ serve(async (req) => {
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        // Skip if already ready with media, or not a media type
         if (item.media_url && item.status === 'ready') { skipped++; continue; }
         if (item.type === 'text') continue;
         if (!item.media_prompt && !item.caption) continue;
-        // For force_dates, also retry failed items
         if (item.status !== 'draft' && item.status !== 'failed' && item.status !== 'planned') { skipped++; continue; }
 
-        // Check if this item's date is in our target dates
-        const itemDate = item.date; // YYYY-MM-DD
+        const itemDate = item.date;
         if (!targetDates.has(itemDate)) { skipped++; continue; }
 
         console.log(`[smm-media-gen] Generating ${item.type} for "${(item.caption || '').substring(0, 40)}…" on ${itemDate}`);
@@ -196,14 +248,14 @@ serve(async (req) => {
         let mediaUrl: string | null = null;
 
         if (item.type === 'video') {
-          // Try video generation; if it fails, fall back to generating a still image
+          // Try video via Higgsfield; fallback to image via Lovable AI
           mediaUrl = await generateVideo(prompt);
           if (!mediaUrl) {
-            console.log('[smm-media-gen] Video gen failed, falling back to image for', item.id);
+            console.log('[smm-media-gen] Video failed, falling back to image');
             mediaUrl = await generateImage(prompt);
           }
         } else {
-          // image or carousel
+          // image or carousel → Lovable AI
           mediaUrl = await generateImage(prompt);
         }
 
@@ -231,7 +283,6 @@ serve(async (req) => {
         updated = true;
       }
 
-      // Update the plan with new item statuses
       if (updated) {
         await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans?id=eq.${plan.id}`, {
           method: 'PATCH',
@@ -246,8 +297,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       message: `Media generation complete. Generated ${generated} asset(s), skipped ${skipped}.`,
-      generated,
-      skipped,
+      generated, skipped,
       target_dates: [...targetDates],
       plans_processed: plans.length,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.smm-command]
 verify_jwt = false
+
+[functions.smm-media-gen]
+verify_jwt = false
