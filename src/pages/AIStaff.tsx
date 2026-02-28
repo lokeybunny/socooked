@@ -311,17 +311,18 @@ export default function AIStaff() {
     setPurging(true);
     try {
       // 1. Purge all queued/in_progress bot_tasks
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('bot_tasks')
         .update({ status: 'failed' })
         .in('status', ['queued', 'in_progress']);
+      console.log('[purge] bot_tasks updated, error:', error, 'count:', count);
       if (error) throw error;
 
-      // 2. Purge pending/generating api_previews
+      // 2. Purge all non-terminal api_previews
       await supabase
         .from('api_previews')
         .update({ status: 'failed' })
-        .in('status', ['pending', 'generating']);
+        .not('status', 'in', '("completed","failed")');
 
       // 3. Purge in-progress SMM schedule items (set generating → failed)
       const { data: activePlans } = await supabase
