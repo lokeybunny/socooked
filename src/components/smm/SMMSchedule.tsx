@@ -8,6 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -18,7 +24,7 @@ import {
   CalendarPlus, Sparkles, RefreshCw, Image, Video, Type, Hash,
   Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send,
   ThumbsUp, Repeat2, Eye, Play, Zap, Clock, CheckCircle2,
-  AlertCircle, Loader2, RotateCcw,
+  AlertCircle, Loader2, RotateCcw, Pencil,
 } from 'lucide-react';
 import type { SMMProfile } from '@/lib/smm/types';
 import { format, parseISO, isToday, differenceInHours } from 'date-fns';
@@ -110,19 +116,121 @@ function MediaPlaceholder({ item }: { item: ScheduleItem }) {
   );
 }
 
+// ─── Schedule Item Edit Modal ───
+function ScheduleItemModal({
+  item, open, onOpenChange, onSave,
+}: {
+  item: ScheduleItem | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSave: (updated: ScheduleItem) => void;
+}) {
+  const [caption, setCaption] = useState('');
+  const [hashtags, setHashtags] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [type, setType] = useState<ScheduleItem['type']>('image');
+
+  useEffect(() => {
+    if (item) {
+      setCaption(item.caption || '');
+      setHashtags((item.hashtags || []).join(', '));
+      setDate(item.date || '');
+      setTime(item.time || '');
+      setType(item.type);
+    }
+  }, [item]);
+
+  if (!item) return null;
+
+  const handleSave = () => {
+    const parsed = hashtags.split(',').map(h => h.trim().replace(/^#/, '')).filter(Boolean);
+    onSave({ ...item, caption, hashtags: parsed, date, time, type });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-4 w-4" /> Edit Schedule Item
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Media Preview */}
+          <div className="w-full rounded-lg overflow-hidden border border-border/50">
+            {item.media_url ? (
+              <img src={item.media_url} alt="" className="w-full max-h-64 object-cover" />
+            ) : (
+              <div className="w-full h-48"><MediaPlaceholder item={item} /></div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-caption">Caption</Label>
+            <Textarea id="edit-caption" rows={4} value={caption} onChange={e => setCaption(e.target.value)} placeholder="Write your caption…" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-hashtags">Hashtags <span className="text-muted-foreground text-xs">(comma-separated)</span></Label>
+            <Input id="edit-hashtags" value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="branding, design, creative" />
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="edit-date">Date</Label>
+              <Input id="edit-date" type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-time">Time</Label>
+              <Input id="edit-time" type="time" value={time} onChange={e => setTime(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select value={type} onValueChange={v => setType(v as ScheduleItem['type'])}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="image">Image</SelectItem>
+                  <SelectItem value="video">Video</SelectItem>
+                  <SelectItem value="carousel">Carousel</SelectItem>
+                  <SelectItem value="text">Text</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <StatusBadge status={item.status} />
+            {item.media_prompt && <span className="truncate max-w-xs">Prompt: {item.media_prompt}</span>}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave} className="gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Platform Feed Renderers ───
 
-function InstagramFeedPreview({ items }: { items: ScheduleItem[] }) {
+function InstagramFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void }) {
   return (
     <div className="space-y-0">
       <div className="flex items-center gap-3 p-4 border-b border-border/50">
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 flex items-center justify-center text-white text-xs font-bold">S</div>
         <span className="text-sm font-semibold text-foreground">STU25</span>
-        <span className="ml-auto text-xs text-muted-foreground">Schedule Preview</span>
+        <span className="ml-auto text-xs text-muted-foreground">Click any thumbnail to preview & edit</span>
       </div>
       <div className="grid grid-cols-3 gap-1 p-1">
         {items.map((item) => (
-          <div key={item.id} className="group cursor-pointer">
+          <div key={item.id} className="group cursor-pointer" onClick={() => onItemClick?.(item)}>
             <div className="relative">
               <AspectRatio ratio={1}>
                 {item.media_url ? (
@@ -135,8 +243,7 @@ function InstagramFeedPreview({ items }: { items: ScheduleItem[] }) {
                 )}
               </AspectRatio>
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 text-white text-xs">
-                <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> —</span>
-                <span className="flex items-center gap-1"><MessageCircle className="h-3 w-3" /> —</span>
+                <Pencil className="h-4 w-4" />
               </div>
             </div>
             <div className="px-1 py-1.5 space-y-0.5">
@@ -148,7 +255,7 @@ function InstagramFeedPreview({ items }: { items: ScheduleItem[] }) {
       </div>
       <div className="divide-y divide-border/30 mt-2">
         {items.slice(0, 3).map((item) => (
-          <div key={`feed-${item.id}`} className="p-3 space-y-2">
+          <div key={`feed-${item.id}`} className="p-3 space-y-2 cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => onItemClick?.(item)}>
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-gradient-to-br from-pink-500 to-yellow-500" />
               <span className="text-xs font-semibold">STU25</span>
@@ -175,11 +282,11 @@ function InstagramFeedPreview({ items }: { items: ScheduleItem[] }) {
   );
 }
 
-function FacebookFeedPreview({ items }: { items: ScheduleItem[] }) {
+function FacebookFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void }) {
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
-        <div key={item.id} className="rounded-lg border border-border/50 bg-card overflow-hidden">
+        <div key={item.id} className="rounded-lg border border-border/50 bg-card overflow-hidden cursor-pointer hover:border-primary/30 transition-colors" onClick={() => onItemClick?.(item)}>
           <div className="flex items-center gap-2 p-3">
             <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">S</div>
             <div>
@@ -206,11 +313,11 @@ function FacebookFeedPreview({ items }: { items: ScheduleItem[] }) {
   );
 }
 
-function TikTokFeedPreview({ items }: { items: ScheduleItem[] }) {
+function TikTokFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void }) {
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
-        <div key={item.id} className="relative rounded-xl overflow-hidden bg-black aspect-[9/16] max-h-[400px]">
+        <div key={item.id} className="relative rounded-xl overflow-hidden bg-black aspect-[9/16] max-h-[400px] cursor-pointer" onClick={() => onItemClick?.(item)}>
           {item.media_url ? (
             <img src={item.media_url} alt="" className="w-full h-full object-cover" />
           ) : (
@@ -236,11 +343,11 @@ function TikTokFeedPreview({ items }: { items: ScheduleItem[] }) {
   );
 }
 
-function XFeedPreview({ items }: { items: ScheduleItem[] }) {
+function XFeedPreview({ items, onItemClick }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void }) {
   return (
     <div className="divide-y divide-border/30">
       {items.map((item) => (
-        <div key={item.id} className="p-3 hover:bg-muted/20 transition-colors">
+        <div key={item.id} className="p-3 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => onItemClick?.(item)}>
           <div className="flex gap-2">
             <div className="w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold shrink-0">S</div>
             <div className="flex-1 min-w-0 space-y-1">
@@ -411,6 +518,13 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const [pushingLive, setPushingLive] = useState(false);
 
   const [resetting, setResetting] = useState(false);
+  const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  const handleItemClick = (item: ScheduleItem) => {
+    setEditingItem(item);
+    setEditModalOpen(true);
+  };
 
   const fetchPlans = useCallback(async () => {
     if (!profileId) return;
@@ -440,6 +554,21 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const items = (currentPlan?.schedule_items || []) as ScheduleItem[];
   const isDraft = currentPlan?.status === 'draft';
   const isLive = currentPlan?.status === 'live';
+
+  const handleSaveItem = async (updated: ScheduleItem) => {
+    if (!currentPlan) return;
+    const newItems = items.map(i => i.id === updated.id ? updated : i);
+    const { error } = await supabase
+      .from('smm_content_plans')
+      .update({ schedule_items: newItems as any, updated_at: new Date().toISOString() } as any)
+      .eq('id', currentPlan.id);
+    if (error) {
+      toast.error('Failed to save: ' + error.message);
+    } else {
+      toast.success('Schedule item updated.');
+      await fetchPlans();
+    }
+  };
 
   const handlePushLive = async () => {
     if (!currentPlan) return;
@@ -635,10 +764,10 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Platform Preview */}
                 <div className="lg:col-span-2 rounded-xl border border-border/50 bg-card overflow-hidden max-h-[700px] overflow-y-auto">
-                  {p.value === 'instagram' && <InstagramFeedPreview items={items} />}
-                  {p.value === 'facebook' && <FacebookFeedPreview items={items} />}
-                  {p.value === 'tiktok' && <TikTokFeedPreview items={items} />}
-                  {p.value === 'x' && <XFeedPreview items={items} />}
+                  {p.value === 'instagram' && <InstagramFeedPreview items={items} onItemClick={handleItemClick} />}
+                  {p.value === 'facebook' && <FacebookFeedPreview items={items} onItemClick={handleItemClick} />}
+                  {p.value === 'tiktok' && <TikTokFeedPreview items={items} onItemClick={handleItemClick} />}
+                  {p.value === 'x' && <XFeedPreview items={items} onItemClick={handleItemClick} />}
                 </div>
 
                 {/* Sidebar */}
@@ -708,6 +837,13 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           </TabsContent>
         ))}
       </Tabs>
+
+      <ScheduleItemModal
+        item={editingItem}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        onSave={handleSaveItem}
+      />
     </div>
   );
 }
