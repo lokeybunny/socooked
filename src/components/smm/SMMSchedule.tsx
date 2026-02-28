@@ -1095,6 +1095,35 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     setPushingLive(false);
   };
 
+  const handleRevertToDraft = async () => {
+    if (!currentPlan) return;
+    setPushingLive(true);
+    try {
+      // Set plan back to draft
+      const { error } = await supabase
+        .from('smm_content_plans')
+        .update({ status: 'draft' } as any)
+        .eq('id', currentPlan.id);
+      if (error) throw error;
+
+      // Remove calendar events created by push live
+      const itemIds = items.map(i => i.id);
+      if (itemIds.length > 0) {
+        await supabase
+          .from('calendar_events')
+          .delete()
+          .eq('source', 'smm')
+          .in('source_id', itemIds);
+      }
+
+      toast.success('Reverted to draft — calendar events removed.');
+      await fetchPlans();
+    } catch (e: any) {
+      toast.error(`Failed to revert: ${e.message}`);
+    }
+    setPushingLive(false);
+  };
+
   const handleReset = async () => {
     if (!profileId) return;
     setResetting(true);
@@ -1219,6 +1248,19 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+
+          {isLive && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs border-yellow-500/30 text-yellow-600 hover:bg-yellow-500/10"
+              disabled={pushingLive}
+              onClick={handleRevertToDraft}
+            >
+              {pushingLive ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+              Revert to Draft
+            </Button>
           )}
 
           {isLive && (
