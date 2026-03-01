@@ -177,6 +177,38 @@ Deno.serve(async (req) => {
         title: string, summary: string, sourceUrl: string,
         findingType: string, rawData: Record<string, unknown>, tags: string[]
       ) => {
+        // Dedup: skip if a finding with same symbol already exists (for narrative reports)
+        const symbol = (rawData as any)?.symbol;
+        if (symbol && (rawData as any)?.type === "narrative_report") {
+          const { data: existing } = await supabase
+            .from("research_findings")
+            .select("id")
+            .eq("category", "x")
+            .neq("status", "drafted")
+            .contains("raw_data", { symbol })
+            .limit(1);
+          if (existing && existing.length > 0) {
+            console.log(`Dedup: skipping duplicate X finding for symbol ${symbol}`);
+            return;
+          }
+        }
+        // Dedup: skip cycle reports if one already exists in the last hour
+        if (findingType === "trend" && tags.includes("cycle-report")) {
+          const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+          const { data: recentCycle } = await supabase
+            .from("research_findings")
+            .select("id")
+            .eq("category", "x")
+            .eq("finding_type", "trend")
+            .gte("created_at", oneHourAgo)
+            .contains("tags", ["cycle-report"])
+            .limit(1);
+          if (recentCycle && recentCycle.length > 0) {
+            console.log("Dedup: skipping duplicate cycle report (one exists in last hour)");
+            return;
+          }
+        }
+
         await supabase.from("research_findings").insert({
           title, summary, source_url: sourceUrl, finding_type: findingType,
           category: "x", status: "new", created_by: "cortex",
