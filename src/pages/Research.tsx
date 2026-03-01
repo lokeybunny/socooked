@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useResearchLoop } from '@/hooks/useResearchLoop';
+import { useLeadLoop } from '@/hooks/useLeadLoop';
 import type { LucideIcon } from 'lucide-react';
 
 /* ── X (Twitter) icon ── */
@@ -87,12 +88,19 @@ interface Narrative {
 
 export default function Research() {
   const researchLoop = useResearchLoop();
+  const leadLoop = useLeadLoop();
   const { loopState } = researchLoop;
   const generating = loopState.generating;
   const loopActive = loopState.active;
   const progressLog = loopState.progressLog;
   const scrapeSources = loopState.sources;
   const loopInterval = loopState.interval;
+
+  const leadState = leadLoop.loopState;
+  const leadGenerating = leadState.generating;
+  const leadLoopActive = leadState.active;
+  const leadProgressLog = leadState.progressLog;
+  const leadInterval = leadState.interval;
 
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [allFindings, setAllFindings] = useState<any[]>([]);
@@ -567,6 +575,49 @@ export default function Research() {
                 )}
               </div>
             )}
+            {selectedSource === 'other' && (
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+                  <span className="px-3 py-1.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    🤖 Lead Agent
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+                  {[
+                    { label: '5m', val: 5 },
+                    { label: '15m', val: 15 },
+                    { label: '30m', val: 30 },
+                    { label: '1h', val: 60 },
+                  ].map(opt => (
+                    <button
+                      key={opt.val}
+                      onClick={() => leadLoop.setInterval(leadInterval === opt.val ? null : opt.val)}
+                      className={cn(
+                        "px-3 py-1.5 rounded text-sm font-semibold transition-colors",
+                        leadInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {leadLoopActive ? (
+                  <Button size="sm" variant="destructive" onClick={() => { leadLoop.stopLoop(); }} className="gap-1.5">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Stop Agent
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={leadInterval ? () => leadLoop.startLoop() : () => leadLoop.runOnce()}
+                    disabled={leadGenerating}
+                    className="gap-1.5"
+                  >
+                    {leadGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+                    {leadGenerating ? 'Searching...' : leadInterval ? `Loop ${leadInterval}m` : 'Run Once'}
+                  </Button>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               {selectedSource === 'x' && (
                 <Button
@@ -667,6 +718,52 @@ export default function Research() {
                 </div>
               ))}
               <div ref={logEndRef} />
+            </div>
+          </div>
+        )}
+
+        {/* ══════ Lead Agent Pipeline Log ══════ */}
+        {selectedSource === 'other' && leadProgressLog.length > 0 && (
+          <div className="glass-card rounded-lg overflow-hidden border border-border">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-emerald-500" />
+                <span className="text-sm font-semibold text-foreground">lead agent pipeline</span>
+                {leadGenerating && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                {!leadGenerating && leadState.cyclesCompleted > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium">
+                    {leadState.cyclesCompleted} cycles · {leadState.totalNewCreated} new leads
+                  </span>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => leadLoop.clearLog()}>
+                Clear
+              </Button>
+            </div>
+            <div className="max-h-72 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-sm">
+              {leadProgressLog.map((entry, i) => (
+                <div key={`lead-${entry.step}-${i}`} className="flex items-start gap-2 animate-fade-in">
+                  <span className="text-muted-foreground shrink-0 w-16">{entry.ts}</span>
+                  <span className="shrink-0">
+                    {entry.status === 'running' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    ) : entry.status === 'done' ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <span className={cn(
+                      "font-medium",
+                      entry.status === 'running' ? "text-foreground" : entry.status === 'done' ? "text-muted-foreground" : "text-destructive"
+                    )}>
+                      {entry.label}
+                    </span>
+                    <p className="text-muted-foreground break-words">{entry.detail}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

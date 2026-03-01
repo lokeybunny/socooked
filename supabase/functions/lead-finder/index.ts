@@ -192,6 +192,20 @@ Deno.serve(async (req) => {
       } else {
         created.push({ ...inserted, ...lead });
 
+      // Duplicate check: skip if research_finding with same email already exists
+        if (lead.email) {
+          const { data: existingFinding } = await sb
+            .from("research_findings")
+            .select("id")
+            .eq("finding_type", "lead")
+            .contains("raw_data", { email: lead.email })
+            .limit(1);
+          if (existingFinding && existingFinding.length > 0) {
+            console.log(`Skipping duplicate research finding for: ${lead.email}`);
+            continue;
+          }
+        }
+
         // Also create a research finding for the Research page
         await sb.from("research_findings").insert({
           title: fullName,
