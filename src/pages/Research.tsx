@@ -255,13 +255,34 @@ export default function Research() {
     }
   }, [selectedSource]);
 
+  // Client-side dedup helper for X findings: keep first occurrence by symbol/name/media_url
+  const deduplicateXFindings = useCallback((items: any[]) => {
+    const seen = new Set<string>();
+    return items.filter(f => {
+      if (normSource(f.category) !== 'x') return true;
+      const rd = f.raw_data || {};
+      // Build composite keys from symbol, name, and first media_url
+      const keys: string[] = [];
+      if (rd.symbol) keys.push(`sym:${String(rd.symbol).toLowerCase()}`);
+      if (rd.name) keys.push(`name:${String(rd.name).toLowerCase()}`);
+      const media = rd.media_url || rd.tweet_sources?.[0]?.media_url;
+      if (media) keys.push(`media:${media}`);
+      // If no keys, keep it (can't dedup)
+      if (keys.length === 0) return true;
+      // If ANY key was already seen, it's a duplicate
+      if (keys.some(k => seen.has(k))) return false;
+      keys.forEach(k => seen.add(k));
+      return true;
+    });
+  }, []);
+
   useEffect(() => {
-    if (selectedSource) {
-      setFindings(allFindings.filter(f => normSource(f.category) === selectedSource));
-    } else {
-      setFindings(allFindings);
-    }
-  }, [selectedSource, allFindings]);
+    let items = selectedSource
+      ? allFindings.filter(f => normSource(f.category) === selectedSource)
+      : allFindings;
+    items = deduplicateXFindings(items);
+    setFindings(items);
+  }, [selectedSource, allFindings, deduplicateXFindings]);
 
   const categoryCounts = RESEARCH_SOURCES.reduce((acc, src) => {
     acc[src.id] = allFindings.filter(f => normSource(f.category) === src.id).length;
