@@ -384,8 +384,8 @@ Deno.serve(async (req) => {
         let tiktokError = false;
 
         const [tweetResult, tiktokResult] = await Promise.allSettled([
-          scrapeTweetsViaApify(APIFY_TOKEN!, memory.search_terms, 200),
-          scrapeTikTokViaApify(APIFY_TOKEN!, memory.tiktok_queries, memory.tiktok_hashtags, 50),
+          scrapeTweetsViaApify(APIFY_TOKEN!, memory.search_terms, 300),
+          scrapeTikTokViaApify(APIFY_TOKEN!, memory.tiktok_queries, memory.tiktok_hashtags, 100),
         ]);
 
         if (tweetResult.status === "fulfilled") {
