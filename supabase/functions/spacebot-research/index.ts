@@ -524,7 +524,6 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
         const narrativesToPost = (aiResult?.top_narratives?.slice(0, 8) || []).map((n: any) => {
           if (n.tweet_sources?.length) {
             n.tweet_sources = n.tweet_sources.map((src: any) => {
-              if (src.media_url) return src;
               // Try to find matching scraped tweet by username or text overlap
               const scraped = tweets.find((tw: any) => {
                 const screen = tw.user?.screen_name || "";
@@ -534,17 +533,23 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
                 const srcText = (src.text || "").toLowerCase().slice(0, 40);
                 return srcText.length > 10 && twText.includes(srcText);
               });
-              if (scraped?.media_url) {
-                return { ...src, media_url: scraped.media_url };
+              // Always replace URL with real tweet link built from scraped id + screen_name
+              if (scraped?.id && scraped?.user?.screen_name) {
+                src = { ...src, url: `https://x.com/${scraped.user.screen_name}/status/${scraped.id}` };
+              }
+              if (!src.media_url && scraped?.media_url) {
+                src = { ...src, media_url: scraped.media_url };
               }
               // Fallback: find ANY tweet with media from the same cluster
-              const clusterMatch = matched.find(m => {
-                const sym = (m.token.baseToken?.symbol || "").toLowerCase();
-                return sym && (n.symbol || "").toLowerCase() === sym;
-              });
-              const mediaFromCluster = clusterMatch?.matched_tweets.find((tw: any) => tw.media_url);
-              if (mediaFromCluster?.media_url) {
-                return { ...src, media_url: mediaFromCluster.media_url };
+              if (!src.media_url) {
+                const clusterMatch = matched.find(m => {
+                  const sym = (m.token.baseToken?.symbol || "").toLowerCase();
+                  return sym && (n.symbol || "").toLowerCase() === sym;
+                });
+                const mediaFromCluster = clusterMatch?.matched_tweets.find((tw: any) => tw.media_url);
+                if (mediaFromCluster?.media_url) {
+                  src = { ...src, media_url: mediaFromCluster.media_url };
+                }
               }
               return src;
             });
@@ -552,6 +557,11 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
             if (!n.media_url) {
               n.media_url = n.tweet_sources.find((s: any) => s.media_url)?.media_url || "";
             }
+          }
+          // Override twitter_source_url with real URL from tweet_sources if available
+          if (n.tweet_sources?.length) {
+            const realUrl = n.tweet_sources.find((s: any) => s.url && s.url.includes("x.com/") && s.url.includes("/status/"))?.url;
+            if (realUrl) n.twitter_source_url = realUrl;
           }
           return n;
         });
