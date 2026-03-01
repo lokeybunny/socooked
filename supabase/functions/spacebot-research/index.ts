@@ -71,42 +71,58 @@ function passesRelevanceFilter(text: string, hashtags: string[]): boolean {
   return true;
 }
 
+/** Retry helper — retries fn up to maxRetries times with exponential backoff */
+async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 3): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      console.log(`${label} attempt ${attempt}/${maxRetries} failed: ${err.message}`);
+      if (attempt === maxRetries) throw err;
+      const delay = Math.min(2000 * Math.pow(2, attempt - 1), 15000);
+      console.log(`${label}: retrying in ${delay}ms...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error(`${label} exhausted all retries`);
+}
+
 /** Scrape tweets via Apify Tweet Scraper V2 (apidojo/tweet-scraper) */
 async function scrapeTweetsViaApify(apifyToken: string, searchTerms: string[], maxItems = 200): Promise<any[]> {
-  const actorId = "apidojo~tweet-scraper";
-  const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
+  return withRetry(async () => {
+    const actorId = "apidojo~tweet-scraper";
+    const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
-  // Auto-inject since: date for 24h filter
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const termsWithDate = searchTerms.map(q => {
-    if (q.includes("since:")) return q;
-    return `${q} since:${yesterday}`;
-  });
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const termsWithDate = searchTerms.map(q => {
+      if (q.includes("since:")) return q;
+      return `${q} since:${yesterday}`;
+    });
 
-  const input = {
-    searchTerms: termsWithDate,
-    maxItems,
-    sort: "Latest",
-    tweetLanguage: "en",
-    includeSearchTerms: true,
-  };
+    const input = {
+      searchTerms: termsWithDate,
+      maxItems,
+      sort: "Latest",
+      tweetLanguage: "en",
+      includeSearchTerms: true,
+    };
 
-  console.log(`Apify: starting Tweet Scraper V2 with ${termsWithDate.length} queries, maxItems=${maxItems}`);
-  const res = await fetch(runUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-    signal: AbortSignal.timeout(120_000),
-  });
+    console.log(`Apify: starting Tweet Scraper V2 with ${termsWithDate.length} queries, maxItems=${maxItems}`);
+    const res = await fetch(runUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(120_000),
+    });
 
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    console.log(`Apify run failed (${res.status}): ${err.slice(0, 300)}`);
-    throw new Error(`Apify request failed (${res.status})`);
-  }
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      console.log(`Apify run failed (${res.status}): ${err.slice(0, 300)}`);
+      throw new Error(`Apify request failed (${res.status})`);
+    }
 
-  const items: any[] = await res.json();
-  console.log(`Apify: received ${items.length} tweet items`);
+    const items: any[] = await res.json();
+    console.log(`Apify: received ${items.length} tweet items`);
 
   return items
     .filter((item: any) => item.type === "tweet" && item.id)
@@ -135,6 +151,7 @@ async function scrapeTweetsViaApify(apifyToken: string, searchTerms: string[], m
         url: tw.url || `https://x.com/${tw.author?.userName || "i"}/status/${tw.id}`,
       };
     });
+  }, "Apify-Tweets", 3);
 }
 
 /** Scrape TikTok via Apify clockworks/tiktok-scraper */
@@ -144,69 +161,71 @@ async function scrapeTikTokViaApify(
   hashtags: string[],
   maxResults = 30,
 ): Promise<any[]> {
-  const actorId = "clockworks~tiktok-scraper";
-  const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
+  return withRetry(async () => {
+    const actorId = "clockworks~tiktok-scraper";
+    const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
-  const input: Record<string, any> = {
-    resultsPerPage: maxResults,
-    shouldDownloadVideos: false,
-    shouldDownloadCovers: false,
-    shouldDownloadAvatars: false,
-    shouldDownloadSubtitles: false,
-    shouldDownloadSlideshowImages: false,
-    shouldDownloadMusicCovers: false,
-    scrapeRelatedVideos: false,
-    excludePinnedPosts: false,
-    proxyCountryCode: "None",
-    profileScrapeSections: ["videos"],
-    profileSorting: "latest",
-    searchSection: "",
-    maxProfilesPerQuery: 5,
-  };
+    const input: Record<string, any> = {
+      resultsPerPage: maxResults,
+      shouldDownloadVideos: false,
+      shouldDownloadCovers: false,
+      shouldDownloadAvatars: false,
+      shouldDownloadSubtitles: false,
+      shouldDownloadSlideshowImages: false,
+      shouldDownloadMusicCovers: false,
+      scrapeRelatedVideos: false,
+      excludePinnedPosts: false,
+      proxyCountryCode: "None",
+      profileScrapeSections: ["videos"],
+      profileSorting: "latest",
+      searchSection: "",
+      maxProfilesPerQuery: 5,
+    };
 
-  if (searchQueries.length > 0) input.searchQueries = searchQueries;
-  if (hashtags.length > 0) input.hashtags = hashtags;
+    if (searchQueries.length > 0) input.searchQueries = searchQueries;
+    if (hashtags.length > 0) input.hashtags = hashtags;
 
-  console.log(`Apify TikTok: starting with ${searchQueries.length} searches, ${hashtags.length} hashtags, max=${maxResults}`);
-  const res = await fetch(runUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-    signal: AbortSignal.timeout(180_000),
-  });
+    console.log(`Apify TikTok: starting with ${searchQueries.length} searches, ${hashtags.length} hashtags, max=${maxResults}`);
+    const res = await fetch(runUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(180_000),
+    });
 
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    console.log(`Apify TikTok run failed (${res.status}): ${err.slice(0, 300)}`);
-    throw new Error(`Apify TikTok request failed (${res.status})`);
-  }
+    if (!res.ok) {
+      const err = await res.text().catch(() => "");
+      console.log(`Apify TikTok run failed (${res.status}): ${err.slice(0, 300)}`);
+      throw new Error(`Apify TikTok request failed (${res.status})`);
+    }
 
-  const items: any[] = await res.json();
-  console.log(`Apify TikTok: received ${items.length} items`);
+    const items: any[] = await res.json();
+    console.log(`Apify TikTok: received ${items.length} items`);
 
-  return items.map((v: any) => ({
-    id: v.id || "",
-    text: v.text || "",
-    playCount: v.playCount || 0,
-    diggCount: v.diggCount || 0,
-    shareCount: v.shareCount || 0,
-    commentCount: v.commentCount || 0,
-    collectCount: v.collectCount || 0,
-    createTimeISO: v.createTimeISO || "",
-    webVideoUrl: v.webVideoUrl || "",
-    authorName: v.authorMeta?.name || "",
-    authorNickName: v.authorMeta?.nickName || "",
-    authorFans: v.authorMeta?.fans || 0,
-    authorVerified: v.authorMeta?.verified || false,
-    coverUrl: v.videoMeta?.coverUrl || "",
-    duration: v.videoMeta?.duration || 0,
-    hashtags: (v.hashtags || []).map((h: any) => h.name || h),
-    isAd: v.isAd || false,
-    isSponsored: v.isSponsored || false,
-    isSlideshow: v.isSlideshow || false,
-    musicName: v.musicMeta?.musicName || "",
-    searchQuery: v.searchQuery || "",
-  }));
+    return items.map((v: any) => ({
+      id: v.id || "",
+      text: v.text || "",
+      playCount: v.playCount || 0,
+      diggCount: v.diggCount || 0,
+      shareCount: v.shareCount || 0,
+      commentCount: v.commentCount || 0,
+      collectCount: v.collectCount || 0,
+      createTimeISO: v.createTimeISO || "",
+      webVideoUrl: v.webVideoUrl || "",
+      authorName: v.authorMeta?.name || "",
+      authorNickName: v.authorMeta?.nickName || "",
+      authorFans: v.authorMeta?.fans || 0,
+      authorVerified: v.authorMeta?.verified || false,
+      coverUrl: v.videoMeta?.coverUrl || "",
+      duration: v.videoMeta?.duration || 0,
+      hashtags: (v.hashtags || []).map((h: any) => h.name || h),
+      isAd: v.isAd || false,
+      isSponsored: v.isSponsored || false,
+      isSlideshow: v.isSlideshow || false,
+      musicName: v.musicMeta?.musicName || "",
+      searchQuery: v.searchQuery || "",
+    }));
+  }, "Apify-TikTok", 3);
 }
 
 /** STRICT 24-HOUR VIRAL FILTER for TikTok */
@@ -411,21 +430,32 @@ Deno.serve(async (req) => {
           if (label === "x") {
             if (result.status === "fulfilled") {
               tweets = result.value;
+              send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "done", detail: `✓ ${tweets.length} tweets scraped (with retry)` });
             } else {
               apifyError = true;
-              console.log(`Apify tweet scrape failed: ${result.reason}`);
-              send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "warning", detail: `⚠️ Failed: ${result.reason}` });
+              console.log(`Apify tweet scrape failed after retries: ${result.reason}`);
+              send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "error", detail: `✗ Failed after 3 retries: ${result.reason}` });
             }
           } else if (label === "tiktok") {
             if (result.status === "fulfilled") {
               tiktokVideos = result.value;
+              send("progress", { step: 1.5, label: "Scraping TikTok via Apify", status: "done", detail: `✓ ${tiktokVideos.length} videos scraped (with retry)` });
             } else {
               tiktokError = true;
-              console.log(`Apify TikTok scrape failed: ${result.reason}`);
-              send("progress", { step: 1.5, label: "Scraping TikTok via Apify", status: "warning", detail: `⚠️ Failed: ${result.reason}` });
+              console.log(`Apify TikTok scrape failed after retries: ${result.reason}`);
+              send("progress", { step: 1.5, label: "Scraping TikTok via Apify", status: "error", detail: `✗ Failed after 3 retries: ${result.reason}` });
             }
           }
         });
+
+        // ABORT if all requested scrapers failed — can't generate without data
+        const xFailed = runX && apifyError;
+        const tikFailed = runTikTok && tiktokError;
+        if ((runX && runTikTok && xFailed && tikFailed) || (runX && !runTikTok && xFailed) || (!runX && runTikTok && tikFailed)) {
+          send("error", { message: "All Apify scrapers failed after 3 retries each. Cannot generate without data. Try again later." });
+          await writer.close();
+          return;
+        }
 
         // Deduplicate tweets by id
         const seenIds = new Set<string>();
