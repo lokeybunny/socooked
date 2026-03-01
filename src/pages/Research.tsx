@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
@@ -56,6 +56,31 @@ interface TweetSource {
   media_url?: string;
 }
 
+interface TikTokVideo {
+  id: string;
+  text: string;
+  playCount: number;
+  diggCount: number;
+  shareCount: number;
+  commentCount: number;
+  createTimeISO: string;
+  webVideoUrl: string;
+  authorName: string;
+  coverUrl: string;
+  narrativeScore: number;
+  hashtags: string[];
+  tokenized?: boolean;
+}
+
+interface TriggerTikTok {
+  author: string;
+  text: string;
+  url: string;
+  plays: string;
+  shares: string;
+  narrative_score: number;
+}
+
 interface Narrative {
   name: string;
   symbol: string;
@@ -63,12 +88,16 @@ interface Narrative {
   narrative_rating: number;
   rating_justification: string;
   tweet_sources: TweetSource[];
+  trigger_tiktoks?: TriggerTikTok[];
   on_chain_evidence: string;
   competition: string;
   deploy_window: string;
   risk: string;
   website?: string;
   twitter_source_url?: string;
+  tiktok_source_url?: string;
+  source_platform?: string;
+  image_gen_prompt?: string;
   // Legacy compat
   bundle_score?: number;
   suggested_tickers?: string[];
@@ -96,6 +125,7 @@ export default function Research() {
   const [cycleChainOfThought, setCycleChainOfThought] = useState('');
   const [cycleReasoning, setCycleReasoning] = useState('');
   const [evolvedQueries, setEvolvedQueries] = useState<string[]>([]);
+  const [tiktokRadar, setTiktokRadar] = useState<TikTokVideo[]>([]);
   const [creditsDepleted, setCreditsDepleted] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -269,6 +299,7 @@ export default function Research() {
     setProgressLog([]);
     setTopNarratives([]);
     setTopTweets([]);
+    setTiktokRadar([]);
     setCycleChainOfThought('');
     setCycleReasoning('');
     setEvolvedQueries([]);
@@ -351,6 +382,9 @@ export default function Research() {
               }
               if (data.top_tweets?.length) {
                 setTopTweets(data.top_tweets);
+              }
+              if (data.tiktok_radar?.length) {
+                setTiktokRadar(data.tiktok_radar);
               }
               if (data.chain_of_thought) {
                 setCycleChainOfThought(data.chain_of_thought);
@@ -639,6 +673,92 @@ export default function Research() {
           </div>
         )}
 
+        {/* ══════ TikTok Animal Viral Radar ══════ */}
+        {selectedSource === 'x' && tiktokRadar.length > 0 && (
+          <div className="glass-card rounded-lg overflow-hidden border border-pink-500/30">
+            <div className="px-4 py-3 bg-pink-500/5 border-b border-pink-500/20 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Music className="h-4 w-4 text-pink-500" />
+                <span className="text-sm font-bold text-foreground">🎵 TikTok Animal Viral Radar — {tiktokRadar.length} Videos</span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 font-medium animate-pulse">LIVE</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/30">
+                    <th className="text-left px-3 py-2 text-muted-foreground font-medium">#</th>
+                    <th className="text-left px-3 py-2 text-muted-foreground font-medium">Video</th>
+                    <th className="text-right px-3 py-2 text-muted-foreground font-medium">▶ Plays</th>
+                    <th className="text-right px-3 py-2 text-muted-foreground font-medium">❤ Likes</th>
+                    <th className="text-right px-3 py-2 text-muted-foreground font-medium">🔁 Shares</th>
+                    <th className="text-center px-3 py-2 text-muted-foreground font-medium">Score</th>
+                    <th className="text-center px-3 py-2 text-muted-foreground font-medium">Tokenized?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tiktokRadar.map((v, i) => {
+                    const fmt = (n: number) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n/1000).toFixed(0)}K` : `${n}`;
+                    return (
+                      <tr key={v.id || i} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                        <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
+                        <td className="px-3 py-2 max-w-[300px]">
+                          <div className="flex items-start gap-2">
+                            {v.coverUrl && (
+                              <a href={v.webVideoUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                <img src={v.coverUrl} alt="" className="w-10 h-14 rounded object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                              </a>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-foreground leading-snug line-clamp-2">{v.text || '(no description)'}</p>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-muted-foreground">@{v.authorName}</span>
+                                {v.webVideoUrl && (
+                                  <a href={v.webVideoUrl} target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:underline flex items-center gap-0.5">
+                                    <Play className="h-2.5 w-2.5" /> Open
+                                  </a>
+                                )}
+                              </div>
+                              {v.hashtags?.length > 0 && (
+                                <div className="flex gap-1 mt-0.5 flex-wrap">
+                                  {v.hashtags.slice(0, 3).map((h, hi) => (
+                                    <span key={hi} className="text-[9px] px-1 rounded bg-pink-500/10 text-pink-400">#{h}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono font-semibold text-foreground">{fmt(v.playCount)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-muted-foreground">{fmt(v.diggCount)}</td>
+                        <td className="px-3 py-2 text-right font-mono text-muted-foreground">{fmt(v.shareCount)}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={cn(
+                            "px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                            v.narrativeScore >= 15 ? "bg-primary/20 text-primary" :
+                            v.narrativeScore >= 10 ? "bg-amber-500/20 text-amber-400" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {v.narrativeScore}/20
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={cn(
+                            "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                            "bg-primary/20 text-primary"
+                          )}>
+                            🚀 LAUNCH
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* ══════ Cortex Analyst Report ══════ */}
         {selectedSource === 'x' && topNarratives.length > 0 && (
           <div className="glass-card rounded-lg overflow-hidden border border-emerald-500/30">
@@ -727,6 +847,17 @@ export default function Research() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-bold text-foreground">{i + 1}.</span>
+                        {/* Source platform badge */}
+                        {n.source_platform && (
+                          <span className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                            n.source_platform === 'cross-platform' ? "bg-amber-500/20 text-amber-400" :
+                            n.source_platform === 'tiktok' ? "bg-pink-500/20 text-pink-400" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {n.source_platform === 'cross-platform' ? '🔀 X+TT' : n.source_platform === 'tiktok' ? '🎵 TikTok' : '𝕏'}
+                          </span>
+                        )}
                         <span className="font-semibold text-foreground">{n.name}</span>
                         {n.symbol && (
                           <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">${n.symbol}</span>
@@ -833,6 +964,55 @@ export default function Research() {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* TikTok Sources */}
+                    {n.trigger_tiktoks?.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <span className="text-[10px] font-semibold text-pink-400 uppercase tracking-wider">🎵 TikTok Sources</span>
+                        {n.trigger_tiktoks.slice(0, 3).map((tt, j) => (
+                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-pink-500/5 border border-pink-500/20">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-[10px] font-semibold text-foreground">{tt.author}</span>
+                                <span className="text-[10px] text-pink-400">▶ {tt.plays}</span>
+                                <span className="text-[10px] text-muted-foreground">🔁 {tt.shares}</span>
+                                {tt.narrative_score && (
+                                  <span className="text-[10px] px-1 rounded bg-pink-500/10 text-pink-400 font-mono">{tt.narrative_score}/20</span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tt.text}</p>
+                              {tt.url && (
+                                <a href={tt.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-pink-400 hover:underline mt-1">
+                                  <Play className="h-2.5 w-2.5" /> View on TikTok
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Image Gen Prompt */}
+                    {n.image_gen_prompt && (
+                      <div className="pt-2 border-t border-border">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🎨 Grok Image Prompt</span>
+                          <button onClick={() => copyToClipboard(n.image_gen_prompt!)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1">
+                            <Copy className="h-2.5 w-2.5" /> Copy
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground bg-muted/30 px-2 py-1.5 rounded font-mono">{n.image_gen_prompt}</p>
+                      </div>
+                    )}
+
+                    {/* TikTok source link */}
+                    {n.tiktok_source_url && (
+                      <div className="pt-1">
+                        <a href={n.tiktok_source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-pink-400 hover:underline">
+                          <Music className="h-2.5 w-2.5" /> Primary TikTok Source
+                        </a>
                       </div>
                     )}
                   </div>
