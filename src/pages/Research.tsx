@@ -744,8 +744,19 @@ export default function Research() {
                           </span>
                         )}
                         <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                          {(n.twitter_source_url || n.tweet_sources?.[0]?.url) && (
+                            <a
+                              href={n.twitter_source_url || n.tweet_sources[0].url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-blue-400 transition-colors"
+                              title="View original post"
+                            >
+                              <Eye className="h-3 w-3" />
+                            </a>
+                          )}
                           <button onClick={() => setDetailNarrative(n)} className="text-muted-foreground hover:text-foreground" title="View full details">
-                            <Eye className="h-3 w-3" />
+                            <ExternalLink className="h-3 w-3" />
                           </button>
                           <button onClick={copyCard} className="text-muted-foreground hover:text-foreground">
                             <Copy className="h-3 w-3" />
