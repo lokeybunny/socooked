@@ -66,14 +66,14 @@ interface Narrative {
   narrative_rating: number;
   rating_justification: string;
   tweet_sources: TweetSource[];
-  trigger_tiktoks?: any[];
+  
   on_chain_evidence: string;
   competition: string;
   deploy_window: string;
   risk: string;
   website?: string;
   twitter_source_url?: string;
-  tiktok_source_url?: string;
+  
   source_platform?: string;
   image_gen_prompt?: string;
   tier?: string;
@@ -825,17 +825,6 @@ export default function Research() {
                           </div>
                         )}
 
-                        {n.trigger_tiktoks?.length > 0 && (
-                          <div className="pt-0.5 border-t border-border space-y-0.5">
-                            <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok</span>
-                            {n.trigger_tiktoks.slice(0, 1).map((tt, j) => (
-                              <div key={j} className="flex items-center gap-1 text-xs">
-                                <span className="font-semibold text-foreground truncate">{tt.author}</span>
-                                <span className="text-pink-400 shrink-0">▶ {tt.plays}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
 
                         {n.image_gen_prompt && (
                           <div className="pt-0.5 border-t border-border">
@@ -1281,28 +1270,6 @@ export default function Research() {
                     </div>
                   )}
 
-                  {n.trigger_tiktoks && n.trigger_tiktoks.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok Sources ({n.trigger_tiktoks.length})</span>
-                      <div className="space-y-2">
-                        {n.trigger_tiktoks.map((tt, j) => (
-                          <div key={j} className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <Music className="h-3.5 w-3.5 text-purple-400 shrink-0" />
-                              <span className="text-sm font-bold text-foreground">{tt.author}</span>
-                              <span className="text-xs text-pink-400 ml-auto">▶ {tt.plays} · 🔁 {tt.shares}</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground leading-relaxed">{tt.text}</p>
-                            {tt.url && (
-                              <a href={tt.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline">
-                                <ExternalLink className="h-3 w-3" /> View Video
-                              </a>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   {n.image_gen_prompt && (
                     <div className="space-y-1">
@@ -1320,11 +1287,6 @@ export default function Research() {
                     {n.twitter_source_url && (
                       <a href={n.twitter_source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-sm font-medium">
                         <XIcon className="h-3.5 w-3.5" /> Open on X
-                      </a>
-                    )}
-                    {n.tiktok_source_url && (
-                      <a href={n.tiktok_source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 text-sm font-medium">
-                        <Music className="h-3.5 w-3.5" /> Open on TikTok
                       </a>
                     )}
                     {n.website && (
