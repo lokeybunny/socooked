@@ -1148,23 +1148,23 @@ export default function Research() {
 
             return (
               <div key={f.id} className={cn(
-                "glass-card overflow-hidden hover:shadow-lg transition-shadow rounded-xl border flex flex-col",
+                "glass-card overflow-hidden hover:shadow-lg transition-shadow rounded-xl border flex flex-col min-w-0",
                 sourcePlatform === 'tiktok' ? "border-purple-500/30" :
                 sourcePlatform === 'x' ? "border-blue-500/30" :
                 "border-border"
               )}>
                 {/* Header strip */}
                 <div className={cn(
-                  "px-3 py-1.5 border-b flex items-center gap-2 shrink-0",
+                  "px-2 py-1 border-b flex items-center gap-1 shrink-0 min-w-0 overflow-hidden",
                   sourcePlatform === 'tiktok' ? "bg-purple-500/10 border-purple-500/20" :
                   sourcePlatform === 'x' ? "bg-blue-500/10 border-blue-500/20" :
                   "bg-muted/40 border-border"
                 )}>
-                  <Brain className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-sm text-muted-foreground truncate">Cortex AI · {format(new Date(f.created_at), 'MMM d, h:mm a')}</span>
+                  <Brain className="h-3 w-3 text-primary shrink-0" />
+                  <span className="text-[10px] text-muted-foreground truncate min-w-0">{format(new Date(f.created_at), 'M/d h:mma')}</span>
                   {rating !== null && (
                     <span className={cn(
-                      "text-sm px-2 py-0.5 rounded-full font-bold ml-auto shrink-0",
+                      "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-auto shrink-0",
                       rating >= 8 ? "bg-primary/20 text-primary" :
                       rating >= 6 ? "bg-accent/20 text-accent-foreground" :
                       "bg-muted text-muted-foreground"
@@ -1175,24 +1175,24 @@ export default function Research() {
                 </div>
 
                 {/* Card body — scrollable */}
-                <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+                <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-1.5 min-w-0">
                   {/* Title + image row */}
-                  <div className="flex items-start gap-2.5">
+                  <div className="flex items-start gap-2 min-w-0">
                     {narrativeImage && (
                       <img
                         src={narrativeImage}
                         alt={f.title}
-                        className="w-14 h-14 rounded-lg object-cover bg-muted border border-border shrink-0"
+                        className="w-10 h-10 rounded-lg object-cover bg-muted border border-border shrink-0"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                     )}
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-bold text-foreground line-clamp-1 leading-tight">{f.title}</h3>
-                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <h3 className="text-xs font-bold text-foreground line-clamp-2 leading-tight break-words">{f.title}</h3>
+                      <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
                           {sourceIcon(normSource(f.category))} {SOURCE_LABELS[normSource(f.category)] || 'Other'}
                         </span>
-                        <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium capitalize">{f.finding_type}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium capitalize">{f.finding_type}</span>
                       </div>
                     </div>
                   </div>
