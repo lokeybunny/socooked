@@ -279,12 +279,12 @@ export default function Research() {
       setGmapsResults(data.businesses || []);
       setGmapsCreatedCount(data.created_count || 0);
       if (data.created_count > 0) {
-        toast.success(`Found ${data.low_rated_count} low-rated businesses, ${data.created_count} new added`);
+        toast.success(`Found ${data.low_rated_count} businesses, ${data.created_count} new added`);
         load();
       } else if (data.low_rated_count > 0) {
-        toast.info(`Found ${data.low_rated_count} low-rated businesses (all already in CRM)`);
+        toast.info(`Found ${data.low_rated_count} businesses (all already in CRM)`);
       } else {
-        toast.info(`Found ${data.all_results || 0} businesses but none rated 3★ or below.`);
+        toast.info(`Found ${data.all_results || 0} businesses but none matched.`);
       }
     } catch (err: any) {
       toast.error(err.message || 'Google Maps search failed');
@@ -1716,9 +1716,9 @@ export default function Research() {
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-blue-400" />
-                Google Maps Finder — Low-Rated Businesses (3★ & Below)
+                Google Maps Finder
               </CardTitle>
-              <p className="text-xs text-muted-foreground">Search Google Maps for businesses rated 3 stars or below. Results auto-save as findings + create CRM customers in the "Potential" category.</p>
+              <p className="text-xs text-muted-foreground">Search Google Maps for businesses. Results auto-save as findings + create CRM customers in the "Potential" category.</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1751,7 +1751,7 @@ export default function Research() {
               {!gmapsSearching && gmapsHasSearched && gmapsResults.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    {gmapsResults.length} low-rated businesses found · <span className="text-blue-400 font-medium">{gmapsCreatedCount} new</span> added to CRM & findings
+                    {gmapsResults.length} businesses found · <span className="text-blue-400 font-medium">{gmapsCreatedCount} new</span> added to CRM & findings
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
                     {gmapsResults.slice(0, 16).map((biz: any, i: number) => (
