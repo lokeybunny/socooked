@@ -42,6 +42,7 @@ import LeadFinder from "./pages/LeadFinder";
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
 import { YelpLoopProvider } from "./hooks/useYelpLoop";
+import { GMapsLoopProvider } from "./hooks/useGMapsLoop";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -50,6 +51,7 @@ const App = () => (
     <ResearchLoopProvider>
     <LeadLoopProvider>
     <YelpLoopProvider>
+    <GMapsLoopProvider>
     <AuthProvider>
       <TooltipProvider>
         <Toaster />
@@ -94,6 +96,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+    </GMapsLoopProvider>
     </YelpLoopProvider>
     </LeadLoopProvider>
     </ResearchLoopProvider>
