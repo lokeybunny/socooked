@@ -85,14 +85,16 @@ export function XFeedPanel() {
     }
   }, []);
 
-  // Load from cache on mount
+  // Auto-load on mount: use cache if fresh, otherwise fetch automatically
   useEffect(() => {
     const cached = getCachedFeed();
     if (cached) {
       setTweets(cached.tweets);
       setLastFetched(new Date(cached.ts));
+    } else {
+      fetchFeed(true);
     }
-  }, []);
+  }, [fetchFeed]);
 
   return (
     <div className="glass-card rounded-xl border border-border overflow-hidden flex flex-col h-full">
