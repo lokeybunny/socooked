@@ -140,7 +140,7 @@ export function GMapsLoopProvider({ children }: { children: React.ReactNode }) {
       ],
     }));
 
-    addLog({ step: 1, label: 'Searching Google Maps', status: 'running', detail: `"${searchTerm}" in ${location} (≤3★ filter)`, ts: now() });
+    addLog({ step: 1, label: 'Searching Google Maps', status: 'running', detail: `"${searchTerm}" in ${location}`, ts: now() });
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -178,7 +178,7 @@ export function GMapsLoopProvider({ children }: { children: React.ReactNode }) {
         step: 2,
         label: 'Complete',
         status: 'done',
-        detail: `✅ ${found} low-rated found, ${created} new added ("${searchTerm}" in ${location})`,
+        detail: `✅ ${found} found, ${created} new added ("${searchTerm}" in ${location})`,
         ts: now(),
       });
 
