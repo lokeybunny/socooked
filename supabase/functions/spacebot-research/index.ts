@@ -12,20 +12,28 @@ const MEMORY_SECTION = "search-memory";
 /** OAuth 2.0 Client Credentials → Bearer token for X API v2 */
 async function getXBearerToken(clientId: string, clientSecret: string): Promise<string> {
   const credentials = btoa(`${clientId}:${clientSecret}`);
-  const res = await fetch("https://api.x.com/oauth2/token", {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: "grant_type=client_credentials",
-  });
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    throw new Error(`X OAuth2 token failed (${res.status}): ${err}`);
+  // Try api.x.com first, fallback to api.twitter.com
+  for (const base of ["https://api.x.com", "https://api.twitter.com"]) {
+    try {
+      const res = await fetch(`${base}/oauth2/token`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: "grant_type=client_credentials",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.access_token;
+      }
+      const err = await res.text().catch(() => "");
+      console.log(`X OAuth2 via ${base} failed (${res.status}): ${err.slice(0, 300)}`);
+    } catch (e: any) {
+      console.log(`X OAuth2 via ${base} error: ${e.message}`);
+    }
   }
-  const data = await res.json();
-  return data.access_token;
+  throw new Error("X OAuth2 token failed on both api.x.com and api.twitter.com");
 }
 
 /** Search recent tweets via X API v2 */
@@ -96,11 +104,17 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
   const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (event: string, data: Record<string, unknown>) => {
-        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
-      };
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+
+  const send = async (event: string, data: Record<string, unknown>) => {
+    try {
+      await writer.write(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+    } catch { /* stream closed */ }
+  };
+
+  // Run pipeline in background, return stream immediately
+  (async () => {
 
       const pushFinding = async (
         title: string, summary: string, sourceUrl: string,
@@ -153,9 +167,9 @@ Deno.serve(async (req) => {
         try {
           xBearer = await getXBearerToken(TWITTER_CLIENT_ID!, TWITTER_CLIENT_SECRET!);
         } catch (e: any) {
-          send("progress", { step: 1, label: "Authenticating with X API (OAuth 2.0)", status: "error", detail: e.message });
-          send("error", { message: `X OAuth2 auth failed: ${e.message}` });
-          controller.close();
+          await send("progress", { step: 1, label: "Authenticating with X API (OAuth 2.0)", status: "error", detail: e.message });
+          await send("error", { message: `X OAuth2 auth failed: ${e.message}` });
+          try { await writer.close(); } catch { /* already closed */ }
           return;
         }
         send("progress", { step: 1, label: "Authenticating with X API (OAuth 2.0)", status: "done", detail: "Bearer token acquired ✓" });
@@ -500,7 +514,7 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           .sort((a: any, b: any) => (b.favorites + b.retweets) - (a.favorites + a.retweets))
           .slice(0, 12);
 
-        send("complete", {
+        await send("complete", {
           success: true,
           stats,
           top_narratives: aiResult?.top_narratives || [],
@@ -510,14 +524,13 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           top_tweets: topTweets,
         });
       } catch (err: any) {
-        send("error", { message: err.message || "Unknown error" });
+        await send("error", { message: err.message || "Unknown error" });
       } finally {
-        controller.close();
+        try { await writer.close(); } catch { /* already closed */ }
       }
-    },
-  });
+  })();
 
-  return new Response(stream, {
+  return new Response(readable, {
     headers: {
       ...corsHeaders,
       "Content-Type": "text/event-stream",
