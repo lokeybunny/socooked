@@ -688,9 +688,9 @@ export default function Research() {
             <div className="px-4 py-3 bg-pink-500/5 border-b border-pink-500/20 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Music className="h-4 w-4 text-pink-500" />
-                <span className="text-sm font-bold text-foreground">🎵 TikTok Animal Viral Radar — {tiktokRadar.length} Videos (24h only)</span>
+                <span className="text-sm font-bold text-foreground">🎵 TikTok Animal Viral Radar — {tiktokRadar.length} Videos (1M+ plays, 48h)</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 font-medium animate-pulse">STRICT 24H</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 font-medium animate-pulse">48H · 1M+ VIEWS</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">

@@ -35,7 +35,8 @@ function getTikTokTier(v: { playCount: number; diggCount: number; shareCount: nu
   if (v.playCount >= 5_000_000 || v.diggCount >= 300_000 || v.shareCount >= 50_000) return "S";
   // Tier A — Exploding
   if (v.playCount >= 1_500_000 && v.diggCount >= 80_000) return "A";
-  // Tier B — Emerging (strong engagement rate)
+  // Tier B — Emerging: 1M+ plays OR strong engagement on 500k+
+  if (v.playCount >= 1_000_000) return "B";
   if (v.playCount >= 500_000 && v.playCount > 0 && (v.diggCount / v.playCount) > 0.08) return "B";
   return null;
 }
@@ -50,12 +51,12 @@ function getTweetTier(tw: { favorite_count: number; retweet_count: number; reply
   return null;
 }
 
-/** Check if content is ≤24 hours old */
-function isWithin24Hours(dateStr: string): boolean {
+/** Check if content is within given hours (default 24) */
+function isWithinHours(dateStr: string, hours = 24): boolean {
   if (!dateStr) return false;
   const created = new Date(dateStr).getTime();
   if (isNaN(created)) return false;
-  return (Date.now() - created) < 24 * 60 * 60 * 1000;
+  return (Date.now() - created) < hours * 60 * 60 * 1000;
 }
 
 /** Check relevance: animal/pet/justice ONLY */
@@ -219,8 +220,8 @@ function applyStrictTikTokFilter(videos: any[]): any[] {
       const isPetMemorial = ["memorial", "rip", "died", "put down", "rest in peace", "petloss"].some(kw => text.includes(kw));
       if (!isPetMemorial) return false;
     }
-    // AGE FILTER: must be ≤24 hours old
-    if (!isWithin24Hours(v.createTimeISO)) return false;
+    // AGE FILTER: must be ≤48 hours old for TikTok
+    if (!isWithinHours(v.createTimeISO, 48)) return false;
     // RELEVANCE FILTER
     if (!passesRelevanceFilter(v.text || "", v.hashtags || [])) return false;
     // VIRALITY THRESHOLD: must hit at least Tier B
@@ -234,7 +235,7 @@ function applyStrictTikTokFilter(videos: any[]): any[] {
 function applyStrictTweetFilter(tweets: any[]): any[] {
   return tweets.filter((tw) => {
     // AGE FILTER
-    if (!isWithin24Hours(tw.created_at)) return false;
+    if (!isWithinHours(tw.created_at, 24)) return false;
     // VIRALITY THRESHOLD
     const tier = getTweetTier(tw);
     if (!tier) return false;
