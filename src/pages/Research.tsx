@@ -1129,7 +1129,16 @@ export default function Research() {
 
         {/* Findings — 4-column card grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {filtered.map(f => {
+          {filtered.filter(f => {
+            // Gate: only show findings with required narrative fields
+            const rd = f.raw_data as any;
+            if (!rd) return false;
+            const hasName = !!(rd.name || f.title);
+            const hasSymbol = !!rd.symbol;
+            const hasWindow = !!rd.deploy_window;
+            const hasSources = (rd.tweet_sources?.length > 0) || (rd.trigger_tiktoks?.length > 0);
+            return hasName && hasSymbol && hasWindow && hasSources;
+          }).map(f => {
             const rawData = f.raw_data as any;
             const isNarrative = rawData?.type === 'narrative_report';
             const rating = rawData?.narrative_rating ?? rawData?.bundle_score ?? null;
