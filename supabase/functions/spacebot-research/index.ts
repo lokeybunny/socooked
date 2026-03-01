@@ -520,8 +520,16 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           ["cortex", "narrative", "cycle-report"]
         );
 
-        // Post-process: inject media_url from raw scraped tweets into AI-generated tweet_sources
+        // Post-process: if no tweets were actually scraped, strip AI-hallucinated tweet_sources
+        const hadRealTweets = tweets.length > 0;
         const narrativesToPost = (aiResult?.top_narratives?.slice(0, 8) || []).map((n: any) => {
+          if (!hadRealTweets) {
+            // No real tweets scraped — remove all fake sources the AI hallucinated
+            n.tweet_sources = [];
+            n.twitter_source_url = "";
+            n.media_url = "";
+            return n;
+          }
           if (n.tweet_sources?.length) {
             n.tweet_sources = n.tweet_sources.map((src: any) => {
               // Try to find matching scraped tweet by username or text overlap
@@ -536,6 +544,9 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
               // Always replace URL with real tweet link built from scraped id + screen_name
               if (scraped?.id && scraped?.user?.screen_name) {
                 src = { ...src, url: `https://x.com/${scraped.user.screen_name}/status/${scraped.id}` };
+              } else {
+                // No matching scraped tweet found — remove the hallucinated URL
+                src = { ...src, url: "" };
               }
               if (!src.media_url && scraped?.media_url) {
                 src = { ...src, media_url: scraped.media_url };
@@ -553,6 +564,8 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
               }
               return src;
             });
+            // Remove sources that have no real URL
+            n.tweet_sources = n.tweet_sources.filter((s: any) => s.url);
             // Also set a top-level media_url on the narrative for the card thumbnail
             if (!n.media_url) {
               n.media_url = n.tweet_sources.find((s: any) => s.media_url)?.media_url || "";
@@ -562,6 +575,8 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           if (n.tweet_sources?.length) {
             const realUrl = n.tweet_sources.find((s: any) => s.url && s.url.includes("x.com/") && s.url.includes("/status/"))?.url;
             if (realUrl) n.twitter_source_url = realUrl;
+          } else {
+            n.twitter_source_url = "";
           }
           return n;
         });
