@@ -82,6 +82,7 @@ export function GMapsLoopProvider({ children }: { children: React.ReactNode }) {
 
   const activeRef = useRef(loopState.active);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const generatingRef = useRef(false);
   const termIdxRef = useRef(loopState.currentTermIdx);
   const cityIdxRef = useRef(loopState.currentCityIdx);
@@ -145,6 +146,7 @@ export function GMapsLoopProvider({ children }: { children: React.ReactNode }) {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const controller = new AbortController();
+      abortRef.current = controller;
       const timeoutId = setTimeout(() => controller.abort(), 300_000);
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/gmaps-finder`, {
@@ -187,8 +189,13 @@ export function GMapsLoopProvider({ children }: { children: React.ReactNode }) {
         totalNewCreated: prev.totalNewCreated + created,
       }));
     } catch (err: any) {
-      addLog({ step: 99, label: 'Error', status: 'error', detail: err.message || 'Failed', ts: now() });
+      if (err.name === 'AbortError') {
+        addLog({ step: 99, label: 'Stopped', status: 'done', detail: '🛑 Search aborted by user', ts: now() });
+      } else {
+        addLog({ step: 99, label: 'Error', status: 'error', detail: err.message || 'Failed', ts: now() });
+      }
     } finally {
+      abortRef.current = null;
       generatingRef.current = false;
       setLoopState(prev => ({ ...prev, generating: false }));
 
@@ -225,11 +232,17 @@ export function GMapsLoopProvider({ children }: { children: React.ReactNode }) {
 
   const stopLoop = useCallback(() => {
     activeRef.current = false;
-    setLoopState(prev => ({ ...prev, active: false }));
+    setLoopState(prev => ({ ...prev, active: false, generating: false }));
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    // Abort any in-flight fetch request
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    generatingRef.current = false;
   }, []);
 
   const runOnce = useCallback(() => {
