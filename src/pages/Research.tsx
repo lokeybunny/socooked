@@ -972,61 +972,51 @@ export default function Research() {
                       </div>
 
                       {/* Body */}
-                      <div className="p-2.5 space-y-1.5">
-                        <div>
-                          <h3 className="text-lg font-bold text-foreground line-clamp-2 leading-tight">{n.name}</h3>
+                      <div className="p-2 space-y-1">
+                        <div className="flex items-baseline gap-2">
+                          <h3 className="text-base font-bold text-foreground line-clamp-1 leading-tight">{n.name}</h3>
                           {n.symbol && (
-                            <span className="text-sm font-mono font-bold px-2 py-1 rounded bg-primary/10 text-primary mt-1 inline-block">${n.symbol}</span>
+                            <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">${n.symbol}</span>
                           )}
                         </div>
 
-                        <div className="grid gap-1 p-2 rounded-md bg-background border border-border text-sm">
-                          {n.description && (
-                            <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Desc</span><span className="text-foreground line-clamp-2">{n.description}</span></div>
-                          )}
+                        {n.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">{n.description}</p>
+                        )}
+
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                           {n.deploy_window && (
-                            <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Window</span><span className={cn("font-semibold", n.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{n.deploy_window}</span></div>
+                            <span>⏱ <span className={cn("font-semibold", n.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{n.deploy_window}</span></span>
                           )}
-                          {n.competition && (
-                            <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Comp.</span><span className="text-foreground truncate">{n.competition}</span></div>
-                          )}
-                          {n.risk && (
-                            <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Risk</span><span className="text-foreground truncate">{n.risk}</span></div>
-                          )}
+                          {n.risk && <span>⚠ {n.risk}</span>}
+                          {n.competition && <span>🏁 {n.competition}</span>}
                         </div>
 
                         {n.rating_justification && (
-                          <div className="p-2 rounded-md bg-primary/5 border border-primary/10">
-                            <p className="text-sm text-foreground leading-snug line-clamp-3">
-                              <Zap className="h-2.5 w-2.5 inline mr-0.5 text-primary" />
-                              <strong>{rating}/10</strong> — {n.rating_justification}
-                            </p>
-                          </div>
+                          <p className="text-xs text-foreground leading-snug line-clamp-1">
+                            <Zap className="h-2.5 w-2.5 inline mr-0.5 text-primary" />
+                            <strong>{rating}/10</strong> — {n.rating_justification}
+                          </p>
                         )}
 
                         {n.on_chain_evidence && (
-                          <div className="p-2 rounded-md bg-muted/20 border border-border">
-                            <p className="text-sm text-muted-foreground leading-snug line-clamp-2">
-                              <TrendingUp className="h-2.5 w-2.5 inline mr-0.5 text-emerald-500" />
-                              <strong className="text-foreground">On-Chain:</strong> {n.on_chain_evidence}
-                            </p>
-                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-1">
+                            <TrendingUp className="h-2.5 w-2.5 inline mr-0.5 text-emerald-500" />
+                            {n.on_chain_evidence}
+                          </p>
                         )}
 
                         {n.tweet_sources?.length > 0 && (
-                          <div className="space-y-1 pt-1 border-t border-border">
-                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
-                            {n.tweet_sources.slice(0, 2).map((tw, j) => (
-                              <div key={j} className="rounded-md border border-blue-500/20 bg-blue-500/5 p-2 space-y-1">
-                                <div className="flex items-center gap-1">
-                                  <XIcon className="h-3 w-3 text-blue-400 shrink-0" />
-                                  <span className="text-sm font-bold text-foreground truncate">@{tw.user}</span>
-                                  <span className="text-xs text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                          <div className="pt-0.5 border-t border-border space-y-0.5">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
+                            {n.tweet_sources.slice(0, 1).map((tw, j) => (
+                              <div key={j} className="flex items-center gap-1 text-xs">
+                                <XIcon className="h-2.5 w-2.5 text-blue-400 shrink-0" />
+                                <span className="font-bold text-foreground truncate">@{tw.user}</span>
+                                <span className="text-blue-400 shrink-0">{tw.engagement}</span>
                                 {tw.url && (
-                                  <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-xs text-blue-400 hover:underline">
-                                    <ExternalLink className="h-3 w-3" /> View
+                                  <a href={tw.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-blue-400 hover:underline shrink-0">
+                                    <ExternalLink className="h-2.5 w-2.5" />
                                   </a>
                                 )}
                               </div>
@@ -1035,29 +1025,26 @@ export default function Research() {
                         )}
 
                         {n.trigger_tiktoks?.length > 0 && (
-                          <div className="space-y-1 pt-1 border-t border-border">
-                            <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok</span>
-                            {n.trigger_tiktoks.slice(0, 2).map((tt, j) => (
-                              <div key={j} className="rounded-md bg-purple-500/5 border border-purple-500/20 p-2">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="text-sm font-semibold text-foreground">{tt.author}</span>
-                                  <span className="text-sm text-pink-400">▶ {tt.plays}</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground line-clamp-2">{tt.text}</p>
+                          <div className="pt-0.5 border-t border-border space-y-0.5">
+                            <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok</span>
+                            {n.trigger_tiktoks.slice(0, 1).map((tt, j) => (
+                              <div key={j} className="flex items-center gap-1 text-xs">
+                                <span className="font-semibold text-foreground truncate">{tt.author}</span>
+                                <span className="text-pink-400 shrink-0">▶ {tt.plays}</span>
                               </div>
                             ))}
                           </div>
                         )}
 
                         {n.image_gen_prompt && (
-                          <div className="pt-1 border-t border-border">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🎨 Image Prompt</span>
-                              <button onClick={() => copyToClipboard(n.image_gen_prompt!)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5">
-                                <Copy className="h-3 w-3" /> Copy
+                          <div className="pt-0.5 border-t border-border">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🎨 Prompt</span>
+                              <button onClick={() => copyToClipboard(n.image_gen_prompt!)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5">
+                                <Copy className="h-2.5 w-2.5" />
                               </button>
                             </div>
-                            <p className="text-sm text-muted-foreground bg-muted/30 px-2 py-1.5 rounded font-mono line-clamp-2">{n.image_gen_prompt}</p>
+                            <p className="text-xs text-muted-foreground font-mono line-clamp-1">{n.image_gen_prompt}</p>
                           </div>
                         )}
                       </div>
