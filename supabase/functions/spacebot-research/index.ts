@@ -595,7 +595,6 @@ Classify. Rate. Include tiers. What prints RIGHT NOW?`;
             top_narratives: aiResult?.top_narratives || [],
             chain_of_thought: aiResult?.chain_of_thought || "",
             category_stats: aiResult?.category_stats || {},
-            tiktok_radar: [],
             tier_counts: { tweets: tweetTierCounts },
           },
           ["narrativeedge", "cycle-report"]
@@ -702,7 +701,7 @@ Classify. Rate. Include tiers. What prints RIGHT NOW?`;
           chain_of_thought: aiResult?.chain_of_thought?.slice(0, 1000) || "",
           evolved_queries: memory.search_terms,
           top_tweets: topTweets,
-          tiktok_radar: [],
+          
           tier_counts: { tweets: tweetTierCounts },
         });
       } catch (err: any) {
