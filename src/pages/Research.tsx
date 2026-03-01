@@ -20,6 +20,7 @@ import { useResearchLoop } from '@/hooks/useResearchLoop';
 import { useLeadLoop } from '@/hooks/useLeadLoop';
 import { useYelpLoop } from '@/hooks/useYelpLoop';
 import { useGMapsLoop } from '@/hooks/useGMapsLoop';
+import { XFeedPanel } from '@/components/research/XFeedPanel';
 import type { LucideIcon } from 'lucide-react';
 
 /* ── X (Twitter) icon ── */
@@ -1800,6 +1801,9 @@ export default function Research() {
         )}
 
 
+        {/* Two-column layout: findings + X feed */}
+        <div className={cn("flex gap-6", selectedSource === 'x' ? "flex-col lg:flex-row" : "")}>
+        <div className={cn("min-w-0", selectedSource === 'x' ? "flex-1" : "w-full")}>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {paginatedFiltered.filter(f => {
             // Gate: only show findings with required narrative fields
@@ -2083,6 +2087,14 @@ export default function Research() {
             <span className="text-xs text-muted-foreground ml-2">{filtered.length} total</span>
           </div>
         )}
+        </div>
+        {/* X Feed Panel - right side */}
+        {selectedSource === 'x' && (
+          <div className="lg:w-[420px] shrink-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-120px)]">
+            <XFeedPanel />
+          </div>
+        )}
+        </div>
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
