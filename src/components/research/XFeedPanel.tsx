@@ -1,10 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { ExternalLink, Heart, Repeat2, MessageCircle, Eye, Loader2, RefreshCw, Zap } from 'lucide-react';
+import { ExternalLink, Heart, Repeat2, MessageCircle, Eye, Loader2, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { toast } from 'sonner';
 
 const XIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
@@ -31,6 +29,7 @@ interface Tweet {
 
 const CACHE_KEY = 'x-feed-cache';
 const CACHE_TTL = 10 * 60 * 1000; // 10 min
+const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 min
 
 function getCachedFeed(): { tweets: Tweet[]; ts: number } | null {
   try {
@@ -38,12 +37,15 @@ function getCachedFeed(): { tweets: Tweet[]; ts: number } | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (Date.now() - parsed.ts > CACHE_TTL) return null;
+    if (!parsed.tweets?.length) return null;
     return parsed;
   } catch { return null; }
 }
 
 function setCachedFeed(tweets: Tweet[]) {
-  localStorage.setItem(CACHE_KEY, JSON.stringify({ tweets, ts: Date.now() }));
+  if (tweets.length > 0) {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ tweets, ts: Date.now() }));
+  }
 }
 
 function formatNum(n: number): string {
@@ -56,9 +58,14 @@ export function XFeedPanel() {
   const [tweets, setTweets] = useState<Tweet[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchFeed = useCallback(async (silent = false) => {
+  const fetchFeed = useCallback(async () => {
+    if (!mountedRef.current) return;
     setLoading(true);
+    setError(null);
     try {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/x-feed-scraper`;
       const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -74,28 +81,45 @@ export function XFeedPanel() {
       if (!res.ok) throw new Error(`Failed (${res.status})`);
       const data = await res.json();
       const newTweets = data.tweets || [];
-      setTweets(newTweets);
-      setCachedFeed(newTweets);
+      if (!mountedRef.current) return;
+      if (newTweets.length > 0) {
+        // Merge with existing: new tweets first, then existing ones not in new set
+        setTweets(prev => {
+          const ids = new Set(newTweets.map((t: Tweet) => t.id));
+          const kept = prev.filter(t => !ids.has(t.id));
+          return [...newTweets, ...kept].slice(0, 200);
+        });
+        setCachedFeed(newTweets);
+      }
       setLastFetched(new Date());
-      if (!silent) toast.success(`Feed loaded: ${newTweets.length} tweets from ${data.accounts_covered || '~120'} accounts`);
     } catch (err: any) {
-      if (!silent) toast.error(err.message || 'Feed fetch failed');
+      if (mountedRef.current) setError(err.message || 'Feed fetch failed');
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, []);
 
-  // Auto-load on mount: use cache if fresh and non-empty, otherwise fetch automatically
+  // Auto-load on mount + set up recurring refresh
   useEffect(() => {
+    mountedRef.current = true;
+    
+    // Load cache first for instant display
     const cached = getCachedFeed();
-    if (cached && cached.tweets.length > 0) {
+    if (cached) {
       setTweets(cached.tweets);
       setLastFetched(new Date(cached.ts));
-    } else {
-      // Clear any empty cache and fetch fresh
-      localStorage.removeItem(CACHE_KEY);
-      fetchFeed(true);
     }
+    
+    // Always fetch fresh data
+    fetchFeed();
+    
+    // Auto-refresh every 10 minutes
+    intervalRef.current = setInterval(fetchFeed, AUTO_REFRESH_INTERVAL);
+    
+    return () => {
+      mountedRef.current = false;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [fetchFeed]);
 
   return (
@@ -108,32 +132,36 @@ export function XFeedPanel() {
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-bold text-foreground leading-tight">Live Feed</h3>
           <p className="text-[10px] text-muted-foreground">
-            {tweets.length > 0
+            {loading ? 'Fetching latest tweets…' :
+             tweets.length > 0
               ? `${tweets.length} tweets · ${lastFetched ? formatDistanceToNow(lastFetched, { addSuffix: true }) : ''}`
               : '500+ curated accounts'}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0 shrink-0"
-          onClick={() => fetchFeed()}
-          disabled={loading}
-        >
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-        </Button>
+        {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />}
+        {!loading && tweets.length > 0 && (
+          <button
+            onClick={fetchFeed}
+            className="h-7 w-7 p-0 shrink-0 rounded-md flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Tweet list */}
-      {tweets.length === 0 && !loading ? (
+      {tweets.length === 0 && !loading && !error ? (
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
           <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
             <XIcon className="h-6 w-6 text-muted-foreground" />
           </div>
-          <p className="text-sm text-muted-foreground text-center">Hit refresh to scrape latest tweets from 500+ curated accounts</p>
-          <Button size="sm" onClick={() => fetchFeed()} className="gap-1.5">
-            <Zap className="h-3.5 w-3.5" /> Load Feed
-          </Button>
+          <p className="text-sm text-muted-foreground text-center">Loading live feed…</p>
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        </div>
+      ) : error && tweets.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
+          <p className="text-sm text-destructive text-center">{error}</p>
+          <p className="text-xs text-muted-foreground">Retrying automatically…</p>
         </div>
       ) : (
         <ScrollArea className="flex-1">
@@ -195,15 +223,15 @@ export function XFeedPanel() {
 
                     {/* Engagement bar */}
                     <div className="flex items-center gap-4 pt-1">
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-blue-400 transition-colors">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <MessageCircle className="h-3.5 w-3.5" />
                         {tw.replies > 0 && formatNum(tw.replies)}
                       </span>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-emerald-400 transition-colors">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Repeat2 className="h-3.5 w-3.5" />
                         {tw.retweets > 0 && formatNum(tw.retweets)}
                       </span>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-pink-400 transition-colors">
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Heart className="h-3.5 w-3.5" />
                         {tw.likes > 0 && formatNum(tw.likes)}
                       </span>
@@ -231,11 +259,11 @@ export function XFeedPanel() {
         </ScrollArea>
       )}
 
-      {/* Loading overlay */}
+      {/* Loading overlay when refreshing with existing tweets */}
       {loading && tweets.length === 0 && (
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground text-center">Scraping tweets from curated accounts…<br />This may take 1-3 minutes.</p>
+          <p className="text-sm text-muted-foreground text-center">Scraping latest tweets…<br />This may take 1-2 minutes.</p>
         </div>
       )}
     </div>
