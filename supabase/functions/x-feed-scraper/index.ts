@@ -6,7 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Curated X accounts to scrape
 const CURATED_ACCOUNTS = [
   "impenny2x","racer_dot_fun","andyayrey","cryptosis9_okx","tesla_optimus","deltaone","humansand",
   "aster_dex","lilalienz4ever","richardheartwin","j_mcgraph","govpressoffice","pokerbattle_ai",
@@ -156,40 +155,27 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Build search queries in batches of ~15 accounts using from: syntax
-    const batchSize = 15;
-    const searchTerms: string[] = [];
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-
-    for (let i = 0; i < CURATED_ACCOUNTS.length; i += batchSize) {
-      const batch = CURATED_ACCOUNTS.slice(i, i + batchSize);
-      const fromClause = batch.map(a => `from:${a}`).join(" OR ");
-      searchTerms.push(`(${fromClause}) since:${yesterday}`);
-    }
-
-    // Limit to first 10 query batches to stay within Apify limits (covers ~150 accounts per run)
-    // Rotate which batch we use based on current hour to cover all accounts over time
+    // Use twitterHandles to get latest 1 tweet per user
+    // Rotate through accounts in chunks to stay within limits
     const hour = new Date().getUTCHours();
-    const totalBatches = searchTerms.length;
-    const batchesPerRun = 8;
-    const startIdx = (hour * batchesPerRun) % totalBatches;
-    const selectedTerms: string[] = [];
-    for (let i = 0; i < batchesPerRun && i < totalBatches; i++) {
-      selectedTerms.push(searchTerms[(startIdx + i) % totalBatches]);
-    }
+    const chunkSize = 80;
+    const totalChunks = Math.ceil(CURATED_ACCOUNTS.length / chunkSize);
+    const chunkIdx = hour % totalChunks;
+    const startIdx = chunkIdx * chunkSize;
+    const selectedHandles = CURATED_ACCOUNTS.slice(startIdx, startIdx + chunkSize);
 
     const actorId = "xtdata~twitter-x-scraper";
     const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${APIFY_TOKEN}`;
 
     const input = {
-      searchTerms: selectedTerms,
-      maxItems: 150,
+      twitterHandles: selectedHandles,
+      maxItems: selectedHandles.length, // 1 tweet per handle
       sort: "Latest",
       tweetLanguage: "en",
       includeSearchTerms: false,
     };
 
-    console.log(`X Feed: scraping ${selectedTerms.length} query batches (rotation offset ${startIdx})`);
+    console.log(`X Feed: fetching latest tweet from ${selectedHandles.length} handles (chunk ${chunkIdx}/${totalChunks})`);
 
     const res = await fetch(runUrl, {
       method: "POST",
@@ -205,56 +191,60 @@ Deno.serve(async (req) => {
 
     const items: any[] = await res.json();
 
-    // Normalize tweets
-    const tweets = items
-      .filter((item: any) => item.type === "tweet" && item.id)
-      .map((tw: any) => {
-        let media_url = "";
-        if (tw.extendedEntities?.media?.length) {
-          const img = tw.extendedEntities.media.find((m: any) => m.type === "photo");
-          if (img) media_url = img.media_url_https || img.media_url || "";
-          if (!media_url) {
-            const vid = tw.extendedEntities.media.find((m: any) => m.type === "video" || m.type === "animated_gif");
-            if (vid) media_url = vid.media_url_https || vid.media_url || "";
-          }
-        }
-        if (!media_url && tw.entities?.media?.length) {
-          media_url = tw.entities.media[0].media_url_https || tw.entities.media[0].media_url || "";
-        }
+    // Normalize tweets - keep only 1 per user (latest)
+    const byUser = new Map<string, any>();
+    
+    for (const tw of items) {
+      if (tw.type !== "tweet" || !tw.id) continue;
+      
+      const user = (tw.author?.userName || tw.user?.screen_name || "").toLowerCase();
+      if (!user) continue;
+      
+      const createdAt = tw.createdAt || tw.created_at || "";
+      const existing = byUser.get(user);
+      if (!existing || createdAt > (existing.createdAt || existing.created_at || "")) {
+        byUser.set(user, tw);
+      }
+    }
 
-        return {
-          id: tw.id,
-          text: tw.text || tw.full_text || "",
-          user: tw.author?.userName || tw.user?.screen_name || "",
-          display_name: tw.author?.name || tw.author?.userName || "",
-          avatar: tw.author?.profilePicture || "",
-          verified: !!(tw.author?.isBlueVerified || tw.isBlueVerified),
-          gold: tw.author?.verifiedType === "Business",
-          likes: tw.likeCount || tw.favorite_count || 0,
-          retweets: tw.retweetCount || tw.retweet_count || 0,
-          replies: tw.replyCount || tw.reply_count || 0,
-          views: tw.viewCount || 0,
-          created_at: tw.createdAt || tw.created_at || "",
-          media_url,
-          url: tw.url || `https://x.com/${tw.author?.userName || "i"}/status/${tw.id}`,
-        };
-      })
-      // Sort by engagement
-      .sort((a: any, b: any) => (b.likes + b.retweets * 3) - (a.likes + a.retweets * 3));
+    const tweets = Array.from(byUser.values()).map((tw: any) => {
+      let media_url = "";
+      if (tw.extendedEntities?.media?.length) {
+        const img = tw.extendedEntities.media.find((m: any) => m.type === "photo");
+        if (img) media_url = img.media_url_https || img.media_url || "";
+        if (!media_url) {
+          const vid = tw.extendedEntities.media.find((m: any) => m.type === "video" || m.type === "animated_gif");
+          if (vid) media_url = vid.media_url_https || vid.media_url || "";
+        }
+      }
+      if (!media_url && tw.entities?.media?.length) {
+        media_url = tw.entities.media[0].media_url_https || tw.entities.media[0].media_url || "";
+      }
 
-    // Dedup by id
-    const seen = new Set<string>();
-    const deduped = tweets.filter((tw: any) => {
-      if (seen.has(tw.id)) return false;
-      seen.add(tw.id);
-      return true;
-    });
+      return {
+        id: tw.id,
+        text: tw.text || tw.full_text || "",
+        user: tw.author?.userName || tw.user?.screen_name || "",
+        display_name: tw.author?.name || tw.author?.userName || "",
+        avatar: tw.author?.profilePicture || "",
+        verified: !!(tw.author?.isBlueVerified || tw.isBlueVerified),
+        gold: tw.author?.verifiedType === "Business",
+        likes: tw.likeCount || tw.favorite_count || 0,
+        retweets: tw.retweetCount || tw.retweet_count || 0,
+        replies: tw.replyCount || tw.reply_count || 0,
+        views: tw.viewCount || 0,
+        created_at: tw.createdAt || tw.created_at || "",
+        media_url,
+        url: tw.url || `https://x.com/${tw.author?.userName || "i"}/status/${tw.id}`,
+      };
+    })
+    .sort((a: any, b: any) => (b.likes + b.retweets * 3) - (a.likes + a.retweets * 3));
 
     return new Response(JSON.stringify({
-      tweets: deduped.slice(0, 100),
+      tweets,
       total_scraped: items.length,
-      accounts_covered: selectedTerms.length * batchSize,
-      rotation_offset: startIdx,
+      accounts_covered: selectedHandles.length,
+      chunk: chunkIdx,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
