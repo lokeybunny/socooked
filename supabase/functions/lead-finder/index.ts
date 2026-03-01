@@ -44,13 +44,31 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
 
+    // Allowed contact_location values per Apify schema
+    const ALLOWED_LOCATIONS = [
+      "united states", "germany", "india", "united kingdom", "russia",
+      "france", "china", "canada", "netherlands", "mexico", "belgium",
+      "australia", "brazil", "spain", "italy", "japan", "south korea",
+      "sweden", "switzerland", "austria", "poland", "norway", "denmark",
+      "finland", "ireland", "portugal", "czech republic", "romania",
+      "hungary", "greece", "turkey", "israel", "south africa", "nigeria",
+      "egypt", "saudi arabia", "united arab emirates", "singapore",
+      "indonesia", "thailand", "vietnam", "philippines", "malaysia",
+      "new zealand", "argentina", "colombia", "chile", "peru",
+    ];
+
+    // Normalize and filter locations to only allowed values
+    const validLocations = contact_location
+      .map((l: string) => l.trim().toLowerCase())
+      .filter((l: string) => ALLOWED_LOCATIONS.includes(l));
+
     // Build Apify input
     const input: Record<string, any> = {
-      fetch_count: Math.min(fetch_count, 100), // cap per run
+      fetch_count: Math.min(fetch_count, 100),
       email_status,
     };
     if (contact_job_title.length) input.contact_job_title = contact_job_title;
-    if (contact_location.length) input.contact_location = contact_location;
+    if (validLocations.length) input.contact_location = validLocations;
     if (contact_city.length) input.contact_city = contact_city;
     if (company_industry.length) input.company_industry = company_industry;
     if (company_keywords.length) input.company_keywords = company_keywords;
