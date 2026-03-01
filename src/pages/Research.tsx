@@ -1914,10 +1914,10 @@ export default function Research() {
                   )}
 
               {/* Tweet sources (compact) */}
-                  {tweetSources.length > 0 && (
+                  {(tweetSources.length > 0 || rawData?.twitter_source_url || f.source_url) && (
                     <div className="space-y-1 pt-1 border-t border-border">
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
-                      {tweetSources.slice(0, 2).map((tw, j) => {
+                      {tweetSources.length > 0 ? tweetSources.slice(0, 2).map((tw, j) => {
                         const isGoldCheck = (tw as any).verifiedType === "Business";
                         return (
                           <div key={j} className={cn(
@@ -1945,7 +1945,19 @@ export default function Research() {
                             </div>
                           </div>
                         );
-                      })}
+                      }) : (
+                        <div className="rounded-md p-1.5 border border-blue-500/20 bg-blue-500/5">
+                          <div className="flex items-center gap-1">
+                            <XIcon className="h-2.5 w-2.5 text-blue-400 shrink-0" />
+                            <a href={rawData?.twitter_source_url || f.source_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline truncate">
+                              View original post
+                            </a>
+                            <a href={rawData?.twitter_source_url || f.source_url} target="_blank" rel="noopener noreferrer" className="ml-auto text-blue-400 hover:underline shrink-0">
+                              <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
