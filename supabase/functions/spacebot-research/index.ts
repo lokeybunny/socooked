@@ -574,6 +574,8 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
               }
               return src;
             });
+            // Only keep sources that matched a real scraped tweet (have a real x.com status URL)
+            n.tweet_sources = n.tweet_sources.filter((s: any) => s.url && s.url.includes("x.com/") && s.url.includes("/status/"));
             if (!n.media_url) {
               n.media_url = n.tweet_sources.find((s: any) => s.media_url)?.media_url || "";
             }
