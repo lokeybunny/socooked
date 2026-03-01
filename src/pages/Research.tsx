@@ -70,6 +70,8 @@ interface TikTokVideo {
   narrativeScore: number;
   hashtags: string[];
   tokenized?: boolean;
+  tier?: string;
+  matchedToken?: any;
 }
 
 interface TriggerTikTok {
@@ -98,6 +100,7 @@ interface Narrative {
   tiktok_source_url?: string;
   source_platform?: string;
   image_gen_prompt?: string;
+  tier?: string;
   // Legacy compat
   bundle_score?: number;
   suggested_tickers?: string[];
@@ -674,20 +677,27 @@ export default function Research() {
         )}
 
         {/* ══════ TikTok Animal Viral Radar ══════ */}
+        {selectedSource === 'x' && !generating && tiktokRadar.length === 0 && showLog && progressLog.some(p => p.status === 'done' || p.status === 'error') && (
+          <div className="glass-card rounded-lg p-8 text-center border border-border">
+            <p className="text-lg font-bold text-foreground mb-1">No fresh metas — waiting for the next dead cat 🐿️</p>
+            <p className="text-sm text-muted-foreground">No TikTok animal/pet/justice videos passed the strict 24h Tier S/A/B filter this cycle.</p>
+          </div>
+        )}
         {selectedSource === 'x' && tiktokRadar.length > 0 && (
           <div className="glass-card rounded-lg overflow-hidden border border-pink-500/30">
             <div className="px-4 py-3 bg-pink-500/5 border-b border-pink-500/20 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Music className="h-4 w-4 text-pink-500" />
-                <span className="text-sm font-bold text-foreground">🎵 TikTok Animal Viral Radar — {tiktokRadar.length} Videos</span>
+                <span className="text-sm font-bold text-foreground">🎵 TikTok Animal Viral Radar — {tiktokRadar.length} Videos (24h only)</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 font-medium animate-pulse">LIVE</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 font-medium animate-pulse">STRICT 24H</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
                     <th className="text-left px-3 py-2 text-muted-foreground font-medium">#</th>
+                    <th className="text-center px-3 py-2 text-muted-foreground font-medium">Tier</th>
                     <th className="text-left px-3 py-2 text-muted-foreground font-medium">Video</th>
                     <th className="text-right px-3 py-2 text-muted-foreground font-medium">▶ Plays</th>
                     <th className="text-right px-3 py-2 text-muted-foreground font-medium">❤ Likes</th>
@@ -699,9 +709,18 @@ export default function Research() {
                 <tbody>
                   {tiktokRadar.map((v, i) => {
                     const fmt = (n: number) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n/1000).toFixed(0)}K` : `${n}`;
+                    const tierColor = v.tier === 'S' ? 'bg-red-500/20 text-red-400 animate-pulse' : v.tier === 'A' ? 'bg-amber-500/20 text-amber-400' : 'bg-muted text-muted-foreground';
                     return (
-                      <tr key={v.id || i} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                      <tr key={v.id || i} className={cn(
+                        "border-b border-border/50 hover:bg-muted/20 transition-colors",
+                        v.tier === 'S' && "bg-red-500/5"
+                      )}>
                         <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-black", tierColor)}>
+                            {v.tier || '?'}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 max-w-[300px]">
                           <div className="flex items-start gap-2">
                             {v.coverUrl && (
@@ -735,20 +754,27 @@ export default function Research() {
                         <td className="px-3 py-2 text-center">
                           <span className={cn(
                             "px-1.5 py-0.5 rounded-full text-[10px] font-bold",
-                            v.narrativeScore >= 15 ? "bg-primary/20 text-primary" :
-                            v.narrativeScore >= 10 ? "bg-amber-500/20 text-amber-400" :
+                            v.narrativeScore >= 18 ? "bg-red-500/20 text-red-400" :
+                            v.narrativeScore >= 12 ? "bg-primary/20 text-primary" :
+                            v.narrativeScore >= 8 ? "bg-amber-500/20 text-amber-400" :
                             "bg-muted text-muted-foreground"
                           )}>
-                            {v.narrativeScore}/20
+                            {v.narrativeScore}/25
                           </span>
                         </td>
                         <td className="px-3 py-2 text-center">
-                          <span className={cn(
-                            "text-[10px] px-2 py-0.5 rounded-full font-bold",
-                            "bg-primary/20 text-primary"
-                          )}>
-                            🚀 LAUNCH
-                          </span>
+                          {v.tokenized ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-muted text-muted-foreground">
+                              ⚠️ EXISTS
+                            </span>
+                          ) : (
+                            <span className={cn(
+                              "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                              v.tier === 'S' ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-primary/20 text-primary"
+                            )}>
+                              {v.tier === 'S' ? '🚨 SPIN NOW' : '🚀 LAUNCH'}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -847,6 +873,17 @@ export default function Research() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-bold text-foreground">{i + 1}.</span>
+                        {/* Tier badge */}
+                        {n.tier && (
+                          <span className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded-full font-black",
+                            n.tier === 'S' ? "bg-red-500/20 text-red-400 animate-pulse" :
+                            n.tier === 'A' ? "bg-amber-500/20 text-amber-400" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {n.tier}
+                          </span>
+                        )}
                         {/* Source platform badge */}
                         {n.source_platform && (
                           <span className={cn(
