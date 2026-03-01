@@ -41,6 +41,7 @@ import Research from "./pages/Research";
 import LeadFinder from "./pages/LeadFinder";
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
+import { YelpLoopProvider } from "./hooks/useYelpLoop";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -48,6 +49,7 @@ const App = () => (
     <ThemeProvider>
     <ResearchLoopProvider>
     <LeadLoopProvider>
+    <YelpLoopProvider>
     <AuthProvider>
       <TooltipProvider>
         <Toaster />
@@ -92,6 +94,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+    </YelpLoopProvider>
     </LeadLoopProvider>
     </ResearchLoopProvider>
     </ThemeProvider>
