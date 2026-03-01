@@ -356,9 +356,12 @@ Deno.serve(async (req) => {
         send("progress", { step: 6, label: "Cortex reasoning engine (Lovable AI)", status: "running", detail: "Running Chain-of-Thought narrative analysis..." });
 
         const top15 = matched.slice(0, 15);
-        const topSummary = top15.map((m, i) =>
-          `${i + 1}. ${m.token.baseToken?.symbol || "?"} (${m.token.baseToken?.name || "?"}) | Stage: ${m.token.stage} | MCAP: $${m.token.mcap} | Vol24h: $${m.token.volume24h} | Liq: $${m.token.liquidity} | Δ5m: ${m.token.priceChange5m}% | Δ1h: ${m.token.priceChange1h}% | Δ6h: ${m.token.priceChange6h}% | Δ24h: ${m.token.priceChange24h}% | Buys: ${m.token.txns24h_buys} | Sells: ${m.token.txns24h_sells} | Tweets: ${m.tweet_velocity} | Engagement: ${m.total_engagement} | Top tweet: "${m.matched_tweets[0]?.text?.slice(0, 120) || 'none'}"`
-        ).join("\n");
+        // Build a lookup of all scraped tweets with media for post-processing
+        const allTweetsWithMedia = tweets.filter((tw: any) => tw.media_url);
+        const topSummary = top15.map((m, i) => {
+          const mediaTweets = m.matched_tweets.filter((tw: any) => tw.media_url).map((tw: any) => tw.media_url).slice(0, 2);
+          return `${i + 1}. ${m.token.baseToken?.symbol || "?"} (${m.token.baseToken?.name || "?"}) | Stage: ${m.token.stage} | MCAP: $${m.token.mcap} | Vol24h: $${m.token.volume24h} | Liq: $${m.token.liquidity} | Δ5m: ${m.token.priceChange5m}% | Δ1h: ${m.token.priceChange1h}% | Δ6h: ${m.token.priceChange6h}% | Δ24h: ${m.token.priceChange24h}% | Buys: ${m.token.txns24h_buys} | Sells: ${m.token.txns24h_sells} | Tweets: ${m.tweet_velocity} | Engagement: ${m.total_engagement} | Top tweet: "${m.matched_tweets[0]?.text?.slice(0, 120) || 'none'}"${mediaTweets.length ? ` | Media: ${mediaTweets.join(', ')}` : ''}`;
+        }).join("\n");
 
         const tweetThemes = tweets.slice(0, 50).map((tw: any) => (tw.full_text || tw.text || "").slice(0, 200)).join("\n---\n");
 
@@ -517,7 +520,41 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           ["cortex", "narrative", "cycle-report"]
         );
 
-        const narrativesToPost = aiResult?.top_narratives?.slice(0, 8) || [];
+        // Post-process: inject media_url from raw scraped tweets into AI-generated tweet_sources
+        const narrativesToPost = (aiResult?.top_narratives?.slice(0, 8) || []).map((n: any) => {
+          if (n.tweet_sources?.length) {
+            n.tweet_sources = n.tweet_sources.map((src: any) => {
+              if (src.media_url) return src;
+              // Try to find matching scraped tweet by username or text overlap
+              const scraped = tweets.find((tw: any) => {
+                const screen = tw.user?.screen_name || "";
+                const srcUser = (src.user || "").replace("@", "");
+                if (screen && srcUser && screen.toLowerCase() === srcUser.toLowerCase()) return true;
+                const twText = (tw.full_text || tw.text || "").toLowerCase();
+                const srcText = (src.text || "").toLowerCase().slice(0, 40);
+                return srcText.length > 10 && twText.includes(srcText);
+              });
+              if (scraped?.media_url) {
+                return { ...src, media_url: scraped.media_url };
+              }
+              // Fallback: find ANY tweet with media from the same cluster
+              const clusterMatch = matched.find(m => {
+                const sym = (m.token.baseToken?.symbol || "").toLowerCase();
+                return sym && (n.symbol || "").toLowerCase() === sym;
+              });
+              const mediaFromCluster = clusterMatch?.matched_tweets.find((tw: any) => tw.media_url);
+              if (mediaFromCluster?.media_url) {
+                return { ...src, media_url: mediaFromCluster.media_url };
+              }
+              return src;
+            });
+            // Also set a top-level media_url on the narrative for the card thumbnail
+            if (!n.media_url) {
+              n.media_url = n.tweet_sources.find((s: any) => s.media_url)?.media_url || "";
+            }
+          }
+          return n;
+        });
         for (const n of narrativesToPost) {
           const rating = n.narrative_rating ?? n.bundle_score ?? 0;
           const sources = n.tweet_sources?.map((s: any) => s.url).filter(Boolean) || [];
