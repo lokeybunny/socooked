@@ -309,6 +309,15 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+  // Parse request body for source selection
+  let sources: string[] = ["x", "tiktok"]; // default: both
+  try {
+    const body = await req.json();
+    if (body?.sources?.length) sources = body.sources;
+  } catch { /* no body = both */ }
+  const runX = sources.includes("x");
+  const runTikTok = sources.includes("tiktok");
+
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
@@ -374,35 +383,49 @@ Deno.serve(async (req) => {
 
         send("progress", { step: 0, label: "Loading NarrativeEdge memory", status: "done", detail: `Loaded ${memory.search_terms.length} X queries, ${memory.tiktok_queries.length} TikTok queries, ${memory.past_wins.length} past wins` });
 
-        // ── STEP 1 + 1.5: Scrape BOTH in parallel ──
-        send("progress", { step: 1, label: "Scraping X/Twitter via Apify (apidojo/tweet-scraper)", status: "running", detail: `Launching with ${memory.search_terms.length} queries + auto since:24h...` });
-        send("progress", { step: 1.5, label: "Scraping TikTok via Apify (clockworks/tiktok-scraper)", status: "running", detail: `${memory.tiktok_queries.length} searches + ${memory.tiktok_hashtags.length} hashtags...` });
+        // ── STEP 1 + 1.5: Scrape selected sources in parallel ──
+        if (runX) send("progress", { step: 1, label: "Scraping X/Twitter via Apify (apidojo/tweet-scraper)", status: "running", detail: `Launching with ${memory.search_terms.length} queries + auto since:24h...` });
+        if (runTikTok) send("progress", { step: 1.5, label: "Scraping TikTok via Apify (clockworks/tiktok-scraper)", status: "running", detail: `${memory.tiktok_queries.length} searches + ${memory.tiktok_hashtags.length} hashtags...` });
 
         let tweets: any[] = [];
         let tiktokVideos: any[] = [];
         let apifyError = false;
         let tiktokError = false;
 
-        const [tweetResult, tiktokResult] = await Promise.allSettled([
-          scrapeTweetsViaApify(APIFY_TOKEN!, memory.search_terms, 300),
-          scrapeTikTokViaApify(APIFY_TOKEN!, memory.tiktok_queries, memory.tiktok_hashtags, 100),
-        ]);
+        const scrapePromises: Promise<any>[] = [];
+        const scrapeLabels: string[] = [];
 
-        if (tweetResult.status === "fulfilled") {
-          tweets = tweetResult.value;
-        } else {
-          apifyError = true;
-          console.log(`Apify tweet scrape failed: ${tweetResult.reason}`);
-          send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "warning", detail: `⚠️ Failed: ${tweetResult.reason}` });
+        if (runX) {
+          scrapePromises.push(scrapeTweetsViaApify(APIFY_TOKEN!, memory.search_terms, 300));
+          scrapeLabels.push("x");
+        }
+        if (runTikTok) {
+          scrapePromises.push(scrapeTikTokViaApify(APIFY_TOKEN!, memory.tiktok_queries, memory.tiktok_hashtags, 100));
+          scrapeLabels.push("tiktok");
         }
 
-        if (tiktokResult.status === "fulfilled") {
-          tiktokVideos = tiktokResult.value;
-        } else {
-          tiktokError = true;
-          console.log(`Apify TikTok scrape failed: ${tiktokResult.reason}`);
-          send("progress", { step: 1.5, label: "Scraping TikTok via Apify", status: "warning", detail: `⚠️ Failed: ${tiktokResult.reason}` });
-        }
+        const results = await Promise.allSettled(scrapePromises);
+
+        results.forEach((result, idx) => {
+          const label = scrapeLabels[idx];
+          if (label === "x") {
+            if (result.status === "fulfilled") {
+              tweets = result.value;
+            } else {
+              apifyError = true;
+              console.log(`Apify tweet scrape failed: ${result.reason}`);
+              send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "warning", detail: `⚠️ Failed: ${result.reason}` });
+            }
+          } else if (label === "tiktok") {
+            if (result.status === "fulfilled") {
+              tiktokVideos = result.value;
+            } else {
+              tiktokError = true;
+              console.log(`Apify TikTok scrape failed: ${result.reason}`);
+              send("progress", { step: 1.5, label: "Scraping TikTok via Apify", status: "warning", detail: `⚠️ Failed: ${result.reason}` });
+            }
+          }
+        });
 
         // Deduplicate tweets by id
         const seenIds = new Set<string>();

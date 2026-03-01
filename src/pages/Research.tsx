@@ -130,6 +130,7 @@ export default function Research() {
   const [evolvedQueries, setEvolvedQueries] = useState<string[]>([]);
   const [tiktokRadar, setTiktokRadar] = useState<TikTokVideo[]>([]);
   const [creditsDepleted, setCreditsDepleted] = useState(false);
+  const [scrapeSources, setScrapeSources] = useState<('x' | 'tiktok')[]>(['x', 'tiktok']);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // New finding form
@@ -324,6 +325,7 @@ export default function Research() {
           'Authorization': `Bearer ${anonKey}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ sources: scrapeSources }),
       });
 
       if (!res.ok) {
@@ -531,19 +533,42 @@ export default function Research() {
           <p className="text-muted-foreground text-sm">{filtered.length} findings</p>
           <div className="flex items-center gap-2">
             {selectedSource === 'x' && (
-              <Button
-                size="sm"
-                onClick={handleGenerate}
-                disabled={generating}
-                className="gap-1.5"
-              >
-                {generating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Brain className="h-4 w-4" />
-                )}
-                {generating ? 'Cortex running...' : 'Generate Research'}
-              </Button>
+              <div className="flex items-center gap-2">
+                {/* Source toggles */}
+                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+                  <button
+                    onClick={() => setScrapeSources(prev => prev.includes('x') ? prev.filter(s => s !== 'x') : [...prev, 'x'])}
+                    className={cn(
+                      "px-2.5 py-1 rounded text-xs font-semibold transition-colors",
+                      scrapeSources.includes('x') ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    𝕏 X
+                  </button>
+                  <button
+                    onClick={() => setScrapeSources(prev => prev.includes('tiktok') ? prev.filter(s => s !== 'tiktok') : [...prev, 'tiktok'])}
+                    className={cn(
+                      "px-2.5 py-1 rounded text-xs font-semibold transition-colors",
+                      scrapeSources.includes('tiktok') ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    🎵 TikTok
+                  </button>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleGenerate}
+                  disabled={generating || scrapeSources.length === 0}
+                  className="gap-1.5"
+                >
+                  {generating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Brain className="h-4 w-4" />
+                  )}
+                  {generating ? 'Cortex running...' : `Generate (${scrapeSources.join(' + ').toUpperCase() || 'select source'})`}
+                </Button>
+              </div>
             )}
             {selectedSource === 'x' && filtered.length > 0 && (
               <Button
@@ -859,8 +884,9 @@ export default function Research() {
                   <div key={i} className={cn(
                     "space-y-3 p-4 rounded-lg border",
                     n.source_platform === 'tiktok' ? "bg-purple-500/5 border-purple-500/30" :
-                    n.source_platform === 'cross-platform' ? "bg-amber-500/5 border-amber-500/30" :
-                    "bg-blue-500/5 border-blue-500/30"
+                    n.source_platform === 'cross-platform' ? "bg-gradient-to-r from-blue-500/5 to-purple-500/5 border-amber-500/30" :
+                    n.source_platform === 'x' ? "bg-blue-500/5 border-blue-500/30" :
+                    "bg-muted/30 border-border"
                   )}>
                     {/* Header: rank + name + rating */}
                     <div className="flex items-center justify-between">
