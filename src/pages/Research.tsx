@@ -381,7 +381,9 @@ export default function Research() {
   }, [selectedSource, allFindings, deduplicateXFindings]);
 
   const categoryCounts = RESEARCH_SOURCES.reduce((acc, src) => {
-    acc[src.id] = allFindings.filter(f => normSource(f.category) === src.id).length;
+    const catItems = allFindings.filter(f => normSource(f.category) === src.id);
+    // For X, apply dedup so the badge matches displayed count
+    acc[src.id] = src.id === 'x' ? deduplicateXFindings(catItems).length : catItems.length;
     return acc;
   }, {} as Record<string, number>);
 
