@@ -417,7 +417,7 @@ export default function Research() {
     }
   }, [selectedSource]);
 
-  // Client-side dedup helper for X findings: keep first occurrence by symbol/name/media_url
+  // Client-side dedup helper for X findings: keep first occurrence by source tweet URL only
   const deduplicateXFindings = useCallback((items: any[]) => {
     const seen = new Set<string>();
     return items.filter(f => {
@@ -427,17 +427,13 @@ export default function Research() {
       if (tags.includes('cycle-report')) return false;
       const rd = f.raw_data || {};
       if (rd.type === 'cycle_report' || f.title?.includes('NarrativeEdge Cycle') || f.title?.includes('Cortex Analyst Report')) return false;
-      // Build composite keys from symbol, name, and first media_url
-      const keys: string[] = [];
-      if (rd.symbol) keys.push(`sym:${String(rd.symbol).toLowerCase()}`);
-      if (rd.name) keys.push(`name:${String(rd.name).toLowerCase()}`);
-      const media = rd.media_url || rd.tweet_sources?.[0]?.media_url;
-      if (media) keys.push(`media:${media}`);
-      // If no keys, keep it (can't dedup)
-      if (keys.length === 0) return true;
-      // If ANY key was already seen, it's a duplicate
-      if (keys.some(k => seen.has(k))) return false;
-      keys.forEach(k => seen.add(k));
+      // Dedup only by source tweet URL (exact same tweet = duplicate)
+      const tweetUrl = rd.twitter_source_url || rd.tweet_sources?.[0]?.url || f.source_url;
+      if (tweetUrl) {
+        const key = `url:${tweetUrl}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+      }
       return true;
     });
   }, []);
