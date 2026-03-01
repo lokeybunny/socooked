@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const TWITTER_BEARER_TOKEN = Deno.env.get("TWITTER_BEARER_TOKEN");
   const TWITTER_CLIENT_ID = Deno.env.get("TWITTER_CLIENT_ID");
   const TWITTER_CLIENT_SECRET = Deno.env.get("TWITTER_CLIENT_SECRET");
   const MORALIS_API_KEY = Deno.env.get("MORALIS_API_KEY");
@@ -88,9 +89,10 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  if (!TWITTER_CLIENT_ID || !TWITTER_CLIENT_SECRET || !MORALIS_API_KEY) {
+  const hasTwitterCreds = TWITTER_BEARER_TOKEN || (TWITTER_CLIENT_ID && TWITTER_CLIENT_SECRET);
+  if (!hasTwitterCreds || !MORALIS_API_KEY) {
     return new Response(
-      JSON.stringify({ error: "Missing API keys (TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET, MORALIS_API_KEY)" }),
+      JSON.stringify({ error: "Missing API keys (need TWITTER_BEARER_TOKEN or TWITTER_CLIENT_ID+SECRET, plus MORALIS_API_KEY)" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -160,19 +162,23 @@ Deno.serve(async (req) => {
 
         send("progress", { step: 0, label: "Loading Cortex memory", status: "done", detail: `Loaded ${memory.search_terms.length} search queries, ${memory.past_wins.length} past wins` });
 
-        // ── STEP 1: Authenticate with X API via OAuth 2.0 ────────────
-        send("progress", { step: 1, label: "Authenticating with X API (OAuth 2.0)", status: "running", detail: "Getting bearer token via Client Credentials..." });
+        // ── STEP 1: Get X API Bearer token ────────────
+        send("progress", { step: 1, label: "Authenticating with X API", status: "running", detail: "Acquiring bearer token..." });
 
         let xBearer: string;
         try {
-          xBearer = await getXBearerToken(TWITTER_CLIENT_ID!, TWITTER_CLIENT_SECRET!);
+          if (TWITTER_BEARER_TOKEN) {
+            xBearer = TWITTER_BEARER_TOKEN;
+          } else {
+            xBearer = await getXBearerToken(TWITTER_CLIENT_ID!, TWITTER_CLIENT_SECRET!);
+          }
         } catch (e: any) {
-          await send("progress", { step: 1, label: "Authenticating with X API (OAuth 2.0)", status: "error", detail: e.message });
-          await send("error", { message: `X OAuth2 auth failed: ${e.message}` });
+          await send("progress", { step: 1, label: "Authenticating with X API", status: "error", detail: e.message });
+          await send("error", { message: `X auth failed: ${e.message}` });
           try { await writer.close(); } catch { /* already closed */ }
           return;
         }
-        send("progress", { step: 1, label: "Authenticating with X API (OAuth 2.0)", status: "done", detail: "Bearer token acquired ✓" });
+        send("progress", { step: 1, label: "Authenticating with X API", status: "done", detail: TWITTER_BEARER_TOKEN ? "Using direct Bearer Token ✓" : "OAuth2 Bearer token acquired ✓" });
 
         // ── STEP 2: Search tweets via X API v2 ──────────────────────
         send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: "running", detail: `Sending ${memory.search_terms.length} search queries...` });
