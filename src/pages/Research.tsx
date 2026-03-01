@@ -904,34 +904,38 @@ export default function Research() {
                 </div>
               )}
 
-              {topNarratives.map((n, i) => {
-                const rating = n.narrative_rating ?? n.bundle_score ?? 0;
-                const copyCard = () => {
-                  const text = [
-                    `Name: ${n.name}`,
-                    `Symbol: ${n.symbol || n.suggested_tickers?.[0] || '—'}`,
-                    `Description: ${n.description || n.why_bundle || '—'}`,
-                    `Rating: ${rating}/10`,
-                    `${n.rating_justification || n.why_bundle || ''}`,
-                    n.twitter_source_url ? `Twitter: ${n.twitter_source_url}` : '',
-                    n.website ? `Website: ${n.website}` : '',
-                  ].filter(Boolean).join('\n');
-                  copyToClipboard(text);
-                };
+              <div className="grid grid-cols-2 gap-4">
+                {topNarratives.map((n, i) => {
+                  const rating = n.narrative_rating ?? n.bundle_score ?? 0;
+                  const copyCard = () => {
+                    const text = [
+                      `Name: ${n.name}`,
+                      `Symbol: ${n.symbol || n.suggested_tickers?.[0] || '—'}`,
+                      `Description: ${n.description || n.why_bundle || '—'}`,
+                      `Rating: ${rating}/10`,
+                      `${n.rating_justification || n.why_bundle || ''}`,
+                      n.twitter_source_url ? `Twitter: ${n.twitter_source_url}` : '',
+                      n.website ? `Website: ${n.website}` : '',
+                    ].filter(Boolean).join('\n');
+                    copyToClipboard(text);
+                  };
 
-                return (
-                  <div key={i} className={cn(
-                    "space-y-3 p-4 rounded-lg border",
-                    n.source_platform === 'tiktok' ? "bg-purple-500/5 border-purple-500/30" :
-                    n.source_platform === 'cross-platform' ? "bg-gradient-to-r from-blue-500/5 to-purple-500/5 border-amber-500/30" :
-                    n.source_platform === 'x' ? "bg-blue-500/5 border-blue-500/30" :
-                    "bg-muted/30 border-border"
-                  )}>
-                    {/* Header: rank + name + rating */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-foreground">{i + 1}.</span>
-                        {/* Tier badge */}
+                  return (
+                    <div key={i} className={cn(
+                      "flex flex-col overflow-hidden rounded-xl border aspect-square",
+                      n.source_platform === 'tiktok' ? "bg-purple-500/5 border-purple-500/30" :
+                      n.source_platform === 'cross-platform' ? "bg-gradient-to-r from-blue-500/5 to-purple-500/5 border-amber-500/30" :
+                      n.source_platform === 'x' ? "bg-blue-500/5 border-blue-500/30" :
+                      "bg-muted/30 border-border"
+                    )}>
+                      {/* Header strip */}
+                      <div className={cn(
+                        "px-3 py-1.5 border-b flex items-center gap-2 shrink-0",
+                        n.source_platform === 'tiktok' ? "bg-purple-500/10 border-purple-500/20" :
+                        n.source_platform === 'x' ? "bg-blue-500/10 border-blue-500/20" :
+                        "bg-muted/40 border-border"
+                      )}>
+                        <span className="text-xs font-bold text-foreground">{i + 1}.</span>
                         {n.tier && (
                           <span className={cn(
                             "text-[10px] px-1.5 py-0.5 rounded-full font-black",
@@ -942,7 +946,6 @@ export default function Research() {
                             {n.tier}
                           </span>
                         )}
-                        {/* Source platform badge */}
                         {n.source_platform && (
                           <span className={cn(
                             "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
@@ -950,175 +953,118 @@ export default function Research() {
                             n.source_platform === 'tiktok' ? "bg-purple-500/20 text-purple-400" :
                             "bg-blue-500/20 text-blue-400"
                           )}>
-                            {n.source_platform === 'cross-platform' ? '🔀 X+TT' : n.source_platform === 'tiktok' ? '🎵 TikTok' : '𝕏 X'}
+                            {n.source_platform === 'cross-platform' ? '🔀 X+TT' : n.source_platform === 'tiktok' ? '🎵 TT' : '𝕏'}
                           </span>
                         )}
-                        <span className="font-semibold text-foreground">{n.name}</span>
-                        {n.symbol && (
-                          <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">${n.symbol}</span>
+                        <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                          <button onClick={copyCard} className="text-muted-foreground hover:text-foreground">
+                            <Copy className="h-3 w-3" />
+                          </button>
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                            rating >= 8 ? "bg-primary/20 text-primary" :
+                            rating >= 6 ? "bg-accent/20 text-accent-foreground" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {rating}/10
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Scrollable body */}
+                      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                        <div>
+                          <h3 className="text-sm font-bold text-foreground line-clamp-2 leading-tight">{n.name}</h3>
+                          {n.symbol && (
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary mt-1 inline-block">${n.symbol}</span>
+                          )}
+                        </div>
+
+                        <div className="grid gap-1 p-2 rounded-md bg-background border border-border text-[11px]">
+                          {n.description && (
+                            <div className="flex gap-2"><span className="text-muted-foreground w-14 shrink-0">Desc</span><span className="text-foreground line-clamp-2">{n.description}</span></div>
+                          )}
+                          {n.deploy_window && (
+                            <div className="flex gap-2"><span className="text-muted-foreground w-14 shrink-0">Window</span><span className={cn("font-semibold", n.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{n.deploy_window}</span></div>
+                          )}
+                          {n.competition && (
+                            <div className="flex gap-2"><span className="text-muted-foreground w-14 shrink-0">Comp.</span><span className="text-foreground truncate">{n.competition}</span></div>
+                          )}
+                          {n.risk && (
+                            <div className="flex gap-2"><span className="text-muted-foreground w-14 shrink-0">Risk</span><span className="text-foreground truncate">{n.risk}</span></div>
+                          )}
+                        </div>
+
+                        {n.rating_justification && (
+                          <div className="p-2 rounded-md bg-primary/5 border border-primary/10">
+                            <p className="text-[10px] text-foreground leading-snug line-clamp-3">
+                              <Zap className="h-2.5 w-2.5 inline mr-0.5 text-primary" />
+                              <strong>{rating}/10</strong> — {n.rating_justification}
+                            </p>
+                          </div>
                         )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={copyCard} className="text-muted-foreground hover:text-foreground">
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
-                        <div className={cn(
-                          "px-2.5 py-1 rounded-full text-xs font-bold",
-                          rating >= 8 ? "bg-primary/20 text-primary" :
-                          rating >= 6 ? "bg-accent/20 text-accent-foreground" :
-                          "bg-muted text-muted-foreground"
-                        )}>
-                          {rating}/10
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Pump.fun Deploy Fields */}
-                    <div className="grid gap-2 p-3 rounded-md bg-background border border-border">
-                      <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                        <span className="text-muted-foreground font-medium">Name</span>
-                        <span className="text-foreground font-semibold">{n.name}</span>
-                      </div>
-                      <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                        <span className="text-muted-foreground font-medium">Symbol</span>
-                        <span className="text-foreground font-mono font-bold">{n.symbol || n.suggested_tickers?.[0] || '—'}</span>
-                      </div>
-                      <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                        <span className="text-muted-foreground font-medium">Description</span>
-                        <span className="text-foreground">{n.description || n.why_bundle || '—'}</span>
-                      </div>
-                      {(n.twitter_source_url || n.tweet_sources?.[0]?.url) && (
-                        <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                          <span className="text-muted-foreground font-medium">Twitter/X</span>
-                          <a href={n.twitter_source_url || n.tweet_sources[0].url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
-                            {n.twitter_source_url || n.tweet_sources[0].url}
-                          </a>
-                        </div>
-                      )}
-                      {n.website && (
-                        <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                          <span className="text-muted-foreground font-medium">Website</span>
-                          <span className="text-foreground">{n.website}</span>
-                        </div>
-                      )}
-                    </div>
+                        {n.on_chain_evidence && (
+                          <div className="p-2 rounded-md bg-muted/20 border border-border">
+                            <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">
+                              <TrendingUp className="h-2.5 w-2.5 inline mr-0.5 text-emerald-500" />
+                              <strong className="text-foreground">On-Chain:</strong> {n.on_chain_evidence}
+                            </p>
+                          </div>
+                        )}
 
-                    {/* Rating Justification */}
-                    <div className="p-2.5 rounded-md bg-primary/5 border border-primary/10">
-                      <p className="text-xs text-foreground leading-relaxed">
-                        <Zap className="h-3 w-3 inline mr-1 text-primary" />
-                        <strong>{rating}/10 —</strong> {n.rating_justification || n.why_bundle || 'No justification provided'}
-                      </p>
-                    </div>
-
-                    {/* On-chain evidence */}
-                    {n.on_chain_evidence && (
-                      <div className="p-2.5 rounded-md bg-muted/20 border border-border">
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          <TrendingUp className="h-3 w-3 inline mr-1 text-emerald-500" />
-                          <strong className="text-foreground">On-Chain:</strong> {n.on_chain_evidence}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Meta row */}
-                    <div className="flex items-center gap-3 text-[10px] flex-wrap">
-                      <span className={cn(
-                        "flex items-center gap-1 font-semibold",
-                        n.deploy_window === 'NOW' ? "text-primary" : "text-muted-foreground"
-                      )}>
-                        <Target className="h-3 w-3" /> {n.deploy_window}
-                      </span>
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <TrendingUp className="h-3 w-3" /> {n.competition}
-                      </span>
-                      {n.risk && (
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                          <AlertCircle className="h-3 w-3" /> {n.risk}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Tweet Sources */}
-                    {n.tweet_sources?.length > 0 && (
-                      <div className="space-y-2 pt-2 border-t border-border">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {n.tweet_sources.slice(0, 4).map((tw, j) => (
-                            <div key={j} className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-2.5 space-y-1.5 hover:border-blue-500/40 transition-colors">
-                              <div className="flex items-center gap-2">
-                                <div className="h-6 w-6 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
-                                  <XIcon className="h-3 w-3 text-blue-400" />
+                        {n.tweet_sources?.length > 0 && (
+                          <div className="space-y-1 pt-1 border-t border-border">
+                            <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
+                            {n.tweet_sources.slice(0, 2).map((tw, j) => (
+                              <div key={j} className="rounded-md border border-blue-500/20 bg-blue-500/5 p-1.5 space-y-0.5">
+                                <div className="flex items-center gap-1">
+                                  <XIcon className="h-2 w-2 text-blue-400 shrink-0" />
+                                  <span className="text-[10px] font-bold text-foreground truncate">@{tw.user}</span>
+                                  <span className="text-[9px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
                                 </div>
-                                <span className="text-[11px] font-bold text-foreground truncate">@{tw.user}</span>
-                                <span className="text-[10px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
-                              </div>
-                              {tw.media_url && (
-                                <img src={tw.media_url} alt="" className="w-full h-24 rounded object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                              )}
-                              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{tw.text}</p>
-                              {tw.url && (
-                                <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline font-medium">
-                                  <ExternalLink className="h-2.5 w-2.5" /> View on X
-                                </a>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* TikTok Sources */}
-                    {n.trigger_tiktoks?.length > 0 && (
-                      <div className="space-y-2 pt-2 border-t border-border">
-                        <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok Sources</span>
-                        {n.trigger_tiktoks.slice(0, 3).map((tt, j) => (
-                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-purple-500/5 border border-purple-500/20">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                <span className="text-[10px] font-semibold text-foreground">{tt.author}</span>
-                                <span className="text-[10px] text-pink-400">▶ {tt.plays}</span>
-                                <span className="text-[10px] text-muted-foreground">🔁 {tt.shares}</span>
-                                {tt.narrative_score && (
-                                  <span className="text-[10px] px-1 rounded bg-purple-500/10 text-purple-400 font-mono">{tt.narrative_score}/20</span>
+                                <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                                {tw.url && (
+                                  <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-blue-400 hover:underline">
+                                    <ExternalLink className="h-2 w-2" /> View
+                                  </a>
                                 )}
                               </div>
-                              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tt.text}</p>
-                              {tt.url && (
-                                <a href={tt.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-pink-400 hover:underline mt-1">
-                                  <Play className="h-2.5 w-2.5" /> View on TikTok
-                                </a>
-                              )}
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        )}
 
-                    {/* Image Gen Prompt */}
-                    {n.image_gen_prompt && (
-                      <div className="pt-2 border-t border-border">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🎨 Grok Image Prompt</span>
-                          <button onClick={() => copyToClipboard(n.image_gen_prompt!)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1">
-                            <Copy className="h-2.5 w-2.5" /> Copy
-                          </button>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground bg-muted/30 px-2 py-1.5 rounded font-mono">{n.image_gen_prompt}</p>
-                      </div>
-                    )}
+                        {n.trigger_tiktoks?.length > 0 && (
+                          <div className="space-y-1 pt-1 border-t border-border">
+                            <span className="text-[9px] font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok</span>
+                            {n.trigger_tiktoks.slice(0, 2).map((tt, j) => (
+                              <div key={j} className="rounded-md bg-purple-500/5 border border-purple-500/20 p-1.5">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                  <span className="text-[10px] font-semibold text-foreground">{tt.author}</span>
+                                  <span className="text-[10px] text-pink-400">▶ {tt.plays}</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground line-clamp-2">{tt.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
-                    {/* TikTok source link */}
-                    {n.tiktok_source_url && (
-                      <div className="pt-1">
-                        <a href={n.tiktok_source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-pink-400 hover:underline">
-                          <Music className="h-2.5 w-2.5" /> Primary TikTok Source
-                        </a>
+                        {n.image_gen_prompt && (
+                          <div className="pt-1 border-t border-border">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">🎨 Image Prompt</span>
+                              <button onClick={() => copyToClipboard(n.image_gen_prompt!)} className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5">
+                                <Copy className="h-2 w-2" /> Copy
+                              </button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground bg-muted/30 px-1.5 py-1 rounded font-mono line-clamp-2">{n.image_gen_prompt}</p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })}
+              </div>
 
               {/* Top tweets fallback */}
               {topTweets.length > 0 && topNarratives.length === 0 && (
