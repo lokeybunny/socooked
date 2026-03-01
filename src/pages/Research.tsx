@@ -904,7 +904,7 @@ export default function Research() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {topNarratives.map((n, i) => {
                   const rating = n.narrative_rating ?? n.bundle_score ?? 0;
                   const copyCard = () => {
@@ -1127,8 +1127,8 @@ export default function Research() {
           </div>
         )}
 
-        {/* Findings — 2-column square card grid */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Findings — 4-column card grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filtered.map(f => {
             const rawData = f.raw_data as any;
             const isNarrative = rawData?.type === 'narrative_report';
@@ -1166,7 +1166,7 @@ export default function Research() {
                 </div>
 
                 {/* Card body — scrollable */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+                <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
                   {/* Title + image row */}
                   <div className="flex items-start gap-2.5">
                     {narrativeImage && (
@@ -1178,7 +1178,7 @@ export default function Research() {
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-lg font-bold text-foreground line-clamp-2 leading-tight">{f.title}</h3>
+                      <h3 className="text-sm font-bold text-foreground line-clamp-1 leading-tight">{f.title}</h3>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                         <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">
                           {sourceIcon(normSource(f.category))} {SOURCE_LABELS[normSource(f.category)] || 'Other'}
@@ -1190,12 +1190,12 @@ export default function Research() {
 
                   {/* Summary */}
                   {f.summary && (
-                    <p className="text-sm text-muted-foreground leading-snug line-clamp-3">{f.summary}</p>
+                    <p className="text-xs text-muted-foreground leading-snug line-clamp-2">{f.summary}</p>
                   )}
 
                   {/* Deploy fields (compact) */}
                   {isNarrative && (rawData.name || rawData.symbol) && (
-                    <div className="grid gap-1.5 p-3 rounded-md bg-background border border-border text-sm">
+                    <div className="grid gap-1 p-2 rounded-md bg-background border border-border text-xs">
                       {rawData.name && (
                         <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Name</span><span className="text-foreground font-semibold truncate">{rawData.name}</span></div>
                       )}
@@ -1224,23 +1224,43 @@ export default function Research() {
                     </div>
                   )}
 
-                  {/* Tweet sources (compact, 1 col inside card) */}
+              {/* Tweet sources (compact) */}
                   {tweetSources.length > 0 && (
-                    <div className="space-y-1.5 pt-1.5 border-t border-border">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
-                      {tweetSources.slice(0, 2).map((tw, j) => (
-                        <div key={j} className="rounded-md border border-blue-500/20 bg-blue-500/5 p-2 space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <div className="h-5 w-5 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
-                              <XIcon className="h-3 w-3 text-blue-400" />
-                            </div>
-                            <span className="text-sm font-bold text-foreground truncate">@{tw.user}</span>
-                            <span className="text-xs text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
+                    <div className="space-y-1 pt-1 border-t border-border">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
+                      {tweetSources.slice(0, 1).map((tw, j) => (
+                        <div key={j} className="rounded-md border border-blue-500/20 bg-blue-500/5 p-1.5 space-y-0.5">
+                          <div className="flex items-center gap-1">
+                            <XIcon className="h-2.5 w-2.5 text-blue-400 shrink-0" />
+                            <span className="text-xs font-bold text-foreground truncate">@{tw.user}</span>
+                            <span className="text-[10px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
                           </div>
-                          <p className="text-sm text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-1">{tw.text}</p>
                           {tw.url && (
-                            <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-xs text-blue-400 hover:underline font-medium">
-                              <ExternalLink className="h-3 w-3" /> View on X
+                            <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[10px] text-blue-400 hover:underline">
+                              <ExternalLink className="h-2.5 w-2.5" /> View
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* TikTok sources */}
+                  {(rawData?.trigger_tiktoks as TriggerTikTok[])?.length > 0 && (
+                    <div className="space-y-1 pt-1 border-t border-border">
+                      <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok</span>
+                      {(rawData.trigger_tiktoks as TriggerTikTok[]).slice(0, 1).map((tt: TriggerTikTok, j: number) => (
+                        <div key={j} className="rounded-md border border-purple-500/20 bg-purple-500/5 p-1.5 space-y-0.5">
+                          <div className="flex items-center gap-1">
+                            <Music className="h-2.5 w-2.5 text-purple-400 shrink-0" />
+                            <span className="text-xs font-bold text-foreground truncate">{tt.author}</span>
+                            <span className="text-[10px] text-pink-400 ml-auto shrink-0">▶ {tt.plays}</span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-1">{tt.text}</p>
+                          {tt.url && (
+                            <a href={tt.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[10px] text-purple-400 hover:underline">
+                              <ExternalLink className="h-2.5 w-2.5" /> View
                             </a>
                           )}
                         </div>
