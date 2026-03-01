@@ -619,7 +619,7 @@ export default function Research() {
         <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-fade-in">
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-foreground flex items-center justify-center gap-2">
-              <Search className="h-7 w-7 text-emerald-500" /> Research
+              <Target className="h-7 w-7 text-emerald-500" /> Lead Finder
             </h1>
             <p className="text-muted-foreground">Select a source to browse findings</p>
             <div className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full bg-muted/60 border border-border">
@@ -708,7 +708,7 @@ export default function Research() {
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedSource(null)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold text-foreground">{activeSrc?.label || ''} Research</h1>
+          <h1 className="text-2xl font-bold text-foreground">{activeSrc?.label || ''} Leads</h1>
         </div>
 
         {/* Controls — 1 row, 2 columns */}
