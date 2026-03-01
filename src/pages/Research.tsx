@@ -8,11 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive, Briefcase, Globe, Building2, Mail, Phone, Linkedin } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import { useResearchLoop } from '@/hooks/useResearchLoop';
 import type { LucideIcon } from 'lucide-react';
 
@@ -124,6 +126,55 @@ export default function Research() {
   const [findingType, setFindingType] = useState<string>('lead');
   const [findingSource, setFindingSource] = useState<string>('other');
   const [creating, setCreating] = useState(false);
+
+  // Lead Finder state (for "Other" source)
+  const [lfJobTitle, setLfJobTitle] = useState('');
+  const [lfLocation, setLfLocation] = useState('');
+  const [lfCity, setLfCity] = useState('');
+  const [lfIndustry, setLfIndustry] = useState('');
+  const [lfKeywords, setLfKeywords] = useState('');
+  const [lfFetchCount, setLfFetchCount] = useState('25');
+  const [lfSearching, setLfSearching] = useState(false);
+  const [lfResults, setLfResults] = useState<any[]>([]);
+  const [lfCreatedCount, setLfCreatedCount] = useState(0);
+  const [lfHasSearched, setLfHasSearched] = useState(false);
+
+  const handleLeadFinderSearch = async () => {
+    if (!lfJobTitle && !lfLocation && !lfCity && !lfIndustry && !lfKeywords) {
+      toast.error('Fill in at least one search field');
+      return;
+    }
+    setLfSearching(true);
+    setLfHasSearched(true);
+    setLfResults([]);
+    setLfCreatedCount(0);
+    try {
+      const payload: Record<string, any> = { fetch_count: parseInt(lfFetchCount) || 25 };
+      if (lfJobTitle) payload.contact_job_title = lfJobTitle.split(',').map(s => s.trim()).filter(Boolean);
+      if (lfLocation) payload.contact_location = lfLocation.split(',').map(s => s.trim()).filter(Boolean);
+      if (lfCity) payload.contact_city = lfCity.split(',').map(s => s.trim()).filter(Boolean);
+      if (lfIndustry) payload.company_industry = lfIndustry.split(',').map(s => s.trim()).filter(Boolean);
+      if (lfKeywords) payload.company_keywords = lfKeywords.split(',').map(s => s.trim()).filter(Boolean);
+
+      const { data, error } = await supabase.functions.invoke('lead-finder', { body: payload });
+      if (error) throw new Error(error.message);
+
+      setLfResults(data.leads || []);
+      setLfCreatedCount(data.created_count || 0);
+      if (data.created_count > 0) {
+        toast.success(`Found ${data.total_found} leads, ${data.created_count} new added`);
+        load(); // Refresh findings
+      } else if (data.total_found > 0) {
+        toast.info(`Found ${data.total_found} leads (all already in CRM)`);
+      } else {
+        toast.info('No leads found. Try broadening your criteria.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Lead search failed');
+    } finally {
+      setLfSearching(false);
+    }
+  };
 
   const validSources = RESEARCH_SOURCES.map(s => s.id);
   const normSource = (c: string | null) => (c && validSources.includes(c) ? c : 'other');
@@ -981,6 +1032,94 @@ export default function Research() {
           </div>
         )}
 
+        {/* ══════ Lead Finder Panel (Other source) ══════ */}
+        {selectedSource === 'other' && (
+          <Card className="border-border">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="h-5 w-5 text-primary" />
+                Lead Finder — B2B Leads via Apify
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Generate B2B leads with verified emails. Results auto-save as findings + create CRM customers in the "Potential" category.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs"><Briefcase className="h-3 w-3" /> Job Title</Label>
+                  <Input value={lfJobTitle} onChange={e => setLfJobTitle(e.target.value)} placeholder="e.g. CEO, Realtor, Marketing Manager" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs"><Globe className="h-3 w-3" /> Location</Label>
+                  <Input value={lfLocation} onChange={e => setLfLocation(e.target.value)} placeholder="e.g. United States, California" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs"><MapPin className="h-3 w-3" /> City</Label>
+                  <Input value={lfCity} onChange={e => setLfCity(e.target.value)} placeholder="e.g. Los Angeles, Miami" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Industry</Label>
+                  <Input value={lfIndustry} onChange={e => setLfIndustry(e.target.value)} placeholder="e.g. Real Estate, SaaS" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Company Keywords</Label>
+                  <Input value={lfKeywords} onChange={e => setLfKeywords(e.target.value)} placeholder="e.g. AI, blockchain" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs"># Leads (max 100)</Label>
+                  <Input type="number" value={lfFetchCount} onChange={e => setLfFetchCount(e.target.value)} min="1" max="100" className="h-9 text-sm" />
+                </div>
+              </div>
+              <Button onClick={handleLeadFinderSearch} disabled={lfSearching} size="sm">
+                {lfSearching ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Searching…</> : <><Target className="h-4 w-4 mr-2" /> Find Leads</>}
+              </Button>
+
+              {/* Searching state */}
+              {lfSearching && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center space-y-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+                    <p className="text-xs text-muted-foreground">Searching for leads… This may take up to 3 minutes.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Results preview */}
+              {!lfSearching && lfHasSearched && lfResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {lfResults.length} leads found · <span className="text-primary font-medium">{lfCreatedCount} new</span> added to CRM & findings
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[300px] overflow-y-auto">
+                    {lfResults.slice(0, 12).map((lead: any, i: number) => {
+                      const name = lead.full_name || `${lead.first_name || ''} ${lead.last_name || ''}`.trim();
+                      return (
+                        <div key={i} className="rounded-lg border border-border bg-muted/30 p-2 space-y-1 text-xs">
+                          <span className="font-semibold text-foreground block truncate">{name}</span>
+                          {lead.job_title && <span className="text-muted-foreground block truncate">{lead.job_title}</span>}
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                            {lead.email && <span className="flex items-center gap-0.5"><Mail className="h-2.5 w-2.5" />{lead.email}</span>}
+                            {lead.company_name && <span className="flex items-center gap-0.5"><Building2 className="h-2.5 w-2.5" />{lead.company_name}</span>}
+                            {lead.linkedin && (
+                              <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-primary hover:underline">
+                                <Linkedin className="h-2.5 w-2.5" /> LinkedIn
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {lfResults.length > 12 && <p className="text-[10px] text-muted-foreground">+{lfResults.length - 12} more (all saved as findings below)</p>}
+                </div>
+              )}
+
+              {!lfSearching && lfHasSearched && lfResults.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">No leads found. Try broadening your search criteria.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Findings — 4-column card grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filtered.filter(f => {
@@ -990,7 +1129,7 @@ export default function Research() {
             const hasName = !!(rd.name || f.title);
             const hasSymbol = !!rd.symbol;
             const hasWindow = !!rd.deploy_window;
-            const hasSources = (rd.tweet_sources?.length > 0) || (rd.trigger_tiktoks?.length > 0);
+            const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder');
             return hasName && hasSymbol && hasWindow && hasSources;
           }).map(f => {
             const rawData = f.raw_data as any;
@@ -1003,6 +1142,7 @@ export default function Research() {
             return (
               <div key={f.id} className={cn(
                 "glass-card overflow-hidden hover:shadow-lg transition-shadow rounded-xl border flex flex-col min-w-0",
+                sourcePlatform === 'lead-finder' ? "border-emerald-500/30" :
                 sourcePlatform === 'tiktok' ? "border-purple-500/30" :
                 sourcePlatform === 'x' ? "border-blue-500/30" :
                 "border-border"
@@ -1109,7 +1249,22 @@ export default function Research() {
                     </div>
                   )}
 
-                  {/* TikTok sources removed */}
+                  {/* Lead Finder sources */}
+                  {rawData?.type === 'lead_finder' && (
+                    <div className="space-y-1 pt-1 border-t border-border">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Lead Details</span>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                        {rawData.email && <span className="flex items-center gap-0.5"><Mail className="h-2.5 w-2.5" />{rawData.email}</span>}
+                        {rawData.phone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{rawData.phone}</span>}
+                        {rawData.company_name && <span className="flex items-center gap-0.5"><Building2 className="h-2.5 w-2.5" />{rawData.company_name}</span>}
+                        {rawData.linkedin && (
+                          <a href={rawData.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-primary hover:underline">
+                            <Linkedin className="h-2.5 w-2.5" /> LinkedIn
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer actions */}

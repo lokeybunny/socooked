@@ -147,6 +147,52 @@ Deno.serve(async (req) => {
         console.log(`Failed to create customer ${fullName}: ${error.message}`);
       } else {
         created.push({ ...inserted, ...lead });
+
+        // Also create a research finding for the Research page
+        await sb.from("research_findings").insert({
+          title: fullName,
+          summary: [
+            lead.job_title && `${lead.job_title}`,
+            lead.company_name && `at ${lead.company_name}`,
+            lead.industry && `(${lead.industry})`,
+            lead.city && lead.country ? `${lead.city}, ${lead.country}` : (lead.country || lead.city || ''),
+          ].filter(Boolean).join(' '),
+          source_url: lead.linkedin || lead.company_website || null,
+          finding_type: 'lead',
+          category: 'other',
+          status: 'new',
+          created_by: 'lead-finder',
+          customer_id: inserted.id,
+          raw_data: {
+            type: 'lead_finder',
+            name: fullName,
+            email: lead.email,
+            phone: lead.mobile_number || lead.company_phone,
+            job_title: lead.job_title,
+            headline: lead.headline,
+            seniority_level: lead.seniority_level,
+            linkedin: lead.linkedin,
+            company_name: lead.company_name,
+            company_domain: lead.company_domain,
+            company_website: lead.company_website,
+            company_linkedin: lead.company_linkedin,
+            company_size: lead.company_size,
+            industry: lead.industry,
+            company_description: lead.company_description,
+            company_revenue: lead.company_annual_revenue,
+            company_funding: lead.company_total_funding,
+            company_founded_year: lead.company_founded_year,
+            company_full_address: lead.company_full_address,
+            personal_email: lead.personal_email,
+            city: lead.city,
+            state: lead.state,
+            country: lead.country,
+            symbol: lead.company_domain?.split('.')[0]?.toUpperCase() || '—',
+            deploy_window: 'OUTREACH',
+            source_platform: 'lead-finder',
+          },
+          tags: [lead.industry, lead.seniority_level, 'lead-finder'].filter(Boolean),
+        });
       }
     }
 
