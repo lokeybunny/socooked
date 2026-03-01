@@ -260,7 +260,11 @@ export default function Research() {
     const seen = new Set<string>();
     return items.filter(f => {
       if (normSource(f.category) !== 'x') return true;
+      // Filter out cycle reports entirely — only show individual narratives
+      const tags: string[] = f.tags || [];
+      if (tags.includes('cycle-report')) return false;
       const rd = f.raw_data || {};
+      if (rd.type === 'cycle_report' || f.title?.includes('NarrativeEdge Cycle') || f.title?.includes('Cortex Analyst Report')) return false;
       // Build composite keys from symbol, name, and first media_url
       const keys: string[] = [];
       if (rd.symbol) keys.push(`sym:${String(rd.symbol).toLowerCase()}`);

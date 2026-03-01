@@ -655,24 +655,9 @@ Classify. Rate. Include tiers. What prints RIGHT NOW?`;
         send("progress", { step: 7, label: "NarrativeEdge memory evolution", status: "done", detail: `Saved ${memory.search_terms.length} X queries + ${memory.past_wins.length} past wins` });
 
         // ── STEP 8: Push findings ──
-        send("progress", { step: 8, label: "Saving findings to database", status: "running", detail: "Pushing cycle report + narrative findings..." });
+        send("progress", { step: 8, label: "Saving findings to database", status: "running", detail: "Pushing narrative findings..." });
 
-        const cycleTitle = `🎯 NarrativeEdge Cycle — ${new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
-        await pushFinding(
-          cycleTitle,
-          reasoning,
-          "",
-          "trend",
-          {
-            ...stats,
-            reasoning,
-            top_narratives: aiResult?.top_narratives || [],
-            chain_of_thought: aiResult?.chain_of_thought || "",
-            category_stats: aiResult?.category_stats || {},
-            tier_counts: { tweets: tweetTierCounts },
-          },
-          ["narrativeedge", "cycle-report"]
-        );
+        // No cycle report — narratives are added directly to the feed
 
         // Post-process narratives
         const hadRealTweets = tweets.length > 0;
@@ -761,8 +746,8 @@ Classify. Rate. Include tiers. What prints RIGHT NOW?`;
           );
         }
 
-        stats.findings_pushed = 1 + narrativesToPost.length;
-        send("progress", { step: 8, label: "Saving findings to database", status: "done", detail: `Pushed 1 cycle report + ${narrativesToPost.length} narrative findings` });
+        stats.findings_pushed = narrativesToPost.length;
+        send("progress", { step: 8, label: "Saving findings to database", status: "done", detail: `Added ${narrativesToPost.length} narratives to feed` });
 
         // ── Send final result ──
         const topTweets = matched
