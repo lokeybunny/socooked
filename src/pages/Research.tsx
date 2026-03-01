@@ -84,6 +84,8 @@ export default function Research() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [converting, setConverting] = useState<string | null>(null);
+  const [purging, setPurging] = useState(false);
+  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [generating, setGenerating] = useState(false);
@@ -220,6 +222,23 @@ export default function Research() {
     toast.success('Finding deleted');
     setDeleteId(null);
     load();
+  };
+
+  const handlePurgeAll = async () => {
+    setPurging(true);
+    try {
+      const ids = filtered.map((f: any) => f.id);
+      if (!ids.length) { toast.info('Nothing to purge'); return; }
+      const { error } = await supabase.from('research_findings').delete().in('id', ids);
+      if (error) throw error;
+      toast.success(`Purged ${ids.length} X findings`);
+      setShowPurgeConfirm(false);
+      load();
+    } catch (err: any) {
+      toast.error(err.message || 'Purge failed');
+    } finally {
+      setPurging(false);
+    }
   };
 
   const copyToClipboard = (text: string) => {
@@ -477,6 +496,18 @@ export default function Research() {
                   <Brain className="h-4 w-4" />
                 )}
                 {generating ? 'Cortex running...' : 'Generate Research'}
+              </Button>
+            )}
+            {selectedSource === 'x' && filtered.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-destructive hover:text-destructive"
+                onClick={() => setShowPurgeConfirm(true)}
+                disabled={purging}
+              >
+                <Trash2 className="h-4 w-4" />
+                Purge All
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -1029,7 +1060,7 @@ export default function Research() {
                     <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => copyToClipboard(`${f.title}\n${f.summary || ''}\n${f.source_url || ''}`)}>
                       <Copy className="h-3 w-3" /> Copy
                     </Button>
-                    {f.status !== 'converted' && (
+                    {f.status !== 'converted' && selectedSource !== 'x' && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1065,6 +1096,21 @@ export default function Research() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showPurgeConfirm} onOpenChange={setShowPurgeConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Purge All X Findings?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete all {filtered.length} findings in this view. This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePurgeAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={purging}>
+              {purging ? 'Purging...' : `Delete ${filtered.length} findings`}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
