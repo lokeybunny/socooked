@@ -531,9 +531,11 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
             return n;
           }
           if (n.tweet_sources?.length) {
+            const usedTweetIds = new Set<string>();
             n.tweet_sources = n.tweet_sources.map((src: any) => {
               // Try to find matching scraped tweet by username or text overlap
-              const scraped = tweets.find((tw: any) => {
+              let scraped = tweets.find((tw: any) => {
+                if (usedTweetIds.has(tw.id)) return false;
                 const screen = tw.user?.screen_name || "";
                 const srcUser = (src.user || "").replace("@", "");
                 if (screen && srcUser && screen.toLowerCase() === srcUser.toLowerCase()) return true;
@@ -541,32 +543,37 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
                 const srcText = (src.text || "").toLowerCase().slice(0, 40);
                 return srcText.length > 10 && twText.includes(srcText);
               });
-              // Always replace URL with real tweet link built from scraped id + screen_name
-              if (scraped?.id && scraped?.user?.screen_name) {
-                src = { ...src, url: `https://x.com/${scraped.user.screen_name}/status/${scraped.id}` };
-              } else {
-                // No matching scraped tweet found — remove the hallucinated URL
-                src = { ...src, url: "" };
-              }
-              if (!src.media_url && scraped?.media_url) {
-                src = { ...src, media_url: scraped.media_url };
-              }
-              // Fallback: find ANY tweet with media from the same cluster
-              if (!src.media_url) {
+              // Fallback: find ANY unused scraped tweet from the same narrative cluster
+              if (!scraped) {
                 const clusterMatch = matched.find(m => {
                   const sym = (m.token.baseToken?.symbol || "").toLowerCase();
                   return sym && (n.symbol || "").toLowerCase() === sym;
                 });
-                const mediaFromCluster = clusterMatch?.matched_tweets.find((tw: any) => tw.media_url);
-                if (mediaFromCluster?.media_url) {
-                  src = { ...src, media_url: mediaFromCluster.media_url };
+                if (clusterMatch) {
+                  scraped = clusterMatch.matched_tweets.find((tw: any) => tw.id && !usedTweetIds.has(tw.id));
                 }
+              }
+              // Last resort: grab any unused scraped tweet
+              if (!scraped) {
+                scraped = tweets.find((tw: any) => tw.id && tw.user?.screen_name && !usedTweetIds.has(tw.id));
+              }
+              if (scraped?.id && scraped?.user?.screen_name) {
+                usedTweetIds.add(scraped.id);
+                src = { ...src, url: `https://x.com/${scraped.user.screen_name}/status/${scraped.id}`, user: `@${scraped.user.screen_name}` };
+                if (scraped.text || scraped.full_text) {
+                  src = { ...src, text: scraped.full_text || scraped.text };
+                }
+                const likes = scraped.favorite_count || 0;
+                const rts = scraped.retweet_count || 0;
+                if (likes || rts) {
+                  src = { ...src, engagement: `${likes >= 1000 ? (likes/1000).toFixed(1) + 'K' : likes} likes, ${rts >= 1000 ? (rts/1000).toFixed(1) + 'K' : rts} RTs` };
+                }
+              }
+              if (!src.media_url && scraped?.media_url) {
+                src = { ...src, media_url: scraped.media_url };
               }
               return src;
             });
-            // Remove sources that have no real URL
-            n.tweet_sources = n.tweet_sources.filter((s: any) => s.url);
-            // Also set a top-level media_url on the narrative for the card thumbnail
             if (!n.media_url) {
               n.media_url = n.tweet_sources.find((s: any) => s.media_url)?.media_url || "";
             }
