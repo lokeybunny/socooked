@@ -141,6 +141,8 @@ export default function Research() {
   const [draftFindings, setDraftFindings] = useState<any[]>([]);
   const [draftCount, setDraftCount] = useState(0);
   const [expandedTiktok, setExpandedTiktok] = useState<string | null>(null);
+  const [detailTiktok, setDetailTiktok] = useState<TikTokVideo | null>(null);
+  const [detailNarrative, setDetailNarrative] = useState<Narrative | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // New finding form
@@ -765,6 +767,9 @@ export default function Research() {
                             <Play className="h-2.5 w-2.5" /> Open
                           </a>
                         )}
+                        <button onClick={e => { e.stopPropagation(); setDetailTiktok(v); }} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5">
+                          <Eye className="h-2.5 w-2.5" /> View
+                        </button>
                       </div>
                     </div>
                   );
@@ -893,6 +898,9 @@ export default function Research() {
                           </span>
                         )}
                         <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                          <button onClick={() => setDetailNarrative(n)} className="text-muted-foreground hover:text-foreground" title="View full details">
+                            <Eye className="h-3 w-3" />
+                          </button>
                           <button onClick={copyCard} className="text-muted-foreground hover:text-foreground">
                             <Copy className="h-3 w-3" />
                           </button>
@@ -1323,6 +1331,279 @@ export default function Research() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ══════ TikTok Detail Modal ══════ */}
+      <Dialog open={!!detailTiktok} onOpenChange={() => setDetailTiktok(null)}>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+          {detailTiktok && (() => {
+            const v = detailTiktok;
+            const fmt = (n: number) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n/1000).toFixed(0)}K` : `${n}`;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Music className="h-5 w-5 text-purple-500" />
+                    TikTok Video Details
+                    {v.tier && (
+                      <span className={cn(
+                        "text-sm px-2 py-0.5 rounded-full font-black",
+                        v.tier === 'S' ? "bg-red-500/20 text-red-400" :
+                        v.tier === 'A' ? "bg-amber-500/20 text-amber-400" :
+                        "bg-muted text-muted-foreground"
+                      )}>Tier {v.tier}</span>
+                    )}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    {v.coverUrl && (
+                      <img src={v.coverUrl} alt="" className="w-32 h-44 rounded-lg object-cover bg-muted shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    )}
+                    <div className="space-y-2 min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground">@{v.authorName}</p>
+                      <p className="text-sm text-foreground leading-relaxed">{v.text || '(no description)'}</p>
+                      {v.createTimeISO && (
+                        <p className="text-xs text-muted-foreground">📅 {format(new Date(v.createTimeISO), 'MMM d, yyyy h:mm a')}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
+                      <p className="text-lg font-bold text-foreground">{fmt(v.playCount)}</p>
+                      <p className="text-xs text-muted-foreground">▶ Plays</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
+                      <p className="text-lg font-bold text-foreground">{fmt(v.diggCount)}</p>
+                      <p className="text-xs text-muted-foreground">❤ Likes</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
+                      <p className="text-lg font-bold text-foreground">{fmt(v.shareCount)}</p>
+                      <p className="text-xs text-muted-foreground">🔁 Shares</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/30 border border-border text-center">
+                      <p className="text-lg font-bold text-foreground">{fmt(v.commentCount)}</p>
+                      <p className="text-xs text-muted-foreground">💬 Comments</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "px-3 py-1 rounded-full text-sm font-bold",
+                      (v.narrativeScore ?? 0) >= 18 ? "bg-red-500/20 text-red-400" :
+                      (v.narrativeScore ?? 0) >= 12 ? "bg-primary/20 text-primary" :
+                      "bg-muted text-muted-foreground"
+                    )}>Score: {v.narrativeScore}/25</span>
+                    {v.tokenized ? (
+                      <span className="text-sm px-3 py-1 rounded-full font-bold bg-muted text-muted-foreground">⚠️ Token Exists</span>
+                    ) : (
+                      <span className={cn(
+                        "text-sm px-3 py-1 rounded-full font-bold",
+                        v.tier === 'S' ? "bg-red-500/20 text-red-400" : "bg-primary/20 text-primary"
+                      )}>
+                        {v.tier === 'S' ? '🚨 SPIN NOW' : '🚀 LAUNCH'}
+                      </span>
+                    )}
+                  </div>
+
+                  {v.hashtags?.length > 0 && (
+                    <div className="space-y-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hashtags</span>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {v.hashtags.map((h, hi) => (
+                          <span key={hi} className="text-xs px-2 py-1 rounded-md bg-purple-500/10 text-purple-400 font-medium">#{h}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {v.matchedToken && (
+                    <div className="space-y-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Matched Token</span>
+                      <pre className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg overflow-x-auto">{JSON.stringify(v.matchedToken, null, 2)}</pre>
+                    </div>
+                  )}
+
+                  {v.webVideoUrl && (
+                    <a href={v.webVideoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-colors font-medium text-sm">
+                      <Play className="h-4 w-4" /> Open on TikTok
+                    </a>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════ Narrative Detail Modal ══════ */}
+      <Dialog open={!!detailNarrative} onOpenChange={() => setDetailNarrative(null)}>
+        <DialogContent className="sm:max-w-[650px] max-h-[85vh] overflow-y-auto">
+          {detailNarrative && (() => {
+            const n = detailNarrative;
+            const rating = n.narrative_rating ?? n.bundle_score ?? 0;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-3 flex-wrap">
+                    {n.source_platform === 'tiktok' ? <Music className="h-5 w-5 text-purple-500" /> : <XIcon className="h-5 w-5" />}
+                    <span>{n.name}</span>
+                    {n.symbol && <span className="font-mono font-bold px-2 py-0.5 rounded bg-primary/10 text-primary text-sm">${n.symbol}</span>}
+                    {n.tier && (
+                      <span className={cn(
+                        "text-sm px-2 py-0.5 rounded-full font-black",
+                        n.tier === 'S' ? "bg-red-500/20 text-red-400" :
+                        n.tier === 'A' ? "bg-amber-500/20 text-amber-400" :
+                        "bg-muted text-muted-foreground"
+                      )}>Tier {n.tier}</span>
+                    )}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={cn(
+                      "px-3 py-1 rounded-full text-sm font-bold",
+                      rating >= 8 ? "bg-primary/20 text-primary" :
+                      rating >= 6 ? "bg-accent/20 text-accent-foreground" :
+                      "bg-muted text-muted-foreground"
+                    )}>{rating}/10</span>
+                    {n.source_platform && (
+                      <span className={cn(
+                        "text-sm px-2 py-0.5 rounded-full font-bold",
+                        n.source_platform === 'cross-platform' ? "bg-amber-500/20 text-amber-400" :
+                        n.source_platform === 'tiktok' ? "bg-purple-500/20 text-purple-400" :
+                        "bg-blue-500/20 text-blue-400"
+                      )}>
+                        {n.source_platform === 'cross-platform' ? '🔀 X + TikTok' : n.source_platform === 'tiktok' ? '🎵 TikTok' : '𝕏 X (Twitter)'}
+                      </span>
+                    )}
+                  </div>
+
+                  {n.description && (
+                    <div className="space-y-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Description</span>
+                      <p className="text-sm text-foreground leading-relaxed">{n.description}</p>
+                    </div>
+                  )}
+
+                  {n.rating_justification && (
+                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 space-y-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Zap className="h-3 w-3 text-primary" /> Rating Justification</span>
+                      <p className="text-sm text-foreground leading-relaxed">{n.rating_justification}</p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {n.deploy_window && (
+                      <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                        <p className="text-xs text-muted-foreground mb-1">⏱ Deploy Window</p>
+                        <p className={cn("text-sm font-bold", n.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{n.deploy_window}</p>
+                      </div>
+                    )}
+                    {n.risk && (
+                      <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                        <p className="text-xs text-muted-foreground mb-1">⚠ Risk</p>
+                        <p className="text-sm font-bold text-foreground">{n.risk}</p>
+                      </div>
+                    )}
+                    {n.competition && (
+                      <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                        <p className="text-xs text-muted-foreground mb-1">🏁 Competition</p>
+                        <p className="text-sm font-bold text-foreground">{n.competition}</p>
+                      </div>
+                    )}
+                    {n.on_chain_evidence && (
+                      <div className="p-3 rounded-lg bg-muted/30 border border-border">
+                        <p className="text-xs text-muted-foreground mb-1">📊 On-Chain</p>
+                        <p className="text-sm text-foreground">{n.on_chain_evidence}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {n.tweet_sources?.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Tweet Sources ({n.tweet_sources.length})</span>
+                      <div className="space-y-2">
+                        {n.tweet_sources.map((tw, j) => (
+                          <div key={j} className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-3 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <XIcon className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                              <span className="text-sm font-bold text-foreground">@{tw.user}</span>
+                              <span className="text-xs text-blue-400 ml-auto">{tw.engagement}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{tw.text}</p>
+                            {tw.media_url && (
+                              <img src={tw.media_url} alt="" className="w-full max-h-48 rounded-lg object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            )}
+                            {tw.url && (
+                              <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:underline">
+                                <ExternalLink className="h-3 w-3" /> View Tweet
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {n.trigger_tiktoks && n.trigger_tiktoks.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok Sources ({n.trigger_tiktoks.length})</span>
+                      <div className="space-y-2">
+                        {n.trigger_tiktoks.map((tt, j) => (
+                          <div key={j} className="rounded-lg border border-purple-500/20 bg-purple-500/5 p-3 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <Music className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                              <span className="text-sm font-bold text-foreground">{tt.author}</span>
+                              <span className="text-xs text-pink-400 ml-auto">▶ {tt.plays} · 🔁 {tt.shares}</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{tt.text}</p>
+                            {tt.url && (
+                              <a href={tt.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-purple-400 hover:underline">
+                                <ExternalLink className="h-3 w-3" /> View Video
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {n.image_gen_prompt && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🎨 Image Gen Prompt</span>
+                        <button onClick={() => copyToClipboard(n.image_gen_prompt!)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                          <Copy className="h-3 w-3" /> Copy
+                        </button>
+                      </div>
+                      <p className="text-sm text-muted-foreground font-mono bg-muted/30 p-3 rounded-lg">{n.image_gen_prompt}</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {n.twitter_source_url && (
+                      <a href={n.twitter_source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-sm font-medium">
+                        <XIcon className="h-3.5 w-3.5" /> Open on X
+                      </a>
+                    )}
+                    {n.tiktok_source_url && (
+                      <a href={n.tiktok_source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 text-sm font-medium">
+                        <Music className="h-3.5 w-3.5" /> Open on TikTok
+                      </a>
+                    )}
+                    {n.website && (
+                      <a href={n.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-foreground hover:bg-muted/80 text-sm font-medium">
+                        <ExternalLink className="h-3.5 w-3.5" /> Website
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
