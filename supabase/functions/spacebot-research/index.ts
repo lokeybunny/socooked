@@ -44,9 +44,10 @@ async function searchTweets(bearer: string, query: string, maxResults = 100): Pr
     query,
     max_results: String(Math.min(maxResults, 100)),
     start_time: since,
-    "tweet.fields": "public_metrics,created_at,author_id,entities",
-    expansions: "author_id",
+    "tweet.fields": "public_metrics,created_at,author_id,entities,attachments",
+    expansions: "author_id,attachments.media_keys",
     "user.fields": "username,profile_image_url",
+    "media.fields": "url,preview_image_url,type",
   });
   const res = await fetch(`https://api.x.com/2/tweets/search/recent?${params}`, {
     headers: { Authorization: `Bearer ${bearer}` },
@@ -62,8 +63,24 @@ async function searchTweets(bearer: string, query: string, maxResults = 100): Pr
   for (const u of json.includes?.users || []) {
     usersMap.set(u.id, u);
   }
+  // Map media by media_key
+  const mediaMap = new Map<string, any>();
+  for (const m of json.includes?.media || []) {
+    mediaMap.set(m.media_key, m);
+  }
   return (json.data || []).map((tw: any) => {
     const user = usersMap.get(tw.author_id) || {};
+    // Get first image media URL from attachments
+    let media_url = "";
+    if (tw.attachments?.media_keys?.length) {
+      for (const mk of tw.attachments.media_keys) {
+        const media = mediaMap.get(mk);
+        if (media) {
+          media_url = media.url || media.preview_image_url || "";
+          if (media_url) break;
+        }
+      }
+    }
     return {
       id: tw.id,
       text: tw.text,
@@ -72,6 +89,7 @@ async function searchTweets(bearer: string, query: string, maxResults = 100): Pr
       favorite_count: tw.public_metrics?.like_count || 0,
       retweet_count: tw.public_metrics?.retweet_count || 0,
       created_at: tw.created_at,
+      media_url,
     };
   });
 }
@@ -314,6 +332,7 @@ Deno.serve(async (req) => {
           const getUser = (tw: any) => tw.user?.screen_name || tw.author?.userName || "unknown";
           const getTweetUrl = (tw: any) => tw.url || (tw.id ? `https://x.com/i/status/${tw.id}` : "");
           const getProfilePic = (tw: any) => tw.user?.profile_image_url_https || "";
+          const getMediaUrl = (tw: any) => tw.media_url || "";
           return {
             token: tok,
             matched_tweets: matchedTweets.slice(0, 8).map((tw: any) => ({
@@ -323,6 +342,7 @@ Deno.serve(async (req) => {
               retweets: getRTs(tw),
               url: getTweetUrl(tw),
               profile_pic: getProfilePic(tw),
+              media_url: getMediaUrl(tw),
             })),
             tweet_velocity: matchedTweets.length,
             total_engagement: matchedTweets.reduce((sum: number, tw: any) => sum + getLikes(tw) + getRTs(tw), 0),
@@ -385,7 +405,7 @@ Return ONLY valid JSON (no markdown, no backticks):
       "narrative_rating": 9,
       "rating_justification": "Specific data-backed reason for this exact rating — cite tweet engagement numbers, token counts, timing",
       "tweet_sources": [
-        {"user": "@handle", "text": "exact tweet text proving narrative", "url": "https://x.com/...", "engagement": "5.2K likes, 1.1K RTs"}
+        {"user": "@handle", "text": "exact tweet text proving narrative", "url": "https://x.com/...", "engagement": "5.2K likes, 1.1K RTs", "media_url": "image URL from tweet if available"}
       ],
       "on_chain_evidence": "What the DexScreener/Moralis data shows — existing tokens in this niche, their volume, whether they're pumping or dumping",
       "competition": "None / 1-2 early tokens / Crowded",
