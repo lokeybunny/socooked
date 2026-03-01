@@ -55,6 +55,9 @@ async function searchTweets(bearer: string, query: string, maxResults = 100): Pr
   if (!res.ok) {
     const err = await res.text().catch(() => "");
     console.log(`X search failed (${res.status}): ${err.slice(0, 200)}`);
+    if (res.status === 429 || err.includes("Rate limit") || err.includes("CreditsDepleted") || err.includes("Too Many Requests") || err.includes("usage cap")) {
+      throw new Error("CREDITS_DEPLETED");
+    }
     return [];
   }
   const json = await res.json();
@@ -202,12 +205,17 @@ Deno.serve(async (req) => {
         send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: "running", detail: `Sending ${memory.search_terms.length} search queries...` });
 
         let tweets: any[] = [];
+        let creditsDepleted = false;
         for (const query of memory.search_terms) {
           try {
             const results = await searchTweets(xBearer, query, 100);
             tweets.push(...results);
           } catch (e: any) {
             console.log(`Search query failed: ${e.message}`);
+            if (e.message === "CREDITS_DEPLETED") {
+              creditsDepleted = true;
+              break;
+            }
           }
           // Rate limit courtesy
           await new Promise((r) => setTimeout(r, 1000));
@@ -220,7 +228,11 @@ Deno.serve(async (req) => {
           return true;
         });
         stats.tweets = tweets.length;
-        send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: "done", detail: `Found ${tweets.length} unique tweets from X` });
+        (stats as any).credits_depleted = creditsDepleted;
+        if (creditsDepleted) {
+          send("warning", { type: "credits_depleted", message: "X API rate limit or credits depleted — tweet data is incomplete or missing. Narratives will rely on token data only." });
+        }
+        send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: creditsDepleted ? "warning" : "done", detail: creditsDepleted ? `⚠️ X API credits depleted — only ${tweets.length} tweets scraped` : `Found ${tweets.length} unique tweets from X` });
 
         // ── STEP 3: Moralis Pump.fun tokens ─────────────────────────
         send("progress", { step: 3, label: "Fetching Pump.fun tokens via Moralis", status: "running", detail: "Pulling new (100), bonding (100) & graduated (50) tokens..." });
