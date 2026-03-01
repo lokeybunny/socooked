@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive, Briefcase, Globe, Building2, Mail, Phone, Linkedin } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive, Briefcase, Globe, Building2, Mail, Phone, Linkedin, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
@@ -125,6 +125,8 @@ export default function Research() {
   const [draftFindings, setDraftFindings] = useState<any[]>([]);
   const [draftCount, setDraftCount] = useState(0);
   const [detailNarrative, setDetailNarrative] = useState<Narrative | null>(null);
+  const [customerDetail, setCustomerDetail] = useState<any | null>(null);
+  const [customerDetailLoading, setCustomerDetailLoading] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // New finding form
@@ -285,6 +287,14 @@ export default function Research() {
     setTitle(''); setSourceUrl(''); setSummary(''); setFindingType('lead'); setFindingSource('other');
     setCreating(false);
     load();
+  };
+
+  const openCustomerDetail = async (customerId: string) => {
+    if (!customerId) return;
+    setCustomerDetailLoading(true);
+    const { data } = await supabase.from('customers').select('*').eq('id', customerId).single();
+    setCustomerDetail(data);
+    setCustomerDetailLoading(false);
   };
 
   const handleConvertToClient = async (finding: any) => {
@@ -1366,6 +1376,11 @@ export default function Research() {
 
                 {/* Footer actions */}
                 <div className="flex items-center gap-1.5 px-3 py-2 border-t border-border shrink-0 bg-muted/20">
+                  {rawData?.type === 'lead_finder' && f.customer_id && (
+                    <Button variant="ghost" size="sm" className="h-8 text-sm gap-1.5 px-2" onClick={() => openCustomerDetail(f.customer_id)}>
+                      <Eye className="h-3.5 w-3.5" /> View
+                    </Button>
+                  )}
                   {f.source_url && (
                     <Button variant="ghost" size="sm" className="h-8 text-sm gap-1.5 px-2" onClick={() => window.open(f.source_url, '_blank')}>
                       <ExternalLink className="h-3.5 w-3.5" /> Source
@@ -1556,6 +1571,128 @@ export default function Research() {
                     {n.website && (
                       <a href={n.website} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-foreground hover:bg-muted/80 text-sm font-medium">
                         <ExternalLink className="h-3.5 w-3.5" /> Website
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════ Customer Detail Modal (Lead Finder) ══════ */}
+      <Dialog open={!!customerDetail} onOpenChange={() => setCustomerDetail(null)}>
+        <DialogContent className="sm:max-w-[520px] max-h-[85vh] overflow-y-auto">
+          {customerDetail && (() => {
+            const c = customerDetail;
+            const meta = c.meta && typeof c.meta === 'object' ? c.meta : {};
+            const metaKeys = Object.keys(meta).filter(k => meta[k] !== null && meta[k] !== '' && meta[k] !== undefined);
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" />
+                    {c.full_name}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {/* Core Info */}
+                  <div className="grid gap-3">
+                    {c.email && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <a href={`mailto:${c.email}`} className="text-primary hover:underline">{c.email}</a>
+                      </div>
+                    )}
+                    {c.phone && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <a href={`tel:${c.phone}`} className="text-foreground hover:underline">{c.phone}</a>
+                      </div>
+                    )}
+                    {c.company && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-foreground">{c.company}</span>
+                      </div>
+                    )}
+                    {c.address && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="text-foreground">{c.address}</span>
+                      </div>
+                    )}
+                    {(meta as any).linkedin && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <Linkedin className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <a href={(meta as any).linkedin} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{(meta as any).linkedin}</a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Status & Source */}
+                  <div className="flex flex-wrap gap-2">
+                    <StatusBadge status={c.status} />
+                    {c.source && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground font-medium">{c.source}</span>
+                    )}
+                    {c.category && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium capitalize">{c.category}</span>
+                    )}
+                  </div>
+
+                  {/* Notes */}
+                  {c.notes && (
+                    <div className="space-y-1">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notes</span>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-lg border border-border">{c.notes}</p>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {Array.isArray(c.tags) && c.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {c.tags.map((tag: string) => (
+                        <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{tag}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Extra Info (meta) */}
+                  {metaKeys.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Extra Info</span>
+                      <div className="grid gap-2 p-3 rounded-lg bg-muted/30 border border-border">
+                        {metaKeys.map(k => (
+                          <div key={k} className="flex gap-2 text-sm">
+                            <span className="font-medium text-foreground min-w-[120px] capitalize shrink-0">{k.replace(/_/g, ' ')}:</span>
+                            <span className="text-muted-foreground break-all">
+                              {typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : String(meta[k])}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-border">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() => {
+                        window.location.href = `/customers?open=${c.id}`;
+                      }}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> Open in Customers
+                    </Button>
+                    {(meta as any).company_website && (
+                      <a href={(meta as any).company_website} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" size="sm" className="gap-1.5">
+                          <Globe className="h-3.5 w-3.5" /> Website
+                        </Button>
                       </a>
                     )}
                   </div>
