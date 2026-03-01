@@ -156,11 +156,13 @@ Deno.serve(async (req) => {
 
   try {
     // Use twitterHandles to get latest 1 tweet per user
-    // Rotate through accounts in chunks to stay within limits
+    // Small chunks to avoid Apify timeout — 25 handles finishes fast
     const hour = new Date().getUTCHours();
-    const chunkSize = 80;
+    const minute = Math.floor(new Date().getUTCMinutes() / 10); // 6 sub-rotations per hour
+    const rotation = hour * 6 + minute; // 144 rotations per day
+    const chunkSize = 25;
     const totalChunks = Math.ceil(CURATED_ACCOUNTS.length / chunkSize);
-    const chunkIdx = hour % totalChunks;
+    const chunkIdx = rotation % totalChunks;
     const startIdx = chunkIdx * chunkSize;
     const selectedHandles = CURATED_ACCOUNTS.slice(startIdx, startIdx + chunkSize);
 
@@ -169,7 +171,7 @@ Deno.serve(async (req) => {
 
     const input = {
       twitterHandles: selectedHandles,
-      maxItems: selectedHandles.length, // 1 tweet per handle
+      maxItems: selectedHandles.length,
       sort: "Latest",
       tweetLanguage: "en",
       includeSearchTerms: false,
