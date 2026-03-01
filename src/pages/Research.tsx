@@ -662,19 +662,7 @@ export default function Research() {
           </div>
         )}
 
-        {/* ══════ Credits Depleted Warning ══════ */}
-        {selectedSource === 'x' && creditsDepleted && (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-foreground">X API Credits Depleted</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Tweet scraping was limited or unavailable this cycle due to X API rate limits or credit exhaustion. Narrative cards may be missing original tweet sources and links. Token &amp; DexScreener data is unaffected.
-              </p>
-            </div>
-            <button onClick={() => setCreditsDepleted(false)} className="ml-auto text-muted-foreground hover:text-foreground shrink-0">✕</button>
-          </div>
-        )}
+        {/* Credits depleted warning removed — using Apify agents only */}
 
         {/* ══════ TikTok Animal Viral Radar ══════ */}
         {selectedSource === 'x' && !generating && tiktokRadar.length === 0 && showLog && progressLog.some(p => p.status === 'done' || p.status === 'error') && (
