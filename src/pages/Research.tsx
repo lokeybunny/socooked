@@ -131,6 +131,10 @@ export default function Research() {
   const [tiktokRadar, setTiktokRadar] = useState<TikTokVideo[]>([]);
   const [creditsDepleted, setCreditsDepleted] = useState(false);
   const [scrapeSources, setScrapeSources] = useState<('x' | 'tiktok')[]>(['x', 'tiktok']);
+  const [loopInterval, setLoopInterval] = useState<number | null>(null); // minutes
+  const [loopActive, setLoopActive] = useState(false);
+  const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loopActiveRef = useRef(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // New finding form
@@ -310,7 +314,6 @@ export default function Research() {
     setShowLog(true);
     setCreditsDepleted(false);
 
-    // Add initial entry immediately so the log panel is visible
     const now = () => new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setProgressLog([{ step: -1, label: 'Cortex activated', status: 'done', detail: '🚀 Researching live narratives now...', ts: now() }]);
 
@@ -345,9 +348,8 @@ export default function Research() {
 
         buffer += decoder.decode(value, { stream: true });
 
-        // Process complete SSE messages (separated by double newline)
         const messages = buffer.split('\n\n');
-        buffer = messages.pop() || ''; // Keep incomplete last chunk
+        buffer = messages.pop() || '';
 
         for (const msg of messages) {
           if (!msg.trim()) continue;
@@ -382,33 +384,17 @@ export default function Research() {
                 return [...prev, entry];
               });
             } else if (eventType === 'complete') {
-              if (data.top_narratives?.length) {
-                setTopNarratives(data.top_narratives);
-              }
-              if (data.top_tweets?.length) {
-                setTopTweets(data.top_tweets);
-              }
-              if (data.tiktok_radar?.length) {
-                setTiktokRadar(data.tiktok_radar);
-              }
-              if (data.chain_of_thought) {
-                setCycleChainOfThought(data.chain_of_thought);
-              }
-              if (data.reasoning) {
-                setCycleReasoning(data.reasoning);
-              }
-              if (data.evolved_queries?.length) {
-                setEvolvedQueries(data.evolved_queries);
-              }
-              if (data.stats?.credits_depleted) {
-                setCreditsDepleted(true);
-              }
+              if (data.top_narratives?.length) setTopNarratives(data.top_narratives);
+              if (data.top_tweets?.length) setTopTweets(data.top_tweets);
+              if (data.tiktok_radar?.length) setTiktokRadar(data.tiktok_radar);
+              if (data.chain_of_thought) setCycleChainOfThought(data.chain_of_thought);
+              if (data.reasoning) setCycleReasoning(data.reasoning);
+              if (data.evolved_queries?.length) setEvolvedQueries(data.evolved_queries);
+              if (data.stats?.credits_depleted) setCreditsDepleted(true);
               toast.success(`Cortex cycle complete: ${data.stats?.tweets ?? 0} tweets, ${data.stats?.tokens ?? 0} tokens, ${data.stats?.matches ?? 0} clusters`);
               load();
             } else if (eventType === 'warning') {
-              if (data.type === 'credits_depleted') {
-                setCreditsDepleted(true);
-              }
+              if (data.type === 'credits_depleted') setCreditsDepleted(true);
               setProgressLog(prev => [...prev, { step: 98, label: '⚠️ Warning', status: 'warning', detail: data.message || 'Unknown warning', ts }]);
             } else if (eventType === 'error') {
               toast.error(data.message || 'Generation failed');
@@ -424,6 +410,38 @@ export default function Research() {
       setGenerating(false);
     }
   };
+
+  // Auto-loop: schedule next run after generate completes
+  const startLoop = () => {
+    if (!loopInterval) return;
+    loopActiveRef.current = true;
+    setLoopActive(true);
+    handleGenerate();
+  };
+
+  const stopLoop = () => {
+    loopActiveRef.current = false;
+    setLoopActive(false);
+    if (loopTimerRef.current) {
+      clearTimeout(loopTimerRef.current);
+      loopTimerRef.current = null;
+    }
+    toast.info('Auto-generate loop stopped');
+  };
+
+  // When generating finishes and loop is active, schedule next
+  useEffect(() => {
+    if (!generating && loopActiveRef.current && loopInterval) {
+      const ms = loopInterval * 60 * 1000;
+      setProgressLog(prev => [...prev, { step: -2, label: 'Loop', status: 'done', detail: `⏳ Next cycle in ${loopInterval}m...`, ts: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }]);
+      loopTimerRef.current = setTimeout(() => {
+        if (loopActiveRef.current) handleGenerate();
+      }, ms);
+    }
+    return () => {
+      if (loopTimerRef.current) clearTimeout(loopTimerRef.current);
+    };
+  }, [generating]);
 
   // Auto-scroll log
   useEffect(() => {
@@ -555,19 +573,51 @@ export default function Research() {
                     🎵 TikTok
                   </button>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={handleGenerate}
-                  disabled={generating || scrapeSources.length === 0}
-                  className="gap-1.5"
-                >
-                  {generating ? (
+                {/* Interval selector */}
+                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+                  {[
+                    { label: '5m', val: 5 },
+                    { label: '15m', val: 15 },
+                    { label: '30m', val: 30 },
+                    { label: '1h', val: 60 },
+                  ].map(opt => (
+                    <button
+                      key={opt.val}
+                      onClick={() => setLoopInterval(prev => prev === opt.val ? null : opt.val)}
+                      className={cn(
+                        "px-2 py-1 rounded text-[10px] font-semibold transition-colors",
+                        loopInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {loopActive ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={stopLoop}
+                    className="gap-1.5"
+                  >
                     <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Brain className="h-4 w-4" />
-                  )}
-                  {generating ? 'Cortex running...' : `Generate (${scrapeSources.join(' + ').toUpperCase() || 'select source'})`}
-                </Button>
+                    Stop Loop
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={loopInterval ? startLoop : handleGenerate}
+                    disabled={generating || scrapeSources.length === 0}
+                    className="gap-1.5"
+                  >
+                    {generating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Brain className="h-4 w-4" />
+                    )}
+                    {generating ? 'Cortex running...' : loopInterval ? `Loop ${loopInterval}m (${scrapeSources.join('+').toUpperCase()})` : `Generate (${scrapeSources.join(' + ').toUpperCase() || 'select source'})`}
+                  </Button>
+                )}
               </div>
             )}
             {selectedSource === 'x' && filtered.length > 0 && (
@@ -1003,23 +1053,29 @@ export default function Research() {
                     {/* Tweet Sources */}
                     {n.tweet_sources?.length > 0 && (
                       <div className="space-y-2 pt-2 border-t border-border">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">X Sources</span>
-                        {n.tweet_sources.slice(0, 4).map((tw, j) => (
-                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-blue-500/5 border border-blue-500/20">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                <span className="text-[10px] font-semibold text-foreground">{tw.user}</span>
-                                <span className="text-[10px] text-muted-foreground">{tw.engagement}</span>
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {n.tweet_sources.slice(0, 4).map((tw, j) => (
+                            <div key={j} className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-2.5 space-y-1.5 hover:border-blue-500/40 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <div className="h-6 w-6 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
+                                  <XIcon className="h-3 w-3 text-blue-400" />
+                                </div>
+                                <span className="text-[11px] font-bold text-foreground truncate">@{tw.user}</span>
+                                <span className="text-[10px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
                               </div>
-                              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                              {tw.media_url && (
+                                <img src={tw.media_url} alt="" className="w-full h-24 rounded object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                              )}
+                              <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{tw.text}</p>
                               {tw.url && (
-                                <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1">
+                                <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline font-medium">
                                   <ExternalLink className="h-2.5 w-2.5" /> View on X
                                 </a>
                               )}
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -1077,40 +1133,49 @@ export default function Research() {
 
               {/* Top tweets fallback */}
               {topTweets.length > 0 && topNarratives.length === 0 && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                     <Activity className="h-3.5 w-3.5" /> Top Tweets Found
                   </span>
-                  {topTweets.slice(0, 6).map((tw, j) => (
-                    <div key={j} className="flex gap-2.5 p-2.5 rounded-md bg-muted/30 border border-border">
-                      {(tw.media_url || tw.profile_pic) && (
-                        <div className="shrink-0">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {topTweets.slice(0, 8).map((tw, j) => (
+                      <div key={j} className="rounded-lg border border-blue-500/20 bg-blue-500/5 overflow-hidden hover:border-blue-500/40 transition-colors">
+                        {tw.media_url && (
                           <img
-                            src={tw.media_url || tw.profile_pic}
+                            src={tw.media_url}
                             alt=""
-                            className={cn(
-                              "object-cover bg-muted",
-                              tw.media_url ? "w-16 h-16 rounded-md" : "w-8 h-8 rounded-full"
-                            )}
+                            className="w-full h-32 object-cover bg-muted"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                           />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-[10px] font-semibold text-foreground">@{tw.user}</span>
-                          <span className="text-[10px] px-1 rounded bg-primary/10 text-primary font-mono">${tw.token_symbol}</span>
-                          <span className="text-[10px] text-muted-foreground">❤ {tw.favorites} · 🔁 {tw.retweets}</span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
-                        {tw.url && (
-                          <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1">
-                            <ExternalLink className="h-2.5 w-2.5" /> View on X
-                          </a>
                         )}
+                        <div className="p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            {tw.profile_pic && (
+                              <img src={tw.profile_pic} alt="" className="w-7 h-7 rounded-full object-cover bg-muted shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            )}
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-foreground block truncate">@{tw.user}</span>
+                              {tw.token_symbol && (
+                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">${tw.token_symbol}</span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{tw.text}</p>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                              <span>❤ {tw.favorites}</span>
+                              <span>🔁 {tw.retweets}</span>
+                            </div>
+                            {tw.url && (
+                              <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline font-medium">
+                                <ExternalLink className="h-2.5 w-2.5" /> Open
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1274,33 +1339,31 @@ export default function Research() {
                       {/* Tweet sources with images */}
                       {tweetSources.length > 0 && (
                         <div className="space-y-2 pt-2 border-t border-border">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">X Sources</span>
-                          {tweetSources.slice(0, 4).map((tw, j) => (
-                            <div key={j} className="flex gap-2.5 p-2.5 rounded-md bg-background/60 border border-border">
-                              {tw.media_url && (
-                                <div className="shrink-0">
-                                  <img
-                                    src={tw.media_url}
-                                    alt=""
-                                    className="w-16 h-16 rounded-md object-cover bg-muted"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                  />
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="text-[10px] font-semibold text-foreground">{tw.user}</span>
-                                  <span className="text-[10px] text-muted-foreground">{tw.engagement}</span>
-                                </div>
-                                <p className="text-[11px] text-muted-foreground leading-snug">{tw.text}</p>
-                                {tw.url && (
-                                  <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline mt-1">
-                                    <ExternalLink className="h-2.5 w-2.5" /> View on X
-                                  </a>
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {tweetSources.slice(0, 4).map((tw, j) => (
+                              <div key={j} className="rounded-lg border border-blue-500/20 bg-blue-500/5 overflow-hidden hover:border-blue-500/40 transition-colors">
+                                {tw.media_url && (
+                                  <img src={tw.media_url} alt="" className="w-full h-24 object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                 )}
+                                <div className="p-2.5 space-y-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-5 w-5 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
+                                      <XIcon className="h-2.5 w-2.5 text-blue-400" />
+                                    </div>
+                                    <span className="text-[11px] font-bold text-foreground truncate">@{tw.user}</span>
+                                    <span className="text-[10px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{tw.text}</p>
+                                  {tw.url && (
+                                    <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline font-medium">
+                                      <ExternalLink className="h-2.5 w-2.5" /> View on X
+                                    </a>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
