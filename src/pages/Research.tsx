@@ -153,6 +153,69 @@ export default function Research() {
   const [lfCreatedCount, setLfCreatedCount] = useState(0);
   const [lfHasSearched, setLfHasSearched] = useState(false);
 
+  // Yelp Finder state
+  const [yelpSearchTerms, setYelpSearchTerms] = useState('');
+  const [yelpLocation, setYelpLocation] = useState('');
+  const [yelpMaxItems, setYelpMaxItems] = useState('30');
+  const [yelpSearching, setYelpSearching] = useState(false);
+  const [yelpResults, setYelpResults] = useState<any[]>([]);
+  const [yelpCreatedCount, setYelpCreatedCount] = useState(0);
+  const [yelpHasSearched, setYelpHasSearched] = useState(false);
+
+  const handleYelpSearch = async () => {
+    if (!yelpSearchTerms && !yelpLocation) {
+      toast.error('Enter search terms or a location');
+      return;
+    }
+    setYelpSearching(true);
+    setYelpHasSearched(true);
+    setYelpResults([]);
+    setYelpCreatedCount(0);
+    try {
+      const payload: Record<string, any> = { maxItems: parseInt(yelpMaxItems) || 30, sortBy: 'rating' };
+      if (yelpSearchTerms) payload.searchTerms = yelpSearchTerms.split(',').map(s => s.trim()).filter(Boolean);
+      if (yelpLocation) payload.location = yelpLocation.trim();
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 210_000);
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/yelp-finder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => '');
+        throw new Error(errBody || `Request failed (${resp.status})`);
+      }
+      const data = await resp.json();
+
+      setYelpResults(data.businesses || []);
+      setYelpCreatedCount(data.created_count || 0);
+      if (data.created_count > 0) {
+        toast.success(`Found ${data.low_rated_count} low-rated businesses, ${data.created_count} new added`);
+        load();
+      } else if (data.low_rated_count > 0) {
+        toast.info(`Found ${data.low_rated_count} low-rated businesses (all already in CRM)`);
+      } else {
+        toast.info(`Found ${data.all_results || 0} businesses but none rated 3★ or below.`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Yelp search failed');
+    } finally {
+      setYelpSearching(false);
+    }
+  };
+
   const handleLeadFinderSearch = async () => {
     if (!lfJobTitle && !lfLocation && !lfCity && !lfIndustry && !lfKeywords) {
       toast.error('Fill in at least one search field');
@@ -1291,7 +1354,91 @@ export default function Research() {
           </Card>
         )}
 
-        {/* Findings — 4-column card grid */}
+        {/* ══════ Yelp Finder Panel ══════ */}
+        {selectedSource === 'yelp' && (
+          <Card className="border-border">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Star className="h-5 w-5 text-yellow-500" />
+                Yelp Finder — Low-Rated Businesses (3★ & Below)
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Search Yelp for businesses rated 3 stars or below. Results auto-save as findings + create CRM customers in the "Potential" category.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs"><Search className="h-3 w-3" /> Search Terms</Label>
+                  <Input value={yelpSearchTerms} onChange={e => setYelpSearchTerms(e.target.value)} placeholder="e.g. restaurant, plumber, dentist" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs"><MapPin className="h-3 w-3" /> Location</Label>
+                  <Input value={yelpLocation} onChange={e => setYelpLocation(e.target.value)} placeholder="e.g. Los Angeles, CA" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs"># Results (max 100)</Label>
+                  <Input type="number" value={yelpMaxItems} onChange={e => setYelpMaxItems(e.target.value)} min="1" max="100" className="h-9 text-sm" />
+                </div>
+              </div>
+              <Button onClick={handleYelpSearch} disabled={yelpSearching} size="sm">
+                {yelpSearching ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Searching…</> : <><Star className="h-4 w-4 mr-2" /> Find Low-Rated</>}
+              </Button>
+
+              {/* Searching state */}
+              {yelpSearching && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center space-y-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-yellow-500 mx-auto" />
+                    <p className="text-xs text-muted-foreground">Searching Yelp… This may take up to 3 minutes.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Results preview */}
+              {!yelpSearching && yelpHasSearched && yelpResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {yelpResults.length} low-rated businesses found · <span className="text-yellow-500 font-medium">{yelpCreatedCount} new</span> added to CRM & findings
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
+                    {yelpResults.slice(0, 16).map((biz: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-border bg-muted/30 overflow-hidden text-xs">
+                        {biz.primaryPhoto && (
+                          <img src={biz.primaryPhoto} alt={biz.title} className="w-full h-24 object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        )}
+                        <div className="p-2 space-y-1">
+                          <span className="font-semibold text-foreground block truncate">{biz.title}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-yellow-500 font-bold">{biz.rating}★</span>
+                            <span className="text-muted-foreground">({biz.reviewCount} reviews)</span>
+                          </div>
+                          {biz.categories?.length > 0 && (
+                            <span className="text-muted-foreground block truncate">{biz.categories.join(", ")}</span>
+                          )}
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                            {biz.phoneNumber && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{biz.phoneNumber}</span>}
+                            {biz.address?.city && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{biz.address.city}, {biz.address.regionCode}</span>}
+                            {biz.url && (
+                              <a href={biz.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-yellow-500 hover:underline">
+                                <ExternalLink className="h-2.5 w-2.5" /> Yelp
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {yelpResults.length > 16 && <p className="text-[10px] text-muted-foreground">+{yelpResults.length - 16} more (all saved as findings below)</p>}
+                </div>
+              )}
+
+              {!yelpSearching && yelpHasSearched && yelpResults.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">No businesses rated 3★ or below found. Try different search terms or location.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {paginatedFiltered.filter(f => {
             // Gate: only show findings with required narrative fields
@@ -1300,7 +1447,7 @@ export default function Research() {
             const hasName = !!(rd.name || f.title);
             const hasSymbol = !!rd.symbol;
             const hasWindow = !!rd.deploy_window;
-            const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder');
+            const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder') || (rd.type === 'yelp_business');
             // X findings require media (image/video)
             const isX = normSource(f.category) === 'x';
             const hasMedia = !!(rd.media_url || rd.tweet_sources?.find((ts: any) => ts.media_url));
@@ -1311,12 +1458,13 @@ export default function Research() {
             const isNarrative = rawData?.type === 'narrative_report';
             const rating = rawData?.narrative_rating ?? rawData?.bundle_score ?? null;
             const tweetSources: TweetSource[] = rawData?.tweet_sources || [];
-            const narrativeImage = tweetSources.find(ts => ts.media_url)?.media_url || rawData?.media_url || '';
+            const narrativeImage = tweetSources.find(ts => ts.media_url)?.media_url || rawData?.media_url || rawData?.photo || '';
             const sourcePlatform = rawData?.source_platform;
 
             return (
               <div key={f.id} className={cn(
                 "glass-card overflow-hidden hover:shadow-lg transition-shadow rounded-xl border flex flex-col min-w-0",
+                sourcePlatform === 'yelp-finder' ? "border-yellow-500/30" :
                 sourcePlatform === 'lead-finder' ? "border-emerald-500/30" :
                 sourcePlatform === 'tiktok' ? "border-purple-500/30" :
                 sourcePlatform === 'x' ? "border-blue-500/30" :
@@ -1455,11 +1603,37 @@ export default function Research() {
                       </div>
                     </div>
                   )}
+
+                  {/* Yelp Business details */}
+                  {rawData?.type === 'yelp_business' && (
+                    <div className="space-y-1 pt-1 border-t border-border">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Yelp Business</span>
+                      <div className="flex items-center gap-1 text-xs">
+                        <Star className="h-2.5 w-2.5 text-yellow-500" />
+                        <span className="font-bold text-yellow-500">{rawData.rating}★</span>
+                        <span className="text-muted-foreground">({rawData.review_count} reviews)</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                        {rawData.phone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{rawData.phone}</span>}
+                        {rawData.address && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{rawData.address}</span>}
+                        {rawData.website && (
+                          <a href={rawData.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-yellow-500 hover:underline">
+                            <Globe className="h-2.5 w-2.5" /> Website
+                          </a>
+                        )}
+                        {rawData.yelp_url && (
+                          <a href={rawData.yelp_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-yellow-500 hover:underline">
+                            <Star className="h-2.5 w-2.5" /> Yelp
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer actions */}
                 <div className="flex items-center gap-1.5 px-3 py-2 border-t border-border shrink-0 bg-muted/20">
-                  {rawData?.type === 'lead_finder' && f.customer_id && (
+                  {(rawData?.type === 'lead_finder' || rawData?.type === 'yelp_business') && f.customer_id && (
                     <Button variant="ghost" size="sm" className="h-8 text-sm gap-1.5 px-2" onClick={() => openCustomerDetail(f.customer_id)}>
                       <Eye className="h-3.5 w-3.5" /> View
                     </Button>
