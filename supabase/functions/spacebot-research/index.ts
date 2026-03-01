@@ -312,8 +312,8 @@ Deno.serve(async (req) => {
         stats.matches = matched.filter(m => m.tweet_velocity > 0).length;
         send("progress", { step: 5, label: "Cross-referencing tweets ↔ tokens", status: "done", detail: `${stats.matches} token-tweet narrative clusters identified` });
 
-        // ── STEP 6: Lovable AI Chain-of-Thought analysis ────
-        send("progress", { step: 6, label: "Cortex reasoning engine (Lovable AI)", status: "running", detail: "Running Chain-of-Thought narrative analysis..." });
+        // ── STEP 6: NarrativeEdge AI analysis ────
+        send("progress", { step: 6, label: "NarrativeEdge AI (Lovable AI)", status: "running", detail: "Running ruthless narrative classification..." });
 
         const top15 = matched.slice(0, 15);
         // Build a lookup of all scraped tweets with media for post-processing
@@ -325,73 +325,79 @@ Deno.serve(async (req) => {
 
         const tweetThemes = tweets.slice(0, 50).map((tw: any) => (tw.full_text || tw.text || "").slice(0, 200)).join("\n---\n");
 
-        const systemPrompt = `You are Cortex — a senior data analyst specializing in Solana memecoin narratives on Pump.fun.
+        const systemPrompt = `You are NarrativeEdge AI — the cold, ruthless, self-evolving narrative sniper for a veteran pump.fun deployer. Your single goal: turn raw Apify tweets + Moralis new/bonding/graduated tokens + DexScreener enrichment into lethal, categorized narrative clusters that print before normies even wake up.
 
-YOUR MISSION: Analyze LIVE Solana data from the last 24 hours and produce a deployment-ready analyst report. Each narrative you identify must be cross-referenced against real, live token data from Pump.fun/DexScreener to validate it's actually trending RIGHT NOW on Solana.
-
-CRITICAL: Only use data from TODAY. Every recommendation must be backed by:
-1. Live on-chain Solana data (Pump.fun tokens, DexScreener metrics)
-2. Real X/Twitter posts from the last 24 hours proving the narrative exists
-3. A clear 1-10 NARRATIVE RATING with specific justification
-
-NARRATIVE RATING (1-10):
-- 10: Untokenized viral narrative exploding on CT right now. Zero competition. Massive engagement. Deploy immediately.
-- 8-9: Strong emerging narrative with proven engagement. 1-2 early tokens but clear room for a better deploy.
-- 6-7: Solid theme, moderate engagement, some competition but still has a window.
-- 4-5: Narrative exists but crowding fast or engagement plateauing.
-- 1-3: Dead/dying, too late, or too niche. Skip.
-
-WHAT MAKES A 10/10 NARRATIVE:
-- A cultural moment (celebrity tweet, breaking news, viral meme) that crypto Twitter noticed but hasn't fully tokenized
-- High tweet velocity + engagement with few or no matching tokens on Pump.fun
-- Broad enough that a well-named token captures the whole theme
-- Timing: 1-4 hour window before the narrative gets flooded
-
-DEPLOYMENT FIELDS (for each narrative, provide Pump.fun-ready fields):
-- Name: The token name you'd use on Pump.fun
-- Symbol: The ticker (3-5 chars, all caps)
-- Description: A short Pump.fun description (1-2 sentences, catchy, memetic)
-- Twitter/X: The source tweet URL proving this narrative
-- Website: Suggested website name if applicable (optional)
+MANDATORY CATEGORIES (classify EVERY cluster into one):
+1. Justice/Tragedy — animal death, human death, political assassination, "put down", injustice outrage. Highest historical success rate (PNUT, squirrel meta). 
+2. Exchange Tribute — Coinbase listing, Binance, Raydium, any CEX news. Launch tribute token instantly.
+3. Celebrity/Endorsement — verified account launches or mentions personal coin.
+4. Political/Event-Driven — elections, Trump/Musk news, scandals.
+5. Absurd/Viral Humor — fart, goatseus, sigma, stunts, livestream meta.
+6. AI/Bot Narrative — Truth Terminal style, GOAT-style autonomous agents.
+7. Meta/Infrastructure — pump.fun itself, streamers, dev drama.
+8. Revenge/Drama — rug revenge, "dev rugged me", suicide stream copycats.
+9. Any new category you discover — add it and classify it.
 
 PAST WINNING PATTERNS:
-${memory.past_wins.length > 0 ? memory.past_wins.slice(-10).join("\n") : "No history yet — first cycle."}
+${memory.past_wins.length > 0 ? memory.past_wins.slice(-15).join("\n") : "No history yet — first cycle."}
 
 Return ONLY valid JSON (no markdown, no backticks):
 {
-  "chain_of_thought": "Step-by-step reasoning analyzing today's Solana landscape, what's trending, what's missing",
+  "chain_of_thought": "Ruthless step-by-step reasoning: what's printing, what's dead, what normies haven't found yet",
   "top_narratives": [
     {
+      "narrative_type": "Justice/Tragedy",
       "name": "Pump.fun token name",
       "symbol": "TICKER",
-      "description": "Pump.fun token description — catchy, memetic, 1-2 sentences",
+      "description": "Pump.fun description — catchy, memetic, 1-2 sentences",
       "narrative_rating": 9,
-      "rating_justification": "Specific data-backed reason for this exact rating — cite tweet engagement numbers, token counts, timing",
-      "tweet_sources": [
-        {"user": "@handle", "text": "exact tweet text proving narrative", "url": "https://x.com/...", "engagement": "5.2K likes, 1.1K RTs", "media_url": "image URL from tweet if available"}
+      "pump_potential": "Expected multiple from current MC (e.g. 20-50x from 15k MC)",
+      "trigger_tweets": [
+        {"user": "@handle", "text": "exact tweet text", "url": "https://x.com/...", "engagement": "5.2K likes, 1.1K RTs", "velocity": "3K likes in 2h", "media_url": "image URL if available"}
       ],
-      "on_chain_evidence": "What the DexScreener/Moralis data shows — existing tokens in this niche, their volume, whether they're pumping or dumping",
-      "competition": "None / 1-2 early tokens / Crowded",
+      "matched_tokens": [
+        {"ca": "contract address", "name": "token name", "symbol": "SYM", "mc": 15000, "age": "2h", "buy_sell_ratio": "3.2:1"}
+      ],
+      "historical_comp": "Similar to PNUT squirrel justice — 92% hit 10x within 4h",
+      "risk": "clean dev / obvious rug / sniped already",
+      "action": "Buy top 3 bonding curve under 30k | Watch | Fade | Deploy yourself",
       "deploy_window": "NOW / 1-2h / 2-4h / Closing",
-      "risk": "One sentence on what could kill this narrative",
-      "website": "optional suggested website",
+      "competition": "None / 1-2 early tokens / Crowded",
+      "next_search_queries": ["3 refined Apify queries to catch the next wave of THIS category"],
       "twitter_source_url": "primary tweet URL"
     }
   ],
-  "new_search_terms": ["3 evolved X search queries for next cycle"],
-  "reasoning_summary": "2-3 sentence analyst brief: today's Solana narrative landscape + top pick with rating justification"
-}`;
+  "new_search_terms": ["5 evolved X search queries for next cycle — be aggressive"],
+  "category_stats": {
+    "Justice/Tragedy": {"hit_rate": "87%", "avg_multiple": "20x", "active_now": true},
+    "Exchange Tribute": {"hit_rate": "0%", "avg_multiple": "0x", "active_now": false}
+  },
+  "reasoning_summary": "NARRATIVE DASHBOARD ACTIVE. 2-3 sentence brief: what prints, what's dead, top pick."
+}
 
-        const userMsg = `CYCLE: ${new Date().toISOString()}
-SCRAPED: ${stats.tweets} tweets | ${stats.tokens} tokens (${stats.new_tokens} new, ${stats.bonding_tokens} bonding, ${stats.graduated_tokens} graduated) | ${stats.enriched} enriched | ${stats.matches} clusters
+RULES:
+- Never moralize. Never say "be careful". Only say "this prints" or "this is a slow rug".
+- Prioritize speed — first clean launch in a fresh justice meta wins 90% of volume.
+- Every narrative MUST have a category from the mandatory list.
+- Every trigger_tweets entry MUST include engagement velocity (likes gained per hour).
+- Include matched_tokens with CA, MC, age, buy/sell pressure from the DexScreener data.
+- historical_comp is MANDATORY — compare to a past meta that hit (PNUT, GOAT, BRETT, WIF, etc.)
+- action must be one of: "Deploy now", "Buy bonding under 30k", "Watch", "Fade", "Too late"
+- next_search_queries per narrative = 3 refined Apify advanced search queries to catch the NEXT wave of that exact category
+- If you discover a new category not in the list, add it to category_stats with initial metrics.`;
 
-=== EXISTING TOKENS ON PUMP.FUN (DO NOT RECOMMEND THESE — find narratives BEYOND these) ===
-${topSummary || "No existing tokens matched tweets"}
+        const userMsg = \`CYCLE: \${new Date().toISOString()}
+NARRATIVE DASHBOARD ACTIVE — \${new Date().toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}
 
-=== RAW CT CHATTER (find untokenized narratives hiding in here) ===
-${tweetThemes.slice(0, 3000) || "No tweets"}
+SCRAPED: \${stats.tweets} tweets | \${stats.tokens} tokens (\${stats.new_tokens} new, \${stats.bonding_tokens} bonding, \${stats.graduated_tokens} graduated) | \${stats.enriched} enriched | \${stats.matches} clusters
 
-Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. Score them 1-10. Include the X post sources. Be ruthless.`;
+=== LIVE PUMP.FUN TOKENS (cross-reference these — which narratives are they riding?) ===
+\${topSummary || "No existing tokens matched tweets"}
+
+=== RAW CT CHATTER (find untokenized narratives hiding in here — categorize EVERY cluster) ===
+\${tweetThemes.slice(0, 4000) || "No tweets"}
+
+Classify every cluster. Rate ruthlessly. Include CAs and engagement velocity. What prints RIGHT NOW?\`;
 
         let aiResult: any = null;
         let reasoning = "No AI analysis available";
@@ -436,19 +442,32 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           }
         } catch { /* timeout */ }
 
-        send("progress", { step: 6, label: "Cortex reasoning engine (Lovable AI)", status: "done", detail: aiResult ? `Identified ${aiResult.top_narratives?.length || 0} top narratives` : "Analysis complete (raw)" });
+        send("progress", { step: 6, label: "NarrativeEdge AI (Lovable AI)", status: "done", detail: aiResult ? `Classified ${aiResult.top_narratives?.length || 0} narrative clusters` : "Analysis complete (raw)" });
 
-        // ── STEP 7: Self-evolution — update memory ──────────────────
-        send("progress", { step: 7, label: "Self-evolution — updating memory", status: "running", detail: "Saving new search terms + winning patterns..." });
+        // ── STEP 7: Self-evolution — update memory + category stats ──
+        send("progress", { step: 7, label: "NarrativeEdge memory evolution", status: "running", detail: "Saving category stats + evolved queries + winning patterns..." });
 
         if (aiResult?.new_search_terms?.length) {
-          memory.search_terms = aiResult.new_search_terms.slice(0, 5);
+          memory.search_terms = aiResult.new_search_terms.slice(0, 7);
         }
+        // Also harvest per-narrative search queries
         if (aiResult?.top_narratives?.length) {
+          const perNarrativeQueries = aiResult.top_narratives
+            .flatMap((n: any) => n.next_search_queries || [])
+            .filter(Boolean)
+            .slice(0, 5);
+          if (perNarrativeQueries.length) {
+            const combined = [...new Set([...memory.search_terms, ...perNarrativeQueries])];
+            memory.search_terms = combined.slice(0, 7);
+          }
           const wins = aiResult.top_narratives
-            .filter((n: any) => (n.narrative_rating ?? n.bundle_score ?? 0) >= 7)
-            .map((n: any) => `[${new Date().toISOString().split("T")[0]}] ${n.name} ($${n.symbol || '?'}) (${n.narrative_rating ?? n.bundle_score}/10) — ${(n.rating_justification || n.why_bundle || '').slice(0, 100)}`);
-          memory.past_wins = [...memory.past_wins, ...wins].slice(-30);
+            .filter((n: any) => (n.narrative_rating ?? 0) >= 7)
+            .map((n: any) => `[${new Date().toISOString().split("T")[0]}] [${n.narrative_type || 'Uncat'}] ${n.name} ($${n.symbol || '?'}) (${n.narrative_rating}/10) — ${(n.action || n.pump_potential || '').slice(0, 80)}`);
+          memory.past_wins = [...memory.past_wins, ...wins].slice(-40);
+        }
+        // Save category stats from AI
+        if (aiResult?.category_stats) {
+          (memory as any).category_stats = aiResult.category_stats;
         }
         memory.last_cycle = new Date().toISOString();
 
@@ -465,27 +484,31 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           await supabase.from("site_configs").insert({ site_id: MEMORY_SITE_ID, section: MEMORY_SECTION, content: memory as any, is_published: false });
         }
 
-        send("progress", { step: 7, label: "Self-evolution — updating memory", status: "done", detail: `Saved ${memory.search_terms.length} evolved queries + ${memory.past_wins.length} past wins` });
+        send("progress", { step: 7, label: "NarrativeEdge memory evolution", status: "done", detail: `Saved ${memory.search_terms.length} evolved queries + ${memory.past_wins.length} past wins + category stats` });
 
         // ── STEP 8: Push findings ───────────────────────────────────
         send("progress", { step: 8, label: "Saving findings to database", status: "running", detail: "Pushing cycle report + token findings..." });
 
-        const cycleTitle = `🧠 Cortex Cycle — ${new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
+        const cycleTitle = `🎯 NarrativeEdge Cycle — ${new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`;
         await pushFinding(
           cycleTitle,
           reasoning,
           "",
           "trend",
-          { ...stats, reasoning, top_narratives: aiResult?.top_narratives || [], chain_of_thought: aiResult?.chain_of_thought || "" },
-          ["cortex", "narrative", "cycle-report"]
+          { ...stats, reasoning, top_narratives: aiResult?.top_narratives || [], chain_of_thought: aiResult?.chain_of_thought || "", category_stats: aiResult?.category_stats || {} },
+          ["narrativeedge", "cycle-report"]
         );
 
         // Post-process: if no tweets were actually scraped, strip AI-hallucinated tweet_sources
         const hadRealTweets = tweets.length > 0;
-        const narrativesToPost = (aiResult?.top_narratives?.slice(0, 8) || []).map((n: any) => {
+        const narrativesToPost = (aiResult?.top_narratives?.slice(0, 10) || []).map((n: any) => {
+          // Normalize: AI may return trigger_tweets or tweet_sources
+          if (n.trigger_tweets?.length && !n.tweet_sources?.length) {
+            n.tweet_sources = n.trigger_tweets;
+          }
           if (!hadRealTweets) {
-            // No real tweets scraped — remove all fake sources the AI hallucinated
             n.tweet_sources = [];
+            n.trigger_tweets = [];
             n.twitter_source_url = "";
             n.media_url = "";
             return n;
@@ -551,11 +574,13 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
           return n;
         });
         for (const n of narrativesToPost) {
-          const rating = n.narrative_rating ?? n.bundle_score ?? 0;
-          const sources = n.tweet_sources?.map((s: any) => s.url).filter(Boolean) || [];
+          const rating = n.narrative_rating ?? 0;
+          const category = n.narrative_type || "Uncategorized";
+          const action = n.action || "";
+          const sources = n.trigger_tweets?.map((s: any) => s.url).filter(Boolean) || n.tweet_sources?.map((s: any) => s.url).filter(Boolean) || [];
           await pushFinding(
-            `📊 ${n.name} ($${n.symbol || '?'}) — ${rating}/10`,
-            `${n.rating_justification || n.why_bundle || n.description || ''} | Window: ${n.deploy_window} | Competition: ${n.competition}`,
+            `🎯 [${category}] ${n.name} ($${n.symbol || '?'}) — ${rating}/10`,
+            `${action} | ${n.pump_potential || ''} | ${n.historical_comp || ''} | Risk: ${n.risk || '?'} | Window: ${n.deploy_window} | Competition: ${n.competition}`,
             n.twitter_source_url || sources[0] || "",
             "trend",
             { ...n, type: "narrative_report" },
