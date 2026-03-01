@@ -1809,10 +1809,8 @@ export default function Research() {
             const hasSymbol = !!rd.symbol;
             const hasWindow = !!rd.deploy_window;
             const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder') || (rd.type === 'yelp_business') || (rd.type === 'gmaps_business');
-            // X findings require media (image/video)
+            // X findings no longer require media — show all
             const isX = normSource(f.category) === 'x';
-            const hasMedia = !!(rd.media_url || rd.tweet_sources?.find((ts: any) => ts.media_url));
-            if (isX && !hasMedia) return false;
             return hasName && hasSymbol && hasWindow && hasSources;
           }).map(f => {
             const rawData = f.raw_data as any;
