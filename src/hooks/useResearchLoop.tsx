@@ -4,14 +4,14 @@ interface LoopState {
   active: boolean;
   generating: boolean;
   interval: number | null;
-  sources: ('x' | 'tiktok')[];
+  sources: ('x')[];
   progressLog: Array<{ step: number; label: string; status: string; detail: string; ts: string }>;
 }
 
 interface ResearchLoopContextType {
   loopState: LoopState;
   setInterval: (mins: number | null) => void;
-  setSources: (sources: ('x' | 'tiktok')[]) => void;
+  setSources: (sources: ('x')[]) => void;
   startLoop: () => void;
   stopLoop: () => void;
   runOnce: () => void;
@@ -27,7 +27,7 @@ export function ResearchLoopProvider({ children }: { children: React.ReactNode }
     active: false,
     generating: false,
     interval: null,
-    sources: ['x', 'tiktok'],
+    sources: ['x'],
     progressLog: [],
   });
 
@@ -158,7 +158,7 @@ export function ResearchLoopProvider({ children }: { children: React.ReactNode }
     setLoopState(prev => ({ ...prev, interval: mins }));
   }, []);
 
-  const setSources = useCallback((sources: ('x' | 'tiktok')[]) => {
+  const setSources = useCallback((sources: ('x')[]) => {
     setLoopState(prev => ({ ...prev, sources }));
   }, []);
 

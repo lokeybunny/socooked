@@ -9,37 +9,8 @@ const corsHeaders = {
 const MEMORY_SITE_ID = "cortex-agent";
 const MEMORY_SECTION = "search-memory";
 
-// ── STRICT RELEVANCE KEYWORDS ──
-const RELEVANCE_INCLUDE = [
-  "died", "put down", "euthanized", "killed", "rip", "justice for",
-  "my cat died", "my dog died", "my pet died", "animal tragedy",
-  "squirrel", "catsoftiktok", "dogsoftiktok", "petloss",
-  "cat", "dog", "pet", "kitten", "puppy", "hamster", "rabbit", "bird", "parrot",
-  "raccoon", "duck", "frog", "turtle", "monkey", "bear",
-  "death", "dead", "rescue", "saved", "abuse", "neglect",
-  "heartbreaking", "crying", "tears", "emotional", "tragic", "hero",
-  "missing", "found", "memorial", "petjustice", "animalrescue",
-];
-
-const RELEVANCE_REJECT = [
-  "dance", "tutorial", "ad", "sponsored", "#fyp", "music challenge",
-  "outfit", "makeup", "recipe", "cooking", "workout", "fitness",
-  "brand deal", "gifted", "partnership",
-];
-
 // ── TIER THRESHOLDS ──
 type Tier = "S" | "A" | "B" | null;
-
-function getTikTokTier(v: { playCount: number; diggCount: number; shareCount: number }): Tier {
-  // Tier S — Nuclear
-  if (v.playCount >= 5_000_000 || v.diggCount >= 300_000 || v.shareCount >= 50_000) return "S";
-  // Tier A — Exploding
-  if (v.playCount >= 1_500_000 && v.diggCount >= 80_000) return "A";
-  // Tier B — Emerging: 1M+ plays OR strong engagement on 500k+
-  if (v.playCount >= 1_000_000) return "B";
-  if (v.playCount >= 500_000 && v.playCount > 0 && (v.diggCount / v.playCount) > 0.08) return "B";
-  return null;
-}
 
 function getTweetTier(tw: { favorite_count: number; retweet_count: number; reply_count?: number }): Tier {
   const faves = tw.favorite_count || 0;
@@ -57,18 +28,6 @@ function isWithinHours(dateStr: string, hours = 24): boolean {
   const created = new Date(dateStr).getTime();
   if (isNaN(created)) return false;
   return (Date.now() - created) < hours * 60 * 60 * 1000;
-}
-
-/** Check relevance: animal/pet/justice ONLY */
-function passesRelevanceFilter(text: string, hashtags: string[]): boolean {
-  const combined = `${text} ${hashtags.join(" ")}`.toLowerCase();
-  // Must contain at least one include keyword
-  const hasRelevant = RELEVANCE_INCLUDE.some((kw) => combined.includes(kw));
-  if (!hasRelevant) return false;
-  // Must NOT contain reject keywords
-  const isRejected = RELEVANCE_REJECT.some((kw) => combined.includes(kw));
-  if (isRejected) return false;
-  return true;
 }
 
 /** Retry helper — retries fn up to maxRetries times with exponential backoff */
@@ -154,101 +113,7 @@ async function scrapeTweetsViaApify(apifyToken: string, searchTerms: string[], m
   }, "Apify-Tweets", 3);
 }
 
-/** Scrape TikTok via Apify clockworks/tiktok-scraper */
-async function scrapeTikTokViaApify(
-  apifyToken: string,
-  searchQueries: string[],
-  hashtags: string[],
-  maxResults = 30,
-): Promise<any[]> {
-  return withRetry(async () => {
-    const actorId = "clockworks~tiktok-scraper";
-    const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
-    const input: Record<string, any> = {
-      resultsPerPage: maxResults,
-      shouldDownloadVideos: false,
-      shouldDownloadCovers: false,
-      shouldDownloadAvatars: false,
-      shouldDownloadSubtitles: false,
-      shouldDownloadSlideshowImages: false,
-      shouldDownloadMusicCovers: false,
-      scrapeRelatedVideos: false,
-      excludePinnedPosts: false,
-      proxyCountryCode: "None",
-      profileScrapeSections: ["videos"],
-      profileSorting: "latest",
-      searchSection: "",
-      maxProfilesPerQuery: 5,
-    };
-
-    if (searchQueries.length > 0) input.searchQueries = searchQueries;
-    if (hashtags.length > 0) input.hashtags = hashtags;
-
-    console.log(`Apify TikTok: starting with ${searchQueries.length} searches, ${hashtags.length} hashtags, max=${maxResults}`);
-    const res = await fetch(runUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-      signal: AbortSignal.timeout(180_000),
-    });
-
-    if (!res.ok) {
-      const err = await res.text().catch(() => "");
-      console.log(`Apify TikTok run failed (${res.status}): ${err.slice(0, 300)}`);
-      throw new Error(`Apify TikTok request failed (${res.status})`);
-    }
-
-    const items: any[] = await res.json();
-    console.log(`Apify TikTok: received ${items.length} items`);
-
-    return items.map((v: any) => ({
-      id: v.id || "",
-      text: v.text || "",
-      playCount: v.playCount || 0,
-      diggCount: v.diggCount || 0,
-      shareCount: v.shareCount || 0,
-      commentCount: v.commentCount || 0,
-      collectCount: v.collectCount || 0,
-      createTimeISO: v.createTimeISO || "",
-      webVideoUrl: v.webVideoUrl || "",
-      authorName: v.authorMeta?.name || "",
-      authorNickName: v.authorMeta?.nickName || "",
-      authorFans: v.authorMeta?.fans || 0,
-      authorVerified: v.authorMeta?.verified || false,
-      coverUrl: v.videoMeta?.coverUrl || "",
-      duration: v.videoMeta?.duration || 0,
-      hashtags: (v.hashtags || []).map((h: any) => h.name || h),
-      isAd: v.isAd || false,
-      isSponsored: v.isSponsored || false,
-      isSlideshow: v.isSlideshow || false,
-      musicName: v.musicMeta?.musicName || "",
-      searchQuery: v.searchQuery || "",
-    }));
-  }, "Apify-TikTok", 3);
-}
-
-/** STRICT 24-HOUR VIRAL FILTER for TikTok */
-function applyStrictTikTokFilter(videos: any[]): any[] {
-  return videos.filter((v) => {
-    // Hard filter: no ads, no sponsored
-    if (v.isAd || v.isSponsored) return false;
-    // Slideshow only allowed if pet memorial
-    if (v.isSlideshow) {
-      const text = (v.text || "").toLowerCase();
-      const isPetMemorial = ["memorial", "rip", "died", "put down", "rest in peace", "petloss"].some(kw => text.includes(kw));
-      if (!isPetMemorial) return false;
-    }
-    // AGE FILTER: must be ≤48 hours old for TikTok
-    if (!isWithinHours(v.createTimeISO, 48)) return false;
-    // RELEVANCE FILTER
-    if (!passesRelevanceFilter(v.text || "", v.hashtags || [])) return false;
-    // VIRALITY THRESHOLD: must hit at least Tier B
-    const tier = getTikTokTier(v);
-    if (!tier) return false;
-    return true;
-  });
-}
 
 /** STRICT 24-HOUR VIRAL FILTER for Tweets */
 function applyStrictTweetFilter(tweets: any[]): any[] {
@@ -262,45 +127,6 @@ function applyStrictTweetFilter(tweets: any[]): any[] {
   });
 }
 
-/** Score TikTok video for narrative potential (0-20 + velocity bonuses) */
-function scoreTikTokVideo(v: any): { score: number; tier: Tier } {
-  let score = 0;
-  const tier = getTikTokTier(v);
-
-  // Play count scoring
-  if (v.playCount > 10_000_000) score += 10;
-  else if (v.playCount > 5_000_000) score += 8;
-  else if (v.playCount > 1_000_000) score += 6;
-  else if (v.playCount > 500_000) score += 4;
-
-  // Engagement ratio
-  const engagementRate = v.playCount > 0 ? (v.diggCount + v.shareCount + v.commentCount) / v.playCount : 0;
-  if (engagementRate > 0.1) score += 4;
-  else if (engagementRate > 0.05) score += 2;
-
-  // Share count (virality indicator)
-  if (v.shareCount > 50_000) score += 4;
-  else if (v.shareCount > 10_000) score += 2;
-
-  // Recency bonus (VELOCITY BONUS)
-  if (v.createTimeISO) {
-    const ageMs = Date.now() - new Date(v.createTimeISO).getTime();
-    const ageHours = ageMs / 3_600_000;
-    // If >1M plays AND created in last 6 hours → +3
-    if (v.playCount > 1_000_000 && ageHours < 6) score += 3;
-    // Base recency
-    if (ageHours < 6) score += 2;
-    else if (ageHours < 12) score += 1;
-  }
-
-  // Justice/tragedy keyword bonus
-  const text = (v.text || "").toLowerCase();
-  const justiceKeywords = ["died", "death", "dead", "rip", "put down", "justice", "abuse", "rescue", "heartbreaking", "tragic", "euthanized", "killed"];
-  const justiceHits = justiceKeywords.filter((kw) => text.includes(kw)).length;
-  score += justiceHits * 2;
-
-  return { score: Math.min(score, 25), tier };
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -329,13 +155,12 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
   // Parse request body for source selection
-  let sources: string[] = ["x", "tiktok"]; // default: both
+  let sources: string[] = ["x"]; // default: X only
   try {
     const body = await req.json();
     if (body?.sources?.length) sources = body.sources;
-  } catch { /* no body = both */ }
+  } catch { /* no body = X */ }
   const runX = sources.includes("x");
-  const runTikTok = sources.includes("tiktok");
 
   const encoder = new TextEncoder();
   const { readable, writable } = new TransformStream();
@@ -365,19 +190,11 @@ Deno.serve(async (req) => {
         // ── STEP 0: Load persistent memory ───
         send("progress", { step: 0, label: "Loading NarrativeEdge memory", status: "running", detail: "Reading persistent search terms & past winning narratives..." });
 
-        let memory: { search_terms: string[]; tiktok_queries: string[]; tiktok_hashtags: string[]; past_wins: string[]; last_cycle: string | null } = {
+        let memory: { search_terms: string[]; past_wins: string[]; last_cycle: string | null } = {
           search_terms: [
             '("pump.fun" OR pumpfun OR "new memecoin") (ai OR cat OR agent OR celebrity OR frog OR dog OR political)',
             '("solana memecoin" OR "$SOL" OR "pump fun") (launch OR moon OR 100x OR narrative)',
             '("pump.fun" OR pumpfun) (trending OR viral OR breaking)',
-          ],
-          tiktok_queries: [
-            "cat died", "dog put down", "justice for pet", "my cat died",
-            "viral animal rescue", "rip my dog", "animal abuse justice",
-          ],
-          tiktok_hashtags: [
-            "catsoftiktok", "dogsoftiktok", "petjustice", "animaltragedy",
-            "restinpeace", "petloss", "animalrescue", "viralpet",
           ],
           past_wins: [],
           last_cycle: null,
@@ -393,66 +210,33 @@ Deno.serve(async (req) => {
           if (memRow?.content) {
             const saved = memRow.content as any;
             if (saved.search_terms?.length) memory.search_terms = saved.search_terms;
-            if (saved.tiktok_queries?.length) memory.tiktok_queries = saved.tiktok_queries;
-            if (saved.tiktok_hashtags?.length) memory.tiktok_hashtags = saved.tiktok_hashtags;
             if (saved.past_wins?.length) memory.past_wins = saved.past_wins;
             memory.last_cycle = saved.last_cycle || null;
           }
         } catch { /* first run */ }
 
-        send("progress", { step: 0, label: "Loading NarrativeEdge memory", status: "done", detail: `Loaded ${memory.search_terms.length} X queries, ${memory.tiktok_queries.length} TikTok queries, ${memory.past_wins.length} past wins` });
+        send("progress", { step: 0, label: "Loading NarrativeEdge memory", status: "done", detail: `Loaded ${memory.search_terms.length} X queries, ${memory.past_wins.length} past wins` });
 
-        // ── STEP 1 + 1.5: Scrape selected sources in parallel ──
+        // ── STEP 1: Scrape X/Twitter ──
         if (runX) send("progress", { step: 1, label: "Scraping X/Twitter via Apify (apidojo/tweet-scraper)", status: "running", detail: `Launching with ${memory.search_terms.length} queries + auto since:24h...` });
-        if (runTikTok) send("progress", { step: 1.5, label: "Scraping TikTok via Apify (clockworks/tiktok-scraper)", status: "running", detail: `${memory.tiktok_queries.length} searches + ${memory.tiktok_hashtags.length} hashtags...` });
 
         let tweets: any[] = [];
-        let tiktokVideos: any[] = [];
         let apifyError = false;
-        let tiktokError = false;
-
-        const scrapePromises: Promise<any>[] = [];
-        const scrapeLabels: string[] = [];
 
         if (runX) {
-          scrapePromises.push(scrapeTweetsViaApify(APIFY_TOKEN!, memory.search_terms, 300));
-          scrapeLabels.push("x");
-        }
-        if (runTikTok) {
-          scrapePromises.push(scrapeTikTokViaApify(APIFY_TOKEN!, memory.tiktok_queries, memory.tiktok_hashtags, 100));
-          scrapeLabels.push("tiktok");
-        }
-
-        const results = await Promise.allSettled(scrapePromises);
-
-        results.forEach((result, idx) => {
-          const label = scrapeLabels[idx];
-          if (label === "x") {
-            if (result.status === "fulfilled") {
-              tweets = result.value;
-              send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "done", detail: `✓ ${tweets.length} tweets scraped (with retry)` });
-            } else {
-              apifyError = true;
-              console.log(`Apify tweet scrape failed after retries: ${result.reason}`);
-              send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "error", detail: `✗ Failed after 3 retries: ${result.reason}` });
-            }
-          } else if (label === "tiktok") {
-            if (result.status === "fulfilled") {
-              tiktokVideos = result.value;
-              send("progress", { step: 1.5, label: "Scraping TikTok via Apify", status: "done", detail: `✓ ${tiktokVideos.length} videos scraped (with retry)` });
-            } else {
-              tiktokError = true;
-              console.log(`Apify TikTok scrape failed after retries: ${result.reason}`);
-              send("progress", { step: 1.5, label: "Scraping TikTok via Apify", status: "error", detail: `✗ Failed after 3 retries: ${result.reason}` });
-            }
+          try {
+            tweets = await scrapeTweetsViaApify(APIFY_TOKEN!, memory.search_terms, 300);
+            send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "done", detail: `✓ ${tweets.length} tweets scraped (with retry)` });
+          } catch (err: any) {
+            apifyError = true;
+            console.log(`Apify tweet scrape failed after retries: ${err.message}`);
+            send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "error", detail: `✗ Failed after 3 retries: ${err.message}` });
           }
-        });
+        }
 
-        // ABORT if all requested scrapers failed — can't generate without data
-        const xFailed = runX && apifyError;
-        const tikFailed = runTikTok && tiktokError;
-        if ((runX && runTikTok && xFailed && tikFailed) || (runX && !runTikTok && xFailed) || (!runX && runTikTok && tikFailed)) {
-          send("error", { message: "All Apify scrapers failed after 3 retries each. Cannot generate without data. Try again later." });
+        // ABORT if scraper failed — can't generate without data
+        if (apifyError) {
+          send("error", { message: "Apify scraper failed after 3 retries. Cannot generate without data. Try again later." });
           await writer.close();
           return;
         }
@@ -467,36 +251,12 @@ Deno.serve(async (req) => {
         stats.tweets_raw = tweets.length;
 
         // ── APPLY STRICT 24-HOUR FILTERS ──
-        send("progress", { step: 1.7, label: "Applying STRICT 24h viral filters", status: "running", detail: "Enforcing age, virality tiers, relevance checks..." });
+        send("progress", { step: 1.7, label: "Applying STRICT 24h viral filters", status: "running", detail: "Enforcing age, virality tiers..." });
 
-        // Filter tweets: 24h + tier
         const filteredTweets = applyStrictTweetFilter(tweets);
         stats.tweets_filtered = filteredTweets.length;
         stats.tweets_discarded = tweets.length - filteredTweets.length;
 
-        // Filter TikTok: 24h + tier + relevance + no ads/sponsored/slideshow
-        const filteredTikToks = applyStrictTikTokFilter(tiktokVideos);
-        stats.tiktok_raw = tiktokVideos.length;
-        stats.tiktok_filtered = filteredTikToks.length;
-        stats.tiktok_discarded = tiktokVideos.length - filteredTikToks.length;
-
-        // Score & tier TikToks
-        const scoredTikToks = filteredTikToks
-          .map((v) => {
-            const { score, tier } = scoreTikTokVideo(v);
-            return { ...v, narrativeScore: score, tier };
-          })
-          .sort((a, b) => {
-            // Sort: S first, then A, then B; within tier sort by score desc
-            const tierOrder = { S: 0, A: 1, B: 2 };
-            const ta = tierOrder[a.tier as keyof typeof tierOrder] ?? 3;
-            const tb = tierOrder[b.tier as keyof typeof tierOrder] ?? 3;
-            if (ta !== tb) return ta - tb;
-            return b.narrativeScore - a.narrativeScore || b.playCount - a.playCount;
-          })
-          .slice(0, 20);
-
-        // Tier tweets too
         const tieredTweets = filteredTweets.map(tw => ({
           ...tw,
           tier: getTweetTier(tw),
@@ -508,27 +268,21 @@ Deno.serve(async (req) => {
           return (b.favorite_count + b.retweet_count) - (a.favorite_count + a.retweet_count);
         });
 
-        // Use filtered tweets for pipeline from here
         tweets = tieredTweets;
         stats.tweets = tweets.length;
-        stats.tiktok_top = scoredTikToks.length;
 
-        const tierCounts = { S: 0, A: 0, B: 0 };
-        scoredTikToks.forEach(v => { if (v.tier) tierCounts[v.tier as keyof typeof tierCounts]++; });
         const tweetTierCounts = { S: 0, A: 0, B: 0 };
         tweets.forEach((tw: any) => { if (tw.tier) tweetTierCounts[tw.tier as keyof typeof tweetTierCounts]++; });
 
         send("progress", { step: 1.7, label: "Applying STRICT 24h viral filters", status: "done",
-          detail: `X: ${stats.tweets_raw}→${stats.tweets} passed (S:${tweetTierCounts.S} A:${tweetTierCounts.A} B:${tweetTierCounts.B}) | TT: ${stats.tiktok_raw}→${stats.tiktok_filtered} passed (S:${tierCounts.S} A:${tierCounts.A} B:${tierCounts.B})` });
+          detail: `X: ${stats.tweets_raw}→${stats.tweets} passed (S:${tweetTierCounts.S} A:${tweetTierCounts.A} B:${tweetTierCounts.B})` });
 
-        if (tweets.length === 0 && !apifyError) {
+        if (tweets.length === 0) {
           console.log("Apify returned 0 qualifying tweets in last 24h — no viral content matching filters.");
         }
-        send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: apifyError ? "warning" : "done", detail: apifyError ? `⚠️ Apify failed` : `${stats.tweets} viral tweets passed strict filter` });
-        send("progress", { step: 1.5, label: "Scraping TikTok via Apify", status: tiktokError ? "warning" : "done", detail: tiktokError ? `⚠️ TikTok failed` : `${stats.tiktok_filtered} animal/justice videos passed (${stats.tiktok_discarded} discarded)` });
 
         // ── STEP 2 ──
-        send("progress", { step: 2, label: "Source deduplication & normalization", status: "done", detail: `${tweets.length} tweets + ${scoredTikToks.length} TikTok videos ready` });
+        send("progress", { step: 2, label: "Source deduplication & normalization", status: "done", detail: `${tweets.length} tweets ready` });
 
         // ── STEP 3: Moralis Pump.fun tokens ──
         send("progress", { step: 3, label: "Fetching Pump.fun tokens via Moralis", status: "running", detail: "Pulling new (100), bonding (100) & graduated (50) tokens..." });
@@ -626,45 +380,7 @@ Deno.serve(async (req) => {
         send("progress", { step: 4, label: "DexScreener performance validation", status: "done", detail: `${enriched.length} tokens validated with on-chain metrics` });
 
         // ── STEP 5: Cross-reference ──
-        send("progress", { step: 5, label: "Cross-referencing X + TikTok ↔ tokens (tokenization check)", status: "running", detail: "Checking if viral TikTok pets are already tokenized..." });
-
-        // Check if TikTok videos match existing tokens ("Already Tokenized?" check)
-        const tiktokTokenMatches: Record<string, any[]> = {};
-        for (const v of scoredTikToks) {
-          const vText = (v.text || "").toLowerCase();
-          const vTags = (v.hashtags || []).join(" ").toLowerCase();
-          const combined = `${vText} ${vTags}`;
-          for (const tok of enriched) {
-            const name = (tok.baseToken?.name || "").toLowerCase();
-            const sym = (tok.baseToken?.symbol || "").toLowerCase();
-            if ((name.length > 2 && combined.includes(name)) || (sym.length > 1 && combined.includes(sym))) {
-              if (!tiktokTokenMatches[tok.tokenAddress]) tiktokTokenMatches[tok.tokenAddress] = [];
-              tiktokTokenMatches[tok.tokenAddress].push(v);
-            }
-          }
-        }
-
-        // Mark each TikTok video's tokenization status
-        const tiktokWithTokenStatus = scoredTikToks.map(v => {
-          const vText = (v.text || "").toLowerCase();
-          const vTags = (v.hashtags || []).join(" ").toLowerCase();
-          const combined = `${vText} ${vTags}`;
-          let tokenized = false;
-          let matchedToken: any = null;
-          for (const tok of enriched) {
-            const name = (tok.baseToken?.name || "").toLowerCase();
-            const sym = (tok.baseToken?.symbol || "").toLowerCase();
-            if ((name.length > 2 && combined.includes(name)) || (sym.length > 1 && combined.includes(sym))) {
-              // Check if token is <30k MC and <2h old — still show as snipe opportunity
-              const isEarlySnipe = tok.mcap < 30000 && tok.pairCreatedAt && (Date.now() - new Date(tok.pairCreatedAt).getTime()) < 2 * 3600_000;
-              if (!isEarlySnipe) {
-                tokenized = true;
-                matchedToken = tok;
-              }
-            }
-          }
-          return { ...v, tokenized, matchedToken };
-        });
+        send("progress", { step: 5, label: "Cross-referencing X ↔ tokens", status: "running", detail: "Matching tweets to tokens..." });
 
         const matched = enriched.map((tok) => {
           const name = (tok.baseToken?.name || "").toLowerCase();
@@ -681,8 +397,6 @@ Deno.serve(async (req) => {
           const getProfilePic = (tw: any) => tw.user?.profile_image_url_https || "";
           const getMediaUrl = (tw: any) => tw.media_url || "";
 
-          const matchedTikToks = tiktokTokenMatches[addr] || [];
-
           return {
             token: tok,
             matched_tweets: matchedTweets.slice(0, 8).map((tw: any) => ({
@@ -695,57 +409,29 @@ Deno.serve(async (req) => {
               media_url: getMediaUrl(tw),
               tier: tw.tier,
             })),
-            matched_tiktoks: matchedTikToks.slice(0, 3).map((v: any) => ({
-              text: (v.text || "").slice(0, 200),
-              playCount: v.playCount,
-              diggCount: v.diggCount,
-              shareCount: v.shareCount,
-              webVideoUrl: v.webVideoUrl,
-              authorName: v.authorName,
-              narrativeScore: v.narrativeScore,
-              tier: v.tier,
-            })),
             tweet_velocity: matchedTweets.length,
-            tiktok_velocity: matchedTikToks.length,
-            total_engagement: matchedTweets.reduce((sum: number, tw: any) => sum + getLikes(tw) + getRTs(tw), 0)
-              + matchedTikToks.reduce((sum: number, v: any) => sum + (v.playCount || 0) / 1000, 0),
+            total_engagement: matchedTweets.reduce((sum: number, tw: any) => sum + getLikes(tw) + getRTs(tw), 0),
           };
         }).sort((a, b) => b.total_engagement - a.total_engagement || b.tweet_velocity - a.tweet_velocity);
 
-        stats.matches = matched.filter(m => m.tweet_velocity > 0 || m.tiktok_velocity > 0).length;
-        stats.cross_platform = matched.filter(m => m.tweet_velocity > 0 && m.tiktok_velocity > 0).length;
-        const untokenized = tiktokWithTokenStatus.filter(v => !v.tokenized).length;
-        stats.tiktok_untokenized = untokenized;
-        send("progress", { step: 5, label: "Cross-referencing X + TikTok ↔ tokens", status: "done", detail: `${stats.matches} clusters (${stats.cross_platform} cross-platform) | ${untokenized} untokenized TikTok pets → LAUNCH` });
+        stats.matches = matched.filter(m => m.tweet_velocity > 0).length;
+        send("progress", { step: 5, label: "Cross-referencing X ↔ tokens", status: "done", detail: `${stats.matches} token-tweet clusters found` });
 
         // ── STEP 6: NarrativeEdge AI analysis ──
         send("progress", { step: 6, label: "NarrativeEdge AI (Lovable AI)", status: "running", detail: "Running ruthless narrative classification with strict 24h data..." });
 
         const top15 = matched.slice(0, 15);
         const topSummary = top15.map((m, i) => {
-          const tiktokInfo = m.matched_tiktoks.length > 0
-            ? ` | TikTok: ${m.matched_tiktoks.map((v: any) => `${(v.playCount / 1000).toFixed(0)}K plays [${v.tier}]`).join(", ")}`
-            : "";
-          return `${i + 1}. ${m.token.baseToken?.symbol || "?"} (${m.token.baseToken?.name || "?"}) | Stage: ${m.token.stage} | MCAP: $${m.token.mcap} | Vol24h: $${m.token.volume24h} | Liq: $${m.token.liquidity} | Δ5m: ${m.token.priceChange5m}% | Δ1h: ${m.token.priceChange1h}% | Δ6h: ${m.token.priceChange6h}% | Δ24h: ${m.token.priceChange24h}% | Buys: ${m.token.txns24h_buys} | Sells: ${m.token.txns24h_sells} | Tweets: ${m.tweet_velocity} | Engagement: ${m.total_engagement} | Top tweet: "${m.matched_tweets[0]?.text?.slice(0, 120) || 'none'}" [${m.matched_tweets[0]?.tier || '-'}]${tiktokInfo}`;
+          return `${i + 1}. ${m.token.baseToken?.symbol || "?"} (${m.token.baseToken?.name || "?"}) | Stage: ${m.token.stage} | MCAP: $${m.token.mcap} | Vol24h: $${m.token.volume24h} | Liq: $${m.token.liquidity} | Δ5m: ${m.token.priceChange5m}% | Δ1h: ${m.token.priceChange1h}% | Δ6h: ${m.token.priceChange6h}% | Δ24h: ${m.token.priceChange24h}% | Buys: ${m.token.txns24h_buys} | Sells: ${m.token.txns24h_sells} | Tweets: ${m.tweet_velocity} | Engagement: ${m.total_engagement} | Top tweet: "${m.matched_tweets[0]?.text?.slice(0, 120) || 'none'}" [${m.matched_tweets[0]?.tier || '-'}]`;
         }).join("\n");
 
         const tweetThemes = tweets.slice(0, 50).map((tw: any) => `[${tw.tier}] ${(tw.full_text || tw.text || "").slice(0, 200)}`).join("\n---\n");
 
-        const tiktokSummary = tiktokWithTokenStatus.slice(0, 10).map((v, i) => {
-          const tokenized = v.tokenized ? `YES (${v.matchedToken?.baseToken?.symbol || '?'})` : "NO — TIKTOK-FIRST VIRAL PET — SPIN NOW";
-          return `TT${i + 1}. [TIER ${v.tier}] "${(v.text || "").slice(0, 150)}" | ${(v.playCount / 1000).toFixed(0)}K plays | ${(v.diggCount / 1000).toFixed(0)}K likes | ${(v.shareCount / 1000).toFixed(0)}K shares | Score: ${v.narrativeScore}/25 | @${v.authorName} | ${v.webVideoUrl} | Tokenized: ${tokenized}`;
-        }).join("\n");
-
-        const systemPrompt = `You are NarrativeEdge AI — the cold, ruthless, self-evolving narrative sniper for a veteran pump.fun deployer. Your single goal: turn raw Apify tweets + TikTok viral animal/pet/justice videos + Moralis new/bonding/graduated tokens + DexScreener enrichment into lethal, categorized narrative clusters that print before normies even wake up.
+        const systemPrompt = `You are NarrativeEdge AI — the cold, ruthless, self-evolving narrative sniper for a veteran pump.fun deployer. Your single goal: turn raw Apify tweets + Moralis new/bonding/graduated tokens + DexScreener enrichment into lethal, categorized narrative clusters that print before normies even wake up.
 
 STRICT RULES ENFORCED THIS CYCLE:
 - ALL data has been pre-filtered to ≤24 HOURS OLD ONLY
 - ALL tweets passed Tier S/A/B virality thresholds (S: 2K+ faves, A: 800+ faves, B: 300+ faves)
-- ALL TikTok videos passed Tier S/A/B (S: 5M+ plays, A: 1.5M+ plays, B: 500K+ plays with 8%+ engagement)
-- ALL TikTok videos are animal/pet/justice relevant (no dance/makeup/ad content)
-- "Already Tokenized?" has been checked against Moralis tokens
-
-NEW: TikTok viral animal/pet/death/justice videos are GOLD for pump.fun narratives. If a TikTok video is Tier S with NO matching token — that's LAUNCH NOW IMMEDIATELY.
 
 MANDATORY CATEGORIES (classify EVERY cluster):
 1. Justice/Tragedy — animal death, human death, political assassination, "put down", injustice outrage
@@ -756,9 +442,7 @@ MANDATORY CATEGORIES (classify EVERY cluster):
 6. AI/Bot Narrative — Truth Terminal style, GOAT-style autonomous agents
 7. Meta/Infrastructure — pump.fun itself, streamers, dev drama
 8. Revenge/Drama — rug revenge, "dev rugged me", suicide stream copycats
-9. TikTok Viral Pet — viral TikTok animal not tokenized yet. LAUNCH FIRST
-10. Cross-Platform Justice — trending on BOTH X and TikTok. HIGHEST CONVICTION
-11. Any new category you discover
+9. Any new category you discover
 
 PAST WINNING PATTERNS:
 ${memory.past_wins.length > 0 ? memory.past_wins.slice(-15).join("\n") : "No history yet — first cycle."}
@@ -769,7 +453,7 @@ Return ONLY valid JSON (no markdown, no backticks):
   "top_narratives": [
     {
       "narrative_type": "Justice/Tragedy",
-      "source_platform": "x" | "tiktok" | "cross-platform",
+      "source_platform": "x",
       "tier": "S" | "A" | "B",
       "name": "Pump.fun token name",
       "symbol": "TICKER",
@@ -778,7 +462,6 @@ Return ONLY valid JSON (no markdown, no backticks):
       "narrative_rating": 9,
       "pump_potential": "Expected multiple from current MC",
       "trigger_tweets": [{"user": "@handle", "text": "tweet text", "url": "https://x.com/...", "engagement": "5.2K likes, 1.1K RTs", "velocity": "3K likes in 2h", "media_url": "", "tier": "S"}],
-      "trigger_tiktoks": [{"author": "@handle", "text": "video desc", "url": "https://www.tiktok.com/...", "plays": "8.2M", "shares": "150K", "narrative_score": 18, "tier": "S"}],
       "matched_tokens": [{"ca": "address", "name": "name", "symbol": "SYM", "mc": 15000, "age": "2h", "buy_sell_ratio": "3.2:1"}],
       "historical_comp": "Similar to PNUT squirrel justice — 92% hit 10x within 4h",
       "risk": "clean dev / obvious rug / sniped already",
@@ -786,13 +469,10 @@ Return ONLY valid JSON (no markdown, no backticks):
       "deploy_window": "NOW / 1-2h / 2-4h / Closing",
       "competition": "None / 1-2 early tokens / Crowded",
       "next_search_queries": ["3 refined queries"],
-      "twitter_source_url": "primary tweet URL",
-      "tiktok_source_url": "primary TikTok URL"
+      "twitter_source_url": "primary tweet URL"
     }
   ],
   "new_search_terms": ["5 evolved X search queries"],
-  "new_tiktok_queries": ["3 evolved TikTok searches"],
-  "new_tiktok_hashtags": ["3 new TikTok hashtags"],
   "category_stats": {},
   "reasoning_summary": "2-3 sentence brief with tier breakdown"
 }
@@ -800,14 +480,12 @@ Return ONLY valid JSON (no markdown, no backticks):
 RULES:
 - Never moralize. Only "this prints" or "this is a slow rug".
 - Tier S narratives MUST be rated 8+ automatically.
-- Cross-platform (X+TikTok) get +2 rating bonus.
-- Untokenized Tier S TikTok pet = narrative_rating >= 9, action = "Deploy now".
 - image_gen_prompt MUST be Grok Imagine optimized.`;
 
         const userMsg = `CYCLE: ${new Date().toISOString()}
 STRICT 24H FILTER ACTIVE — Only Tier S/A/B content shown below.
 
-SCRAPED: ${stats.tweets} tweets (S:${tweetTierCounts.S} A:${tweetTierCounts.A} B:${tweetTierCounts.B}) | ${stats.tiktok_filtered} TikTok videos (S:${tierCounts.S} A:${tierCounts.A} B:${tierCounts.B}) | ${stats.tiktok_untokenized} untokenized | ${stats.tokens} tokens | ${stats.enriched} enriched | ${stats.matches} clusters
+SCRAPED: ${stats.tweets} tweets (S:${tweetTierCounts.S} A:${tweetTierCounts.A} B:${tweetTierCounts.B}) | ${stats.tokens} tokens | ${stats.enriched} enriched | ${stats.matches} clusters
 
 === LIVE PUMP.FUN TOKENS ===
 ${topSummary || "No tokens matched"}
@@ -815,10 +493,7 @@ ${topSummary || "No tokens matched"}
 === VIRAL X CHATTER (24h, Tier S/A/B only) ===
 ${tweetThemes.slice(0, 3000) || "No qualifying tweets"}
 
-=== TIKTOK VIRAL ANIMAL RADAR (24h, Tier S/A/B, animal/justice only) ===
-${tiktokSummary || "No qualifying TikTok videos — waiting for the next dead cat"}
-
-Classify. Rate. Include tiers. Flag untokenized Tier S pets. What prints RIGHT NOW?`;
+Classify. Rate. Include tiers. What prints RIGHT NOW?`;
 
         let aiResult: any = null;
         let reasoning = "No AI analysis available";
@@ -871,12 +546,6 @@ Classify. Rate. Include tiers. Flag untokenized Tier S pets. What prints RIGHT N
         if (aiResult?.new_search_terms?.length) {
           memory.search_terms = aiResult.new_search_terms.slice(0, 7);
         }
-        if (aiResult?.new_tiktok_queries?.length) {
-          memory.tiktok_queries = [...new Set([...memory.tiktok_queries, ...aiResult.new_tiktok_queries])].slice(0, 10);
-        }
-        if (aiResult?.new_tiktok_hashtags?.length) {
-          memory.tiktok_hashtags = [...new Set([...memory.tiktok_hashtags, ...aiResult.new_tiktok_hashtags])].slice(0, 12);
-        }
         if (aiResult?.top_narratives?.length) {
           const perNarrativeQueries = aiResult.top_narratives
             .flatMap((n: any) => n.next_search_queries || [])
@@ -909,7 +578,7 @@ Classify. Rate. Include tiers. Flag untokenized Tier S pets. What prints RIGHT N
           await supabase.from("site_configs").insert({ site_id: MEMORY_SITE_ID, section: MEMORY_SECTION, content: memory as any, is_published: false });
         }
 
-        send("progress", { step: 7, label: "NarrativeEdge memory evolution", status: "done", detail: `Saved ${memory.search_terms.length} X queries + ${memory.tiktok_queries.length} TikTok queries + ${memory.past_wins.length} past wins` });
+        send("progress", { step: 7, label: "NarrativeEdge memory evolution", status: "done", detail: `Saved ${memory.search_terms.length} X queries + ${memory.past_wins.length} past wins` });
 
         // ── STEP 8: Push findings ──
         send("progress", { step: 8, label: "Saving findings to database", status: "running", detail: "Pushing cycle report + narrative findings..." });
@@ -926,8 +595,8 @@ Classify. Rate. Include tiers. Flag untokenized Tier S pets. What prints RIGHT N
             top_narratives: aiResult?.top_narratives || [],
             chain_of_thought: aiResult?.chain_of_thought || "",
             category_stats: aiResult?.category_stats || {},
-            tiktok_radar: tiktokWithTokenStatus.slice(0, 10),
-            tier_counts: { tweets: tweetTierCounts, tiktok: tierCounts },
+            tiktok_radar: [],
+            tier_counts: { tweets: tweetTierCounts },
           },
           ["narrativeedge", "cycle-report"]
         );
@@ -1004,12 +673,12 @@ Classify. Rate. Include tiers. Flag untokenized Tier S pets. What prints RIGHT N
           const category = n.narrative_type || "Uncategorized";
           const platform = n.source_platform || "x";
           const tier = n.tier || "?";
-          const platformBadge = platform === "cross-platform" ? "🔀" : platform === "tiktok" ? "🎵" : "𝕏";
+          const platformBadge = "𝕏";
           const sources = n.trigger_tweets?.map((s: any) => s.url).filter(Boolean) || n.tweet_sources?.map((s: any) => s.url).filter(Boolean) || [];
           await pushFinding(
             `${platformBadge} [${tier}] [${category}] ${n.name} ($${n.symbol || '?'}) — ${rating}/10`,
             `${n.action || ''} | ${n.pump_potential || ''} | ${n.historical_comp || ''} | Risk: ${n.risk || '?'} | Window: ${n.deploy_window} | Competition: ${n.competition}`,
-            n.twitter_source_url || n.tiktok_source_url || sources[0] || "",
+            n.twitter_source_url || sources[0] || "",
             "trend",
             { ...n, type: "narrative_report" },
             ["cortex", "narrative", `rating-${rating}`, `tier-${tier}`, `src-${platform}`, n.symbol?.toLowerCase()].filter(Boolean) as string[]
@@ -1032,10 +701,9 @@ Classify. Rate. Include tiers. Flag untokenized Tier S pets. What prints RIGHT N
           reasoning: reasoning.slice(0, 800),
           chain_of_thought: aiResult?.chain_of_thought?.slice(0, 1000) || "",
           evolved_queries: memory.search_terms,
-          evolved_tiktok_queries: memory.tiktok_queries,
           top_tweets: topTweets,
-          tiktok_radar: tiktokWithTokenStatus.slice(0, 10),
-          tier_counts: { tweets: tweetTierCounts, tiktok: tierCounts },
+          tiktok_radar: [],
+          tier_counts: { tweets: tweetTierCounts },
         });
       } catch (err: any) {
         await send("error", { message: err.message || "Unknown error" });
