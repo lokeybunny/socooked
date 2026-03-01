@@ -1387,7 +1387,7 @@ export default function Research() {
                     <div className="space-y-1 pt-1 border-t border-border">
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
                       {tweetSources.slice(0, 2).map((tw, j) => {
-                        const isGoldCheck = (tw as any).verifiedType === "Business" || ((tw as any).gold_check && !(tw as any).is_blue_verified);
+                        const isGoldCheck = (tw as any).verifiedType === "Business";
                         return (
                           <div key={j} className={cn(
                             "rounded-md p-1.5 space-y-0.5",
