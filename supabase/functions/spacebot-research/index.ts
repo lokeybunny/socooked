@@ -186,19 +186,52 @@ Deno.serve(async (req) => {
         title: string, summary: string, sourceUrl: string,
         findingType: string, rawData: Record<string, unknown>, tags: string[]
       ) => {
-        // Dedup: skip if a finding with same symbol already exists (for narrative reports)
+        // Dedup: skip if a finding with same symbol OR same name already exists (for narrative reports)
         const symbol = (rawData as any)?.symbol;
-        if (symbol && (rawData as any)?.type === "narrative_report") {
-          const { data: existing } = await supabase
-            .from("research_findings")
-            .select("id")
-            .eq("category", "x")
-            .neq("status", "drafted")
-            .contains("raw_data", { symbol })
-            .limit(1);
-          if (existing && existing.length > 0) {
-            console.log(`Dedup: skipping duplicate X finding for symbol ${symbol}`);
-            return;
+        const narrativeName = (rawData as any)?.name;
+        if ((rawData as any)?.type === "narrative_report") {
+          // Check by symbol
+          if (symbol) {
+            const { data: existing } = await supabase
+              .from("research_findings")
+              .select("id")
+              .eq("category", "x")
+              .neq("status", "drafted")
+              .contains("raw_data", { symbol })
+              .limit(1);
+            if (existing && existing.length > 0) {
+              console.log(`Dedup: skipping duplicate X finding for symbol ${symbol}`);
+              return;
+            }
+          }
+          // Check by name (catches symbol variations like $TICKER vs TICKER)
+          if (narrativeName) {
+            const { data: existing2 } = await supabase
+              .from("research_findings")
+              .select("id")
+              .eq("category", "x")
+              .neq("status", "drafted")
+              .contains("raw_data", { name: narrativeName })
+              .limit(1);
+            if (existing2 && existing2.length > 0) {
+              console.log(`Dedup: skipping duplicate X finding for name ${narrativeName}`);
+              return;
+            }
+          }
+          // Check by media_url / thumbnail to catch visually identical posts
+          const mediaUrl = (rawData as any)?.media_url || (rawData as any)?.tweet_sources?.[0]?.media_url;
+          if (mediaUrl) {
+            const { data: existing3 } = await supabase
+              .from("research_findings")
+              .select("id")
+              .eq("category", "x")
+              .neq("status", "drafted")
+              .contains("raw_data", { media_url: mediaUrl })
+              .limit(1);
+            if (existing3 && existing3.length > 0) {
+              console.log(`Dedup: skipping duplicate X finding with same media_url`);
+              return;
+            }
           }
         }
         // Dedup: skip cycle reports if one already exists in the last hour
