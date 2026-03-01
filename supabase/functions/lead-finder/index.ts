@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     if (company_keywords.length) input.company_keywords = company_keywords;
     if (seniority_level.length) input.seniority_level = seniority_level;
 
-    console.log(`Lead Finder: starting with input`, JSON.stringify(input));
+    console.log(`Lead Finder: starting with validated input`, JSON.stringify(input));
 
     const actorId = "code_crafter~leads-finder";
     const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
