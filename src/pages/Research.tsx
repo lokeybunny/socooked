@@ -922,7 +922,7 @@ export default function Research() {
 
                   return (
                     <div key={i} className={cn(
-                      "flex flex-col overflow-hidden rounded-xl border aspect-square",
+                      "flex flex-col overflow-hidden rounded-xl border",
                       n.source_platform === 'tiktok' ? "bg-purple-500/5 border-purple-500/30" :
                       n.source_platform === 'cross-platform' ? "bg-gradient-to-r from-blue-500/5 to-purple-500/5 border-amber-500/30" :
                       n.source_platform === 'x' ? "bg-blue-500/5 border-blue-500/30" :
@@ -971,8 +971,8 @@ export default function Research() {
                         </div>
                       </div>
 
-                      {/* Scrollable body */}
-                      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                      {/* Body */}
+                      <div className="p-2.5 space-y-1.5">
                         <div>
                           <h3 className="text-lg font-bold text-foreground line-clamp-2 leading-tight">{n.name}</h3>
                           {n.symbol && (
@@ -980,7 +980,7 @@ export default function Research() {
                           )}
                         </div>
 
-                        <div className="grid gap-1.5 p-3 rounded-md bg-background border border-border text-sm">
+                        <div className="grid gap-1 p-2 rounded-md bg-background border border-border text-sm">
                           {n.description && (
                             <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Desc</span><span className="text-foreground line-clamp-2">{n.description}</span></div>
                           )}
