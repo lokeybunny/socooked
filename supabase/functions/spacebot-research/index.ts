@@ -469,7 +469,7 @@ Deno.serve(async (req) => {
           detail: `X: ${stats.tweets_raw}→${stats.tweets} passed (S:${tweetTierCounts.S} A:${tweetTierCounts.A} B:${tweetTierCounts.B}) | TT: ${stats.tiktok_raw}→${stats.tiktok_filtered} passed (S:${tierCounts.S} A:${tierCounts.A} B:${tierCounts.B})` });
 
         if (tweets.length === 0 && !apifyError) {
-          send("warning", { type: "credits_depleted", message: "Apify returned 0 qualifying tweets in last 24h — may be credits depleted or no viral content." });
+          console.log("Apify returned 0 qualifying tweets in last 24h — no viral content matching filters.");
         }
         send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: apifyError ? "warning" : "done", detail: apifyError ? `⚠️ Apify failed` : `${stats.tweets} viral tweets passed strict filter` });
         send("progress", { step: 1.5, label: "Scraping TikTok via Apify", status: tiktokError ? "warning" : "done", detail: tiktokError ? `⚠️ TikTok failed` : `${stats.tiktok_filtered} animal/justice videos passed (${stats.tiktok_discarded} discarded)` });
