@@ -87,9 +87,9 @@ Deno.serve(async (req) => {
 
     console.log(`GMaps Finder: got ${results.length} results from Apify`);
 
-    // Filter to 3 stars and below only
-    const lowRated = results.filter((b: any) => b.totalScore !== undefined && b.totalScore !== null && b.totalScore <= 3 && b.totalScore > 0);
-    console.log(`GMaps Finder: ${lowRated.length} businesses with 3 stars or below`);
+    // Use all results (no star rating filter)
+    const lowRated = results.filter((b: any) => b.totalScore !== undefined && b.totalScore !== null && b.totalScore > 0);
+    console.log(`GMaps Finder: ${lowRated.length} businesses with ratings`);
 
     // Auto-create customers from Google Maps businesses
     const created: any[] = [];
