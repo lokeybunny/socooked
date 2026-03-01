@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { useResearchLoop } from '@/hooks/useResearchLoop';
 import { useLeadLoop } from '@/hooks/useLeadLoop';
 import { useYelpLoop } from '@/hooks/useYelpLoop';
+import { useGMapsLoop } from '@/hooks/useGMapsLoop';
 import type { LucideIcon } from 'lucide-react';
 
 /* ── X (Twitter) icon ── */
@@ -111,6 +112,13 @@ export default function Research() {
   const yelpProgressLog = yelpState.progressLog;
   const yelpInterval = yelpState.interval;
 
+  const gmapsLoop = useGMapsLoop();
+  const gmapsState = gmapsLoop.loopState;
+  const gmapsGenerating = gmapsState.generating;
+  const gmapsLoopActive = gmapsState.active;
+  const gmapsProgressLog = gmapsState.progressLog;
+  const gmapsInterval = gmapsState.interval;
+
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [allFindings, setAllFindings] = useState<any[]>([]);
   const [findings, setFindings] = useState<any[]>([]);
@@ -170,6 +178,15 @@ export default function Research() {
   const [yelpCreatedCount, setYelpCreatedCount] = useState(0);
   const [yelpHasSearched, setYelpHasSearched] = useState(false);
 
+  // Google Maps Finder state
+  const [gmapsSearchTerms, setGmapsSearchTerms] = useState('');
+  const [gmapsLocation, setGmapsLocation] = useState('');
+  const [gmapsMaxItems, setGmapsMaxItems] = useState('30');
+  const [gmapsSearching, setGmapsSearching] = useState(false);
+  const [gmapsResults, setGmapsResults] = useState<any[]>([]);
+  const [gmapsCreatedCount, setGmapsCreatedCount] = useState(0);
+  const [gmapsHasSearched, setGmapsHasSearched] = useState(false);
+
   const handleYelpSearch = async () => {
     if (!yelpSearchTerms && !yelpLocation) {
       toast.error('Enter search terms or a location');
@@ -221,6 +238,60 @@ export default function Research() {
       toast.error(err.message || 'Yelp search failed');
     } finally {
       setYelpSearching(false);
+    }
+  };
+
+  const handleGMapsSearch = async () => {
+    if (!gmapsSearchTerms && !gmapsLocation) {
+      toast.error('Enter search terms or a location');
+      return;
+    }
+    setGmapsSearching(true);
+    setGmapsHasSearched(true);
+    setGmapsResults([]);
+    setGmapsCreatedCount(0);
+    try {
+      const payload: Record<string, any> = { maxItems: parseInt(gmapsMaxItems) || 30 };
+      if (gmapsSearchTerms) payload.searchTerms = gmapsSearchTerms.split(',').map(s => s.trim()).filter(Boolean);
+      if (gmapsLocation) payload.location = gmapsLocation.trim();
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300_000);
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/gmaps-finder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => '');
+        throw new Error(errBody || `Request failed (${resp.status})`);
+      }
+      const data = await resp.json();
+
+      setGmapsResults(data.businesses || []);
+      setGmapsCreatedCount(data.created_count || 0);
+      if (data.created_count > 0) {
+        toast.success(`Found ${data.low_rated_count} low-rated businesses, ${data.created_count} new added`);
+        load();
+      } else if (data.low_rated_count > 0) {
+        toast.info(`Found ${data.low_rated_count} low-rated businesses (all already in CRM)`);
+      } else {
+        toast.info(`Found ${data.all_results || 0} businesses but none rated 3★ or below.`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Google Maps search failed');
+    } finally {
+      setGmapsSearching(false);
     }
   };
 
@@ -816,6 +887,56 @@ export default function Research() {
                 )}
               </div>
             )}
+            {selectedSource === 'google-maps' && (
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+                  <span className="px-3 py-1.5 rounded text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    📍 GMaps Agent
+                  </span>
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-border bg-muted/30 px-3 py-1.5">
+                  <Checkbox
+                    checked={gmapsLoop.loopState.allCities}
+                    onCheckedChange={(checked) => gmapsLoop.setAllCities(!!checked)}
+                  />
+                  <span className="text-xs font-medium text-foreground">All Cities</span>
+                </label>
+                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+                  {[
+                    { label: '5m', val: 5 },
+                    { label: '15m', val: 15 },
+                    { label: '30m', val: 30 },
+                    { label: '1h', val: 60 },
+                  ].map(opt => (
+                    <button
+                      key={opt.val}
+                      onClick={() => gmapsLoop.setInterval(gmapsInterval === opt.val ? null : opt.val)}
+                      className={cn(
+                        "px-3 py-1.5 rounded text-sm font-semibold transition-colors",
+                        gmapsInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {gmapsLoopActive ? (
+                  <Button size="sm" variant="destructive" onClick={() => { gmapsLoop.stopLoop(); }} className="gap-1.5">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Stop Agent
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={gmapsInterval ? () => gmapsLoop.startLoop() : () => gmapsLoop.runOnce()}
+                    disabled={gmapsGenerating}
+                    className="gap-1.5"
+                  >
+                    {gmapsGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                    {gmapsGenerating ? 'Searching...' : gmapsInterval ? `Loop ${gmapsInterval}m` : 'Run Once'}
+                  </Button>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               {selectedSource === 'x' && (
                 <Button
@@ -993,6 +1114,52 @@ export default function Research() {
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                     ) : entry.status === 'done' ? (
                       <CheckCircle2 className="h-3.5 w-3.5 text-yellow-500" />
+                    ) : (
+                      <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <span className={cn(
+                      "font-medium",
+                      entry.status === 'running' ? "text-foreground" : entry.status === 'done' ? "text-muted-foreground" : "text-destructive"
+                    )}>
+                      {entry.label}
+                    </span>
+                    <p className="text-muted-foreground break-words">{entry.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ══════ GMaps Agent Pipeline Log ══════ */}
+        {selectedSource === 'google-maps' && gmapsProgressLog.length > 0 && (
+          <div className="glass-card rounded-lg overflow-hidden border border-border">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-blue-400" />
+                <span className="text-sm font-semibold text-foreground">gmaps agent pipeline</span>
+                {gmapsGenerating && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                {!gmapsGenerating && gmapsState.cyclesCompleted > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-medium">
+                    {gmapsState.cyclesCompleted} cycles · {gmapsState.totalNewCreated} new leads
+                  </span>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => gmapsLoop.clearLog()}>
+                Clear
+              </Button>
+            </div>
+            <div className="max-h-72 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-sm">
+              {gmapsProgressLog.map((entry, i) => (
+                <div key={`gmaps-${entry.step}-${i}`} className="flex items-start gap-2 animate-fade-in">
+                  <span className="text-muted-foreground shrink-0 w-16">{entry.ts}</span>
+                  <span className="shrink-0">
+                    {entry.status === 'running' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    ) : entry.status === 'done' ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-blue-400" />
                     ) : (
                       <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                     )}
@@ -1545,6 +1712,88 @@ export default function Research() {
           </Card>
         )}
 
+        {/* ══════ Google Maps Finder Panel ══════ */}
+        {selectedSource === 'google-maps' && (
+          <Card className="border-border">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-blue-400" />
+                Google Maps Finder — Low-Rated Businesses (3★ & Below)
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Search Google Maps for businesses rated 3 stars or below. Results auto-save as findings + create CRM customers in the "Potential" category.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs"><Search className="h-3 w-3" /> Search Terms</Label>
+                  <Input value={gmapsSearchTerms} onChange={e => setGmapsSearchTerms(e.target.value)} placeholder="e.g. restaurant, plumber, dentist" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5 text-xs"><MapPin className="h-3 w-3" /> Location</Label>
+                  <Input value={gmapsLocation} onChange={e => setGmapsLocation(e.target.value)} placeholder="e.g. Las Vegas, NV" className="h-9 text-sm" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs"># Max Results</Label>
+                  <Input type="number" value={gmapsMaxItems} onChange={e => setGmapsMaxItems(e.target.value)} min="1" max="100" className="h-9 text-sm" />
+                </div>
+              </div>
+              <Button onClick={handleGMapsSearch} disabled={gmapsSearching} size="sm">
+                {gmapsSearching ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Searching…</> : <><MapPin className="h-4 w-4 mr-2" /> Find Businesses</>}
+              </Button>
+
+              {gmapsSearching && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center space-y-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
+                    <p className="text-xs text-muted-foreground">Searching Google Maps… This may take up to 5 minutes.</p>
+                  </div>
+                </div>
+              )}
+
+              {!gmapsSearching && gmapsHasSearched && gmapsResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {gmapsResults.length} low-rated businesses found · <span className="text-blue-400 font-medium">{gmapsCreatedCount} new</span> added to CRM & findings
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
+                    {gmapsResults.slice(0, 16).map((biz: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-border bg-muted/30 overflow-hidden text-xs">
+                        {biz.imageUrl && (
+                          <img src={biz.imageUrl} alt={biz.title} className="w-full h-24 object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        )}
+                        <div className="p-2 space-y-1">
+                          <span className="font-semibold text-foreground block truncate">{biz.title}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-blue-400 font-bold">{biz.totalScore}★</span>
+                            <span className="text-muted-foreground">({biz.reviewsCount || 0} reviews)</span>
+                          </div>
+                          {biz.categoryName && (
+                            <span className="text-muted-foreground block truncate">{biz.categoryName}</span>
+                          )}
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                            {biz.phone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{biz.phone}</span>}
+                            {biz.city && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{biz.city}, {biz.state}</span>}
+                            {biz.website && (
+                              <a href={biz.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-400 hover:underline">
+                                <Globe className="h-2.5 w-2.5" /> Site
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {gmapsResults.length > 16 && <p className="text-[10px] text-muted-foreground">+{gmapsResults.length - 16} more (all saved as findings below)</p>}
+                </div>
+              )}
+
+              {!gmapsSearching && gmapsHasSearched && gmapsResults.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">No businesses rated 3★ or below found. Try different search terms or location.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {paginatedFiltered.filter(f => {
@@ -1554,7 +1803,7 @@ export default function Research() {
             const hasName = !!(rd.name || f.title);
             const hasSymbol = !!rd.symbol;
             const hasWindow = !!rd.deploy_window;
-            const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder') || (rd.type === 'yelp_business');
+            const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder') || (rd.type === 'yelp_business') || (rd.type === 'gmaps_business');
             // X findings require media (image/video)
             const isX = normSource(f.category) === 'x';
             const hasMedia = !!(rd.media_url || rd.tweet_sources?.find((ts: any) => ts.media_url));
@@ -1571,6 +1820,7 @@ export default function Research() {
             return (
               <div key={f.id} className={cn(
                 "glass-card overflow-hidden hover:shadow-lg transition-shadow rounded-xl border flex flex-col min-w-0",
+                sourcePlatform === 'gmaps-finder' ? "border-blue-500/30" :
                 sourcePlatform === 'yelp-finder' ? "border-yellow-500/30" :
                 sourcePlatform === 'lead-finder' ? "border-emerald-500/30" :
                 sourcePlatform === 'tiktok' ? "border-purple-500/30" :
@@ -1736,11 +1986,37 @@ export default function Research() {
                       </div>
                     </div>
                   )}
+
+                  {/* Google Maps Business details */}
+                  {rawData?.type === 'gmaps_business' && (
+                    <div className="space-y-1 pt-1 border-t border-border">
+                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Google Maps</span>
+                      <div className="flex items-center gap-1 text-xs">
+                        <MapPin className="h-2.5 w-2.5 text-blue-400" />
+                        <span className="font-bold text-blue-400">{rawData.rating}★</span>
+                        <span className="text-muted-foreground">({rawData.review_count} reviews)</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                        {rawData.phone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{rawData.phone}</span>}
+                        {rawData.address && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{rawData.address}</span>}
+                        {rawData.website && (
+                          <a href={rawData.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-400 hover:underline">
+                            <Globe className="h-2.5 w-2.5" /> Website
+                          </a>
+                        )}
+                        {rawData.gmaps_url && (
+                          <a href={rawData.gmaps_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-400 hover:underline">
+                            <MapPin className="h-2.5 w-2.5" /> Maps
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Footer actions */}
                 <div className="flex items-center gap-1.5 px-3 py-2 border-t border-border shrink-0 bg-muted/20">
-                  {(rawData?.type === 'lead_finder' || rawData?.type === 'yelp_business') && f.customer_id && (
+                  {(rawData?.type === 'lead_finder' || rawData?.type === 'yelp_business' || rawData?.type === 'gmaps_business') && f.customer_id && (
                     <Button variant="ghost" size="sm" className="h-8 text-sm gap-1.5 px-2" onClick={() => openCustomerDetail(f.customer_id)}>
                       <Eye className="h-3.5 w-3.5" /> View
                     </Button>
