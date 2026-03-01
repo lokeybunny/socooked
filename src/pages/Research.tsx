@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useResearchLoop } from '@/hooks/useResearchLoop';
 import { useLeadLoop } from '@/hooks/useLeadLoop';
+import { useYelpLoop } from '@/hooks/useYelpLoop';
 import type { LucideIcon } from 'lucide-react';
 
 /* ── X (Twitter) icon ── */
@@ -102,6 +103,13 @@ export default function Research() {
   const leadLoopActive = leadState.active;
   const leadProgressLog = leadState.progressLog;
   const leadInterval = leadState.interval;
+
+  const yelpLoop = useYelpLoop();
+  const yelpState = yelpLoop.loopState;
+  const yelpGenerating = yelpState.generating;
+  const yelpLoopActive = yelpState.active;
+  const yelpProgressLog = yelpState.progressLog;
+  const yelpInterval = yelpState.interval;
 
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [allFindings, setAllFindings] = useState<any[]>([]);
@@ -755,6 +763,57 @@ export default function Research() {
                 )}
               </div>
             )}
+            {selectedSource === 'yelp' && (
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+                  <span className="px-3 py-1.5 rounded text-xs font-semibold bg-yellow-500/20 text-yellow-500 border border-yellow-500/30">
+                    ⭐ Yelp Agent
+                  </span>
+                </div>
+                {/* All Cities toggle */}
+                <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-border bg-muted/30 px-3 py-1.5">
+                  <Checkbox
+                    checked={yelpLoop.loopState.allCities}
+                    onCheckedChange={(checked) => yelpLoop.setAllCities(!!checked)}
+                  />
+                  <span className="text-xs font-medium text-foreground">All Cities</span>
+                </label>
+                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
+                  {[
+                    { label: '5m', val: 5 },
+                    { label: '15m', val: 15 },
+                    { label: '30m', val: 30 },
+                    { label: '1h', val: 60 },
+                  ].map(opt => (
+                    <button
+                      key={opt.val}
+                      onClick={() => yelpLoop.setInterval(yelpInterval === opt.val ? null : opt.val)}
+                      className={cn(
+                        "px-3 py-1.5 rounded text-sm font-semibold transition-colors",
+                        yelpInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {yelpLoopActive ? (
+                  <Button size="sm" variant="destructive" onClick={() => { yelpLoop.stopLoop(); }} className="gap-1.5">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Stop Agent
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={yelpInterval ? () => yelpLoop.startLoop() : () => yelpLoop.runOnce()}
+                    disabled={yelpGenerating}
+                    className="gap-1.5"
+                  >
+                    {yelpGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
+                    {yelpGenerating ? 'Searching...' : yelpInterval ? `Loop ${yelpInterval}m` : 'Run Once'}
+                  </Button>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-2">
               {selectedSource === 'x' && (
                 <Button
@@ -886,6 +945,52 @@ export default function Research() {
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                     ) : entry.status === 'done' ? (
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <span className={cn(
+                      "font-medium",
+                      entry.status === 'running' ? "text-foreground" : entry.status === 'done' ? "text-muted-foreground" : "text-destructive"
+                    )}>
+                      {entry.label}
+                    </span>
+                    <p className="text-muted-foreground break-words">{entry.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ══════ Yelp Agent Pipeline Log ══════ */}
+        {selectedSource === 'yelp' && yelpProgressLog.length > 0 && (
+          <div className="glass-card rounded-lg overflow-hidden border border-border">
+            <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-500" />
+                <span className="text-sm font-semibold text-foreground">yelp agent pipeline</span>
+                {yelpGenerating && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                {!yelpGenerating && yelpState.cyclesCompleted > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-500/15 text-yellow-500 font-medium">
+                    {yelpState.cyclesCompleted} cycles · {yelpState.totalNewCreated} new leads
+                  </span>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => yelpLoop.clearLog()}>
+                Clear
+              </Button>
+            </div>
+            <div className="max-h-72 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-sm">
+              {yelpProgressLog.map((entry, i) => (
+                <div key={`yelp-${entry.step}-${i}`} className="flex items-start gap-2 animate-fade-in">
+                  <span className="text-muted-foreground shrink-0 w-16">{entry.ts}</span>
+                  <span className="shrink-0">
+                    {entry.status === 'running' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    ) : entry.status === 'done' ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-yellow-500" />
                     ) : (
                       <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                     )}
