@@ -96,6 +96,7 @@ export default function Research() {
   const [cycleChainOfThought, setCycleChainOfThought] = useState('');
   const [cycleReasoning, setCycleReasoning] = useState('');
   const [evolvedQueries, setEvolvedQueries] = useState<string[]>([]);
+  const [creditsDepleted, setCreditsDepleted] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // New finding form
@@ -272,6 +273,7 @@ export default function Research() {
     setCycleReasoning('');
     setEvolvedQueries([]);
     setShowLog(true);
+    setCreditsDepleted(false);
 
     // Add initial entry immediately so the log panel is visible
     const now = () => new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -359,8 +361,16 @@ export default function Research() {
               if (data.evolved_queries?.length) {
                 setEvolvedQueries(data.evolved_queries);
               }
+              if (data.stats?.credits_depleted) {
+                setCreditsDepleted(true);
+              }
               toast.success(`Cortex cycle complete: ${data.stats?.tweets ?? 0} tweets, ${data.stats?.tokens ?? 0} tokens, ${data.stats?.matches ?? 0} clusters`);
               load();
+            } else if (eventType === 'warning') {
+              if (data.type === 'credits_depleted') {
+                setCreditsDepleted(true);
+              }
+              setProgressLog(prev => [...prev, { step: 98, label: '⚠️ Warning', status: 'warning', detail: data.message || 'Unknown warning', ts }]);
             } else if (eventType === 'error') {
               toast.error(data.message || 'Generation failed');
               setProgressLog(prev => [...prev, { step: 99, label: 'Error', status: 'error', detail: data.message || 'Unknown error', ts }]);
@@ -612,6 +622,20 @@ export default function Research() {
               ))}
               <div ref={logEndRef} />
             </div>
+          </div>
+        )}
+
+        {/* ══════ Credits Depleted Warning ══════ */}
+        {selectedSource === 'x' && creditsDepleted && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">X API Credits Depleted</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tweet scraping was limited or unavailable this cycle due to X API rate limits or credit exhaustion. Narrative cards may be missing original tweet sources and links. Token &amp; DexScreener data is unaffected.
+              </p>
+            </div>
+            <button onClick={() => setCreditsDepleted(false)} className="ml-auto text-muted-foreground hover:text-foreground shrink-0">✕</button>
           </div>
         )}
 
