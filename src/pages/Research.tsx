@@ -1194,205 +1194,152 @@ export default function Research() {
           </div>
         )}
 
-        {/* Findings — Expanded Format */}
-        <div className="space-y-4">
+        {/* Findings — 2-column square card grid */}
+        <div className="grid grid-cols-2 gap-4">
           {filtered.map(f => {
             const rawData = f.raw_data as any;
             const isNarrative = rawData?.type === 'narrative_report';
             const rating = rawData?.narrative_rating ?? rawData?.bundle_score ?? null;
             const tweetSources: TweetSource[] = rawData?.tweet_sources || [];
-            // Find the best media image: from tweet sources, or matched tweets
             const narrativeImage = tweetSources.find(ts => ts.media_url)?.media_url || rawData?.media_url || '';
+            const sourcePlatform = rawData?.source_platform;
 
             return (
-              <div key={f.id} className="glass-card overflow-hidden hover:shadow-md transition-shadow">
-                {/* AI Reference Banner */}
-                <div className="px-4 py-2 bg-muted/40 border-b border-border flex items-center gap-2">
+              <div key={f.id} className={cn(
+                "glass-card overflow-hidden hover:shadow-lg transition-shadow rounded-xl border flex flex-col aspect-square",
+                sourcePlatform === 'tiktok' ? "border-purple-500/30" :
+                sourcePlatform === 'x' ? "border-blue-500/30" :
+                "border-border"
+              )}>
+                {/* Header strip */}
+                <div className={cn(
+                  "px-3 py-1.5 border-b flex items-center gap-2 shrink-0",
+                  sourcePlatform === 'tiktok' ? "bg-purple-500/10 border-purple-500/20" :
+                  sourcePlatform === 'x' ? "bg-blue-500/10 border-blue-500/20" :
+                  "bg-muted/40 border-border"
+                )}>
                   <Brain className="h-3 w-3 text-primary shrink-0" />
-                  <span className="text-[10px] text-muted-foreground leading-tight">
-                    <span className="font-semibold text-foreground/70">Cortex AI Analysis</span> — Analytical decision based on live data of top coins in the last 24 hours. Only tokens that migrated from Pump.fun at minimum are considered.
-                  </span>
+                  <span className="text-[9px] text-muted-foreground truncate">Cortex AI · {format(new Date(f.created_at), 'MMM d, h:mm a')}</span>
+                  {rating !== null && (
+                    <span className={cn(
+                      "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-auto shrink-0",
+                      rating >= 8 ? "bg-primary/20 text-primary" :
+                      rating >= 6 ? "bg-accent/20 text-accent-foreground" :
+                      "bg-muted text-muted-foreground"
+                    )}>
+                      {rating}/10
+                    </span>
+                  )}
                 </div>
 
-                <div className="p-5 space-y-4">
-                  {/* Header row */}
-                  <div className="flex items-start gap-4">
-                    {/* Narrative image */}
+                {/* Card body — scrollable */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+                  {/* Title + image row */}
+                  <div className="flex items-start gap-2.5">
                     {narrativeImage && (
-                      <div className="shrink-0">
-                        <img
-                          src={narrativeImage}
-                          alt={f.title}
-                          className="w-24 h-24 rounded-lg object-cover bg-muted border border-border"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      </div>
+                      <img
+                        src={narrativeImage}
+                        alt={f.title}
+                        className="w-14 h-14 rounded-lg object-cover bg-muted border border-border shrink-0"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
                     )}
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-base font-bold text-foreground">{f.title}</h3>
-                        <StatusBadge status={f.status} />
-                      </div>
-                      {/* Meta pills */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold text-foreground line-clamp-2 leading-tight">{f.title}</h3>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
                           {sourceIcon(normSource(f.category))} {SOURCE_LABELS[normSource(f.category)] || 'Other'}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium capitalize">{f.finding_type}</span>
-                        <span className="text-[10px] text-muted-foreground">{f.created_by}</span>
-                        <span className="text-[10px] text-muted-foreground">· {format(new Date(f.created_at), 'MMM d, h:mm a')}</span>
-                        {rating !== null && (
-                          <span className={cn(
-                            "text-[10px] px-2 py-0.5 rounded-full font-bold",
-                            rating >= 8 ? "bg-primary/20 text-primary" :
-                            rating >= 6 ? "bg-accent/20 text-accent-foreground" :
-                            "bg-muted text-muted-foreground"
-                          )}>
-                            {rating}/10
-                          </span>
-                        )}
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium capitalize">{f.finding_type}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Full summary — expanded, no line clamp */}
+                  {/* Summary */}
                   {f.summary && (
-                    <p className="text-sm text-muted-foreground leading-relaxed">{f.summary}</p>
+                    <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{f.summary}</p>
                   )}
 
-                  {/* Narrative details (if narrative report) */}
-                  {isNarrative && (
-                    <div className="space-y-3">
-                      {/* Deploy fields */}
-                      {(rawData.name || rawData.symbol) && (
-                        <div className="grid gap-2 p-3 rounded-md bg-background border border-border">
-                          {rawData.name && (
-                            <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                              <span className="text-muted-foreground font-medium">Name</span>
-                              <span className="text-foreground font-semibold">{rawData.name}</span>
-                            </div>
-                          )}
-                          {rawData.symbol && (
-                            <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                              <span className="text-muted-foreground font-medium">Symbol</span>
-                              <span className="text-foreground font-mono font-bold">${rawData.symbol}</span>
-                            </div>
-                          )}
-                          {rawData.description && (
-                            <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                              <span className="text-muted-foreground font-medium">Description</span>
-                              <span className="text-foreground">{rawData.description}</span>
-                            </div>
-                          )}
-                          {rawData.deploy_window && (
-                            <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                              <span className="text-muted-foreground font-medium">Window</span>
-                              <span className={cn("font-semibold", rawData.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{rawData.deploy_window}</span>
-                            </div>
-                          )}
-                          {rawData.competition && (
-                            <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                              <span className="text-muted-foreground font-medium">Competition</span>
-                              <span className="text-foreground">{rawData.competition}</span>
-                            </div>
-                          )}
-                          {rawData.risk && (
-                            <div className="grid grid-cols-[80px_1fr] gap-1 text-xs">
-                              <span className="text-muted-foreground font-medium">Risk</span>
-                              <span className="text-foreground">{rawData.risk}</span>
-                            </div>
-                          )}
-                        </div>
+                  {/* Deploy fields (compact) */}
+                  {isNarrative && (rawData.name || rawData.symbol) && (
+                    <div className="grid gap-1 p-2 rounded-md bg-background border border-border text-[11px]">
+                      {rawData.name && (
+                        <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Name</span><span className="text-foreground font-semibold truncate">{rawData.name}</span></div>
                       )}
-
-                      {/* Rating justification */}
-                      {rawData.rating_justification && (
-                        <div className="p-2.5 rounded-md bg-primary/5 border border-primary/10">
-                          <p className="text-xs text-foreground leading-relaxed">
-                            <Zap className="h-3 w-3 inline mr-1 text-primary" />
-                            <strong>{rating}/10 —</strong> {rawData.rating_justification}
-                          </p>
-                        </div>
+                      {rawData.symbol && (
+                        <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Symbol</span><span className="text-foreground font-mono font-bold">${rawData.symbol}</span></div>
                       )}
-
-                      {/* On-chain evidence */}
-                      {rawData.on_chain_evidence && (
-                        <div className="p-2.5 rounded-md bg-muted/20 border border-border">
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            <TrendingUp className="h-3 w-3 inline mr-1 text-primary" />
-                            <strong className="text-foreground">On-Chain:</strong> {rawData.on_chain_evidence}
-                          </p>
-                        </div>
+                      {rawData.deploy_window && (
+                        <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Window</span><span className={cn("font-semibold", rawData.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{rawData.deploy_window}</span></div>
                       )}
-
-                      {/* Tweet sources with images */}
-                      {tweetSources.length > 0 && (
-                        <div className="space-y-2 pt-2 border-t border-border">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {tweetSources.slice(0, 4).map((tw, j) => (
-                              <div key={j} className="rounded-lg border border-blue-500/20 bg-blue-500/5 overflow-hidden hover:border-blue-500/40 transition-colors">
-                                {tw.media_url && (
-                                  <img src={tw.media_url} alt="" className="w-full h-24 object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                )}
-                                <div className="p-2.5 space-y-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-5 w-5 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
-                                      <XIcon className="h-2.5 w-2.5 text-blue-400" />
-                                    </div>
-                                    <span className="text-[11px] font-bold text-foreground truncate">@{tw.user}</span>
-                                    <span className="text-[10px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
-                                  </div>
-                                  <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{tw.text}</p>
-                                  {tw.url && (
-                                    <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline font-medium">
-                                      <ExternalLink className="h-2.5 w-2.5" /> View on X
-                                    </a>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                      {rawData.competition && (
+                        <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Comp.</span><span className="text-foreground truncate">{rawData.competition}</span></div>
+                      )}
+                      {rawData.risk && (
+                        <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Risk</span><span className="text-foreground truncate">{rawData.risk}</span></div>
                       )}
                     </div>
                   )}
 
-                  {f.customers?.full_name && (
-                    <p className="text-xs text-muted-foreground">→ Converted to: {f.customers.full_name}</p>
+                  {/* Rating justification */}
+                  {isNarrative && rawData.rating_justification && (
+                    <div className="p-2 rounded-md bg-primary/5 border border-primary/10">
+                      <p className="text-[10px] text-foreground leading-snug line-clamp-3">
+                        <Zap className="h-2.5 w-2.5 inline mr-0.5 text-primary" />
+                        <strong>{rating}/10</strong> — {rawData.rating_justification}
+                      </p>
+                    </div>
                   )}
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-1.5 pt-2 border-t border-border">
-                    {f.source_url && (
-                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => window.open(f.source_url, '_blank')}>
-                        <ExternalLink className="h-3 w-3" /> Source
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => copyToClipboard(`${f.title}\n${f.summary || ''}\n${f.source_url || ''}`)}>
-                      <Copy className="h-3 w-3" /> Copy
+                  {/* Tweet sources (compact, 1 col inside card) */}
+                  {tweetSources.length > 0 && (
+                    <div className="space-y-1.5 pt-1.5 border-t border-border">
+                      <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
+                      {tweetSources.slice(0, 2).map((tw, j) => (
+                        <div key={j} className="rounded-md border border-blue-500/20 bg-blue-500/5 p-2 space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-4 w-4 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
+                              <XIcon className="h-2 w-2 text-blue-400" />
+                            </div>
+                            <span className="text-[10px] font-bold text-foreground truncate">@{tw.user}</span>
+                            <span className="text-[9px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                          {tw.url && (
+                            <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-blue-400 hover:underline font-medium">
+                              <ExternalLink className="h-2 w-2" /> View on X
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer actions */}
+                <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border shrink-0 bg-muted/20">
+                  {f.source_url && (
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-1.5" onClick={() => window.open(f.source_url, '_blank')}>
+                      <ExternalLink className="h-2.5 w-2.5" /> Source
                     </Button>
-                    {f.status !== 'converted' && selectedSource !== 'x' && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs gap-1 text-primary hover:text-primary/80"
-                        onClick={() => handleConvertToClient(f)}
-                        disabled={converting === f.id}
-                      >
-                        <UserPlus className="h-3 w-3" /> {converting === f.id ? 'Converting...' : 'Convert'}
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-destructive ml-auto" onClick={() => setDeleteId(f.id)}>
-                      <Trash2 className="h-3 w-3" />
+                  )}
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-1.5" onClick={() => copyToClipboard(`${f.title}\n${f.summary || ''}\n${f.source_url || ''}`)}>
+                    <Copy className="h-2.5 w-2.5" /> Copy
+                  </Button>
+                  {f.status !== 'converted' && selectedSource !== 'x' && (
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-1.5 text-primary" onClick={() => handleConvertToClient(f)} disabled={converting === f.id}>
+                      <UserPlus className="h-2.5 w-2.5" /> {converting === f.id ? '...' : 'Convert'}
                     </Button>
-                  </div>
+                  )}
+                  <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-1.5 text-destructive ml-auto" onClick={() => setDeleteId(f.id)}>
+                    <Trash2 className="h-2.5 w-2.5" />
+                  </Button>
                 </div>
               </div>
             );
           })}
           {filtered.length === 0 && !loading && (
-            <div className="text-center py-16 text-muted-foreground">
+            <div className="col-span-2 text-center py-16 text-muted-foreground">
               No findings from {activeSrc?.label || 'this source'} yet.
             </div>
           )}
