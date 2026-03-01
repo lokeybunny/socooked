@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, Eye, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
@@ -453,7 +453,7 @@ export default function Leads() {
 
           {selected && (
             <Dialog open onOpenChange={() => { setSelected(null); setEditing(false); setForm(emptyForm); }}>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     <User className="h-5 w-5 text-primary" />
@@ -468,12 +468,57 @@ export default function Leads() {
                       {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
                       <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status}</span>
                     </div>
+
+                    {/* Contact info grid */}
                     <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-1"><Label className="text-xs text-muted-foreground">Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
-                      <div className="space-y-1"><Label className="text-xs text-muted-foreground">Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
-                      <div className="space-y-1"><Label className="text-xs text-muted-foreground">Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
+                      <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
+                      <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
+                      <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
                       <div className="space-y-1"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground">{selected.address || '—'}</p></div>
                     </div>
+
+                    {/* Meta / Extra Info from lead finder */}
+                    {(() => {
+                      const meta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, any> : {};
+                      const metaKeys = Object.keys(meta).filter(k => meta[k] != null && meta[k] !== '' && meta[k] !== false);
+                      if (metaKeys.length === 0) return null;
+                      return (
+                        <div className="space-y-2 border-t border-border pt-3">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wider">Extra Info</Label>
+                          <div className="grid gap-2">
+                            {metaKeys.map(k => (
+                              <div key={k} className="flex gap-2 text-sm">
+                                <span className="font-medium text-foreground min-w-[110px] capitalize">{k.replace(/_/g, ' ')}:</span>
+                                <span className="text-muted-foreground break-all">{typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : String(meta[k])}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* LinkedIn link if available */}
+                    {(() => {
+                      const meta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, any> : {};
+                      const linkedin = meta.linkedin_url || meta.linkedin || meta.linkedIn;
+                      const website = meta.website || meta.website_url;
+                      if (!linkedin && !website) return null;
+                      return (
+                        <div className="flex gap-2">
+                          {linkedin && (
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={String(linkedin)} target="_blank" rel="noopener noreferrer"><Linkedin className="h-3.5 w-3.5 mr-1" />LinkedIn</a>
+                            </Button>
+                          )}
+                          {website && (
+                            <Button variant="outline" size="sm" asChild>
+                              <a href={String(website).startsWith('http') ? String(website) : `https://${website}`} target="_blank" rel="noopener noreferrer"><Globe className="h-3.5 w-3.5 mr-1" />Website</a>
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     {selected.notes && (
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Notes</Label>
@@ -485,6 +530,12 @@ export default function Leads() {
                         {selected.tags.map((t: string) => <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>)}
                       </div>
                     )}
+
+                    {/* Open in Customers CRM link */}
+                    <Button variant="outline" size="sm" className="w-full" asChild>
+                      <a href={`/customers?open=${selected.id}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />Open in Customers</a>
+                    </Button>
+
                     <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
                       {selected.status === 'lead' && (
                         <Button onClick={() => promote(selected.id)} className="flex-1"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
