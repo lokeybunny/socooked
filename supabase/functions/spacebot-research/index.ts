@@ -99,8 +99,9 @@ async function scrapeTweetsViaApify(apifyToken: string, searchTerms: string[], m
         media_url = tw.entities.media[0].media_url_https || tw.entities.media[0].media_url || "";
       }
       // Detect gold/verified check
-      const isBlueVerified = !!(tw.author?.isBlueVerified || tw.author?.isVerified || tw.isBlueVerified);
-      const isGoldCheck = !!(tw.author?.affiliatesHighlightedLabel || tw.author?.isBusinessAccount || tw.author?.verifiedType === "Business");
+      const isBlueVerified = !!(tw.author?.isBlueVerified || tw.isBlueVerified);
+      // Gold check = explicitly a business account (verifiedType === "Business") only
+      const isGoldCheck = !!(tw.author?.verifiedType === "Business");
       return {
         id: tw.id,
         text: tw.text || tw.full_text || "",
