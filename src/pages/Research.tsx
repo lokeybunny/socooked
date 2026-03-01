@@ -128,6 +128,8 @@ export default function Research() {
   const [customerDetail, setCustomerDetail] = useState<any | null>(null);
   const [customerDetailLoading, setCustomerDetailLoading] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   // New finding form
   const [title, setTitle] = useState('');
@@ -269,6 +271,12 @@ export default function Research() {
     if (filterStatus !== 'all' && f.status !== filterStatus) return false;
     return true;
   });
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [filterType, filterStatus, selectedSource]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginatedFiltered = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const handleCreate = async () => {
     if (!title.trim()) { toast.error('Title is required'); return; }
@@ -1229,7 +1237,7 @@ export default function Research() {
 
         {/* Findings — 4-column card grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {filtered.filter(f => {
+          {paginatedFiltered.filter(f => {
             // Gate: only show findings with required narrative fields
             const rd = f.raw_data as any;
             if (!rd) return false;
@@ -1407,6 +1415,37 @@ export default function Research() {
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-4">
+            <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+              Previous
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                .reduce((acc: (number | string)[], p, idx, arr) => {
+                  if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  typeof p === 'string' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground text-sm">…</span>
+                  ) : (
+                    <Button key={p} size="sm" variant={p === currentPage ? 'default' : 'outline'} className="h-8 w-8 p-0 text-xs" onClick={() => setCurrentPage(p)}>
+                      {p}
+                    </Button>
+                  )
+                )}
+            </div>
+            <Button variant="outline" size="sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+              Next
+            </Button>
+            <span className="text-xs text-muted-foreground ml-2">{filtered.length} total</span>
+          </div>
+        )}
       </div>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
