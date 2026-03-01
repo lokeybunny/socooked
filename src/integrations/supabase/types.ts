@@ -1947,6 +1947,60 @@ export type Database = {
         }
         Relationships: []
       }
+      x_feed_tweets: {
+        Row: {
+          author_avatar: string | null
+          author_display_name: string
+          author_username: string
+          created_at: string
+          gold: boolean
+          id: string
+          likes: number
+          media_url: string | null
+          raw_message: string | null
+          replies: number
+          retweets: number
+          source_url: string | null
+          tweet_text: string
+          verified: boolean
+          views: number
+        }
+        Insert: {
+          author_avatar?: string | null
+          author_display_name?: string
+          author_username?: string
+          created_at?: string
+          gold?: boolean
+          id?: string
+          likes?: number
+          media_url?: string | null
+          raw_message?: string | null
+          replies?: number
+          retweets?: number
+          source_url?: string | null
+          tweet_text: string
+          verified?: boolean
+          views?: number
+        }
+        Update: {
+          author_avatar?: string | null
+          author_display_name?: string
+          author_username?: string
+          created_at?: string
+          gold?: boolean
+          id?: string
+          likes?: number
+          media_url?: string | null
+          raw_message?: string | null
+          replies?: number
+          retweets?: number
+          source_url?: string | null
+          tweet_text?: string
+          verified?: boolean
+          views?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
