@@ -736,103 +736,81 @@ export default function Research() {
           </div>
         )}
         {selectedSource === 'x' && tiktokRadar.length > 0 && (
-          <div className="glass-card rounded-lg overflow-hidden border border-purple-500/30">
-            <div className="px-4 py-3 bg-purple-500/5 border-b border-purple-500/20 flex items-center justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Music className="h-4 w-4 text-purple-500" />
-                <span className="text-sm font-bold text-foreground">🎵 TikTok Animal Viral Radar — {tiktokRadar.length} Videos (1M+ plays, 48h)</span>
+                <span className="text-sm font-bold text-foreground">🎵 TikTok Viral Radar — {tiktokRadar.length} Videos</span>
               </div>
-              <span className="text-sm px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 font-medium animate-pulse">48H · 1M+ VIEWS</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 font-medium animate-pulse">48H · 1M+ VIEWS</span>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30">
-                    <th className="text-left px-3 py-2 text-muted-foreground font-medium">#</th>
-                    <th className="text-center px-3 py-2 text-muted-foreground font-medium">Tier</th>
-                    <th className="text-left px-3 py-2 text-muted-foreground font-medium">Video</th>
-                    <th className="text-right px-3 py-2 text-muted-foreground font-medium">▶ Plays</th>
-                    <th className="text-right px-3 py-2 text-muted-foreground font-medium">❤ Likes</th>
-                    <th className="text-right px-3 py-2 text-muted-foreground font-medium">🔁 Shares</th>
-                    <th className="text-center px-3 py-2 text-muted-foreground font-medium">Score</th>
-                    <th className="text-center px-3 py-2 text-muted-foreground font-medium">Tokenized?</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tiktokRadar.map((v, i) => {
-                    const fmt = (n: number) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n/1000).toFixed(0)}K` : `${n}`;
-                    const tierColor = v.tier === 'S' ? 'bg-red-500/20 text-red-400 animate-pulse' : v.tier === 'A' ? 'bg-amber-500/20 text-amber-400' : 'bg-muted text-muted-foreground';
-                    return (
-                      <tr key={v.id || i} className={cn(
-                        "border-b border-purple-500/20 hover:bg-purple-500/10 transition-colors",
-                        v.tier === 'S' ? "bg-purple-500/10" : "bg-purple-500/5"
-                      )}>
-                        <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
-                        <td className="px-3 py-2 text-center">
-                          <span className={cn("text-sm px-2 py-0.5 rounded-full font-black", tierColor)}>
-                            {v.tier || '?'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 max-w-[300px]">
-                          <div className="flex items-start gap-2">
-                            {v.coverUrl && (
-                              <a href={v.webVideoUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                                <img src={v.coverUrl} alt="" className="w-10 h-14 rounded object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                              </a>
-                            )}
-                            <div className="min-w-0">
-                              <p className="text-foreground leading-snug line-clamp-2">{v.text || '(no description)'}</p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-muted-foreground">@{v.authorName}</span>
-                                {v.webVideoUrl && (
-                                  <a href={v.webVideoUrl} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline flex items-center gap-0.5">
-                                    <Play className="h-2.5 w-2.5" /> Open
-                                  </a>
-                                )}
-                              </div>
-                              {v.hashtags?.length > 0 && (
-                                <div className="flex gap-1 mt-0.5 flex-wrap">
-                                  {v.hashtags.slice(0, 3).map((h, hi) => (
-                                    <span key={hi} className="text-xs px-1.5 rounded bg-purple-500/10 text-purple-400">#{h}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-right font-mono font-semibold text-foreground">{fmt(v.playCount)}</td>
-                        <td className="px-3 py-2 text-right font-mono text-muted-foreground">{fmt(v.diggCount)}</td>
-                        <td className="px-3 py-2 text-right font-mono text-muted-foreground">{fmt(v.shareCount)}</td>
-                        <td className="px-3 py-2 text-center">
-                          <span className={cn(
-                            "px-2 py-0.5 rounded-full text-sm font-bold",
-                            v.narrativeScore >= 18 ? "bg-red-500/20 text-red-400" :
-                            v.narrativeScore >= 12 ? "bg-primary/20 text-primary" :
-                            v.narrativeScore >= 8 ? "bg-amber-500/20 text-amber-400" :
-                            "bg-muted text-muted-foreground"
-                          )}>
-                            {v.narrativeScore}/25
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          {v.tokenized ? (
-                            <span className="text-sm px-2 py-0.5 rounded-full font-bold bg-muted text-muted-foreground">
-                              ⚠️ EXISTS
-                            </span>
-                          ) : (
-                            <span className={cn(
-                              "text-sm px-2 py-0.5 rounded-full font-bold",
-                              v.tier === 'S' ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-primary/20 text-primary"
-                            )}>
-                              {v.tier === 'S' ? '🚨 SPIN NOW' : '🚀 LAUNCH'}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {tiktokRadar.map((v, i) => {
+                const fmt = (n: number) => n >= 1_000_000 ? `${(n/1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n/1000).toFixed(0)}K` : `${n}`;
+                const tierColor = v.tier === 'S' ? 'bg-red-500/20 text-red-400 animate-pulse' : v.tier === 'A' ? 'bg-amber-500/20 text-amber-400' : 'bg-muted text-muted-foreground';
+                return (
+                  <div key={v.id || i} className={cn(
+                    "flex flex-col overflow-hidden rounded-xl border min-w-0",
+                    v.tier === 'S' ? "border-red-500/30 bg-purple-500/10" : "border-purple-500/30 bg-purple-500/5"
+                  )}>
+                    {/* Header */}
+                    <div className="px-2 py-1 border-b border-purple-500/20 bg-purple-500/10 flex items-center gap-1 min-w-0">
+                      <span className="text-[10px] font-mono text-muted-foreground">{i + 1}.</span>
+                      <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-black", tierColor)}>{v.tier || '?'}</span>
+                      <span className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-auto shrink-0",
+                        v.narrativeScore >= 18 ? "bg-red-500/20 text-red-400" :
+                        v.narrativeScore >= 12 ? "bg-primary/20 text-primary" :
+                        "bg-muted text-muted-foreground"
+                      )}>{v.narrativeScore}/25</span>
+                    </div>
+                    {/* Body */}
+                    <div className="p-2 space-y-1 min-w-0 overflow-hidden flex-1">
+                      <div className="flex items-start gap-1.5 min-w-0">
+                        {v.coverUrl && (
+                          <a href={v.webVideoUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                            <img src={v.coverUrl} alt="" className="w-8 h-11 rounded object-cover bg-muted" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          </a>
+                        )}
+                        <div className="min-w-0 overflow-hidden">
+                          <p className="text-xs text-foreground leading-snug line-clamp-2 break-words">{v.text || '(no description)'}</p>
+                          <span className="text-[10px] text-muted-foreground truncate block">@{v.authorName}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                        <span className="font-semibold text-foreground">▶ {fmt(v.playCount)}</span>
+                        <span>❤ {fmt(v.diggCount)}</span>
+                        <span>🔁 {fmt(v.shareCount)}</span>
+                      </div>
+                      {v.hashtags?.length > 0 && (
+                        <div className="flex gap-0.5 flex-wrap">
+                          {v.hashtags.slice(0, 2).map((h, hi) => (
+                            <span key={hi} className="text-[9px] px-1 rounded bg-purple-500/10 text-purple-400">#{h}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Footer */}
+                    <div className="px-2 py-1 border-t border-purple-500/20 flex items-center justify-between min-w-0">
+                      {v.tokenized ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-muted text-muted-foreground">⚠️ EXISTS</span>
+                      ) : (
+                        <span className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                          v.tier === 'S' ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-primary/20 text-primary"
+                        )}>
+                          {v.tier === 'S' ? '🚨 SPIN NOW' : '🚀 LAUNCH'}
+                        </span>
+                      )}
+                      {v.webVideoUrl && (
+                        <a href={v.webVideoUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-purple-400 hover:underline flex items-center gap-0.5">
+                          <Play className="h-2.5 w-2.5" /> Open
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
