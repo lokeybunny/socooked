@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.spacebot-research]
 verify_jwt = false
+
+[functions.lead-finder]
+verify_jwt = false

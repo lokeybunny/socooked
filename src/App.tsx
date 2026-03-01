@@ -38,6 +38,7 @@ import LetsMeet from "./pages/LetsMeet";
 import ManageBooking from "./pages/ManageBooking";
 import SharedContent from "./pages/SharedContent";
 import Research from "./pages/Research";
+import LeadFinder from "./pages/LeadFinder";
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 const queryClient = new QueryClient();
 
@@ -83,6 +84,7 @@ const App = () => (
             <Route path="/manage-booking/:bookingId" element={<ManageBooking />} />
             <Route path="/shared/:token" element={<SharedContent />} />
             <Route path="/research" element={<Research />} />
+            <Route path="/lead-finder" element={<LeadFinder />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

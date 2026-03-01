@@ -3,6 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
+  Target,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,7 @@ const navItems: NavItem[] = [
   { to: '/landing', icon: Layers, label: 'Landing', highlight: true },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
   { to: '/research', icon: Search, label: 'Research', green: true },
+  { to: '/lead-finder', icon: Target, label: 'Lead Finder', green: true },
   { to: '/projects', icon: FolderKanban, label: 'Projects', highlight: true },
 ];
 
