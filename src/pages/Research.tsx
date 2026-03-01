@@ -170,8 +170,29 @@ export default function Research() {
       if (lfIndustry) payload.company_industry = lfIndustry.split(',').map(s => s.trim()).filter(Boolean);
       if (lfKeywords) payload.company_keywords = lfKeywords.split(',').map(s => s.trim()).filter(Boolean);
 
-      const { data, error } = await supabase.functions.invoke('lead-finder', { body: payload });
-      if (error) throw new Error(error.message);
+      // Use raw fetch with extended timeout — Apify sync calls can take 2-3 minutes
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 210_000); // 3.5 min timeout
+      
+      const resp = await fetch(`${supabaseUrl}/functions/v1/lead-finder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => '');
+        throw new Error(errBody || `Request failed (${resp.status})`);
+      }
+      const data = await resp.json();
 
       setLfResults(data.leads || []);
       setLfCreatedCount(data.created_count || 0);
