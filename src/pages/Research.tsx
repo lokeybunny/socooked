@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,11 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useResearchLoop } from '@/hooks/useResearchLoop';
 import type { LucideIcon } from 'lucide-react';
 
 /* ── X (Twitter) icon ── */
@@ -35,7 +36,7 @@ const RESEARCH_SOURCES: SourceCategory[] = [
 const SOURCE_LABELS: Record<string, string> = Object.fromEntries(RESEARCH_SOURCES.map(s => [s.id, s.label]));
 
 const FINDING_TYPES = ['lead', 'competitor', 'resource', 'trend', 'other'] as const;
-const STATUSES = ['new', 'reviewed', 'converted', 'dismissed'] as const;
+const STATUSES = ['new', 'reviewed', 'converted', 'dismissed', 'drafted'] as const;
 
 interface MatchedTweet {
   text: string;
@@ -108,6 +109,14 @@ interface Narrative {
 }
 
 export default function Research() {
+  const researchLoop = useResearchLoop();
+  const { loopState } = researchLoop;
+  const generating = loopState.generating;
+  const loopActive = loopState.active;
+  const progressLog = loopState.progressLog;
+  const scrapeSources = loopState.sources;
+  const loopInterval = loopState.interval;
+
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [allFindings, setAllFindings] = useState<any[]>([]);
   const [findings, setFindings] = useState<any[]>([]);
@@ -120,8 +129,6 @@ export default function Research() {
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [generating, setGenerating] = useState(false);
-  const [progressLog, setProgressLog] = useState<Array<{ step: number; label: string; status: string; detail: string; ts: string }>>([]);
   const [showLog, setShowLog] = useState(false);
   const [topNarratives, setTopNarratives] = useState<Narrative[]>([]);
   const [topTweets, setTopTweets] = useState<MatchedTweet[]>([]);
@@ -130,11 +137,9 @@ export default function Research() {
   const [evolvedQueries, setEvolvedQueries] = useState<string[]>([]);
   const [tiktokRadar, setTiktokRadar] = useState<TikTokVideo[]>([]);
   const [creditsDepleted, setCreditsDepleted] = useState(false);
-  const [scrapeSources, setScrapeSources] = useState<('x' | 'tiktok')[]>(['x', 'tiktok']);
-  const [loopInterval, setLoopInterval] = useState<number | null>(null); // minutes
-  const [loopActive, setLoopActive] = useState(false);
-  const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const loopActiveRef = useRef(false);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [draftFindings, setDraftFindings] = useState<any[]>([]);
+  const [draftCount, setDraftCount] = useState(0);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // New finding form
@@ -153,12 +158,31 @@ export default function Research() {
     const { data } = await supabase
       .from('research_findings')
       .select('*, customers(full_name, email)')
+      .neq('status', 'drafted')
       .order('created_at', { ascending: false });
     setAllFindings(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadDrafts = async () => {
+    const { data } = await supabase
+      .from('research_findings')
+      .select('*')
+      .eq('status', 'drafted')
+      .order('created_at', { ascending: false });
+    setDraftFindings(data || []);
+    setDraftCount(data?.length || 0);
+  };
+
+  const loadDraftCount = async () => {
+    const { count } = await supabase
+      .from('research_findings')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'drafted');
+    setDraftCount(count || 0);
+  };
+
+  useEffect(() => { load(); loadDraftCount(); }, []);
 
   // Check for new findings per category using localStorage timestamps
   useEffect(() => {
@@ -302,9 +326,7 @@ export default function Research() {
   const cortexCycleCount = cortexFindings.length;
   const isCortexRecent = lastCortexPush && (Date.now() - new Date(lastCortexPush).getTime()) < 20 * 60 * 1000;
 
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setProgressLog([]);
+  const handleGenerate = () => {
     setTopNarratives([]);
     setTopTweets([]);
     setTiktokRadar([]);
@@ -313,135 +335,35 @@ export default function Research() {
     setEvolvedQueries([]);
     setShowLog(true);
     setCreditsDepleted(false);
-
-    const now = () => new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setProgressLog([{ step: -1, label: 'Cortex activated', status: 'done', detail: '🚀 Researching live narratives now...', ts: now() }]);
-
-    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/spacebot-research`;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'apikey': anonKey,
-          'Authorization': `Bearer ${anonKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ sources: scrapeSources }),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 200)}`);
-      }
-
-      if (!res.body) throw new Error('No response body');
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const messages = buffer.split('\n\n');
-        buffer = messages.pop() || '';
-
-        for (const msg of messages) {
-          if (!msg.trim()) continue;
-
-          const lines = msg.split('\n');
-          let eventType = '';
-          let dataStr = '';
-
-          for (const line of lines) {
-            if (line.startsWith('event: ')) {
-              eventType = line.slice(7).trim();
-            } else if (line.startsWith('data: ')) {
-              dataStr += line.slice(6);
-            }
-          }
-
-          if (!eventType || !dataStr) continue;
-
-          try {
-            const data = JSON.parse(dataStr);
-            const ts = now();
-
-            if (eventType === 'progress') {
-              setProgressLog(prev => {
-                const existing = prev.findIndex(p => p.step === data.step && p.label === data.label);
-                const entry = { step: data.step, label: data.label, status: data.status, detail: data.detail, ts };
-                if (existing >= 0) {
-                  const updated = [...prev];
-                  updated[existing] = entry;
-                  return updated;
-                }
-                return [...prev, entry];
-              });
-            } else if (eventType === 'complete') {
-              if (data.top_narratives?.length) setTopNarratives(data.top_narratives);
-              if (data.top_tweets?.length) setTopTweets(data.top_tweets);
-              if (data.tiktok_radar?.length) setTiktokRadar(data.tiktok_radar);
-              if (data.chain_of_thought) setCycleChainOfThought(data.chain_of_thought);
-              if (data.reasoning) setCycleReasoning(data.reasoning);
-              if (data.evolved_queries?.length) setEvolvedQueries(data.evolved_queries);
-              if (data.stats?.credits_depleted) setCreditsDepleted(true);
-              toast.success(`Cortex cycle complete: ${data.stats?.tweets ?? 0} tweets, ${data.stats?.tokens ?? 0} tokens, ${data.stats?.matches ?? 0} clusters`);
-              load();
-            } else if (eventType === 'warning') {
-              if (data.type === 'credits_depleted') setCreditsDepleted(true);
-              setProgressLog(prev => [...prev, { step: 98, label: '⚠️ Warning', status: 'warning', detail: data.message || 'Unknown warning', ts }]);
-            } else if (eventType === 'error') {
-              toast.error(data.message || 'Generation failed');
-              setProgressLog(prev => [...prev, { step: 99, label: 'Error', status: 'error', detail: data.message || 'Unknown error', ts }]);
-            }
-          } catch { /* skip bad JSON */ }
-        }
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Research generation failed');
-      setProgressLog(prev => [...prev, { step: 99, label: 'Connection error', status: 'error', detail: err.message || 'Failed to connect', ts: now() }]);
-    } finally {
-      setGenerating(false);
-    }
+    researchLoop.runOnce();
   };
 
-  // Auto-loop: schedule next run after generate completes
   const startLoop = () => {
     if (!loopInterval) return;
-    loopActiveRef.current = true;
-    setLoopActive(true);
-    handleGenerate();
+    setShowLog(true);
+    researchLoop.startLoop();
   };
 
   const stopLoop = () => {
-    loopActiveRef.current = false;
-    setLoopActive(false);
-    if (loopTimerRef.current) {
-      clearTimeout(loopTimerRef.current);
-      loopTimerRef.current = null;
-    }
+    researchLoop.stopLoop();
     toast.info('Auto-generate loop stopped');
   };
 
-  // When generating finishes and loop is active, schedule next
+  // Wire up onComplete callback to consume results
   useEffect(() => {
-    if (!generating && loopActiveRef.current && loopInterval) {
-      const ms = loopInterval * 60 * 1000;
-      setProgressLog(prev => [...prev, { step: -2, label: 'Loop', status: 'done', detail: `⏳ Next cycle in ${loopInterval}m...`, ts: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) }]);
-      loopTimerRef.current = setTimeout(() => {
-        if (loopActiveRef.current) handleGenerate();
-      }, ms);
-    }
-    return () => {
-      if (loopTimerRef.current) clearTimeout(loopTimerRef.current);
+    researchLoop.onComplete.current = (data: any) => {
+      if (data.top_narratives?.length) setTopNarratives(data.top_narratives);
+      if (data.top_tweets?.length) setTopTweets(data.top_tweets);
+      if (data.tiktok_radar?.length) setTiktokRadar(data.tiktok_radar);
+      if (data.chain_of_thought) setCycleChainOfThought(data.chain_of_thought);
+      if (data.reasoning) setCycleReasoning(data.reasoning);
+      if (data.evolved_queries?.length) setEvolvedQueries(data.evolved_queries);
+      if (data.stats?.credits_depleted) setCreditsDepleted(true);
+      toast.success(`Cortex cycle complete: ${data.stats?.tweets ?? 0} tweets, ${data.stats?.tokens ?? 0} tokens, ${data.stats?.matches ?? 0} clusters`);
+      load();
     };
-  }, [generating]);
+    return () => { researchLoop.onComplete.current = null; };
+  }, []);
 
   // Auto-scroll log
   useEffect(() => {
@@ -577,7 +499,7 @@ export default function Research() {
                 {/* Source toggles */}
                 <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
                   <button
-                    onClick={() => setScrapeSources(prev => prev.includes('x') ? prev.filter(s => s !== 'x') : [...prev, 'x'])}
+                    onClick={() => researchLoop.setSources(scrapeSources.includes('x') ? scrapeSources.filter(s => s !== 'x') : [...scrapeSources, 'x'] as ('x' | 'tiktok')[])}
                     className={cn(
                       "px-3 py-1.5 rounded text-base font-semibold transition-colors",
                       scrapeSources.includes('x') ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "text-muted-foreground hover:text-foreground"
@@ -586,7 +508,7 @@ export default function Research() {
                     𝕏 X
                   </button>
                   <button
-                    onClick={() => setScrapeSources(prev => prev.includes('tiktok') ? prev.filter(s => s !== 'tiktok') : [...prev, 'tiktok'])}
+                    onClick={() => researchLoop.setSources(scrapeSources.includes('tiktok') ? scrapeSources.filter(s => s !== 'tiktok') : [...scrapeSources, 'tiktok'] as ('x' | 'tiktok')[])}
                     className={cn(
                       "px-3 py-1.5 rounded text-base font-semibold transition-colors",
                       scrapeSources.includes('tiktok') ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "text-muted-foreground hover:text-foreground"
@@ -605,7 +527,7 @@ export default function Research() {
                   ].map(opt => (
                     <button
                       key={opt.val}
-                      onClick={() => setLoopInterval(prev => prev === opt.val ? null : opt.val)}
+                      onClick={() => researchLoop.setInterval(loopInterval === opt.val ? null : opt.val)}
                       className={cn(
                         "px-3 py-1.5 rounded text-sm font-semibold transition-colors",
                         loopInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
@@ -633,6 +555,16 @@ export default function Research() {
               </div>
             )}
             <div className="flex items-center gap-2">
+              {selectedSource === 'x' && (
+                <Button
+                  variant={showDrafts ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => { setShowDrafts(!showDrafts); if (!showDrafts) loadDrafts(); }}
+                >
+                  <Archive className="h-4 w-4" /> Drafts{draftCount > 0 && ` (${draftCount})`}
+                </Button>
+              )}
               {selectedSource === 'x' && filtered.length > 0 && (
                 <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setShowPurgeConfirm(true)} disabled={purging}>
                   <Trash2 className="h-4 w-4" /> Purge All
@@ -1102,6 +1034,58 @@ export default function Research() {
                 </details>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ══════ Drafts Panel ══════ */}
+        {showDrafts && selectedSource === 'x' && (
+          <div className="glass-card rounded-lg overflow-hidden border border-amber-500/30">
+            <div className="px-4 py-3 bg-amber-500/5 border-b border-amber-500/20 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Archive className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-bold text-foreground">📁 Drafts — {draftFindings.length} findings</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-medium">Auto-archived after 24h · Deleted after 7 days</span>
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => setShowDrafts(false)}>
+                Hide
+              </Button>
+            </div>
+            {draftFindings.length === 0 ? (
+              <div className="p-6 text-center text-muted-foreground text-sm">
+                No drafted findings yet. Findings are auto-drafted 24 hours after generation.
+              </div>
+            ) : (
+              <div className="p-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto">
+                {draftFindings.map(f => {
+                  const rd = f.raw_data as any;
+                  return (
+                    <div key={f.id} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-2 space-y-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-[10px] text-muted-foreground truncate">{format(new Date(f.created_at), 'M/d h:mma')}</span>
+                        {rd?.narrative_rating && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400 ml-auto shrink-0">{rd.narrative_rating}/10</span>
+                        )}
+                      </div>
+                      <h4 className="text-xs font-bold text-foreground line-clamp-2 break-words">{f.title}</h4>
+                      {rd?.symbol && <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">${rd.symbol}</span>}
+                      {rd?.deploy_window && <span className="text-[10px] text-muted-foreground block">⏱ {rd.deploy_window}</span>}
+                      <div className="flex items-center gap-1 pt-1">
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => copyToClipboard(`${f.title}\n${f.summary || ''}\n${f.source_url || ''}`)}>
+                          <Copy className="h-2.5 w-2.5" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5 text-destructive ml-auto" onClick={async () => {
+                          await supabase.from('research_findings').delete().eq('id', f.id);
+                          loadDrafts();
+                          toast.success('Draft deleted');
+                        }}>
+                          <Trash2 className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

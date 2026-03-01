@@ -38,11 +38,13 @@ import LetsMeet from "./pages/LetsMeet";
 import ManageBooking from "./pages/ManageBooking";
 import SharedContent from "./pages/SharedContent";
 import Research from "./pages/Research";
+import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
+    <ResearchLoopProvider>
     <AuthProvider>
       <TooltipProvider>
         <Toaster />
@@ -86,6 +88,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+    </ResearchLoopProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );
