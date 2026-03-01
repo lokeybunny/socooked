@@ -57,10 +57,36 @@ Deno.serve(async (req) => {
       "new zealand", "argentina", "colombia", "chile", "peru",
     ];
 
+    const ALLOWED_INDUSTRIES = [
+      "information technology & services", "construction", "marketing & advertising",
+      "real estate", "health, wellness & fitness", "management consulting",
+      "financial services", "automotive", "retail", "food & beverages",
+      "hospitality", "education management", "insurance", "telecommunications",
+      "oil & energy", "logistics & supply chain", "human resources",
+      "legal services", "accounting", "banking", "architecture & planning",
+      "mechanical or industrial engineering", "computer software", "internet",
+      "hospital & health care", "staffing & recruiting", "media production",
+      "design", "consumer services", "entertainment", "apparel & fashion",
+      "civic & social organization", "pharmaceuticals", "sporting goods",
+      "mining & metals", "electrical & electronic manufacturing",
+      "events services", "professional training & coaching", "arts & crafts",
+      "environmental services", "printing", "photography", "writing & editing",
+      "restaurants", "leisure, travel & tourism", "consumer goods",
+      "supermarkets", "cosmetics", "furniture", "textiles",
+      "wholesale", "wine & spirits", "veterinary", "warehousing",
+      "utilities", "transportation", "chemicals", "biotechnology",
+      "aviation & aerospace", "gambling & casinos", "packaging & containers",
+    ];
+
     // Normalize and filter locations to only allowed values
     const validLocations = contact_location
       .map((l: string) => l.trim().toLowerCase())
       .filter((l: string) => ALLOWED_LOCATIONS.includes(l));
+
+    // Normalize and filter industries to only allowed values
+    const validIndustries = company_industry
+      .map((i: string) => i.trim().toLowerCase())
+      .filter((i: string) => ALLOWED_INDUSTRIES.includes(i));
 
     // Build Apify input
     const input: Record<string, any> = {
@@ -70,7 +96,7 @@ Deno.serve(async (req) => {
     if (contact_job_title.length) input.contact_job_title = contact_job_title;
     if (validLocations.length) input.contact_location = validLocations;
     if (contact_city.length) input.contact_city = contact_city;
-    if (company_industry.length) input.company_industry = company_industry;
+    if (validIndustries.length) input.company_industry = validIndustries;
     if (company_keywords.length) input.company_keywords = company_keywords;
     if (seniority_level.length) input.seniority_level = seniority_level;
 
