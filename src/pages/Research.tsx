@@ -547,11 +547,33 @@ export default function Research() {
           <h1 className="text-2xl font-bold text-foreground">{activeSrc?.label || ''} Research</h1>
         </div>
 
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-sm">{filtered.length} findings</p>
-          <div className="flex items-center gap-2">
+        {/* Controls — 1 row, 2 columns */}
+        <div className="grid grid-cols-2 gap-4 items-start">
+          {/* Column 1: Findings count + filters */}
+          <div className="space-y-2">
+            <p className="text-muted-foreground text-sm">{filtered.length} findings</p>
+            <div className="flex items-center gap-2">
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-28 h-8 text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {FINDING_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-28 h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Column 2: Actions */}
+          <div className="flex flex-col items-end gap-2">
             {selectedSource === 'x' && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 {/* Source toggles */}
                 <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
                   <button
@@ -594,14 +616,8 @@ export default function Research() {
                   ))}
                 </div>
                 {loopActive ? (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={stopLoop}
-                    className="gap-1.5"
-                  >
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Stop Loop
+                  <Button size="sm" variant="destructive" onClick={stopLoop} className="gap-1.5">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Stop Loop
                   </Button>
                 ) : (
                   <Button
@@ -610,80 +626,53 @@ export default function Research() {
                     disabled={generating || scrapeSources.length === 0}
                     className="gap-1.5"
                   >
-                    {generating ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Brain className="h-4 w-4" />
-                    )}
-                    {generating ? 'Cortex running...' : loopInterval ? `Loop ${loopInterval}m (${scrapeSources.join('+').toUpperCase()})` : `Generate (${scrapeSources.join(' + ').toUpperCase() || 'select source'})`}
+                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+                    {generating ? 'Running...' : loopInterval ? `Loop ${loopInterval}m` : 'Generate'}
                   </Button>
                 )}
               </div>
             )}
-            {selectedSource === 'x' && filtered.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-destructive hover:text-destructive"
-                onClick={() => setShowPurgeConfirm(true)}
-                disabled={purging}
-              >
-                <Trash2 className="h-4 w-4" />
-                Purge All
+            <div className="flex items-center gap-2">
+              {selectedSource === 'x' && filtered.length > 0 && (
+                <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setShowPurgeConfirm(true)} disabled={purging}>
+                  <Trash2 className="h-4 w-4" /> Purge All
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
               </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
-            </Button>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="h-4 w-4 mr-2" />Add Finding</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[420px]">
-                <DialogHeader><DialogTitle>Add Research Finding</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                  <Input placeholder="Title / Name" value={title} onChange={e => setTitle(e.target.value)} />
-                  <Input placeholder="Source URL (optional)" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} />
-                  <Textarea placeholder="Summary..." value={summary} onChange={e => setSummary(e.target.value)} rows={3} />
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select value={findingType} onValueChange={setFindingType}>
-                      <SelectTrigger className="text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
-                      <SelectContent>
-                        {FINDING_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <Select value={findingSource} onValueChange={setFindingSource}>
-                      <SelectTrigger className="text-xs"><SelectValue placeholder="Source" /></SelectTrigger>
-                      <SelectContent>
-                        {RESEARCH_SOURCES.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="h-4 w-4 mr-1" />Add</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[420px]">
+                  <DialogHeader><DialogTitle>Add Research Finding</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <Input placeholder="Title / Name" value={title} onChange={e => setTitle(e.target.value)} />
+                    <Input placeholder="Source URL (optional)" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} />
+                    <Textarea placeholder="Summary..." value={summary} onChange={e => setSummary(e.target.value)} rows={3} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Select value={findingType} onValueChange={setFindingType}>
+                        <SelectTrigger className="text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
+                        <SelectContent>
+                          {FINDING_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Select value={findingSource} onValueChange={setFindingSource}>
+                        <SelectTrigger className="text-xs"><SelectValue placeholder="Source" /></SelectTrigger>
+                        <SelectContent>
+                          {RESEARCH_SOURCES.map(s => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={handleCreate} disabled={creating} className="w-full">
+                      {creating ? 'Adding...' : 'Add Finding'}
+                    </Button>
                   </div>
-                  <Button onClick={handleCreate} disabled={creating} className="w-full">
-                    {creating ? 'Adding...' : 'Add Finding'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
-        </div>
-
-        {/* Filters */}
-        <div className="flex items-center gap-3">
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-32 h-8 text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {FINDING_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-32 h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
         </div>
 
         {/* ══════ Cortex Pipeline Log ══════ */}
