@@ -807,21 +807,33 @@ export default function Research() {
                           </p>
                         )}
 
-                        {n.tweet_sources?.length > 0 && (
+                        {(n.tweet_sources?.length > 0 || n.twitter_source_url) && (
                           <div className="pt-0.5 border-t border-border space-y-0.5">
                             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
-                            {n.tweet_sources.slice(0, 1).map((tw, j) => (
-                              <div key={j} className="flex items-center gap-1 text-xs">
+                            {n.tweet_sources?.length > 0 ? (
+                              n.tweet_sources.slice(0, 1).map((tw, j) => (
+                                <div key={j} className="flex items-center gap-1 text-xs">
+                                  <XIcon className="h-2.5 w-2.5 text-blue-400 shrink-0" />
+                                  <span className="font-bold text-foreground truncate">@{tw.user}</span>
+                                  <span className="text-blue-400 shrink-0">{tw.engagement}</span>
+                                  {tw.url && (
+                                    <a href={tw.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-blue-400 hover:underline shrink-0">
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                    </a>
+                                  )}
+                                </div>
+                              ))
+                            ) : n.twitter_source_url ? (
+                              <div className="flex items-center gap-1 text-xs">
                                 <XIcon className="h-2.5 w-2.5 text-blue-400 shrink-0" />
-                                <span className="font-bold text-foreground truncate">@{tw.user}</span>
-                                <span className="text-blue-400 shrink-0">{tw.engagement}</span>
-                                {tw.url && (
-                                  <a href={tw.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-blue-400 hover:underline shrink-0">
-                                    <ExternalLink className="h-2.5 w-2.5" />
-                                  </a>
-                                )}
+                                <a href={n.twitter_source_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate">
+                                  View original post
+                                </a>
+                                <a href={n.twitter_source_url} target="_blank" rel="noopener noreferrer" className="ml-auto text-blue-400 hover:underline shrink-0">
+                                  <ExternalLink className="h-2.5 w-2.5" />
+                                </a>
                               </div>
-                            ))}
+                            ) : null}
                           </div>
                         )}
 
