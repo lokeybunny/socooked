@@ -228,11 +228,15 @@ Deno.serve(async (req) => {
           return true;
         });
         stats.tweets = tweets.length;
+        // Detect soft credit depletion: if we ran queries but got 0 tweets, X API is likely throttled
+        if (!creditsDepleted && tweets.length === 0 && memory.search_terms.length > 0) {
+          creditsDepleted = true;
+        }
         (stats as any).credits_depleted = creditsDepleted;
         if (creditsDepleted) {
-          send("warning", { type: "credits_depleted", message: "X API rate limit or credits depleted — tweet data is incomplete or missing. Narratives will rely on token data only." });
+          send("warning", { type: "credits_depleted", message: "X API returned 0 tweets — your API credits may be depleted or rate-limited. Narrative cards will not have 'View on X' links this cycle. Token & DexScreener data is unaffected." });
         }
-        send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: creditsDepleted ? "warning" : "done", detail: creditsDepleted ? `⚠️ X API credits depleted — only ${tweets.length} tweets scraped` : `Found ${tweets.length} unique tweets from X` });
+        send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: creditsDepleted ? "warning" : "done", detail: creditsDepleted ? `⚠️ X API returned 0 tweets — credits likely depleted` : `Found ${tweets.length} unique tweets from X` });
 
         // ── STEP 3: Moralis Pump.fun tokens ─────────────────────────
         send("progress", { step: 3, label: "Fetching Pump.fun tokens via Moralis", status: "running", detail: "Pulling new (100), bonding (100) & graduated (50) tokens..." });
