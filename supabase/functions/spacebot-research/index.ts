@@ -90,10 +90,17 @@ async function scrapeTweetsViaApify(apifyToken: string, searchTerms: string[], m
       if (tw.extendedEntities?.media?.length) {
         const img = tw.extendedEntities.media.find((m: any) => m.type === "photo");
         if (img) media_url = img.media_url_https || img.media_url || "";
+        if (!media_url) {
+          const vid = tw.extendedEntities.media.find((m: any) => m.type === "video" || m.type === "animated_gif");
+          if (vid) media_url = vid.media_url_https || vid.media_url || vid.video_info?.variants?.[0]?.url || "";
+        }
       }
       if (!media_url && tw.entities?.media?.length) {
         media_url = tw.entities.media[0].media_url_https || tw.entities.media[0].media_url || "";
       }
+      // Detect gold/verified check
+      const isBlueVerified = !!(tw.author?.isBlueVerified || tw.author?.isVerified || tw.isBlueVerified);
+      const isGoldCheck = !!(tw.author?.affiliatesHighlightedLabel || tw.author?.isBusinessAccount || tw.author?.verifiedType === "Business");
       return {
         id: tw.id,
         text: tw.text || tw.full_text || "",
@@ -108,6 +115,8 @@ async function scrapeTweetsViaApify(apifyToken: string, searchTerms: string[], m
         created_at: tw.createdAt || "",
         media_url,
         url: tw.url || `https://x.com/${tw.author?.userName || "i"}/status/${tw.id}`,
+        is_blue_verified: isBlueVerified,
+        gold_check: isGoldCheck,
       };
     });
   }, "Apify-Tweets", 3);
@@ -680,6 +689,9 @@ Classify. Rate. Include tiers. What prints RIGHT NOW?`;
                   src = { ...src, engagement: `${likes >= 1000 ? (likes/1000).toFixed(1) + 'K' : likes} likes, ${rts >= 1000 ? (rts/1000).toFixed(1) + 'K' : rts} RTs` };
                 }
               }
+              // Carry over gold check and media from scraped tweet
+              if (scraped?.gold_check) src = { ...src, gold_check: true };
+              if (scraped?.is_blue_verified) src = { ...src, is_blue_verified: true };
               if (!src.media_url && scraped?.media_url) {
                 src = { ...src, media_url: scraped.media_url };
               }

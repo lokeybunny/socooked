@@ -18,11 +18,24 @@ const TARGET_JOB_TITLES = [
   'Marketing Director', 'General Manager', 'Managing Director',
 ];
 
+const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut',
+  'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+  'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan',
+  'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire',
+  'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+  'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
+  'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia',
+  'Wisconsin', 'Wyoming',
+];
+
 interface LeadLoopState {
   active: boolean;
   generating: boolean;
   interval: number | null;
   currentIndustryIdx: number;
+  currentStateIdx: number;
+  allStates: boolean;
   cyclesCompleted: number;
   totalLeadsFound: number;
   totalNewCreated: number;
@@ -32,6 +45,7 @@ interface LeadLoopState {
 interface LeadLoopContextType {
   loopState: LeadLoopState;
   setInterval: (mins: number | null) => void;
+  setAllStates: (val: boolean) => void;
   startLoop: () => void;
   stopLoop: () => void;
   runOnce: () => void;
@@ -54,6 +68,8 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
           generating: false,
           interval: parsed.interval || null,
           currentIndustryIdx: parsed.currentIndustryIdx || 0,
+          currentStateIdx: parsed.currentStateIdx || 0,
+          allStates: parsed.allStates || false,
           cyclesCompleted: parsed.cyclesCompleted || 0,
           totalLeadsFound: parsed.totalLeadsFound || 0,
           totalNewCreated: parsed.totalNewCreated || 0,
@@ -61,18 +77,22 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
         };
       }
     } catch {}
-    return { active: false, generating: false, interval: null, currentIndustryIdx: 0, cyclesCompleted: 0, totalLeadsFound: 0, totalNewCreated: 0, progressLog: [] };
+    return { active: false, generating: false, interval: null, currentIndustryIdx: 0, currentStateIdx: 0, allStates: false, cyclesCompleted: 0, totalLeadsFound: 0, totalNewCreated: 0, progressLog: [] };
   });
 
   const activeRef = useRef(loopState.active);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generatingRef = useRef(false);
   const industryIdxRef = useRef(loopState.currentIndustryIdx);
+  const stateIdxRef = useRef(loopState.currentStateIdx);
+  const allStatesRef = useRef(loopState.allStates);
   const intervalRef = useRef(loopState.interval);
 
   // Keep refs in sync
   useEffect(() => { intervalRef.current = loopState.interval; }, [loopState.interval]);
   useEffect(() => { industryIdxRef.current = loopState.currentIndustryIdx; }, [loopState.currentIndustryIdx]);
+  useEffect(() => { stateIdxRef.current = loopState.currentStateIdx; }, [loopState.currentStateIdx]);
+  useEffect(() => { allStatesRef.current = loopState.allStates; }, [loopState.allStates]);
 
   // Persist to localStorage
   useEffect(() => {
@@ -80,11 +100,13 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
       active: loopState.active,
       interval: loopState.interval,
       currentIndustryIdx: loopState.currentIndustryIdx,
+      currentStateIdx: loopState.currentStateIdx,
+      allStates: loopState.allStates,
       cyclesCompleted: loopState.cyclesCompleted,
       totalLeadsFound: loopState.totalLeadsFound,
       totalNewCreated: loopState.totalNewCreated,
     }));
-  }, [loopState.active, loopState.interval, loopState.currentIndustryIdx, loopState.cyclesCompleted, loopState.totalLeadsFound, loopState.totalNewCreated]);
+  }, [loopState.active, loopState.interval, loopState.currentIndustryIdx, loopState.currentStateIdx, loopState.allStates, loopState.cyclesCompleted, loopState.totalLeadsFound, loopState.totalNewCreated]);
 
   const addLog = useCallback((entry: LeadLoopState['progressLog'][0]) => {
     setLoopState(prev => ({ ...prev, progressLog: [...prev.progressLog.slice(-50), entry] }));
@@ -98,24 +120,39 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
     const nextIdx = (industryIdxRef.current + 1) % TARGET_INDUSTRIES.length;
     industryIdxRef.current = nextIdx;
 
+    // Determine location based on allStates toggle
+    let location: string[];
+    let locationLabel: string;
+    if (allStatesRef.current) {
+      const state = US_STATES[stateIdxRef.current % US_STATES.length];
+      const nextStateIdx = (stateIdxRef.current + 1) % US_STATES.length;
+      stateIdxRef.current = nextStateIdx;
+      location = [state];
+      locationLabel = state;
+      setLoopState(prev => ({ ...prev, currentStateIdx: nextStateIdx }));
+    } else {
+      location = ['las vegas'];
+      locationLabel = 'Las Vegas';
+    }
+
     setLoopState(prev => ({
       ...prev,
       generating: true,
       currentIndustryIdx: nextIdx,
       progressLog: [
         ...prev.progressLog.slice(-50),
-        { step: -1, label: '🚀 Lead Agent', status: 'done', detail: `Targeting: ${industry}`, ts: now() },
+        { step: -1, label: '🚀 Lead Agent', status: 'done', detail: `Targeting: ${industry} in ${locationLabel}`, ts: now() },
       ],
     }));
 
-    addLog({ step: 1, label: 'Searching', status: 'running', detail: `Industry: ${industry} | Titles: ${TARGET_JOB_TITLES.slice(0, 3).join(', ')}...`, ts: now() });
+    addLog({ step: 1, label: 'Searching', status: 'running', detail: `Industry: ${industry} | Location: ${locationLabel} | Titles: ${TARGET_JOB_TITLES.slice(0, 3).join(', ')}...`, ts: now() });
 
     try {
       const { data, error } = await supabase.functions.invoke('lead-finder', {
         body: {
           company_industry: [industry],
           contact_job_title: TARGET_JOB_TITLES,
-          contact_location: ['united states'],
+          contact_location: location,
           fetch_count: 25,
         },
       });
@@ -200,6 +237,11 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
     intervalRef.current = mins;
   }, []);
 
+  const setAllStatesVal = useCallback((val: boolean) => {
+    setLoopState(prev => ({ ...prev, allStates: val }));
+    allStatesRef.current = val;
+  }, []);
+
   const clearLog = useCallback(() => {
     setLoopState(prev => ({ ...prev, progressLog: [], cyclesCompleted: 0, totalLeadsFound: 0, totalNewCreated: 0 }));
   }, []);
@@ -208,6 +250,7 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
     <LeadLoopContext.Provider value={{
       loopState,
       setInterval: setIntervalMins,
+      setAllStates: setAllStatesVal,
       startLoop,
       stopLoop,
       runOnce,

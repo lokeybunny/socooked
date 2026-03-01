@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive, Briefcase, Globe, Building2, Mail, Phone, Linkedin, Users } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive, Briefcase, Globe, Building2, Mail, Phone, Linkedin, Users, ImageIcon } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
@@ -130,6 +131,7 @@ export default function Research() {
   const logEndRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 50;
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // New finding form
   const [title, setTitle] = useState('');
@@ -600,6 +602,14 @@ export default function Research() {
                     🤖 Lead Agent
                   </span>
                 </div>
+                {/* All States toggle */}
+                <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-border bg-muted/30 px-3 py-1.5">
+                  <Checkbox
+                    checked={leadLoop.loopState.allStates}
+                    onCheckedChange={(checked) => leadLoop.setAllStates(!!checked)}
+                  />
+                  <span className="text-xs font-medium text-foreground">All States</span>
+                </label>
                 <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
                   {[
                     { label: '5m', val: 5 },
@@ -1245,6 +1255,10 @@ export default function Research() {
             const hasSymbol = !!rd.symbol;
             const hasWindow = !!rd.deploy_window;
             const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder');
+            // X findings require media (image/video)
+            const isX = normSource(f.category) === 'x';
+            const hasMedia = !!(rd.media_url || rd.tweet_sources?.find((ts: any) => ts.media_url));
+            if (isX && !hasMedia) return false;
             return hasName && hasSymbol && hasWindow && hasSources;
           }).map(f => {
             const rawData = f.raw_data as any;
@@ -1291,7 +1305,8 @@ export default function Research() {
                       <img
                         src={narrativeImage}
                         alt={f.title}
-                        className="w-10 h-10 rounded-lg object-cover bg-muted border border-border shrink-0"
+                        className="w-10 h-10 rounded-lg object-cover bg-muted border border-border shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+                        onClick={(e) => { e.stopPropagation(); setPreviewImage(narrativeImage); }}
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                       />
                     )}
@@ -1346,21 +1361,35 @@ export default function Research() {
                   {tweetSources.length > 0 && (
                     <div className="space-y-1 pt-1 border-t border-border">
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
-                      {tweetSources.slice(0, 1).map((tw, j) => (
-                        <div key={j} className="rounded-md border border-blue-500/20 bg-blue-500/5 p-1.5 space-y-0.5">
-                          <div className="flex items-center gap-1">
-                            <XIcon className="h-2.5 w-2.5 text-blue-400 shrink-0" />
-                            <span className="text-xs font-bold text-foreground truncate">@{tw.user}</span>
-                            <span className="text-[10px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
+                      {tweetSources.slice(0, 2).map((tw, j) => {
+                        const isGoldCheck = !!(tw as any).is_verified || !!(tw as any).is_blue_verified || !!(tw as any).gold_check;
+                        return (
+                          <div key={j} className={cn(
+                            "rounded-md p-1.5 space-y-0.5",
+                            isGoldCheck ? "border border-yellow-500/40 bg-yellow-500/5" : "border border-blue-500/20 bg-blue-500/5"
+                          )}>
+                            <div className="flex items-center gap-1">
+                              <XIcon className={cn("h-2.5 w-2.5 shrink-0", isGoldCheck ? "text-yellow-500" : "text-blue-400")} />
+                              <span className={cn("text-xs font-bold truncate", isGoldCheck ? "text-yellow-500" : "text-foreground")}>@{tw.user}</span>
+                              {isGoldCheck && <span className="text-[9px] px-1 py-0.5 rounded bg-yellow-500/20 text-yellow-500 font-bold shrink-0">✓ GOLD</span>}
+                              <span className={cn("text-[10px] ml-auto shrink-0", isGoldCheck ? "text-yellow-500" : "text-blue-400")}>{tw.engagement}</span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-snug line-clamp-1">{tw.text}</p>
+                            <div className="flex items-center gap-2">
+                              {tw.url && (
+                                <a href={tw.url} target="_blank" rel="noopener noreferrer" className={cn("inline-flex items-center gap-0.5 text-[10px] hover:underline", isGoldCheck ? "text-yellow-500" : "text-blue-400")}>
+                                  <ExternalLink className="h-2.5 w-2.5" /> View
+                                </a>
+                              )}
+                              {tw.media_url && (
+                                <button onClick={() => setPreviewImage(tw.media_url!)} className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline">
+                                  <ImageIcon className="h-2.5 w-2.5" /> Media
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-1">{tw.text}</p>
-                          {tw.url && (
-                            <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[10px] text-blue-400 hover:underline">
-                              <ExternalLink className="h-2.5 w-2.5" /> View
-                            </a>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -1476,7 +1505,20 @@ export default function Research() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* TikTok Detail Modal removed */}
+      {/* Image Preview Modal */}
+      <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+        <DialogContent className="max-w-3xl p-2">
+          {previewImage && (
+            <img
+              src={previewImage}
+              alt="Preview"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+              onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg'; }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
 
       {/* ══════ Narrative Detail Modal ══════ */}
       <Dialog open={!!detailNarrative} onOpenChange={() => setDetailNarrative(null)}>
