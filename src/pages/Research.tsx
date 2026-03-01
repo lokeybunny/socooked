@@ -672,13 +672,13 @@ export default function Research() {
           </div>
         )}
         {selectedSource === 'x' && tiktokRadar.length > 0 && (
-          <div className="glass-card rounded-lg overflow-hidden border border-pink-500/30">
-            <div className="px-4 py-3 bg-pink-500/5 border-b border-pink-500/20 flex items-center justify-between">
+          <div className="glass-card rounded-lg overflow-hidden border border-purple-500/30">
+            <div className="px-4 py-3 bg-purple-500/5 border-b border-purple-500/20 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Music className="h-4 w-4 text-pink-500" />
+                <Music className="h-4 w-4 text-purple-500" />
                 <span className="text-sm font-bold text-foreground">🎵 TikTok Animal Viral Radar — {tiktokRadar.length} Videos (1M+ plays, 48h)</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 font-medium animate-pulse">48H · 1M+ VIEWS</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 font-medium animate-pulse">48H · 1M+ VIEWS</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -700,8 +700,8 @@ export default function Research() {
                     const tierColor = v.tier === 'S' ? 'bg-red-500/20 text-red-400 animate-pulse' : v.tier === 'A' ? 'bg-amber-500/20 text-amber-400' : 'bg-muted text-muted-foreground';
                     return (
                       <tr key={v.id || i} className={cn(
-                        "border-b border-border/50 hover:bg-muted/20 transition-colors",
-                        v.tier === 'S' && "bg-red-500/5"
+                        "border-b border-purple-500/20 hover:bg-purple-500/10 transition-colors",
+                        v.tier === 'S' ? "bg-purple-500/10" : "bg-purple-500/5"
                       )}>
                         <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
                         <td className="px-3 py-2 text-center">
@@ -721,7 +721,7 @@ export default function Research() {
                               <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="text-muted-foreground">@{v.authorName}</span>
                                 {v.webVideoUrl && (
-                                  <a href={v.webVideoUrl} target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:underline flex items-center gap-0.5">
+                                  <a href={v.webVideoUrl} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline flex items-center gap-0.5">
                                     <Play className="h-2.5 w-2.5" /> Open
                                   </a>
                                 )}
@@ -729,7 +729,7 @@ export default function Research() {
                               {v.hashtags?.length > 0 && (
                                 <div className="flex gap-1 mt-0.5 flex-wrap">
                                   {v.hashtags.slice(0, 3).map((h, hi) => (
-                                    <span key={hi} className="text-[9px] px-1 rounded bg-pink-500/10 text-pink-400">#{h}</span>
+                                    <span key={hi} className="text-[9px] px-1 rounded bg-purple-500/10 text-purple-400">#{h}</span>
                                   ))}
                                 </div>
                               )}
@@ -856,7 +856,12 @@ export default function Research() {
                 };
 
                 return (
-                  <div key={i} className="space-y-3 p-4 rounded-lg bg-muted/30 border border-border">
+                  <div key={i} className={cn(
+                    "space-y-3 p-4 rounded-lg border",
+                    n.source_platform === 'tiktok' ? "bg-purple-500/5 border-purple-500/30" :
+                    n.source_platform === 'cross-platform' ? "bg-amber-500/5 border-amber-500/30" :
+                    "bg-blue-500/5 border-blue-500/30"
+                  )}>
                     {/* Header: rank + name + rating */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -877,10 +882,10 @@ export default function Research() {
                           <span className={cn(
                             "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
                             n.source_platform === 'cross-platform' ? "bg-amber-500/20 text-amber-400" :
-                            n.source_platform === 'tiktok' ? "bg-pink-500/20 text-pink-400" :
-                            "bg-muted text-muted-foreground"
+                            n.source_platform === 'tiktok' ? "bg-purple-500/20 text-purple-400" :
+                            "bg-blue-500/20 text-blue-400"
                           )}>
-                            {n.source_platform === 'cross-platform' ? '🔀 X+TT' : n.source_platform === 'tiktok' ? '🎵 TikTok' : '𝕏'}
+                            {n.source_platform === 'cross-platform' ? '🔀 X+TT' : n.source_platform === 'tiktok' ? '🎵 TikTok' : '𝕏 X'}
                           </span>
                         )}
                         <span className="font-semibold text-foreground">{n.name}</span>
@@ -974,7 +979,7 @@ export default function Research() {
                       <div className="space-y-2 pt-2 border-t border-border">
                         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">X Sources</span>
                         {n.tweet_sources.slice(0, 4).map((tw, j) => (
-                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-background/60 border border-border">
+                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-blue-500/5 border border-blue-500/20">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 mb-0.5">
                                 <span className="text-[10px] font-semibold text-foreground">{tw.user}</span>
@@ -995,16 +1000,16 @@ export default function Research() {
                     {/* TikTok Sources */}
                     {n.trigger_tiktoks?.length > 0 && (
                       <div className="space-y-2 pt-2 border-t border-border">
-                        <span className="text-[10px] font-semibold text-pink-400 uppercase tracking-wider">🎵 TikTok Sources</span>
+                        <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok Sources</span>
                         {n.trigger_tiktoks.slice(0, 3).map((tt, j) => (
-                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-pink-500/5 border border-pink-500/20">
+                          <div key={j} className="flex gap-2.5 p-2 rounded-md bg-purple-500/5 border border-purple-500/20">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 mb-0.5">
                                 <span className="text-[10px] font-semibold text-foreground">{tt.author}</span>
                                 <span className="text-[10px] text-pink-400">▶ {tt.plays}</span>
                                 <span className="text-[10px] text-muted-foreground">🔁 {tt.shares}</span>
                                 {tt.narrative_score && (
-                                  <span className="text-[10px] px-1 rounded bg-pink-500/10 text-pink-400 font-mono">{tt.narrative_score}/20</span>
+                                  <span className="text-[10px] px-1 rounded bg-purple-500/10 text-purple-400 font-mono">{tt.narrative_score}/20</span>
                                 )}
                               </div>
                               <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{tt.text}</p>
