@@ -49,18 +49,34 @@ async function searchTweets(bearer: string, query: string, maxResults = 100): Pr
     "user.fields": "username,profile_image_url",
     "media.fields": "url,preview_image_url,type",
   });
-  const res = await fetch(`https://api.x.com/2/tweets/search/recent?${params}`, {
+  const url = `https://api.x.com/2/tweets/search/recent?${params}`;
+  console.log(`X search query: "${query}" → ${url.slice(0, 120)}...`);
+  const res = await fetch(url, {
     headers: { Authorization: `Bearer ${bearer}` },
   });
+  const bodyText = await res.text();
+  console.log(`X search response (${res.status}): ${bodyText.slice(0, 500)}`);
   if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    console.log(`X search failed (${res.status}): ${err.slice(0, 200)}`);
-    if (res.status === 429 || err.includes("Rate limit") || err.includes("CreditsDepleted") || err.includes("Too Many Requests") || err.includes("usage cap")) {
+    if (res.status === 429 || bodyText.includes("Rate limit") || bodyText.includes("CreditsDepleted") || bodyText.includes("Too Many Requests") || bodyText.includes("usage cap")) {
+      throw new Error("CREDITS_DEPLETED");
+    }
+    // X Free tier returns 403 for search endpoint — need Basic ($100/mo) or higher
+    if (res.status === 403) {
       throw new Error("CREDITS_DEPLETED");
     }
     return [];
   }
-  const json = await res.json();
+  let json: any;
+  try { json = JSON.parse(bodyText); } catch { return []; }
+  // X sometimes returns 200 with errors array instead of data
+  if (json.errors?.length && !json.data?.length) {
+    console.log(`X API returned errors: ${JSON.stringify(json.errors).slice(0, 300)}`);
+    const errMsg = JSON.stringify(json.errors);
+    if (errMsg.includes("usage") || errMsg.includes("cap") || errMsg.includes("forbidden") || errMsg.includes("not authorized")) {
+      throw new Error("CREDITS_DEPLETED");
+    }
+    return [];
+  }
   // Map users by author_id for easy lookup
   const usersMap = new Map<string, any>();
   for (const u of json.includes?.users || []) {
