@@ -40,12 +40,14 @@ import SharedContent from "./pages/SharedContent";
 import Research from "./pages/Research";
 import LeadFinder from "./pages/LeadFinder";
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
+import { LeadLoopProvider } from "./hooks/useLeadLoop";
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
     <ResearchLoopProvider>
+    <LeadLoopProvider>
     <AuthProvider>
       <TooltipProvider>
         <Toaster />
@@ -90,6 +92,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+    </LeadLoopProvider>
     </ResearchLoopProvider>
     </ThemeProvider>
   </QueryClientProvider>
