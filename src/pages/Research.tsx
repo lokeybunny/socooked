@@ -551,17 +551,17 @@ export default function Research() {
         <div className="grid grid-cols-2 gap-4 items-start">
           {/* Column 1: Findings count + filters */}
           <div className="space-y-2">
-            <p className="text-muted-foreground text-sm">{filtered.length} findings</p>
+            <p className="text-muted-foreground text-lg">{filtered.length} findings</p>
             <div className="flex items-center gap-2">
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-28 h-8 text-xs"><SelectValue placeholder="Type" /></SelectTrigger>
+                <SelectTrigger className="w-32 h-10 text-base"><SelectValue placeholder="Type" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
                   {FINDING_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-28 h-8 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectTrigger className="w-32 h-10 text-base"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
@@ -579,7 +579,7 @@ export default function Research() {
                   <button
                     onClick={() => setScrapeSources(prev => prev.includes('x') ? prev.filter(s => s !== 'x') : [...prev, 'x'])}
                     className={cn(
-                      "px-2.5 py-1 rounded text-xs font-semibold transition-colors",
+                      "px-3 py-1.5 rounded text-base font-semibold transition-colors",
                       scrapeSources.includes('x') ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -588,7 +588,7 @@ export default function Research() {
                   <button
                     onClick={() => setScrapeSources(prev => prev.includes('tiktok') ? prev.filter(s => s !== 'tiktok') : [...prev, 'tiktok'])}
                     className={cn(
-                      "px-2.5 py-1 rounded text-xs font-semibold transition-colors",
+                      "px-3 py-1.5 rounded text-base font-semibold transition-colors",
                       scrapeSources.includes('tiktok') ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -607,7 +607,7 @@ export default function Research() {
                       key={opt.val}
                       onClick={() => setLoopInterval(prev => prev === opt.val ? null : opt.val)}
                       className={cn(
-                        "px-2 py-1 rounded text-[10px] font-semibold transition-colors",
+                        "px-3 py-1.5 rounded text-sm font-semibold transition-colors",
                         loopInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
                       )}
                     >
@@ -681,7 +681,7 @@ export default function Research() {
             <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
               <div className="flex items-center gap-2">
                 <Terminal className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs font-semibold text-foreground">cortex pipeline</span>
+                <span className="text-sm font-semibold text-foreground">cortex pipeline</span>
                 {generating && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
                 {!generating && progressLog.length > 1 && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">COMPLETE</span>
@@ -691,7 +691,7 @@ export default function Research() {
                 Hide
               </Button>
             </div>
-            <div className="max-h-72 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-xs">
+            <div className="max-h-72 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-sm">
               {progressLog.length === 0 && generating && (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -742,10 +742,10 @@ export default function Research() {
                 <Music className="h-4 w-4 text-purple-500" />
                 <span className="text-sm font-bold text-foreground">🎵 TikTok Animal Viral Radar — {tiktokRadar.length} Videos (1M+ plays, 48h)</span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 font-medium animate-pulse">48H · 1M+ VIEWS</span>
+              <span className="text-sm px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 font-medium animate-pulse">48H · 1M+ VIEWS</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
                     <th className="text-left px-3 py-2 text-muted-foreground font-medium">#</th>
@@ -769,7 +769,7 @@ export default function Research() {
                       )}>
                         <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
                         <td className="px-3 py-2 text-center">
-                          <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-black", tierColor)}>
+                          <span className={cn("text-sm px-2 py-0.5 rounded-full font-black", tierColor)}>
                             {v.tier || '?'}
                           </span>
                         </td>
@@ -793,7 +793,7 @@ export default function Research() {
                               {v.hashtags?.length > 0 && (
                                 <div className="flex gap-1 mt-0.5 flex-wrap">
                                   {v.hashtags.slice(0, 3).map((h, hi) => (
-                                    <span key={hi} className="text-[9px] px-1 rounded bg-purple-500/10 text-purple-400">#{h}</span>
+                                    <span key={hi} className="text-xs px-1.5 rounded bg-purple-500/10 text-purple-400">#{h}</span>
                                   ))}
                                 </div>
                               )}
@@ -805,7 +805,7 @@ export default function Research() {
                         <td className="px-3 py-2 text-right font-mono text-muted-foreground">{fmt(v.shareCount)}</td>
                         <td className="px-3 py-2 text-center">
                           <span className={cn(
-                            "px-1.5 py-0.5 rounded-full text-[10px] font-bold",
+                            "px-2 py-0.5 rounded-full text-sm font-bold",
                             v.narrativeScore >= 18 ? "bg-red-500/20 text-red-400" :
                             v.narrativeScore >= 12 ? "bg-primary/20 text-primary" :
                             v.narrativeScore >= 8 ? "bg-amber-500/20 text-amber-400" :
@@ -816,12 +816,12 @@ export default function Research() {
                         </td>
                         <td className="px-3 py-2 text-center">
                           {v.tokenized ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-muted text-muted-foreground">
+                            <span className="text-sm px-2 py-0.5 rounded-full font-bold bg-muted text-muted-foreground">
                               ⚠️ EXISTS
                             </span>
                           ) : (
                             <span className={cn(
-                              "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                              "text-sm px-2 py-0.5 rounded-full font-bold",
                               v.tier === 'S' ? "bg-red-500/20 text-red-400 animate-pulse" : "bg-primary/20 text-primary"
                             )}>
                               {v.tier === 'S' ? '🚨 SPIN NOW' : '🚀 LAUNCH'}
@@ -843,12 +843,12 @@ export default function Research() {
             <div className="px-4 py-3 bg-emerald-500/5 border-b border-emerald-500/20 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Brain className="h-4 w-4 text-emerald-500" />
-                <span className="text-sm font-bold text-foreground">📊 Cortex Analyst Report — {topNarratives.length} Narratives</span>
+                <span className="text-base font-bold text-foreground">📊 Cortex Analyst Report — {topNarratives.length} Narratives</span>
               </div>
               <Button
                 size="sm"
                 variant="outline"
-                className="gap-1.5 text-xs"
+                className="gap-1.5 text-sm"
                 onClick={() => {
                   const report = topNarratives.map((n, i) => {
                     const rating = n.narrative_rating ?? n.bundle_score ?? 0;
@@ -890,17 +890,17 @@ export default function Research() {
               {cycleReasoning && cycleReasoning !== 'No AI analysis available' && (
                 <div className="p-3 rounded-lg bg-muted/30 border border-border">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
                       <Brain className="h-3.5 w-3.5 text-primary" /> Analyst Summary
                     </span>
                     <button
                       onClick={() => copyToClipboard(cycleReasoning)}
-                      className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
                     >
                       <Copy className="h-2.5 w-2.5" /> Copy
                     </button>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{cycleReasoning}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{cycleReasoning}</p>
                 </div>
               )}
 
@@ -935,10 +935,10 @@ export default function Research() {
                         n.source_platform === 'x' ? "bg-blue-500/10 border-blue-500/20" :
                         "bg-muted/40 border-border"
                       )}>
-                        <span className="text-xs font-bold text-foreground">{i + 1}.</span>
+                        <span className="text-base font-bold text-foreground">{i + 1}.</span>
                         {n.tier && (
                           <span className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded-full font-black",
+                            "text-sm px-2 py-0.5 rounded-full font-black",
                             n.tier === 'S' ? "bg-red-500/20 text-red-400 animate-pulse" :
                             n.tier === 'A' ? "bg-amber-500/20 text-amber-400" :
                             "bg-muted text-muted-foreground"
@@ -948,7 +948,7 @@ export default function Research() {
                         )}
                         {n.source_platform && (
                           <span className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                            "text-sm px-2 py-0.5 rounded-full font-bold",
                             n.source_platform === 'cross-platform' ? "bg-amber-500/20 text-amber-400" :
                             n.source_platform === 'tiktok' ? "bg-purple-500/20 text-purple-400" :
                             "bg-blue-500/20 text-blue-400"
@@ -961,7 +961,7 @@ export default function Research() {
                             <Copy className="h-3 w-3" />
                           </button>
                           <span className={cn(
-                            "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                            "px-2.5 py-1 rounded-full text-sm font-bold",
                             rating >= 8 ? "bg-primary/20 text-primary" :
                             rating >= 6 ? "bg-accent/20 text-accent-foreground" :
                             "bg-muted text-muted-foreground"
@@ -974,30 +974,30 @@ export default function Research() {
                       {/* Scrollable body */}
                       <div className="flex-1 overflow-y-auto p-3 space-y-2">
                         <div>
-                          <h3 className="text-sm font-bold text-foreground line-clamp-2 leading-tight">{n.name}</h3>
+                          <h3 className="text-lg font-bold text-foreground line-clamp-2 leading-tight">{n.name}</h3>
                           {n.symbol && (
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary mt-1 inline-block">${n.symbol}</span>
+                            <span className="text-sm font-mono font-bold px-2 py-1 rounded bg-primary/10 text-primary mt-1 inline-block">${n.symbol}</span>
                           )}
                         </div>
 
-                        <div className="grid gap-1 p-2 rounded-md bg-background border border-border text-[11px]">
+                        <div className="grid gap-1.5 p-3 rounded-md bg-background border border-border text-sm">
                           {n.description && (
-                            <div className="flex gap-2"><span className="text-muted-foreground w-14 shrink-0">Desc</span><span className="text-foreground line-clamp-2">{n.description}</span></div>
+                            <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Desc</span><span className="text-foreground line-clamp-2">{n.description}</span></div>
                           )}
                           {n.deploy_window && (
-                            <div className="flex gap-2"><span className="text-muted-foreground w-14 shrink-0">Window</span><span className={cn("font-semibold", n.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{n.deploy_window}</span></div>
+                            <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Window</span><span className={cn("font-semibold", n.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{n.deploy_window}</span></div>
                           )}
                           {n.competition && (
-                            <div className="flex gap-2"><span className="text-muted-foreground w-14 shrink-0">Comp.</span><span className="text-foreground truncate">{n.competition}</span></div>
+                            <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Comp.</span><span className="text-foreground truncate">{n.competition}</span></div>
                           )}
                           {n.risk && (
-                            <div className="flex gap-2"><span className="text-muted-foreground w-14 shrink-0">Risk</span><span className="text-foreground truncate">{n.risk}</span></div>
+                            <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Risk</span><span className="text-foreground truncate">{n.risk}</span></div>
                           )}
                         </div>
 
                         {n.rating_justification && (
                           <div className="p-2 rounded-md bg-primary/5 border border-primary/10">
-                            <p className="text-[10px] text-foreground leading-snug line-clamp-3">
+                            <p className="text-sm text-foreground leading-snug line-clamp-3">
                               <Zap className="h-2.5 w-2.5 inline mr-0.5 text-primary" />
                               <strong>{rating}/10</strong> — {n.rating_justification}
                             </p>
@@ -1006,7 +1006,7 @@ export default function Research() {
 
                         {n.on_chain_evidence && (
                           <div className="p-2 rounded-md bg-muted/20 border border-border">
-                            <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">
+                            <p className="text-sm text-muted-foreground leading-snug line-clamp-2">
                               <TrendingUp className="h-2.5 w-2.5 inline mr-0.5 text-emerald-500" />
                               <strong className="text-foreground">On-Chain:</strong> {n.on_chain_evidence}
                             </p>
@@ -1015,18 +1015,18 @@ export default function Research() {
 
                         {n.tweet_sources?.length > 0 && (
                           <div className="space-y-1 pt-1 border-t border-border">
-                            <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
+                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
                             {n.tweet_sources.slice(0, 2).map((tw, j) => (
-                              <div key={j} className="rounded-md border border-blue-500/20 bg-blue-500/5 p-1.5 space-y-0.5">
+                              <div key={j} className="rounded-md border border-blue-500/20 bg-blue-500/5 p-2 space-y-1">
                                 <div className="flex items-center gap-1">
-                                  <XIcon className="h-2 w-2 text-blue-400 shrink-0" />
-                                  <span className="text-[10px] font-bold text-foreground truncate">@{tw.user}</span>
-                                  <span className="text-[9px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
+                                  <XIcon className="h-3 w-3 text-blue-400 shrink-0" />
+                                  <span className="text-sm font-bold text-foreground truncate">@{tw.user}</span>
+                                  <span className="text-xs text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                                <p className="text-sm text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
                                 {tw.url && (
-                                  <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-blue-400 hover:underline">
-                                    <ExternalLink className="h-2 w-2" /> View
+                                  <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-xs text-blue-400 hover:underline">
+                                    <ExternalLink className="h-3 w-3" /> View
                                   </a>
                                 )}
                               </div>
@@ -1036,14 +1036,14 @@ export default function Research() {
 
                         {n.trigger_tiktoks?.length > 0 && (
                           <div className="space-y-1 pt-1 border-t border-border">
-                            <span className="text-[9px] font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok</span>
+                            <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">🎵 TikTok</span>
                             {n.trigger_tiktoks.slice(0, 2).map((tt, j) => (
-                              <div key={j} className="rounded-md bg-purple-500/5 border border-purple-500/20 p-1.5">
-                                <div className="flex items-center gap-1 mb-0.5">
-                                  <span className="text-[10px] font-semibold text-foreground">{tt.author}</span>
-                                  <span className="text-[10px] text-pink-400">▶ {tt.plays}</span>
+                              <div key={j} className="rounded-md bg-purple-500/5 border border-purple-500/20 p-2">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="text-sm font-semibold text-foreground">{tt.author}</span>
+                                  <span className="text-sm text-pink-400">▶ {tt.plays}</span>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground line-clamp-2">{tt.text}</p>
+                                <p className="text-sm text-muted-foreground line-clamp-2">{tt.text}</p>
                               </div>
                             ))}
                           </div>
@@ -1052,12 +1052,12 @@ export default function Research() {
                         {n.image_gen_prompt && (
                           <div className="pt-1 border-t border-border">
                             <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">🎨 Image Prompt</span>
-                              <button onClick={() => copyToClipboard(n.image_gen_prompt!)} className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5">
-                                <Copy className="h-2 w-2" /> Copy
+                              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">🎨 Image Prompt</span>
+                              <button onClick={() => copyToClipboard(n.image_gen_prompt!)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5">
+                                <Copy className="h-3 w-3" /> Copy
                               </button>
                             </div>
-                            <p className="text-[10px] text-muted-foreground bg-muted/30 px-1.5 py-1 rounded font-mono line-clamp-2">{n.image_gen_prompt}</p>
+                            <p className="text-sm text-muted-foreground bg-muted/30 px-2 py-1.5 rounded font-mono line-clamp-2">{n.image_gen_prompt}</p>
                           </div>
                         )}
                       </div>
@@ -1069,7 +1069,7 @@ export default function Research() {
               {/* Top tweets fallback */}
               {topTweets.length > 0 && topNarratives.length === 0 && (
                 <div className="space-y-3">
-                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <span className="text-base font-semibold text-foreground flex items-center gap-1.5">
                     <Activity className="h-3.5 w-3.5" /> Top Tweets Found
                   </span>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -1089,20 +1089,20 @@ export default function Research() {
                               <img src={tw.profile_pic} alt="" className="w-7 h-7 rounded-full object-cover bg-muted shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                             )}
                             <div className="min-w-0">
-                              <span className="text-xs font-bold text-foreground block truncate">@{tw.user}</span>
+                              <span className="text-sm font-bold text-foreground block truncate">@{tw.user}</span>
                               {tw.token_symbol && (
-                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">${tw.token_symbol}</span>
+                                <span className="text-sm font-mono font-bold px-2 py-0.5 rounded bg-blue-500/15 text-blue-400">${tw.token_symbol}</span>
                               )}
                             </div>
                           </div>
-                          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{tw.text}</p>
+                          <p className="text-sm text-muted-foreground leading-snug line-clamp-3">{tw.text}</p>
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
                               <span>❤ {tw.favorites}</span>
                               <span>🔁 {tw.retweets}</span>
                             </div>
                             {tw.url && (
-                              <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:underline font-medium">
+                              <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-blue-400 hover:underline font-medium">
                                 <ExternalLink className="h-2.5 w-2.5" /> Open
                               </a>
                             )}
@@ -1115,10 +1115,10 @@ export default function Research() {
               )}
 
               {cycleChainOfThought && (
-                <details className="text-xs">
+                <details className="text-sm">
                   <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">Chain-of-Thought Reasoning</summary>
                   <div className="mt-2 flex justify-end">
-                    <button onClick={() => copyToClipboard(cycleChainOfThought)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1">
+                    <button onClick={() => copyToClipboard(cycleChainOfThought)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
                       <Copy className="h-2.5 w-2.5" /> Copy
                     </button>
                   </div>
@@ -1127,11 +1127,11 @@ export default function Research() {
               )}
 
               {evolvedQueries.length > 0 && (
-                <details className="text-xs">
+                <details className="text-sm">
                   <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">Evolved Search Queries (next cycle)</summary>
                   <ul className="mt-2 space-y-1">
                     {evolvedQueries.map((q, i) => (
-                      <li key={i} className="text-muted-foreground font-mono bg-muted/30 px-2 py-1 rounded text-[10px]">{q}</li>
+                      <li key={i} className="text-muted-foreground font-mono bg-muted/30 px-2 py-1 rounded text-sm">{q}</li>
                     ))}
                   </ul>
                 </details>
@@ -1164,11 +1164,11 @@ export default function Research() {
                   sourcePlatform === 'x' ? "bg-blue-500/10 border-blue-500/20" :
                   "bg-muted/40 border-border"
                 )}>
-                  <Brain className="h-3 w-3 text-primary shrink-0" />
-                  <span className="text-[9px] text-muted-foreground truncate">Cortex AI · {format(new Date(f.created_at), 'MMM d, h:mm a')}</span>
+                  <Brain className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm text-muted-foreground truncate">Cortex AI · {format(new Date(f.created_at), 'MMM d, h:mm a')}</span>
                   {rating !== null && (
                     <span className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-auto shrink-0",
+                      "text-sm px-2 py-0.5 rounded-full font-bold ml-auto shrink-0",
                       rating >= 8 ? "bg-primary/20 text-primary" :
                       rating >= 6 ? "bg-accent/20 text-accent-foreground" :
                       "bg-muted text-muted-foreground"
@@ -1191,24 +1191,24 @@ export default function Research() {
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-bold text-foreground line-clamp-2 leading-tight">{f.title}</h3>
+                      <h3 className="text-lg font-bold text-foreground line-clamp-2 leading-tight">{f.title}</h3>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">
                           {sourceIcon(normSource(f.category))} {SOURCE_LABELS[normSource(f.category)] || 'Other'}
                         </span>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium capitalize">{f.finding_type}</span>
+                        <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground font-medium capitalize">{f.finding_type}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Summary */}
                   {f.summary && (
-                    <p className="text-[11px] text-muted-foreground leading-snug line-clamp-3">{f.summary}</p>
+                    <p className="text-sm text-muted-foreground leading-snug line-clamp-3">{f.summary}</p>
                   )}
 
                   {/* Deploy fields (compact) */}
                   {isNarrative && (rawData.name || rawData.symbol) && (
-                    <div className="grid gap-1 p-2 rounded-md bg-background border border-border text-[11px]">
+                    <div className="grid gap-1.5 p-3 rounded-md bg-background border border-border text-sm">
                       {rawData.name && (
                         <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Name</span><span className="text-foreground font-semibold truncate">{rawData.name}</span></div>
                       )}
@@ -1230,7 +1230,7 @@ export default function Research() {
                   {/* Rating justification */}
                   {isNarrative && rawData.rating_justification && (
                     <div className="p-2 rounded-md bg-primary/5 border border-primary/10">
-                      <p className="text-[10px] text-foreground leading-snug line-clamp-3">
+                      <p className="text-sm text-foreground leading-snug line-clamp-3">
                         <Zap className="h-2.5 w-2.5 inline mr-0.5 text-primary" />
                         <strong>{rating}/10</strong> — {rawData.rating_justification}
                       </p>
@@ -1240,20 +1240,20 @@ export default function Research() {
                   {/* Tweet sources (compact, 1 col inside card) */}
                   {tweetSources.length > 0 && (
                     <div className="space-y-1.5 pt-1.5 border-t border-border">
-                      <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
                       {tweetSources.slice(0, 2).map((tw, j) => (
                         <div key={j} className="rounded-md border border-blue-500/20 bg-blue-500/5 p-2 space-y-1">
                           <div className="flex items-center gap-1.5">
-                            <div className="h-4 w-4 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
-                              <XIcon className="h-2 w-2 text-blue-400" />
+                            <div className="h-5 w-5 rounded-full bg-blue-500/15 flex items-center justify-center shrink-0">
+                              <XIcon className="h-3 w-3 text-blue-400" />
                             </div>
-                            <span className="text-[10px] font-bold text-foreground truncate">@{tw.user}</span>
-                            <span className="text-[9px] text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
+                            <span className="text-sm font-bold text-foreground truncate">@{tw.user}</span>
+                            <span className="text-xs text-blue-400 ml-auto shrink-0">{tw.engagement}</span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
+                          <p className="text-sm text-muted-foreground leading-snug line-clamp-2">{tw.text}</p>
                           {tw.url && (
-                            <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-[9px] text-blue-400 hover:underline font-medium">
-                              <ExternalLink className="h-2 w-2" /> View on X
+                            <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-xs text-blue-400 hover:underline font-medium">
+                              <ExternalLink className="h-3 w-3" /> View on X
                             </a>
                           )}
                         </div>
@@ -1263,22 +1263,22 @@ export default function Research() {
                 </div>
 
                 {/* Footer actions */}
-                <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border shrink-0 bg-muted/20">
+                <div className="flex items-center gap-1.5 px-3 py-2 border-t border-border shrink-0 bg-muted/20">
                   {f.source_url && (
-                    <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-1.5" onClick={() => window.open(f.source_url, '_blank')}>
-                      <ExternalLink className="h-2.5 w-2.5" /> Source
+                    <Button variant="ghost" size="sm" className="h-8 text-sm gap-1.5 px-2" onClick={() => window.open(f.source_url, '_blank')}>
+                      <ExternalLink className="h-3.5 w-3.5" /> Source
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-1.5" onClick={() => copyToClipboard(`${f.title}\n${f.summary || ''}\n${f.source_url || ''}`)}>
-                    <Copy className="h-2.5 w-2.5" /> Copy
+                  <Button variant="ghost" size="sm" className="h-8 text-sm gap-1.5 px-2" onClick={() => copyToClipboard(`${f.title}\n${f.summary || ''}\n${f.source_url || ''}`)}>
+                    <Copy className="h-3.5 w-3.5" /> Copy
                   </Button>
                   {f.status !== 'converted' && selectedSource !== 'x' && (
-                    <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-1.5 text-primary" onClick={() => handleConvertToClient(f)} disabled={converting === f.id}>
-                      <UserPlus className="h-2.5 w-2.5" /> {converting === f.id ? '...' : 'Convert'}
+                    <Button variant="ghost" size="sm" className="h-8 text-sm gap-1.5 px-2 text-primary" onClick={() => handleConvertToClient(f)} disabled={converting === f.id}>
+                      <UserPlus className="h-3.5 w-3.5" /> {converting === f.id ? '...' : 'Convert'}
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-1.5 text-destructive ml-auto" onClick={() => setDeleteId(f.id)}>
-                    <Trash2 className="h-2.5 w-2.5" />
+                  <Button variant="ghost" size="sm" className="h-8 text-sm gap-1.5 px-2 text-destructive ml-auto" onClick={() => setDeleteId(f.id)}>
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
