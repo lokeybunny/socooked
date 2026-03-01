@@ -85,13 +85,15 @@ export function XFeedPanel() {
     }
   }, []);
 
-  // Auto-load on mount: use cache if fresh, otherwise fetch automatically
+  // Auto-load on mount: use cache if fresh and non-empty, otherwise fetch automatically
   useEffect(() => {
     const cached = getCachedFeed();
-    if (cached) {
+    if (cached && cached.tweets.length > 0) {
       setTweets(cached.tweets);
       setLastFetched(new Date(cached.ts));
     } else {
+      // Clear any empty cache and fetch fresh
+      localStorage.removeItem(CACHE_KEY);
       fetchFeed(true);
     }
   }, [fetchFeed]);

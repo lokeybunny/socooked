@@ -192,10 +192,16 @@ Deno.serve(async (req) => {
     const items: any[] = await res.json();
 
     // Normalize tweets - keep only 1 per user (latest)
+    // Accept any item that has an id and text (don't filter on type — Apify may omit it)
     const byUser = new Map<string, any>();
     
+    console.log(`X Feed: got ${items.length} raw items, sample types: ${items.slice(0, 5).map((i: any) => i.type || 'undefined').join(', ')}`);
+    
     for (const tw of items) {
-      if (tw.type !== "tweet" || !tw.id) continue;
+      // Accept tweets: must have id + (text or full_text), skip retweets
+      if (!tw.id) continue;
+      if (!tw.text && !tw.full_text) continue;
+      if (tw.type && tw.type !== "tweet") continue;
       
       const user = (tw.author?.userName || tw.user?.screen_name || "").toLowerCase();
       if (!user) continue;
@@ -206,6 +212,8 @@ Deno.serve(async (req) => {
         byUser.set(user, tw);
       }
     }
+    
+    console.log(`X Feed: ${byUser.size} unique users after dedup`);
 
     const tweets = Array.from(byUser.values()).map((tw: any) => {
       let media_url = "";
