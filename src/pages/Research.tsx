@@ -34,8 +34,6 @@ interface SourceCategory { id: string; label: string; icon: LucideIcon | (({ cla
 const RESEARCH_SOURCES: SourceCategory[] = [
   { id: 'google-maps', label: 'Google Maps', icon: MapPin, description: 'Local businesses, reviews & map listings' },
   { id: 'x', label: 'X (Twitter)', icon: XIcon as any, description: 'Tweets, trends & social mentions' },
-  
-  { id: 'instagram', label: 'Instagram', icon: Instagram, description: 'Profiles, posts & engagement data' },
   { id: 'other', label: 'Other', icon: Search, description: 'Web scrapes, APIs & misc sources' },
 ];
 
