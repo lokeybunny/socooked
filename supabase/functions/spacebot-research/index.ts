@@ -9,127 +9,80 @@ const corsHeaders = {
 const MEMORY_SITE_ID = "cortex-agent";
 const MEMORY_SECTION = "search-memory";
 
-/** OAuth 2.0 Client Credentials → Bearer token for X API v2 */
-async function getXBearerToken(clientId: string, clientSecret: string): Promise<string> {
-  const credentials = btoa(`${clientId}:${clientSecret}`);
-  // Try api.x.com first, fallback to api.twitter.com
-  for (const base of ["https://api.x.com", "https://api.twitter.com"]) {
-    try {
-      const res = await fetch(`${base}/oauth2/token`, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${credentials}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: "grant_type=client_credentials",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.access_token;
-      }
-      const err = await res.text().catch(() => "");
-      console.log(`X OAuth2 via ${base} failed (${res.status}): ${err.slice(0, 300)}`);
-    } catch (e: any) {
-      console.log(`X OAuth2 via ${base} error: ${e.message}`);
-    }
-  }
-  throw new Error("X OAuth2 token failed on both api.x.com and api.twitter.com");
-}
+/** Scrape tweets via Apify Tweet Scraper V2 (apidojo/tweet-scraper) */
+async function scrapeTweetsViaApify(apifyToken: string, searchTerms: string[], maxItems = 200): Promise<any[]> {
+  // Start Apify actor run synchronously (waits for completion, returns dataset items)
+  const actorId = "apidojo~tweet-scraper";
+  const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
-/** Search recent tweets via X API v2 */
-async function searchTweets(bearer: string, query: string, maxResults = 100): Promise<any[]> {
-  // X free tier only returns tweets from the last 7 days; restrict to 24h for freshness
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const params = new URLSearchParams({
-    query,
-    max_results: String(Math.min(maxResults, 100)),
-    start_time: since,
-    "tweet.fields": "public_metrics,created_at,author_id,entities,attachments",
-    expansions: "author_id,attachments.media_keys",
-    "user.fields": "username,profile_image_url",
-    "media.fields": "url,preview_image_url,type",
+  const input = {
+    searchTerms,
+    maxItems,
+    sort: "Latest",
+    tweetLanguage: "en",
+    includeSearchTerms: true,
+  };
+
+  console.log(`Apify: starting Tweet Scraper V2 with ${searchTerms.length} queries, maxItems=${maxItems}`);
+  const res = await fetch(runUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    signal: AbortSignal.timeout(120_000), // 2 min timeout
   });
-  const url = `https://api.x.com/2/tweets/search/recent?${params}`;
-  console.log(`X search query: "${query}" → ${url.slice(0, 120)}...`);
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${bearer}` },
-  });
-  const bodyText = await res.text();
-  console.log(`X search response (${res.status}): ${bodyText.slice(0, 500)}`);
+
   if (!res.ok) {
-    if (res.status === 429 || bodyText.includes("Rate limit") || bodyText.includes("CreditsDepleted") || bodyText.includes("Too Many Requests") || bodyText.includes("usage cap")) {
-      throw new Error("CREDITS_DEPLETED");
-    }
-    // X Free tier returns 403 for search endpoint — need Basic ($100/mo) or higher
-    if (res.status === 403) {
-      throw new Error("CREDITS_DEPLETED");
-    }
-    return [];
+    const err = await res.text().catch(() => "");
+    console.log(`Apify run failed (${res.status}): ${err.slice(0, 300)}`);
+    throw new Error(`Apify request failed (${res.status})`);
   }
-  let json: any;
-  try { json = JSON.parse(bodyText); } catch { return []; }
-  // X sometimes returns 200 with errors array instead of data
-  if (json.errors?.length && !json.data?.length) {
-    console.log(`X API returned errors: ${JSON.stringify(json.errors).slice(0, 300)}`);
-    const errMsg = JSON.stringify(json.errors);
-    if (errMsg.includes("usage") || errMsg.includes("cap") || errMsg.includes("forbidden") || errMsg.includes("not authorized")) {
-      throw new Error("CREDITS_DEPLETED");
-    }
-    return [];
-  }
-  // Map users by author_id for easy lookup
-  const usersMap = new Map<string, any>();
-  for (const u of json.includes?.users || []) {
-    usersMap.set(u.id, u);
-  }
-  // Map media by media_key
-  const mediaMap = new Map<string, any>();
-  for (const m of json.includes?.media || []) {
-    mediaMap.set(m.media_key, m);
-  }
-  return (json.data || []).map((tw: any) => {
-    const user = usersMap.get(tw.author_id) || {};
-    // Get first image media URL from attachments
-    let media_url = "";
-    if (tw.attachments?.media_keys?.length) {
-      for (const mk of tw.attachments.media_keys) {
-        const media = mediaMap.get(mk);
-        if (media) {
-          media_url = media.url || media.preview_image_url || "";
-          if (media_url) break;
-        }
-      }
-    }
-    return {
-      id: tw.id,
-      text: tw.text,
-      full_text: tw.text,
-      user: { screen_name: user.username || "", profile_image_url_https: user.profile_image_url || "" },
-      favorite_count: tw.public_metrics?.like_count || 0,
-      retweet_count: tw.public_metrics?.retweet_count || 0,
-      created_at: tw.created_at,
-      media_url,
-    };
-  });
-}
 
+  const items: any[] = await res.json();
+  console.log(`Apify: received ${items.length} tweet items`);
+
+  // Normalize Apify output to our internal tweet format
+  return items
+    .filter((item: any) => item.type === "tweet" && item.id)
+    .map((tw: any) => {
+      // Extract first image media URL
+      let media_url = "";
+      if (tw.extendedEntities?.media?.length) {
+        const img = tw.extendedEntities.media.find((m: any) => m.type === "photo");
+        if (img) media_url = img.media_url_https || img.media_url || "";
+      }
+      if (!media_url && tw.entities?.media?.length) {
+        media_url = tw.entities.media[0].media_url_https || tw.entities.media[0].media_url || "";
+      }
+      return {
+        id: tw.id,
+        text: tw.text || tw.full_text || "",
+        full_text: tw.text || tw.full_text || "",
+        user: {
+          screen_name: tw.author?.userName || "",
+          profile_image_url_https: tw.author?.profilePicture || "",
+        },
+        favorite_count: tw.likeCount || 0,
+        retweet_count: tw.retweetCount || 0,
+        created_at: tw.createdAt || "",
+        media_url,
+        url: tw.url || `https://x.com/${tw.author?.userName || "i"}/status/${tw.id}`,
+      };
+    });
+}
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const TWITTER_BEARER_TOKEN = Deno.env.get("TWITTER_BEARER_TOKEN");
-  const TWITTER_CLIENT_ID = Deno.env.get("TWITTER_CLIENT_ID");
-  const TWITTER_CLIENT_SECRET = Deno.env.get("TWITTER_CLIENT_SECRET");
+  const APIFY_TOKEN = Deno.env.get("APIFY_TOKEN");
   const MORALIS_API_KEY = Deno.env.get("MORALIS_API_KEY");
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-  const hasTwitterCreds = TWITTER_BEARER_TOKEN || (TWITTER_CLIENT_ID && TWITTER_CLIENT_SECRET);
-  if (!hasTwitterCreds || !MORALIS_API_KEY) {
+  if (!APIFY_TOKEN || !MORALIS_API_KEY) {
     return new Response(
-      JSON.stringify({ error: "Missing API keys (need TWITTER_BEARER_TOKEN or TWITTER_CLIENT_ID+SECRET, plus MORALIS_API_KEY)" }),
+      JSON.stringify({ error: "Missing API keys (need APIFY_TOKEN + MORALIS_API_KEY)" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -199,60 +152,35 @@ Deno.serve(async (req) => {
 
         send("progress", { step: 0, label: "Loading Cortex memory", status: "done", detail: `Loaded ${memory.search_terms.length} search queries, ${memory.past_wins.length} past wins` });
 
-        // ── STEP 1: Get X API Bearer token ────────────
-        send("progress", { step: 1, label: "Authenticating with X API", status: "running", detail: "Acquiring bearer token..." });
-
-        let xBearer: string;
-        try {
-          if (TWITTER_BEARER_TOKEN) {
-            xBearer = TWITTER_BEARER_TOKEN;
-          } else {
-            xBearer = await getXBearerToken(TWITTER_CLIENT_ID!, TWITTER_CLIENT_SECRET!);
-          }
-        } catch (e: any) {
-          await send("progress", { step: 1, label: "Authenticating with X API", status: "error", detail: e.message });
-          await send("error", { message: `X auth failed: ${e.message}` });
-          try { await writer.close(); } catch { /* already closed */ }
-          return;
-        }
-        send("progress", { step: 1, label: "Authenticating with X API", status: "done", detail: TWITTER_BEARER_TOKEN ? "Using direct Bearer Token ✓" : "OAuth2 Bearer token acquired ✓" });
-
-        // ── STEP 2: Search tweets via X API v2 ──────────────────────
-        send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: "running", detail: `Sending ${memory.search_terms.length} search queries...` });
+        // ── STEP 1: Scrape tweets via Apify Tweet Scraper V2 ────────────
+        send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "running", detail: `Launching Tweet Scraper V2 with ${memory.search_terms.length} queries...` });
 
         let tweets: any[] = [];
-        let creditsDepleted = false;
-        for (const query of memory.search_terms) {
-          try {
-            const results = await searchTweets(xBearer, query, 100);
-            tweets.push(...results);
-          } catch (e: any) {
-            console.log(`Search query failed: ${e.message}`);
-            if (e.message === "CREDITS_DEPLETED") {
-              creditsDepleted = true;
-              break;
-            }
-          }
-          // Rate limit courtesy
-          await new Promise((r) => setTimeout(r, 1000));
+        let apifyError = false;
+        try {
+          tweets = await scrapeTweetsViaApify(APIFY_TOKEN!, memory.search_terms, 200);
+        } catch (e: any) {
+          console.log(`Apify scrape failed: ${e.message}`);
+          apifyError = true;
+          send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: "warning", detail: `⚠️ Apify scrape failed: ${e.message}` });
         }
+
         // Deduplicate by tweet id
         const seenIds = new Set<string>();
         tweets = tweets.filter(tw => {
-          if (seenIds.has(tw.id)) return false;
+          if (!tw.id || seenIds.has(tw.id)) return false;
           seenIds.add(tw.id);
           return true;
         });
         stats.tweets = tweets.length;
-        // Detect soft credit depletion: if we ran queries but got 0 tweets, X API is likely throttled
-        if (!creditsDepleted && tweets.length === 0 && memory.search_terms.length > 0) {
-          creditsDepleted = true;
+
+        if (tweets.length === 0 && !apifyError) {
+          send("warning", { type: "credits_depleted", message: "Apify returned 0 tweets — search queries may be too narrow or Apify credits depleted." });
         }
-        (stats as any).credits_depleted = creditsDepleted;
-        if (creditsDepleted) {
-          send("warning", { type: "credits_depleted", message: "X API returned 0 tweets — your API credits may be depleted or rate-limited. Narrative cards will not have 'View on X' links this cycle. Token & DexScreener data is unaffected." });
-        }
-        send("progress", { step: 2, label: "Searching X/Twitter via API v2", status: creditsDepleted ? "warning" : "done", detail: creditsDepleted ? `⚠️ X API returned 0 tweets — credits likely depleted` : `Found ${tweets.length} unique tweets from X` });
+        send("progress", { step: 1, label: "Scraping X/Twitter via Apify", status: apifyError ? "warning" : "done", detail: apifyError ? `⚠️ Apify failed — continuing with token data only` : `Found ${tweets.length} unique tweets via Apify` });
+
+        // ── STEP 2: (reserved — combined into step 1) ──────────────────────
+        send("progress", { step: 2, label: "Tweet deduplication & normalization", status: "done", detail: `${tweets.length} unique tweets ready for cross-referencing` });
 
         // ── STEP 3: Moralis Pump.fun tokens ─────────────────────────
         send("progress", { step: 3, label: "Fetching Pump.fun tokens via Moralis", status: "running", detail: "Pulling new (100), bonding (100) & graduated (50) tokens..." });
@@ -591,7 +519,8 @@ Warren is about to wake up. Find the narratives he should bundle-deploy FIRST. S
               }
               if (scraped?.id && scraped?.user?.screen_name) {
                 usedTweetIds.add(scraped.id);
-                src = { ...src, url: `https://x.com/${scraped.user.screen_name}/status/${scraped.id}`, user: `@${scraped.user.screen_name}` };
+                const tweetUrl = scraped.url || `https://x.com/${scraped.user.screen_name}/status/${scraped.id}`;
+                src = { ...src, url: tweetUrl, user: `@${scraped.user.screen_name}` };
                 if (scraped.text || scraped.full_text) {
                   src = { ...src, text: scraped.full_text || scraped.text };
                 }
