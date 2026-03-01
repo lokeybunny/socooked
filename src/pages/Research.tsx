@@ -1139,7 +1139,7 @@ export default function Research() {
 
             return (
               <div key={f.id} className={cn(
-                "glass-card overflow-hidden hover:shadow-lg transition-shadow rounded-xl border flex flex-col aspect-square",
+                "glass-card overflow-hidden hover:shadow-lg transition-shadow rounded-xl border flex flex-col",
                 sourcePlatform === 'tiktok' ? "border-purple-500/30" :
                 sourcePlatform === 'x' ? "border-blue-500/30" :
                 "border-border"
