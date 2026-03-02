@@ -242,7 +242,7 @@ export function XFeedPanel() {
   );
 
   return (
-    <div className="glass-card rounded-xl border border-border overflow-hidden flex flex-col" style={{ height: 'calc(300vh - 360px)' }}>
+    <div className="glass-card rounded-xl border border-border overflow-hidden flex flex-col" style={{ height: 'calc(350vh - 400px)' }}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center gap-2 shrink-0">
         <div className="h-7 w-7 rounded-lg bg-foreground/10 flex items-center justify-center">
