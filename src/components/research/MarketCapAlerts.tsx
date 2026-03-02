@@ -392,7 +392,7 @@ export function MarketCapAlerts() {
                             {alert.token_symbol && (
                               <span className={cn("text-sm font-bold", (() => {
                                 const tpMatch = alert.milestone.match(/^TP#(\d+)/);
-                                if (tpMatch && parseInt(tpMatch[1], 10) >= 5) return "text-lime-400 drop-shadow-[0_0_8px_rgba(163,230,53,0.7)]";
+                                if (tpMatch && parseInt(tpMatch[1], 10) >= 5) return "text-lime-400 drop-shadow-[0_0_8px_rgba(163,230,53,0.7)] animate-pulse";
                                 if (isNicheTicker(alert)) return "text-green-400 drop-shadow-[0_0_6px_rgba(74,222,128,0.5)]";
                                 return "text-orange-400";
                               })())}>${alert.token_symbol}</span>
