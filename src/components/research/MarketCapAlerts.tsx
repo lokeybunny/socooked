@@ -148,7 +148,18 @@ export function MarketCapAlerts() {
       .channel('market_cap_alerts_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'market_cap_alerts' }, (payload) => {
         if (payload.eventType === 'INSERT') {
-          setAlerts(prev => [payload.new as MarketCapAlert, ...prev].slice(0, 200));
+          const newAlert = payload.new as MarketCapAlert;
+          setAlerts(prev => [newAlert, ...prev].slice(0, 200));
+          // Show persistent toast for GAINERS (take profit) alerts
+          if (newAlert.milestone?.startsWith('TP#')) {
+            const sym = newAlert.token_symbol ? `$${newAlert.token_symbol}` : shortenCA(newAlert.ca_address);
+            toast(`💰 GAINER: ${sym} hit ${newAlert.milestone}`, {
+              description: `CA: ${shortenCA(newAlert.ca_address)} — Take Profit detected!`,
+              duration: 60000,
+              action: { label: 'OK', onClick: () => {} },
+              style: { borderColor: 'rgba(16,185,129,0.5)', background: 'rgba(16,185,129,0.08)' },
+            });
+          }
         } else if (payload.eventType === 'UPDATE') {
           setAlerts(prev => prev.map(a => a.id === (payload.new as any).id ? payload.new as MarketCapAlert : a));
         }
