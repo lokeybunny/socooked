@@ -70,6 +70,7 @@ export function DiscoveryLab() {
   const [maxDegen, setMaxDegen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [evolutionStats, setEvolutionStats] = useState<{ active: boolean; learned: number } | null>(null);
 
   const hunt = async () => {
     setLoading(true);
@@ -86,7 +87,9 @@ export function DiscoveryLab() {
       const data = await res.json();
       if (data.success && data.discoveries?.length) {
         setDiscoveries(prev => [...data.discoveries, ...prev].slice(0, 50));
-        toast.success(`🧠 ${data.discoveries.length} narratives weaponized from ${data.tweets_scanned} tweets`);
+        setEvolutionStats({ active: data.evolution_active, learned: data.top_performers_learned || 0 });
+        const evolMsg = data.evolution_active ? ` | 🧬 Learning from ${data.top_performers_learned} top performers` : '';
+        toast.success(`🧠 ${data.discoveries.length} narratives weaponized from ${data.tweets_scanned} tweets${evolMsg}`);
       } else {
         toast.error(data.error || 'No discoveries found');
       }
@@ -150,7 +153,12 @@ export function DiscoveryLab() {
           </div>
           <div>
             <h2 className="text-lg font-black text-foreground tracking-tight">🧠 MEME INTELLIGENCE LAB</h2>
-            <p className="text-xs text-muted-foreground">Pre-Viral Narrative Weaponization Engine · 60 Categories</p>
+            <p className="text-xs text-muted-foreground">
+              Pre-Viral Narrative Weaponization Engine · 60 Categories
+              {evolutionStats?.active && (
+                <span className="ml-2 text-emerald-400 font-bold">· 🧬 Evolving ({evolutionStats.learned} learned)</span>
+              )}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
