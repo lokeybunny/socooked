@@ -60,7 +60,7 @@ export function MarketCapAlerts() {
   const [editForm, setEditForm] = useState<{ token_name: string; token_symbol: string; milestone: string }>({ token_name: '', token_symbol: '', milestone: '' });
   const [trendingKeywords, setTrendingKeywords] = useState<Set<string>>(new Set());
 
-  // Load trending keywords from X feed to cross-reference with tickers
+  // Load cashtags & trending topic nouns from X feed
   const loadTrending = useCallback(async () => {
     const { data } = await supabase
       .from('x_feed_tweets')
@@ -68,14 +68,44 @@ export function MarketCapAlerts() {
       .order('created_at', { ascending: false })
       .limit(200);
     if (data?.length) {
-      const allText = data.map(d => (d.tweet_text || '').toLowerCase()).join(' ');
-      // Extract unique words (3+ chars) that appear frequently
-      const words = allText.match(/[a-z]{3,}/g) || [];
-      const freq: Record<string, number> = {};
-      words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
-      // Keep words mentioned 3+ times as "trending"
-      const trending = new Set(Object.entries(freq).filter(([, c]) => c >= 3).map(([w]) => w));
-      setTrendingKeywords(trending);
+      const cashtags = new Set<string>();
+      const topicWords = new Set<string>();
+
+      // Common English words to never match
+      const STOPWORDS = new Set([
+        'the','and','for','this','that','with','from','have','will','been','token','just',
+        'like','more','than','what','when','your','about','some','they','their','there',
+        'would','could','should','which','where','were','into','also','over','after',
+        'before','other','many','much','most','only','very','such','each','every',
+        'being','those','these','then','them','does','done','doing','made','make',
+        'been','back','come','going','know','think','want','take','good','time',
+        'people','first','last','long','great','little','right','look','still',
+        'world','life','work','high','point','market','crypto','solana','price',
+        'trading','trade','coin','coins','pump','meme','memecoin','million','billion',
+        'breaking','news','alert','update','thread','check','follow','retweet','here',
+        'live','today','now','new','next','best','top','big','all','out','get','got',
+        'can','not','are','was','has','had','but','its','our','you','who','how','why',
+        'one','two','three','four','five','per','via','any','own','way','day','may',
+        'let','say','see','use','try','put','run','old','end','set','too','did','ago',
+      ]);
+
+      for (const row of data) {
+        const text = row.tweet_text || '';
+        // 1) Extract explicit $CASHTAGS
+        const tags = text.match(/\$([A-Za-z]{2,12})/g);
+        if (tags) tags.forEach(t => cashtags.add(t.replace('$', '').toLowerCase()));
+
+        // 2) Extract capitalized proper nouns / trending topics (ALLCAPS words 4+ chars)
+        const caps = text.match(/\b[A-Z]{4,12}\b/g);
+        if (caps) caps.forEach(w => {
+          const low = w.toLowerCase();
+          if (!STOPWORDS.has(low)) topicWords.add(low);
+        });
+      }
+
+      // Merge cashtags + topic words
+      const merged = new Set([...cashtags, ...topicWords]);
+      setTrendingKeywords(merged);
     }
   }, []);
 
@@ -89,21 +119,15 @@ export function MarketCapAlerts() {
     setLoading(false);
   }, []);
 
-  // Check if a ticker is "niche/trending" based on X feed content
+  // Check if a ticker is "niche/trending" — only matches explicit cashtags or ALLCAPS topic words from X feed
   const isNicheTicker = useCallback((alert: MarketCapAlert): boolean => {
     if (trendingKeywords.size === 0) return false;
-    const name = (alert.token_name || '').toLowerCase().replace(/[^a-z]/g, '');
     const symbol = (alert.token_symbol || '').toLowerCase().replace(/[^a-z]/g, '');
-    if (!name && !symbol) return false;
-    // Check if ticker name or symbol (without $) matches any trending keyword
-    for (const kw of trendingKeywords) {
-      if (kw.length < 4) continue; // skip short common words
-      if (name.includes(kw) || kw.includes(name) || symbol.includes(kw) || kw.includes(symbol)) {
-        // Avoid matching very generic words
-        if (['the', 'and', 'for', 'this', 'that', 'with', 'from', 'have', 'will', 'been', 'token', 'just', 'like', 'more', 'than', 'what', 'when', 'your', 'about', 'some'].includes(kw)) continue;
-        if (name.length >= 3 || symbol.length >= 3) return true;
-      }
-    }
+    const name = (alert.token_name || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (!symbol && !name) return false;
+    // Direct match: ticker symbol appears as a cashtag or trending topic
+    if (symbol && trendingKeywords.has(symbol)) return true;
+    if (name && name.length >= 4 && trendingKeywords.has(name)) return true;
     return false;
   }, [trendingKeywords]);
 
