@@ -41,6 +41,7 @@ export function DevAIModal({ open, onOpenChange }: Props) {
   const [narrative, setNarrative] = useState<NarrativeResult | null>(null);
   const [genImage, setGenImage] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // Override fields
   const [overrideName, setOverrideName] = useState('');
@@ -130,6 +131,7 @@ export function DevAIModal({ open, onOpenChange }: Props) {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -301,11 +303,11 @@ export function DevAIModal({ open, onOpenChange }: Props) {
                 <Label className="text-xs text-muted-foreground">ORIGINAL SOURCE MEDIA</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {narrative.original_media.map((mediaUrl, i) => (
-                    <div key={i} className="rounded-lg overflow-hidden border border-border bg-background/50 group relative">
+                    <div key={i} className="rounded-lg overflow-hidden border border-border bg-background/50 group relative cursor-pointer" onClick={() => setLightboxUrl(mediaUrl)}>
                       <img
                         src={mediaUrl}
                         alt={`Source ${i + 1}`}
-                        className="w-full h-auto max-h-[200px] object-cover"
+                        className="w-full h-auto max-h-[200px] object-cover hover:opacity-80 transition-opacity"
                         loading="lazy"
                       />
                       <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-background/80 backdrop-blur-sm flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
@@ -377,5 +379,20 @@ export function DevAIModal({ open, onOpenChange }: Props) {
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Lightbox for source media */}
+    <Dialog open={!!lightboxUrl} onOpenChange={() => setLightboxUrl(null)}>
+      <DialogContent className="max-w-4xl p-2 bg-black/90">
+        {lightboxUrl && (
+          <img
+            src={lightboxUrl}
+            alt="Source media"
+            className="w-full h-auto max-h-[85vh] object-contain rounded-lg"
+            onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg'; }}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
