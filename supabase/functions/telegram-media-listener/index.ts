@@ -30,6 +30,9 @@ const KOL_CHANNEL_ID = -1003736895151
 // Channel ID for Meta Narrative tracking
 const META_CHANNEL_ID = -1003804658600
 
+// Channel ID for Gainers (take profit alerts)
+const GAINERS_CHANNEL_ID = -1003862520317
+
 // Persistent reply keyboard — always visible to user
 const PERSISTENT_KEYBOARD = {
   keyboard: [
@@ -2352,6 +2355,72 @@ Deno.serve(async (req) => {
           }
         } catch (e: any) {
           console.error('[kol] channel parse error:', e)
+        }
+      }
+      return new Response('ok')
+    }
+
+    // ─── CHANNEL POST: Gainers (Take Profit alerts) ───
+    if (channelPost && channelPost.chat?.id === GAINERS_CHANNEL_ID) {
+      const cpText = (channelPost.text || channelPost.caption || '').trim()
+      if (cpText) {
+        try {
+          // Look for "take profit #N" pattern
+          const tpMatch = cpText.match(/take\s*profit\s*#?(\d+)/i)
+          if (tpMatch) {
+            const tpNumber = parseInt(tpMatch[1])
+            
+            // Extract CA — check pumpfun/<ca> pattern first, then raw base58
+            const pumpfunMatch = cpText.match(/pumpfun\/([1-9A-HJ-NP-Za-km-z]{32,44})/i)
+            const rawCaMatch = cpText.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/)
+            const ca = pumpfunMatch ? pumpfunMatch[1] : (rawCaMatch ? rawCaMatch[0] : '')
+            
+            if (ca) {
+              // Extract token symbol if present
+              const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
+              const tokenSymbol = symbolMatch ? symbolMatch[1] : null
+              
+              // Extract token name from text (common patterns)
+              const nameMatch = cpText.match(/(?:name|token|coin)[:\s]+([A-Za-z0-9 ]+)/i)
+              const tokenName = nameMatch ? nameMatch[1].trim() : null
+
+              // URLs
+              const urlRegex = /https?:\/\/[^\s<>"')\]]+/gi
+              const urls = (cpText.match(urlRegex) || []) as string[]
+              const sourceUrl = urls[0] || `https://pump.fun/${ca}`
+              
+              // Use milestone field to track take profit level
+              const milestone = `TP#${tpNumber}`
+              const milestoneValue = tpNumber * 10000 // TP#1=10k, TP#2=20k, etc.
+              
+              // Dedup by CA + milestone within 5 min
+              const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+              const { data: existing } = await supabase.from('market_cap_alerts')
+                .select('id')
+                .eq('ca_address', ca)
+                .eq('milestone', milestone)
+                .gte('created_at', fiveMinAgo)
+                .limit(1)
+              
+              if (!existing || existing.length === 0) {
+                await supabase.from('market_cap_alerts').insert({
+                  ca_address: ca,
+                  token_symbol: tokenSymbol,
+                  token_name: tokenName,
+                  milestone,
+                  milestone_value: milestoneValue,
+                  raw_message: cpText.slice(0, 1000),
+                  source_url: sourceUrl,
+                  is_kol: false,
+                  is_j7tracker: false,
+                  telegram_channel_id: GAINERS_CHANNEL_ID,
+                })
+                console.log(`[gainers] Stored TP#${tpNumber} alert: ${ca.slice(0, 8)}...`)
+              }
+            }
+          }
+        } catch (e: any) {
+          console.error('[gainers] channel parse error:', e)
         }
       }
       return new Response('ok')

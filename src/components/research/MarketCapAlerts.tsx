@@ -3,9 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, RefreshCw, Shield, ShieldAlert, ShieldCheck, TrendingUp, ExternalLink, Copy, Zap, Pencil, Search, X, Check } from 'lucide-react';
+import { Loader2, RefreshCw, Shield, ShieldAlert, ShieldCheck, TrendingUp, ExternalLink, Copy, Zap, Pencil, Search, X, Check, DollarSign } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+
+const GAINERS_CHANNEL_ID = -1003862520317;
 
 interface MarketCapAlert {
   id: string;
@@ -22,6 +24,7 @@ interface MarketCapAlert {
   audit_data: any;
   verdict: string | null;
   created_at: string;
+  telegram_channel_id?: number | null;
 }
 
 const MILESTONE_COLORS: Record<string, string> = {
@@ -34,6 +37,11 @@ const MILESTONE_COLORS: Record<string, string> = {
   '90k': 'bg-pink-500/15 text-pink-400 border-pink-500/30',
   '100k+': 'bg-purple-500/15 text-purple-400 border-purple-500/30',
 };
+
+function getMilestoneColor(milestone: string): string {
+  if (milestone.startsWith('TP#')) return 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40';
+  return MILESTONE_COLORS[milestone] || MILESTONE_COLORS['30k'];
+}
 
 const VERDICT_CONFIG: Record<string, { icon: typeof ShieldCheck; color: string; label: string }> = {
   green: { icon: ShieldCheck, color: 'text-emerald-400', label: 'SAFE' },
@@ -187,6 +195,7 @@ export function MarketCapAlerts() {
     if (filter === 'kol') return alerts.filter(a => a.is_kol);
     if (filter === '50k+') return alerts.filter(a => a.milestone_value >= 50000);
     if (filter === 'audited') return alerts.filter(a => a.audit_status === 'completed');
+    if (filter === 'gainers') return alerts.filter(a => (a as any).telegram_channel_id === GAINERS_CHANNEL_ID || a.milestone.startsWith('TP#'));
     return alerts;
   }, [alerts, filter]);
 
@@ -267,6 +276,20 @@ export function MarketCapAlerts() {
             {f.label} <span className="ml-1 opacity-60">{f.count}</span>
           </button>
         ))}
+        {/* GAINERS toggle */}
+        <button
+          onClick={() => setFilter(filter === 'gainers' ? 'all' : 'gainers')}
+          className={cn(
+            "px-3 py-1.5 rounded-md text-xs font-bold transition-colors border flex items-center gap-1",
+            filter === 'gainers'
+              ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
+              : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+          )}
+        >
+          <DollarSign className="h-3 w-3" />
+          GAINERS
+          <span className="ml-0.5 opacity-60">{alerts.filter(a => (a as any).telegram_channel_id === GAINERS_CHANNEL_ID || a.milestone.startsWith('TP#')).length}</span>
+        </button>
       </div>
 
       {/* Alert list */}
@@ -283,14 +306,17 @@ export function MarketCapAlerts() {
               const isExpanded = expandedId === alert.id;
               const verdictCfg = alert.verdict ? VERDICT_CONFIG[alert.verdict] : null;
               const VerdictIcon = verdictCfg?.icon || Shield;
-              const milestoneColor = MILESTONE_COLORS[alert.milestone] || MILESTONE_COLORS['30k'];
+              const milestoneColor = getMilestoneColor(alert.milestone);
               const auditChecks = alert.audit_data?.checks || {};
+
+              const isGainer = alert.milestone.startsWith('TP#');
 
               return (
                   <div
                     key={alert.id}
                     className={cn(
                       "rounded-lg border transition-all",
+                      isGainer ? "border-emerald-500/50 bg-emerald-500/5" :
                       alert.is_kol ? "border-yellow-500/50 bg-yellow-500/5" :
                       alert.is_j7tracker ? "border-amber-500/40 bg-amber-500/5" : "border-border bg-card",
                       isExpanded && "ring-1 ring-primary/20"
@@ -371,6 +397,16 @@ export function MarketCapAlerts() {
                                 TikTok
                               </span>
                             )}
+                            {isGainer && (() => {
+                              // Count how many TPs this CA has
+                              const tpCount = alerts.filter(a => a.ca_address === alert.ca_address && a.milestone.startsWith('TP#')).length;
+                              return tpCount > 1 ? (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-0.5">
+                                  <DollarSign className="h-2.5 w-2.5" />
+                                  {tpCount} TPs
+                                </span>
+                              ) : null;
+                            })()}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             <button
