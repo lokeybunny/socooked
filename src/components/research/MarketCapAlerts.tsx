@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, RefreshCw, Shield, ShieldAlert, ShieldCheck, TrendingUp, ExternalLink, Copy, Zap } from 'lucide-react';
+import { Loader2, RefreshCw, Shield, ShieldAlert, ShieldCheck, TrendingUp, ExternalLink, Copy, Zap, Pencil, Search, X, Check } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
 interface MarketCapAlert {
@@ -54,6 +55,8 @@ export function MarketCapAlerts() {
   const [auditing, setAuditing] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ token_name: string; token_symbol: string; milestone: string }>({ token_name: '', token_symbol: '', milestone: '' });
 
   const loadAlerts = useCallback(async () => {
     const { data } = await supabase
@@ -125,6 +128,30 @@ export function MarketCapAlerts() {
   const copyCA = (ca: string) => {
     navigator.clipboard.writeText(ca);
     toast.success('CA copied');
+  };
+
+  const startEdit = (alert: MarketCapAlert, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(alert.id);
+    setEditForm({ token_name: alert.token_name || '', token_symbol: alert.token_symbol || '', milestone: alert.milestone });
+  };
+
+  const cancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingId(null);
+  };
+
+  const saveEdit = async (alert: MarketCapAlert, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const { error } = await supabase.from('market_cap_alerts').update({
+      token_name: editForm.token_name || null,
+      token_symbol: editForm.token_symbol || null,
+      milestone: editForm.milestone,
+    }).eq('id', alert.id);
+    if (error) { toast.error('Save failed'); return; }
+    setAlerts(prev => prev.map(a => a.id === alert.id ? { ...a, ...editForm } : a));
+    setEditingId(null);
+    toast.success('Alert updated');
   };
 
   if (loading) {
@@ -203,88 +230,131 @@ export function MarketCapAlerts() {
                   )}
                 >
                   {/* Main row */}
-                  <div
-                    className="p-3 cursor-pointer hover:bg-muted/20 transition-colors"
-                    onClick={() => setExpandedId(isExpanded ? null : alert.id)}
-                  >
-                    <div className="flex items-center gap-2">
-                      {/* Milestone badge */}
-                      <span className={cn("px-2 py-0.5 rounded text-[11px] font-bold border shrink-0", milestoneColor)}>
-                        {alert.milestone}
-                      </span>
-
-                      {/* Token info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {alert.token_symbol && (
-                            <span className="text-sm font-bold text-foreground">${alert.token_symbol}</span>
-                          )}
-                          {alert.token_name && (
-                            <span className="text-xs text-muted-foreground truncate">{alert.token_name}</span>
-                          )}
-                          {alert.is_j7tracker && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                              j7tracker
-                            </span>
-                          )}
-                          {alert.audit_data?.has_instagram && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-pink-500/20 text-pink-400 border border-pink-500/30">
-                              Instagram
-                            </span>
-                          )}
-                          {alert.audit_data?.has_tiktok && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                              TikTok
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); copyCA(alert.ca_address); }}
-                            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-mono"
-                          >
-                            {shortenCA(alert.ca_address)}
-                            <Copy className="h-2.5 w-2.5" />
-                          </button>
-                          <span className="text-[10px] text-muted-foreground">
-                            {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
-                          </span>
-                        </div>
+                  {editingId === alert.id ? (
+                    <div className="p-3 space-y-2" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editForm.token_symbol}
+                          onChange={e => setEditForm(f => ({ ...f, token_symbol: e.target.value }))}
+                          placeholder="Symbol"
+                          className="h-7 text-xs w-24"
+                        />
+                        <Input
+                          value={editForm.token_name}
+                          onChange={e => setEditForm(f => ({ ...f, token_name: e.target.value }))}
+                          placeholder="Token Name"
+                          className="h-7 text-xs flex-1"
+                        />
+                        <select
+                          value={editForm.milestone}
+                          onChange={e => setEditForm(f => ({ ...f, milestone: e.target.value }))}
+                          className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+                        >
+                          {Object.keys(MILESTONE_COLORS).map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                        <button onClick={(e) => saveEdit(alert, e)} className="h-7 w-7 rounded-md flex items-center justify-center bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors">
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={cancelEdit} className="h-7 w-7 rounded-md flex items-center justify-center bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </div>
+                      <div className="text-[10px] text-muted-foreground font-mono">{alert.ca_address}</div>
+                    </div>
+                  ) : (
+                    <div
+                      className="p-3 cursor-pointer hover:bg-muted/20 transition-colors"
+                      onClick={() => setExpandedId(isExpanded ? null : alert.id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {/* Milestone badge */}
+                        <span className={cn("px-2 py-0.5 rounded text-[11px] font-bold border shrink-0", milestoneColor)}>
+                          {alert.milestone}
+                        </span>
 
-                      {/* Verdict / Audit button */}
-                      <div className="shrink-0 flex items-center gap-1.5 ml-auto whitespace-nowrap">
-                        {alert.audit_status === 'completed' && verdictCfg ? (
-                          <span className={cn("flex items-center gap-1 text-xs font-bold", verdictCfg.color)}>
-                            <VerdictIcon className="h-4 w-4" />
-                            {verdictCfg.label}
-                          </span>
-                        ) : alert.milestone_value >= 50000 ? (
+                        {/* Token info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {alert.token_symbol && (
+                              <span className="text-sm font-bold text-foreground">${alert.token_symbol}</span>
+                            )}
+                            {alert.token_name && (
+                              <span className="text-xs text-muted-foreground truncate">{alert.token_name}</span>
+                            )}
+                            {alert.is_j7tracker && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                j7tracker
+                              </span>
+                            )}
+                            {alert.audit_data?.has_instagram && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-pink-500/20 text-pink-400 border border-pink-500/30">
+                                Instagram
+                              </span>
+                            )}
+                            {alert.audit_data?.has_tiktok && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                                TikTok
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); copyCA(alert.ca_address); }}
+                              className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-mono"
+                            >
+                              {shortenCA(alert.ca_address)}
+                              <Copy className="h-2.5 w-2.5" />
+                            </button>
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Action icons */}
+                        <div className="shrink-0 flex items-center gap-1.5 ml-auto whitespace-nowrap">
+                          {/* Analyze (full audit) - always available */}
                           <button
                             onClick={(e) => { e.stopPropagation(); triggerAudit(alert); }}
                             disabled={auditing === alert.id}
-                            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
+                            title="Run full Moralis audit"
+                            className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
                           >
-                            {auditing === alert.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                            Audit
+                            {auditing === alert.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
                           </button>
-                        ) : (
-                          <span className="text-[10px] text-muted-foreground">Under 50K</span>
-                        )}
-                        {alert.source_url && (
-                          <a
-                            href={alert.source_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
+
+                          {/* Edit */}
+                          <button
+                            onClick={(e) => startEdit(alert, e)}
+                            title="Edit alert"
+                            className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                           >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+
+                          {/* Verdict badge */}
+                          {alert.audit_status === 'completed' && verdictCfg && (
+                            <span className={cn("flex items-center gap-1 text-xs font-bold", verdictCfg.color)}>
+                              <VerdictIcon className="h-4 w-4" />
+                              {verdictCfg.label}
+                            </span>
+                          )}
+
+                          {alert.source_url && (
+                            <a
+                              href={alert.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Expanded audit detail */}
                   {isExpanded && alert.audit_status === 'completed' && Object.keys(auditChecks).length > 0 && (
