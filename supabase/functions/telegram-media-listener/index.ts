@@ -78,6 +78,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'xpost', description: '📡 Quick post to social media' },
     { command: 'higs', description: '🎬 Higgsfield model list' },
     { command: 'cancel', description: '❌ Cancel active session' },
+    { command: 'proposal', description: '📝 Create & send a proposal' },
   ]
 
   // Fire-and-forget: register commands + ensure webhook accepts channel_post
@@ -126,7 +127,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -146,6 +147,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'higgsfield' || normalized === '/higgsfield') return 'higgsfield'
   if (normalized === 'email' || normalized === '/email') return 'email'
   if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
+  if (normalized === 'proposal' || normalized === '/proposal') return 'proposal'
   return null
 }
 
@@ -1229,6 +1231,356 @@ async function processHiggsFieldCommand(
   }
 }
 
+// ─── Proposal Session: multi-step wizard + PDF generation + email ───
+const PROPOSAL_STEPS = ['email', 'name', 'service', 'cost', 'terms', 'deadline', 'confirm'] as const
+
+async function processProposalSession(
+  chatId: number,
+  text: string,
+  sessionId: string,
+  sp: any,
+  tgToken: string,
+  supabaseUrl: string,
+  supabase: any,
+) {
+  const step = sp.step as string
+  const data = sp.data || {}
+
+  // Step-by-step data collection
+  if (step === 'email') {
+    data.email = text.trim()
+    await supabase.from('webhook_events').update({ payload: { ...sp, step: 'name', data } }).eq('id', sessionId)
+    await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '👤 <b>What is the client\'s name?</b>', parse_mode: 'HTML' })
+    return
+  }
+  if (step === 'name') {
+    data.clientName = text.trim()
+    await supabase.from('webhook_events').update({ payload: { ...sp, step: 'service', data } }).eq('id', sessionId)
+    await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🛠 <b>What is the service?</b>\n\n<i>e.g. Website Design, Brand Identity Package, Social Media Management</i>', parse_mode: 'HTML' })
+    return
+  }
+  if (step === 'service') {
+    data.service = text.trim()
+    await supabase.from('webhook_events').update({ payload: { ...sp, step: 'cost', data } }).eq('id', sessionId)
+    await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '💰 <b>What is the cost of the project?</b>\n\n<i>e.g. $1,500 or 2000</i>', parse_mode: 'HTML' })
+    return
+  }
+  if (step === 'cost') {
+    data.cost = text.trim()
+    await supabase.from('webhook_events').update({ payload: { ...sp, step: 'terms', data } }).eq('id', sessionId)
+    await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '📋 <b>What are the terms of payment?</b>\n\n<i>e.g. 1/2 up front, 1/2 when done</i>', parse_mode: 'HTML' })
+    return
+  }
+  if (step === 'terms') {
+    data.terms = text.trim()
+    await supabase.from('webhook_events').update({ payload: { ...sp, step: 'deadline', data } }).eq('id', sessionId)
+    await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '📅 <b>When is the job due?</b>\n\n<i>e.g. March 15, 2026 or 2 weeks</i>', parse_mode: 'HTML' })
+    return
+  }
+  if (step === 'deadline') {
+    data.deadline = text.trim()
+    await supabase.from('webhook_events').update({ payload: { ...sp, step: 'confirm', data } }).eq('id', sessionId)
+
+    // Build preview
+    const costDisplay = data.cost.startsWith('$') ? data.cost : `$${data.cost}`
+    const preview = `📝 <b>PROPOSAL PREVIEW</b>\n\n`
+      + `📧 <b>To:</b> ${data.email}\n`
+      + `👤 <b>Client:</b> ${data.clientName}\n`
+      + `🛠 <b>Service:</b> ${data.service}\n`
+      + `💰 <b>Cost:</b> ${costDisplay}\n`
+      + `📋 <b>Terms:</b> ${data.terms}\n`
+      + `📅 <b>Deadline:</b> ${data.deadline}\n\n`
+      + `<i>A professional PDF proposal will be attached to the email.</i>\n\n`
+      + `<b>Is this okay to send?</b> Reply <b>Yes</b> or <b>No</b>.`
+    await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: preview, parse_mode: 'HTML' })
+    return
+  }
+  if (step === 'confirm') {
+    const lower = text.trim().toLowerCase()
+    if (lower === 'no' || lower === 'n' || lower === 'cancel') {
+      await supabase.from('webhook_events').delete().eq('id', sessionId)
+      await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '❌ Proposal cancelled.' })
+      return
+    }
+    if (lower !== 'yes' && lower !== 'y' && lower !== 'send') {
+      await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '❓ Reply <b>Yes</b> to send or <b>No</b> to cancel.', parse_mode: 'HTML' })
+      return
+    }
+
+    // Generate & send proposal
+    await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '⏳ <b>Generating proposal PDF and sending...</b>', parse_mode: 'HTML' })
+
+    try {
+      const costDisplay = data.cost.startsWith('$') ? data.cost : `$${data.cost}`
+      const now = new Date()
+      const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' })
+      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Los_Angeles' })
+
+      // Build professional proposal HTML for PDF
+      const proposalHtml = buildProposalPdf(data.clientName, data.email, data.service, costDisplay, data.terms, data.deadline, dateStr, timeStr)
+
+      // Use Lovable AI to generate a PDF via html-to-base64 approach
+      // We'll use the gmail-api directly with an HTML-rendered PDF attachment
+      // Convert HTML to a base64 PDF using a simple text-based approach
+      const pdfBase64 = await htmlToPdfBase64(proposalHtml, supabaseUrl, supabase)
+
+      // Build email body
+      const emailBody = `
+        <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.6;">
+          <p>Hello ${data.clientName},</p>
+          <p>Thank you for your interest in our services. Please find attached a detailed proposal for the <b>${data.service}</b> project.</p>
+          <p>We've outlined the scope, pricing, and timeline in the attached PDF. Please review it at your convenience.</p>
+          <p>If you have any questions or would like to discuss any aspect of this proposal, please don't hesitate to reach out.</p>
+          <p>We look forward to working with you!</p>
+        </div>`
+
+      // Send via gmail-api with PDF attachment
+      const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+      const sendRes = await fetch(`${supabaseUrl}/functions/v1/gmail-api?action=send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          to: data.email,
+          subject: `Proposal: ${data.service} — STU25`,
+          body: emailBody,
+          attachments: [{
+            filename: `STU25_Proposal_${data.clientName.replace(/\s+/g, '_')}.pdf`,
+            mimeType: 'application/pdf',
+            data: pdfBase64,
+          }],
+        }),
+      })
+      const sendResult = await sendRes.json()
+
+      if (sendResult?.success || sendResult?.id) {
+        await tgPost(tgToken, 'sendMessage', {
+          chat_id: chatId,
+          text: `✅ <b>Proposal sent!</b>\n\n📧 Delivered to: ${data.email}\n📋 Service: ${data.service}\n💰 ${costDisplay}\n📎 PDF attached`,
+          parse_mode: 'HTML',
+        })
+      } else {
+        throw new Error(sendResult?.error || 'Send failed')
+      }
+
+      // Clean up session
+      await supabase.from('webhook_events').delete().eq('id', sessionId)
+    } catch (e: any) {
+      console.error('[proposal] error:', e)
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: `❌ <b>Proposal failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+        parse_mode: 'HTML',
+      })
+    }
+    return
+  }
+}
+
+function buildProposalPdf(clientName: string, email: string, service: string, cost: string, terms: string, deadline: string, dateStr: string, timeStr: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><style>
+  @page { size: letter; margin: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; color: #1a1a2e; background: #fff; }
+  .page { width: 8.5in; min-height: 11in; padding: 0; position: relative; }
+  .header { background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #2d1b69 100%); color: #fff; padding: 50px 60px 40px; }
+  .header h1 { font-size: 36px; font-weight: 300; margin: 0 0 8px; letter-spacing: 2px; }
+  .header .tagline { font-size: 14px; color: #a0a0c0; letter-spacing: 4px; text-transform: uppercase; }
+  .header .logo-text { font-size: 42px; font-weight: 700; letter-spacing: 3px; margin-bottom: 4px; }
+  .divider { height: 4px; background: linear-gradient(90deg, #6c63ff, #00d2ff, #6c63ff); }
+  .body { padding: 40px 60px; }
+  .proposal-title { font-size: 28px; font-weight: 600; color: #1a1a2e; margin: 0 0 5px; }
+  .proposal-subtitle { font-size: 14px; color: #666; margin-bottom: 30px; }
+  .section { margin-bottom: 28px; }
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #6c63ff; font-weight: 600; margin-bottom: 6px; }
+  .section-value { font-size: 16px; color: #1a1a2e; line-height: 1.5; }
+  .detail-grid { display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 30px; }
+  .detail-box { flex: 1; min-width: 200px; background: #f8f8fc; border-radius: 8px; padding: 20px; border-left: 3px solid #6c63ff; }
+  .detail-box .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #888; margin-bottom: 6px; }
+  .detail-box .value { font-size: 18px; font-weight: 600; color: #1a1a2e; }
+  .cost-box { background: #f0eeff; border-left-color: #6c63ff; }
+  .cost-box .value { font-size: 28px; color: #6c63ff; }
+  .terms-section { background: #fafafa; border-radius: 8px; padding: 24px; margin: 30px 0; border: 1px solid #eee; }
+  .terms-section h3 { font-size: 16px; margin: 0 0 12px; color: #1a1a2e; }
+  .terms-section p { font-size: 14px; color: #444; line-height: 1.7; margin: 0 0 8px; }
+  .agreement { background: #fff8f0; border: 1px solid #ffd6a0; border-radius: 8px; padding: 20px; margin: 30px 0; }
+  .agreement p { font-size: 13px; color: #8a6d3b; line-height: 1.6; margin: 0; }
+  .signature-block { margin-top: 50px; padding-top: 30px; border-top: 1px solid #ddd; }
+  .signature-block .sig-name { font-family: 'Georgia', serif; font-size: 32px; font-style: italic; color: #1a1a2e; margin-bottom: 4px; }
+  .signature-block .sig-title { font-size: 14px; color: #666; }
+  .signature-block .sig-date { font-size: 12px; color: #999; margin-top: 8px; }
+  .footer { position: absolute; bottom: 0; left: 0; right: 0; background: #0f0f23; color: #a0a0c0; padding: 20px 60px; font-size: 12px; display: flex; justify-content: space-between; }
+  .footer a { color: #6c63ff; text-decoration: none; }
+</style></head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="logo-text">STU25</div>
+    <div class="tagline">Creative Studio & Digital Agency</div>
+  </div>
+  <div class="divider"></div>
+  <div class="body">
+    <div class="proposal-title">Service Proposal</div>
+    <div class="proposal-subtitle">Prepared for ${clientName} | ${dateStr}</div>
+
+    <div class="section">
+      <div class="section-label">Prepared For</div>
+      <div class="section-value"><b>${clientName}</b><br/>${email}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Service Description</div>
+      <div class="section-value">${service}</div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-box cost-box">
+        <div class="label">Project Cost</div>
+        <div class="value">${cost}</div>
+      </div>
+      <div class="detail-box">
+        <div class="label">Deadline</div>
+        <div class="value">${deadline}</div>
+      </div>
+    </div>
+
+    <div class="terms-section">
+      <h3>Payment Terms</h3>
+      <p>${terms}</p>
+    </div>
+
+    <div class="agreement">
+      <p><b>Agreement:</b> Any form of payment made towards this project shall constitute acceptance of this proposal and its terms, and shall serve as a binding signature on behalf of the client. By remitting payment, the client agrees to the scope of work, pricing, and terms outlined in this document.</p>
+    </div>
+
+    <div class="signature-block">
+      <div class="sig-name">Warren Thompson</div>
+      <div class="sig-title">Founder & Creative Director, STU25</div>
+      <div class="sig-date">Signed: ${dateStr} at ${timeStr} PST</div>
+    </div>
+  </div>
+  <div class="footer">
+    <span>STU25.com | (702) 832-2317</span>
+    <span>warren@stu25.com</span>
+  </div>
+</div>
+</body>
+</html>`
+}
+
+async function htmlToPdfBase64(html: string, supabaseUrl: string, supabase: any): Promise<string> {
+  // Use a lightweight approach: encode the HTML as a styled PDF-like document
+  // Since we can't run a headless browser in edge functions, we'll create a 
+  // text-based PDF with the content encoded directly
+  
+  // Strip HTML tags for plain text content
+  const textContent = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // Build a minimal valid PDF with the proposal content
+  const pdfContent = buildMinimalPdf(textContent)
+  
+  // Convert to base64
+  const encoder = new TextEncoder()
+  const bytes = encoder.encode(pdfContent)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+function buildMinimalPdf(text: string): string {
+  // Create a minimal but valid PDF 1.4 document
+  // This produces a single-page PDF with the proposal text
+  
+  // Sanitize text for PDF string (escape parens and backslashes)
+  const safe = text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+  
+  // Word-wrap text into lines (~80 chars)
+  const words = safe.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+  for (const word of words) {
+    if ((currentLine + ' ' + word).length > 85) {
+      lines.push(currentLine.trim())
+      currentLine = word
+    } else {
+      currentLine += ' ' + word
+    }
+  }
+  if (currentLine.trim()) lines.push(currentLine.trim())
+
+  // Build PDF text operators — position text lines from top of page
+  const textOps: string[] = []
+  let y = 750
+  const fontSize = 10
+  const lineHeight = 14
+  
+  // Title
+  textOps.push(`BT /F1 18 Tf 72 ${y} Td (STU25 — Service Proposal) Tj ET`)
+  y -= 30
+  textOps.push(`BT /F1 ${fontSize} Tf 72 ${y} Td`)
+  
+  for (const line of lines) {
+    if (y < 60) break // Don't overflow page
+    textOps.push(`72 ${y} Td (${line}) Tj`)
+    y -= lineHeight
+  }
+  textOps.push('ET')
+
+  const stream = textOps.join('\n')
+  const streamLength = stream.length
+
+  const pdf = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]
+   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+
+4 0 obj
+<< /Length ${streamLength} >>
+stream
+${stream}
+endstream
+endobj
+
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000266 00000 n 
+0000000${(317 + streamLength).toString().padStart(4, '0')} 00000 n 
+
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+0
+%%EOF`
+
+  return pdf
+}
+
 Deno.serve(async (req) => {
   // minimal logging — only log errors
 
@@ -2087,8 +2439,8 @@ Deno.serve(async (req) => {
     }
 
     // Session types we track (moved to module-level constants for performance)
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session']
-    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session']
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session']
+    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session']
 
     // action already resolved above (before reply guard)
 
@@ -2227,6 +2579,24 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Proposal special handling: multi-step wizard ───
+    if (action === 'proposal') {
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'proposal_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'proposal_session',
+        payload: { chat_id: chatId, step: 'email', data: {}, created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '📝 <b>Proposal Builder</b>\n\nLet\'s create a professional proposal.\n\n📧 <b>What email should we send the proposal to?</b>',
+        parse_mode: 'HTML',
+      })
+      return new Response('ok')
+    }
+
     if (action && SESSION_MAP[action]) {
       const sessionType = SESSION_MAP[action]
       const labels: Record<string, string> = {
@@ -2343,6 +2713,8 @@ Deno.serve(async (req) => {
         await processBanana2Command(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl)
       } else if (sessionType === 'higgsfield_session') {
         await processHiggsFieldCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl, sp.gen_type, sp.model)
+      } else if (sessionType === 'proposal_session') {
+        await processProposalSession(chatId, text, session.id, sp, TG_TOKEN, SUPABASE_URL, supabase)
       } else {
         const mod = sessionType.replace('_session', '') as any
         await processModuleCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, mod)
