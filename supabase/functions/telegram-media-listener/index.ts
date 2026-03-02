@@ -1232,7 +1232,7 @@ async function processHiggsFieldCommand(
 }
 
 // ─── Proposal Session: multi-step wizard + PDF generation + email ───
-const PROPOSAL_STEPS = ['email', 'name', 'service', 'cost', 'terms', 'deadline', 'confirm'] as const
+const PROPOSAL_STEPS = ['recipient', 'name', 'service', 'cost', 'terms', 'deadline', 'confirm'] as const
 
 async function processProposalSession(
   chatId: number,
@@ -1246,11 +1246,95 @@ async function processProposalSession(
   const step = sp.step as string
   const data = sp.data || {}
 
-  // Step-by-step data collection
-  if (step === 'email') {
+  // Step 1: recipient — accept email or name, resolve from CRM
+  if (step === 'recipient') {
+    const input = text.trim()
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)
+
+    if (isEmail) {
+      // Direct email — look up name from CRM
+      data.email = input
+      const { data: custs } = await supabase.from('customers')
+        .select('full_name')
+        .ilike('email', input)
+        .limit(1)
+      if (custs && custs.length > 0) {
+        data.clientName = custs[0].full_name
+        await supabase.from('webhook_events').update({ payload: { ...sp, step: 'service', data } }).eq('id', sessionId)
+        await tgPost(tgToken, 'sendMessage', {
+          chat_id: chatId,
+          text: `✅ Found <b>${data.clientName}</b> (${data.email}) in CRM.\n\n🛠 <b>What is the service?</b>\n\n<i>e.g. Website Design, Brand Identity Package</i>`,
+          parse_mode: 'HTML',
+        })
+      } else {
+        await supabase.from('webhook_events').update({ payload: { ...sp, step: 'name', data } }).eq('id', sessionId)
+        await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '👤 <b>What is the client\'s name?</b>', parse_mode: 'HTML' })
+      }
+    } else {
+      // Name input — search CRM by name
+      const { data: custs } = await supabase.from('customers')
+        .select('full_name, email')
+        .ilike('full_name', `%${input}%`)
+        .limit(5)
+
+      const withEmail = (custs || []).filter((c: any) => c.email)
+
+      if (withEmail.length === 1) {
+        data.clientName = withEmail[0].full_name
+        data.email = withEmail[0].email
+        await supabase.from('webhook_events').update({ payload: { ...sp, step: 'service', data } }).eq('id', sessionId)
+        await tgPost(tgToken, 'sendMessage', {
+          chat_id: chatId,
+          text: `✅ Found <b>${data.clientName}</b> — ${data.email}\n\n🛠 <b>What is the service?</b>\n\n<i>e.g. Website Design, Brand Identity Package</i>`,
+          parse_mode: 'HTML',
+        })
+      } else if (withEmail.length > 1) {
+        // Multiple matches — ask to pick
+        const list = withEmail.map((c: any, i: number) => `${i + 1}. <b>${c.full_name}</b> — ${c.email}`).join('\n')
+        data._candidates = withEmail
+        await supabase.from('webhook_events').update({ payload: { ...sp, step: 'pick_customer', data } }).eq('id', sessionId)
+        await tgPost(tgToken, 'sendMessage', {
+          chat_id: chatId,
+          text: `👥 Multiple matches found:\n\n${list}\n\n<b>Reply with the number</b> or type a different name/email.`,
+          parse_mode: 'HTML',
+        })
+      } else {
+        // No match — store name, ask for email
+        data.clientName = input
+        await supabase.from('webhook_events').update({ payload: { ...sp, step: 'email_manual', data } }).eq('id', sessionId)
+        await tgPost(tgToken, 'sendMessage', {
+          chat_id: chatId,
+          text: `⚠️ No CRM match for "<b>${input}</b>".\n\n📧 <b>What email should we send the proposal to?</b>`,
+          parse_mode: 'HTML',
+        })
+      }
+    }
+    return
+  }
+  if (step === 'pick_customer') {
+    const idx = parseInt(text.trim()) - 1
+    const candidates = data._candidates || []
+    if (idx >= 0 && idx < candidates.length) {
+      data.clientName = candidates[idx].full_name
+      data.email = candidates[idx].email
+      delete data._candidates
+      await supabase.from('webhook_events').update({ payload: { ...sp, step: 'service', data } }).eq('id', sessionId)
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: `✅ Selected <b>${data.clientName}</b> — ${data.email}\n\n🛠 <b>What is the service?</b>`,
+        parse_mode: 'HTML',
+      })
+    } else {
+      // Treat as new name/email input, restart recipient step
+      await supabase.from('webhook_events').update({ payload: { ...sp, step: 'recipient', data: {} } }).eq('id', sessionId)
+      return processProposalSession(chatId, text, sessionId, { ...sp, step: 'recipient', data: {} }, tgToken, supabaseUrl, supabase)
+    }
+    return
+  }
+  if (step === 'email_manual') {
     data.email = text.trim()
-    await supabase.from('webhook_events').update({ payload: { ...sp, step: 'name', data } }).eq('id', sessionId)
-    await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '👤 <b>What is the client\'s name?</b>', parse_mode: 'HTML' })
+    await supabase.from('webhook_events').update({ payload: { ...sp, step: 'service', data } }).eq('id', sessionId)
+    await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🛠 <b>What is the service?</b>\n\n<i>e.g. Website Design, Brand Identity Package, Social Media Management</i>', parse_mode: 'HTML' })
     return
   }
   if (step === 'name') {
@@ -2587,11 +2671,11 @@ Deno.serve(async (req) => {
       await supabase.from('webhook_events').insert({
         source: 'telegram',
         event_type: 'proposal_session',
-        payload: { chat_id: chatId, step: 'email', data: {}, created: Date.now() },
+        payload: { chat_id: chatId, step: 'recipient', data: {}, created: Date.now() },
       })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: '📝 <b>Proposal Builder</b>\n\nLet\'s create a professional proposal.\n\n📧 <b>What email should we send the proposal to?</b>',
+        text: '📝 <b>Proposal Builder</b>\n\nLet\'s create a professional proposal.\n\n👤 <b>Who is this proposal for?</b>\n\n<i>Type a client name or email address. If they\'re in the CRM, I\'ll auto-fill their details.</i>',
         parse_mode: 'HTML',
       })
       return new Response('ok')
