@@ -1240,11 +1240,44 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   try {
+    // Check body for setup_webhook command
+    const rawBody = await req.text()
+    let parsedBody: any = {}
+    try { parsedBody = JSON.parse(rawBody) } catch {}
+    
+    if (parsedBody?.setup_webhook === true) {
+      const webhookUrl = `${SUPABASE_URL}/functions/v1/telegram-media-listener`
+      
+      // Delete existing webhook first to force allowed_updates refresh
+      const delRes = await fetch(`${TG_API}${TG_TOKEN}/deleteWebhook`)
+      const delText = await delRes.text()
+      console.log('[webhook] deleteWebhook:', delText)
+      
+      // Re-set with channel_post included
+      const whRes = await fetch(`${TG_API}${TG_TOKEN}/setWebhook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: webhookUrl,
+          allowed_updates: ['message', 'callback_query', 'channel_post'],
+        }),
+      })
+      const whText = await whRes.text()
+      console.log('[webhook] setWebhook result:', whText)
+      
+      const infoRes = await fetch(`${TG_API}${TG_TOKEN}/getWebhookInfo`)
+      const infoText = await infoRes.text()
+      console.log('[webhook] getWebhookInfo:', infoText)
+      
+      return new Response(JSON.stringify({ deleteWebhook: JSON.parse(delText), setWebhook: JSON.parse(whText), webhookInfo: JSON.parse(infoText) }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     ensureBotCommandsBg(TG_TOKEN) // non-blocking
 
-    const rawBody = await req.text()
     console.log('[tg] in:', rawBody.slice(0, 150))
-    const update = JSON.parse(rawBody)
+    const update = parsedBody
 
     // ─── CALLBACK QUERIES (inline button presses) ───
     if (update.callback_query) {
