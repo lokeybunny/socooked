@@ -1400,13 +1400,17 @@ async function processProposalSession(
       const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Los_Angeles' })
       const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Los_Angeles' })
 
-      // Build professional proposal HTML for PDF
-      const proposalHtml = buildProposalPdf(data.clientName, data.email, data.service, costDisplay, data.terms, data.deadline, dateStr, timeStr)
+      // Build structured PDF directly (no HTML conversion needed)
+      const pdfRaw = buildStructuredPdf(data.clientName, data.email, data.service, costDisplay, data.terms, data.deadline, dateStr, timeStr)
 
-      // Use Lovable AI to generate a PDF via html-to-base64 approach
-      // We'll use the gmail-api directly with an HTML-rendered PDF attachment
-      // Convert HTML to a base64 PDF using a simple text-based approach
-      const pdfBase64 = await htmlToPdfBase64(proposalHtml, supabaseUrl, supabase)
+      // Convert to base64
+      const encoder = new TextEncoder()
+      const bytes = encoder.encode(pdfRaw)
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i])
+      }
+      const pdfBase64 = btoa(binary)
 
       // Build email body
       const emailBody = `
@@ -1556,73 +1560,118 @@ function buildProposalPdf(clientName: string, email: string, service: string, co
 </html>`
 }
 
-async function htmlToPdfBase64(html: string, supabaseUrl: string, supabase: any): Promise<string> {
-  // Use a lightweight approach: encode the HTML as a styled PDF-like document
-  // Since we can't run a headless browser in edge functions, we'll create a 
-  // text-based PDF with the content encoded directly
-  
-  // Strip HTML tags for plain text content
-  const textContent = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  // Build a minimal valid PDF with the proposal content
-  const pdfContent = buildMinimalPdf(textContent)
-  
-  // Convert to base64
-  const encoder = new TextEncoder()
-  const bytes = encoder.encode(pdfContent)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i])
-  }
-  return btoa(binary)
+async function htmlToPdfBase64(_html: string, _supabaseUrl: string, _supabase: any): Promise<string> {
+  // Legacy stub — replaced by buildStructuredPdf
+  return ''
 }
 
-function buildMinimalPdf(text: string): string {
-  // Create a minimal but valid PDF 1.4 document
-  // This produces a single-page PDF with the proposal text
-  
-  // Sanitize text for PDF string (escape parens and backslashes)
-  const safe = text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-  
-  // Word-wrap text into lines (~80 chars)
-  const words = safe.split(' ')
+function buildStructuredPdf(clientName: string, email: string, service: string, cost: string, terms: string, deadline: string, dateStr: string, timeStr: string): string {
+  const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
   const lines: string[] = []
-  let currentLine = ''
-  for (const word of words) {
-    if ((currentLine + ' ' + word).length > 85) {
-      lines.push(currentLine.trim())
-      currentLine = word
-    } else {
-      currentLine += ' ' + word
+  let y = 740
+
+  // ── Header background ──
+  lines.push('q 0.059 0.059 0.137 rg 0 692 612 100 re f Q')
+  lines.push('q 0.424 0.388 1.0 rg 0 688 612 4 re f Q')
+
+  // Header text (white)
+  lines.push(`BT /F2 28 Tf 1 0 0 1 72 755 Tm 1 1 1 rg (STU25) Tj ET`)
+  lines.push(`BT /F1 10 Tf 1 0 0 1 72 733 Tm 0.63 0.63 0.75 rg (Creative Studio & Digital Agency) Tj ET`)
+  lines.push(`BT /F1 10 Tf 1 0 0 1 72 717 Tm 0.63 0.63 0.75 rg (STU25.com  |  \\(702\\) 832-2317  |  warren@stu25.com) Tj ET`)
+
+  lines.push('0 0 0 rg')
+  y = 665
+
+  // ── Title ──
+  lines.push(`BT /F2 22 Tf 1 0 0 1 72 ${y} Tm (SERVICE PROPOSAL) Tj ET`)
+  y -= 24
+  lines.push(`BT /F1 11 Tf 1 0 0 1 72 ${y} Tm 0.4 0.4 0.4 rg (Prepared for ${esc(clientName)}  |  ${esc(dateStr)}) Tj ET`)
+  y -= 20
+  lines.push(`q 0.85 0.85 0.85 rg 72 ${y} 468 1 re f Q`)
+  y -= 20
+  lines.push('0 0 0 rg')
+
+  // ── Client ──
+  lines.push(`BT /F2 9 Tf 1 0 0 1 72 ${y} Tm 0.424 0.388 1.0 rg (PREPARED FOR) Tj ET`)
+  y -= 18
+  lines.push(`BT /F2 14 Tf 1 0 0 1 72 ${y} Tm 0 0 0 rg (${esc(clientName)}) Tj ET`)
+  y -= 16
+  lines.push(`BT /F1 11 Tf 1 0 0 1 72 ${y} Tm 0.3 0.3 0.3 rg (${esc(email)}) Tj ET`)
+  y -= 24
+
+  // ── Service ──
+  lines.push(`BT /F2 9 Tf 1 0 0 1 72 ${y} Tm 0.424 0.388 1.0 rg (SERVICE DESCRIPTION) Tj ET`)
+  y -= 18
+  lines.push('0 0 0 rg')
+  const wrapText = (txt: string, maxLen: number, sz: number, x: number, font = '/F1') => {
+    const words = txt.split(' ')
+    let cur = ''
+    for (const w of words) {
+      if ((cur + ' ' + w).length > maxLen) {
+        lines.push(`BT ${font} ${sz} Tf 1 0 0 1 ${x} ${y} Tm (${esc(cur.trim())}) Tj ET`)
+        y -= sz + 4
+        cur = w
+      } else { cur += ' ' + w }
+    }
+    if (cur.trim()) {
+      lines.push(`BT ${font} ${sz} Tf 1 0 0 1 ${x} ${y} Tm (${esc(cur.trim())}) Tj ET`)
+      y -= sz + 4
     }
   }
-  if (currentLine.trim()) lines.push(currentLine.trim())
+  wrapText(service, 80, 11, 72)
+  y -= 8
 
-  // Build PDF text operators — position text lines from top of page
-  const textOps: string[] = []
-  let y = 750
-  const fontSize = 10
-  const lineHeight = 14
-  
-  // Title
-  textOps.push(`BT /F1 18 Tf 72 ${y} Td (STU25 — Service Proposal) Tj ET`)
-  y -= 30
-  textOps.push(`BT /F1 ${fontSize} Tf 72 ${y} Td`)
-  
-  for (const line of lines) {
-    if (y < 60) break // Don't overflow page
-    textOps.push(`72 ${y} Td (${line}) Tj`)
-    y -= lineHeight
-  }
-  textOps.push('ET')
+  // ── Cost & Deadline boxes ──
+  const boxTop = y + 8
+  lines.push(`q 0.941 0.933 1.0 rg 72 ${boxTop - 55} 220 60 re f Q`)
+  lines.push(`q 0.424 0.388 1.0 rg 72 ${boxTop - 55} 3 60 re f Q`)
+  lines.push(`q 0.96 0.96 0.98 rg 310 ${boxTop - 55} 220 60 re f Q`)
+  lines.push(`q 0.424 0.388 1.0 rg 310 ${boxTop - 55} 3 60 re f Q`)
+  lines.push(`BT /F1 9 Tf 1 0 0 1 84 ${boxTop - 10} Tm 0.5 0.5 0.5 rg (PROJECT COST) Tj ET`)
+  lines.push(`BT /F2 20 Tf 1 0 0 1 84 ${boxTop - 34} Tm 0.424 0.388 1.0 rg (${esc(cost)}) Tj ET`)
+  lines.push(`BT /F1 9 Tf 1 0 0 1 322 ${boxTop - 10} Tm 0.5 0.5 0.5 rg (DEADLINE) Tj ET`)
+  lines.push(`BT /F2 16 Tf 1 0 0 1 322 ${boxTop - 34} Tm 0.1 0.1 0.1 rg (${esc(deadline)}) Tj ET`)
+  y = boxTop - 72
 
-  const stream = textOps.join('\n')
-  const streamLength = stream.length
+  // ── Payment Terms ──
+  const termsBoxH = 70
+  lines.push(`q 0.97 0.97 0.97 rg 72 ${y - termsBoxH + 10} 468 ${termsBoxH} re f Q`)
+  lines.push(`q 0.9 0.9 0.9 rg 72 ${y + 10} 468 1 re f 72 ${y - termsBoxH + 10} 468 1 re f Q`)
+  lines.push(`BT /F2 12 Tf 1 0 0 1 84 ${y} Tm 0 0 0 rg (Payment Terms) Tj ET`)
+  y -= 20
+  lines.push('0.27 0.27 0.27 rg')
+  wrapText(terms, 72, 11, 84)
+  y -= 12
 
-  const pdf = `%PDF-1.4
+  // ── Agreement ──
+  const agH = 80
+  lines.push(`q 1.0 0.973 0.941 rg 72 ${y - agH + 10} 468 ${agH} re f Q`)
+  lines.push(`q 1.0 0.839 0.627 rg 72 ${y + 10} 468 1 re f 72 ${y - agH + 10} 468 1 re f Q`)
+  lines.push(`BT /F2 11 Tf 1 0 0 1 84 ${y} Tm 0.54 0.43 0.23 rg (Agreement) Tj ET`)
+  y -= 16
+  const agText = 'Any form of payment made towards this project shall constitute acceptance of this proposal and its terms, and shall serve as a binding signature on behalf of the client. By remitting payment, the client agrees to the scope of work, pricing, and terms outlined herein.'
+  lines.push('0.54 0.43 0.23 rg')
+  wrapText(agText, 70, 9, 84)
+  y -= 16
+
+  // ── Signature ──
+  lines.push(`q 0.85 0.85 0.85 rg 72 ${y + 4} 250 1 re f Q`)
+  y -= 8
+  lines.push(`BT /F3 26 Tf 1 0 0 1 72 ${y} Tm 0.1 0.1 0.2 rg (Warren Thompson) Tj ET`)
+  y -= 20
+  lines.push(`BT /F1 11 Tf 1 0 0 1 72 ${y} Tm 0.4 0.4 0.4 rg (Founder & Creative Director, STU25) Tj ET`)
+  y -= 16
+  lines.push(`BT /F1 9 Tf 1 0 0 1 72 ${y} Tm 0.6 0.6 0.6 rg (Signed: ${esc(dateStr)} at ${esc(timeStr)} PST) Tj ET`)
+
+  // ── Footer ──
+  lines.push('q 0.059 0.059 0.137 rg 0 0 612 35 re f Q')
+  lines.push(`BT /F1 9 Tf 1 0 0 1 72 12 Tm 0.63 0.63 0.75 rg (STU25.com  |  \\(702\\) 832-2317) Tj ET`)
+  lines.push(`BT /F1 9 Tf 1 0 0 1 420 12 Tm 0.63 0.63 0.75 rg (warren@stu25.com) Tj ET`)
+
+  const stream = lines.join('\n')
+  const streamLen = stream.length
+
+  return `%PDF-1.4
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
 endobj
@@ -1633,36 +1682,45 @@ endobj
 
 3 0 obj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]
-   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+   /Contents 4 0 R
+   /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> >> >>
 endobj
 
 4 0 obj
-<< /Length ${streamLength} >>
+<< /Length ${streamLen} >>
 stream
 ${stream}
 endstream
 endobj
 
 5 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ZapfChancery-MediumItalic /Encoding /WinAnsiEncoding >>
 endobj
 
 xref
-0 6
+0 8
 0000000000 65535 f 
 0000000009 00000 n 
 0000000058 00000 n 
 0000000115 00000 n 
-0000000266 00000 n 
-0000000${(317 + streamLength).toString().padStart(4, '0')} 00000 n 
+0000000290 00000 n 
+0000000000 00000 n 
+0000000000 00000 n 
+0000000000 00000 n 
 
 trailer
-<< /Size 6 /Root 1 0 R >>
+<< /Size 8 /Root 1 0 R >>
 startxref
 0
 %%EOF`
-
-  return pdf
 }
 
 Deno.serve(async (req) => {
