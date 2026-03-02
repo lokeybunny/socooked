@@ -83,6 +83,7 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
   const activeRef = useRef(loopState.active);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generatingRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
   const industryIdxRef = useRef(loopState.currentIndustryIdx);
   const stateIdxRef = useRef(loopState.currentStateIdx);
   const allStatesRef = useRef(loopState.allStates);
@@ -116,6 +117,10 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
     if (generatingRef.current) return;
     generatingRef.current = true;
 
+    // Create abort controller for this cycle
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     const industry = TARGET_INDUSTRIES[industryIdxRef.current % TARGET_INDUSTRIES.length];
     const nextIdx = (industryIdxRef.current + 1) % TARGET_INDUSTRIES.length;
     industryIdxRef.current = nextIdx;
@@ -148,16 +153,27 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
     addLog({ step: 1, label: 'Searching', status: 'running', detail: `Industry: ${industry} | Location: ${locationLabel} | Titles: ${TARGET_JOB_TITLES.slice(0, 3).join(', ')}...`, ts: now() });
 
     try {
-      const { data, error } = await supabase.functions.invoke('lead-finder', {
-        body: {
+      // Use fetch directly so we can pass AbortController signal
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lead-finder`;
+      const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
           company_industry: [industry],
           contact_job_title: TARGET_JOB_TITLES,
           contact_location: location,
           fetch_count: 25,
-        },
+        }),
+        signal: controller.signal,
       });
 
-      if (error) throw new Error(error.message);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
 
       const found = data?.total_found || 0;
       const created = data?.created_count || 0;
@@ -177,7 +193,11 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
         totalNewCreated: prev.totalNewCreated + created,
       }));
     } catch (err: any) {
-      addLog({ step: 99, label: 'Error', status: 'error', detail: err.message || 'Failed', ts: now() });
+      if (err.name === 'AbortError') {
+        addLog({ step: 99, label: 'Stopped', status: 'done', detail: '🛑 Search aborted by user', ts: now() });
+      } else {
+        addLog({ step: 99, label: 'Error', status: 'error', detail: err.message || 'Failed', ts: now() });
+      }
     } finally {
       generatingRef.current = false;
       setLoopState(prev => ({ ...prev, generating: false }));
@@ -217,10 +237,15 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
 
   const stopLoop = useCallback(() => {
     activeRef.current = false;
-    setLoopState(prev => ({ ...prev, active: false }));
+    setLoopState(prev => ({ ...prev, active: false, generating: false }));
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
+    }
+    // Abort any in-flight request
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
     }
   }, []);
 
