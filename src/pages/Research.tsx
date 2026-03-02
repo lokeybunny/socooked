@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive, Briefcase, Globe, Building2, Mail, Phone, Linkedin, Users, ImageIcon } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive, Briefcase, Globe, Building2, Mail, Phone, Linkedin, Users, ImageIcon, Sparkles } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -22,6 +22,8 @@ import { useYelpLoop } from '@/hooks/useYelpLoop';
 import { useGMapsLoop } from '@/hooks/useGMapsLoop';
 import { XFeedPanel } from '@/components/research/XFeedPanel';
 import { MarketCapAlerts } from '@/components/research/MarketCapAlerts';
+import { MetaPopup } from '@/components/research/MetaPopup';
+import { DevAIModal } from '@/components/research/DevAIModal';
 import type { LucideIcon } from 'lucide-react';
 
 /* ── X (Twitter) icon ── */
@@ -148,6 +150,8 @@ export default function Research() {
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 50;
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [metaOpen, setMetaOpen] = useState(false);
+  const [devAIOpen, setDevAIOpen] = useState(false);
 
   // New finding form
   const [title, setTitle] = useState('');
@@ -2084,6 +2088,24 @@ export default function Research() {
         {/* X Feed Panel + Market Cap Alerts - right side */}
         {selectedSource === 'x' && (
           <div className="lg:w-[420px] shrink-0 lg:sticky lg:top-4 lg:self-start space-y-4" style={{ height: 'calc(380vh - 420px)' }}>
+            {/* Meta & DEV AI buttons */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 flex-1 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
+                onClick={() => setMetaOpen(true)}
+              >
+                <TrendingUp className="h-3.5 w-3.5" /> Last 10M Meta
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                onClick={() => setDevAIOpen(true)}
+              >
+                <Sparkles className="h-3.5 w-3.5" /> DEV AI
+              </Button>
+            </div>
             <MarketCapAlerts />
             <XFeedPanel />
           </div>
@@ -2397,6 +2419,10 @@ export default function Research() {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Meta & DEV AI Modals */}
+      <MetaPopup open={metaOpen} onOpenChange={setMetaOpen} />
+      <DevAIModal open={devAIOpen} onOpenChange={setDevAIOpen} />
     </AppLayout>
   );
 }
