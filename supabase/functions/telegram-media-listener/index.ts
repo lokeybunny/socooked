@@ -24,6 +24,9 @@ const X_FEED_CHANNEL_ID = -1003740017231
 // Channel ID for Market Cap Alerts
 const MCAP_ALERT_CHANNEL_ID = -1003767278197
 
+// Channel ID for KOL Groups
+const KOL_CHANNEL_ID = -1003736895151
+
 // Channel ID for Meta Narrative tracking
 const META_CHANNEL_ID = -1003804658600
 
@@ -1679,6 +1682,73 @@ Deno.serve(async (req) => {
           }
         } catch (e: any) {
           console.error('[mcap] channel parse error:', e)
+        }
+      }
+      return new Response('ok')
+    }
+
+    // ─── CHANNEL POST: KOL Group CA extraction ───
+    if (channelPost && channelPost.chat?.id === KOL_CHANNEL_ID) {
+      const cpText = (channelPost.text || channelPost.caption || '').trim()
+      if (cpText) {
+        try {
+          // Extract any Solana CA addresses (base58, 32-44 chars)
+          const pumpfunMatch = cpText.match(/pumpfun\/([1-9A-HJ-NP-Za-km-z]{32,44})/i)
+          const rawCaMatch = cpText.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/)
+          const ca = pumpfunMatch ? pumpfunMatch[1] : (rawCaMatch ? rawCaMatch[0] : '')
+
+          if (ca) {
+            // Extract token symbol if present
+            const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
+            const tokenSymbol = symbolMatch ? symbolMatch[1] : null
+
+            // Parse milestone from text if present, default to 30k
+            const crossedMatch = cpText.match(/crossed\s*\$?([\d,.]+)\s*k?/i)
+            let milestoneValue = 30000
+            let milestone = '30k'
+            if (crossedMatch) {
+              let rawVal = crossedMatch[1].replace(/,/g, '')
+              milestoneValue = parseFloat(rawVal)
+              if (milestoneValue < 1000) milestoneValue *= 1000
+              if (milestoneValue >= 100000) milestone = '100k+'
+              else if (milestoneValue >= 90000) milestone = '90k'
+              else if (milestoneValue >= 80000) milestone = '80k'
+              else if (milestoneValue >= 70000) milestone = '70k'
+              else if (milestoneValue >= 60000) milestone = '60k'
+              else if (milestoneValue >= 50000) milestone = '50k'
+              else if (milestoneValue >= 40000) milestone = '40k'
+            }
+
+            // URLs
+            const urlRegex = /https?:\/\/[^\s<>"')\]]+/gi
+            const urls = (cpText.match(urlRegex) || []) as string[]
+            const sourceUrl = urls[0] || ''
+
+            // Dedup by CA within 5 min
+            const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+            const { data: existing } = await supabase.from('market_cap_alerts')
+              .select('id')
+              .eq('ca_address', ca)
+              .eq('is_kol', true)
+              .gte('created_at', fiveMinAgo)
+              .limit(1)
+
+            if (!existing || existing.length === 0) {
+              await supabase.from('market_cap_alerts').insert({
+                ca_address: ca,
+                token_symbol: tokenSymbol,
+                milestone,
+                milestone_value: milestoneValue,
+                raw_message: cpText.slice(0, 1000),
+                source_url: sourceUrl,
+                is_kol: true,
+                telegram_channel_id: KOL_CHANNEL_ID,
+              })
+              console.log(`[kol] Stored KOL alert: ${ca.slice(0, 8)}... ${milestone}`)
+            }
+          }
+        } catch (e: any) {
+          console.error('[kol] channel parse error:', e)
         }
       }
       return new Response('ok')

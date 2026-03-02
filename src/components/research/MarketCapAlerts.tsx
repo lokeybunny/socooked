@@ -17,6 +17,7 @@ interface MarketCapAlert {
   raw_message: string | null;
   source_url: string | null;
   is_j7tracker: boolean;
+  is_kol: boolean;
   audit_status: string;
   audit_data: any;
   verdict: string | null;
@@ -120,6 +121,7 @@ export function MarketCapAlerts() {
   const filtered = useMemo(() => {
     if (filter === 'all') return alerts;
     if (filter === 'j7tracker') return alerts.filter(a => a.is_j7tracker);
+    if (filter === 'kol') return alerts.filter(a => a.is_kol);
     if (filter === '50k+') return alerts.filter(a => a.milestone_value >= 50000);
     if (filter === 'audited') return alerts.filter(a => a.audit_status === 'completed');
     return alerts;
@@ -184,6 +186,7 @@ export function MarketCapAlerts() {
       <div className="flex items-center gap-1.5 flex-wrap">
         {[
           { id: 'all', label: 'All', count: alerts.length },
+          { id: 'kol', label: '👑 KOL', count: alerts.filter(a => a.is_kol).length },
           { id: 'j7tracker', label: '🏅 j7tracker', count: alerts.filter(a => a.is_j7tracker).length },
           { id: '50k+', label: '50K+', count: alerts.filter(a => a.milestone_value >= 50000).length },
           { id: 'audited', label: '🛡 Audited', count: alerts.filter(a => a.audit_status === 'completed').length },
@@ -221,14 +224,15 @@ export function MarketCapAlerts() {
               const auditChecks = alert.audit_data?.checks || {};
 
               return (
-                <div
-                  key={alert.id}
-                  className={cn(
-                    "rounded-lg border transition-all",
-                    alert.is_j7tracker ? "border-amber-500/40 bg-amber-500/5" : "border-border bg-card",
-                    isExpanded && "ring-1 ring-primary/20"
-                  )}
-                >
+                  <div
+                    key={alert.id}
+                    className={cn(
+                      "rounded-lg border transition-all",
+                      alert.is_kol ? "border-yellow-500/50 bg-yellow-500/5" :
+                      alert.is_j7tracker ? "border-amber-500/40 bg-amber-500/5" : "border-border bg-card",
+                      isExpanded && "ring-1 ring-primary/20"
+                    )}
+                  >
                   {/* Main row */}
                   {editingId === alert.id ? (
                     <div className="p-3 space-y-2" onClick={e => e.stopPropagation()}>
@@ -267,8 +271,11 @@ export function MarketCapAlerts() {
                       onClick={() => setExpandedId(isExpanded ? null : alert.id)}
                     >
                       <div className="flex items-center gap-2">
-                        {/* Milestone badge */}
-                        <span className={cn("px-2 py-0.5 rounded text-[11px] font-bold border shrink-0", milestoneColor)}>
+                        {/* Milestone badge — yellow for KOL */}
+                        <span className={cn(
+                          "px-2 py-0.5 rounded text-[11px] font-bold border shrink-0",
+                          alert.is_kol ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/40" : milestoneColor
+                        )}>
                           {alert.milestone}
                         </span>
 
@@ -280,6 +287,11 @@ export function MarketCapAlerts() {
                             )}
                             {alert.token_name && (
                               <span className="text-xs text-muted-foreground truncate">{alert.token_name}</span>
+                            )}
+                            {alert.is_kol && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">
+                                KOL
+                              </span>
                             )}
                             {alert.is_j7tracker && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">

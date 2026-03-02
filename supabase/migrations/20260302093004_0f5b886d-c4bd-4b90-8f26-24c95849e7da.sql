@@ -1,0 +1,1 @@
+ALTER TABLE public.market_cap_alerts ADD COLUMN is_kol boolean NOT NULL DEFAULT false;
