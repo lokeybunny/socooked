@@ -24,6 +24,9 @@ const X_FEED_CHANNEL_ID = -1003740017231
 // Channel ID for Market Cap Alerts
 const MCAP_ALERT_CHANNEL_ID = -1003767278197
 
+// Channel ID for Meta Narrative tracking
+const META_CHANNEL_ID = -1003804658600
+
 // Persistent reply keyboard — always visible to user
 const PERSISTENT_KEYBOARD = {
   keyboard: [
@@ -1677,6 +1680,28 @@ Deno.serve(async (req) => {
         } catch (e: any) {
           console.error('[mcap] channel parse error:', e)
         }
+      }
+      return new Response('ok')
+    }
+
+    // ─── CHANNEL POST: Meta Narrative Channel ───
+    if (channelPost && channelPost.chat?.id === META_CHANNEL_ID) {
+      const cpText = (channelPost.text || channelPost.caption || '').trim()
+      if (cpText && cpText.length > 10) {
+        // Fire-and-forget meta extraction
+        fetch(`${SUPABASE_URL}/functions/v1/meta-extract`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')!}`,
+          },
+          body: JSON.stringify({
+            message: cpText.slice(0, 2000),
+            message_id: String(channelPost.message_id || ''),
+          }),
+        }).catch(e => console.error('[meta] extract error:', e))
+        console.log(`[meta] Forwarded message from channel ${META_CHANNEL_ID} for extraction`)
       }
       return new Response('ok')
     }

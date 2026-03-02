@@ -98,3 +98,12 @@ verify_jwt = false
 
 [functions.lead-finder]
 verify_jwt = false
+
+[functions.meta-extract]
+verify_jwt = false
+
+[functions.meta-summarize]
+verify_jwt = false
+
+[functions.dev-ai]
+verify_jwt = false

@@ -1053,6 +1053,48 @@ export type Database = {
           },
         ]
       }
+      dev_ai_narratives: {
+        Row: {
+          context_data: Json | null
+          created_at: string
+          id: string
+          image_prompt: string | null
+          image_url: string | null
+          meta_categories: Json | null
+          narrative: string
+          source_platform: string | null
+          source_url: string | null
+          token_name: string
+          token_symbol: string
+        }
+        Insert: {
+          context_data?: Json | null
+          created_at?: string
+          id?: string
+          image_prompt?: string | null
+          image_url?: string | null
+          meta_categories?: Json | null
+          narrative: string
+          source_platform?: string | null
+          source_url?: string | null
+          token_name: string
+          token_symbol: string
+        }
+        Update: {
+          context_data?: Json | null
+          created_at?: string
+          id?: string
+          image_prompt?: string | null
+          image_url?: string | null
+          meta_categories?: Json | null
+          narrative?: string
+          source_platform?: string | null
+          source_url?: string | null
+          token_name?: string
+          token_symbol?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           category: string | null
@@ -1106,6 +1148,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      hourly_meta_summary: {
+        Row: {
+          bullish_score: number
+          category: string
+          created_at: string
+          date_hour: string
+          hours_today: number
+          id: string
+          is_green: boolean
+          mentions_hour: number
+        }
+        Insert: {
+          bullish_score?: number
+          category: string
+          created_at?: string
+          date_hour: string
+          hours_today?: number
+          id?: string
+          is_green?: boolean
+          mentions_hour?: number
+        }
+        Update: {
+          bullish_score?: number
+          category?: string
+          created_at?: string
+          date_hour?: string
+          hours_today?: number
+          id?: string
+          is_green?: boolean
+          mentions_hour?: number
+        }
+        Relationships: []
       }
       interactions: {
         Row: {
@@ -1410,6 +1485,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meta_mentions: {
+        Row: {
+          category_normalized: string
+          count: number
+          created_at: string
+          id: string
+          message_id: string | null
+          source_text_snippet: string | null
+          telegram_channel_id: number | null
+        }
+        Insert: {
+          category_normalized: string
+          count?: number
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          source_text_snippet?: string | null
+          telegram_channel_id?: number | null
+        }
+        Update: {
+          category_normalized?: string
+          count?: number
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          source_text_snippet?: string | null
+          telegram_channel_id?: number | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
