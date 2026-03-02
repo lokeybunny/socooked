@@ -110,8 +110,8 @@ export function MetaPopup({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
-            Top 10 Meta — Last 10 Minutes
-            <span className="text-xs text-muted-foreground font-normal">(real-time)</span>
+            Top 10 Meta — Last Hour
+            <span className="text-xs text-muted-foreground font-normal">(auto · ch -1003804658600)</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -131,8 +131,8 @@ export function MetaPopup({ open, onOpenChange }: Props) {
           </div>
         ) : top10.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <p className="text-sm">No meta categories detected in the last 10 minutes.</p>
-            <p className="text-xs mt-1">Messages from channel will populate this automatically.</p>
+            <p className="text-sm">No meta categories detected in the last hour.</p>
+            <p className="text-xs mt-1">Auto-pulling from Telegram channel -1003804658600.</p>
           </div>
         ) : (
           <div className="space-y-1.5">

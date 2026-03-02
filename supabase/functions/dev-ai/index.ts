@@ -46,15 +46,16 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const { action } = body
 
-    // ─── GET TOP 10 META (last 10 min) ───
+    // ─── GET TOP 10 META (last hour) ───
     if (action === 'top_meta') {
-      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
       const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
 
       const { data: recentMentions } = await supabase
         .from('meta_mentions')
         .select('category_normalized')
-        .gte('created_at', tenMinAgo)
+        .gte('created_at', oneHourAgo)
+        .eq('telegram_channel_id', -1003804658600)
 
       // Aggregate
       const counts: Record<string, number> = {}
