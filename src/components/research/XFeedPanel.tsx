@@ -61,13 +61,6 @@ function formatNum(n: number): string {
   return String(n);
 }
 
-const BLOCKED_STRINGS = ['1322'];
-
-function isBlockedPost(tw: Tweet): boolean {
-  const text = `${tw.text} ${tw.display_name} ${tw.user}`.toLowerCase();
-  return BLOCKED_STRINGS.some(s => text.includes(s.toLowerCase()));
-}
-
 const NOISE_PATTERNS = [
   /\d+\s+News Feed Monitor@🗞️︱news-feeds-sites-monitor\s*→\s*/g,
   /\d+\s+Instagram Monitor@🖼️︱instagram-monitor\s*→\s*/g,
@@ -162,9 +155,8 @@ export function XFeedPanel() {
     };
   }, [fetchFeed]);
 
-  const filtered = useMemo(() => tweets.filter(t => !isBlockedPost(t)), [tweets]);
-  const xTweets = useMemo(() => filtered.filter(t => !isInstagramPost(t)), [filtered]);
-  const igTweets = useMemo(() => filtered.filter(t => isInstagramPost(t)), [filtered]);
+  const xTweets = useMemo(() => tweets.filter(t => !isInstagramPost(t)), [tweets]);
+  const igTweets = useMemo(() => tweets.filter(t => isInstagramPost(t)), [tweets]);
 
   const renderTweetList = (list: Tweet[]) => (
     <ScrollArea className="h-full">
