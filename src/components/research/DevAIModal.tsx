@@ -11,6 +11,7 @@ interface SourceUrl {
   url: string;
   platform: 'x' | 'instagram' | 'tiktok' | 'youtube' | 'web';
   label: string;
+  media_url?: string;
 }
 
 interface NarrativeResult {
@@ -27,6 +28,7 @@ interface NarrativeResult {
   risk_level?: string;
   image_url?: string;
   source_urls?: SourceUrl[];
+  original_media?: string[];
 }
 
 interface Props {
@@ -292,6 +294,37 @@ export function DevAIModal({ open, onOpenChange }: Props) {
                 )}
               </div>
             </div>
+
+            {/* Original Source Media */}
+            {narrative.original_media && narrative.original_media.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">ORIGINAL SOURCE MEDIA</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {narrative.original_media.map((mediaUrl, i) => (
+                    <div key={i} className="rounded-lg overflow-hidden border border-border bg-background/50 group relative">
+                      <img
+                        src={mediaUrl}
+                        alt={`Source ${i + 1}`}
+                        className="w-full h-auto max-h-[200px] object-cover"
+                        loading="lazy"
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-background/80 backdrop-blur-sm flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] text-muted-foreground">Source {i + 1}</span>
+                        <a
+                          href={mediaUrl}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+                        >
+                          <ExternalLink className="h-3 w-3" /> Download
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Generate Image */}
             <div className="space-y-3">
