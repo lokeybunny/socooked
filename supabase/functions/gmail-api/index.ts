@@ -241,6 +241,16 @@ function buildInvoiceSupportBody(recipient: string): string {
   `;
 }
 
+function encodeSubject(subject: string): string {
+  // Check if subject has non-ASCII characters
+  if (/[^\x00-\x7F]/.test(subject)) {
+    // RFC 2047 encoded-word for UTF-8
+    const encoded = btoa(unescape(encodeURIComponent(subject)));
+    return `=?UTF-8?B?${encoded}?=`;
+  }
+  return subject;
+}
+
 function buildRawEmail(to: string, from: string, subject: string, body: string, attachments?: { filename: string; mimeType: string; data: string }[]): string {
   const boundary = `boundary_${crypto.randomUUID().replace(/-/g, '')}`;
   const signedBody = appendSignature(body);
@@ -249,7 +259,7 @@ function buildRawEmail(to: string, from: string, subject: string, body: string, 
     const lines = [
       `From: ${from}`,
       `To: ${to}`,
-      `Subject: ${subject}`,
+      `Subject: ${encodeSubject(subject)}`,
       `Content-Type: text/html; charset=UTF-8`,
       `MIME-Version: 1.0`,
       "",
@@ -265,7 +275,7 @@ function buildRawEmail(to: string, from: string, subject: string, body: string, 
   const lines = [
     `From: ${from}`,
     `To: ${to}`,
-    `Subject: ${subject}`,
+    `Subject: ${encodeSubject(subject)}`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     "",
