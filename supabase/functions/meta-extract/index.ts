@@ -23,14 +23,63 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { message, message_id } = body
+    const { message, message_id, url, name } = body
+
+    // ── Web-presence lookup mode (from Phone Analyze button) ──
+    if (url || name) {
+      console.log(`[meta-extract] Web lookup mode: name=${name}, url=${url}`)
+      const searchQuery = name || url
+      const aiRes = await fetch(LOVABLE_AI_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a business web-presence finder. Given a business name, find their official website URL and Instagram handle if they exist.
+
+Return ONLY valid JSON: {"website":"https://...","instagram":"@handle"}
+If you cannot find one, set it to null. Example: {"website":"https://example.com","instagram":null}
+Do NOT guess — only return URLs/handles you are confident about.`
+            },
+            { role: 'user', content: `Find the website and Instagram for: ${searchQuery}` }
+          ],
+          temperature: 0.1,
+          max_tokens: 300,
+        }),
+      })
+
+      if (!aiRes.ok) {
+        console.error('[meta-extract] AI web lookup error:', aiRes.status)
+        return new Response(JSON.stringify({ website: null, instagram: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+
+      const aiData = await aiRes.json()
+      const rawContent = aiData.choices?.[0]?.message?.content || '{}'
+      console.log(`[meta-extract] AI web lookup response: ${rawContent.slice(0, 300)}`)
+      
+      try {
+        const cleaned = rawContent.replace(/```json?\n?/g, '').replace(/```/g, '').trim()
+        const result = JSON.parse(cleaned)
+        return new Response(JSON.stringify({ website: result.website || null, instagram: result.instagram || null }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      } catch {
+        return new Response(JSON.stringify({ website: null, instagram: null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+    }
+
+    // ── Original meta-category extraction mode ──
     console.log(`[meta-extract] Received message (len=${message?.length}): ${message?.slice(0, 80)}`)
 
     if (!message) {
       return new Response(JSON.stringify({ error: 'message is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    // Use AI to extract meta categories — simple JSON response, no tool_choice
     const aiRes = await fetch(LOVABLE_AI_URL, {
       method: 'POST',
       headers: {
@@ -66,10 +115,8 @@ If no categories found, return: []`
     const rawContent = aiData.choices?.[0]?.message?.content || '[]'
     console.log(`[meta-extract] AI raw response: ${rawContent.slice(0, 300)}`)
 
-    // Parse the JSON array from the response
     let categories: string[] = []
     try {
-      // Strip markdown code fences if present
       const cleaned = rawContent.replace(/```json?\n?/g, '').replace(/```/g, '').trim()
       categories = JSON.parse(cleaned)
       if (!Array.isArray(categories)) categories = []
@@ -83,7 +130,6 @@ If no categories found, return: []`
       return new Response(JSON.stringify({ success: true, categories: [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    // Insert each category as a separate mention
     const inserts = categories.map(cat => ({
       category_normalized: cat.toLowerCase().trim(),
       message_id: message_id || null,
