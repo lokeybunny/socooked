@@ -63,6 +63,7 @@ function formatNum(n: number): string {
 
 const NOISE_PATTERNS = [
   /\d+\s+News Feed Monitor@🗞️︱news-feeds-sites-monitor\s*→\s*/g,
+  /\d+\s+Instagram Monitor@🖼️︱instagram-monitor\s*→\s*/g,
   /<[^>]*>/g,
   /\s*\|\s*Alphub/gi,
   /Alphub/gi,
@@ -157,8 +158,8 @@ export function XFeedPanel() {
   const igTweets = useMemo(() => tweets.filter(t => isInstagramPost(t)), [tweets]);
 
   const renderTweetList = (list: Tweet[]) => (
-    <ScrollArea className="flex-1">
-      <div className="divide-y divide-border">
+    <ScrollArea className="flex-1 min-h-0">
+      <div className="divide-y divide-border pb-4">
         {list.map((tw) => (
           <article
             key={tw.id}
