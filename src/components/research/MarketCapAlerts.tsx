@@ -346,7 +346,7 @@ export function MarketCapAlerts() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {alert.token_symbol && (
-                              <span className={cn("text-sm font-bold", isNicheTicker(alert) ? "text-green-400 drop-shadow-[0_0_6px_rgba(74,222,128,0.5)]" : "text-foreground")}>${alert.token_symbol}</span>
+                              <span className={cn("text-sm font-bold", isNicheTicker(alert) ? "text-green-400 drop-shadow-[0_0_6px_rgba(74,222,128,0.5)]" : "text-orange-400")}>${alert.token_symbol}</span>
                             )}
                             {alert.token_name && (
                               <span className="text-xs text-muted-foreground truncate">{alert.token_name}</span>
