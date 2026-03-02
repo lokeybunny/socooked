@@ -17,7 +17,7 @@ import CustomerUpload from "./pages/CustomerUpload";
 
 import Threads from "./pages/Threads";
 import Invoices from "./pages/Invoices";
-import Templates from "./pages/Templates";
+
 import EmailPage from "./pages/Email";
 import PhonePage from "./pages/Phone";
 import PortalSign from "./pages/portal/PortalSign";
@@ -70,7 +70,7 @@ const App = () => (
             
             <Route path="/threads" element={<Threads />} />
             <Route path="/invoices" element={<Invoices />} />
-            <Route path="/templates" element={<Templates />} />
+            
             <Route path="/messages" element={<EmailPage />} />
             <Route path="/phone" element={<PhonePage />} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />
