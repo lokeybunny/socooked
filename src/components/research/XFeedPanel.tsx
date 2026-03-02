@@ -64,6 +64,7 @@ function formatNum(n: number): string {
 const NOISE_PATTERNS = [
   /\d+\s+News Feed Monitor@🗞️︱news-feeds-sites-monitor\s*→\s*/g,
   /\d+\s+Instagram Monitor@🖼️︱instagram-monitor\s*→\s*/g,
+  /—\s*\d+\s*\|\s*fastest on the market\s*•?/gi,
   /<[^>]*>/g,
   /\s*\|\s*Alphub/gi,
   /Alphub/gi,
