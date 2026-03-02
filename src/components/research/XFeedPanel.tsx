@@ -175,7 +175,7 @@ export function XFeedPanel() {
             {tweets.map((tw) => (
               <article
                 key={tw.id}
-                className="p-3 hover:bg-muted/30 transition-colors group cursor-pointer"
+                className="p-3 hover:bg-muted/30 transition-colors group cursor-pointer relative max-h-[280px] overflow-hidden"
                 onClick={() => window.open(tw.url, '_blank')}
               >
                 <div className="flex gap-2.5">
@@ -210,7 +210,7 @@ export function XFeedPanel() {
                     </div>
 
                     {/* Tweet text */}
-                    <p className="text-sm text-foreground/90 leading-snug line-clamp-3 whitespace-pre-wrap break-words">
+                    <p className="text-sm text-foreground/90 leading-snug line-clamp-6 whitespace-pre-wrap break-words">
                       {tw.text?.replace(/<[^>]*>/g, '')}
                     </p>
 
@@ -259,6 +259,8 @@ export function XFeedPanel() {
                     </div>
                   </div>
                 </div>
+                {/* Fade-out for overflowing cards */}
+                <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-background to-transparent pointer-events-none opacity-0 group-[.overflow-check]:opacity-100" style={{ opacity: 1 }} />
               </article>
             ))}
           </div>
