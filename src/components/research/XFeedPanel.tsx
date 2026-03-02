@@ -68,6 +68,7 @@ const NOISE_PATTERNS = [
   /<[^>]*>/g,
   /\s*\|\s*Alphub/gi,
   /Alphub/gi,
+  /1322/g,
 ];
 
 function cleanTweetText(raw: string | undefined): string {
