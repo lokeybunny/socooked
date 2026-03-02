@@ -64,6 +64,8 @@ function getCategoryColor(cat: string): string {
   return CATEGORY_COLORS[cat] || 'bg-muted text-muted-foreground';
 }
 
+interface LensInfo { id: string; name: string; emoji: string }
+
 export function DiscoveryLab() {
   const [discoveries, setDiscoveries] = useState<Discovery[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,6 +73,7 @@ export function DiscoveryLab() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [evolutionStats, setEvolutionStats] = useState<{ active: boolean; learned: number } | null>(null);
+  const [activeLenses, setActiveLenses] = useState<LensInfo[]>([]);
 
   const hunt = async () => {
     setLoading(true);
@@ -85,11 +88,12 @@ export function DiscoveryLab() {
       if (res.status === 429) { toast.error('Rate limited — try again shortly'); return; }
       if (res.status === 402) { toast.error('AI credits exhausted — top up in Settings'); return; }
       const data = await res.json();
+      if (data.lenses_used) setActiveLenses(data.lenses_used);
       if (data.success && data.discoveries?.length) {
         setDiscoveries(prev => [...data.discoveries, ...prev].slice(0, 50));
         setEvolutionStats({ active: data.evolution_active, learned: data.top_performers_learned || 0 });
-        const evolMsg = data.evolution_active ? ` | 🧬 Learning from ${data.top_performers_learned} top performers` : '';
-        toast.success(`🧠 ${data.discoveries.length} narratives weaponized from ${data.tweets_scanned} tweets${evolMsg}`);
+        const lensNames = (data.lenses_used || []).map((l: LensInfo) => l.emoji).join('');
+        toast.success(`🧠 ${data.discoveries.length} narratives from ${data.tweets_scanned} tweets ${lensNames}`);
       } else {
         toast.error(data.error || 'No discoveries found');
       }
@@ -154,7 +158,7 @@ export function DiscoveryLab() {
           <div>
             <h2 className="text-lg font-black text-foreground tracking-tight">🧠 MEME INTELLIGENCE LAB</h2>
             <p className="text-xs text-muted-foreground">
-              Pre-Viral Narrative Weaponization Engine · 60 Categories
+              Pre-Viral Narrative Weaponization · 6 Rotating Lenses
               {evolutionStats?.active && (
                 <span className="ml-2 text-emerald-400 font-bold">· 🧬 Evolving ({evolutionStats.learned} learned)</span>
               )}
@@ -179,6 +183,18 @@ export function DiscoveryLab() {
         </div>
       </div>
 
+      {/* Active Lenses Strip */}
+      {activeLenses.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase">Active Lenses:</span>
+          {activeLenses.map(l => (
+            <span key={l.id} className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold">
+              {l.emoji} {l.name}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Empty / Loading */}
       {discoveries.length === 0 && !loading && (
         <div className="flex flex-col items-center justify-center py-16 space-y-3 text-center">
@@ -189,7 +205,7 @@ export function DiscoveryLab() {
       {loading && discoveries.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 space-y-3">
           <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-          <p className="text-sm text-muted-foreground">Scanning X for narrative asymmetry...</p>
+          <p className="text-sm text-muted-foreground">Scanning X via rotating lenses...</p>
           <p className="text-xs text-muted-foreground/60">Converting overlooked absurdity into liquidity ignition events</p>
         </div>
       )}

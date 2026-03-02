@@ -21,7 +21,93 @@ const CATEGORIES = [
   "Hyper-Niche Community","Anti-Work Coin","Productivity Shaming","Crypto Detox Parody","Doom Collapse Meme"
 ];
 
-// Extract coin name linguistic pattern (short, punchy, absurd)
+// ═══ 6 SEARCH LENSES ═══
+const LENSES = [
+  {
+    id: 'A',
+    name: 'Builders & Prototypes',
+    emoji: '🔨',
+    queries: [
+      `"i built" (prototype OR demo OR launch OR shipped) min_faves:2`,
+      `"i made" (device OR app OR tool OR gadget) min_faves:2`,
+      `"working on" (prototype OR hardware OR invention) min_faves:2`,
+      `"just shipped" (beta OR v1 OR demo) min_faves:2`,
+      `"open sourced" (tool OR project OR repo) min_faves:2`,
+    ],
+  },
+  {
+    id: 'B',
+    name: 'Why Doesn\'t This Exist?',
+    emoji: '💡',
+    queries: [
+      `"why isn't there" (app OR device OR product) min_faves:2`,
+      `"someone should make" (app OR device OR product) min_faves:2`,
+      `"does this exist" (idea OR app OR tool) min_faves:2`,
+      `"what if we" (app OR device OR product) min_faves:2`,
+      `"idea:" (app OR tool OR device) min_faves:2`,
+    ],
+  },
+  {
+    id: 'C',
+    name: 'Absurd Monetization',
+    emoji: '🤡',
+    queries: [
+      `"dumb idea" (but OR actually) min_faves:2`,
+      `"this is stupid" (but OR yet) min_faves:2`,
+      `"cursed" (invention OR product OR idea) min_faves:2`,
+      `"unhinged" (startup OR product) min_faves:2`,
+      `"cash grab" (product OR app) min_faves:2`,
+    ],
+  },
+  {
+    id: 'D',
+    name: 'Science Headline Bait',
+    emoji: '🧬',
+    queries: [
+      `"researchers" (discover OR create OR invent) min_faves:3`,
+      `"scientists" (discover OR create OR invent) min_faves:3`,
+      `("new material" OR "new battery" OR "new robot") min_faves:3`,
+      `"breakthrough" (device OR material OR method) min_faves:3`,
+    ],
+  },
+  {
+    id: 'E',
+    name: 'Crypto-Adjacent Gimmicks',
+    emoji: '⛓️',
+    queries: [
+      `"wallet" (new OR invented OR prototype) min_faves:2`,
+      `"trading bot" (new OR built OR released) min_faves:2`,
+      `"airdrop" (tool OR checker OR bot) min_faves:2`,
+      `"onchain" (game OR app OR product) min_faves:2`,
+      `"solana" (tool OR experiment OR prototype) min_faves:2`,
+    ],
+  },
+  {
+    id: 'F',
+    name: 'Toilet Humor & Suggestive',
+    emoji: '🚽',
+    queries: [
+      `"toilet" (invention OR device OR startup) min_faves:1`,
+      `"poop" (device OR invention OR product) min_faves:1`,
+      `"butt" (device OR invention) min_faves:1`,
+      `"horny" (startup OR app OR invention) min_faves:1`,
+      `"dating" (gimmick OR device OR experiment) min_faves:1`,
+    ],
+  },
+];
+
+// Auto-kill filters
+const AUTO_KILL_PATTERNS = [
+  /\b(trump|biden|maga|democrat|republican|election|congress|senator)\b/i,
+  /\b(died|killed|shooting|massacre|funeral|r\.?i\.?p)\b/i,
+  /\b(onlyfans|porn|xxx|nsfw|nude|naked)\b/i,
+  /\b(doxx|doxxing|swat|harass)\b/i,
+];
+
+function shouldAutoKill(text: string): boolean {
+  return AUTO_KILL_PATTERNS.some(p => p.test(text));
+}
+
 function extractNamePattern(name: string): string {
   const words = name.trim().split(/\s+/);
   const len = words.length;
@@ -29,6 +115,22 @@ function extractNamePattern(name: string): string {
   const hasNumber = /\d/.test(name);
   const avgWordLen = Math.round(words.reduce((s, w) => s + w.length, 0) / len);
   return `${len}w_${avgWordLen}avg${hasAllCaps ? '_caps' : ''}${hasNumber ? '_num' : ''}`;
+}
+
+// Pick 2-3 lenses per run, rotating based on time
+function pickLenses(maxDegen: boolean): typeof LENSES[number][] {
+  const hour = new Date().getUTCHours();
+  const rotation = Math.floor(hour / 4) % 6; // changes every 4 hours
+  const picks = [
+    LENSES[rotation % 6],
+    LENSES[(rotation + 1) % 6],
+    LENSES[(rotation + 2) % 6],
+  ];
+  // In max degen mode, always include Lens F
+  if (maxDegen && !picks.find(l => l.id === 'F')) {
+    picks[2] = LENSES[5]; // replace 3rd with F
+  }
+  return picks;
 }
 
 serve(async (req) => {
@@ -45,7 +147,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const sb = createClient(supabaseUrl, supabaseKey);
 
-    // ═══ NARRATIVE EVOLUTION ENGINE: Query past top performers ═══
+    // ═══ NARRATIVE EVOLUTION ENGINE ═══
     const { data: topPerformers } = await sb
       .from('narrative_evolution')
       .select('coin_name, ticker, tagline, categories, liquidity_ignition_score, coin_name_pattern, category_blend_key, score_repeatability, score_tribal, score_simplicity, score_shock, score_degen_humor')
@@ -53,14 +155,11 @@ serve(async (req) => {
       .order('liquidity_ignition_score', { ascending: false })
       .limit(15);
 
-    // Analyze learned patterns
     let evolutionContext = '';
     if (topPerformers && topPerformers.length > 0) {
-      // Category blend analysis
       const blendCounts: Record<string, number> = {};
       const namePatterns: Record<string, number> = {};
       const avgScores = { repeatability: 0, tribal: 0, simplicity: 0, shock: 0, degen: 0 };
-      
       for (const tp of topPerformers) {
         const blend = tp.category_blend_key || (tp.categories || []).sort().join('+');
         blendCounts[blend] = (blendCounts[blend] || 0) + 1;
@@ -71,52 +170,29 @@ serve(async (req) => {
         avgScores.shock += tp.score_shock || 0;
         avgScores.degen += tp.score_degen_humor || 0;
       }
-
       const n = topPerformers.length;
       const topBlends = Object.entries(blendCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
       const topPatterns = Object.entries(namePatterns).sort((a, b) => b[1] - a[1]).slice(0, 3);
-
       evolutionContext = `
 ═══ NARRATIVE EVOLUTION ENGINE — LEARNED INTELLIGENCE ═══
-You have ${n} top-performing narratives in memory. LEARN FROM THEM.
-
-TOP PERFORMING CATEGORY BLENDS (use these more):
-${topBlends.map(([k, v]) => `  - ${k} (${v} hits)`).join('\n')}
-
-TOP COIN NAME PATTERNS (follow these linguistic structures):
-${topPatterns.map(([k, v]) => `  - Pattern "${k}" (${v} successes)`).join('\n')}
-
-AVERAGE SCORES OF TOP PERFORMERS (your outputs must EXCEED these):
-  Repeatability: ${(avgScores.repeatability / n).toFixed(1)} | Tribal: ${(avgScores.tribal / n).toFixed(1)} | Simplicity: ${(avgScores.simplicity / n).toFixed(1)} | Shock: ${(avgScores.shock / n).toFixed(1)} | Degen Humor: ${(avgScores.degen / n).toFixed(1)}
-
-EXAMPLE TOP PERFORMERS (study these, don't copy):
-${topPerformers.slice(0, 5).map(tp => `  🪙 ${tp.coin_name} ($${tp.ticker}) — "${tp.tagline}" — Score: ${tp.liquidity_ignition_score}`).join('\n')}
-
-EVOLUTION DIRECTIVES:
-- Each generation MUST be stronger than previous top performers
-- Coin names must be stickier and more absurd than examples above
-- Lore must be tighter (2 sentences max)
-- Taglines must have more punch
-- Prioritize category blends that historically score highest
-- Make it MORE: absurd, concise, cult-like, screenshotable, monetizable
+${n} top-performing narratives in memory.
+TOP CATEGORY BLENDS: ${topBlends.map(([k, v]) => `${k} (${v}x)`).join(', ')}
+TOP NAME PATTERNS: ${topPatterns.map(([k, v]) => `"${k}" (${v}x)`).join(', ')}
+AVG SCORES: Repeat ${(avgScores.repeatability / n).toFixed(1)} | Tribal ${(avgScores.tribal / n).toFixed(1)} | Simple ${(avgScores.simplicity / n).toFixed(1)} | Shock ${(avgScores.shock / n).toFixed(1)} | Degen ${(avgScores.degen / n).toFixed(1)}
+EXAMPLES: ${topPerformers.slice(0, 3).map(tp => `${tp.coin_name} ($${tp.ticker}) — "${tp.tagline}" [${tp.liquidity_ignition_score}]`).join(' | ')}
+Each generation MUST exceed these scores. More absurd. More concise. More cult-like.
 ═══════════════════════════════════════════════════════`;
     }
 
-    // ═══ X SCRAPING ═══
-    const baseQueries = [
-      `("just built" OR "what if someone made" OR "prototype" OR "I invented" OR "startup idea") ("crypto" OR "token" OR "solana" OR "coin") min_faves:5`,
-      `("working on" OR "launching soon" OR "side project") ("web3" OR "memecoin" OR "shitcoin" OR "degenerate") min_faves:3`,
-      `("tokenized" OR "on-chain" OR "mint" OR "pump") ("absurd" OR "stupid" OR "genius" OR "weird" OR "cursed") min_faves:3`,
-    ];
-    const degenQueries = [
-      `("toilet" OR "poop" OR "fart" OR "dating app" OR "adult") ("crypto" OR "token" OR "coin" OR "mint") min_faves:2`,
-      `("embarrassing" OR "stupid idea" OR "cursed" OR "degen") ("built" OR "made" OR "launching" OR "token") min_faves:3`,
-      `("onlyfans" OR "gym bro" OR "therapy" OR "waifu") ("coin" OR "token" OR "crypto" OR "solana") min_faves:2`,
-    ];
-    const queries = max_degeneracy ? [...baseQueries, ...degenQueries] : baseQueries;
+    // ═══ ROTATING LENS SELECTION ═══
+    const activeLenses = pickLenses(max_degeneracy);
+    const lensIds = activeLenses.map(l => l.id);
+    const allQueries = activeLenses.flatMap(l => l.queries);
+    console.log(`[lenses] Active: ${activeLenses.map(l => `${l.emoji} ${l.name}`).join(', ')}`);
 
+    // ═══ X SCRAPING ═══
     const allTweets: any[] = [];
-    for (const query of queries) {
+    for (const query of allQueries) {
       try {
         const apifyRes = await fetch(
           `https://api.apify.com/v2/acts/apidojo~tweet-scraper/run-sync-get-dataset-items?token=${APIFY_TOKEN}`,
@@ -134,7 +210,7 @@ EVOLUTION DIRECTIVES:
     }
 
     if (allTweets.length === 0) {
-      return new Response(JSON.stringify({ success: false, error: 'No tweets found from X scrape' }), {
+      return new Response(JSON.stringify({ success: false, error: 'No tweets found from X scrape', lenses_used: lensIds }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -149,15 +225,18 @@ EVOLUTION DIRECTIVES:
 
     const now = Date.now();
     const filtered = uniqueTweets.filter(t => {
+      const text = t.text || t.full_text || '';
+      // Auto-kill filter
+      if (shouldAutoKill(text)) return false;
       const likes = t.likeCount ?? t.likes ?? t.favoriteCount ?? 0;
       if (likes > 500) return false;
       const createdAt = t.createdAt ? new Date(t.createdAt).getTime() : 0;
       if (createdAt && (now - createdAt) > 48 * 60 * 60 * 1000) return false;
       return true;
-    }).slice(0, 25);
+    }).slice(0, 30);
 
     if (filtered.length === 0) {
-      return new Response(JSON.stringify({ success: false, error: 'No qualifying tweets (under 48h, under 500 likes)' }), {
+      return new Response(JSON.stringify({ success: false, error: 'No qualifying tweets after filters', lenses_used: lensIds }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -172,61 +251,59 @@ EVOLUTION DIRECTIVES:
       created_at: t.createdAt || '',
     }));
 
-    // ═══ AI NARRATIVE GENERATION WITH EVOLUTION CONTEXT ═══
+    // ═══ AI GENERATION ═══
     const systemPrompt = `You are the MEME INTELLIGENCE LAB — a Pre-Viral Narrative Weaponization Engine for Solana PumpFun coin launches.
-
-You identify narrative asymmetry and convert overlooked absurdity into liquidity ignition events.
 
 ${evolutionContext}
 
-NARRATIVE CATEGORIES (classify each discovery into 2-4):
+ACTIVE SEARCH LENSES THIS RUN: ${activeLenses.map(l => `${l.emoji} ${l.name}`).join(', ')}
+
+NARRATIVE CATEGORIES (classify each into 2-4):
 ${CATEGORIES.map((c, i) => `${i+1}. ${c}`).join('\n')}
 
-DETECTION CRITERIA (score each 1-10):
-1. Meme Repeatability: Can this become a format?
-2. Tribal Identity Potential: Will holders form an identity?
-3. Narrative Simplicity: Explainable in 8 words?
-4. Screenshot-Worthiness: Would people screenshot & share?
-5. Shock Value: Does it make you double-take?
-6. Degen Humor Intensity: How hard do degens laugh?
-7. Community Nickname Potential: Natural holder identity?
-8. Phase 1 Pump Velocity: How fast can this catch fire?
-9. Exit Narrative Flexibility: Multiple exit ramps available?
+PUMPFUN DEPLOY SCORE (0-100) — use this exact weighting:
++25 Novelty ("I've never heard this concept")
++20 Meme potential (punchline-able name)
++15 Visual potential (can you thumbnail it?)
++15 Community hook (clear tribe: gamers, gym, devs, moms, degenerates)
++10 Copy/paste lore (can you write 3 tweets instantly?)
++10 Token symbolism (easy ticker + mascot)
++5 Proof signal (prototype/demo/photo/link)
 
-SCORING: 🚀 LIQUIDITY IGNITION SCORE (0-100) weighted by all 9 criteria.
+AUTO-KILL (score 0, exclude from output):
+- Political ragebait
+- Tragedy/death news
+- Explicit sexual content
+- Doxxing/harassment
+
+ALSO SCORE these sub-criteria (1-10 each):
+score_repeatability, score_tribal, score_simplicity, score_screenshot, score_shock, score_degen_humor, score_community_nickname, score_pump_velocity, score_exit_flexibility
 
 For each viable discovery generate ALL of these:
 - coin_name (sticky + viral), ticker (3-5 letters), tagline
 - categories (array of 2-4 category names)
-- lore_origin (EXACTLY 2 sentences, tight, punchy)
+- lore_origin (EXACTLY 2 sentences max)
 - enemy_narrative, community_name, bio_description, pumpfun_description
 - psychological_hook, launch_thread (use \\n), viral_first_post
 - phase1_pump_script, engagement_farming_replies (array of 10)
 - whale_bait_framing, exit_liquidity_narrative, why_stupid_but_runs
 - pump_probability (0-100), failure_risk, amplification_tweak
 
-SELF-IMPROVEMENT PROTOCOL (MANDATORY for every output):
-Before finalizing EACH narrative, run this internal check:
-1. Is the coin name forgettable? → Make it stickier, more absurd
-2. Is lore longer than 2 sentences? → Cut ruthlessly
-3. Can the meme be explained in 8 words? → Simplify until yes
-4. Would degens screenshot this? → If no, increase shock/humor
-5. Is the tagline generic or AI-sounding? → Rewrite with raw energy
-6. Does the community name feel forced? → Make it organic
-7. Is this culturally sharp or generic? → Sharpen until it cuts
-If ANY check fails, REWRITE that element before including in output.
+SELF-IMPROVEMENT PROTOCOL (MANDATORY):
+Before finalizing EACH narrative:
+1. Is coin name forgettable? → Make stickier
+2. Is lore > 2 sentences? → Cut ruthlessly
+3. Can the meme be explained in 8 words? → Simplify
+4. Would degens screenshot this? → If no, increase shock
+5. Is tagline AI-sounding? → Rewrite with raw energy
+6. Is community name forced? → Make it organic
+7. Is this culturally sharp? → Sharpen until it cuts
+If ANY fails, REWRITE before output.
 
-POST-LAUNCH SIMULATION (run for each):
-- Would this actually pump? Rate pump_probability honestly.
-- What kills it? Describe in failure_risk.
-- One tweak that makes it run 2x harder? Put in amplification_tweak.
-- Then refine the output based on simulation insights.
+${max_degeneracy ? 'MAXIMUM DEGENERACY ACTIVE: Weight bodily humor, adult satire, zero utility pride, self-aware scam memes, toilet+crypto hybrids heavily.' : ''}
 
-${max_degeneracy ? 'MAXIMUM DEGENERACY INTELLIGENCE ACTIVE: Heavily weight bodily humor, adult satire, zero utility pride, self-aware scam memes, toilet+crypto hybrids, dating tokenomics, embarrassing monetization.' : ''}
-
-OUTPUT: Return ONLY valid JSON array. Each element has all fields above plus original_tweet_index (0-based), liquidity_ignition_score (0-100), and scores: score_repeatability, score_tribal, score_simplicity, score_screenshot, score_shock, score_degen_humor, score_community_nickname, score_pump_velocity, score_exit_flexibility.
-
-Only include tweets scoring 45+. If none qualify, return [].`;
+OUTPUT: Valid JSON array only. Each element has all fields above plus original_tweet_index (0-based), liquidity_ignition_score (0-100 using PumpFun Deploy Score formula).
+Only include tweets scoring 40+. If none qualify, return [].`;
 
     const aiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -246,16 +323,8 @@ Only include tweets scoring 45+. If none qualify, return [].`;
     });
 
     if (!aiRes.ok) {
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ success: false, error: 'Rate limited — try again in a moment' }), {
-          status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (aiRes.status === 402) {
-        return new Response(JSON.stringify({ success: false, error: 'AI credits exhausted — top up in Settings' }), {
-          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      if (aiRes.status === 429) return new Response(JSON.stringify({ success: false, error: 'Rate limited — try again in a moment' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (aiRes.status === 402) return new Response(JSON.stringify({ success: false, error: 'AI credits exhausted — top up in Settings' }), { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       const errText = await aiRes.text();
       throw new Error(`AI error ${aiRes.status}: ${errText.slice(0, 200)}`);
     }
@@ -274,7 +343,6 @@ Only include tweets scoring 45+. If none qualify, return [].`;
 
     const batchId = crypto.randomUUID();
 
-    // Enrich with tweet data
     const enriched = discoveries.map((d: any, i: number) => {
       const tweetIdx = d.original_tweet_index ?? i;
       const tweet = tweetData[tweetIdx] || tweetData[0];
@@ -314,7 +382,7 @@ Only include tweets scoring 45+. If none qualify, return [].`;
       };
     }).sort((a: any, b: any) => b.liquidity_ignition_score - a.liquidity_ignition_score);
 
-    // ═══ NARRATIVE EVOLUTION: Store results for future learning ═══
+    // ═══ NARRATIVE EVOLUTION: Store ═══
     if (enriched.length > 0) {
       const rows = enriched.map((d: any) => ({
         coin_name: d.coin_name,
@@ -349,8 +417,10 @@ Only include tweets scoring 45+. If none qualify, return [].`;
       success: true,
       discoveries: enriched,
       tweets_scanned: uniqueTweets.length,
+      tweets_after_filter: filtered.length,
       evolution_active: !!(topPerformers && topPerformers.length > 0),
       top_performers_learned: topPerformers?.length || 0,
+      lenses_used: activeLenses.map(l => ({ id: l.id, name: l.name, emoji: l.emoji })),
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
