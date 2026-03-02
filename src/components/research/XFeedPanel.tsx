@@ -64,6 +64,7 @@ function formatNum(n: number): string {
 const NOISE_PATTERNS = [
   /\d+\s+News Feed Monitor@🗞️︱news-feeds-sites-monitor\s*→\s*/g,
   /<[^>]*>/g,
+  /Alphub/gi,
 ];
 
 function cleanTweetText(raw: string | undefined): string {
