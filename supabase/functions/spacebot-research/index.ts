@@ -292,8 +292,46 @@ Deno.serve(async (req) => {
 
         send("progress", { step: 0, label: "Loading NarrativeEdge memory", status: "done", detail: `Loaded ${memory.search_terms.length} X queries, ${memory.past_wins.length} past wins` });
 
+        // ── STEP 0.5: Fetch Top 10 Meta categories (last hour) ──
+        send("progress", { step: 0.5, label: "Loading Top 10 Meta (pump.fun trends)", status: "running", detail: "Querying last hour from channel -1003804658600..." });
+
+        let topMetaCategories: string[] = [];
+        try {
+          const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+          const { data: recentMentions } = await supabase
+            .from("meta_mentions")
+            .select("category_normalized")
+            .gte("created_at", oneHourAgo)
+            .eq("telegram_channel_id", -1003804658600);
+
+          if (recentMentions?.length) {
+            const counts: Record<string, number> = {};
+            for (const m of recentMentions) {
+              const cat = m.category_normalized;
+              counts[cat] = (counts[cat] || 0) + 1;
+            }
+            topMetaCategories = Object.entries(counts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 10)
+              .map(([cat]) => cat);
+          }
+        } catch (err: any) {
+          console.log(`Meta fetch failed: ${err.message}`);
+        }
+
+        // Inject top meta categories as additional search queries to align with pump.fun trends
+        if (topMetaCategories.length > 0) {
+          const metaQueries = topMetaCategories.slice(0, 5).map(cat =>
+            `("pump.fun" OR pumpfun OR memecoin) (${cat})`
+          );
+          // Prepend meta-driven queries so they get priority
+          memory.search_terms = [...new Set([...metaQueries, ...memory.search_terms])].slice(0, 10);
+        }
+
+        send("progress", { step: 0.5, label: "Loading Top 10 Meta (pump.fun trends)", status: "done", detail: topMetaCategories.length > 0 ? `Top meta: ${topMetaCategories.slice(0, 5).join(", ")} — injected ${Math.min(5, topMetaCategories.length)} queries` : "No meta categories in last hour" });
+
         // ── STEP 1: Scrape X/Twitter ──
-        if (runX) send("progress", { step: 1, label: "Scraping X/Twitter via Apify (apidojo/tweet-scraper)", status: "running", detail: `Launching with ${memory.search_terms.length} queries + auto since:24h...` });
+        if (runX) send("progress", { step: 1, label: "Scraping X/Twitter via Apify (apidojo/tweet-scraper)", status: "running", detail: `Launching with ${memory.search_terms.length} queries (incl. meta trends) + auto since:24h...` });
 
         let tweets: any[] = [];
         let apifyError = false;
@@ -557,18 +595,22 @@ RULES:
 - Tier S narratives MUST be rated 8+ automatically.
 - image_gen_prompt MUST be Grok Imagine optimized.`;
 
+        const metaContext = topMetaCategories.length > 0
+          ? `\n=== TOP 10 META CATEGORIES (pump.fun last hour) ===\nThese are the categories people are ACTIVELY BUYING right now on pump.fun. PRIORITIZE narratives matching these:\n${topMetaCategories.map((c, i) => `${i + 1}. ${c}`).join("\n")}\n`
+          : "";
+
         const userMsg = `CYCLE: ${new Date().toISOString()}
 STRICT 24H FILTER ACTIVE — Only Tier S/A/B content shown below.
 
 SCRAPED: ${stats.tweets} tweets (S:${tweetTierCounts.S} A:${tweetTierCounts.A} B:${tweetTierCounts.B}) | ${stats.tokens} tokens | ${stats.enriched} enriched | ${stats.matches} clusters
-
+${metaContext}
 === LIVE PUMP.FUN TOKENS ===
 ${topSummary || "No tokens matched"}
 
 === VIRAL X CHATTER (24h, Tier S/A/B only) ===
 ${tweetThemes.slice(0, 3000) || "No qualifying tweets"}
 
-Classify. Rate. Include tiers. What prints RIGHT NOW?`;
+Classify. Rate. Include tiers. PRIORITIZE narratives that match the Top 10 Meta categories above — those are what people are buying RIGHT NOW.`;
 
         let aiResult: any = null;
         let reasoning = "No AI analysis available";
