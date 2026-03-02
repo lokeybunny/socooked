@@ -152,7 +152,7 @@ export function Sidebar() {
             "text-foreground/70 font-light tracking-[0.15em] uppercase",
             collapsed ? "text-[10px]" : "text-base"
           )}>
-            {collapsed ? "ST" : "STU25"}
+            {collapsed ? "GU" : "GURU"}
           </span>
         </div>
 
