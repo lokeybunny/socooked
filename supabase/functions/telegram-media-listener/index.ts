@@ -1667,10 +1667,31 @@ function buildStructuredPdfWithSignature(clientName: string, email: string, serv
   y -= 8
 
   // If we have the signature image, draw it; otherwise fall back to cursive font
-  const sigImgW = 200
-  const sigImgH = 50
+  // Parse actual pixel dimensions to maintain aspect ratio
+  let sigImgW = 200
+  let sigImgH = 70
+  if (signatureImg && signatureImg[0] === 0xFF && signatureImg[1] === 0xD8) {
+    // Extract JPEG dimensions for aspect ratio
+    let pw = 1, ph = 1
+    let i = 2
+    while (i < signatureImg.length - 8) {
+      if (signatureImg[i] === 0xFF) {
+        const m = signatureImg[i + 1]
+        if (m >= 0xC0 && m <= 0xC3) {
+          ph = (signatureImg[i + 5] << 8) | signatureImg[i + 6]
+          pw = (signatureImg[i + 7] << 8) | signatureImg[i + 8]
+          break
+        }
+        const sl = (signatureImg[i + 2] << 8) | signatureImg[i + 3]
+        i += 2 + sl
+      } else { i++ }
+    }
+    // Scale to fit 200pt wide, preserving aspect ratio
+    sigImgH = Math.round(200 * (ph / pw))
+    if (sigImgH > 100) sigImgH = 100 // cap height
+    if (sigImgH < 30) sigImgH = 30
+  }
   if (signatureImg) {
-    // Place signature image
     lines.push(`q ${sigImgW} 0 0 ${sigImgH} 72 ${y - sigImgH + 20} cm /SigImg Do Q`)
     y -= sigImgH - 10
   } else {
