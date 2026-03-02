@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
-  LogOut, ChevronLeft, Menu, MessageSquare, Receipt, FileCode2,
+  LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
   Target,
 } from 'lucide-react';
@@ -28,7 +28,7 @@ const navItems: NavItem[] = [
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
   { to: '/threads', icon: MessageSquare, label: 'Analyze', highlight: true, divider: ' ' },
   { to: '/content', icon: FileText, label: 'Content', highlight: true },
-  { to: '/templates', icon: FileCode2, label: 'Templates', highlight: true },
+  
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
   
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
