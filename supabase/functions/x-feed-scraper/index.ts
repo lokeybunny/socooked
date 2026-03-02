@@ -26,7 +26,40 @@ Deno.serve(async (req) => {
 
     if (error) throw new Error(`DB query failed: ${error.message}`);
 
-    const tweets = (rows || []).map((tw: any) => ({
+    // For tweets without media, try to fetch OG image from source URL
+    const tweetsToUpdate: { id: string; media_url: string }[] = [];
+    const rowsWithOg = await Promise.all((rows || []).map(async (tw: any) => {
+      if (!tw.media_url && tw.source_url) {
+        try {
+          const ogRes = await fetch(tw.source_url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (compatible; bot)' },
+            redirect: 'follow',
+            signal: AbortSignal.timeout(5000),
+          });
+          if (ogRes.ok) {
+            const html = await ogRes.text();
+            const ogMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+              || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
+              || html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+              || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i);
+            if (ogMatch?.[1]) {
+              tw.media_url = ogMatch[1];
+              tweetsToUpdate.push({ id: tw.id, media_url: ogMatch[1] });
+            }
+          }
+        } catch { /* skip */ }
+      }
+      return tw;
+    }));
+
+    // Persist discovered OG images back to DB (fire-and-forget)
+    if (tweetsToUpdate.length > 0) {
+      Promise.all(tweetsToUpdate.map(u =>
+        supabase.from('x_feed_tweets').update({ media_url: u.media_url }).eq('id', u.id)
+      )).catch(() => {});
+    }
+
+    const tweets = rowsWithOg.map((tw: any) => ({
       id: tw.id,
       text: tw.tweet_text,
       user: tw.author_username,

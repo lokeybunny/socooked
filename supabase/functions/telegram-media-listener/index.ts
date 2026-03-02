@@ -1661,6 +1661,31 @@ Deno.serve(async (req) => {
                 }
               }
 
+              // If still no media, try fetching OG image from source URL
+              if (!tgMediaUrl && sourceUrl) {
+                try {
+                  const ogRes = await fetch(sourceUrl, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; bot)' },
+                    redirect: 'follow',
+                    signal: AbortSignal.timeout(8000),
+                  })
+                  if (ogRes.ok) {
+                    const html = await ogRes.text()
+                    // Extract og:image or twitter:image
+                    const ogMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+                      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
+                      || html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+                      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i)
+                    if (ogMatch?.[1]) {
+                      tgMediaUrl = ogMatch[1]
+                      console.log(`[x-feed] OG image found for ${sourceUrl}: ${tgMediaUrl.slice(0, 80)}`)
+                    }
+                  }
+                } catch (ogErr: any) {
+                  console.log(`[x-feed] OG fetch skipped for ${sourceUrl}: ${ogErr.message?.slice(0, 60)}`)
+                }
+              }
+
               await supabase.from('x_feed_tweets').insert({
                 tweet_text: cleanText || sourceUrl,
                 author_username: authorUsername.replace('@', ''),
