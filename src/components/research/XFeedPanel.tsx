@@ -159,8 +159,8 @@ export function XFeedPanel() {
   const igTweets = useMemo(() => tweets.filter(t => isInstagramPost(t)), [tweets]);
 
   const renderTweetList = (list: Tweet[]) => (
-    <ScrollArea className="flex-1 min-h-0">
-      <div className="divide-y divide-border pb-4">
+    <ScrollArea className="h-full">
+      <div className="divide-y divide-border pb-8">
         {list.map((tw) => (
           <article
             key={tw.id}
@@ -303,14 +303,14 @@ export function XFeedPanel() {
               {igTweets.length > 0 && <span className="text-[10px] text-muted-foreground ml-0.5">{igTweets.length}</span>}
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="x" className="flex-1 min-h-0 mt-0">
+          <TabsContent value="x" className="flex-1 min-h-0 mt-0 overflow-hidden">
             {xTweets.length > 0 ? renderTweetList(xTweets) : (
               <div className="flex-1 flex items-center justify-center p-6">
                 <p className="text-xs text-muted-foreground">No X posts yet</p>
               </div>
             )}
           </TabsContent>
-          <TabsContent value="ig" className="flex-1 min-h-0 mt-0">
+          <TabsContent value="ig" className="flex-1 min-h-0 mt-0 overflow-hidden">
             {igTweets.length > 0 ? renderTweetList(igTweets) : (
               <div className="flex-1 flex items-center justify-center p-6">
                 <p className="text-xs text-muted-foreground">No Instagram posts yet</p>
