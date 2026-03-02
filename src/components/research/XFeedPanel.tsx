@@ -61,6 +61,20 @@ function formatNum(n: number): string {
   return String(n);
 }
 
+const NOISE_PATTERNS = [
+  /\d+\s+News Feed Monitor@🗞️︱news-feeds-sites-monitor\s*→\s*/g,
+  /<[^>]*>/g,
+];
+
+function cleanTweetText(raw: string | undefined): string {
+  if (!raw) return '';
+  let text = raw;
+  for (const p of NOISE_PATTERNS) {
+    text = text.replace(p, '');
+  }
+  return text.trim();
+}
+
 function isInstagramPost(tw: Tweet): boolean {
   const text = (tw.text || '').toLowerCase();
   const user = (tw.user || '').toLowerCase();
@@ -176,7 +190,7 @@ export function XFeedPanel() {
                   </span>
                 </div>
                 <p className="text-sm text-foreground/90 leading-snug line-clamp-6 whitespace-pre-wrap break-words">
-                  {tw.text?.replace(/<[^>]*>/g, '')}
+                  {cleanTweetText(tw.text)}
                 </p>
                 {tw.media_url && (
                   <div className="mt-1.5 rounded-xl overflow-hidden border border-border">
