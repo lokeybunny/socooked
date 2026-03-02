@@ -1519,6 +1519,81 @@ export type Database = {
         }
         Relationships: []
       }
+      narrative_evolution: {
+        Row: {
+          categories: string[]
+          category_blend_key: string | null
+          coin_name: string
+          coin_name_pattern: string | null
+          created_at: string
+          generation_batch: string | null
+          id: string
+          is_top_performer: boolean
+          liquidity_ignition_score: number
+          lore_origin: string | null
+          pump_probability: number | null
+          score_community_nickname: number | null
+          score_degen_humor: number | null
+          score_exit_flexibility: number | null
+          score_pump_velocity: number | null
+          score_repeatability: number | null
+          score_screenshot: number | null
+          score_shock: number | null
+          score_simplicity: number | null
+          score_tribal: number | null
+          tagline: string | null
+          ticker: string
+        }
+        Insert: {
+          categories?: string[]
+          category_blend_key?: string | null
+          coin_name: string
+          coin_name_pattern?: string | null
+          created_at?: string
+          generation_batch?: string | null
+          id?: string
+          is_top_performer?: boolean
+          liquidity_ignition_score?: number
+          lore_origin?: string | null
+          pump_probability?: number | null
+          score_community_nickname?: number | null
+          score_degen_humor?: number | null
+          score_exit_flexibility?: number | null
+          score_pump_velocity?: number | null
+          score_repeatability?: number | null
+          score_screenshot?: number | null
+          score_shock?: number | null
+          score_simplicity?: number | null
+          score_tribal?: number | null
+          tagline?: string | null
+          ticker: string
+        }
+        Update: {
+          categories?: string[]
+          category_blend_key?: string | null
+          coin_name?: string
+          coin_name_pattern?: string | null
+          created_at?: string
+          generation_batch?: string | null
+          id?: string
+          is_top_performer?: boolean
+          liquidity_ignition_score?: number
+          lore_origin?: string | null
+          pump_probability?: number | null
+          score_community_nickname?: number | null
+          score_degen_humor?: number | null
+          score_exit_flexibility?: number | null
+          score_pump_velocity?: number | null
+          score_repeatability?: number | null
+          score_screenshot?: number | null
+          score_shock?: number | null
+          score_simplicity?: number | null
+          score_tribal?: number | null
+          tagline?: string | null
+          ticker?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
