@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star, Globe, Instagram, ExternalLink } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
@@ -53,6 +53,10 @@ export default function PhonePage() {
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null } | null>(null);
+
+  // Analyze lead state
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeResult, setAnalyzeResult] = useState<{ instagram?: string; website?: string; leadId?: string } | null>(null);
 
   // Transcription upload state
   const [dragOver, setDragOver] = useState(false);
@@ -214,10 +218,81 @@ export default function PhonePage() {
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
 
+  // Analyze lead — search for Instagram/website
+  const handleAnalyzeLead = async () => {
+    if (!currentLead) return;
+    setAnalyzing(true);
+    setAnalyzeResult(null);
+
+    try {
+      // Check existing fields first
+      const ig = currentLead.instagram_handle || null;
+      const metaObj = typeof currentLead.meta === 'object' ? currentLead.meta : {};
+      const website = metaObj?.website || metaObj?.url || metaObj?.site || null;
+
+      // If neither exists, try to search via lead-finder or firecrawl
+      if (!ig && !website) {
+        // Try a quick web search for the business
+        const searchName = currentLead.company || currentLead.full_name;
+        const searchLocation = currentLead.address || '';
+        const query = `${searchName} ${searchLocation} instagram OR website`.trim();
+
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+        const res = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/meta-extract`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey,
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({ url: `https://www.google.com/search?q=${encodeURIComponent(searchName + ' website')}`, name: searchName }),
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          const foundWebsite = data?.website || data?.url || data?.data?.website || null;
+          const foundIg = data?.instagram || data?.data?.instagram || null;
+          
+          if (foundWebsite || foundIg) {
+            // Save to customer meta
+            const updatedMeta = { ...metaObj, ...(foundWebsite ? { website: foundWebsite } : {}), ...(foundIg ? { instagram: foundIg } : {}) };
+            await supabase.from('customers').update({ 
+              meta: updatedMeta,
+              ...(foundIg ? { instagram_handle: foundIg } : {}),
+            } as any).eq('id', currentLead.id);
+            
+            setAnalyzeResult({ instagram: foundIg || undefined, website: foundWebsite || undefined, leadId: currentLead.id });
+            setLeads(prev => prev.map(l => l.id === currentLead.id ? { ...l, meta: updatedMeta, instagram_handle: foundIg || l.instagram_handle } : l));
+          } else {
+            setAnalyzeResult({ leadId: currentLead.id });
+            toast('No Instagram or website found for this lead', { icon: '🔍' });
+          }
+        } else {
+          // Fallback: just show what we have
+          setAnalyzeResult({ leadId: currentLead.id });
+          toast('Could not analyze — no results found', { icon: '🔍' });
+        }
+      } else {
+        setAnalyzeResult({ instagram: ig || undefined, website: website || undefined, leadId: currentLead.id });
+      }
+    } catch (err) {
+      console.error('Analyze error:', err);
+      toast.error('Failed to analyze lead');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const handleNextLead = () => {
     if (filteredLeads.length <= 1) return;
     const randomOffset = Math.floor(Math.random() * (filteredLeads.length - 1)) + 1;
     setCurrentLeadIndex(prev => (prev + randomOffset) % filteredLeads.length);
+    setAnalyzeResult(null);
   };
 
   // Filter transcriptions by search query
@@ -548,23 +623,34 @@ export default function PhonePage() {
                   <h2 className="text-lg font-semibold text-foreground">Cold Leads</h2>
                   <Badge variant="secondary" className="text-[10px]">{filteredLeads.length} of {leads.length}</Badge>
                 </div>
-                <div className="w-44">
-                  <Select value={leadsCategoryFilter} onValueChange={v => { setLeadsCategoryFilter(v); setCurrentLeadIndex(0); }}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="All categories" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {SERVICE_CATEGORIES.map(cat => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <span className="flex items-center gap-2">
-                            <cat.icon className="h-3.5 w-3.5" />
-                            {cat.label}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline" size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    disabled={!currentLead || analyzing}
+                    onClick={handleAnalyzeLead}
+                  >
+                    {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                    Analyze
+                  </Button>
+                  <div className="w-44">
+                    <Select value={leadsCategoryFilter} onValueChange={v => { setLeadsCategoryFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="All categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        {SERVICE_CATEGORIES.map(cat => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            <span className="flex items-center gap-2">
+                              <cat.icon className="h-3.5 w-3.5" />
+                              {cat.label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -634,6 +720,32 @@ export default function PhonePage() {
                             </Button>
                           )}
                         </div>
+
+                        {/* Analyze result */}
+                        {analyzeResult && analyzeResult.leadId === lead.id && (
+                          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+                            <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                              <Globe className="h-3.5 w-3.5 text-primary" /> Web Presence
+                            </p>
+                            {analyzeResult.website && (
+                              <a href={analyzeResult.website.startsWith('http') ? analyzeResult.website : `https://${analyzeResult.website}`} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-2 text-xs text-primary hover:underline">
+                                <ExternalLink className="h-3 w-3" />
+                                {analyzeResult.website}
+                              </a>
+                            )}
+                            {analyzeResult.instagram && (
+                              <a href={`https://instagram.com/${analyzeResult.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-2 text-xs text-primary hover:underline">
+                                <Instagram className="h-3 w-3" />
+                                @{analyzeResult.instagram.replace('@', '')}
+                              </a>
+                            )}
+                            {!analyzeResult.website && !analyzeResult.instagram && (
+                              <p className="text-xs text-muted-foreground">No Instagram or website found.</p>
+                            )}
+                          </div>
+                        )}
 
                         {/* Status actions */}
                         <div className="flex items-center gap-1.5 pt-1 border-t border-border">
