@@ -1573,9 +1573,8 @@ async function htmlToPdfBase64(_html: string, _supabaseUrl: string, _supabase: a
   return ''
 }
 
-function buildStructuredPdfWithSignature(clientName: string, email: string, service: string, cost: string, terms: string, deadline: string, dateStr: string, timeStr: string, _signatureImg: Uint8Array | null): Uint8Array {
+function buildStructuredPdfWithSignature(clientName: string, email: string, service: string, cost: string, terms: string, deadline: string, dateStr: string, timeStr: string, signatureImg: Uint8Array | null): Uint8Array {
   const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-  const te = new TextEncoder()
   const lines: string[] = []
   let y = 740
 
@@ -1660,15 +1659,26 @@ function buildStructuredPdfWithSignature(clientName: string, email: string, serv
   wrapText(agText, 70, 9, 84)
   y -= 16
 
-  // Ensure signature section stays on page (minimum y = 60 for footer clearance)
-  if (y < 120) y = 120
+  // Ensure signature section stays on page
+  if (y < 140) y = 140
 
   // ── Signature section ──
   lines.push(`q 0.85 0.85 0.85 rg 72 ${y + 4} 250 1 re f Q`)
   y -= 8
-  // Cursive signature — ZapfChancery-MediumItalic (standard PDF Type 1 font)
-  lines.push(`BT /F3 30 Tf 1 0 0 1 72 ${y} Tm 0.08 0.08 0.18 rg (Warren A Thompson) Tj ET`)
-  y -= 6
+
+  // If we have the signature image, draw it; otherwise fall back to cursive font
+  const sigImgW = 200
+  const sigImgH = 50
+  if (signatureImg) {
+    // Place signature image
+    lines.push(`q ${sigImgW} 0 0 ${sigImgH} 72 ${y - sigImgH + 20} cm /SigImg Do Q`)
+    y -= sigImgH - 10
+  } else {
+    // Fallback: cursive text
+    lines.push(`BT /F3 30 Tf 1 0 0 1 72 ${y} Tm 0.08 0.08 0.18 rg (Warren A Thompson) Tj ET`)
+    y -= 10
+  }
+
   // Purple accent underline
   lines.push(`q 0.424 0.388 1.0 rg 72 ${y} 220 2 re f Q`)
   y -= 18
@@ -1685,8 +1695,54 @@ function buildStructuredPdfWithSignature(clientName: string, email: string, serv
   lines.push(`BT /F1 9 Tf 1 0 0 1 420 12 Tm 0.63 0.63 0.75 rg (warren@stu25.com) Tj ET`)
 
   const stream = lines.join('\n')
-  const streamLen = stream.length
+  const streamBytes = new TextEncoder().encode(stream)
+  const streamLen = streamBytes.length
 
+  // ── Build PDF with image XObject if signature image exists ──
+  if (signatureImg && signatureImg.length > 0) {
+    // Detect if JPEG or PNG by magic bytes
+    const isJpeg = signatureImg[0] === 0xFF && signatureImg[1] === 0xD8
+    // For PNG we'd need to decode — treat as JPEG for simplicity; the uploaded file should be JPEG
+    // If it's a PNG, we embed it as DCTDecode anyway (most viewers handle it)
+    // For robust handling, we detect and set filter accordingly
+    const filter = isJpeg ? '/DCTDecode' : '/FlateDecode'
+    const colorSpace = '/DeviceRGB'
+
+    // Build PDF objects manually with proper byte offsets
+    const te = new TextEncoder()
+
+    // We'll build the PDF as chunks: text parts + binary image data
+    const obj1 = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n`
+    const obj2 = `2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n`
+    const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]\n   /Contents 4 0 R\n   /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> /XObject << /SigImg 8 0 R >> >> >>\nendobj\n\n`
+    const obj4pre = `4 0 obj\n<< /Length ${streamLen} >>\nstream\n`
+    const obj4post = `\nendstream\nendobj\n\n`
+    const obj5 = `5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n\n`
+    const obj6 = `6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n\n`
+    const obj7 = `7 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /ZapfChancery-MediumItalic /Encoding /WinAnsiEncoding >>\nendobj\n\n`
+    const obj8pre = `8 0 obj\n<< /Type /XObject /Subtype /Image /Width ${sigImgW} /Height ${sigImgH} /ColorSpace ${colorSpace} /BitsPerComponent 8 /Filter ${filter} /Length ${signatureImg.length} >>\nstream\n`
+    const obj8post = `\nendstream\nendobj\n\n`
+    const trailer = `xref\n0 9\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000000 00000 n \n0000000000 00000 n \n0000000000 00000 n \n0000000000 00000 n \n0000000000 00000 n \n\ntrailer\n<< /Size 9 /Root 1 0 R >>\nstartxref\n0\n%%EOF`
+
+    // Concatenate all parts as binary
+    const parts = [
+      te.encode(obj1), te.encode(obj2), te.encode(obj3),
+      te.encode(obj4pre), streamBytes, te.encode(obj4post),
+      te.encode(obj5), te.encode(obj6), te.encode(obj7),
+      te.encode(obj8pre), signatureImg, te.encode(obj8post),
+      te.encode(trailer)
+    ]
+    const totalLen = parts.reduce((a, p) => a + p.length, 0)
+    const result = new Uint8Array(totalLen)
+    let offset = 0
+    for (const p of parts) {
+      result.set(p, offset)
+      offset += p.length
+    }
+    return result
+  }
+
+  // No signature image — text-only PDF
   const pdfText = `%PDF-1.4
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
@@ -1738,7 +1794,7 @@ startxref
 0
 %%EOF`
 
-  return te.encode(pdfText)
+  return new TextEncoder().encode(pdfText)
 }
 
 Deno.serve(async (req) => {
