@@ -1441,7 +1441,7 @@ async function processProposalSession(
         },
         body: JSON.stringify({
           to: data.email,
-          subject: `Proposal: ${data.service} — STU25`,
+          subject: `Proposal: ${data.service} - STU25`,
           body: emailBody,
           attachments: [{
             filename: `STU25_Proposal_${data.clientName.replace(/\s+/g, '_')}.pdf`,
