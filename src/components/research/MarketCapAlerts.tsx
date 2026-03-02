@@ -153,10 +153,11 @@ export function MarketCapAlerts() {
           // Show persistent toast for GAINERS (take profit) alerts
           if (newAlert.milestone?.startsWith('TP#')) {
             const sym = newAlert.token_symbol ? `$${newAlert.token_symbol}` : shortenCA(newAlert.ca_address);
+            const pumpUrl = `https://pump.fun/${newAlert.ca_address}`;
             toast(`💰 GAINER: ${sym} hit ${newAlert.milestone}`, {
               description: `CA: ${shortenCA(newAlert.ca_address)} — Take Profit detected!`,
               duration: 60000,
-              action: { label: 'OK', onClick: () => {} },
+              action: { label: '🔗 pump.fun', onClick: () => window.open(pumpUrl, '_blank') },
               style: { borderColor: 'rgba(16,185,129,0.5)', background: 'rgba(16,185,129,0.08)' },
             });
           }
