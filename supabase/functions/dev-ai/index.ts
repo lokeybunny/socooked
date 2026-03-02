@@ -148,8 +148,25 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(10)
 
+      // 5. Fetch recent narratives to AVOID repeats
+      const { data: recentNarratives } = await supabase
+        .from('dev_ai_narratives')
+        .select('token_name, token_symbol, source_platform, narrative')
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      const alreadyGenerated = (recentNarratives || []).map(n => ({
+        name: n.token_name,
+        symbol: n.token_symbol,
+        platform: n.source_platform,
+        snippet: n.narrative?.slice(0, 80),
+      }))
+
       // Build context — include full source URLs for AI to reference
-      const tweetSources = (tweets || []).map(t => ({
+      // Shuffle tweets to reduce bias toward the same top-liked content
+      const shuffled = [...(tweets || [])].sort(() => Math.random() - 0.5)
+
+      const tweetSources = shuffled.map(t => ({
         text: t.tweet_text?.slice(0, 200),
         user: t.author_username,
         engagement: `${t.likes || 0}❤ ${t.retweets || 0}🔁`,
@@ -183,6 +200,7 @@ Deno.serve(async (req) => {
         })),
         findings: findingSources,
         available_source_urls: allSourceUrls.slice(0, 10),
+        already_generated: alreadyGenerated,
       }
 
       // 5. Call AI to generate narrative
@@ -201,7 +219,9 @@ Deno.serve(async (req) => {
 
 Your job: Synthesize the provided context (trending metas, live tweets, market cap alerts, research findings) into ONE ultra-viral Pump.fun-native narrative.
 
-Rules:
+CRITICAL RULES:
+- NEVER repeat a token name, symbol, or concept that appears in the "already_generated" list. You MUST create something COMPLETELY DIFFERENT each time.
+- Draw inspiration from DIFFERENT sources each time — if previous narratives used Instagram, try X or market cap alerts or news events instead.
 - Prioritize GREEN (bullish) meta categories heavily
 - Reference real recently pumping tokens as inspiration (without direct copy)
 - Inject absurd humor, meme energy, and FOMO phrasing
@@ -209,6 +229,7 @@ Rules:
 - Include a source suggestion (X, Instagram, TikTok, or organic)
 - You MUST pick 1-3 real source URLs from the available_source_urls in the context. These are REAL links from X, Instagram, TikTok, or other platforms. Always include at least one source_url.
 - Create an image generation prompt that would make a hilarious, viral meme coin image
+- Be creative and DIVERSE — each generation should feel like a completely new idea from a different corner of the internet
 
 You MUST use the generate_narrative tool to return structured output.`
             },
