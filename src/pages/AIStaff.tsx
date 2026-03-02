@@ -16,7 +16,7 @@ const AGENTS = [
   { id: 'nano-banana', label: 'Nano Banana', role: 'Image AI — Gemini Flash', icon: Palette, color: 'from-yellow-400 to-amber-500', ring: 'ring-yellow-400/30', bg: 'bg-yellow-400/10', text: 'text-yellow-400', pulse: 'bg-yellow-400', connected: true, group: 'clawd' },
   { id: 'gmail-bot', label: 'Telegram', role: 'Bot Command Center — All Activity', icon: Send, color: 'from-[#2AABEE] to-[#229ED9]', ring: 'ring-[#2AABEE]/30', bg: 'bg-[#2AABEE]/10', text: 'text-[#2AABEE]', pulse: 'bg-[#2AABEE]', connected: true, group: 'clawd' },
   { id: 'crm-maintenance', label: 'Main DB', role: 'Lovable.AI db', icon: Brain, color: 'from-indigo-500 to-blue-600', ring: 'ring-indigo-500/30', bg: 'bg-indigo-500/10', text: 'text-indigo-400', pulse: 'bg-indigo-500', connected: true, group: 'standalone' },
-  { id: 'research-finder', label: 'Research Finder', role: 'Research Agent — Coming Soon', icon: Search, color: 'from-teal-500 to-emerald-600', ring: 'ring-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', pulse: 'bg-teal-500', connected: false, group: 'standalone' },
+  { id: 'research-finder', label: 'Research Finder', role: 'Finder Agent — Google / B2B / X', icon: Search, color: 'from-teal-500 to-emerald-600', ring: 'ring-teal-500/30', bg: 'bg-teal-500/10', text: 'text-teal-400', pulse: 'bg-teal-500', connected: true, group: 'standalone' },
 ] as const;
 
 type AgentId = typeof AGENTS[number]['id'];

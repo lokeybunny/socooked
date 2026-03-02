@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const STORAGE_KEY = 'research-loop-state';
 
@@ -89,6 +90,20 @@ export function ResearchLoopProvider({ children }: { children: React.ReactNode }
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/spacebot-research`;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+    // Create bot_task for AI Staff visibility
+    let taskId: string | null = null;
+    try {
+      const { data: taskRow } = await supabase.from('bot_tasks').insert({
+        bot_agent: 'research-finder',
+        title: `X Feed: Live narrative research`,
+        status: 'in_progress',
+        priority: 'medium',
+        description: `Scraping X feed for live narratives`,
+        meta: { source: 'x-feed-scraper', sources: sourcesRef.current },
+      }).select('id').single();
+      taskId = taskRow?.id || null;
+    } catch {}
+
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -144,8 +159,15 @@ export function ResearchLoopProvider({ children }: { children: React.ReactNode }
           } catch { /* skip bad JSON */ }
         }
       }
+      // Mark task completed after successful stream
+      if (taskId) {
+        await supabase.from('bot_tasks').update({ status: 'completed', meta: { source: 'x-feed-scraper', sources: sourcesRef.current } }).eq('id', taskId);
+      }
     } catch (err: any) {
       addLog({ step: 99, label: 'Connection error', status: 'error', detail: err.message || 'Failed to connect', ts: now() });
+      if (taskId) {
+        await supabase.from('bot_tasks').update({ status: 'failed', meta: { source: 'x-feed-scraper', error: err.message } }).eq('id', taskId);
+      }
     } finally {
       generatingRef.current = false;
       setLoopState(prev => ({ ...prev, generating: false }));
