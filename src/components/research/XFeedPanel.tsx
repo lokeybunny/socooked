@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { ExternalLink, Heart, Repeat2, MessageCircle, Eye, Loader2, RefreshCw } from 'lucide-react';
+import { ExternalLink, Heart, Repeat2, MessageCircle, Eye, Loader2, RefreshCw, Rocket } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -263,11 +263,18 @@ export function XFeedPanel() {
                       {formatNum(tw.views)}
                     </span>
                   )}
+                  <button
+                    className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors"
+                    onClick={(e) => { e.stopPropagation(); }}
+                    title="Launch"
+                  >
+                    <Rocket className="h-3.5 w-3.5" />
+                  </button>
                   <a
                     href={tw.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="ml-auto text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
