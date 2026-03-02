@@ -211,7 +211,7 @@ export function XFeedPanel() {
 
                     {/* Tweet text */}
                     <p className="text-sm text-foreground/90 leading-snug line-clamp-3 whitespace-pre-wrap break-words">
-                      {tw.text}
+                      {tw.text?.replace(/<[^>]*>/g, '')}
                     </p>
 
                     {/* Media */}
