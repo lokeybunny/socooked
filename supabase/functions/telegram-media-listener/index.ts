@@ -1633,7 +1633,7 @@ Deno.serve(async (req) => {
             authorDisplayName = (channelPost.sender_chat as any)?.title || (channelPost.from as any)?.first_name || authorUsername
           }
 
-          const cleanText = cpText.replace(urlRegex, '').trim()
+          const cleanText = cpText.replace(urlRegex, '').replace(/<[^>]*>/g, '').trim()
 
           if (cleanText || sourceUrl) {
             const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
