@@ -152,6 +152,20 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
 
     addLog({ step: 1, label: 'Searching', status: 'running', detail: `Industry: ${industry} | Location: ${locationLabel} | Titles: ${TARGET_JOB_TITLES.slice(0, 3).join(', ')}...`, ts: now() });
 
+    // Create bot_task for AI Staff visibility
+    let taskId: string | null = null;
+    try {
+      const { data: taskRow } = await supabase.from('bot_tasks').insert({
+        bot_agent: 'research-finder',
+        title: `B2B: ${industry} in ${locationLabel}`,
+        status: 'in_progress',
+        priority: 'medium',
+        description: `Searching B2B leads: ${industry} in ${locationLabel}`,
+        meta: { source: 'lead-finder', industry, location: locationLabel },
+      }).select('id').single();
+      taskId = taskRow?.id || null;
+    } catch {}
+
     try {
       // Use fetch directly so we can pass AbortController signal
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lead-finder`;
@@ -192,11 +206,17 @@ export function LeadLoopProvider({ children }: { children: React.ReactNode }) {
         totalLeadsFound: prev.totalLeadsFound + found,
         totalNewCreated: prev.totalNewCreated + created,
       }));
+
+      if (taskId) {
+        await supabase.from('bot_tasks').update({ status: 'completed', meta: { source: 'lead-finder', industry, location: locationLabel, found, created } }).eq('id', taskId);
+      }
     } catch (err: any) {
       if (err.name === 'AbortError') {
         addLog({ step: 99, label: 'Stopped', status: 'done', detail: '🛑 Search aborted by user', ts: now() });
+        if (taskId) await supabase.from('bot_tasks').update({ status: 'failed', meta: { source: 'lead-finder', aborted: true } }).eq('id', taskId);
       } else {
         addLog({ step: 99, label: 'Error', status: 'error', detail: err.message || 'Failed', ts: now() });
+        if (taskId) await supabase.from('bot_tasks').update({ status: 'failed', meta: { source: 'lead-finder', error: err.message } }).eq('id', taskId);
       }
     } finally {
       generatingRef.current = false;

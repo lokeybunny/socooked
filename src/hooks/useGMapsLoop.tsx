@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 const STORAGE_KEY = 'gmaps-loop-state';
 
@@ -142,6 +143,20 @@ export function GMapsLoopProvider({ children }: { children: React.ReactNode }) {
 
     addLog({ step: 1, label: 'Searching Google Maps', status: 'running', detail: `"${searchTerm}" in ${location}`, ts: now() });
 
+    // Create bot_task for AI Staff visibility
+    let taskId: string | null = null;
+    try {
+      const { data: taskRow } = await supabase.from('bot_tasks').insert({
+        bot_agent: 'research-finder',
+        title: `GMaps: "${searchTerm}" in ${location}`,
+        status: 'in_progress',
+        priority: 'medium',
+        description: `Searching Google Maps for "${searchTerm}" in ${location}`,
+        meta: { source: 'gmaps-finder', search_term: searchTerm, location },
+      }).select('id').single();
+      taskId = taskRow?.id || null;
+    } catch {}
+
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -188,11 +203,18 @@ export function GMapsLoopProvider({ children }: { children: React.ReactNode }) {
         totalFound: prev.totalFound + found,
         totalNewCreated: prev.totalNewCreated + created,
       }));
+
+      // Update bot_task to completed
+      if (taskId) {
+        await supabase.from('bot_tasks').update({ status: 'completed', meta: { source: 'gmaps-finder', search_term: searchTerm, location, found, created } }).eq('id', taskId);
+      }
     } catch (err: any) {
       if (err.name === 'AbortError') {
         addLog({ step: 99, label: 'Stopped', status: 'done', detail: '🛑 Search aborted by user', ts: now() });
+        if (taskId) await supabase.from('bot_tasks').update({ status: 'failed', meta: { source: 'gmaps-finder', aborted: true } }).eq('id', taskId);
       } else {
         addLog({ step: 99, label: 'Error', status: 'error', detail: err.message || 'Failed', ts: now() });
+        if (taskId) await supabase.from('bot_tasks').update({ status: 'failed', meta: { source: 'gmaps-finder', error: err.message } }).eq('id', taskId);
       }
     } finally {
       abortRef.current = null;
