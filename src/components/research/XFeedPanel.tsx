@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { ExternalLink, Heart, Repeat2, MessageCircle, Eye, Loader2, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 const XIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} fill="currentColor">
@@ -36,7 +37,7 @@ interface Tweet {
 
 const CACHE_KEY = 'x-feed-cache';
 const CACHE_TTL = 10 * 60 * 1000; // 10 min
-const AUTO_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 min
+const DB_POLL_INTERVAL = 30 * 1000; // 30 seconds — lightweight DB read
 
 function getCachedFeed(): { tweets: Tweet[]; ts: number } | null {
   try {
@@ -96,6 +97,43 @@ export function XFeedPanel() {
   const mountedRef = useRef(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Lightweight DB poll — just reads latest rows from x_feed_tweets
+  const pollDb = useCallback(async () => {
+    if (!mountedRef.current) return;
+    try {
+      const { data, error: dbErr } = await supabase
+        .from('x_feed_tweets')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (dbErr || !data?.length) return;
+
+      const mapped: Tweet[] = data.map((r) => ({
+        id: r.id,
+        text: r.tweet_text,
+        user: r.author_username,
+        display_name: r.author_display_name,
+        avatar: r.author_avatar || '',
+        verified: r.verified,
+        gold: r.gold,
+        likes: r.likes,
+        retweets: r.retweets,
+        replies: r.replies,
+        views: r.views,
+        created_at: r.created_at,
+        media_url: r.media_url || '',
+        url: r.source_url || '',
+      }));
+
+      if (!mountedRef.current) return;
+      setTweets(mapped);
+      setCachedFeed(mapped);
+      setLastFetched(new Date());
+    } catch { /* silent */ }
+  }, []);
+
+  // Full scraper fetch — expensive, only on manual refresh
   const fetchFeed = useCallback(async () => {
     if (!mountedRef.current) return;
     setLoading(true);
@@ -117,7 +155,6 @@ export function XFeedPanel() {
       const newTweets = data.tweets || [];
       if (!mountedRef.current) return;
       if (newTweets.length > 0) {
-        // Merge with existing: new tweets first, then existing ones not in new set
         setTweets(prev => {
           const ids = new Set(newTweets.map((t: Tweet) => t.id));
           const kept = prev.filter(t => !ids.has(t.id));
@@ -133,28 +170,27 @@ export function XFeedPanel() {
     }
   }, []);
 
-  // Auto-load on mount + set up recurring refresh
+  // On mount: show cache instantly, then poll DB, then poll every 30s
   useEffect(() => {
     mountedRef.current = true;
     
-    // Load cache first for instant display
     const cached = getCachedFeed();
     if (cached) {
       setTweets(cached.tweets);
       setLastFetched(new Date(cached.ts));
     }
     
-    // Always fetch fresh data
-    fetchFeed();
+    // Initial DB poll (fast, no scraper)
+    pollDb();
     
-    // Auto-refresh every 10 minutes
-    intervalRef.current = setInterval(fetchFeed, AUTO_REFRESH_INTERVAL);
+    // Lightweight 30s interval
+    intervalRef.current = setInterval(pollDb, DB_POLL_INTERVAL);
     
     return () => {
       mountedRef.current = false;
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [fetchFeed]);
+  }, [pollDb]);
 
   const xTweets = useMemo(() => tweets.filter(t => !isInstagramPost(t)), [tweets]);
   const igTweets = useMemo(() => tweets.filter(t => isInstagramPost(t)), [tweets]);
