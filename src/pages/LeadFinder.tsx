@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Search, MapPin, Users, Loader2, ExternalLink, Mail, Phone, Building2, Briefcase, Globe, Linkedin, UserPlus, CheckCircle2 } from 'lucide-react';
+import { Search, MapPin, Users, Loader2, ExternalLink, Mail, Phone, Building2, Briefcase, Globe, Linkedin, UserPlus, CheckCircle2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LeadResult {
@@ -81,6 +81,16 @@ export default function LeadFinder() {
     setSavedLeads(data || []);
     setLoadingSaved(false);
   }, []);
+
+  const handleDeleteLead = async (id: string, name: string) => {
+    const { error } = await supabase.from('customers').delete().eq('id', id);
+    if (error) {
+      toast.error('Failed to delete lead');
+      return;
+    }
+    setSavedLeads(prev => prev.filter(l => l.id !== id));
+    toast.success(`Deleted ${name}`);
+  };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -356,6 +366,7 @@ export default function LeadFinder() {
                           <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden lg:table-cell">Location</th>
                           <th className="text-left py-3 px-4 font-medium text-muted-foreground hidden xl:table-cell">Title</th>
                           <th className="text-left py-3 px-4 font-medium text-muted-foreground">Added</th>
+                          <th className="py-3 px-4 w-10"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -379,6 +390,15 @@ export default function LeadFinder() {
                               <td className="py-3 px-4 text-muted-foreground hidden xl:table-cell">{(meta as any).job_title || '—'}</td>
                               <td className="py-3 px-4 text-muted-foreground text-xs">
                                 {new Date(lead.created_at).toLocaleDateString()}
+                              </td>
+                              <td className="py-3 px-2">
+                                <button
+                                  onClick={() => handleDeleteLead(lead.id, lead.full_name)}
+                                  className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                  title="Delete lead"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
                               </td>
                             </tr>
                           );
