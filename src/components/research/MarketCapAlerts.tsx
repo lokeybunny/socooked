@@ -167,7 +167,13 @@ export function MarketCapAlerts() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // 10-second polling for near-realtime GAINERS monitoring
+    const pollInterval = window.setInterval(() => { loadAlerts(); }, 10_000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(pollInterval);
+    };
   }, [loadAlerts, loadTrending]);
 
   const triggerAudit = async (alert: MarketCapAlert) => {
