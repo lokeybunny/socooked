@@ -7,6 +7,12 @@ import { Loader2, Sparkles, ImageIcon, Copy, RefreshCw, Zap, TrendingUp, Externa
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+interface SourceUrl {
+  url: string;
+  platform: 'x' | 'instagram' | 'tiktok' | 'youtube' | 'web';
+  label: string;
+}
+
 interface NarrativeResult {
   id?: string;
   token_name: string;
@@ -20,6 +26,7 @@ interface NarrativeResult {
   deploy_window: string;
   risk_level?: string;
   image_url?: string;
+  source_urls?: SourceUrl[];
 }
 
 interface Props {
@@ -221,7 +228,7 @@ export function DevAIModal({ open, onOpenChange }: Props) {
                 </div>
 
                 {/* Source */}
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">THE SOURCE</Label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-purple-400">{narrative.source_platform}</span>
@@ -229,6 +236,37 @@ export function DevAIModal({ open, onOpenChange }: Props) {
                       <span className="text-xs text-muted-foreground">— {narrative.source_reasoning}</span>
                     )}
                   </div>
+                  {/* Source URL Buttons */}
+                  {narrative.source_urls && narrative.source_urls.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {narrative.source_urls.map((src, i) => {
+                        const icons: Record<string, { emoji: string; color: string }> = {
+                          x: { emoji: '𝕏', color: 'bg-black text-white dark:bg-white dark:text-black' },
+                          instagram: { emoji: '📸', color: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' },
+                          tiktok: { emoji: '🎵', color: 'bg-black text-white' },
+                          youtube: { emoji: '▶️', color: 'bg-red-600 text-white' },
+                          web: { emoji: '🌐', color: 'bg-muted text-foreground' },
+                        };
+                        const style = icons[src.platform] || icons.web;
+                        return (
+                          <a
+                            key={i}
+                            href={src.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-80",
+                              style.color
+                            )}
+                          >
+                            <span>{style.emoji}</span>
+                            <span className="max-w-[120px] truncate">{src.label}</span>
+                            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* Meta categories */}

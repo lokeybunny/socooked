@@ -8,6 +8,16 @@ const corsHeaders = {
 const LOVABLE_AI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions'
 const BANANA2_MODEL = 'google/gemini-3-pro-image-preview'
 
+function detectPlatform(url: string): string {
+  if (!url) return 'unknown'
+  const u = url.toLowerCase()
+  if (u.includes('x.com') || u.includes('twitter.com')) return 'x'
+  if (u.includes('instagram.com')) return 'instagram'
+  if (u.includes('tiktok.com')) return 'tiktok'
+  if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube'
+  return 'web'
+}
+
 function ok(data: unknown) {
   return new Response(JSON.stringify({ success: true, data }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -138,16 +148,30 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(10)
 
-      // Build context
+      // Build context — include full source URLs for AI to reference
+      const tweetSources = (tweets || []).map(t => ({
+        text: t.tweet_text?.slice(0, 200),
+        user: t.author_username,
+        engagement: `${t.likes || 0}❤ ${t.retweets || 0}🔁`,
+        url: t.source_url || '',
+      }))
+
+      const findingSources = (findings || []).map(f => ({
+        title: f.title,
+        summary: f.summary?.slice(0, 150),
+        url: f.source_url || '',
+      }))
+
+      // Collect all available source URLs
+      const allSourceUrls = [
+        ...tweetSources.filter(t => t.url).map(t => ({ url: t.url, platform: detectPlatform(t.url), label: `@${t.user}` })),
+        ...findingSources.filter(f => f.url).map(f => ({ url: f.url, platform: detectPlatform(f.url), label: f.title?.slice(0, 30) || 'Source' })),
+      ]
+
       const context = {
         green_metas: greenCategories,
         top_metas: topMetas,
-        recent_tweets: (tweets || []).map(t => ({
-          text: t.tweet_text?.slice(0, 200),
-          user: t.author_username,
-          engagement: `${t.likes || 0}❤ ${t.retweets || 0}🔁`,
-          url: t.source_url,
-        })),
+        recent_tweets: tweetSources,
         market_cap_alerts: (alerts || []).map(a => ({
           name: a.token_name || 'Unknown',
           symbol: a.token_symbol || '???',
@@ -157,10 +181,8 @@ Deno.serve(async (req) => {
           has_ig: !!(a.audit_data as any)?.has_instagram,
           has_tt: !!(a.audit_data as any)?.has_tiktok,
         })),
-        findings: (findings || []).map(f => ({
-          title: f.title,
-          summary: f.summary?.slice(0, 150),
-        })),
+        findings: findingSources,
+        available_source_urls: allSourceUrls.slice(0, 10),
       }
 
       // 5. Call AI to generate narrative
@@ -185,6 +207,7 @@ Rules:
 - Inject absurd humor, meme energy, and FOMO phrasing
 - Feel authentic to Pump.fun degen culture
 - Include a source suggestion (X, Instagram, TikTok, or organic)
+- You MUST pick 1-3 real source URLs from the available_source_urls in the context. These are REAL links from X, Instagram, TikTok, or other platforms. Always include at least one source_url.
 - Create an image generation prompt that would make a hilarious, viral meme coin image
 
 You MUST use the generate_narrative tool to return structured output.`
@@ -212,8 +235,9 @@ You MUST use the generate_narrative tool to return structured output.`
                   confidence: { type: 'number', description: 'Confidence score 1-10' },
                   deploy_window: { type: 'string', description: 'When to deploy: NOW, 1-2h, 2-4h, etc.' },
                   risk_level: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH'], description: 'Risk assessment' },
+                  source_urls: { type: 'array', items: { type: 'object', properties: { url: { type: 'string' }, platform: { type: 'string', enum: ['x', 'instagram', 'tiktok', 'youtube', 'web'] }, label: { type: 'string' } }, required: ['url', 'platform', 'label'] }, description: 'Pick 1-3 real source URLs from the available_source_urls in the context that inspired this narrative' },
                 },
-                required: ['token_name', 'token_symbol', 'narrative', 'source_platform', 'meta_categories', 'image_prompt', 'confidence', 'deploy_window'],
+                required: ['token_name', 'token_symbol', 'narrative', 'source_platform', 'meta_categories', 'image_prompt', 'confidence', 'deploy_window', 'source_urls'],
                 additionalProperties: false,
               }
             }
