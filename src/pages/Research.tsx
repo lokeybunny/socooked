@@ -721,11 +721,6 @@ export default function Research() {
           {/* Column 1: Findings count + Market Cap Alerts label */}
           <div className="space-y-2">
             <p className="text-muted-foreground text-lg">{filtered.length} findings</p>
-            {selectedSource === 'x' && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                <TrendingUp className="h-3.5 w-3.5" /> Market Cap Alerts
-              </span>
-            )}
           </div>
 
           {/* Column 2: Actions */}
