@@ -1687,21 +1687,26 @@ Deno.serve(async (req) => {
     // ─── CHANNEL POST: Meta Narrative Channel ───
     if (channelPost && channelPost.chat?.id === META_CHANNEL_ID) {
       const cpText = (channelPost.text || channelPost.caption || '').trim()
+      console.log(`[meta] Channel post received (len=${cpText.length}): ${cpText.slice(0, 100)}`)
       if (cpText && cpText.length > 10) {
-        // Fire-and-forget meta extraction
-        fetch(`${SUPABASE_URL}/functions/v1/meta-extract`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')!}`,
-          },
-          body: JSON.stringify({
-            message: cpText.slice(0, 2000),
-            message_id: String(channelPost.message_id || ''),
-          }),
-        }).catch(e => console.error('[meta] extract error:', e))
-        console.log(`[meta] Forwarded message from channel ${META_CHANNEL_ID} for extraction`)
+        try {
+          const metaRes = await fetch(`${SUPABASE_URL}/functions/v1/meta-extract`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')!}`,
+            },
+            body: JSON.stringify({
+              message: cpText.slice(0, 2000),
+              message_id: String(channelPost.message_id || ''),
+            }),
+          })
+          const metaBody = await metaRes.text()
+          console.log(`[meta] extract response ${metaRes.status}: ${metaBody.slice(0, 200)}`)
+        } catch (e: any) {
+          console.error('[meta] extract error:', e.message || e)
+        }
       }
       return new Response('ok')
     }
