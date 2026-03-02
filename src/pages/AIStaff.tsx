@@ -477,6 +477,22 @@ export default function AIStaff() {
       return merged.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 15);
     }
 
+    if (id === 'research-finder') {
+      const finderTasks = tasks.filter(t => 
+        t.bot_agent === 'research-finder' && (
+          t.title?.toLowerCase()?.includes('lead') ||
+          t.title?.toLowerCase()?.includes('finder') ||
+          t.title?.toLowerCase()?.includes('search') ||
+          t.title?.toLowerCase()?.includes('google maps') ||
+          t.title?.toLowerCase()?.includes('b2b') ||
+          t.title?.toLowerCase()?.includes('yelp') ||
+          t.title?.toLowerCase()?.includes('scrape') ||
+          (t.meta as any)?.results_found !== undefined
+        )
+      );
+      return finderTasks.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 10);
+    }
+
     const botTasks = tasks.filter(t => t.bot_agent === id);
     
     if (id === 'web-designer') {
