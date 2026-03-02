@@ -21,6 +21,7 @@ import { useLeadLoop } from '@/hooks/useLeadLoop';
 import { useYelpLoop } from '@/hooks/useYelpLoop';
 import { useGMapsLoop } from '@/hooks/useGMapsLoop';
 import { XFeedPanel } from '@/components/research/XFeedPanel';
+import { MarketCapAlerts } from '@/components/research/MarketCapAlerts';
 import type { LucideIcon } from 'lucide-react';
 
 /* ── X (Twitter) icon ── */
@@ -717,25 +718,14 @@ export default function Research() {
 
         {/* Controls — 1 row, 2 columns */}
         <div className="grid grid-cols-2 gap-4 items-start">
-          {/* Column 1: Findings count + filters */}
+          {/* Column 1: Findings count + Market Cap Alerts label */}
           <div className="space-y-2">
             <p className="text-muted-foreground text-lg">{filtered.length} findings</p>
-            <div className="flex items-center gap-2">
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-32 h-10 text-base"><SelectValue placeholder="Type" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {FINDING_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-32 h-10 text-base"><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            {selectedSource === 'x' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                <TrendingUp className="h-3.5 w-3.5" /> Market Cap Alerts
+              </span>
+            )}
           </div>
 
           {/* Column 2: Actions */}
@@ -2096,9 +2086,10 @@ export default function Research() {
           </div>
         )}
         </div>
-        {/* X Feed Panel - right side */}
+        {/* X Feed Panel + Market Cap Alerts - right side */}
         {selectedSource === 'x' && (
-          <div className="lg:w-[420px] shrink-0 lg:sticky lg:top-4 lg:self-start" style={{ height: 'calc(380vh - 420px)' }}>
+          <div className="lg:w-[420px] shrink-0 lg:sticky lg:top-4 lg:self-start space-y-4" style={{ height: 'calc(380vh - 420px)' }}>
+            <MarketCapAlerts />
             <XFeedPanel />
           </div>
         )}

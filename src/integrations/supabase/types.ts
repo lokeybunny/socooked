@@ -1303,6 +1303,60 @@ export type Database = {
           },
         ]
       }
+      market_cap_alerts: {
+        Row: {
+          audit_data: Json
+          audit_status: string
+          ca_address: string
+          created_at: string
+          id: string
+          is_j7tracker: boolean
+          media_url: string | null
+          milestone: string
+          milestone_value: number
+          raw_message: string | null
+          source_url: string | null
+          telegram_channel_id: number | null
+          token_name: string | null
+          token_symbol: string | null
+          verdict: string | null
+        }
+        Insert: {
+          audit_data?: Json
+          audit_status?: string
+          ca_address: string
+          created_at?: string
+          id?: string
+          is_j7tracker?: boolean
+          media_url?: string | null
+          milestone?: string
+          milestone_value?: number
+          raw_message?: string | null
+          source_url?: string | null
+          telegram_channel_id?: number | null
+          token_name?: string | null
+          token_symbol?: string | null
+          verdict?: string | null
+        }
+        Update: {
+          audit_data?: Json
+          audit_status?: string
+          ca_address?: string
+          created_at?: string
+          id?: string
+          is_j7tracker?: boolean
+          media_url?: string | null
+          milestone?: string
+          milestone_value?: number
+          raw_message?: string | null
+          source_url?: string | null
+          telegram_channel_id?: number | null
+          token_name?: string | null
+          token_symbol?: string | null
+          verdict?: string | null
+        }
+        Relationships: []
+      }
       meetings: {
         Row: {
           category: string | null
