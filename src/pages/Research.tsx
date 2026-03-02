@@ -2098,7 +2098,7 @@ export default function Research() {
         </div>
         {/* X Feed Panel - right side */}
         {selectedSource === 'x' && (
-          <div className="lg:w-[420px] shrink-0 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-120px)]">
+          <div className="lg:w-[420px] shrink-0 lg:sticky lg:top-4 lg:self-start" style={{ maxHeight: 'calc(100vh - 120px)' }}>
             <XFeedPanel />
           </div>
         )}
