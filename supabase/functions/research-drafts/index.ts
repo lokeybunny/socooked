@@ -19,12 +19,12 @@ Deno.serve(async (req) => {
 
   // 1. Auto-draft: findings older than 24h that are still status='new' → status='drafted'
   //    Skip google-maps and other (B2B) — those persist until manually removed
-  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
   const { data: toDraft, error: draftErr } = await sb
     .from("research_findings")
     .update({ status: "drafted" })
     .eq("status", "new")
-    .lt("created_at", twentyFourHoursAgo)
+    .lt("created_at", fortyEightHoursAgo)
     .not("category", "in", `(${PROTECTED_CATEGORIES.join(",")})`)
     .select("id");
 
