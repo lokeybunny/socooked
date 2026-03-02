@@ -1,0 +1,1 @@
+DELETE FROM x_feed_tweets WHERE tweet_text ILIKE '%1322%' OR raw_message ILIKE '%1322%' OR author_display_name ILIKE '%1322%';
