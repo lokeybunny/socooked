@@ -14,25 +14,32 @@ Deno.serve(async (req) => {
 
   const now = new Date();
 
+  // Categories that should NEVER be auto-drafted or deleted (user-managed only)
+  const PROTECTED_CATEGORIES = ["google-maps", "other"];
+
   // 1. Auto-draft: findings older than 24h that are still status='new' → status='drafted'
+  //    Skip google-maps and other (B2B) — those persist until manually removed
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const { data: toDraft, error: draftErr } = await sb
     .from("research_findings")
     .update({ status: "drafted" })
     .eq("status", "new")
     .lt("created_at", twentyFourHoursAgo)
+    .not("category", "in", `(${PROTECTED_CATEGORIES.join(",")})`)
     .select("id");
 
   const draftedCount = toDraft?.length || 0;
   if (draftErr) console.error("Draft error:", draftErr.message);
 
   // 2. Permanent delete: drafted findings older than 7 days
+  //    Skip google-maps and other (B2B) — those persist until manually removed
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data: toDelete, error: delErr } = await sb
     .from("research_findings")
     .delete()
     .eq("status", "drafted")
     .lt("created_at", sevenDaysAgo)
+    .not("category", "in", `(${PROTECTED_CATEGORIES.join(",")})`)
     .select("id");
 
   const deletedCount = toDelete?.length || 0;
