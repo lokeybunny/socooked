@@ -1895,10 +1895,10 @@ export default function Research() {
                         <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Window</span><span className={cn("font-semibold", rawData.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{rawData.deploy_window}</span></div>
                       )}
                       {rawData.competition && (
-                        <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Comp.</span><span className="text-foreground truncate">{rawData.competition}</span></div>
+                        <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Comp.</span><span className="text-foreground break-words">{rawData.competition}</span></div>
                       )}
                       {rawData.risk && (
-                        <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Risk</span><span className="text-foreground truncate">{rawData.risk}</span></div>
+                        <div className="flex gap-2"><span className="text-muted-foreground w-16 shrink-0">Risk</span><span className="text-foreground break-words">{rawData.risk}</span></div>
                       )}
                     </div>
                   )}
