@@ -44,6 +44,10 @@ function shortenCA(ca: string): string {
   return `${ca.slice(0, 6)}...${ca.slice(-4)}`;
 }
 
+function cleanMessage(text: string): string {
+  return text.replace(/\s*\|\s*Alphub/gi, '').replace(/Alphub/gi, '').trim();
+}
+
 export function MarketCapAlerts() {
   const [alerts, setAlerts] = useState<MarketCapAlert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -313,7 +317,7 @@ export function MarketCapAlerts() {
                   {/* Raw message preview when expanded and no audit */}
                   {isExpanded && alert.audit_status !== 'completed' && alert.raw_message && (
                     <div className="px-3 pb-3 pt-0 border-t border-border/50 overflow-hidden">
-                      <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{alert.raw_message}</p>
+                      <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{cleanMessage(alert.raw_message)}</p>
                     </div>
                   )}
                 </div>
