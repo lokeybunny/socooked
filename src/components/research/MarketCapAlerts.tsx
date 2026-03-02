@@ -390,7 +390,12 @@ export function MarketCapAlerts() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {alert.token_symbol && (
-                              <span className={cn("text-sm font-bold", isNicheTicker(alert) ? "text-green-400 drop-shadow-[0_0_6px_rgba(74,222,128,0.5)]" : "text-orange-400")}>${alert.token_symbol}</span>
+                              <span className={cn("text-sm font-bold", (() => {
+                                const tpMatch = alert.milestone.match(/^TP#(\d+)/);
+                                if (tpMatch && parseInt(tpMatch[1], 10) >= 5) return "text-lime-400 drop-shadow-[0_0_8px_rgba(163,230,53,0.7)]";
+                                if (isNicheTicker(alert)) return "text-green-400 drop-shadow-[0_0_6px_rgba(74,222,128,0.5)]";
+                                return "text-orange-400";
+                              })())}>${alert.token_symbol}</span>
                             )}
                             {alert.token_name && (
                               <span className="text-xs text-muted-foreground truncate">{alert.token_name}</span>
