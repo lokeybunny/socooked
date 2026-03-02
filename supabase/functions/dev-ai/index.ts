@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       // 2. Gather X feed tweets (last 2 hours)
       const { data: tweets } = await supabase
         .from('x_feed_tweets')
-        .select('tweet_text, author_username, likes, retweets, source_url')
+        .select('tweet_text, author_username, likes, retweets, source_url, media_url')
         .gte('created_at', twoHoursAgo)
         .order('likes', { ascending: false })
         .limit(20)
@@ -171,6 +171,7 @@ Deno.serve(async (req) => {
         user: t.author_username,
         engagement: `${t.likes || 0}❤ ${t.retweets || 0}🔁`,
         url: t.source_url || '',
+        media_url: t.media_url || '',
       }))
 
       const findingSources = (findings || []).map(f => ({
@@ -179,11 +180,17 @@ Deno.serve(async (req) => {
         url: f.source_url || '',
       }))
 
-      // Collect all available source URLs
+      // Collect all available source URLs with their media
       const allSourceUrls = [
-        ...tweetSources.filter(t => t.url).map(t => ({ url: t.url, platform: detectPlatform(t.url), label: `@${t.user}` })),
-        ...findingSources.filter(f => f.url).map(f => ({ url: f.url, platform: detectPlatform(f.url), label: f.title?.slice(0, 30) || 'Source' })),
+        ...tweetSources.filter(t => t.url).map(t => ({ url: t.url, platform: detectPlatform(t.url), label: `@${t.user}`, media_url: t.media_url || '' })),
+        ...findingSources.filter(f => f.url).map(f => ({ url: f.url, platform: detectPlatform(f.url), label: f.title?.slice(0, 30) || 'Source', media_url: '' })),
       ]
+
+      // Build a lookup map: source_url → media_url for resolving after AI picks
+      const mediaMap: Record<string, string> = {}
+      for (const s of allSourceUrls) {
+        if (s.url && s.media_url) mediaMap[s.url] = s.media_url
+      }
 
       const context = {
         green_metas: greenCategories,
@@ -289,6 +296,19 @@ You MUST use the generate_narrative tool to return structured output.`
         return fail('Failed to parse AI narrative output', 502)
       }
 
+      // Enrich source_urls with original media from the source posts
+      if (narrative.source_urls && Array.isArray(narrative.source_urls)) {
+        narrative.source_urls = narrative.source_urls.map((s: any) => ({
+          ...s,
+          media_url: mediaMap[s.url] || '',
+        }))
+      }
+
+      // Collect all original media from chosen sources
+      const originalMedia = (narrative.source_urls || [])
+        .map((s: any) => s.media_url)
+        .filter((u: string) => u && u.length > 0)
+
       // Save to DB
       const { data: saved } = await supabase.from('dev_ai_narratives').insert({
         token_name: narrative.token_name,
@@ -311,6 +331,7 @@ You MUST use the generate_narrative tool to return structured output.`
       return ok({
         id: saved?.id,
         ...narrative,
+        original_media: originalMedia,
       })
     }
 
