@@ -71,13 +71,23 @@ function ensureBotCommandsBg(token: string) {
     { command: 'cancel', description: '❌ Cancel active session' },
   ]
 
-  // Fire-and-forget: register commands in background, don't block the response
+  // Fire-and-forget: register commands + ensure webhook accepts channel_post
+  const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/telegram-media-listener`
   const promises = [
     fetch(`${TG_API}${token}/setMyCommands`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ commands: allCommands }),
     }).catch(() => {}),
+    // Re-register webhook with channel_post in allowed_updates
+    fetch(`${TG_API}${token}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: webhookUrl,
+        allowed_updates: ['message', 'callback_query', 'channel_post'],
+      }),
+    }).then(r => r.text()).then(t => console.log('[webhook] setWebhook:', t)).catch(() => {}),
     ...ALLOWED_GROUP_IDS.map(groupId =>
       fetch(`${TG_API}${token}/setMyCommands`, {
         method: 'POST',
