@@ -274,13 +274,13 @@ export function MarketCapAlerts() {
 
                   {/* Expanded audit detail */}
                   {isExpanded && alert.audit_status === 'completed' && Object.keys(auditChecks).length > 0 && (
-                    <div className="px-3 pb-3 pt-0 border-t border-border/50">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mt-2">
+                    <div className="px-3 pb-3 pt-0 border-t border-border/50 overflow-hidden">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 mt-2">
                         {Object.entries(auditChecks).map(([key, check]: [string, any]) => (
                           <div
                             key={key}
                             className={cn(
-                              "px-2 py-1.5 rounded text-[11px] border",
+                              "px-2 py-1.5 rounded text-[11px] border overflow-hidden",
                               check.status === 'green' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
                               check.status === 'yellow' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
                               check.status === 'red' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
@@ -288,12 +288,12 @@ export function MarketCapAlerts() {
                             )}
                           >
                             <div className="font-medium capitalize">{key.replace(/_/g, ' ')}</div>
-                            <div className="opacity-80 text-[10px]">{check.detail}</div>
+                            <div className="opacity-80 text-[10px] break-words whitespace-normal">{check.detail}</div>
                           </div>
                         ))}
                       </div>
                       {alert.audit_data?.reason && (
-                        <p className="mt-2 text-xs text-muted-foreground italic">{alert.audit_data.reason}</p>
+                        <p className="mt-2 text-xs text-muted-foreground italic break-words whitespace-normal">{alert.audit_data.reason}</p>
                       )}
                       {alert.audit_data?.top_holders?.length > 0 && (
                         <div className="mt-2">
@@ -312,8 +312,8 @@ export function MarketCapAlerts() {
 
                   {/* Raw message preview when expanded and no audit */}
                   {isExpanded && alert.audit_status !== 'completed' && alert.raw_message && (
-                    <div className="px-3 pb-3 pt-0 border-t border-border/50">
-                      <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap">{alert.raw_message}</p>
+                    <div className="px-3 pb-3 pt-0 border-t border-border/50 overflow-hidden">
+                      <p className="text-xs text-muted-foreground mt-2 whitespace-pre-wrap break-words overflow-wrap-anywhere" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{alert.raw_message}</p>
                     </div>
                   )}
                 </div>
