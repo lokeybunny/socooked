@@ -21,6 +21,9 @@ const ALLOWED_GROUP_IDS = [-5295903251]
 // Channel ID for X Feed forwarding (PebbleHost bot posts here)
 const X_FEED_CHANNEL_ID = -1003740017231
 
+// Channel ID for Market Cap Alerts
+const MCAP_ALERT_CHANNEL_ID = -1003767278197
+
 // Persistent reply keyboard — always visible to user
 const PERSISTENT_KEYBOARD = {
   keyboard: [
@@ -1589,8 +1592,95 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── CHANNEL POST: X Feed from channel ───
+    // ─── CHANNEL POST: Market Cap Alerts from channel ───
     const channelPost = update.channel_post
+    if (channelPost && channelPost.chat?.id === MCAP_ALERT_CHANNEL_ID) {
+      const cpText = (channelPost.text || channelPost.caption || '').trim()
+      if (cpText) {
+        try {
+          // Look for "crossed" milestone pattern
+          const crossedMatch = cpText.match(/crossed\s*\$?([\d,.]+)\s*k?/i)
+          if (crossedMatch) {
+            // Extract CA (Solana address: base58, 32-44 chars)
+            const caMatch = cpText.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/)
+            const ca = caMatch ? caMatch[0] : ''
+            
+            // Parse milestone value
+            let rawVal = crossedMatch[1].replace(/,/g, '')
+            let milestoneValue = parseFloat(rawVal)
+            // If value looks like "30" or "50" (shorthand for 30k, 50k)
+            if (milestoneValue < 1000) milestoneValue *= 1000
+            
+            // Determine milestone label
+            let milestone = '30k'
+            if (milestoneValue >= 100000) milestone = '100k+'
+            else if (milestoneValue >= 90000) milestone = '90k'
+            else if (milestoneValue >= 80000) milestone = '80k'
+            else if (milestoneValue >= 70000) milestone = '70k'
+            else if (milestoneValue >= 60000) milestone = '60k'
+            else if (milestoneValue >= 50000) milestone = '50k'
+            else if (milestoneValue >= 40000) milestone = '40k'
+            
+            // Extract token name/symbol if present
+            const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
+            const tokenSymbol = symbolMatch ? symbolMatch[1] : null
+            
+            // Check for j7tracker
+            const isJ7Tracker = cpText.toLowerCase().includes('j7tracker')
+            
+            // URLs
+            const urlRegex = /https?:\/\/[^\s<>"')\]]+/gi
+            const urls = (cpText.match(urlRegex) || []) as string[]
+            const sourceUrl = urls[0] || ''
+            
+            if (ca) {
+              // Dedup by CA + milestone within 5 min
+              const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+              const { data: existing } = await supabase.from('market_cap_alerts')
+                .select('id')
+                .eq('ca_address', ca)
+                .eq('milestone', milestone)
+                .gte('created_at', fiveMinAgo)
+                .limit(1)
+              
+              if (!existing || existing.length === 0) {
+                const { data: inserted } = await supabase.from('market_cap_alerts').insert({
+                  ca_address: ca,
+                  token_symbol: tokenSymbol,
+                  milestone,
+                  milestone_value: milestoneValue,
+                  raw_message: cpText.slice(0, 1000),
+                  source_url: sourceUrl,
+                  is_j7tracker: isJ7Tracker,
+                  telegram_channel_id: MCAP_ALERT_CHANNEL_ID,
+                }).select('id').single()
+                
+                console.log(`[mcap] Stored alert: ${ca.slice(0, 8)}... crossed ${milestone} (j7: ${isJ7Tracker})`)
+                
+                // Auto-audit if 50K+ crossed
+                if (milestoneValue >= 50000 && inserted?.id) {
+                  // Fire-and-forget audit
+                  fetch(`${SUPABASE_URL}/functions/v1/moralis-audit`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                      'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+                    },
+                    body: JSON.stringify({ ca_address: ca, alert_id: inserted.id }),
+                  }).catch(e => console.error('[mcap] auto-audit error:', e))
+                }
+              }
+            }
+          }
+        } catch (e: any) {
+          console.error('[mcap] channel parse error:', e)
+        }
+      }
+      return new Response('ok')
+    }
+
+    // ─── CHANNEL POST: X Feed from channel ───
     if (channelPost && channelPost.chat?.id === X_FEED_CHANNEL_ID) {
       const cpText = (channelPost.text || channelPost.caption || '').trim()
       if (cpText) {
@@ -1671,7 +1761,6 @@ Deno.serve(async (req) => {
                   })
                   if (ogRes.ok) {
                     const html = await ogRes.text()
-                    // Extract og:image or twitter:image
                     const ogMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
                       || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
                       || html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
