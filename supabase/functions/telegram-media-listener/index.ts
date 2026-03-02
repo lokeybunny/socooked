@@ -1601,9 +1601,10 @@ Deno.serve(async (req) => {
           // Look for "crossed" milestone pattern
           const crossedMatch = cpText.match(/crossed\s*\$?([\d,.]+)\s*k?/i)
           if (crossedMatch) {
-            // Extract CA (Solana address: base58, 32-44 chars)
-            const caMatch = cpText.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/)
-            const ca = caMatch ? caMatch[0] : ''
+            // Extract CA — check pumpfun/<ca> pattern first, then raw base58
+            const pumpfunMatch = cpText.match(/pumpfun\/([1-9A-HJ-NP-Za-km-z]{32,44})/i)
+            const rawCaMatch = cpText.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/)
+            const ca = pumpfunMatch ? pumpfunMatch[1] : (rawCaMatch ? rawCaMatch[0] : '')
             
             // Parse milestone value
             let rawVal = crossedMatch[1].replace(/,/g, '')
