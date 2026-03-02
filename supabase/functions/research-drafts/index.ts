@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   // Categories that should NEVER be auto-drafted or deleted (user-managed only)
   const PROTECTED_CATEGORIES = ["google-maps", "other"];
 
-  // 1. Auto-draft: findings older than 24h that are still status='new' → status='drafted'
+  // 1. Auto-draft: findings older than 48h that are still status='new' → status='drafted'
   //    Skip google-maps and other (B2B) — those persist until manually removed
   const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
   const { data: toDraft, error: draftErr } = await sb
