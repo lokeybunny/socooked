@@ -48,7 +48,7 @@ const PAGE_2_KEYBOARD = {
     [{ text: '🌐 Web Dev' }, { text: '🍌 Banana' }],
     [{ text: '🍌2️⃣ Banana2' }, { text: '🎬 Higgsfield' }],
     [{ text: '🤖 AI Assistant' }, { text: '📧 Email' }],
-    [{ text: '❌ Cancel' }, { text: '⬅️ Back' }],
+    [{ text: '📝 Proposal' }, { text: '⬅️ Back' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
