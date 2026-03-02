@@ -155,8 +155,14 @@ export function XFeedPanel() {
           <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
             <XIcon className="h-6 w-6 text-muted-foreground" />
           </div>
-          <p className="text-sm text-muted-foreground text-center">Loading live feed…</p>
-          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground text-center">No posts yet</p>
+          <p className="text-xs text-muted-foreground text-center">Posts from the Telegram feed will appear here automatically.</p>
+          <button
+            onClick={fetchFeed}
+            className="mt-1 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Refresh
+          </button>
         </div>
       ) : error && tweets.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-6 gap-3">
