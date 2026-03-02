@@ -207,7 +207,7 @@ export function MarketCapAlerts() {
                     className="p-3 cursor-pointer hover:bg-muted/20 transition-colors"
                     onClick={() => setExpandedId(isExpanded ? null : alert.id)}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 overflow-visible">
                       {/* Milestone badge */}
                       <span className={cn("px-2 py-0.5 rounded text-[11px] font-bold border shrink-0", milestoneColor)}>
                         {alert.milestone}
@@ -253,7 +253,7 @@ export function MarketCapAlerts() {
                       </div>
 
                       {/* Verdict / Audit button */}
-                      <div className="shrink-0 flex items-center gap-2">
+                      <div className="shrink-0 flex items-center gap-2 ml-2 whitespace-nowrap">
                         {alert.audit_status === 'completed' && verdictCfg ? (
                           <span className={cn("flex items-center gap-1 text-xs font-bold", verdictCfg.color)}>
                             <VerdictIcon className="h-4 w-4" />
