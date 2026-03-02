@@ -30,7 +30,7 @@ const navItems: NavItem[] = [
   { to: '/content', icon: FileText, label: 'Content', highlight: true },
   { to: '/templates', icon: FileCode2, label: 'Templates', highlight: true },
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
-  { to: '/landing', icon: Layers, label: 'Landing', highlight: true },
+  
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
   { to: '/research', icon: Target, label: 'Finder', green: true },
   { to: '/projects', icon: FolderKanban, label: 'Projects', highlight: true },
