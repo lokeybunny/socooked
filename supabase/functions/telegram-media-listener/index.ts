@@ -1403,7 +1403,7 @@ async function processProposalSession(
       // Fetch signature image from storage
       let signatureBytes: Uint8Array | null = null
       try {
-        const sigUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/site-assets/branding/warren-signature.png`
+        const sigUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/site-assets/branding/warren-signature.jpg`
         const sigRes = await fetch(sigUrl)
         if (sigRes.ok) {
           signatureBytes = new Uint8Array(await sigRes.arrayBuffer())
@@ -1700,18 +1700,32 @@ function buildStructuredPdfWithSignature(clientName: string, email: string, serv
 
   // ── Build PDF with image XObject if signature image exists ──
   if (signatureImg && signatureImg.length > 0) {
-    // Detect if JPEG or PNG by magic bytes
+    // Detect if JPEG by magic bytes
     const isJpeg = signatureImg[0] === 0xFF && signatureImg[1] === 0xD8
-    // For PNG we'd need to decode — treat as JPEG for simplicity; the uploaded file should be JPEG
-    // If it's a PNG, we embed it as DCTDecode anyway (most viewers handle it)
-    // For robust handling, we detect and set filter accordingly
     const filter = isJpeg ? '/DCTDecode' : '/FlateDecode'
     const colorSpace = '/DeviceRGB'
 
-    // Build PDF objects manually with proper byte offsets
+    // Parse actual JPEG dimensions from SOF marker
+    let imgPixelW = 1024, imgPixelH = 1024
+    if (isJpeg) {
+      let i = 2
+      while (i < signatureImg.length - 8) {
+        if (signatureImg[i] === 0xFF) {
+          const marker = signatureImg[i + 1]
+          // SOF0-SOF3 markers contain dimensions
+          if (marker >= 0xC0 && marker <= 0xC3) {
+            imgPixelH = (signatureImg[i + 5] << 8) | signatureImg[i + 6]
+            imgPixelW = (signatureImg[i + 7] << 8) | signatureImg[i + 8]
+            break
+          }
+          const segLen = (signatureImg[i + 2] << 8) | signatureImg[i + 3]
+          i += 2 + segLen
+        } else { i++ }
+      }
+    }
+
     const te = new TextEncoder()
 
-    // We'll build the PDF as chunks: text parts + binary image data
     const obj1 = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\n`
     const obj2 = `2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\n`
     const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]\n   /Contents 4 0 R\n   /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> /XObject << /SigImg 8 0 R >> >> >>\nendobj\n\n`
@@ -1720,7 +1734,7 @@ function buildStructuredPdfWithSignature(clientName: string, email: string, serv
     const obj5 = `5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n\n`
     const obj6 = `6 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n\n`
     const obj7 = `7 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /ZapfChancery-MediumItalic /Encoding /WinAnsiEncoding >>\nendobj\n\n`
-    const obj8pre = `8 0 obj\n<< /Type /XObject /Subtype /Image /Width ${sigImgW} /Height ${sigImgH} /ColorSpace ${colorSpace} /BitsPerComponent 8 /Filter ${filter} /Length ${signatureImg.length} >>\nstream\n`
+    const obj8pre = `8 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgPixelW} /Height ${imgPixelH} /ColorSpace ${colorSpace} /BitsPerComponent 8 /Filter ${filter} /Length ${signatureImg.length} >>\nstream\n`
     const obj8post = `\nendstream\nendobj\n\n`
     const trailer = `xref\n0 9\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000000 00000 n \n0000000000 00000 n \n0000000000 00000 n \n0000000000 00000 n \n0000000000 00000 n \n\ntrailer\n<< /Size 9 /Root 1 0 R >>\nstartxref\n0\n%%EOF`
 
