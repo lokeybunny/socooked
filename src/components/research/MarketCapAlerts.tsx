@@ -58,6 +58,26 @@ export function MarketCapAlerts() {
   const [filter, setFilter] = useState<string>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ token_name: string; token_symbol: string; milestone: string }>({ token_name: '', token_symbol: '', milestone: '' });
+  const [trendingKeywords, setTrendingKeywords] = useState<Set<string>>(new Set());
+
+  // Load trending keywords from X feed to cross-reference with tickers
+  const loadTrending = useCallback(async () => {
+    const { data } = await supabase
+      .from('x_feed_tweets')
+      .select('tweet_text')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (data?.length) {
+      const allText = data.map(d => (d.tweet_text || '').toLowerCase()).join(' ');
+      // Extract unique words (3+ chars) that appear frequently
+      const words = allText.match(/[a-z]{3,}/g) || [];
+      const freq: Record<string, number> = {};
+      words.forEach(w => { freq[w] = (freq[w] || 0) + 1; });
+      // Keep words mentioned 3+ times as "trending"
+      const trending = new Set(Object.entries(freq).filter(([, c]) => c >= 3).map(([w]) => w));
+      setTrendingKeywords(trending);
+    }
+  }, []);
 
   const loadAlerts = useCallback(async () => {
     const { data } = await supabase
@@ -69,8 +89,27 @@ export function MarketCapAlerts() {
     setLoading(false);
   }, []);
 
+  // Check if a ticker is "niche/trending" based on X feed content
+  const isNicheTicker = useCallback((alert: MarketCapAlert): boolean => {
+    if (trendingKeywords.size === 0) return false;
+    const name = (alert.token_name || '').toLowerCase().replace(/[^a-z]/g, '');
+    const symbol = (alert.token_symbol || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (!name && !symbol) return false;
+    // Check if ticker name or symbol (without $) matches any trending keyword
+    for (const kw of trendingKeywords) {
+      if (kw.length < 4) continue; // skip short common words
+      if (name.includes(kw) || kw.includes(name) || symbol.includes(kw) || kw.includes(symbol)) {
+        // Avoid matching very generic words
+        if (['the', 'and', 'for', 'this', 'that', 'with', 'from', 'have', 'will', 'been', 'token', 'just', 'like', 'more', 'than', 'what', 'when', 'your', 'about', 'some'].includes(kw)) continue;
+        if (name.length >= 3 || symbol.length >= 3) return true;
+      }
+    }
+    return false;
+  }, [trendingKeywords]);
+
   useEffect(() => {
     loadAlerts();
+    loadTrending();
 
     // Realtime subscription for instant updates
     const channel = supabase
@@ -85,7 +124,7 @@ export function MarketCapAlerts() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [loadAlerts]);
+  }, [loadAlerts, loadTrending]);
 
   const triggerAudit = async (alert: MarketCapAlert) => {
     setAuditing(alert.id);
@@ -283,7 +322,7 @@ export function MarketCapAlerts() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {alert.token_symbol && (
-                              <span className="text-sm font-bold text-foreground">${alert.token_symbol}</span>
+                              <span className={cn("text-sm font-bold", isNicheTicker(alert) ? "text-green-400 drop-shadow-[0_0_6px_rgba(74,222,128,0.5)]" : "text-foreground")}>${alert.token_symbol}</span>
                             )}
                             {alert.token_name && (
                               <span className="text-xs text-muted-foreground truncate">{alert.token_name}</span>
