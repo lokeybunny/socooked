@@ -227,6 +227,16 @@ export function MarketCapAlerts() {
                               j7tracker
                             </span>
                           )}
+                          {alert.audit_data?.has_instagram && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-pink-500/20 text-pink-400 border border-pink-500/30">
+                              Instagram
+                            </span>
+                          )}
+                          {alert.audit_data?.has_tiktok && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                              TikTok
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <button
