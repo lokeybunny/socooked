@@ -52,6 +52,19 @@ Deno.serve(async (req) => {
     const hasSocials = !!(meta?.links?.twitter || meta?.links?.telegram || meta?.links?.website ||
       description.includes('t.me/') || description.includes('twitter.com') || description.includes('x.com'))
 
+    // Instagram & TikTok detection from metadata links + description
+    const hasInstagram = !!(
+      meta?.links?.instagram ||
+      description.includes('instagram.com') ||
+      description.includes('ig:') ||
+      description.includes('instagram:')
+    )
+    const hasTikTok = !!(
+      meta?.links?.tiktok ||
+      description.includes('tiktok.com') ||
+      description.includes('tiktok:')
+    )
+
     // Mutable check
     const isMutable = meta?.isMutable ?? meta?.metaplex?.isMutable ?? null
 
@@ -152,6 +165,8 @@ Deno.serve(async (req) => {
       verdict,
       reason,
       is_j7tracker: hasJ7Tracker,
+      has_instagram: hasInstagram,
+      has_tiktok: hasTikTok,
       top_holders: topHoldersList.slice(0, 3).map((h: any) => ({
         address: h.owner || h.address || '',
         pct: parseFloat(h.percentage_relative_to_total_supply || h.percentage || '0'),
