@@ -1719,10 +1719,10 @@ Deno.serve(async (req) => {
               else if (milestoneValue >= 40000) milestone = '40k'
             }
 
-            // URLs
+            // URLs — always ensure a pump.fun link for KOL alerts
             const urlRegex = /https?:\/\/[^\s<>"')\]]+/gi
             const urls = (cpText.match(urlRegex) || []) as string[]
-            const sourceUrl = urls[0] || ''
+            const sourceUrl = urls[0] || `https://pump.fun/${ca}`
 
             // Dedup by CA within 5 min
             const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
