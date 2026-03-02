@@ -16,10 +16,10 @@ const corsHeaders = {
 const TG_API = 'https://api.telegram.org/bot'
 
 // Group IDs the bot should listen in (add more as needed)
-const ALLOWED_GROUP_IDS = [-5295903251, -5291688377]
+const ALLOWED_GROUP_IDS = [-5295903251]
 
-// Group ID for X Feed forwarding (PebbleHost bot posts here)
-const X_FEED_GROUP_ID = -5291688377
+// Channel ID for X Feed forwarding (PebbleHost bot posts here)
+const X_FEED_CHANNEL_ID = -1003740017231
 
 // Persistent reply keyboard — always visible to user
 const PERSISTENT_KEYBOARD = {
@@ -1546,6 +1546,97 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── CHANNEL POST: X Feed from channel ───
+    const channelPost = update.channel_post
+    if (channelPost && channelPost.chat?.id === X_FEED_CHANNEL_ID) {
+      const cpText = (channelPost.text || channelPost.caption || '').trim()
+      if (cpText) {
+        try {
+          const urlRegex = /https?:\/\/[^\s<>"')\]]+/gi
+          const allUrls = (cpText.match(urlRegex) || []) as string[]
+          const sourceUrls = allUrls.filter((u: string) => !u.includes('discord.gg'))
+          const sourceUrl = sourceUrls[0] || ''
+          const mediaExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm']
+          const mediaUrl = sourceUrls.find((u: string) => mediaExts.some(ext => u.toLowerCase().includes(ext))) || ''
+
+          let authorUsername = ''
+          let authorDisplayName = ''
+
+          if (channelPost.forward_origin) {
+            const origin = channelPost.forward_origin as any
+            if (origin.type === 'channel') {
+              authorUsername = origin.chat?.username || origin.chat?.title || ''
+              authorDisplayName = origin.chat?.title || authorUsername
+            } else if (origin.type === 'user') {
+              authorUsername = origin.sender_user?.username || ''
+              authorDisplayName = [origin.sender_user?.first_name, origin.sender_user?.last_name].filter(Boolean).join(' ') || authorUsername
+            }
+          } else if (channelPost.forward_from_chat) {
+            authorUsername = (channelPost.forward_from_chat as any).username || (channelPost.forward_from_chat as any).title || ''
+            authorDisplayName = (channelPost.forward_from_chat as any).title || authorUsername
+          } else if (channelPost.forward_from) {
+            authorUsername = (channelPost.forward_from as any).username || ''
+            authorDisplayName = [(channelPost.forward_from as any).first_name, (channelPost.forward_from as any).last_name].filter(Boolean).join(' ') || authorUsername
+          }
+
+          const twitterHandleMatch = cpText.match(/@(\w{1,15})/) || sourceUrl.match(/(?:twitter\.com|x\.com)\/(\w+)/)
+          if (twitterHandleMatch && !authorUsername) {
+            authorUsername = twitterHandleMatch[1]
+            authorDisplayName = authorDisplayName || authorUsername
+          }
+
+          if (!authorUsername) {
+            authorUsername = (channelPost.from as any)?.username || (channelPost.sender_chat as any)?.username || 'feed'
+            authorDisplayName = (channelPost.sender_chat as any)?.title || (channelPost.from as any)?.first_name || authorUsername
+          }
+
+          const cleanText = cpText.replace(urlRegex, '').trim()
+
+          if (cleanText || sourceUrl) {
+            const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+            const { data: existing } = await supabase.from('x_feed_tweets')
+              .select('id')
+              .eq('raw_message', cpText.slice(0, 500))
+              .gte('created_at', fiveMinAgo)
+              .limit(1)
+
+            if (!existing || existing.length === 0) {
+              let tgMediaUrl = mediaUrl
+              if (!tgMediaUrl && channelPost.photo) {
+                const photos = channelPost.photo as any[]
+                const largest = photos[photos.length - 1]
+                if (largest?.file_id) {
+                  const fileRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_id: largest.file_id }),
+                  })
+                  const fileData = await fileRes.json()
+                  if (fileData.result?.file_path) {
+                    tgMediaUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${fileData.result.file_path}`
+                  }
+                }
+              }
+
+              await supabase.from('x_feed_tweets').insert({
+                tweet_text: cleanText || sourceUrl,
+                author_username: authorUsername.replace('@', ''),
+                author_display_name: authorDisplayName,
+                source_url: sourceUrl,
+                media_url: tgMediaUrl,
+                raw_message: cpText.slice(0, 500),
+              })
+
+              console.log(`[x-feed] Stored channel post from @${authorUsername}: "${(cleanText || sourceUrl).slice(0, 60)}"`)
+            }
+          }
+        } catch (e: any) {
+          console.error('[x-feed] channel parse error:', e)
+        }
+      }
+      return new Response('ok')
+    }
+
     // ─── MESSAGE HANDLING ───
     const message = update.message
     if (!message) return new Response('ok')
@@ -1557,108 +1648,6 @@ Deno.serve(async (req) => {
 
     // In groups, only respond to allowed groups
     if (isGroup && !isAllowedGroup) return new Response('ok')
-
-    // ─── X FEED GROUP: parse forwarded posts into x_feed_tweets ───
-    if (chatId === X_FEED_GROUP_ID && text) {
-      try {
-        // Extract all URLs from the message
-        const urlRegex = /https?:\/\/[^\s<>"')\]]+/gi
-        const allUrls = (text.match(urlRegex) || []) as string[]
-        
-        // Filter out discord.gg links
-        const sourceUrls = allUrls.filter((u: string) => !u.includes('discord.gg'))
-        const sourceUrl = sourceUrls[0] || ''
-        
-        // Extract media URLs (images/videos)
-        const mediaExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm']
-        const mediaUrl = sourceUrls.find((u: string) => mediaExts.some(ext => u.toLowerCase().includes(ext))) || ''
-        
-        // Try to extract author info from the forwarded message
-        let authorUsername = ''
-        let authorDisplayName = ''
-        
-        // Check for forwarded message metadata
-        if (message.forward_origin) {
-          const origin = message.forward_origin as any
-          if (origin.type === 'channel') {
-            authorUsername = origin.chat?.username || origin.chat?.title || ''
-            authorDisplayName = origin.chat?.title || authorUsername
-          } else if (origin.type === 'user') {
-            authorUsername = origin.sender_user?.username || ''
-            authorDisplayName = [origin.sender_user?.first_name, origin.sender_user?.last_name].filter(Boolean).join(' ') || authorUsername
-          }
-        } else if (message.forward_from_chat) {
-          authorUsername = (message.forward_from_chat as any).username || (message.forward_from_chat as any).title || ''
-          authorDisplayName = (message.forward_from_chat as any).title || authorUsername
-        } else if (message.forward_from) {
-          authorUsername = (message.forward_from as any).username || ''
-          authorDisplayName = [(message.forward_from as any).first_name, (message.forward_from as any).last_name].filter(Boolean).join(' ') || authorUsername
-        }
-        
-        // Try to extract X/Twitter handle from the text or URL
-        const twitterHandleMatch = text.match(/@(\w{1,15})/) || sourceUrl.match(/(?:twitter\.com|x\.com)\/(\w+)/)
-        if (twitterHandleMatch && !authorUsername) {
-          authorUsername = twitterHandleMatch[1]
-          authorDisplayName = authorDisplayName || authorUsername
-        }
-        
-        // If still no author, use the sender in the group
-        if (!authorUsername) {
-          authorUsername = (message.from as any)?.username || 'feed'
-          authorDisplayName = [(message.from as any)?.first_name, (message.from as any)?.last_name].filter(Boolean).join(' ') || authorUsername
-        }
-        
-        // Clean the tweet text: remove URLs for cleaner display (keep the text content)
-        const cleanText = text.replace(urlRegex, '').trim()
-        
-        // Only store if there's meaningful content
-        if (cleanText || sourceUrl) {
-          // Check for duplicate by raw_message hash (last 5 min)
-          const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-          const { data: existing } = await supabase.from('x_feed_tweets')
-            .select('id')
-            .eq('raw_message', text.slice(0, 500))
-            .gte('created_at', fiveMinAgo)
-            .limit(1)
-          
-          if (!existing || existing.length === 0) {
-            // Also check for photo/media in the Telegram message itself
-            let tgMediaUrl = mediaUrl
-            if (!tgMediaUrl && message.photo) {
-              const photos = message.photo as any[]
-              const largest = photos[photos.length - 1]
-              if (largest?.file_id) {
-                const fileRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ file_id: largest.file_id }),
-                })
-                const fileData = await fileRes.json()
-                if (fileData.result?.file_path) {
-                  tgMediaUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${fileData.result.file_path}`
-                }
-              }
-            }
-            
-            await supabase.from('x_feed_tweets').insert({
-              tweet_text: cleanText || sourceUrl,
-              author_username: authorUsername.replace('@', ''),
-              author_display_name: authorDisplayName,
-              source_url: sourceUrl,
-              media_url: tgMediaUrl,
-              raw_message: text.slice(0, 500),
-            })
-            
-            console.log(`[x-feed] Stored tweet from @${authorUsername}: "${(cleanText || sourceUrl).slice(0, 60)}"`)
-          }
-        }
-      } catch (e: any) {
-        console.error('[x-feed] parse error:', e)
-      }
-      // Don't return — let the message continue through normal group flow
-      // so other group features still work
-      return new Response('ok')
-    }
 
     // ─── IG DM Reply: only check in private chats with reply-to ───
     if (text && !isGroup && message.reply_to_message) {
