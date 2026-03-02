@@ -1002,7 +1002,7 @@ export default function Research() {
                 xTab === 'discovery' ? "bg-emerald-500/10 text-emerald-400 shadow-sm border border-emerald-500/20" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              🔥 Discovery Lab
+              🧠 Meme Intelligence Lab
             </button>
           </div>
         )}
