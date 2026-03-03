@@ -2459,7 +2459,9 @@ Deno.serve(async (req) => {
               // Only accept pump.fun tokens (CA ends with "pump")
               if (!ca.toLowerCase().endsWith('pump')) {
                 console.log(`[gainers] Skipping non-pump CA: ${ca.slice(0, 8)}...`)
-              } else {
+                return new Response('ok')
+              }
+              {
               // Extract token symbol if present
               const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
               let tokenSymbol = symbolMatch ? symbolMatch[1] : null
@@ -2558,7 +2560,7 @@ Deno.serve(async (req) => {
                   }
                 }
               }
-              } // end pump filter else
+              } // end pump filter block
             }
           }
         } catch (e: any) {
