@@ -157,6 +157,24 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ─── Check if Top Gainer alerts are muted ───
+    if (entry.entity_type === "top_gainer") {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, serviceKey);
+      const { data: muteRows } = await supabase.from("webhook_events")
+        .select("payload")
+        .eq("source", "telegram").eq("event_type", "top_gainer_mute")
+        .limit(1);
+      if (muteRows && muteRows.length > 0 && (muteRows[0].payload as any)?.muted === true) {
+        console.log("[telegram-notify] Top Gainer alerts muted — skipping");
+        return new Response(
+          JSON.stringify({ success: true, skipped: "top_gainer_muted" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const message = formatMessage(entry);
     console.log(`[telegram-notify] entity=${entry.entity_type} action=${entry.action} message_preview=${message.substring(0, 80)}`);
 
