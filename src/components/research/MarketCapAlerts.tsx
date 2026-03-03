@@ -235,7 +235,17 @@ export function MarketCapAlerts() {
       });
       return Array.from(caMap.values());
     }
-    if (filter === 'top-gainers') return topGainers;
+    if (filter === 'top-gainers') {
+      const caMap = new Map<string, typeof topGainers[0]>();
+      topGainers.forEach(a => {
+        const existing = caMap.get(a.ca_address);
+        if (!existing) { caMap.set(a.ca_address, a); return; }
+        const curTP = parseInt(a.milestone.match(/^TP#(\d+)/)?.[1] || '0', 10);
+        const exTP = parseInt(existing.milestone.match(/^TP#(\d+)/)?.[1] || '0', 10);
+        if (curTP > exTP) caMap.set(a.ca_address, a);
+      });
+      return Array.from(caMap.values());
+    }
     return alerts;
   }, [alerts, filter, topGainers]);
 
@@ -342,7 +352,7 @@ export function MarketCapAlerts() {
         >
           <Zap className="h-3 w-3" />
           TOP GAINERS
-          <span className="ml-0.5 opacity-60">{topGainers.length}</span>
+          <span className="ml-0.5 opacity-60">{new Set(topGainers.map(a => a.ca_address)).size}</span>
         </button>
       </div>
 
