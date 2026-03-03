@@ -2236,7 +2236,24 @@ Deno.serve(async (req) => {
             
             // Extract token name/symbol if present
             const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
-            const tokenSymbol = symbolMatch ? symbolMatch[1] : null
+            let tokenSymbol = symbolMatch ? symbolMatch[1] : null
+
+            // If no ticker found in text, try DexScreener API lookup
+            if (!tokenSymbol && ca) {
+              try {
+                const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
+                if (dexRes.ok) {
+                  const dexData = await dexRes.json()
+                  const pair = dexData?.pairs?.[0]
+                  if (pair?.baseToken?.symbol) {
+                    tokenSymbol = pair.baseToken.symbol
+                    console.log(`[mcap] DexScreener resolved ticker: $${tokenSymbol} for ${ca.slice(0, 8)}...`)
+                  }
+                }
+              } catch (e) {
+                console.log(`[mcap] DexScreener lookup failed for ${ca.slice(0, 8)}...`)
+              }
+            }
             
             // Check for j7tracker
             const isJ7Tracker = cpText.toLowerCase().includes('j7tracker')
@@ -2421,7 +2438,24 @@ Deno.serve(async (req) => {
               } else {
               // Extract token symbol if present
               const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
-              const tokenSymbol = symbolMatch ? symbolMatch[1] : null
+              let tokenSymbol = symbolMatch ? symbolMatch[1] : null
+
+              // If no ticker found in text, try DexScreener API lookup
+              if (!tokenSymbol) {
+                try {
+                  const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
+                  if (dexRes.ok) {
+                    const dexData = await dexRes.json()
+                    const pair = dexData?.pairs?.[0]
+                    if (pair?.baseToken?.symbol) {
+                      tokenSymbol = pair.baseToken.symbol
+                      console.log(`[gainers] DexScreener resolved ticker: $${tokenSymbol} for ${ca.slice(0, 8)}...`)
+                    }
+                  }
+                } catch (e) {
+                  console.log(`[gainers] DexScreener lookup failed for ${ca.slice(0, 8)}...`)
+                }
+              }
               
               // Extract token name from text (common patterns)
               const nameMatch = cpText.match(/(?:name|token|coin)[:\s]+([A-Za-z0-9 ]+)/i)
