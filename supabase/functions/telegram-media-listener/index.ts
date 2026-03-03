@@ -16,7 +16,7 @@ const corsHeaders = {
 const TG_API = 'https://api.telegram.org/bot'
 
 // Group IDs the bot should listen in (add more as needed)
-const ALLOWED_GROUP_IDS = [-5295903251]
+const ALLOWED_GROUP_IDS = [-5295903251, -1003862520317]
 
 // Channel ID for X Feed forwarding (PebbleHost bot posts here)
 const X_FEED_CHANNEL_ID = -1003740017231
