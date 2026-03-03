@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive, Briefcase, Globe, Building2, Mail, Phone, Linkedin, Users, ImageIcon, Sparkles, Flame } from 'lucide-react';
+import { Plus, Search, ExternalLink, UserPlus, Copy, Trash2, RefreshCw, MapPin, Instagram, Star, ChevronLeft, Activity, Zap, CheckCircle2, Loader2, AlertCircle, Terminal, Brain, TrendingUp, Target, Play, Music, Eye, Archive, Briefcase, Globe, Building2, Mail, Phone, Linkedin, Users, ImageIcon, Sparkles, Flame, Rocket } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -1863,13 +1863,35 @@ export default function Research() {
                   <Brain className="h-3 w-3 text-primary shrink-0" />
                   <span className="text-[10px] text-muted-foreground truncate min-w-0">{format(new Date(f.created_at), 'M/d h:mma')}</span>
                   {rating !== null && (
-                    <span className={cn(
-                      "text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-auto shrink-0",
-                      rating >= 8 ? "bg-primary/20 text-primary" :
-                      rating >= 6 ? "bg-accent/20 text-accent-foreground" :
-                      "bg-muted text-muted-foreground"
-                    )}>
-                      {rating}/10
+                    <span className="ml-auto flex items-center gap-1 shrink-0">
+                      <button
+                        className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/15 rounded p-0.5 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const meta = {
+                            name: rawData?.name || f.title,
+                            symbol: rawData?.symbol || '',
+                            image: narrativeImage || null,
+                            description: rawData?.rating_justification || f.summary || null,
+                            twitter: rawData?.twitter_source_url || f.source_url || null,
+                            website: null,
+                            telegram: null,
+                          };
+                          const encodedMetadata = encodeURIComponent(JSON.stringify(meta));
+                          window.open(`flt://tokens/upsert?token_metadata=${encodedMetadata}`, '_blank');
+                        }}
+                        title="Launch in FLT"
+                      >
+                        <Rocket className="h-3 w-3" />
+                      </button>
+                      <span className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                        rating >= 8 ? "bg-primary/20 text-primary" :
+                        rating >= 6 ? "bg-accent/20 text-accent-foreground" :
+                        "bg-muted text-muted-foreground"
+                      )}>
+                        {rating}/10
+                      </span>
                     </span>
                   )}
                 </div>
