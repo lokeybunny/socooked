@@ -241,9 +241,33 @@ export function XFeedPanel() {
                     </svg>
                   )}
                   <span className="text-xs text-muted-foreground truncate">@{tw.user}</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                    {tw.created_at ? formatDistanceToNow(new Date(tw.created_at), { addSuffix: false }) : ''}
-                  </span>
+                  {(() => {
+                    const score = extractScore(tw.text);
+                    const meta = extractTokenMeta(tw);
+                    return (
+                      <span className="ml-auto flex items-center gap-1 shrink-0">
+                        {score && (
+                          <>
+                            <button
+                              className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/15 rounded p-0.5 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const encodedMetadata = encodeURIComponent(JSON.stringify(meta));
+                                window.open(`flt://tokens/upsert?token_metadata=${encodedMetadata}`, '_blank');
+                              }}
+                              title="Launch in FLT"
+                            >
+                              <Rocket className="h-3 w-3" />
+                            </button>
+                            <span className="text-[10px] font-bold text-amber-400">{score}</span>
+                          </>
+                        )}
+                        <span className="text-[10px] text-muted-foreground">
+                          {tw.created_at ? formatDistanceToNow(new Date(tw.created_at), { addSuffix: false }) : ''}
+                        </span>
+                      </span>
+                    );
+                  })()}
                 </div>
                 <p className="text-sm text-foreground/90 leading-snug whitespace-pre-wrap break-words">
                   {cleanTweetText(tw.text)}
@@ -278,29 +302,6 @@ export function XFeedPanel() {
                       {formatNum(tw.views)}
                     </span>
                   )}
-                  {(() => {
-                    const score = extractScore(tw.text);
-                    const meta = extractTokenMeta(tw);
-                    return (
-                      <span className="ml-auto flex items-center gap-1">
-                        <button
-                          className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/15 rounded p-0.5 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const encodedMetadata = encodeURIComponent(JSON.stringify(meta));
-                            const fltUrl = `flt://tokens/upsert?token_metadata=${encodedMetadata}`;
-                            window.open(fltUrl, '_blank');
-                          }}
-                          title="Launch in FLT"
-                        >
-                          <Rocket className="h-3.5 w-3.5" />
-                        </button>
-                        {score && (
-                          <span className="text-[11px] font-bold text-amber-400">{score}</span>
-                        )}
-                      </span>
-                    );
-                  })()}
                   <a
                     href={tw.url}
                     target="_blank"
