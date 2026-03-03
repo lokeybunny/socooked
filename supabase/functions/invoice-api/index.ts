@@ -482,6 +482,8 @@ Deno.serve(async (req) => {
     const botSecret = req.headers.get('x-bot-secret')
     const authHeader = req.headers.get('authorization')
 
+    console.log(`[invoice-api-auth] bot-secret-present=${!!botSecret} bot-secret-length=${botSecret?.length} auth-header-present=${!!authHeader}`)
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, serviceKey)
@@ -490,6 +492,7 @@ Deno.serve(async (req) => {
 
     if (botSecret) {
       const expectedSecret = Deno.env.get('BOT_SECRET')
+      console.log(`[invoice-api-auth] bot-secret match=${botSecret === expectedSecret} expected-length=${expectedSecret?.length}`)
       if (!expectedSecret) return fail('BOT_SECRET not configured', 500)
       if (botSecret !== expectedSecret) return fail('Invalid bot secret', 401)
       authorized = true
@@ -500,9 +503,13 @@ Deno.serve(async (req) => {
       const token = authHeader.replace('Bearer ', '')
       const { data: { user }, error } = await userClient.auth.getUser(token)
       if (!error && user) authorized = true
+      else console.log(`[invoice-api-auth] JWT auth failed: ${error?.message}`)
     }
 
-    if (!authorized) return fail('Unauthorized', 401)
+    if (!authorized) {
+      console.log(`[invoice-api-auth] REJECTED`)
+      return fail('Unauthorized', 401)
+    }
 
     const url = new URL(req.url)
     const path = url.pathname.split('/').pop()
