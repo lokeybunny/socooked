@@ -2732,7 +2732,12 @@ Deno.serve(async (req) => {
     }
 
     // ─── MESSAGE HANDLING ───
-    const message = update.message
+    // Bridge: treat channel_post from allowed groups as a regular message
+    const message = update.message || (
+      update.channel_post && ALLOWED_GROUP_IDS.includes(update.channel_post.chat?.id)
+        ? update.channel_post
+        : null
+    )
     if (!message) return new Response('ok')
 
     const chatId = message.chat.id
