@@ -82,7 +82,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'higs', description: '🎬 Higgsfield model list' },
     { command: 'cancel', description: '❌ Cancel active session' },
     { command: 'proposal', description: '📝 Create & send a proposal' },
-    { command: 'gains', description: '⚡ Toggle TP8 gain alerts on/off' },
+    { command: 'gains', description: '⚡ Toggle TP10 gain alerts on/off' },
   ]
 
   // Fire-and-forget: register commands + ensure webhook accepts channel_post
@@ -2451,7 +2451,7 @@ Deno.serve(async (req) => {
           if (tpMatch) {
             const tpNumber = parseInt(tpMatch[1])
 
-            // Track ALL TPs (TP#1+) — visual urgency scales at TP#5+ and TP#8+
+            // Track ALL TPs (TP#1+) — visual urgency scales at TP#5+ and TP#10+
             // No hard gate — every TP is stored for full progression tracking
             
             // Extract CA — check pumpfun/<ca> pattern first, then raw base58
@@ -2508,7 +2508,7 @@ Deno.serve(async (req) => {
                 .limit(1)
               
               if (!existing || existing.length === 0) {
-                const isTopGainer = tpNumber >= 8
+                const isTopGainer = tpNumber >= 10
                 const { data: insertedAlert, error: insertErr } = await supabase.from('market_cap_alerts').upsert({
                   ca_address: ca,
                   token_symbol: tokenSymbol,
@@ -2532,8 +2532,8 @@ Deno.serve(async (req) => {
                 }
                 console.log(`[gainers] Stored TP#${tpNumber} alert: ${ca.slice(0, 8)}...`)
 
-                // Send CA to Discord webhook for TP#8+ alerts
-                if (tpNumber >= 8) {
+                // Send CA to Discord webhook for TP#10+ alerts
+                if (tpNumber >= 10) {
                   const discordWebhookUrl = Deno.env.get('DISCORD_TP8_WEBHOOK_URL')
                   if (discordWebhookUrl) {
                     try {
@@ -2549,7 +2549,7 @@ Deno.serve(async (req) => {
                       console.error(`[gainers] Discord webhook error:`, discordErr.message)
                     }
                   }
-                  // Auto-trigger full Moralis audit for TP8+ (Top Gainers)
+                  // Auto-trigger full Moralis audit for TP10+ (Top Gainers)
                   if (isTopGainer && insertedAlert?.id) {
                     try {
                       const auditUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/moralis-audit`
@@ -2977,7 +2977,7 @@ Deno.serve(async (req) => {
         const statusText = newEnabled ? 'ON' : 'OFF'
         await tgPost(TG_TOKEN, 'sendMessage', {
           chat_id: chatId,
-          text: `${statusEmoji} <b>TP8 Gain Alerts: ${statusText}</b>\n\nType /gains again to toggle.`,
+          text: `${statusEmoji} <b>TP10 Gain Alerts: ${statusText}</b>\n\nType /gains again to toggle.`,
           parse_mode: 'HTML',
         })
       } catch (e: any) {
