@@ -2557,8 +2557,7 @@ Deno.serve(async (req) => {
                   const discordWebhookUrl = Deno.env.get('DISCORD_TP8_WEBHOOK_URL')
                   if (discordWebhookUrl) {
                     try {
-                      const sym = tokenSymbol ? `$${tokenSymbol}` : ''
-                      const discordMsg = sym ? `${ca} ${sym} TP#${tpNumber}` : `${ca} TP#${tpNumber}`
+                      const discordMsg = ca
                       await fetch(discordWebhookUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
