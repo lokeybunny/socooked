@@ -2,8 +2,9 @@
  * Moralis Light Audit
  * 
  * Triggered on every new market_cap_alerts INSERT.
- * Does a quick metadata-only fetch to check for j7tracker, Instagram, TikTok.
+ * Does a quick metadata-only fetch + RugCheck bundle check.
  * If j7tracker is found → triggers full moralis-audit automatically.
+ * If bundled (insiders detected) → marks verdict as red.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -20,7 +21,6 @@ Deno.serve(async (req) => {
     const MORALIS_API_KEY = Deno.env.get('MORALIS_API_KEY')
     if (!MORALIS_API_KEY) throw new Error('MORALIS_API_KEY not configured')
 
-    // Accept both direct calls and trigger payloads
     const body = await req.json()
     const record = body.record || body
     const ca_address = record.ca_address
@@ -34,39 +34,60 @@ Deno.serve(async (req) => {
 
     console.log(`[light-audit] Checking ${ca_address} (alert: ${alert_id})`)
 
-    // Quick metadata-only fetch
-    const headers = { 'X-API-Key': MORALIS_API_KEY, 'Accept': 'application/json' }
-    const metaRes = await fetch(
-      `https://solana-gateway.moralis.io/token/mainnet/${ca_address}/metadata`,
-      { headers }
-    ).catch(() => null)
+    // Parallel fetch: Moralis metadata + RugCheck report
+    const moralisHeaders = { 'X-API-Key': MORALIS_API_KEY, 'Accept': 'application/json' }
+    
+    const [metaRes, rugcheckRes] = await Promise.all([
+      fetch(
+        `https://solana-gateway.moralis.io/token/mainnet/${ca_address}/metadata`,
+        { headers: moralisHeaders }
+      ).catch(() => null),
+      fetch(
+        `https://api.rugcheck.xyz/v1/tokens/${ca_address}/report/summary`
+      ).catch(() => null),
+    ])
 
     const meta = metaRes?.ok ? await metaRes.json() : null
+    const rugcheck = rugcheckRes?.ok ? await rugcheckRes.json() : null
 
-    if (!meta) {
-      console.log(`[light-audit] No metadata for ${ca_address}, skipping`)
-      return new Response(JSON.stringify({ skipped: true, reason: 'no metadata' }), {
+    if (!meta && !rugcheck) {
+      console.log(`[light-audit] No data for ${ca_address}, skipping`)
+      return new Response(JSON.stringify({ skipped: true, reason: 'no data' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const description = (meta.description || '').toLowerCase()
+    const description = (meta?.description || '').toLowerCase()
 
     // Detect j7tracker
     const hasJ7Tracker = description.includes('j7tracker')
 
     // Detect Instagram & TikTok
     const hasInstagram = !!(
-      meta.links?.instagram ||
+      meta?.links?.instagram ||
       description.includes('instagram.com') ||
       description.includes('ig:') ||
       description.includes('instagram:')
     )
     const hasTikTok = !!(
-      meta.links?.tiktok ||
+      meta?.links?.tiktok ||
       description.includes('tiktok.com') ||
       description.includes('tiktok:')
     )
+
+    // RugCheck data
+    const rugcheckScore = rugcheck?.score_normalised ?? null
+    const rugcheckRisks = rugcheck?.risks || []
+    const lpLockedPct = rugcheck?.lpLockedPct ?? null
+
+    // Determine bundle/insider verdict from RugCheck
+    // Score < 30 is very risky, < 50 is caution
+    let rugVerdict: string | null = null
+    if (rugcheckScore !== null) {
+      if (rugcheckScore < 30) rugVerdict = 'red'
+      else if (rugcheckScore < 50) rugVerdict = 'yellow'
+      else rugVerdict = 'green'
+    }
 
     // Update the alert with light audit findings
     const supabase = createClient(
@@ -74,20 +95,32 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
+    const auditData: Record<string, unknown> = {
+      has_instagram: hasInstagram,
+      has_tiktok: hasTikTok,
+      light_audit: true,
+      rugcheck_score: rugcheckScore,
+      rugcheck_risks: rugcheckRisks.map((r: any) => `${r.name}: ${r.value || r.description}`),
+      lp_locked_pct: lpLockedPct,
+      rug_verdict: rugVerdict,
+    }
+
     const updateData: Record<string, unknown> = {
       is_j7tracker: hasJ7Tracker,
-      token_name: meta.name || null,
-      token_symbol: meta.symbol || null,
-      audit_data: {
-        has_instagram: hasInstagram,
-        has_tiktok: hasTikTok,
-        light_audit: true,
-      },
+      token_name: meta?.name || null,
+      token_symbol: meta?.symbol || null,
+      audit_data: auditData,
+    }
+
+    // If RugCheck says red → set verdict to red immediately
+    if (rugVerdict === 'red') {
+      updateData.verdict = 'red'
+      updateData.audit_status = 'completed'
     }
 
     await supabase.from('market_cap_alerts').update(updateData).eq('id', alert_id)
 
-    console.log(`[light-audit] ${ca_address}: j7=${hasJ7Tracker}, ig=${hasInstagram}, tt=${hasTikTok}`)
+    console.log(`[light-audit] ${ca_address}: j7=${hasJ7Tracker}, ig=${hasInstagram}, tt=${hasTikTok}, rugScore=${rugcheckScore}, rugVerdict=${rugVerdict}`)
 
     // If j7tracker found → trigger full audit
     if (hasJ7Tracker) {
@@ -113,6 +146,9 @@ Deno.serve(async (req) => {
       is_j7tracker: hasJ7Tracker,
       has_instagram: hasInstagram,
       has_tiktok: hasTikTok,
+      rugcheck_score: rugcheckScore,
+      rug_verdict: rugVerdict,
+      lp_locked_pct: lpLockedPct,
       full_audit_triggered: hasJ7Tracker,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
