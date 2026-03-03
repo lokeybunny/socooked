@@ -3287,8 +3287,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Auto-intent detection for free text ───
-    if (text && !isGroup) {
+    // ─── Auto-intent detection for free text (DMs + allowed groups) ───
+    if (text && (!isGroup || isAllowedGroup)) {
       const lower = text.toLowerCase()
 
       // Email intent
