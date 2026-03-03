@@ -218,11 +218,23 @@ export function MarketCapAlerts() {
     if (filter === 'kol') return alerts.filter(a => a.is_kol);
     if (filter === '50k+') return alerts.filter(a => a.milestone_value >= 50000);
     if (filter === 'audited') return alerts.filter(a => a.audit_status === 'completed');
-    if (filter === 'gainers') return alerts.filter(a => {
-      const tpMatch = a.milestone.match(/^TP#(\d+)/);
-      if (tpMatch) return parseInt(tpMatch[1], 10) >= 5;
-      return (a as any).telegram_channel_id === GAINERS_CHANNEL_ID;
-    });
+    if (filter === 'gainers') {
+      const gainerAlerts = alerts.filter(a => {
+        const tpMatch = a.milestone.match(/^TP#(\d+)/);
+        if (tpMatch) return parseInt(tpMatch[1], 10) >= 5;
+        return (a as any).telegram_channel_id === GAINERS_CHANNEL_ID;
+      });
+      // Deduplicate by CA: keep only the highest TP per CA address
+      const caMap = new Map<string, typeof gainerAlerts[0]>();
+      gainerAlerts.forEach(a => {
+        const existing = caMap.get(a.ca_address);
+        if (!existing) { caMap.set(a.ca_address, a); return; }
+        const curTP = parseInt(a.milestone.match(/^TP#(\d+)/)?.[1] || '0', 10);
+        const exTP = parseInt(existing.milestone.match(/^TP#(\d+)/)?.[1] || '0', 10);
+        if (curTP > exTP) caMap.set(a.ca_address, a);
+      });
+      return Array.from(caMap.values());
+    }
     if (filter === 'top-gainers') return topGainers;
     return alerts;
   }, [alerts, filter, topGainers]);
@@ -316,7 +328,7 @@ export function MarketCapAlerts() {
         >
           <DollarSign className="h-3 w-3" />
           GAINERS
-          <span className="ml-0.5 opacity-60">{alerts.filter(a => { const m = a.milestone.match(/^TP#(\d+)/); if (m) return parseInt(m[1], 10) >= 5; return (a as any).telegram_channel_id === GAINERS_CHANNEL_ID; }).length}</span>
+          <span className="ml-0.5 opacity-60">{new Set(alerts.filter(a => { const m = a.milestone.match(/^TP#(\d+)/); if (m) return parseInt(m[1], 10) >= 5; return (a as any).telegram_channel_id === GAINERS_CHANNEL_ID; }).map(a => a.ca_address)).size}</span>
         </button>
         {/* TOP GAINERS toggle */}
         <button
