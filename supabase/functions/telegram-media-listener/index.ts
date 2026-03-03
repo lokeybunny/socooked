@@ -2425,6 +2425,12 @@ Deno.serve(async (req) => {
           const tpMatch = cpText.match(/take\s*profit\s*#?(\d+)/i)
           if (tpMatch) {
             const tpNumber = parseInt(tpMatch[1])
+
+            // HARD GATE: Only process TP#5 and above for GAINERS
+            if (tpNumber < 5) {
+              console.log(`[gainers] Skipping TP#${tpNumber} (below TP#5 threshold)`)
+              return new Response('ok')
+            }
             
             // Extract CA — check pumpfun/<ca> pattern first, then raw base58
             const pumpfunMatch = cpText.match(/pumpfun\/([1-9A-HJ-NP-Za-km-z]{32,44})/i)
