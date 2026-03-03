@@ -157,11 +157,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ─── Check if Top Gainer alerts are muted ───
+    // ─── Top Gainer: mute check + lifetime CA dedup ───
     if (entry.entity_type === "top_gainer") {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, serviceKey);
+
+      // Check if alerts are muted
       const { data: muteRows } = await supabase.from("webhook_events")
         .select("payload")
         .eq("source", "telegram").eq("event_type", "top_gainer_mute")
@@ -172,6 +174,23 @@ Deno.serve(async (req) => {
           JSON.stringify({ success: true, skipped: "top_gainer_muted" }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      // Lifetime CA dedup — never send the same CA twice
+      const ca = entry.meta?.ca_address || (entry.meta?.message?.match(/coin\/([a-zA-Z0-9]+)/)?.[1]) || "";
+      if (ca) {
+        const { data: existing } = await supabase.from("webhook_events")
+          .select("id")
+          .eq("source", "telegram").eq("event_type", "top_gainer_sent")
+          .filter("payload->>ca_address", "eq", ca)
+          .limit(1);
+        if (existing && existing.length > 0) {
+          console.log(`[telegram-notify] CA ${ca} already notified — lifetime dedup`);
+          return new Response(
+            JSON.stringify({ success: true, skipped: "lifetime_ca_dedup" }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
     }
 
@@ -201,13 +220,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Forward top_gainer alerts to Discord TP8 webhook
+    // Forward top_gainer alerts to Discord TP8 webhook + record lifetime dedup
     let discordSent = false;
     if (entry.entity_type === "top_gainer") {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = createClient(supabaseUrl, serviceKey);
+      const ca = entry.meta?.ca_address || (entry.meta?.message?.match(/coin\/([a-zA-Z0-9]+)/)?.[1]) || "";
+
+      // Record this CA as sent — lifetime dedup
+      if (ca) {
+        await supabase.from("webhook_events").insert({
+          source: "telegram",
+          event_type: "top_gainer_sent",
+          payload: { ca_address: ca, token: entry.meta?.ticker || "", name: entry.meta?.name || "" },
+        }).catch(() => {});
+      }
+
       const discordWebhookUrl = Deno.env.get("DISCORD_TP8_WEBHOOK_URL");
       if (discordWebhookUrl) {
         try {
-          const ca = entry.meta?.ca_address || "";
           const ticker = entry.meta?.ticker ? `$${entry.meta.ticker}` : "";
           const milestone = entry.meta?.milestone || "TP#8+";
           const discordMsg = ticker ? `${ca} ${ticker} ${milestone}` : `${ca} ${milestone}`;
