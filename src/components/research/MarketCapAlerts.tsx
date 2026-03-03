@@ -208,6 +208,10 @@ export function MarketCapAlerts() {
     }
   };
 
+  const topGainers = useMemo(() => {
+    return alerts.filter(a => (a as any).is_top_gainer === true);
+  }, [alerts]);
+
   const filtered = useMemo(() => {
     if (filter === 'all') return alerts;
     if (filter === 'j7tracker') return alerts.filter(a => a.is_j7tracker);
@@ -215,8 +219,9 @@ export function MarketCapAlerts() {
     if (filter === '50k+') return alerts.filter(a => a.milestone_value >= 50000);
     if (filter === 'audited') return alerts.filter(a => a.audit_status === 'completed');
     if (filter === 'gainers') return alerts.filter(a => (a as any).telegram_channel_id === GAINERS_CHANNEL_ID || a.milestone.startsWith('TP#'));
+    if (filter === 'top-gainers') return topGainers;
     return alerts;
-  }, [alerts, filter]);
+  }, [alerts, filter, topGainers]);
 
   const copyCA = (ca: string) => {
     navigator.clipboard.writeText(ca);
@@ -308,6 +313,20 @@ export function MarketCapAlerts() {
           <DollarSign className="h-3 w-3" />
           GAINERS
           <span className="ml-0.5 opacity-60">{alerts.filter(a => (a as any).telegram_channel_id === GAINERS_CHANNEL_ID || a.milestone.startsWith('TP#')).length}</span>
+        </button>
+        {/* TOP GAINERS toggle */}
+        <button
+          onClick={() => setFilter(filter === 'top-gainers' ? 'all' : 'top-gainers')}
+          className={cn(
+            "px-3 py-1.5 rounded-md text-xs font-bold transition-colors border flex items-center gap-1",
+            filter === 'top-gainers'
+              ? "bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)]"
+              : "bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20"
+          )}
+        >
+          <Zap className="h-3 w-3" />
+          TOP GAINERS
+          <span className="ml-0.5 opacity-60">{topGainers.length}</span>
         </button>
       </div>
 

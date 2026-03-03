@@ -1387,6 +1387,7 @@ export type Database = {
           id: string
           is_j7tracker: boolean
           is_kol: boolean
+          is_top_gainer: boolean
           media_url: string | null
           milestone: string
           milestone_value: number
@@ -1405,6 +1406,7 @@ export type Database = {
           id?: string
           is_j7tracker?: boolean
           is_kol?: boolean
+          is_top_gainer?: boolean
           media_url?: string | null
           milestone?: string
           milestone_value?: number
@@ -1423,6 +1425,7 @@ export type Database = {
           id?: string
           is_j7tracker?: boolean
           is_kol?: boolean
+          is_top_gainer?: boolean
           media_url?: string | null
           milestone?: string
           milestone_value?: number
