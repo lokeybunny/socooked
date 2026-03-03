@@ -2449,11 +2449,8 @@ Deno.serve(async (req) => {
           if (tpMatch) {
             const tpNumber = parseInt(tpMatch[1])
 
-            // HARD GATE: Only process TP#5 and above for GAINERS
-            if (tpNumber < 5) {
-              console.log(`[gainers] Skipping TP#${tpNumber} (below TP#5 threshold)`)
-              return new Response('ok')
-            }
+            // Track ALL TPs (TP#1+) — visual urgency scales at TP#5+ and TP#8+
+            // No hard gate — every TP is stored for full progression tracking
             
             // Extract CA — check pumpfun/<ca> pattern first, then raw base58
             const pumpfunMatch = cpText.match(/pumpfun\/([1-9A-HJ-NP-Za-km-z]{32,44})/i)
