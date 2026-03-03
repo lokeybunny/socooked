@@ -183,9 +183,31 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Forward top_gainer alerts to Discord TP8 webhook
+    let discordSent = false;
+    if (entry.entity_type === "top_gainer") {
+      const discordWebhookUrl = Deno.env.get("DISCORD_TP8_WEBHOOK_URL");
+      if (discordWebhookUrl) {
+        try {
+          const ca = entry.meta?.ca_address || "";
+          const ticker = entry.meta?.ticker ? `$${entry.meta.ticker}` : "";
+          const milestone = entry.meta?.milestone || "TP#8+";
+          const discordMsg = ticker ? `${ca} ${ticker} ${milestone}` : `${ca} ${milestone}`;
+          const discordRes = await fetch(discordWebhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: discordMsg }),
+          });
+          discordSent = discordRes.ok;
+          console.log(`[telegram-notify] Discord TP8 sent: ${discordMsg}`);
+        } catch (discordErr: any) {
+          console.error("[telegram-notify] Discord webhook error:", discordErr.message);
+        }
+      }
+    }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, discord_sent: discordSent }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
