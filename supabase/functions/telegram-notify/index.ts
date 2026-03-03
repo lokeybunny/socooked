@@ -157,6 +157,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check if TP8 gains alerts are disabled
+    if (entry.entity_type === "top_gainer") {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (supabaseUrl && serviceKey) {
+        const sb = createClient(supabaseUrl, serviceKey);
+        const { data: toggle } = await sb
+          .from('site_configs')
+          .select('content')
+          .eq('site_id', 'system')
+          .eq('section', 'tp8_alerts')
+          .single();
+        if (toggle?.content?.enabled === false) {
+          console.log('[telegram-notify] TP8 alerts disabled via /gains toggle');
+          return new Response(
+            JSON.stringify({ success: true, skipped: 'tp8_alerts_disabled' }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+    }
+
     const message = formatMessage(entry);
     console.log(`[telegram-notify] entity=${entry.entity_type} action=${entry.action} message_preview=${message.substring(0, 80)}`);
 

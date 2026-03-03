@@ -82,6 +82,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'higs', description: '🎬 Higgsfield model list' },
     { command: 'cancel', description: '❌ Cancel active session' },
     { command: 'proposal', description: '📝 Create & send a proposal' },
+    { command: 'gains', description: '⚡ Toggle TP8 gain alerts on/off' },
   ]
 
   // Fire-and-forget: register commands + ensure webhook accepts channel_post
@@ -130,7 +131,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -151,6 +152,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'email' || normalized === '/email') return 'email'
   if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
   if (normalized === 'proposal' || normalized === '/proposal') return 'proposal'
+  if (normalized === 'gains' || normalized === '/gains') return 'gains'
   return null
 }
 
@@ -2944,6 +2946,44 @@ Deno.serve(async (req) => {
         parse_mode: 'HTML',
         reply_markup: PERSISTENT_KEYBOARD,
       })
+      return new Response('ok')
+    }
+
+    // ─── Handle /gains toggle ───
+    if (action === 'gains') {
+      try {
+        // Check current state from site_configs
+        const { data: existing } = await supabase
+          .from('site_configs')
+          .select('content')
+          .eq('site_id', 'system')
+          .eq('section', 'tp8_alerts')
+          .single()
+
+        const currentlyEnabled = existing?.content?.enabled !== false // default true
+        const newEnabled = !currentlyEnabled
+
+        // Upsert the toggle state
+        await supabase
+          .from('site_configs')
+          .upsert({
+            site_id: 'system',
+            section: 'tp8_alerts',
+            content: { enabled: newEnabled },
+            is_published: true,
+          }, { onConflict: 'site_id,section' })
+
+        const statusEmoji = newEnabled ? '✅' : '🔴'
+        const statusText = newEnabled ? 'ON' : 'OFF'
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `${statusEmoji} <b>TP8 Gain Alerts: ${statusText}</b>\n\nType /gains again to toggle.`,
+          parse_mode: 'HTML',
+        })
+      } catch (e: any) {
+        console.error('[gains-toggle] error:', e)
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Failed to toggle gains: ${e.message}` })
+      }
       return new Response('ok')
     }
 
