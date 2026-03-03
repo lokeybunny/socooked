@@ -2333,8 +2333,9 @@ Deno.serve(async (req) => {
             // Extract token symbol if present in text
             const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
             let tokenSymbol = symbolMatch ? symbolMatch[1] : null
+            let tokenName: string | null = null
 
-            // If no ticker found in text, try DexScreener API lookup
+            // DexScreener lookup for missing ticker AND token name
             if (!tokenSymbol) {
               try {
                 const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
@@ -2343,11 +2344,27 @@ Deno.serve(async (req) => {
                   const pair = dexData?.pairs?.[0]
                   if (pair?.baseToken?.symbol) {
                     tokenSymbol = pair.baseToken.symbol
-                    console.log(`[kol] DexScreener resolved ticker: $${tokenSymbol} for ${ca.slice(0, 8)}...`)
+                    tokenName = pair.baseToken.name || null
+                    console.log(`[kol] DexScreener resolved: $${tokenSymbol} (${tokenName}) for ${ca.slice(0, 8)}...`)
                   }
                 }
               } catch (e) {
                 console.log(`[kol] DexScreener lookup failed for ${ca.slice(0, 8)}...`)
+              }
+            } else {
+              // We have a ticker but still need the name
+              try {
+                const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
+                if (dexRes.ok) {
+                  const dexData = await dexRes.json()
+                  const pair = dexData?.pairs?.[0]
+                  if (pair?.baseToken?.name) {
+                    tokenName = pair.baseToken.name
+                    console.log(`[kol] DexScreener resolved name: ${tokenName} for $${tokenSymbol}`)
+                  }
+                }
+              } catch (e) {
+                console.log(`[kol] DexScreener name lookup failed for ${ca.slice(0, 8)}...`)
               }
             }
 
@@ -2386,6 +2403,7 @@ Deno.serve(async (req) => {
               await supabase.from('market_cap_alerts').insert({
                 ca_address: ca,
                 token_symbol: tokenSymbol,
+                token_name: tokenName,
                 milestone,
                 milestone_value: milestoneValue,
                 raw_message: cpText.slice(0, 1000),
