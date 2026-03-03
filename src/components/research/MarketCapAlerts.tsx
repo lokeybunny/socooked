@@ -67,6 +67,7 @@ export function MarketCapAlerts() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ token_name: string; token_symbol: string; milestone: string }>({ token_name: '', token_symbol: '', milestone: '' });
   const [trendingKeywords, setTrendingKeywords] = useState<Set<string>>(new Set());
+  const [mcapCache, setMcapCache] = useState<Record<string, number | null>>({});
 
   // Load cashtags & trending topic nouns from X feed
   const loadTrending = useCallback(async () => {
@@ -211,6 +212,36 @@ export function MarketCapAlerts() {
   const topGainers = useMemo(() => {
     return alerts.filter(a => (a as any).is_top_gainer === true);
   }, [alerts]);
+
+  // Fetch market caps for top gainers via DexScreener
+  useEffect(() => {
+    if (topGainers.length === 0) return;
+    const uniqueCAs = [...new Set(topGainers.map(a => a.ca_address))];
+    const missing = uniqueCAs.filter(ca => !(ca in mcapCache));
+    if (missing.length === 0) return;
+
+    const fetchMcaps = async () => {
+      const newCache: Record<string, number | null> = {};
+      // DexScreener allows batching up to 30 addresses
+      for (let i = 0; i < missing.length; i += 30) {
+        const batch = missing.slice(i, i + 30);
+        try {
+          const res = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${batch.join(',')}`);
+          if (res.ok) {
+            const pairs = await res.json();
+            if (Array.isArray(pairs)) {
+              for (const ca of batch) {
+                const pair = pairs.find((p: any) => p.baseToken?.address?.toLowerCase() === ca.toLowerCase());
+                newCache[ca] = pair?.marketCap ?? null;
+              }
+            }
+          }
+        } catch { /* skip */ }
+      }
+      setMcapCache(prev => ({ ...prev, ...newCache }));
+    };
+    fetchMcaps();
+  }, [topGainers]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return alerts;
@@ -374,12 +405,16 @@ export function MarketCapAlerts() {
               const auditChecks = alert.audit_data?.checks || {};
 
               const isGainer = alert.milestone.startsWith('TP#');
+              const isTopGainer = (alert as any).is_top_gainer === true;
+              const cachedMcap = mcapCache[alert.ca_address];
+              const isLowMcap = isTopGainer && cachedMcap !== undefined && cachedMcap !== null && cachedMcap < 150000;
 
               return (
                   <div
                     key={alert.id}
                     className={cn(
                       "rounded-lg border transition-all overflow-visible",
+                      isLowMcap ? "border-amber-500/60 bg-amber-500/10" :
                       isGainer ? "border-emerald-500/50 bg-emerald-500/5" :
                       alert.is_kol ? "border-yellow-500/50 bg-yellow-500/5" :
                       alert.is_j7tracker ? "border-violet-500/40 bg-violet-500/5" : "border-border bg-card",
@@ -464,6 +499,16 @@ export function MarketCapAlerts() {
                             {alert.audit_data?.has_tiktok && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
                                 TikTok
+                              </span>
+                            )}
+                            {isLowMcap && cachedMcap !== null && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                MC: ${(cachedMcap / 1000).toFixed(0)}K
+                              </span>
+                            )}
+                            {isTopGainer && cachedMcap !== null && !isLowMcap && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                MC: ${cachedMcap >= 1_000_000 ? (cachedMcap / 1_000_000).toFixed(1) + 'M' : (cachedMcap / 1000).toFixed(0) + 'K'}
                               </span>
                             )}
                             {isGainer && (() => {
