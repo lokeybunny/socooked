@@ -372,6 +372,8 @@ async function processInvoiceCommand(
   await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '⏳ Processing invoice command...', parse_mode: 'HTML' })
 
   try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 55000) // 55s timeout
     const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/invoice-command`, {
       method: 'POST',
       headers: {
@@ -379,8 +381,12 @@ async function processInvoiceCommand(
         'x-bot-secret': botSecret,
       },
       body: JSON.stringify({ prompt, history }),
+      signal: controller.signal,
     })
-    const rawData = await res.json()
+    clearTimeout(timeout)
+    const rawText = await res.text()
+    let rawData: any
+    try { rawData = JSON.parse(rawText) } catch { rawData = { type: 'message', message: rawText || 'No response from invoice engine.' } }
     const result = rawData?.data || rawData
 
     let replyText = ''
@@ -441,9 +447,10 @@ async function processInvoiceCommand(
     })
   } catch (e: any) {
     console.error('[invoice-tg] error:', e)
+    const errMsg = e.name === 'AbortError' ? 'Request timed out. Try a simpler command.' : (e.message || String(e)).slice(0, 300)
     await tgPost(tgToken, 'sendMessage', {
       chat_id: chatId,
-      text: `❌ <b>Invoice command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+      text: `❌ <b>Invoice command failed:</b> <code>${errMsg}</code>`,
       parse_mode: 'HTML',
     })
   }
