@@ -2237,17 +2237,21 @@ Deno.serve(async (req) => {
             // Extract token name/symbol if present
             const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
             let tokenSymbol = symbolMatch ? symbolMatch[1] : null
+            let tokenName: string | null = null
 
-            // If no ticker found in text, try DexScreener API lookup
-            if (!tokenSymbol && ca) {
+            // DexScreener lookup for ticker AND token name
+            if (ca) {
               try {
                 const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
                 if (dexRes.ok) {
                   const dexData = await dexRes.json()
                   const pair = dexData?.pairs?.[0]
-                  if (pair?.baseToken?.symbol) {
-                    tokenSymbol = pair.baseToken.symbol
-                    console.log(`[mcap] DexScreener resolved ticker: $${tokenSymbol} for ${ca.slice(0, 8)}...`)
+                  if (pair?.baseToken) {
+                    if (!tokenSymbol && pair.baseToken.symbol) {
+                      tokenSymbol = pair.baseToken.symbol
+                    }
+                    tokenName = pair.baseToken.name || null
+                    console.log(`[mcap] DexScreener resolved: $${tokenSymbol} (${tokenName}) for ${ca.slice(0, 8)}...`)
                   }
                 }
               } catch (e) {
@@ -2281,6 +2285,7 @@ Deno.serve(async (req) => {
                 const { data: inserted } = await supabase.from('market_cap_alerts').insert({
                   ca_address: ca,
                   token_symbol: tokenSymbol,
+                  token_name: tokenName,
                   milestone,
                   milestone_value: milestoneValue,
                   raw_message: cpText.slice(0, 1000),
@@ -2465,27 +2470,25 @@ Deno.serve(async (req) => {
               // Extract token symbol if present
               const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
               let tokenSymbol = symbolMatch ? symbolMatch[1] : null
+              let tokenName: string | null = null
 
-              // If no ticker found in text, try DexScreener API lookup
-              if (!tokenSymbol) {
-                try {
-                  const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
-                  if (dexRes.ok) {
-                    const dexData = await dexRes.json()
-                    const pair = dexData?.pairs?.[0]
-                    if (pair?.baseToken?.symbol) {
+              // DexScreener lookup for ticker AND token name
+              try {
+                const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
+                if (dexRes.ok) {
+                  const dexData = await dexRes.json()
+                  const pair = dexData?.pairs?.[0]
+                  if (pair?.baseToken) {
+                    if (!tokenSymbol && pair.baseToken.symbol) {
                       tokenSymbol = pair.baseToken.symbol
-                      console.log(`[gainers] DexScreener resolved ticker: $${tokenSymbol} for ${ca.slice(0, 8)}...`)
                     }
+                    tokenName = pair.baseToken.name || null
+                    console.log(`[gainers] DexScreener resolved: $${tokenSymbol} (${tokenName}) for ${ca.slice(0, 8)}...`)
                   }
-                } catch (e) {
-                  console.log(`[gainers] DexScreener lookup failed for ${ca.slice(0, 8)}...`)
                 }
+              } catch (e) {
+                console.log(`[gainers] DexScreener lookup failed for ${ca.slice(0, 8)}...`)
               }
-              
-              // Extract token name from text (common patterns)
-              const nameMatch = cpText.match(/(?:name|token|coin)[:\s]+([A-Za-z0-9 ]+)/i)
-              const tokenName = nameMatch ? nameMatch[1].trim() : null
 
               // URLs
               const urlRegex = /https?:\/\/[^\s<>"')\]]+/gi
