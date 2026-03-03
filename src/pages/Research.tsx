@@ -24,7 +24,7 @@ import { XFeedPanel } from '@/components/research/XFeedPanel';
 import { MarketCapAlerts } from '@/components/research/MarketCapAlerts';
 import { MetaPopup } from '@/components/research/MetaPopup';
 import { DevAIModal } from '@/components/research/DevAIModal';
-import { DiscoveryLab } from '@/components/research/DiscoveryLab';
+
 import type { LucideIcon } from 'lucide-react';
 
 /* ── X (Twitter) icon ── */
@@ -153,7 +153,7 @@ export default function Research() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [metaOpen, setMetaOpen] = useState(false);
   const [devAIOpen, setDevAIOpen] = useState(false);
-  const [xTab, setXTab] = useState<'findings' | 'discovery'>('findings');
+  
 
   // New finding form
   const [title, setTitle] = useState('');
@@ -983,37 +983,9 @@ export default function Research() {
           </div>
         </div>
 
-        {/* ══════ X Source Tabs ══════ */}
-        {selectedSource === 'x' && (
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-1 w-fit">
-            <button
-              onClick={() => setXTab('findings')}
-              className={cn(
-                "px-4 py-2 rounded-md text-sm font-bold transition-colors flex items-center gap-1.5",
-                xTab === 'findings' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Brain className="h-3.5 w-3.5" /> Findings
-            </button>
-            <button
-              onClick={() => setXTab('discovery')}
-              className={cn(
-                "px-4 py-2 rounded-md text-sm font-bold transition-colors flex items-center gap-1.5",
-                xTab === 'discovery' ? "bg-emerald-500/10 text-emerald-400 shadow-sm border border-emerald-500/20" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              🧠 Meme Intelligence Lab
-            </button>
-          </div>
-        )}
-
-        {/* ══════ Discovery Lab Tab ══════ */}
-        {selectedSource === 'x' && xTab === 'discovery' && (
-          <DiscoveryLab />
-        )}
 
         {/* ══════ Cortex Pipeline Log ══════ */}
-        {selectedSource === 'x' && xTab === 'findings' && showLog && (
+        {selectedSource === 'x' && showLog && (
           <div className="glass-card rounded-lg overflow-hidden border border-border">
             <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
               <div className="flex items-center gap-2">
@@ -1206,7 +1178,7 @@ export default function Research() {
         {/* TikTok radar removed */}
 
         {/* ══════ Cortex Analyst Report ══════ */}
-        {selectedSource === 'x' && xTab === 'findings' && topNarratives.length > 0 && (
+        {selectedSource === 'x' && topNarratives.length > 0 && (
           <div className="glass-card rounded-lg overflow-hidden border border-emerald-500/30">
             <div className="px-4 py-3 bg-emerald-500/5 border-b border-emerald-500/20 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1511,7 +1483,7 @@ export default function Research() {
         )}
 
         {/* ══════ Drafts Panel ══════ */}
-        {showDrafts && selectedSource === 'x' && xTab === 'findings' && (
+        {showDrafts && selectedSource === 'x' && (
           <div className="glass-card rounded-lg overflow-hidden border border-amber-500/30">
             <div className="px-4 py-3 bg-amber-500/5 border-b border-amber-500/20 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1818,7 +1790,7 @@ export default function Research() {
 
 
         {/* Two-column layout: findings + X feed */}
-        {(selectedSource !== 'x' || xTab === 'findings') && (
+        {(
         <div className={cn("flex gap-6", selectedSource === 'x' ? "flex-col lg:flex-row" : "")}>
         <div className={cn("min-w-0", selectedSource === 'x' ? "flex-1" : "w-full")}>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
