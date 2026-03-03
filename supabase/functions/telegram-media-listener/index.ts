@@ -2403,7 +2403,8 @@ Deno.serve(async (req) => {
                 .limit(1)
               
               if (!existing || existing.length === 0) {
-                await supabase.from('market_cap_alerts').insert({
+                const isTopGainer = tpNumber >= 8
+                const { data: insertedAlert } = await supabase.from('market_cap_alerts').insert({
                   ca_address: ca,
                   token_symbol: tokenSymbol,
                   token_name: tokenName,
@@ -2414,7 +2415,8 @@ Deno.serve(async (req) => {
                   is_kol: false,
                   is_j7tracker: false,
                   telegram_channel_id: GAINERS_CHANNEL_ID,
-                })
+                  is_top_gainer: isTopGainer,
+                }).select('id').single()
                 console.log(`[gainers] Stored TP#${tpNumber} alert: ${ca.slice(0, 8)}...`)
 
                 // Send CA to Discord webhook for TP#8+ alerts
@@ -2432,6 +2434,25 @@ Deno.serve(async (req) => {
                       console.log(`[gainers] Sent TP#${tpNumber} to Discord: ${ca.slice(0, 8)}...`)
                     } catch (discordErr: any) {
                       console.error(`[gainers] Discord webhook error:`, discordErr.message)
+                    }
+                  }
+                  // Auto-trigger full Moralis audit for TP8+ (Top Gainers)
+                  if (isTopGainer && insertedAlert?.id) {
+                    try {
+                      const auditUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/moralis-audit`
+                      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
+                      await fetch(auditUrl, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'apikey': anonKey,
+                          'Authorization': `Bearer ${anonKey}`,
+                        },
+                        body: JSON.stringify({ ca_address: ca, alert_id: insertedAlert.id }),
+                      })
+                      console.log(`[gainers] Auto-audit triggered for TP#${tpNumber}: ${ca.slice(0, 8)}...`)
+                    } catch (auditErr: any) {
+                      console.error(`[gainers] Auto-audit error:`, auditErr.message)
                     }
                   }
                 }
