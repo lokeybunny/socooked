@@ -407,7 +407,7 @@ export function MarketCapAlerts() {
               const isGainer = alert.milestone.startsWith('TP#');
               const isTopGainer = (alert as any).is_top_gainer === true;
               const cachedMcap = mcapCache[alert.ca_address];
-              const isLowMcap = isTopGainer && cachedMcap !== undefined && cachedMcap !== null && cachedMcap < 150000;
+              const isLowMcap = isTopGainer && cachedMcap !== undefined && cachedMcap !== null && cachedMcap < 200000;
 
               return (
                   <div
