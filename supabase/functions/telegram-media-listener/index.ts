@@ -374,11 +374,14 @@ async function processInvoiceCommand(
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 55000) // 55s timeout
+    console.log(`[invoice-tg] calling clawd-bot/invoice-command, botSecret length=${botSecret?.length}`)
     const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/invoice-command`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-bot-secret': botSecret,
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
       },
       body: JSON.stringify({ prompt, history }),
       signal: controller.signal,
