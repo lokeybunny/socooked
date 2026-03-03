@@ -78,13 +78,19 @@ function extractBody(payload: any): string {
 /** Strip HTML tags for clean Telegram text */
 function stripHtml(html: string): string {
   return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/td>/gi, " ")
     .replace(/<[^>]*>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
+    .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
