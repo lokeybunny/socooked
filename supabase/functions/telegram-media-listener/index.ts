@@ -2507,7 +2507,7 @@ Deno.serve(async (req) => {
               
               if (!existing || existing.length === 0) {
                 const isTopGainer = tpNumber >= 8
-                const { data: insertedAlert } = await supabase.from('market_cap_alerts').insert({
+                const { data: insertedAlert, error: insertErr } = await supabase.from('market_cap_alerts').upsert({
                   ca_address: ca,
                   token_symbol: tokenSymbol,
                   token_name: tokenName,
@@ -2519,7 +2519,15 @@ Deno.serve(async (req) => {
                   is_j7tracker: false,
                   telegram_channel_id: GAINERS_CHANNEL_ID,
                   is_top_gainer: isTopGainer,
-                }).select('id').single()
+                }, { onConflict: 'ca_address,milestone', ignoreDuplicates: true }).select('id').single()
+                if (insertErr && insertErr.code !== 'PGRST116') {
+                  console.error(`[gainers] Insert error:`, insertErr.message)
+                  return new Response('ok')
+                }
+                if (!insertedAlert) {
+                  console.log(`[gainers] Dedup: TP#${tpNumber} ${ca.slice(0, 8)}... already exists`)
+                  return new Response('ok')
+                }
                 console.log(`[gainers] Stored TP#${tpNumber} alert: ${ca.slice(0, 8)}...`)
 
                 // Send CA to Discord webhook for TP#8+ alerts
