@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
-import { Loader2, RefreshCw, Shield, ShieldAlert, ShieldCheck, TrendingUp, ExternalLink, Copy, Zap, Pencil, Search, X, Check, DollarSign, Rocket } from 'lucide-react';
+import { Loader2, RefreshCw, Shield, ShieldAlert, ShieldCheck, TrendingUp, ExternalLink, Copy, Zap, Pencil, Search, X, Check, DollarSign } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
@@ -506,7 +506,7 @@ export function MarketCapAlerts() {
                             title="Launch in FLT"
                             className="flex items-center justify-center h-7 w-7 rounded-md text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/15 transition-colors"
                           >
-                            <Rocket className="h-3.5 w-3.5" />
+                            <DollarSign className="h-3.5 w-3.5" />
                           </button>
 
                           {/* Verdict badge */}
