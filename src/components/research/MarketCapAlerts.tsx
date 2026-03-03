@@ -357,7 +357,7 @@ export function MarketCapAlerts() {
                   <div
                     key={alert.id}
                     className={cn(
-                      "rounded-lg border transition-all",
+                      "rounded-lg border transition-all overflow-visible",
                       isGainer ? "border-emerald-500/50 bg-emerald-500/5" :
                       alert.is_kol ? "border-yellow-500/50 bg-yellow-500/5" :
                       alert.is_j7tracker ? "border-amber-500/40 bg-amber-500/5" : "border-border bg-card",
@@ -398,7 +398,7 @@ export function MarketCapAlerts() {
                     </div>
                   ) : (
                     <div
-                      className="p-3 cursor-pointer hover:bg-muted/20 transition-colors"
+                      className="p-3 cursor-pointer hover:bg-muted/20 transition-colors overflow-visible"
                       onClick={() => setExpandedId(isExpanded ? null : alert.id)}
                     >
                         <div className="flex items-start gap-2">
