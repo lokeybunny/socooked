@@ -44,6 +44,7 @@ const ENTITY_EMOJI: Record<string, string> = {
   email: "📧",
   "scheduled-email": "⏰",
   smm: "🍌",
+  top_gainer: "🏆",
 };
 
 function formatMessage(entry: {
