@@ -2416,6 +2416,25 @@ Deno.serve(async (req) => {
                   telegram_channel_id: GAINERS_CHANNEL_ID,
                 })
                 console.log(`[gainers] Stored TP#${tpNumber} alert: ${ca.slice(0, 8)}...`)
+
+                // Send CA to Discord webhook for TP#8+ alerts
+                if (tpNumber >= 8) {
+                  const discordWebhookUrl = Deno.env.get('DISCORD_TP8_WEBHOOK_URL')
+                  if (discordWebhookUrl) {
+                    try {
+                      const sym = tokenSymbol ? `$${tokenSymbol}` : ''
+                      const discordMsg = sym ? `${ca} ${sym} TP#${tpNumber}` : `${ca} TP#${tpNumber}`
+                      await fetch(discordWebhookUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ content: discordMsg }),
+                      })
+                      console.log(`[gainers] Sent TP#${tpNumber} to Discord: ${ca.slice(0, 8)}...`)
+                    } catch (discordErr: any) {
+                      console.error(`[gainers] Discord webhook error:`, discordErr.message)
+                    }
+                  }
+                }
               }
             }
           }
