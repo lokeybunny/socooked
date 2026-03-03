@@ -212,9 +212,7 @@ Deno.serve(async (req) => {
       if (discordWebhookUrl) {
         try {
           const ca = entry.meta?.ca_address || "";
-          const ticker = entry.meta?.ticker ? `$${entry.meta.ticker}` : "";
-          const milestone = entry.meta?.milestone || "TP#10+";
-          const discordMsg = ticker ? `${ca} ${ticker} ${milestone}` : `${ca} ${milestone}`;
+          const discordMsg = ca;
           const discordRes = await fetch(discordWebhookUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
