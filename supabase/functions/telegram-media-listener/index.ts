@@ -2247,6 +2247,10 @@ Deno.serve(async (req) => {
             const sourceUrl = urls[0] || ''
             
             if (ca) {
+              // Only accept pump.fun tokens (CA ends with "pump")
+              if (!ca.toLowerCase().endsWith('pump')) {
+                console.log(`[mcap] Skipping non-pump CA: ${ca.slice(0, 8)}...`)
+              } else {
               // Dedup by CA + milestone within 5 min
               const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
               const { data: existing } = await supabase.from('market_cap_alerts')
@@ -2282,9 +2286,10 @@ Deno.serve(async (req) => {
                     },
                     body: JSON.stringify({ ca_address: ca, alert_id: inserted.id }),
                   }).catch(e => console.error('[mcap] auto-audit error:', e))
-                }
               }
+              } // end pump filter else
             }
+          }
           }
         } catch (e: any) {
           console.error('[mcap] channel parse error:', e)
@@ -2304,6 +2309,10 @@ Deno.serve(async (req) => {
           const ca = pumpfunMatch ? pumpfunMatch[1] : (rawCaMatch ? rawCaMatch[0] : '')
 
           if (ca) {
+              // Only accept pump.fun tokens (CA ends with "pump")
+              if (!ca.toLowerCase().endsWith('pump')) {
+                console.log(`[kol] Skipping non-pump CA: ${ca.slice(0, 8)}...`)
+              } else {
             // Extract token symbol if present
             const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
             const tokenSymbol = symbolMatch ? symbolMatch[1] : null
@@ -2363,9 +2372,10 @@ Deno.serve(async (req) => {
                   body: JSON.stringify({ content: discordMsg }),
                 }).catch(e => console.error('[discord-kol] webhook error:', e))
               }
-            }
-          }
-        } catch (e: any) {
+             }
+              } // end pump filter else
+           }
+         } catch (e: any) {
           console.error('[kol] channel parse error:', e)
         }
       }
@@ -2388,6 +2398,10 @@ Deno.serve(async (req) => {
             const ca = pumpfunMatch ? pumpfunMatch[1] : (rawCaMatch ? rawCaMatch[0] : '')
             
             if (ca) {
+              // Only accept pump.fun tokens (CA ends with "pump")
+              if (!ca.toLowerCase().endsWith('pump')) {
+                console.log(`[gainers] Skipping non-pump CA: ${ca.slice(0, 8)}...`)
+              } else {
               // Extract token symbol if present
               const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
               const tokenSymbol = symbolMatch ? symbolMatch[1] : null
@@ -2469,6 +2483,7 @@ Deno.serve(async (req) => {
                   }
                 }
               }
+              } // end pump filter else
             }
           }
         } catch (e: any) {
