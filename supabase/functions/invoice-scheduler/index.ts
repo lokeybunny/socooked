@@ -112,6 +112,7 @@ async function callAI(prompt: string, userMessage: string): Promise<string> {
 async function executeAction(step: any): Promise<any> {
   const { action, method, endpoint, params, body } = step;
   const BOT_SECRET = Deno.env.get('BOT_SECRET') || '';
+  console.log(`[invoice-scheduler] executeAction: ${action} endpoint=${endpoint} BOT_SECRET length=${BOT_SECRET.length}`);
 
   let url = '';
   if (endpoint === 'invoice-api') {
