@@ -96,6 +96,111 @@ async function notifyTelegramInvoiceSent(
   }
 }
 
+// ─── Square Payment Link Generator ──────────────────────────
+async function createSquarePaymentLink(
+  inv: any,
+  customerName: string,
+  lineItems: LineItem[],
+): Promise<{ paymentUrl: string; orderId: string } | null> {
+  const accessToken = Deno.env.get('SQUARE_ACCESS_TOKEN')
+  if (!accessToken) {
+    console.warn('[invoice-api] SQUARE_ACCESS_TOKEN not configured, skipping payment link')
+    return null
+  }
+
+  try {
+    const invNum = inv.invoice_number || inv.id
+    const currency = (inv.currency || 'USD').toUpperCase()
+
+    // Fetch primary location ID from Square
+    const locRes = await fetch('https://connect.squareup.com/v2/locations', {
+      headers: {
+        'Square-Version': '2024-11-20',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    })
+    const locData = await locRes.json()
+    const locationId = locData.locations?.[0]?.id
+    if (!locationId) {
+      console.error('[invoice-api] No Square location found')
+      return null
+    }
+
+    // Build Square line items (amounts in smallest currency unit, e.g. cents)
+    const squareLineItems = lineItems.map((li) => ({
+      name: String(li.description || 'Item').slice(0, 255),
+      quantity: String(li.quantity || 1),
+      base_price_money: {
+        amount: Math.round((li.unit_price || 0) * 100),
+        currency,
+      },
+    }))
+
+    // Add tax as a separate line item if applicable
+    const taxRate = Number(inv.tax_rate || 0)
+    const subtotal = Number(inv.subtotal || 0)
+    if (taxRate > 0 && subtotal > 0) {
+      const taxAmount = Math.round(subtotal * taxRate / 100 * 100)
+      squareLineItems.push({
+        name: `Tax (${taxRate}%)`,
+        quantity: '1',
+        base_price_money: {
+          amount: taxAmount,
+          currency,
+        },
+      })
+    }
+
+    const idempotencyKey = `inv-${inv.id}-${Date.now()}`
+
+    const body = {
+      idempotency_key: idempotencyKey,
+      order: {
+        location_id: locationId,
+        line_items: squareLineItems,
+        reference_id: String(invNum),
+      },
+      checkout_options: {
+        allow_tipping: false,
+        accepted_payment_methods: {
+          apple_pay: true,
+          google_pay: true,
+        },
+      },
+      payment_note: `Invoice ${invNum} — ${customerName}`,
+    }
+
+    // Use Square production API
+    const squareRes = await fetch('https://connect.squareup.com/v2/online-checkout/payment-links', {
+      method: 'POST',
+      headers: {
+        'Square-Version': '2024-11-20',
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    const squareData = await squareRes.json()
+
+    if (!squareRes.ok) {
+      console.error('[invoice-api] Square API error:', JSON.stringify(squareData))
+      return null
+    }
+
+    const paymentLink = squareData.payment_link
+    console.log(`[invoice-api] Square payment link created: ${paymentLink?.url} for ${invNum}`)
+
+    return {
+      paymentUrl: paymentLink?.url || '',
+      orderId: paymentLink?.order_id || '',
+    }
+  } catch (err) {
+    console.error('[invoice-api] Square payment link error:', err)
+    return null
+  }
+}
+
 function sanitizeFilename(value: string): string {
   const clean = value
     .replace(/[^a-zA-Z0-9._-]+/g, '-')
@@ -137,7 +242,7 @@ function encodeBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string {
+function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string, paymentUrl?: string): string {
   const invNum = inv.invoice_number || 'Invoice'
   const isPaid = inv.status === 'paid'
   const dueDateStr = inv.due_date
@@ -151,9 +256,20 @@ function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string
     ? `<div style="background:#059669;color:#ffffff;text-align:center;padding:10px 16px;font-size:16px;font-weight:bold;letter-spacing:1px;">✓ PAID IN FULL</div>`
     : ''
 
+  const payNowButton = !isPaid && paymentUrl
+    ? `<div style="text-align:center;margin:20px 0 10px;">
+        <a href="${paymentUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:16px;font-weight:bold;letter-spacing:0.5px;">
+          Pay Now - ${formatCurrency(Number(inv.amount || 0), inv.currency || 'USD')}
+        </a>
+        <p style="margin:10px 0 0;font-size:12px;color:#9ca3af;">Secure payment via Square. Credit card, Apple Pay &amp; Google Pay accepted.</p>
+      </div>`
+    : ''
+
   const paidNote = isPaid
     ? `<p style="margin:10px 0 0;font-size:14px;color:#059669;font-weight:600;">This invoice has been paid in full${paidAtStr ? ` on ${paidAtStr}` : ''}. No further action is required.</p>`
-    : `<p style="margin:14px 0 0;line-height:1.6;color:#6b7280;font-size:13px;">Please review the attached PDF for itemized details and payment terms.</p>`
+    : paymentUrl
+      ? `<p style="margin:14px 0 0;line-height:1.6;color:#6b7280;font-size:13px;">Click the button above to pay securely, or review the attached PDF for itemized details.</p>`
+      : `<p style="margin:14px 0 0;line-height:1.6;color:#6b7280;font-size:13px;">Please review the attached PDF for itemized details and payment terms.</p>`
 
   return `
     <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#1f2937;">
@@ -173,6 +289,7 @@ function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string
             ${isPaid ? `<p style="margin:6px 0 0;font-size:14px;color:#059669;font-weight:600;">Status: PAID IN FULL</p>` : ''}
             ${dueDateStr && !isPaid ? `<p style="margin:6px 0 0;font-size:14px;color:#374151;"><strong>Due:</strong> ${dueDateStr}</p>` : ''}
           </div>
+          ${payNowButton}
           ${paidNote}
         </div>
       </div>
@@ -425,11 +542,24 @@ Deno.serve(async (req) => {
       const invNum = inv.invoice_number || 'Invoice'
       const totalVal = Number(inv.amount)
 
+      const lineItems: LineItem[] = Array.isArray(inv.line_items) ? inv.line_items : []
+      const isPaidInvoice = inv.status === 'paid'
+
+      // Generate Square payment link for unpaid invoices
+      let paymentUrl = inv.payment_url || ''
+      if (!isPaidInvoice && !paymentUrl) {
+        const squareResult = await createSquarePaymentLink(inv, customerName, lineItems)
+        if (squareResult?.paymentUrl) {
+          paymentUrl = squareResult.paymentUrl
+          await supabase.from('invoices').update({ payment_url: paymentUrl }).eq('id', invoice_id)
+          console.log(`[invoice-api] Square payment link saved: ${paymentUrl}`)
+        }
+      }
+
       const pdfBase64 = await buildInvoicePdfBase64(inv, customerName)
-      const emailBody = buildInvoiceAttachmentEmailHtml(inv, customerName)
+      const emailBody = buildInvoiceAttachmentEmailHtml(inv, customerName, paymentUrl || undefined)
       const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
 
-      const isPaidInvoice = inv.status === 'paid'
       const emailSubject = isPaidInvoice
         ? `Invoice ${invNum} — PAID IN FULL — Receipt from STU25`
         : `Invoice ${invNum} from STU25`
@@ -601,8 +731,19 @@ Deno.serve(async (req) => {
         }
 
         try {
+          // Generate Square payment link for unpaid invoices
+          let paymentUrl = ''
+          if (invoice.status !== 'paid') {
+            const squareResult = await createSquarePaymentLink(invoice, customerName, normalizedLineItems)
+            if (squareResult?.paymentUrl) {
+              paymentUrl = squareResult.paymentUrl
+              await supabase.from('invoices').update({ payment_url: paymentUrl }).eq('id', invoice.id)
+              console.log(`[invoice-api] Square payment link saved for auto-send: ${paymentUrl}`)
+            }
+          }
+
           const pdfBase64 = await buildInvoicePdfBase64(invoice, customerName)
-          const emailBody = buildInvoiceAttachmentEmailHtml(invoice, customerName)
+          const emailBody = buildInvoiceAttachmentEmailHtml(invoice, customerName, paymentUrl || undefined)
           const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
           const emailSubject = invoice.status === 'paid'
             ? `Invoice ${invNum} — PAID IN FULL — Receipt from STU25`
