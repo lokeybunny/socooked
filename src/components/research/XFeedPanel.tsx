@@ -81,6 +81,21 @@ function cleanTweetText(raw: string | undefined): string {
   return text.trim();
 }
 
+function extractScore(text: string): string | null {
+  const match = text.match(/(\d+(?:\.\d+)?)\s*\/\s*10/);
+  return match ? match[1] + '/10' : null;
+}
+
+function extractTokenMeta(tw: Tweet) {
+  const text = tw.text || '';
+  const nameMatch = text.match(/\(?\$([A-Za-z0-9]+)\)?/);
+  const symbol = nameMatch ? nameMatch[1] : '';
+  // Try to find a full name before the ticker
+  const fullNameMatch = text.match(/(?:\]\s*)([\w\s]+?)\s*\(\$\w+\)/);
+  const name = fullNameMatch ? fullNameMatch[1].trim() : symbol;
+  return { name, symbol, image: tw.media_url || null, description: null, twitter: null, website: null, telegram: null };
+}
+
 function isInstagramPost(tw: Tweet): boolean {
   const text = (tw.text || '').toLowerCase();
   const user = (tw.user || '').toLowerCase();
@@ -263,13 +278,29 @@ export function XFeedPanel() {
                       {formatNum(tw.views)}
                     </span>
                   )}
-                  <button
-                    className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors"
-                    onClick={(e) => { e.stopPropagation(); }}
-                    title="Launch"
-                  >
-                    <Rocket className="h-3.5 w-3.5" />
-                  </button>
+                  {(() => {
+                    const score = extractScore(tw.text);
+                    const meta = extractTokenMeta(tw);
+                    return (
+                      <span className="ml-auto flex items-center gap-1">
+                        <button
+                          className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/15 rounded p-0.5 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const encodedMetadata = encodeURIComponent(JSON.stringify(meta));
+                            const fltUrl = `flt://tokens/upsert?token_metadata=${encodedMetadata}`;
+                            window.open(fltUrl, '_blank');
+                          }}
+                          title="Launch in FLT"
+                        >
+                          <Rocket className="h-3.5 w-3.5" />
+                        </button>
+                        {score && (
+                          <span className="text-[11px] font-bold text-amber-400">{score}</span>
+                        )}
+                      </span>
+                    );
+                  })()}
                   <a
                     href={tw.url}
                     target="_blank"
