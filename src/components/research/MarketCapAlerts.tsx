@@ -151,7 +151,8 @@ export function MarketCapAlerts() {
           const newAlert = payload.new as MarketCapAlert;
           setAlerts(prev => [newAlert, ...prev].slice(0, 200));
           // Show persistent toast for GAINERS (take profit) alerts
-          if (newAlert.milestone?.startsWith('TP#')) {
+          const tpNum = newAlert.milestone?.match(/^TP#(\d+)/);
+          if (tpNum && parseInt(tpNum[1], 10) >= 7) {
             const sym = newAlert.token_symbol ? `$${newAlert.token_symbol}` : shortenCA(newAlert.ca_address);
             const pumpUrl = `https://pump.fun/${newAlert.ca_address}`;
             toast(`💰 GAINER: ${sym} hit ${newAlert.milestone}`, {
