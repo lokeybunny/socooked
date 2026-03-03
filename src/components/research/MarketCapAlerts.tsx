@@ -412,7 +412,7 @@ export function MarketCapAlerts() {
 
                         {/* Token info */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap min-h-[24px]">
+                          <div className="flex items-center gap-x-1.5 gap-y-1 flex-wrap">
                             {alert.token_symbol && (
                               <span className={cn("text-sm font-bold", (() => {
                                 const tpMatch = alert.milestone.match(/^TP#(\d+)/);
@@ -448,14 +448,14 @@ export function MarketCapAlerts() {
                               // Count how many TPs this CA has
                               const tpCount = alerts.filter(a => a.ca_address === alert.ca_address && a.milestone.startsWith('TP#')).length;
                               return tpCount > 1 ? (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-0.5 whitespace-nowrap shrink-0">
+                                <span className="px-1.5 py-1 rounded text-[10px] font-bold leading-none bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-0.5 whitespace-nowrap shrink-0">
                                   <DollarSign className="h-2.5 w-2.5" />
                                   {tpCount} TPs
                                 </span>
                               ) : null;
                             })()}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-2 mt-1">
                             <button
                               onClick={(e) => { e.stopPropagation(); copyCA(alert.ca_address); }}
                               className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors font-mono"
