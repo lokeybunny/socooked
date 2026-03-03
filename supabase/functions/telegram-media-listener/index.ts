@@ -82,6 +82,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'higs', description: '🎬 Higgsfield model list' },
     { command: 'cancel', description: '❌ Cancel active session' },
     { command: 'proposal', description: '📝 Create & send a proposal' },
+    { command: 'top', description: '🏆 Toggle Top Gainer alerts on/off' },
   ]
 
   // Fire-and-forget: register commands + ensure webhook accepts channel_post
@@ -130,7 +131,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'top' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -151,6 +152,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'email' || normalized === '/email') return 'email'
   if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
   if (normalized === 'proposal' || normalized === '/proposal') return 'proposal'
+  if (normalized === 'top' || normalized === '/top') return 'top'
   return null
 }
 
@@ -2944,6 +2946,44 @@ Deno.serve(async (req) => {
         parse_mode: 'HTML',
         reply_markup: PERSISTENT_KEYBOARD,
       })
+      return new Response('ok')
+    }
+
+    // ─── Handle /top command — toggle Top Gainer alerts ───
+    if (action === 'top') {
+      // Check current mute state from webhook_events
+      const { data: muteRows } = await supabase.from('webhook_events')
+        .select('id, payload')
+        .eq('source', 'telegram').eq('event_type', 'top_gainer_mute')
+        .limit(1)
+
+      if (muteRows && muteRows.length > 0) {
+        const current = muteRows[0]
+        const isMuted = (current.payload as any)?.muted === true
+        // Toggle
+        await supabase.from('webhook_events').update({
+          payload: { muted: !isMuted },
+        }).eq('id', current.id)
+
+        const status = !isMuted ? '🔇 <b>Muted</b>' : '🔔 <b>Unmuted</b>'
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: `🏆 Top Gainer Alerts are now ${status}\n\nType /top again to toggle.`,
+          parse_mode: 'HTML',
+        })
+      } else {
+        // No record yet — create as muted (turning OFF)
+        await supabase.from('webhook_events').insert({
+          source: 'telegram',
+          event_type: 'top_gainer_mute',
+          payload: { muted: true },
+        })
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: chatId,
+          text: '🏆 Top Gainer Alerts are now 🔇 <b>Muted</b>\n\nType /top again to turn them back on.',
+          parse_mode: 'HTML',
+        })
+      }
       return new Response('ok')
     }
 
