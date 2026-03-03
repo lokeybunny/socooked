@@ -515,9 +515,8 @@ export function MarketCapAlerts() {
 
                           {/* Verdict badge */}
                           {alert.audit_status === 'completed' && verdictCfg && (
-                            <span className={cn("flex items-center gap-1 text-xs font-bold", verdictCfg.color)}>
+                            <span className={cn("flex items-center text-xs font-bold", verdictCfg.color)} title={verdictCfg.label}>
                               <VerdictIcon className="h-4 w-4" />
-                              {verdictCfg.label}
                             </span>
                           )}
 
