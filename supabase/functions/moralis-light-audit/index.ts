@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
 
     const description = (meta?.description || '').toLowerCase()
 
-    // Detect j7tracker
+    // Legacy j7tracker detection from metadata (now called LORE)
     const hasJ7Tracker = description.includes('j7tracker')
 
     // Detect Instagram & TikTok
@@ -122,9 +122,9 @@ Deno.serve(async (req) => {
 
     console.log(`[light-audit] ${ca_address}: j7=${hasJ7Tracker}, ig=${hasInstagram}, tt=${hasTikTok}, rugScore=${rugcheckScore}, rugVerdict=${rugVerdict}`)
 
-    // If j7tracker found → trigger full audit
+    // If legacy j7tracker found → trigger full audit
     if (hasJ7Tracker) {
-      console.log(`[light-audit] j7tracker detected! Triggering full audit for ${ca_address}`)
+      console.log(`[light-audit] LORE (legacy j7tracker) detected! Triggering full audit for ${ca_address}`)
 
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!
       const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || ''
@@ -138,6 +138,25 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({ ca_address, alert_id }),
       })
+    }
+
+    // Trigger LORE check for TP5+ alerts (engagement-based detection)
+    const milestone = record.milestone || ''
+    const tpMatch = milestone.match(/^TP#(\d+)/)
+    if (tpMatch && parseInt(tpMatch[1], 10) >= 5) {
+      console.log(`[light-audit] TP5+ detected, triggering LORE check for ${ca_address}`)
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || ''
+
+      fetch(`${supabaseUrl}/functions/v1/lore-check`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({ ca_address, alert_id }),
+      }).catch(e => console.error('[light-audit] LORE check trigger error:', e.message))
     }
 
     return new Response(JSON.stringify({

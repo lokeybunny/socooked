@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.discovery-lab]
 verify_jwt = false
+
+[functions.lore-check]
+verify_jwt = false

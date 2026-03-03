@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     const topHolders = holdersData?.result || holdersData?.holders || holdersData || []
     const pairs = pairsData?.result || pairsData?.pairs || pairsData || []
 
-    // Description check for j7tracker
+    // Description check for LORE (legacy j7tracker metadata check)
     const description = (meta?.description || meta?.metaplex?.metadataUri || '').toLowerCase()
     const hasJ7Tracker = description.includes('j7tracker')
 
@@ -146,10 +146,10 @@ Deno.serve(async (req) => {
       detail: hasSocials ? 'Socials found' : 'No socials',
     }
 
-    // 8. j7tracker
-    checks['j7tracker'] = {
+    // 8. LORE (legacy j7tracker metadata check)
+    checks['lore'] = {
       status: hasJ7Tracker ? 'green' : 'neutral',
-      detail: hasJ7Tracker ? 'j7tracker verified ✓' : 'No j7tracker',
+      detail: hasJ7Tracker ? 'LORE verified ✓' : 'No LORE metadata',
     }
 
     // 9. Spam flag
