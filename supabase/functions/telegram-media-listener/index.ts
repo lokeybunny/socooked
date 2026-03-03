@@ -2313,9 +2313,26 @@ Deno.serve(async (req) => {
               if (!ca.toLowerCase().endsWith('pump')) {
                 console.log(`[kol] Skipping non-pump CA: ${ca.slice(0, 8)}...`)
               } else {
-            // Extract token symbol if present
+            // Extract token symbol if present in text
             const symbolMatch = cpText.match(/\$([A-Z]{2,10})/i)
-            const tokenSymbol = symbolMatch ? symbolMatch[1] : null
+            let tokenSymbol = symbolMatch ? symbolMatch[1] : null
+
+            // If no ticker found in text, try DexScreener API lookup
+            if (!tokenSymbol) {
+              try {
+                const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
+                if (dexRes.ok) {
+                  const dexData = await dexRes.json()
+                  const pair = dexData?.pairs?.[0]
+                  if (pair?.baseToken?.symbol) {
+                    tokenSymbol = pair.baseToken.symbol
+                    console.log(`[kol] DexScreener resolved ticker: $${tokenSymbol} for ${ca.slice(0, 8)}...`)
+                  }
+                }
+              } catch (e) {
+                console.log(`[kol] DexScreener lookup failed for ${ca.slice(0, 8)}...`)
+              }
+            }
 
             // Parse milestone from text if present, default to 30k
             const crossedMatch = cpText.match(/crossed\s*\$?([\d,.]+)\s*k?/i)
