@@ -25,18 +25,20 @@ Deno.serve(async (req) => {
     const headers = { 'X-API-Key': MORALIS_API_KEY, 'Accept': 'application/json' }
     const base = 'https://solana-gateway.moralis.io'
 
-    // Parallel fetch: token metadata, token score, holders, pairs
-    const [metaRes, scoreRes, holdersRes, pairsRes] = await Promise.all([
+    // Parallel fetch: token metadata, token score, holders, pairs, RugCheck
+    const [metaRes, scoreRes, holdersRes, pairsRes, rugcheckRes] = await Promise.all([
       fetch(`${base}/token/mainnet/${ca_address}/metadata`, { headers }).catch(() => null),
       fetch(`https://deep-index.moralis.io/api/v2.2/erc20/${ca_address}/token-score?chain=solana`, { headers }).catch(() => null),
       fetch(`${base}/token/mainnet/${ca_address}/top-holders`, { headers }).catch(() => null),
       fetch(`${base}/token/mainnet/${ca_address}/pairs`, { headers }).catch(() => null),
+      fetch(`https://api.rugcheck.xyz/v1/tokens/${ca_address}/report`).catch(() => null),
     ])
 
     const meta = metaRes?.ok ? await metaRes.json() : {}
     const scoreData = scoreRes?.ok ? await scoreRes.json() : {}
     const holdersData = holdersRes?.ok ? await holdersRes.json() : {}
     const pairsData = pairsRes?.ok ? await pairsRes.json() : {}
+    const rugcheckData = rugcheckRes?.ok ? await rugcheckRes.json() : null
 
     // Extract key data
     const tokenScore = scoreData?.score ?? scoreData?.tokenScore ?? null
@@ -84,6 +86,20 @@ Deno.serve(async (req) => {
     // FDV
     const fdv = meta?.fully_diluted_valuation || meta?.fdv || 0
     const mc = meta?.market_cap || meta?.marketCap || 0
+
+    // RugCheck data
+    const rugcheckScore = rugcheckData?.score_normalised ?? null
+    const rugcheckRisks = rugcheckData?.risks || []
+    const insidersDetected = rugcheckData?.graphInsidersDetected ?? 0
+    const lpLockedPct = rugcheckData?.markets?.[0]?.lp?.lpLockedPct ?? null
+    const isBundled = insidersDetected > 0
+
+    // Calculate insider/bundle % from RugCheck top holders (exclude known AMM accounts)
+    const knownAccounts = rugcheckData?.knownAccounts || {}
+    const rugTopHolders = rugcheckData?.topHolders || []
+    const insiderPct = rugTopHolders
+      .filter((h: any) => h.insider === true)
+      .reduce((sum: number, h: any) => sum + (h.pct || 0), 0)
 
     // Build audit checks
     const checks: Record<string, { status: string; detail: string }> = {}
@@ -148,12 +164,33 @@ Deno.serve(async (req) => {
       detail: fdv > 0 && mc > 0 ? `FDV/MC ratio: ${(fdv / mc).toFixed(1)}x` : 'FDV data unavailable',
     }
 
-    // Calculate overall verdict
+    // 11. Bundle/Insider check (RugCheck)
+    checks['bundle'] = {
+      status: isBundled ? 'red' : insidersDetected === 0 ? 'green' : 'unknown',
+      detail: isBundled
+        ? `BUNDLED ⚠️ ${insidersDetected} insider network(s), ${insiderPct.toFixed(1)}% insider supply`
+        : 'No insiders detected ✓',
+    }
+
+    // 12. RugCheck Score
+    checks['rugcheck_score'] = {
+      status: rugcheckScore !== null ? (rugcheckScore >= 60 ? 'green' : rugcheckScore >= 30 ? 'yellow' : 'red') : 'unknown',
+      detail: rugcheckScore !== null ? `RugCheck: ${rugcheckScore}/100` : 'RugCheck unavailable',
+    }
+
+    // 13. LP Locked
+    checks['lp_locked'] = {
+      status: lpLockedPct !== null ? (lpLockedPct >= 90 ? 'green' : lpLockedPct >= 50 ? 'yellow' : 'red') : 'unknown',
+      detail: lpLockedPct !== null ? `LP locked: ${lpLockedPct.toFixed(1)}%` : 'LP lock data unavailable',
+    }
+
+    // Calculate overall verdict — bundled = auto-red
     const redCount = Object.values(checks).filter(c => c.status === 'red').length
     const yellowCount = Object.values(checks).filter(c => c.status === 'yellow').length
     let verdict = 'green'
     let reason = 'Passes most checks'
-    if (redCount >= 3) { verdict = 'red'; reason = `${redCount} red flags detected` }
+    if (isBundled) { verdict = 'red'; reason = `Bundled token — ${insidersDetected} insider network(s) detected` }
+    else if (redCount >= 3) { verdict = 'red'; reason = `${redCount} red flags detected` }
     else if (redCount >= 1 || yellowCount >= 3) { verdict = 'yellow'; reason = `${redCount} red, ${yellowCount} yellow flags` }
     else { reason = 'Clean token profile' }
 
@@ -165,6 +202,11 @@ Deno.serve(async (req) => {
       verdict,
       reason,
       is_j7tracker: hasJ7Tracker,
+      is_bundled: isBundled,
+      insiders_detected: insidersDetected,
+      insider_pct: insiderPct,
+      rugcheck_score: rugcheckScore,
+      lp_locked_pct: lpLockedPct,
       has_instagram: hasInstagram,
       has_tiktok: hasTikTok,
       top_holders: topHoldersList.slice(0, 3).map((h: any) => ({
