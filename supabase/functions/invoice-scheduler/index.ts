@@ -1,4 +1,4 @@
-// invoice-scheduler — AI-powered invoice command interpreter
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -112,7 +112,6 @@ async function callAI(prompt: string, userMessage: string): Promise<string> {
 async function executeAction(step: any): Promise<any> {
   const { action, method, endpoint, params, body } = step;
   const BOT_SECRET = Deno.env.get('BOT_SECRET') || '';
-  console.log(`[invoice-scheduler] executeAction: ${action} endpoint=${endpoint} BOT_SECRET length=${BOT_SECRET.length}`);
 
   let url = '';
   if (endpoint === 'invoice-api') {
@@ -147,7 +146,7 @@ async function executeAction(step: any): Promise<any> {
   try { return JSON.parse(text); } catch { return { raw: text, status: res.status }; }
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

@@ -16,7 +16,7 @@ const corsHeaders = {
 const TG_API = 'https://api.telegram.org/bot'
 
 // Group IDs the bot should listen in (add more as needed)
-const ALLOWED_GROUP_IDS = [-5295903251, -1003862520317]
+const ALLOWED_GROUP_IDS = [-5295903251]
 
 // Channel ID for X Feed forwarding (PebbleHost bot posts here)
 const X_FEED_CHANNEL_ID = -1003740017231
@@ -82,7 +82,6 @@ function ensureBotCommandsBg(token: string) {
     { command: 'higs', description: '🎬 Higgsfield model list' },
     { command: 'cancel', description: '❌ Cancel active session' },
     { command: 'proposal', description: '📝 Create & send a proposal' },
-    { command: 'top', description: '🏆 Toggle Top Gainer alerts on/off' },
   ]
 
   // Fire-and-forget: register commands + ensure webhook accepts channel_post
@@ -131,7 +130,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'top' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -152,7 +151,6 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'email' || normalized === '/email') return 'email'
   if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
   if (normalized === 'proposal' || normalized === '/proposal') return 'proposal'
-  if (normalized === 'top' || normalized === '/top') return 'top'
   return null
 }
 
@@ -372,24 +370,15 @@ async function processInvoiceCommand(
   await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '⏳ Processing invoice command...', parse_mode: 'HTML' })
 
   try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 55000) // 55s timeout
-    console.log(`[invoice-tg] calling clawd-bot/invoice-command, botSecret length=${botSecret?.length}`)
     const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/invoice-command`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-bot-secret': botSecret,
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-        'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
       },
       body: JSON.stringify({ prompt, history }),
-      signal: controller.signal,
     })
-    clearTimeout(timeout)
-    const rawText = await res.text()
-    let rawData: any
-    try { rawData = JSON.parse(rawText) } catch { rawData = { type: 'message', message: rawText || 'No response from invoice engine.' } }
+    const rawData = await res.json()
     const result = rawData?.data || rawData
 
     let replyText = ''
@@ -450,10 +439,9 @@ async function processInvoiceCommand(
     })
   } catch (e: any) {
     console.error('[invoice-tg] error:', e)
-    const errMsg = e.name === 'AbortError' ? 'Request timed out. Try a simpler command.' : (e.message || String(e)).slice(0, 300)
     await tgPost(tgToken, 'sendMessage', {
       chat_id: chatId,
-      text: `❌ <b>Invoice command failed:</b> <code>${errMsg}</code>`,
+      text: `❌ <b>Invoice command failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
       parse_mode: 'HTML',
     })
   }
@@ -2732,12 +2720,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── MESSAGE HANDLING ───
-    // Bridge: treat channel_post from allowed groups as a regular message
-    const message = update.message || (
-      update.channel_post && ALLOWED_GROUP_IDS.includes(update.channel_post.chat?.id)
-        ? update.channel_post
-        : null
-    )
+    const message = update.message
     if (!message) return new Response('ok')
 
     const chatId = message.chat.id
@@ -2961,44 +2944,6 @@ Deno.serve(async (req) => {
         parse_mode: 'HTML',
         reply_markup: PERSISTENT_KEYBOARD,
       })
-      return new Response('ok')
-    }
-
-    // ─── Handle /top command — toggle Top Gainer alerts ───
-    if (action === 'top') {
-      // Check current mute state from webhook_events
-      const { data: muteRows } = await supabase.from('webhook_events')
-        .select('id, payload')
-        .eq('source', 'telegram').eq('event_type', 'top_gainer_mute')
-        .limit(1)
-
-      if (muteRows && muteRows.length > 0) {
-        const current = muteRows[0]
-        const isMuted = (current.payload as any)?.muted === true
-        // Toggle
-        await supabase.from('webhook_events').update({
-          payload: { muted: !isMuted },
-        }).eq('id', current.id)
-
-        const status = !isMuted ? '🔇 <b>Muted</b>' : '🔔 <b>Unmuted</b>'
-        await tgPost(TG_TOKEN, 'sendMessage', {
-          chat_id: chatId,
-          text: `🏆 Top Gainer Alerts are now ${status}\n\nType /top again to toggle.`,
-          parse_mode: 'HTML',
-        })
-      } else {
-        // No record yet — create as muted (turning OFF)
-        await supabase.from('webhook_events').insert({
-          source: 'telegram',
-          event_type: 'top_gainer_mute',
-          payload: { muted: true },
-        })
-        await tgPost(TG_TOKEN, 'sendMessage', {
-          chat_id: chatId,
-          text: '🏆 Top Gainer Alerts are now 🔇 <b>Muted</b>\n\nType /top again to turn them back on.',
-          parse_mode: 'HTML',
-        })
-      }
       return new Response('ok')
     }
 
@@ -3292,8 +3237,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── Auto-intent detection for free text (DMs + allowed groups) ───
-    if (text && (!isGroup || isAllowedGroup)) {
+    // ─── Auto-intent detection for free text ───
+    if (text && !isGroup) {
       const lower = text.toLowerCase()
 
       // Email intent
