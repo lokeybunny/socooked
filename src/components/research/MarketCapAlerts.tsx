@@ -309,7 +309,7 @@ export function MarketCapAlerts() {
         {[
           { id: 'all', label: 'All', count: alerts.length },
           { id: 'kol', label: '👑 KOL', count: alerts.filter(a => a.is_kol).length },
-          { id: 'j7tracker', label: '🏅 j7tracker', count: alerts.filter(a => a.is_j7tracker).length },
+          { id: 'j7tracker', label: '📖 LORE', count: alerts.filter(a => a.is_j7tracker).length },
           { id: '50k+', label: '50K+', count: alerts.filter(a => a.milestone_value >= 50000).length },
           { id: 'audited', label: '🛡 Audited', count: alerts.filter(a => a.audit_status === 'completed').length },
         ].map(f => (
@@ -382,7 +382,7 @@ export function MarketCapAlerts() {
                       "rounded-lg border transition-all overflow-visible",
                       isGainer ? "border-emerald-500/50 bg-emerald-500/5" :
                       alert.is_kol ? "border-yellow-500/50 bg-yellow-500/5" :
-                      alert.is_j7tracker ? "border-amber-500/40 bg-amber-500/5" : "border-border bg-card",
+                      alert.is_j7tracker ? "border-violet-500/40 bg-violet-500/5" : "border-border bg-card",
                       isExpanded && "ring-1 ring-primary/20"
                     )}
                   >
@@ -452,8 +452,8 @@ export function MarketCapAlerts() {
                               </span>
                             )}
                             {alert.is_j7tracker && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                                j7tracker
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-500/20 text-violet-400 border border-violet-500/30">
+                                📖 LORE
                               </span>
                             )}
                             {alert.audit_data?.has_instagram && (
@@ -591,6 +591,35 @@ export function MarketCapAlerts() {
                               <span className="font-bold">{h.pct?.toFixed(1)}%</span>
                             </div>
                           ))}
+                        </div>
+                      )}
+                      {/* LORE engagement data */}
+                      {alert.audit_data?.lore_check && (
+                        <div className="mt-2 p-2 rounded border border-violet-500/20 bg-violet-500/5">
+                          <p className="text-[10px] font-medium text-violet-400 mb-1">📖 LORE Check</p>
+                          <p className="text-[10px] text-muted-foreground">{alert.audit_data.lore_check.engagement_summary}</p>
+                          {alert.audit_data.lore_check.twitter_handle && (
+                            <a
+                              href={`https://x.com/${alert.audit_data.lore_check.twitter_handle}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-violet-400 hover:underline mt-1 inline-block"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              @{alert.audit_data.lore_check.twitter_handle}
+                            </a>
+                          )}
+                          {alert.audit_data.lore_check.top_tweet && (
+                            <div className="mt-1 text-[10px] text-muted-foreground">
+                              <span className="font-mono">💬 {alert.audit_data.lore_check.top_tweet.replies}</span>
+                              <span className="mx-1">·</span>
+                              <span className="font-mono">👁 {alert.audit_data.lore_check.top_tweet.views?.toLocaleString()}</span>
+                              <span className="mx-1">·</span>
+                              <span className="font-mono">🔄 {alert.audit_data.lore_check.top_tweet.retweets}</span>
+                              <span className="mx-1">·</span>
+                              <span className="font-mono">❤️ {alert.audit_data.lore_check.top_tweet.likes}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -2261,7 +2261,7 @@ Deno.serve(async (req) => {
               }
             }
             
-            // Check for j7tracker
+            // Check for legacy j7tracker in message text (now called LORE)
             const isJ7Tracker = cpText.toLowerCase().includes('j7tracker')
             
             // URLs
@@ -2531,6 +2531,26 @@ Deno.serve(async (req) => {
                   return new Response('ok')
                 }
                 console.log(`[gainers] Stored TP#${tpNumber} alert: ${ca.slice(0, 8)}...`)
+
+                // LORE check for TP5+ alerts (fire-and-forget)
+                if (tpNumber >= 5 && insertedAlert?.id) {
+                  try {
+                    const loreUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/lore-check`
+                    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
+                    fetch(loreUrl, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': anonKey,
+                        'Authorization': `Bearer ${anonKey}`,
+                      },
+                      body: JSON.stringify({ ca_address: ca, alert_id: insertedAlert.id }),
+                    }).catch(e => console.error(`[gainers] LORE check error:`, e.message))
+                    console.log(`[gainers] LORE check triggered for TP#${tpNumber}: ${ca.slice(0, 8)}...`)
+                  } catch (e: any) {
+                    console.error(`[gainers] LORE trigger error:`, e.message)
+                  }
+                }
 
                 // Send CA to Discord webhook for TP#10+ alerts
                 if (tpNumber >= 10) {
