@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if TP8 gains alerts are disabled
+    // Check if TP10 gains alerts are disabled
     if (entry.entity_type === "top_gainer") {
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
           .eq('section', 'tp8_alerts')
           .single();
         if (toggle?.content?.enabled === false) {
-          console.log('[telegram-notify] TP8 alerts disabled via /gains toggle');
+          console.log('[telegram-notify] TP10 alerts disabled via /gains toggle');
           return new Response(
             JSON.stringify({ success: true, skipped: 'tp8_alerts_disabled' }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Forward top_gainer alerts to Discord TP8 webhook
+    // Forward top_gainer alerts to Discord TP10 webhook
     let discordSent = false;
     if (entry.entity_type === "top_gainer") {
       const discordWebhookUrl = Deno.env.get("DISCORD_TP8_WEBHOOK_URL");
@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
         try {
           const ca = entry.meta?.ca_address || "";
           const ticker = entry.meta?.ticker ? `$${entry.meta.ticker}` : "";
-          const milestone = entry.meta?.milestone || "TP#8+";
+          const milestone = entry.meta?.milestone || "TP#10+";
           const discordMsg = ticker ? `${ca} ${ticker} ${milestone}` : `${ca} ${milestone}`;
           const discordRes = await fetch(discordWebhookUrl, {
             method: "POST",
@@ -221,7 +221,7 @@ Deno.serve(async (req) => {
             body: JSON.stringify({ content: discordMsg }),
           });
           discordSent = discordRes.ok;
-          console.log(`[telegram-notify] Discord TP8 sent: ${discordMsg}`);
+          console.log(`[telegram-notify] Discord TP10 sent: ${discordMsg}`);
         } catch (discordErr: any) {
           console.error("[telegram-notify] Discord webhook error:", discordErr.message);
         }
