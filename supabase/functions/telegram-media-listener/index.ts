@@ -2351,6 +2351,18 @@ Deno.serve(async (req) => {
                 telegram_channel_id: KOL_CHANNEL_ID,
               })
               console.log(`[kol] Stored KOL alert: ${ca.slice(0, 8)}... ${milestone}`)
+
+              // Send to Discord KOL webhook
+              const discordKolUrl = Deno.env.get('DISCORD_KOL_WEBHOOK_URL')
+              if (discordKolUrl) {
+                const sym = tokenSymbol ? ` $${tokenSymbol}` : ''
+                const discordMsg = `🟡 KOL Alert: ${ca}${sym} — ${milestone}`
+                fetch(discordKolUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ content: discordMsg }),
+                }).catch(e => console.error('[discord-kol] webhook error:', e))
+              }
             }
           }
         } catch (e: any) {
