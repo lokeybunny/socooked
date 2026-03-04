@@ -63,8 +63,10 @@ AVAILABLE ACTIONS (return as JSON array of steps):
 
 RULES:
 - Always resolve customer names to their customer_id and email from the database above.
+- **CRITICAL: auto_send RULE** — When the user says "send", "email", "invoice ... and send", or ANY phrasing that implies delivery, you MUST set auto_send: true. This generates a professional PDF, creates a Square payment link (Pay Now button), and emails everything to the customer automatically. Only set auto_send: false if the user explicitly says "draft" or "don't send".
 - If the user says "send a paid invoice to X for $500", create with status:"paid" and auto_send:true.
 - If the user says "send X an invoice for $500 due next week", create with status:"draft", auto_send:true, and calculate due_date.
+- If the user says "create an invoice for X for $500" (no mention of send/email), STILL set auto_send:true UNLESS they say "draft" or "save" or "don't send".
 - If the user says "mark invoice INV-XXXXX as paid", use update-invoice-status.
 - If the user says "email invoice INV-XXXXX", use send-invoice with the invoice_id.
 - For amounts like "$500", create a single line item: { description: "Professional Services", quantity: 1, unit_price: 500 }.
@@ -73,7 +75,7 @@ RULES:
 - Return a JSON array of steps. Each step: { "action": "...", "method": "POST"|"GET"|"PATCH"|"DELETE", "endpoint": "invoice-api"|"gmail-api", "params": {...}, "body": {...}, "description": "human-readable" }
 - If the request is unclear, return: { "clarify": "question to ask" }
 - Never fabricate invoice IDs. If you need one, ask or look it up.
-- When creating invoices with auto_send, remind the user the PDF will be generated and emailed automatically.
+- When creating invoices with auto_send, the system will automatically: generate a PDF, create a Square payment link, and email everything to the customer. Mention this in the description.
 
 EXISTING INVOICES:
 {{INVOICES}}

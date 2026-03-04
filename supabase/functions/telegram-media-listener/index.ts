@@ -394,12 +394,15 @@ async function processInvoiceCommand(
           lines.push(`✅ ${action.description}`)
           if (action.data) {
             const parts: string[] = []
-            if (action.data.invoice_number) parts.push(`#${action.data.invoice_number}`)
-            if (action.data.amount) parts.push(`$${Number(action.data.amount).toFixed(2)}`)
-            if (action.data.status) parts.push(action.data.status)
-            if (action.data.customer_name) parts.push(action.data.customer_name)
-            if (action.data.email_sent) parts.push('📧 email sent')
-            if (action.data.pdf_attached) parts.push('📎 PDF')
+            const d = action.data?.invoice || action.data
+            if (d.invoice_number) parts.push(`#${d.invoice_number}`)
+            if (d.amount) parts.push(`$${Number(d.amount).toFixed(2)}`)
+            if (d.status) parts.push(d.status)
+            if (d.customer_name) parts.push(d.customer_name)
+            if (action.data.gmail_id || action.data.email_sent || d.sent_at) parts.push('📧 email sent')
+            if (action.data.pdf_attached || action.data.gmail_id) parts.push('📎 PDF')
+            if (d.payment_url) parts.push('💳 Pay Now link')
+            if (action.data.customer_email) parts.push(`→ ${action.data.customer_email}`)
             if (parts.length) lines.push(`  → ${parts.join(' · ')}`)
           }
         } else {

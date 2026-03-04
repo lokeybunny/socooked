@@ -772,8 +772,10 @@ Deno.serve(async (req) => {
               const payUrl = await publishSquareInvoice(sqInvId, sqVersion)
               if (payUrl) {
                 await supabase.from('invoices').update({ payment_url: payUrl }).eq('id', invoice.id)
+                // CRITICAL: update in-memory invoice so the email template gets the payment URL
+                ;(invoice as any).payment_url = payUrl
               }
-              console.log(`[invoice-api] Square invoice published: ${sqInvId}`)
+              console.log(`[invoice-api] Square invoice published: ${sqInvId}, payUrl: ${payUrl}`)
             } catch (pubErr) {
               console.error('[invoice-api] Square publish failed (non-blocking):', pubErr)
             }
@@ -795,7 +797,7 @@ Deno.serve(async (req) => {
 
         try {
           const pdfBase64 = await buildInvoicePdfBase64(invoice, customerName)
-          const autoPayUrl = invoice.payment_url || ''
+          const autoPayUrl = (invoice as any).payment_url || ''
           const emailBody = buildInvoiceAttachmentEmailHtml(invoice, customerName, autoPayUrl)
           const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
           const emailSubject = invoice.status === 'paid'
