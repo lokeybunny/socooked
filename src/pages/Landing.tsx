@@ -221,12 +221,12 @@ export default function Landing() {
             }}
           >
             <p className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.3em] sm:tracking-[0.4em] uppercase text-muted-foreground/60 mb-3 sm:mb-4">
-              SMM &amp; Web Services
+              Web3 Brand Studio
             </p>
             <h2 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight text-center max-w-lg leading-tight">
-              Digital Infrastructure
+              Polish Your Brand.
               <br />
-              <span className="text-muted-foreground">for Modern Brands</span>
+              <span className="text-muted-foreground">Launch It on Solana.</span>
             </h2>
             <VideoPlayer />
           </motion.div>
