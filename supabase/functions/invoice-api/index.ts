@@ -251,7 +251,7 @@ function encodeBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string {
+function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string, paymentUrl = ''): string {
   const invNum = inv.invoice_number || 'Invoice'
   const isPaid = inv.status === 'paid'
   const dueDateStr = inv.due_date
@@ -263,6 +263,13 @@ function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string
 
   const paidBanner = isPaid
     ? `<div style="background:#059669;color:#ffffff;text-align:center;padding:10px 16px;font-size:16px;font-weight:bold;letter-spacing:1px;">✓ PAID IN FULL</div>`
+    : ''
+
+  const payNowButton = !isPaid && paymentUrl
+    ? `<div style="text-align:center;margin:18px 0 6px;">
+        <a href="${paymentUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:bold;letter-spacing:0.3px;">Pay Now →</a>
+        <p style="margin:8px 0 0;font-size:12px;color:#9ca3af;">Secure payment via Square — accepts Credit Card, Apple Pay &amp; Google Pay</p>
+      </div>`
     : ''
 
   const paidNote = isPaid
@@ -287,6 +294,7 @@ function buildInvoiceAttachmentEmailHtml(inv: any, customerName: string): string
             ${isPaid ? `<p style="margin:6px 0 0;font-size:14px;color:#059669;font-weight:600;">Status: PAID IN FULL</p>` : ''}
             ${dueDateStr && !isPaid ? `<p style="margin:6px 0 0;font-size:14px;color:#374151;"><strong>Due:</strong> ${dueDateStr}</p>` : ''}
           </div>
+          ${payNowButton}
           ${paidNote}
         </div>
       </div>
@@ -538,67 +546,23 @@ Deno.serve(async (req) => {
       const invNum = inv.invoice_number || 'Invoice'
       const totalVal = Number(inv.amount)
 
-      const pdfBase64 = await buildInvoicePdfBase64(inv, customerName)
-      const emailBody = buildInvoiceAttachmentEmailHtml(inv, customerName)
-      const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
-
-      const isPaidInvoice = inv.status === 'paid'
-      const emailSubject = isPaidInvoice
-        ? `Invoice ${invNum} — PAID IN FULL — Receipt from STU25`
-        : `Invoice ${invNum} from STU25`
-
-      // Send via gmail-api
-      const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
-      const gmailRes = await fetch(gmailUrl, {
-        method: 'POST',
-        headers: {
-          'apikey': serviceKey,
-          'Authorization': `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: customerEmail,
-          subject: emailSubject,
-          body: emailBody,
-          attachments: [
-            {
-              filename: attachmentFilename,
-              mimeType: 'application/pdf',
-              data: pdfBase64,
-            },
-          ],
-        }),
-      })
-      const gmailData = await gmailRes.json()
-      if (!gmailRes.ok) return fail(gmailData.error || 'Failed to send email', gmailRes.status)
-
-      // Mark invoice as sent (only if not already paid)
-      if (inv.status !== 'paid') {
-        await supabase.from('invoices').update({
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-        }).eq('id', invoice_id)
-      } else {
-        // Just update sent_at for record keeping
-        await supabase.from('invoices').update({
-          sent_at: new Date().toISOString(),
-        }).eq('id', invoice_id)
-      }
-
-      // ─── Square Mirror: publish draft invoice on send ───
-      if (inv.square_invoice_id && inv.square_invoice_version) {
+      // ─── Square Mirror: publish draft invoice BEFORE email so payment_url is available ───
+      let paymentUrl = inv.payment_url || ''
+      if (inv.square_invoice_id && inv.square_invoice_version && !paymentUrl) {
         try {
-          const payUrl = await publishSquareInvoice(inv.square_invoice_id, inv.square_invoice_version)
-          if (payUrl) {
-            await supabase.from('invoices').update({ payment_url: payUrl }).eq('id', invoice_id)
+          paymentUrl = await publishSquareInvoice(inv.square_invoice_id, inv.square_invoice_version)
+          if (paymentUrl) {
+            await supabase.from('invoices').update({ payment_url: paymentUrl }).eq('id', invoice_id)
+            inv.payment_url = paymentUrl
           }
-          console.log(`[invoice-api] Square invoice published on send: ${inv.square_invoice_id}`)
+          console.log(`[invoice-api] Square invoice published on send: ${inv.square_invoice_id}, payUrl: ${paymentUrl}`)
         } catch (sqErr) {
           console.error('[invoice-api] Square publish on send failed (non-blocking):', sqErr)
         }
       }
 
-      // Notify Telegram
+      const pdfBase64 = await buildInvoicePdfBase64(inv, customerName)
+      const emailBody = buildInvoiceAttachmentEmailHtml(inv, customerName, paymentUrl)
       await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, totalVal, inv.currency)
 
       return ok({
@@ -762,7 +726,8 @@ Deno.serve(async (req) => {
 
         try {
           const pdfBase64 = await buildInvoicePdfBase64(invoice, customerName)
-          const emailBody = buildInvoiceAttachmentEmailHtml(invoice, customerName)
+          const autoPayUrl = invoice.payment_url || ''
+          const emailBody = buildInvoiceAttachmentEmailHtml(invoice, customerName, autoPayUrl)
           const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
           const emailSubject = invoice.status === 'paid'
             ? `Invoice ${invNum} — PAID IN FULL — Receipt from STU25`
