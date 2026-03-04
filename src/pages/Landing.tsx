@@ -39,7 +39,7 @@ const services = [
   },
   {
     icon: Zap,
-    title: 'Deploy Token',
+    title: 'Deploy Token 💲',
     description: 'From concept to chain in days. We handle tokenomics, smart contracts, and Solana deployment so your brand launches with confidence — secure, audited, and ready to trade.',
   },
 ];
