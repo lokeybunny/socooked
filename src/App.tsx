@@ -38,6 +38,7 @@ import LetsMeet from "./pages/LetsMeet";
 import ManageBooking from "./pages/ManageBooking";
 import SharedContent from "./pages/SharedContent";
 import Research from "./pages/Research";
+import ThankYou from "./pages/ThankYou";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
@@ -98,6 +99,7 @@ const App = () => (
             <Route path="/manage-booking/:bookingId" element={<ManageBooking />} />
             <Route path="/shared/:token" element={<SharedContent />} />
             <Route path="/research" element={<Research />} />
+            <Route path="/thankyou" element={<ThankYou />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
