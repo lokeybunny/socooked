@@ -39,8 +39,8 @@ const services = [
   },
   {
     icon: Zap,
-    title: 'Performance',
-    description: 'Speed is a feature. We optimize every layer of your stack — from infrastructure to delivery — so your users never wait and your metrics never stop climbing.',
+    title: 'Deploy Token',
+    description: 'From concept to chain in days. We handle tokenomics, smart contracts, and Solana deployment so your brand launches with confidence — secure, audited, and ready to trade.',
   },
 ];
 
