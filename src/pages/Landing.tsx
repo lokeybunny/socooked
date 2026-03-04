@@ -170,7 +170,10 @@ export default function Landing() {
         {/* Nav */}
         <header className="flex items-center justify-between px-4 sm:px-6 md:px-12 py-4 md:py-5 relative z-30">
           <div className="flex items-center">
-            <span className="text-foreground/70 font-light text-base sm:text-lg md:text-xl tracking-[0.15em] uppercase">GURU</span>
+            <div className="flex flex-col leading-none">
+              <span className="text-foreground/40 font-light text-[9px] sm:text-[10px] md:text-xs tracking-[0.25em] uppercase">Warren</span>
+              <span className="text-foreground/70 font-light text-base sm:text-lg md:text-xl tracking-[0.15em] uppercase -mt-0.5">GURU</span>
+            </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
