@@ -1253,6 +1253,8 @@ export type Database = {
           payment_url: string | null
           provider: string
           sent_at: string | null
+          square_invoice_id: string | null
+          square_invoice_version: number | null
           status: string
           subtotal: number
           tax_rate: number
@@ -1273,6 +1275,8 @@ export type Database = {
           payment_url?: string | null
           provider?: string
           sent_at?: string | null
+          square_invoice_id?: string | null
+          square_invoice_version?: number | null
           status?: string
           subtotal?: number
           tax_rate?: number
@@ -1293,6 +1297,8 @@ export type Database = {
           payment_url?: string | null
           provider?: string
           sent_at?: string | null
+          square_invoice_id?: string | null
+          square_invoice_version?: number | null
           status?: string
           subtotal?: number
           tax_rate?: number
