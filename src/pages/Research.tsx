@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'; // refresh
+import { useAuth } from '@/hooks/useAuth';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -93,6 +94,9 @@ interface Narrative {
 }
 
 export default function Research() {
+  const { user } = useAuth();
+  const isRestricted = user?.email === 'warren@guru.com';
+
   const researchLoop = useResearchLoop();
   const leadLoop = useLeadLoop();
   const { loopState } = researchLoop;
@@ -122,7 +126,7 @@ export default function Research() {
   const gmapsProgressLog = gmapsState.progressLog;
   const gmapsInterval = gmapsState.interval;
 
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(isRestricted ? 'x' : null);
   const [allFindings, setAllFindings] = useState<any[]>([]);
   const [findings, setFindings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -676,7 +680,7 @@ export default function Research() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
-            {RESEARCH_SOURCES.map(src => {
+            {(isRestricted ? RESEARCH_SOURCES.filter(s => s.id === 'x') : RESEARCH_SOURCES).map(src => {
               const count = categoryCounts[src.id] || 0;
               const hasNew = categoryNewFlags[src.id];
               return (

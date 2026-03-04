@@ -2,8 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
@@ -43,7 +43,15 @@ import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
 import { YelpLoopProvider } from "./hooks/useYelpLoop";
 import { GMapsLoopProvider } from "./hooks/useGMapsLoop";
+
 const queryClient = new QueryClient();
+
+/** Gate that redirects restricted users to /research */
+function RestrictedGate({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.email === 'warren@guru.com') return <Navigate to="/research" replace />;
+  return <>{children}</>;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -60,32 +68,32 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/leads" element={<Leads />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/content" element={<Content />} />
-            <Route path="/content/upload/:customerId" element={<CustomerUpload />} />
+            <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
+            <Route path="/customers" element={<RestrictedGate><Customers /></RestrictedGate>} />
+            <Route path="/leads" element={<RestrictedGate><Leads /></RestrictedGate>} />
+            <Route path="/projects" element={<RestrictedGate><Projects /></RestrictedGate>} />
+            <Route path="/tasks" element={<RestrictedGate><Tasks /></RestrictedGate>} />
+            <Route path="/content" element={<RestrictedGate><Content /></RestrictedGate>} />
+            <Route path="/content/upload/:customerId" element={<RestrictedGate><CustomerUpload /></RestrictedGate>} />
             
-            <Route path="/threads" element={<Threads />} />
-            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/threads" element={<RestrictedGate><Threads /></RestrictedGate>} />
+            <Route path="/invoices" element={<RestrictedGate><Invoices /></RestrictedGate>} />
             
-            <Route path="/messages" element={<EmailPage />} />
-            <Route path="/phone" element={<PhonePage />} />
+            <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
+            <Route path="/phone" element={<RestrictedGate><PhonePage /></RestrictedGate>} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/meetings" element={<Meetings />} />
+            <Route path="/notifications" element={<RestrictedGate><Notifications /></RestrictedGate>} />
+            <Route path="/meetings" element={<RestrictedGate><Meetings /></RestrictedGate>} />
             <Route path="/meet/:roomCode" element={<MeetingRoom />} />
-            <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/ai-staff" element={<AIStaff />} />
-            <Route path="/custom-u" element={<CustomU />} />
-            <Route path="/landing" element={<CustomU />} />
-            <Route path="/dashboard/smm" element={<SMM />} />
-            <Route path="/previews" element={<Previews />} />
+            <Route path="/calendar" element={<RestrictedGate><CalendarPage /></RestrictedGate>} />
+            <Route path="/ai-staff" element={<RestrictedGate><AIStaff /></RestrictedGate>} />
+            <Route path="/custom-u" element={<RestrictedGate><CustomU /></RestrictedGate>} />
+            <Route path="/landing" element={<RestrictedGate><CustomU /></RestrictedGate>} />
+            <Route path="/dashboard/smm" element={<RestrictedGate><SMM /></RestrictedGate>} />
+            <Route path="/previews" element={<RestrictedGate><Previews /></RestrictedGate>} />
             <Route path="/u/:token" element={<ClientUpload />} />
-            <Route path="/prompt-machine" element={<PromptMachine />} />
-            <Route path="/calendly" element={<Calendly />} />
+            <Route path="/prompt-machine" element={<RestrictedGate><PromptMachine /></RestrictedGate>} />
+            <Route path="/calendly" element={<RestrictedGate><Calendly /></RestrictedGate>} />
             <Route path="/letsmeet" element={<LetsMeet />} />
             <Route path="/manage-booking/:bookingId" element={<ManageBooking />} />
             <Route path="/shared/:token" element={<SharedContent />} />
