@@ -1,6 +1,6 @@
 import { useRef, useMemo, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Text3D, Center, Float, Environment, MeshTransmissionMaterial } from '@react-three/drei';
+import { Text3D, Center, Float, Environment, MeshTransmissionMaterial, Tube } from '@react-three/drei';
 import * as THREE from 'three';
 
 /**
@@ -107,6 +107,23 @@ function GlassHead({ onLoaded }: { onLoaded?: () => void }) {
         <mesh geometry={headGeo} position={[0, 0.2, 0]}>
           <MeshTransmissionMaterial {...transmissionProps} />
         </mesh>
+
+        {/* ── Smile — curved tube on the face ── */}
+        <Tube
+          args={[
+            new THREE.QuadraticBezierCurve3(
+              new THREE.Vector3(-0.35, -0.45, 0.88),
+              new THREE.Vector3(0, -0.58, 0.95),
+              new THREE.Vector3(0.35, -0.45, 0.88)
+            ),
+            20,   // segments
+            0.025, // radius
+            8,    // radial segments
+          ]}
+          position={[0, 0.2, 0]}
+        >
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </Tube>
 
         {/* ══ Glasses ══ */}
         {/* Lens frames */}
