@@ -3,19 +3,19 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text3D, Center, Float, Environment, MeshTransmissionMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
-function GlassText({ onLoaded }: { onLoaded?: () => void }) {
-  const meshRef = useRef<THREE.Group>(null);
+/* ── Stylised bald head built from primitives ── */
+function GlassHead({ onLoaded }: { onLoaded?: () => void }) {
+  const groupRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
   const scale = Math.min(1, viewport.width / 8);
   const reportedRef = useRef(false);
   const frameCount = useRef(0);
 
   useFrame(({ clock }) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.3) * 0.15;
-      meshRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.2) * 0.05;
+    if (groupRef.current) {
+      groupRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.3) * 0.15;
+      groupRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.2) * 0.05;
     }
-    // Signal ready after a few frames have rendered (font is loaded by then)
     frameCount.current++;
     if (!reportedRef.current && frameCount.current > 10) {
       reportedRef.current = true;
@@ -23,40 +23,125 @@ function GlassText({ onLoaded }: { onLoaded?: () => void }) {
     }
   });
 
+  const transmissionProps = {
+    backside: true,
+    samples: 16,
+    thickness: 0.4,
+    chromaticAberration: 0.15,
+    anisotropy: 0.3,
+    distortion: 0.1,
+    distortionScale: 0.2,
+    temporalDistortion: 0.1,
+    roughness: 0.05,
+    ior: 1.5,
+    color: '#ffffff',
+    transmission: 0.95,
+    clearcoat: 1,
+    clearcoatRoughness: 0,
+    attenuationDistance: 0.5,
+    attenuationColor: '#f0f0f0',
+  } as const;
+
   return (
     <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
-      <group ref={meshRef} scale={scale}>
-        <Center>
+      <group ref={groupRef} scale={scale}>
+        {/* ── Cranium (sphere) ── */}
+        <mesh position={[0, 0.35, 0]}>
+          <sphereGeometry args={[1.35, 64, 64]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+
+        {/* ── Jaw / chin (scaled sphere) ── */}
+        <mesh position={[0, -0.7, 0.15]} scale={[0.95, 0.7, 0.85]}>
+          <sphereGeometry args={[1, 48, 48]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+
+        {/* ── Nose bridge ── */}
+        <mesh position={[0, -0.1, 1.05]} rotation={[0.3, 0, 0]} scale={[0.18, 0.35, 0.25]}>
+          <sphereGeometry args={[1, 24, 24]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+
+        {/* ── Nose tip ── */}
+        <mesh position={[0, -0.35, 1.15]} scale={[0.22, 0.18, 0.2]}>
+          <sphereGeometry args={[1, 24, 24]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+
+        {/* ── Ears ── */}
+        {[-1, 1].map((side) => (
+          <mesh key={`ear-${side}`} position={[side * 1.3, -0.1, -0.1]} rotation={[0, side * 0.3, 0]} scale={[0.2, 0.35, 0.15]}>
+            <sphereGeometry args={[1, 24, 24]} />
+            <MeshTransmissionMaterial {...transmissionProps} />
+          </mesh>
+        ))}
+
+        {/* ══ Glasses ══ */}
+        {/* Left lens frame */}
+        <mesh position={[-0.48, 0.05, 1.1]}>
+          <torusGeometry args={[0.38, 0.04, 16, 48]} />
+          <meshStandardMaterial color="#888888" metalness={0.9} roughness={0.1} />
+        </mesh>
+        {/* Left lens (glass) */}
+        <mesh position={[-0.48, 0.05, 1.1]}>
+          <circleGeometry args={[0.34, 48]} />
+          <MeshTransmissionMaterial
+            {...transmissionProps}
+            thickness={0.1}
+            color="#aaccff"
+            transmission={0.98}
+          />
+        </mesh>
+
+        {/* Right lens frame */}
+        <mesh position={[0.48, 0.05, 1.1]}>
+          <torusGeometry args={[0.38, 0.04, 16, 48]} />
+          <meshStandardMaterial color="#888888" metalness={0.9} roughness={0.1} />
+        </mesh>
+        {/* Right lens (glass) */}
+        <mesh position={[0.48, 0.05, 1.1]}>
+          <circleGeometry args={[0.34, 48]} />
+          <MeshTransmissionMaterial
+            {...transmissionProps}
+            thickness={0.1}
+            color="#aaccff"
+            transmission={0.98}
+          />
+        </mesh>
+
+        {/* Bridge between lenses */}
+        <mesh position={[0, 0.12, 1.15]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.025, 0.025, 0.22, 12]} />
+          <meshStandardMaterial color="#888888" metalness={0.9} roughness={0.1} />
+        </mesh>
+
+        {/* Left temple arm */}
+        <mesh position={[-0.85, 0.05, 0.5]} rotation={[0, 0.45, 0]}>
+          <cylinderGeometry args={[0.025, 0.02, 1.4, 8]} />
+          <meshStandardMaterial color="#888888" metalness={0.9} roughness={0.1} />
+        </mesh>
+        {/* Right temple arm */}
+        <mesh position={[0.85, 0.05, 0.5]} rotation={[0, -0.45, 0]}>
+          <cylinderGeometry args={[0.025, 0.02, 1.4, 8]} />
+          <meshStandardMaterial color="#888888" metalness={0.9} roughness={0.1} />
+        </mesh>
+
+        {/* ── "WG" text below the head ── */}
+        <Center position={[0, -2.2, 0]}>
           <Text3D
             font="/fonts/inter-bold.json"
-            size={1.4}
-            height={0.5}
+            size={0.9}
+            height={0.35}
             bevelEnabled
-            bevelThickness={0.03}
-            bevelSize={0.02}
-            bevelSegments={8}
+            bevelThickness={0.02}
+            bevelSize={0.015}
+            bevelSegments={6}
             curveSegments={32}
-            letterSpacing={0.05}
+            letterSpacing={0.08}
           >
-            STU25
-            <MeshTransmissionMaterial
-              backside
-              samples={16}
-              thickness={0.4}
-              chromaticAberration={0.15}
-              anisotropy={0.3}
-              distortion={0.1}
-              distortionScale={0.2}
-              temporalDistortion={0.1}
-              roughness={0.05}
-              ior={1.5}
-              color="#ffffff"
-              transmission={0.95}
-              clearcoat={1}
-              clearcoatRoughness={0}
-              attenuationDistance={0.5}
-              attenuationColor="#f0f0f0"
-            />
+            WG
+            <MeshTransmissionMaterial {...transmissionProps} />
           </Text3D>
         </Center>
       </group>
@@ -126,7 +211,6 @@ function Particles() {
 export default function STU25Scene({ onReady }: { onReady?: () => void }) {
   const [visible, setVisible] = useState(false);
 
-  // Force a resize event after mount so the Canvas picks up its container size
   useEffect(() => {
     setVisible(true);
     const timer = setTimeout(() => {
@@ -148,7 +232,7 @@ export default function STU25Scene({ onReady }: { onReady?: () => void }) {
       <directionalLight position={[5, 5, 5]} intensity={0.5} />
       <directionalLight position={[-5, -3, -5]} intensity={0.2} />
 
-      <GlassText onLoaded={onReady} />
+      <GlassHead onLoaded={onReady} />
       <OrbitalRing radius={3.2} speed={0.15} opacity={0.12} />
       <OrbitalRing radius={3.8} speed={-0.1} opacity={0.08} />
       <Particles />
