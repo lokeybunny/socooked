@@ -166,6 +166,98 @@ interface InvoicePayload {
   tax_rate?: number
   auto_send?: boolean | string
   status?: 'draft' | 'sent' | 'paid' | 'void'
+  skip_dupe_check?: boolean
+}
+
+// ─── Deal Pipeline Automation ──────────────────────────────
+async function advanceDealStage(supabase: any, customerId: string, toStage: string, supabaseUrl?: string, serviceKey?: string) {
+  try {
+    const { data: deal } = await supabase
+      .from('deals')
+      .select('id, stage, title')
+      .eq('customer_id', customerId)
+      .in('status', ['open'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!deal) return
+    const fromStage = deal.stage
+    if (fromStage === toStage) return
+
+    await supabase.from('deals').update({ stage: toStage }).eq('id', deal.id)
+    await supabase.from('activity_log').insert({
+      entity_type: 'deal',
+      entity_id: deal.id,
+      action: 'updated',
+      meta: { title: deal.title, from_stage: fromStage, to_stage: toStage, auto: true },
+    })
+    console.log(`[pipeline] Deal ${deal.id} moved ${fromStage} → ${toStage}`)
+
+    // If moving to "won", send welcome email
+    if (toStage === 'won' && supabaseUrl && serviceKey) {
+      await sendWelcomeEmail(supabase, customerId, supabaseUrl, serviceKey)
+    }
+  } catch (e) {
+    console.error('[pipeline] advanceDealStage error:', e)
+  }
+}
+
+async function sendWelcomeEmail(supabase: any, customerId: string, supabaseUrl: string, serviceKey: string) {
+  try {
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('full_name, email')
+      .eq('id', customerId)
+      .single()
+
+    if (!customer?.email) return
+
+    const firstName = (customer.full_name || 'there').split(' ')[0]
+    const emailBody = `
+      <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#1f2937;">
+        <div style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+          <div style="background:#111827;padding:24px 22px;color:#ffffff;text-align:center;">
+            <h2 style="margin:0;font-size:22px;">Welcome to STU25! 🎉</h2>
+          </div>
+          <div style="padding:24px 22px;">
+            <p style="margin:0 0 14px;font-size:16px;">Hi ${firstName},</p>
+            <p style="margin:0 0 14px;line-height:1.7;color:#4b5563;">
+              Thank you so much for choosing to work with us! We are truly excited to take this business journey together and are committed to delivering exceptional results for you.
+            </p>
+            <p style="margin:0 0 14px;line-height:1.7;color:#4b5563;">
+              Our team is already gearing up to bring your vision to life. If you have any questions, ideas, or need anything at all — don't hesitate to reach out. We're here for you every step of the way.
+            </p>
+            <p style="margin:0 0 14px;line-height:1.7;color:#4b5563;">
+              Here's to building something great together! 🚀
+            </p>
+            <p style="margin:24px 0 0;color:#374151;">
+              Warm regards,<br/>
+              <strong>Warren A Thompson</strong><br/>
+              <span style="color:#6b7280;font-size:14px;">STU25 Team</span>
+            </p>
+          </div>
+        </div>
+      </div>`
+
+    const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
+    await fetch(gmailUrl, {
+      method: 'POST',
+      headers: {
+        'apikey': serviceKey,
+        'Authorization': `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to: customer.email,
+        subject: `Welcome aboard, ${firstName}! 🎉 — STU25`,
+        body: emailBody,
+      }),
+    })
+    console.log(`[pipeline] Welcome email sent to ${customer.email}`)
+  } catch (e) {
+    console.error('[pipeline] Welcome email error:', e)
+  }
 }
 
 function formatCurrency(amount: number, currency = 'USD'): string {
@@ -634,6 +726,9 @@ Deno.serve(async (req) => {
       // Notify Telegram
       await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, totalVal, inv.currency)
 
+      // ─── Pipeline: Invoice sent → move deal to "negotiations" ───
+      await advanceDealStage(supabase, inv.customer_id, 'negotiation', supabaseUrl, serviceKey)
+
       return ok({
         message: `Invoice ${invNum} emailed to ${customerEmail} with PDF attachment`,
         gmail_id: gmailData.id,
@@ -833,6 +928,9 @@ Deno.serve(async (req) => {
 
           console.log(`[invoice-api] Auto-sent invoice PDF ${invNum} to ${customerEmail}`)
           await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, Number(invoice.amount), invoice.currency)
+
+          // ─── Pipeline: Invoice sent → move deal to "negotiations" ───
+          await advanceDealStage(supabase, customerId!, 'negotiation', supabaseUrl, serviceKey)
         } catch (emailErr) {
           const message = emailErr instanceof Error ? emailErr.message : 'Unknown email error'
           return fail(`Invoice was created but email sending failed: ${message}`, 500)
@@ -856,25 +954,47 @@ Deno.serve(async (req) => {
 
     // PATCH /invoice-api?id=xxx - Update status
     if (req.method === 'PATCH') {
-      const invoiceId = url.searchParams.get('id')
+      const patchBody = await req.json()
+      const invoiceId = url.searchParams.get('id') || patchBody?.invoice_id
       if (!invoiceId) return fail('id required')
 
-      const body = await req.json()
       const updates: Record<string, unknown> = {}
-      if (body.status) {
-        updates.status = body.status
-        if (body.status === 'sent') updates.sent_at = new Date().toISOString()
-        if (body.status === 'paid') updates.paid_at = new Date().toISOString()
+      if (patchBody.status) {
+        updates.status = patchBody.status
+        if (patchBody.status === 'sent') updates.sent_at = new Date().toISOString()
+        if (patchBody.status === 'paid') updates.paid_at = new Date().toISOString()
       }
 
       const { data, error } = await supabase
         .from('invoices')
         .update(updates)
         .eq('id', invoiceId)
-        .select()
+        .select('*, customers(full_name, email)')
         .single()
 
       if (error) return fail(error.message, 500)
+
+      // ─── Pipeline: Invoice paid → move deal to "won" + welcome email ───
+      if (patchBody.status === 'paid' && data?.customer_id) {
+        // Check if this is the customer's first paid invoice
+        const { count } = await supabase
+          .from('invoices')
+          .select('id', { count: 'exact', head: true })
+          .eq('customer_id', data.customer_id)
+          .eq('status', 'paid')
+
+        if (count === 1) {
+          await advanceDealStage(supabase, data.customer_id, 'won', supabaseUrl, serviceKey)
+          // Also update customer status to active (client)
+          await supabase.from('customers').update({ status: 'active' }).eq('id', data.customer_id)
+        }
+      }
+
+      // ─── Pipeline: Invoice sent → move deal to "negotiations" ───
+      if (patchBody.status === 'sent' && data?.customer_id) {
+        await advanceDealStage(supabase, data.customer_id, 'negotiation', supabaseUrl, serviceKey)
+      }
+
       return ok({ invoice: data })
     }
 
