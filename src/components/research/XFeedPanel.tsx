@@ -124,7 +124,20 @@ export function XFeedPanel() {
 
       if (dbErr || !data?.length) return;
 
-      const mapped: Tweet[] = data.map((r) => ({
+      // Filter out Solana contract address / market cap alert data from the live feed
+      const SOLANA_PATTERNS = /\b[A-HJ-NP-Za-km-z1-9]{32,44}pump\b/;
+      const CA_CHANNEL_KEYWORDS = ['marketcap-alerts', 'all-ca-from-chats', 'ozmo-market-cap-alerts', 'market-cap-alerts'];
+      const filtered = data.filter(r => {
+        const text = (r.tweet_text || '') + (r.raw_message || '');
+        // Exclude rows from CA/market-cap channels
+        if (CA_CHANNEL_KEYWORDS.some(kw => text.toLowerCase().includes(kw))) return false;
+        // Exclude rows whose primary content is a Solana address
+        if (SOLANA_PATTERNS.test(r.tweet_text || '')) return false;
+        return true;
+      });
+      if (!filtered.length) return;
+
+      const mapped: Tweet[] = filtered.map((r) => ({
         id: r.id,
         text: r.tweet_text,
         user: r.author_username,
