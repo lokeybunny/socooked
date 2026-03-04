@@ -179,7 +179,7 @@ export default function WarrenLanding() {
           >
             <div className="w-full h-[40vh] sm:h-[50vh] md:h-[55vh] max-w-4xl px-4">
               <Suspense fallback={<div className="h-full" />}>
-                <STU25Scene onReady={() => setSceneReady(true)} />
+                <STU25Scene onReady={() => setSceneReady(true)} label="WG" />
               </Suspense>
             </div>
             <motion.div

@@ -58,7 +58,7 @@ function useHeadGeometry() {
   }, []);
 }
 
-function GlassHead({ onLoaded }: { onLoaded?: () => void }) {
+function GlassHead({ onLoaded, label = 'STU25' }: { onLoaded?: () => void; label?: string }) {
   const groupRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
   const scale = Math.min(1, viewport.width / 8);
@@ -160,20 +160,20 @@ function GlassHead({ onLoaded }: { onLoaded?: () => void }) {
           </mesh>
         ))}
 
-        {/* ── "STU25" text ── */}
+        {/* ── Label text ── */}
         <Center position={[0, -2.0, 0]}>
           <Text3D
             font="/fonts/inter-bold.json"
-            size={0.55}
-            height={0.25}
+            size={label.length > 3 ? 0.55 : 0.9}
+            height={label.length > 3 ? 0.25 : 0.3}
             bevelEnabled
             bevelThickness={0.02}
             bevelSize={0.012}
             bevelSegments={4}
             curveSegments={24}
-            letterSpacing={0.06}
+            letterSpacing={label.length > 3 ? 0.06 : 0.08}
           >
-            STU25
+            {label}
             <MeshTransmissionMaterial {...transmissionProps} />
           </Text3D>
         </Center>
@@ -241,7 +241,7 @@ function Particles() {
   );
 }
 
-export default function STU25Scene({ onReady }: { onReady?: () => void }) {
+export default function STU25Scene({ onReady, label = 'STU25' }: { onReady?: () => void; label?: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -265,7 +265,7 @@ export default function STU25Scene({ onReady }: { onReady?: () => void }) {
       <directionalLight position={[5, 5, 5]} intensity={0.5} />
       <directionalLight position={[-5, -3, -5]} intensity={0.2} />
 
-      <GlassHead onLoaded={onReady} />
+      <GlassHead onLoaded={onReady} label={label} />
       <OrbitalRing radius={3.2} speed={0.15} opacity={0.12} />
       <OrbitalRing radius={3.8} speed={-0.1} opacity={0.08} />
       <Particles />
