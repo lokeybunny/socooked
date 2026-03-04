@@ -160,18 +160,18 @@ function GlassHead({ onLoaded }: { onLoaded?: () => void }) {
           </mesh>
         ))}
 
-        {/* ── "WG" text ── */}
+        {/* ── "STU25" text ── */}
         <Center position={[0, -2.0, 0]}>
           <Text3D
             font="/fonts/inter-bold.json"
-            size={0.9}
-            height={0.3}
+            size={0.55}
+            height={0.25}
             bevelEnabled
             bevelThickness={0.02}
             bevelSize={0.012}
             bevelSegments={4}
             curveSegments={24}
-            letterSpacing={0.08}
+            letterSpacing={0.06}
           >
             STU25
             <MeshTransmissionMaterial {...transmissionProps} />
