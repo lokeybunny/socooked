@@ -128,7 +128,7 @@ async function createSquareDraftInvoice(
         due_date: dueDate || new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
         automatic_payment_source: 'NONE',
       }],
-      delivery_method: 'EMAIL',
+      delivery_method: 'SHARE_MANUALLY',
       accepted_payment_methods: {
         card: true,
         square_gift_card: false,
