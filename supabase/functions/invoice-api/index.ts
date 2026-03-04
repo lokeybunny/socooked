@@ -485,6 +485,8 @@ Deno.serve(async (req) => {
 
     let authorized = false
 
+    console.log('[invoice-api] Auth check — botSecret:', !!botSecret, 'authHeader:', authHeader?.substring(0, 20))
+
     if (botSecret) {
       const expectedSecret = Deno.env.get('BOT_SECRET')
       if (!expectedSecret) return fail('BOT_SECRET not configured', 500)
