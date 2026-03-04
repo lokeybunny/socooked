@@ -139,7 +139,7 @@ export default function Landing() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
           >
-            <span className="text-foreground/30 font-light text-sm tracking-[0.3em] uppercase">STU25</span>
+            <span className="text-foreground/30 font-light text-sm tracking-[0.3em] uppercase">GURU</span>
             <div className="w-32 h-px bg-muted overflow-hidden rounded-full">
               <motion.div
                 className="h-full bg-foreground/40 rounded-full"
@@ -170,7 +170,7 @@ export default function Landing() {
         {/* Nav */}
         <header className="flex items-center justify-between px-4 sm:px-6 md:px-12 py-4 md:py-5 relative z-30">
           <div className="flex items-center">
-            <span className="text-foreground/70 font-light text-base sm:text-lg md:text-xl tracking-[0.15em] uppercase">STU25</span>
+            <span className="text-foreground/70 font-light text-base sm:text-lg md:text-xl tracking-[0.15em] uppercase">GURU</span>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
@@ -340,7 +340,7 @@ export default function Landing() {
               visibility: scrollProgress > 0.70 ? 'visible' : 'hidden',
             }}
           >
-            <span className="text-foreground/50 font-light text-xs sm:text-sm md:text-base tracking-[0.25em] uppercase mb-3 sm:mb-4">STU25</span>
+            <span className="text-foreground/50 font-light text-xs sm:text-sm md:text-base tracking-[0.25em] uppercase mb-3 sm:mb-4">GURU</span>
             <h2 className="text-xl sm:text-2xl md:text-3xl font-light tracking-tight text-center mb-1.5 sm:mb-2">
               Ready?
             </h2>
@@ -362,7 +362,7 @@ export default function Landing() {
           <div className="flex flex-col items-start gap-1.5">
             <PortfolioModal />
             <p className="text-[8px] sm:text-[9px] tracking-[0.2em] uppercase text-muted-foreground/30">
-              STU25
+              GURU
             </p>
           </div>
           <p className="text-[8px] sm:text-[9px] text-muted-foreground/30">
