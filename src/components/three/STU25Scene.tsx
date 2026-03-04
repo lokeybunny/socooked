@@ -173,7 +173,7 @@ function GlassHead({ onLoaded }: { onLoaded?: () => void }) {
             curveSegments={24}
             letterSpacing={0.08}
           >
-            WG
+            STU25
             <MeshTransmissionMaterial {...transmissionProps} />
           </Text3D>
         </Center>
