@@ -14,7 +14,7 @@ const steps = [
     icon: Settings,
     number: 2,
     title: 'Open the License Widget',
-    description: 'Launch FrogLabs Terminal and click the settings gear on the License widget.',
+    description: 'Launch Warren Guru Bundler and click the settings gear on the License widget.',
   },
   {
     icon: Key,
@@ -68,13 +68,13 @@ export default function ThankYou() {
           transition={{ duration: 0.6 }}
         >
           <p className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.3em] sm:tracking-[0.4em] uppercase text-muted-foreground/60 mb-3">
-            FrogLabs Terminal
+            Warren Guru Bundler
           </p>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight mb-2">
             Thank You for Your Purchase!
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground/60 font-light mb-10 sm:mb-14">
-            Follow these steps to activate your license and start using FrogLabs Terminal.
+            Follow these steps to activate your license and start using Warren Guru Bundler.
           </p>
         </motion.div>
 
