@@ -213,18 +213,15 @@ export function MarketCapAlerts() {
     return alerts.filter(a => (a as any).is_top_gainer === true);
   }, [alerts]);
 
-  // Fetch market caps for top gainers via DexScreener
+  // Fetch market caps for top gainers via DexScreener — refresh every 60s
   useEffect(() => {
     if (topGainers.length === 0) return;
-    const uniqueCAs = [...new Set(topGainers.map(a => a.ca_address))];
-    const missing = uniqueCAs.filter(ca => !(ca in mcapCache));
-    if (missing.length === 0) return;
 
-    const fetchMcaps = async () => {
+    const fetchAllMcaps = async () => {
+      const uniqueCAs = [...new Set(topGainers.map(a => a.ca_address))];
       const newCache: Record<string, number | null> = {};
-      // DexScreener allows batching up to 30 addresses
-      for (let i = 0; i < missing.length; i += 30) {
-        const batch = missing.slice(i, i + 30);
+      for (let i = 0; i < uniqueCAs.length; i += 30) {
+        const batch = uniqueCAs.slice(i, i + 30);
         try {
           const res = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${batch.join(',')}`);
           if (res.ok) {
@@ -240,7 +237,10 @@ export function MarketCapAlerts() {
       }
       setMcapCache(prev => ({ ...prev, ...newCache }));
     };
-    fetchMcaps();
+
+    fetchAllMcaps();
+    const interval = setInterval(fetchAllMcaps, 60_000);
+    return () => clearInterval(interval);
   }, [topGainers]);
 
   const filtered = useMemo(() => {
@@ -407,13 +407,16 @@ export function MarketCapAlerts() {
               const isGainer = alert.milestone.startsWith('TP#');
               const isTopGainer = (alert as any).is_top_gainer === true;
               const cachedMcap = mcapCache[alert.ca_address];
-              const isLowMcap = isTopGainer && cachedMcap !== undefined && cachedMcap !== null && cachedMcap < 200000;
+              const hasMcap = isTopGainer && cachedMcap !== undefined && cachedMcap !== null;
+              const isDeadMcap = hasMcap && cachedMcap < 20000;
+              const isLowMcap = hasMcap && !isDeadMcap && cachedMcap < 200000;
 
               return (
                   <div
                     key={alert.id}
                     className={cn(
                       "rounded-lg border transition-all overflow-visible",
+                      isDeadMcap ? "border-red-500/60 bg-red-500/10" :
                       isLowMcap ? "border-amber-500/60 bg-amber-500/10" :
                       isGainer ? "border-emerald-500/50 bg-emerald-500/5" :
                       alert.is_kol ? "border-yellow-500/50 bg-yellow-500/5" :
