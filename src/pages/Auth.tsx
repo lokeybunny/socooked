@@ -40,86 +40,44 @@ export default function Auth() {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary/5 items-center justify-center p-12 relative overflow-hidden">
-        {/* Ambient grid */}
-        <div className="absolute inset-0 pointer-events-none opacity-[0.03]">
-          <div className="w-full h-full" style={{ backgroundImage: 'linear-gradient(hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
-        </div>
-        <div className="max-w-md space-y-6 relative z-10">
-          <span className="text-foreground/70 font-light text-xl tracking-[0.15em] uppercase">STU25</span>
-          <h1 className="text-3xl font-bold text-foreground leading-tight">
-            Excellent Service.<br />
-            <span className="text-muted-foreground">Built Different.</span>
-          </h1>
-          <p className="text-muted-foreground text-base leading-relaxed">
-            Digital marketing &amp; web services exclusively serving Las Vegas and Los Angeles. Founded in 2017, born in Burbank, California.
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="w-full max-w-sm space-y-8 px-6">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to home
+        </button>
+
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">
+            {isSignUp ? 'Create account' : 'Welcome back'}
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            {isSignUp ? 'Get started with GURU' : 'Sign in to your account'}
           </p>
-          <div className="pt-2 space-y-1.5">
-            <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground/60">Get in touch</p>
-            <Link to="/letsmeet" className="text-sm text-primary hover:underline font-medium">Book a Meeting →</Link>
-          </div>
         </div>
-      </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
-        <div className="w-full max-w-sm space-y-8">
-          {/* Mobile/tablet brand section */}
-          <div className="lg:hidden space-y-3 text-center">
-            <span className="text-foreground/70 font-light text-lg tracking-[0.15em] uppercase">STU25</span>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">
-              Excellent Service.<br />
-              <span className="text-muted-foreground">Built Different.</span>
-            </h1>
-            <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed max-w-xs mx-auto">
-              Digital marketing &amp; web services exclusively serving Las Vegas and Los Angeles. Founded in 2017, born in Burbank, California.
-            </p>
-            <div className="pt-1 space-y-0.5">
-              <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground/60">Get in touch</p>
-              <Link to="/letsmeet" className="text-xs text-primary hover:underline font-medium">Book a Meeting →</Link>
-            </div>
-            <div className="border-b border-border pt-2" />
-          </div>
-
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to home
-          </button>
-
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">
-              {isSignUp ? 'Create account' : 'Welcome back'}
-            </h2>
-            <p className="text-muted-foreground mt-1">
-              {isSignUp ? 'Get started with STU25' : 'Sign in to your account'}
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="John Doe" required />
-              </div>
-            )}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {isSignUp && (
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required />
+              <Label htmlFor="name">Full Name</Label>
+              <Input id="name" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="John Doe" required />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
-            </div>
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
-            </Button>
-          </form>
-        </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} />
+          </div>
+          <Button type="submit" className="w-full" disabled={submitting}>
+            {submitting ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
+          </Button>
+        </form>
       </div>
     </div>
   );
