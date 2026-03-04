@@ -563,6 +563,51 @@ Deno.serve(async (req) => {
 
       const pdfBase64 = await buildInvoicePdfBase64(inv, customerName)
       const emailBody = buildInvoiceAttachmentEmailHtml(inv, customerName, paymentUrl)
+      const attachmentFilename = `${sanitizeFilename(String(invNum))}.pdf`
+
+      const isPaidInvoice = inv.status === 'paid'
+      const emailSubject = isPaidInvoice
+        ? `Invoice ${invNum} — PAID IN FULL — Receipt from STU25`
+        : `Invoice ${invNum} from STU25`
+
+      // Send via gmail-api
+      const gmailUrl = `${supabaseUrl}/functions/v1/gmail-api?action=send`
+      const gmailRes = await fetch(gmailUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: customerEmail,
+          subject: emailSubject,
+          body: emailBody,
+          attachments: [
+            {
+              filename: attachmentFilename,
+              mimeType: 'application/pdf',
+              data: pdfBase64,
+            },
+          ],
+        }),
+      })
+      const gmailData = await gmailRes.json()
+      if (!gmailRes.ok) return fail(gmailData.error || 'Failed to send email', gmailRes.status)
+
+      // Mark invoice as sent (only if not already paid)
+      if (inv.status !== 'paid') {
+        await supabase.from('invoices').update({
+          status: 'sent',
+          sent_at: new Date().toISOString(),
+        }).eq('id', invoice_id)
+      } else {
+        await supabase.from('invoices').update({
+          sent_at: new Date().toISOString(),
+        }).eq('id', invoice_id)
+      }
+
+      // Notify Telegram
       await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, totalVal, inv.currency)
 
       return ok({
