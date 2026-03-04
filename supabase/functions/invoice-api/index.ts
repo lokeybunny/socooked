@@ -557,8 +557,10 @@ Deno.serve(async (req) => {
           if (!sqInvId) {
             const lineItems: LineItem[] = Array.isArray(inv.line_items) ? inv.line_items : []
             const sqCustId = await findOrCreateSquareCustomer(customerEmail, customerName)
+            // Use a unique Square invoice number to avoid conflicts with previously created Square invoices
+            const sqInvoiceNum = `${String(invNum)}-${crypto.randomUUID().slice(0, 6)}`
             const sqResult = await createSquareDraftInvoice(
-              sqCustId, lineItems, String(invNum), inv.due_date || null, inv.currency || 'USD', inv.notes || null,
+              sqCustId, lineItems, sqInvoiceNum, inv.due_date || null, inv.currency || 'USD', inv.notes || null,
             )
             sqInvId = sqResult.invoiceId
             sqVersion = sqResult.version
@@ -570,7 +572,7 @@ Deno.serve(async (req) => {
           }
 
           // Now publish it
-          if (sqInvId && sqVersion) {
+          if (sqInvId && sqVersion != null) {
             paymentUrl = await publishSquareInvoice(sqInvId, sqVersion)
             if (paymentUrl) {
               await supabase.from('invoices').update({ payment_url: paymentUrl }).eq('id', invoice_id)
