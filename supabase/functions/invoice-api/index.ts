@@ -546,18 +546,40 @@ Deno.serve(async (req) => {
       const invNum = inv.invoice_number || 'Invoice'
       const totalVal = Number(inv.amount)
 
-      // ─── Square Mirror: publish draft invoice BEFORE email so payment_url is available ───
+      // ─── Square Mirror: create + publish invoice so payment_url is available ───
       let paymentUrl = inv.payment_url || ''
-      if (inv.square_invoice_id && inv.square_invoice_version && !paymentUrl) {
+      if (!paymentUrl) {
         try {
-          paymentUrl = await publishSquareInvoice(inv.square_invoice_id, inv.square_invoice_version)
-          if (paymentUrl) {
-            await supabase.from('invoices').update({ payment_url: paymentUrl }).eq('id', invoice_id)
-            inv.payment_url = paymentUrl
+          let sqInvId = inv.square_invoice_id
+          let sqVersion = inv.square_invoice_version
+
+          // If no Square invoice exists yet (UI-created invoices), create one now
+          if (!sqInvId) {
+            const lineItems: LineItem[] = Array.isArray(inv.line_items) ? inv.line_items : []
+            const sqCustId = await findOrCreateSquareCustomer(customerEmail, customerName)
+            const sqResult = await createSquareDraftInvoice(
+              sqCustId, lineItems, String(invNum), inv.due_date || null, inv.currency || 'USD', inv.notes || null,
+            )
+            sqInvId = sqResult.invoiceId
+            sqVersion = sqResult.version
+            await supabase.from('invoices').update({
+              square_invoice_id: sqInvId,
+              square_invoice_version: sqVersion,
+            }).eq('id', invoice_id)
+            console.log(`[invoice-api] Square draft created on send: ${sqInvId}`)
           }
-          console.log(`[invoice-api] Square invoice published on send: ${inv.square_invoice_id}, payUrl: ${paymentUrl}`)
+
+          // Now publish it
+          if (sqInvId && sqVersion) {
+            paymentUrl = await publishSquareInvoice(sqInvId, sqVersion)
+            if (paymentUrl) {
+              await supabase.from('invoices').update({ payment_url: paymentUrl }).eq('id', invoice_id)
+              inv.payment_url = paymentUrl
+            }
+            console.log(`[invoice-api] Square invoice published on send: ${sqInvId}, payUrl: ${paymentUrl}`)
+          }
         } catch (sqErr) {
-          console.error('[invoice-api] Square publish on send failed (non-blocking):', sqErr)
+          console.error('[invoice-api] Square create/publish on send failed (non-blocking):', sqErr)
         }
       }
 
