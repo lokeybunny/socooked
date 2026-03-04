@@ -111,7 +111,7 @@ export default function ThankYou() {
           <p className="text-xs sm:text-sm text-muted-foreground/40 font-light">
             Need help?{' '}
             <a
-              href="https://discord.gg/your-discord"
+              href="https://discord.gg/warrenguru"
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground/60 hover:text-foreground underline underline-offset-4 transition-colors duration-300"
