@@ -254,7 +254,7 @@ export default function STU25Scene({ onReady }: { onReady?: () => void }) {
 
   return (
     <Canvas
-      camera={{ position: [0, 0, 10], fov: 35 }}
+      camera={{ position: [0, 0, 10], fov: 45 }}
       gl={{ antialias: true, alpha: true }}
       style={{ background: 'transparent', opacity: visible ? 1 : 0, transition: 'opacity 0.3s' }}
       dpr={[1, 2]}
