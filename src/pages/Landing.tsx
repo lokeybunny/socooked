@@ -2,7 +2,7 @@ import { Suspense, lazy, useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, Globe, BarChart3, Sparkles, Layers, Monitor, Zap, X, DoorOpen, ChevronLeft, ChevronRight, ArrowUp } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Globe, BarChart3, Sparkles, Layers, Monitor, DollarSign, X, DoorOpen, ChevronLeft, ChevronRight, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
@@ -38,8 +38,8 @@ const services = [
     description: 'Interfaces should feel invisible. We design minimal, intuitive experiences where every pixel earns its place — guiding users naturally toward what matters most.',
   },
   {
-    icon: Zap,
-    title: 'Deploy Token 💲',
+    icon: DollarSign,
+    title: 'Deploy Token',
     description: 'From concept to chain in days. We handle tokenomics, smart contracts, and Solana deployment so your brand launches with confidence — secure, audited, and ready to trade.',
   },
 ];
