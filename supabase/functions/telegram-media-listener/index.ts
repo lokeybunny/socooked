@@ -1466,6 +1466,36 @@ async function processProposalSession(
           text: `✅ <b>Proposal sent!</b>\n\n📧 Delivered to: ${data.email}\n📋 Service: ${data.service}\n💰 ${costDisplay}\n📎 PDF attached`,
           parse_mode: 'HTML',
         })
+
+        // ─── Pipeline: Proposal sent → move deal to "proposal" ───
+        try {
+          const { data: cust } = await supabase.from('customers')
+            .select('id')
+            .eq('email', data.email)
+            .limit(1)
+            .maybeSingle()
+          if (cust) {
+            const { data: deal } = await supabase.from('deals')
+              .select('id, stage')
+              .eq('customer_id', cust.id)
+              .in('status', ['open'])
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            if (deal && deal.stage !== 'proposal') {
+              await supabase.from('deals').update({ stage: 'proposal' }).eq('id', deal.id)
+              await supabase.from('activity_log').insert({
+                entity_type: 'deal',
+                entity_id: deal.id,
+                action: 'updated',
+                meta: { title: data.clientName, from_stage: deal.stage, to_stage: 'proposal', auto: true },
+              })
+              console.log(`[pipeline] Deal ${deal.id} moved ${deal.stage} → proposal (proposal sent)`)
+            }
+          }
+        } catch (pipeErr) {
+          console.error('[pipeline] Proposal stage advance error:', pipeErr)
+        }
       } else {
         throw new Error(sendResult?.error || 'Send failed')
       }
