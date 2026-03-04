@@ -58,7 +58,7 @@ function useHeadGeometry() {
   }, []);
 }
 
-function GlassHead({ onLoaded, label = 'WARREN GURU' }: { onLoaded?: () => void; label?: string }) {
+function GlassHead({ onLoaded, label = 'STU25' }: { onLoaded?: () => void; label?: string }) {
   const groupRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
   const scale = Math.min(1, viewport.width / 8);
@@ -164,14 +164,14 @@ function GlassHead({ onLoaded, label = 'WARREN GURU' }: { onLoaded?: () => void;
         <Center position={[0, -2.0, 0]}>
           <Text3D
             font="/fonts/inter-bold.json"
-            size={label.length > 6 ? 0.35 : label.length > 3 ? 0.55 : 0.9}
-            height={label.length > 6 ? 0.18 : label.length > 3 ? 0.25 : 0.3}
+            size={label.length > 3 ? 0.55 : 0.9}
+            height={label.length > 3 ? 0.25 : 0.3}
             bevelEnabled
             bevelThickness={0.02}
             bevelSize={0.012}
             bevelSegments={4}
             curveSegments={24}
-            letterSpacing={label.length > 6 ? 0.04 : label.length > 3 ? 0.06 : 0.08}
+            letterSpacing={label.length > 3 ? 0.06 : 0.08}
           >
             {label}
             <MeshTransmissionMaterial {...transmissionProps} />
@@ -241,7 +241,7 @@ function Particles() {
   );
 }
 
-export default function STU25Scene({ onReady, label = 'WARREN GURU' }: { onReady?: () => void; label?: string }) {
+export default function STU25Scene({ onReady, label = 'STU25' }: { onReady?: () => void; label?: string }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
