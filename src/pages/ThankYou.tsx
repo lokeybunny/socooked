@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ThemeToggle } from '@/components/layout/ThemeToggle';
+
 import { Mail, Settings, Key, CheckCircle, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -56,7 +56,7 @@ export default function ThankYou() {
             <span className="text-foreground/70 font-light text-base sm:text-lg md:text-xl tracking-[0.15em] uppercase -mt-0.5">GURU</span>
           </div>
         </button>
-        <ThemeToggle />
+        
       </header>
 
       {/* Content */}

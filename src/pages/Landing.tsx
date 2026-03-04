@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
 import { ArrowRight, ArrowLeft, Globe, BarChart3, Sparkles, Layers, Monitor, DollarSign, X, DoorOpen, ChevronLeft, ChevronRight, ArrowUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ThemeToggle } from '@/components/layout/ThemeToggle';
+
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import VideoPlayer from '@/components/landing/VideoPlayer';
 import PortfolioModal from '@/components/landing/PortfolioModal';
@@ -176,7 +176,6 @@ export default function Landing() {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <ThemeToggle />
             <button
               onClick={() => navigate('/auth')}
               className="text-muted-foreground/50 hover:text-foreground transition-colors duration-300"
