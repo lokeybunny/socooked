@@ -45,33 +45,78 @@ function GlassHead({ onLoaded }: { onLoaded?: () => void }) {
   return (
     <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
       <group ref={groupRef} scale={scale}>
-        {/* ── Cranium (sphere) ── */}
-        <mesh position={[0, 0.35, 0]}>
+        {/* ── Cranium — slightly wider, flatter top ── */}
+        <mesh position={[0, 0.3, 0]} scale={[1.05, 0.95, 1]}>
           <sphereGeometry args={[1.35, 64, 64]} />
           <MeshTransmissionMaterial {...transmissionProps} />
         </mesh>
 
-        {/* ── Jaw / chin (scaled sphere) ── */}
-        <mesh position={[0, -0.7, 0.15]} scale={[0.95, 0.7, 0.85]}>
+        {/* ── Forehead — broader, more prominent brow ── */}
+        <mesh position={[0, 0.55, 0.6]} scale={[1.1, 0.3, 0.45]}>
+          <sphereGeometry args={[1, 32, 32]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+
+        {/* ── Brow ridge — strong, defined ── */}
+        <mesh position={[0, 0.15, 0.95]} scale={[0.85, 0.12, 0.2]}>
+          <sphereGeometry args={[1, 24, 24]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+
+        {/* ── Jaw — wider, stronger jawline ── */}
+        <mesh position={[0, -0.65, 0.15]} scale={[1.05, 0.72, 0.9]}>
           <sphereGeometry args={[1, 48, 48]} />
           <MeshTransmissionMaterial {...transmissionProps} />
         </mesh>
 
-        {/* ── Nose bridge ── */}
-        <mesh position={[0, -0.1, 1.05]} rotation={[0.3, 0, 0]} scale={[0.18, 0.35, 0.25]}>
+        {/* ── Chin — rounder, fuller ── */}
+        <mesh position={[0, -1.05, 0.35]} scale={[0.4, 0.25, 0.35]}>
           <sphereGeometry args={[1, 24, 24]} />
           <MeshTransmissionMaterial {...transmissionProps} />
         </mesh>
 
-        {/* ── Nose tip ── */}
-        <mesh position={[0, -0.35, 1.15]} scale={[0.22, 0.18, 0.2]}>
-          <sphereGeometry args={[1, 24, 24]} />
-          <MeshTransmissionMaterial {...transmissionProps} />
-        </mesh>
-
-        {/* ── Ears ── */}
+        {/* ── Cheekbones — higher, more prominent ── */}
         {[-1, 1].map((side) => (
-          <mesh key={`ear-${side}`} position={[side * 1.3, -0.1, -0.1]} rotation={[0, side * 0.3, 0]} scale={[0.2, 0.35, 0.15]}>
+          <mesh key={`cheek-${side}`} position={[side * 0.75, -0.15, 0.8]} scale={[0.35, 0.25, 0.3]}>
+            <sphereGeometry args={[1, 24, 24]} />
+            <MeshTransmissionMaterial {...transmissionProps} />
+          </mesh>
+        ))}
+
+        {/* ── Nose — broader bridge, wider nostrils ── */}
+        <mesh position={[0, -0.1, 1.05]} rotation={[0.25, 0, 0]} scale={[0.24, 0.35, 0.28]}>
+          <sphereGeometry args={[1, 24, 24]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+
+        {/* ── Nose tip — wider, rounder ── */}
+        <mesh position={[0, -0.35, 1.18]} scale={[0.32, 0.2, 0.22]}>
+          <sphereGeometry args={[1, 24, 24]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+
+        {/* ── Nostrils / nose wings ── */}
+        {[-1, 1].map((side) => (
+          <mesh key={`nostril-${side}`} position={[side * 0.18, -0.38, 1.12]} scale={[0.12, 0.1, 0.1]}>
+            <sphereGeometry args={[1, 16, 16]} />
+            <MeshTransmissionMaterial {...transmissionProps} />
+          </mesh>
+        ))}
+
+        {/* ── Fuller lips — top ── */}
+        <mesh position={[0, -0.62, 1.0]} scale={[0.35, 0.08, 0.15]} rotation={[0.1, 0, 0]}>
+          <sphereGeometry args={[1, 24, 24]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+        {/* ── Fuller lips — bottom ── */}
+        <mesh position={[0, -0.72, 0.97]} scale={[0.32, 0.1, 0.16]} rotation={[-0.1, 0, 0]}>
+          <sphereGeometry args={[1, 24, 24]} />
+          <MeshTransmissionMaterial {...transmissionProps} />
+        </mesh>
+
+        {/* ── Ears — closer to head ── */}
+        {[-1, 1].map((side) => (
+          <mesh key={`ear-${side}`} position={[side * 1.32, -0.15, -0.15]} rotation={[0, side * 0.25, 0]} scale={[0.18, 0.32, 0.14]}>
             <sphereGeometry args={[1, 24, 24]} />
             <MeshTransmissionMaterial {...transmissionProps} />
           </mesh>
