@@ -36,8 +36,11 @@ const navItems: NavItem[] = [
   { to: '/projects', icon: FolderKanban, label: 'Projects', highlight: true },
 ];
 
+const RESTRICTED_EMAIL = 'warren@guru.com';
+
 export function Sidebar() {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
+  const isRestricted = user?.email === RESTRICTED_EMAIL;
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [hasNewMessages, setHasNewMessages] = useState(false);
@@ -158,7 +161,7 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, icon: Icon, label, botIcon, highlight, divider, green }, idx) => {
+          {(isRestricted ? navItems.filter(i => i.to === '/research') : navItems).map(({ to, icon: Icon, label, botIcon, highlight, divider, green }, idx) => {
             const isActive = location.pathname === to;
             const showDot = to === '/messages' && hasNewMessages;
             const nextItem = navItems[idx + 1];
