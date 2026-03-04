@@ -81,6 +81,14 @@ export default function WarrenVideoPlayer() {
                     title="Warren Guru"
                   />
                 </div>
+                <a
+                  href="https://discord.gg/warrenguru"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 px-8 py-2.5 text-[10px] sm:text-xs tracking-[0.3em] uppercase font-light border border-white/20 rounded-lg text-white/60 hover:text-white hover:border-white/50 transition-all duration-300 inline-block text-center"
+                >
+                  Download
+                </a>
               </div>
             </motion.div>
           </>
