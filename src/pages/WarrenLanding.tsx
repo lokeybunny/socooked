@@ -7,7 +7,7 @@ import { ArrowRight, ArrowLeft, Globe, BarChart3, Sparkles, Layers, Monitor, Dol
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
-import VideoPlayer from '@/components/landing/VideoPlayer';
+import WarrenVideoPlayer from '@/components/landing/WarrenVideoPlayer';
 import PortfolioModal from '@/components/landing/PortfolioModal';
 
 const STU25Scene = lazy(() => import('@/components/three/STU25Scene'));
@@ -210,7 +210,7 @@ export default function WarrenLanding() {
               <br />
               <span className="text-muted-foreground">Launch It on Solana.</span>
             </h2>
-            <VideoPlayer />
+            <WarrenVideoPlayer />
           </motion.div>
 
           {/* Layer 3: Services grid */}
