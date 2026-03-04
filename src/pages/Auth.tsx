@@ -65,12 +65,12 @@ export default function Auth() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required className="h-11" />
+              <Label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-center block">Email</Label>
+              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required className="h-11 text-center" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Password</Label>
-              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-11" />
+              <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-center block">Password</Label>
+              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="h-11 text-center" />
             </div>
             <Button type="submit" className="w-full h-11 text-sm font-medium" disabled={submitting}>
               {submitting ? 'Loading...' : isSignUp ? 'Create Account' : 'Sign In'}
