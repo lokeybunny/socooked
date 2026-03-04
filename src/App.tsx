@@ -40,6 +40,7 @@ import ManageBooking from "./pages/ManageBooking";
 import SharedContent from "./pages/SharedContent";
 import Research from "./pages/Research";
 import ThankYou from "./pages/ThankYou";
+import WarrenLanding from "./pages/WarrenLanding";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
@@ -101,6 +102,7 @@ const App = () => (
             <Route path="/shared/:token" element={<SharedContent />} />
             <Route path="/research" element={<Research />} />
             <Route path="/thankyou" element={<ThankYou />} />
+            <Route path="/warren-landing" element={<Suspense fallback={null}><WarrenLanding /></Suspense>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
