@@ -42,6 +42,120 @@ interface LineItem {
   amount?: number
 }
 
+// ─── Square Invoice Mirroring ──────────────────────────────
+const SQUARE_BASE = 'https://connect.squareup.com/v2'
+
+async function squareRequest(path: string, method: string, body?: unknown) {
+  const token = Deno.env.get('SQUARE_ACCESS_TOKEN')
+  if (!token) throw new Error('SQUARE_ACCESS_TOKEN not configured')
+  const res = await fetch(`${SQUARE_BASE}${path}`, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Square-Version': '2024-12-18',
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  })
+  const data = await res.json()
+  if (!res.ok) {
+    console.error('[square] API error:', JSON.stringify(data))
+    throw new Error(data.errors?.[0]?.detail || `Square API ${res.status}`)
+  }
+  return data
+}
+
+async function findOrCreateSquareCustomer(email: string, name: string): Promise<string> {
+  // Search by email
+  try {
+    const searchRes = await squareRequest('/customers/search', 'POST', {
+      query: { filter: { email_address: { exact: email } } },
+    })
+    if (searchRes.customers?.length) return searchRes.customers[0].id
+  } catch { /* not found, create */ }
+
+  // Create new
+  const createRes = await squareRequest('/customers', 'POST', {
+    idempotency_key: crypto.randomUUID(),
+    given_name: name.split(' ')[0] || name,
+    family_name: name.split(' ').slice(1).join(' ') || '',
+    email_address: email,
+  })
+  return createRes.customer.id
+}
+
+async function createSquareDraftInvoice(
+  squareCustomerId: string,
+  lineItems: LineItem[],
+  invoiceNumber: string,
+  dueDate: string | null,
+  currency: string,
+  notes: string | null,
+): Promise<{ invoiceId: string; version: number }> {
+  const locationRes = await squareRequest('/locations', 'GET')
+  const locationId = locationRes.locations?.[0]?.id
+  if (!locationId) throw new Error('No Square location found')
+
+  // Create order first (Square invoices require an order)
+  const orderLineItems = lineItems.map(li => ({
+    name: li.description,
+    quantity: String(li.quantity),
+    base_price_money: {
+      amount: Math.round(li.unit_price * 100), // cents
+      currency: currency.toUpperCase(),
+    },
+  }))
+
+  const orderRes = await squareRequest('/orders', 'POST', {
+    idempotency_key: crypto.randomUUID(),
+    order: {
+      location_id: locationId,
+      line_items: orderLineItems,
+    },
+  })
+  const orderId = orderRes.order.id
+
+  // Create invoice linked to the order
+  const invoiceBody: any = {
+    idempotency_key: crypto.randomUUID(),
+    invoice: {
+      location_id: locationId,
+      order_id: orderId,
+      invoice_number: invoiceNumber,
+      primary_recipient: { customer_id: squareCustomerId },
+      payment_requests: [{
+        request_type: 'BALANCE',
+        due_date: dueDate || new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+        automatic_payment_source: 'NONE',
+      }],
+      delivery_method: 'EMAIL',
+      accepted_payment_methods: {
+        card: true,
+        square_gift_card: false,
+        bank_account: false,
+        buy_now_pay_later: false,
+        cash_app_pay: false,
+      },
+    },
+  }
+  if (notes) invoiceBody.invoice.description = notes
+
+  const invoiceRes = await squareRequest('/invoices', 'POST', invoiceBody)
+  return {
+    invoiceId: invoiceRes.invoice.id,
+    version: invoiceRes.invoice.version,
+  }
+}
+
+async function publishSquareInvoice(invoiceId: string, version: number): Promise<string> {
+  const res = await squareRequest(`/invoices/${invoiceId}/publish`, 'POST', {
+    idempotency_key: crypto.randomUUID(),
+    version,
+  })
+  // Return the public payment URL
+  return res.invoice?.public_url || ''
+}
+
 interface InvoicePayload {
   customer_id?: string
   customer_email?: string
@@ -472,6 +586,19 @@ Deno.serve(async (req) => {
         }).eq('id', invoice_id)
       }
 
+      // ─── Square Mirror: publish draft invoice on send ───
+      if (inv.square_invoice_id && inv.square_invoice_version) {
+        try {
+          const payUrl = await publishSquareInvoice(inv.square_invoice_id, inv.square_invoice_version)
+          if (payUrl) {
+            await supabase.from('invoices').update({ payment_url: payUrl }).eq('id', invoice_id)
+          }
+          console.log(`[invoice-api] Square invoice published on send: ${inv.square_invoice_id}`)
+        } catch (sqErr) {
+          console.error('[invoice-api] Square publish on send failed (non-blocking):', sqErr)
+        }
+      }
+
       // Notify Telegram
       await notifyTelegramInvoiceSent(supabaseUrl, serviceKey, invNum, customerName, customerEmail, totalVal, inv.currency)
 
@@ -589,6 +716,40 @@ Deno.serve(async (req) => {
         .single()
 
       if (error) return fail(error.message, 500)
+
+      // ─── Square Mirror: create draft invoice ───
+      const _custEmail = (invoice as any).customers?.email
+      const _custName = (invoice as any).customers?.full_name || 'Customer'
+      const _invNum = (invoice as any).invoice_number || 'Invoice'
+
+      if (_custEmail) {
+        try {
+          const sqCustId = await findOrCreateSquareCustomer(_custEmail, _custName)
+          const { invoiceId: sqInvId, version: sqVersion } = await createSquareDraftInvoice(
+            sqCustId, normalizedLineItems, _invNum, body.due_date || null, body.currency || 'USD', body.notes || null,
+          )
+          await supabase.from('invoices').update({
+            square_invoice_id: sqInvId,
+            square_invoice_version: sqVersion,
+          }).eq('id', invoice.id)
+          console.log(`[invoice-api] Square draft invoice created: ${sqInvId}`)
+
+          // If auto_send, also publish the Square invoice immediately
+          if (shouldAutoSend) {
+            try {
+              const payUrl = await publishSquareInvoice(sqInvId, sqVersion)
+              if (payUrl) {
+                await supabase.from('invoices').update({ payment_url: payUrl }).eq('id', invoice.id)
+              }
+              console.log(`[invoice-api] Square invoice published: ${sqInvId}`)
+            } catch (pubErr) {
+              console.error('[invoice-api] Square publish failed (non-blocking):', pubErr)
+            }
+          }
+        } catch (sqErr) {
+          console.error('[invoice-api] Square mirror failed (non-blocking):', sqErr)
+        }
+      }
 
       // If auto_send, generate invoice PDF and send as attachment via gmail-api
       if (shouldAutoSend && invoice) {
