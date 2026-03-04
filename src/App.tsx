@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
-import Landing from "./pages/Landing";
+import { Suspense } from 'react';
+import DomainLanding from "./components/DomainLanding";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
@@ -67,7 +68,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={<Suspense fallback={null}><DomainLanding /></Suspense>} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
             <Route path="/customers" element={<RestrictedGate><Customers /></RestrictedGate>} />
