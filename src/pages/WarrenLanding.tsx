@@ -210,14 +210,24 @@ export default function WarrenLanding() {
               <span className="text-muted-foreground">Launch It on Solana.</span>
             </h2>
             <WarrenVideoPlayer />
-            <a
-              href="https://discord.gg/warrenguru"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 sm:mt-5 px-8 py-2.5 text-[10px] sm:text-xs tracking-[0.3em] uppercase font-light border border-border/30 rounded-lg text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all duration-300"
-            >
-              Download
-            </a>
+            <div className="mt-4 sm:mt-5 flex items-center gap-3">
+              <a
+                href="https://discord.gg/warrenguru"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-8 py-2.5 text-[10px] sm:text-xs tracking-[0.3em] uppercase font-light border border-border/30 rounded-lg text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all duration-300"
+              >
+                Download
+              </a>
+              <a
+                href="https://warren.guru/bundler-docs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-8 py-2.5 text-[10px] sm:text-xs tracking-[0.3em] uppercase font-light border border-border/30 rounded-lg text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all duration-300"
+              >
+                Documentation
+              </a>
+            </div>
           </motion.div>
 
           {/* Layer 3: Services grid */}
