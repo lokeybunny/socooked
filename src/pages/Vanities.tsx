@@ -71,7 +71,7 @@ export default function Vanities() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <a
-        href="/warren-landing"
+        href="https://warren.guru"
         className="absolute top-6 left-6 text-xs tracking-[0.2em] uppercase text-muted-foreground hover:text-foreground transition-colors"
       >
         ← Home
