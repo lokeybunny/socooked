@@ -227,6 +227,12 @@ export default function WarrenLanding() {
               >
                 Documentation
               </a>
+              <a
+                href="/vanities"
+                className="px-8 py-2.5 text-[10px] sm:text-xs tracking-[0.3em] uppercase font-light border border-border/30 rounded-lg text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-all duration-300"
+              >
+                Vanities
+              </a>
             </div>
           </motion.div>
 
