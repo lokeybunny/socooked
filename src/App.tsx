@@ -41,6 +41,7 @@ import SharedContent from "./pages/SharedContent";
 import Research from "./pages/Research";
 import ThankYou from "./pages/ThankYou";
 import WarrenLanding from "./pages/WarrenLanding";
+import BundlerDocs from "./pages/BundlerDocs";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
@@ -103,6 +104,7 @@ const App = () => (
             <Route path="/research" element={<Research />} />
             <Route path="/thankyou" element={<ThankYou />} />
             <Route path="/warren-landing" element={<Suspense fallback={null}><WarrenLanding /></Suspense>} />
+            <Route path="/bundler-docs" element={<BundlerDocs />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
