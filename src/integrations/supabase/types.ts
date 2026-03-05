@@ -2166,6 +2166,30 @@ export type Database = {
         }
         Relationships: []
       }
+      vanities: {
+        Row: {
+          claimed_at: string | null
+          claimed_ip: string | null
+          created_at: string
+          id: string
+          value: string
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_ip?: string | null
+          created_at?: string
+          id?: string
+          value: string
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_ip?: string | null
+          created_at?: string
+          id?: string
+          value?: string
+        }
+        Relationships: []
+      }
       webhook_events: {
         Row: {
           created_at: string

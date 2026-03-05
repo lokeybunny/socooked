@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.lore-check]
 verify_jwt = false
+
+[functions.vanity-claim]
+verify_jwt = false
