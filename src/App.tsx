@@ -105,6 +105,7 @@ const App = () => (
             <Route path="/thankyou" element={<ThankYou />} />
             <Route path="/warren-landing" element={<Suspense fallback={null}><WarrenLanding /></Suspense>} />
             <Route path="/bundler-docs" element={<BundlerDocs />} />
+            <Route path="/bundler-docs/:slug" element={<BundlerDocs />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
