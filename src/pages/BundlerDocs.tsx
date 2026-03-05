@@ -112,7 +112,7 @@ function InstallationPage() {
           <ul className="space-y-2 text-sm text-muted-foreground list-disc list-inside">
             <li>A node is <strong className="text-foreground">required</strong> to use the application</li>
             <li>We work with any node but we <strong className="text-destructive">don't</strong> recommend using free nodes or ones that have low rate limits</li>
-            <li>Our partner <strong className="text-foreground">Helius</strong> is offering all Warren Guru users a free 48-hour trial — click the "Free Trial" button in the settings tab</li>
+            <li><span className="text-primary font-semibold">Our partner, SHYFT, is offering all Warren Guru users a free 48-hour trial — click the "Free Trial" button in the settings tab and open a ticket once you are in the Discord</span></li>
           </ul>
         </Card>
       </section>
