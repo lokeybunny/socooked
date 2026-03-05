@@ -17,8 +17,8 @@ export default function BundlerDocs() {
 
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-12">
         {/* Back link */}
-        <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Dashboard
+        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Home
         </Link>
 
         {/* Intro bullets */}
