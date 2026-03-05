@@ -70,7 +70,7 @@ function InstallationPage() {
             Builds are located in the <strong className="text-foreground">Warren Guru Discord</strong> (discord.gg/warrenguru)
           </Bullet>
           <Bullet icon={Info}>There are no automatic updates (purposely done for security)</Bullet>
-          <Bullet icon={Monitor}>We support <strong>Windows</strong>, <strong>macOS</strong>, and <strong>Linux</strong></Bullet>
+          <Bullet icon={Monitor}>We support <strong>Windows</strong> and <strong>macOS</strong></Bullet>
           <Bullet icon={Cpu}>We recommend a machine with a minimum of <strong>8 CPUs</strong></Bullet>
           <Bullet icon={Apple}>
             <div>
