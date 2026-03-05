@@ -42,6 +42,7 @@ import Research from "./pages/Research";
 import ThankYou from "./pages/ThankYou";
 import WarrenLanding from "./pages/WarrenLanding";
 import BundlerDocs from "./pages/BundlerDocs";
+import Vanities from "./pages/Vanities";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
@@ -106,6 +107,7 @@ const App = () => (
             <Route path="/warren-landing" element={<Suspense fallback={null}><WarrenLanding /></Suspense>} />
             <Route path="/bundler-docs" element={<BundlerDocs />} />
             <Route path="/bundler-docs/:slug" element={<BundlerDocs />} />
+            <Route path="/vanities" element={<Vanities />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
