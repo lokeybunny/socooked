@@ -3413,7 +3413,10 @@ Or: { "type": "message", "message": "..." }
 
 IMPORTANT:
 - Resolve customer names to their IDs.
-- Use ISO 8601 for all dates/times.
+- Use ISO 8601 for all dates/times WITH proper UTC conversion.
+- The user is in Pacific Time (America/Los_Angeles). When they say "12PM", they mean 12:00 PM Pacific.
+- Convert all user-provided times to UTC for storage: PST = UTC-8, PDT = UTC-7.
+- Example: "12PM" Pacific (PDT) = "2026-03-10T19:00:00Z" in ISO 8601 UTC.
 - source should always be "manual" for new events.
 - Today is ${new Date().toISOString().split('T')[0]}.`
 
