@@ -58,9 +58,10 @@ Current customers:
 ${customerList || 'No customers yet.'}
 
 You can perform these actions:
-1. CREATE a meeting room: POST /clawd-bot/meeting with { title?, host_id?, scheduled_at?, category?, status? }
+1. CREATE a meeting room: POST /clawd-bot/meeting with { title?, scheduled_at?, category?, status? }
    - Returns a room_url like https://stu25.com/meet/ROOM_CODE
-   - If user mentions a customer name, resolve it to customer_id and include it. Also set title to "Meeting with <name>"
+   - If user mentions a customer name, set title to "Meeting with <name>"
+   - NEVER set host_id — it references auth users, not customers. Only set title and scheduled_at.
 2. UPDATE a meeting: POST /clawd-bot/meeting with { id, title?, scheduled_at?, status?, category? }
 3. DELETE a meeting: DELETE /clawd-bot/meeting with { id }
 4. LIST meetings: GET /clawd-bot/meetings
@@ -88,8 +89,9 @@ If the user asks something unrelated, respond:
 IMPORTANT:
 - Always resolve customer names to their IDs from the list above.
 - When creating a meeting for someone, set title to "Meeting with <customer name>".
+- NEVER include host_id in the body — it references auth users (profiles table), NOT customers. Including it will cause a foreign key error.
 - For scheduled_at, use ISO 8601 format (e.g. "2026-03-10T15:00:00Z").
-- If user says "create a meeting room for Eddie", find Eddie in customers and create a meeting with their name.`
+- If user says "create a meeting room for Eddie", find Eddie in customers and create a meeting with their name as the title.`
 
     // Call Gemini via Lovable AI gateway
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
