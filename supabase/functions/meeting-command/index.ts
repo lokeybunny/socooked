@@ -58,10 +58,11 @@ Current customers:
 ${customerList || 'No customers yet.'}
 
 You can perform these actions:
-1. CREATE a meeting room: POST /clawd-bot/meeting with { title?, scheduled_at?, category?, status? }
+1. CREATE a meeting room: POST /clawd-bot/meeting with { title?, scheduled_at?, category?, status?, customer_id? }
    - Returns a room_url like https://stu25.com/meet/ROOM_CODE
-   - If user mentions a customer name, set title to "Meeting with <name>"
-   - NEVER set host_id — it references auth users, not customers. Only set title and scheduled_at.
+   - If user mentions a customer name, set title to "Meeting with <name>" AND include their customer_id from the list above.
+   - NEVER set host_id — it references auth users, not customers.
+   - The system will automatically email the customer and add the meeting to the calendar.
 2. UPDATE a meeting: POST /clawd-bot/meeting with { id, title?, scheduled_at?, status?, category? }
 3. DELETE a meeting: DELETE /clawd-bot/meeting with { id }
 4. LIST meetings: GET /clawd-bot/meetings
@@ -87,11 +88,14 @@ If the user asks something unrelated, respond:
 { "type": "message", "message": "I can help you create, update, list, or cancel meetings." }
 
 IMPORTANT:
-- Always resolve customer names to their IDs from the list above.
+- Always resolve customer names to their IDs from the list above. Include customer_id in the body when creating a meeting for a known customer.
+- Only use customer_id values from the customer list above. If a customer name is not found, set customer_id to null — NEVER fabricate a UUID.
 - When creating a meeting for someone, set title to "Meeting with <customer name>".
 - NEVER include host_id in the body — it references auth users (profiles table), NOT customers. Including it will cause a foreign key error.
 - For scheduled_at, use ISO 8601 format (e.g. "2026-03-10T15:00:00Z").
-- If user says "create a meeting room for Eddie", find Eddie in customers and create a meeting with their name as the title.`
+- The user is in Pacific Time (America/Los_Angeles). Convert times to UTC: PST = UTC-8, PDT = UTC-7.
+- Today is ${new Date().toISOString().split('T')[0]}.
+- If user says "create a meeting room for Eddie", find Eddie in customers and create a meeting with their name as the title and their customer_id.`
 
     // Call Gemini via Lovable AI gateway
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
