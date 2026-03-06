@@ -3219,6 +3219,291 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── MEETING: AI Command (prompt-driven meeting CRUD via Gemini) ──
+    if (path === 'meeting-command' && req.method === 'POST') {
+      const { prompt, history: manualHistory } = body as { prompt?: string; history?: any[] }
+      if (!prompt) return fail('prompt is required')
+
+      try {
+        const [{ data: mtgs }, { data: custs }] = await Promise.all([
+          supabase.from('meetings').select('id, title, room_code, scheduled_at, status, customer_id').order('created_at', { ascending: false }).limit(30),
+          supabase.from('customers').select('id, full_name, email, phone').order('created_at', { ascending: false }).limit(50),
+        ])
+
+        const meetingList = (mtgs || []).map((m: any) =>
+          `- "${m.title}" (status: ${m.status}, scheduled: ${m.scheduled_at || 'none'}, room: ${m.room_code}, id: ${m.id})`
+        ).join('\n')
+
+        const customerList = (custs || []).map((c: any) =>
+          `- ${c.full_name} (email: ${c.email || 'none'}, phone: ${c.phone || 'none'}, id: ${c.id})`
+        ).join('\n')
+
+        const systemPrompt = `You are a meeting management assistant. Parse natural language commands into structured actions.
+
+Current meetings:
+${meetingList || 'No meetings yet.'}
+
+Current customers:
+${customerList || 'No customers yet.'}
+
+Actions you can perform:
+1. CREATE: { "action": "create", "title": "...", "scheduled_at": "ISO8601" }
+2. UPDATE: { "action": "update", "id": "uuid", "title?": "...", "scheduled_at?": "...", "status?": "..." }
+3. DELETE: { "action": "delete", "id": "uuid" }
+4. LIST: { "action": "list" }
+5. CANCEL by customer: { "action": "cancel", "customer_name?": "...", "customer_id?": "...", "date?": "..." }
+
+Respond with JSON:
+{ "type": "executed", "actions": [ { ...action, "description": "Human-readable description" } ] }
+Or for clarification: { "type": "clarify", "message": "..." }
+Or for non-meeting requests: { "type": "message", "message": "..." }
+
+IMPORTANT:
+- Resolve customer names to their IDs from the list above.
+- When creating a meeting for someone, set title to "Meeting with <customer name>".
+- NEVER include host_id — it references auth users, NOT customers.
+- For scheduled_at, use ISO 8601 format.`
+
+        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+        const geminiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LOVABLE_API_KEY}` },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...(manualHistory || []).map((h: any) => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.text })),
+              { role: 'user', content: prompt },
+            ],
+            temperature: 0.1,
+          }),
+        })
+
+        const geminiPayload = await geminiRes.json()
+        let rawText = geminiPayload.choices?.[0]?.message?.content || ''
+
+        // Parse JSON from response
+        let parsed: any
+        try {
+          let cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+          const jsonStart = cleaned.search(/[\{\[]/)
+          if (jsonStart === -1) throw new Error('No JSON')
+          const startChar = cleaned[jsonStart]
+          const endChar = startChar === '[' ? ']' : '}'
+          const jsonEnd = cleaned.lastIndexOf(endChar)
+          cleaned = cleaned.substring(jsonStart, jsonEnd + 1).replace(/,\s*}/g, '}').replace(/,\s*]/g, ']')
+          parsed = JSON.parse(cleaned)
+        } catch {
+          parsed = { type: 'message', message: rawText || 'Could not process request.' }
+        }
+
+        if (parsed.type === 'clarify' || parsed.type === 'message') return ok(parsed)
+
+        // Execute actions directly against the database
+        if (parsed.type === 'executed' && Array.isArray(parsed.actions)) {
+          const results: any[] = []
+          for (const action of parsed.actions) {
+            try {
+              if (action.action === 'create') {
+                const { data: mtg, error } = await supabase.from('meetings').insert({
+                  title: action.title || 'Meeting',
+                  scheduled_at: action.scheduled_at || null,
+                  category: action.category || null,
+                  status: action.status || 'scheduled',
+                }).select().single()
+                if (error) throw new Error(error.message)
+                await logActivity(supabase, 'meeting', mtg.id, 'created', mtg.title)
+                results.push({ success: true, description: action.description, data: { ...mtg, room_url: `https://stu25.com/meet/${mtg.room_code}` } })
+              } else if (action.action === 'update' && action.id) {
+                const updates: any = {}
+                if (action.title) updates.title = action.title
+                if (action.scheduled_at) updates.scheduled_at = action.scheduled_at
+                if (action.status) updates.status = action.status
+                if (action.category) updates.category = action.category
+                const { data: mtg, error } = await supabase.from('meetings').update(updates).eq('id', action.id).select().single()
+                if (error) throw new Error(error.message)
+                await logActivity(supabase, 'meeting', mtg.id, 'updated', mtg.title)
+                results.push({ success: true, description: action.description, data: { ...mtg, room_url: `https://stu25.com/meet/${mtg.room_code}` } })
+              } else if (action.action === 'delete' && action.id) {
+                const { error } = await supabase.from('meetings').delete().eq('id', action.id)
+                if (error) throw new Error(error.message)
+                await logActivity(supabase, 'meeting', action.id, 'deleted')
+                results.push({ success: true, description: action.description, data: { action: 'deleted', meeting_id: action.id } })
+              } else if (action.action === 'list') {
+                const { data: allMtgs } = await supabase.from('meetings').select('*').order('created_at', { ascending: false }).limit(20)
+                results.push({ success: true, description: action.description, data: { meetings: allMtgs } })
+              } else if (action.action === 'cancel') {
+                let q = supabase.from('meetings').select('id, title, room_code').neq('status', 'cancelled')
+                if (action.customer_id) q = q.eq('customer_id', action.customer_id)
+                if (action.customer_name) q = q.ilike('title', `%${action.customer_name}%`)
+                const { data: toCancel } = await q
+                if (toCancel && toCancel.length > 0) {
+                  const ids = toCancel.map((m: any) => m.id)
+                  await supabase.from('meetings').update({ status: 'cancelled' }).in('id', ids)
+                  for (const m of toCancel) await logActivity(supabase, 'meeting', m.id, 'cancelled', m.title)
+                  results.push({ success: true, description: action.description, data: { action: 'cancelled', count: ids.length, message: `Cancelled ${ids.length} meeting(s)` } })
+                } else {
+                  results.push({ success: true, description: action.description, data: { action: 'no_matches', message: 'No meetings found to cancel' } })
+                }
+              } else {
+                results.push({ success: false, description: action.description, error: 'Unknown action' })
+              }
+            } catch (e: any) {
+              results.push({ success: false, description: action.description, error: e.message })
+            }
+          }
+          return ok({ type: 'executed', actions: results })
+        }
+
+        return ok(parsed)
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
+    // ─── CALENDAR: AI Command (prompt-driven calendar CRUD via Gemini) ──
+    if (path === 'calendar-command' && req.method === 'POST') {
+      const { prompt, history: manualHistory } = body as { prompt?: string; history?: any[] }
+      if (!prompt) return fail('prompt is required')
+
+      try {
+        const [{ data: events }, { data: custs }, { data: mtgs }] = await Promise.all([
+          supabase.from('calendar_events').select('id, title, start_time, end_time, all_day, category, source, customer_id, description').order('start_time', { ascending: false }).limit(50),
+          supabase.from('customers').select('id, full_name, email').order('created_at', { ascending: false }).limit(50),
+          supabase.from('meetings').select('id, title, room_code, scheduled_at').order('created_at', { ascending: false }).limit(20),
+        ])
+
+        const eventList = (events || []).map((e: any) =>
+          `- "${e.title}" (start: ${e.start_time}, end: ${e.end_time || 'none'}, all_day: ${e.all_day}, category: ${e.category || 'none'}, source: ${e.source}, id: ${e.id})`
+        ).join('\n')
+
+        const customerList = (custs || []).map((c: any) =>
+          `- ${c.full_name} (email: ${c.email || 'none'}, id: ${c.id})`
+        ).join('\n')
+
+        const meetingList = (mtgs || []).map((m: any) =>
+          `- "${m.title}" (scheduled: ${m.scheduled_at || 'none'}, room: ${m.room_code}, id: ${m.id})`
+        ).join('\n')
+
+        const systemPrompt = `You are a calendar management assistant. Parse natural language commands into structured actions for calendar events.
+
+Current calendar events:
+${eventList || 'No events yet.'}
+
+Current customers:
+${customerList || 'No customers yet.'}
+
+Current meetings:
+${meetingList || 'No meetings yet.'}
+
+Actions you can perform:
+1. CREATE: { "action": "create", "title": "...", "start_time": "ISO8601", "end_time?": "ISO8601", "all_day?": false, "category?": "...", "description?": "...", "customer_id?": "uuid" }
+2. UPDATE: { "action": "update", "id": "uuid", "title?": "...", "start_time?": "...", "end_time?": "...", "category?": "..." }
+3. DELETE: { "action": "delete", "id": "uuid" }
+4. LIST: { "action": "list", "date?": "YYYY-MM-DD" }
+
+Respond with JSON:
+{ "type": "executed", "actions": [ { ...action, "description": "Human-readable description" } ] }
+Or: { "type": "clarify", "message": "..." }
+Or: { "type": "message", "message": "..." }
+
+IMPORTANT:
+- Resolve customer names to their IDs.
+- Use ISO 8601 for all dates/times.
+- source should always be "manual" for new events.
+- Today is ${new Date().toISOString().split('T')[0]}.`
+
+        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+        const geminiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LOVABLE_API_KEY}` },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...(manualHistory || []).map((h: any) => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.text })),
+              { role: 'user', content: prompt },
+            ],
+            temperature: 0.1,
+          }),
+        })
+
+        const geminiPayload = await geminiRes.json()
+        let rawText = geminiPayload.choices?.[0]?.message?.content || ''
+
+        let parsed: any
+        try {
+          let cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+          const jsonStart = cleaned.search(/[\{\[]/)
+          if (jsonStart === -1) throw new Error('No JSON')
+          const startChar = cleaned[jsonStart]
+          const endChar = startChar === '[' ? ']' : '}'
+          const jsonEnd = cleaned.lastIndexOf(endChar)
+          cleaned = cleaned.substring(jsonStart, jsonEnd + 1).replace(/,\s*}/g, '}').replace(/,\s*]/g, ']')
+          parsed = JSON.parse(cleaned)
+        } catch {
+          parsed = { type: 'message', message: rawText || 'Could not process request.' }
+        }
+
+        if (parsed.type === 'clarify' || parsed.type === 'message') return ok(parsed)
+
+        if (parsed.type === 'executed' && Array.isArray(parsed.actions)) {
+          const results: any[] = []
+          for (const action of parsed.actions) {
+            try {
+              if (action.action === 'create') {
+                const { data: evt, error } = await supabase.from('calendar_events').insert({
+                  title: action.title || 'Event',
+                  start_time: action.start_time,
+                  end_time: action.end_time || null,
+                  all_day: action.all_day || false,
+                  category: action.category || null,
+                  description: action.description || null,
+                  customer_id: action.customer_id || null,
+                  source: 'manual',
+                }).select().single()
+                if (error) throw new Error(error.message)
+                await logActivity(supabase, 'calendar_event', evt.id, 'created', evt.title)
+                results.push({ success: true, description: action.description, data: evt })
+              } else if (action.action === 'update' && action.id) {
+                const updates: any = {}
+                if (action.title) updates.title = action.title
+                if (action.start_time) updates.start_time = action.start_time
+                if (action.end_time) updates.end_time = action.end_time
+                if (action.category !== undefined) updates.category = action.category
+                if (action.description !== undefined) updates.description = action.description
+                const { data: evt, error } = await supabase.from('calendar_events').update(updates).eq('id', action.id).select().single()
+                if (error) throw new Error(error.message)
+                await logActivity(supabase, 'calendar_event', evt.id, 'updated', evt.title)
+                results.push({ success: true, description: action.description, data: evt })
+              } else if (action.action === 'delete' && action.id) {
+                const { error } = await supabase.from('calendar_events').delete().eq('id', action.id)
+                if (error) throw new Error(error.message)
+                await logActivity(supabase, 'calendar_event', action.id, 'deleted')
+                results.push({ success: true, description: action.description, data: { action: 'deleted', event_id: action.id } })
+              } else if (action.action === 'list') {
+                let q = supabase.from('calendar_events').select('*').order('start_time', { ascending: true }).limit(30)
+                if (action.date) {
+                  q = q.gte('start_time', `${action.date}T00:00:00`).lte('start_time', `${action.date}T23:59:59`)
+                }
+                const { data: evts } = await q
+                results.push({ success: true, description: action.description, data: { events: evts } })
+              } else {
+                results.push({ success: false, description: action.description, error: 'Unknown action' })
+              }
+            } catch (e: any) {
+              results.push({ success: false, description: action.description, error: e.message })
+            }
+          }
+          return ok({ type: 'executed', actions: results })
+        }
+
+        return ok(parsed)
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
     return fail('Unknown endpoint', 404)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
