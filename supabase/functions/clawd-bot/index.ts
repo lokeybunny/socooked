@@ -3259,13 +3259,13 @@ Or for clarification: { "type": "clarify", "message": "..." }
 Or for non-meeting requests: { "type": "message", "message": "..." }
 
 IMPORTANT:
-- Resolve customer names to their IDs from the list above.
+- Only use customer IDs from the customer list above. If a name is not found, do NOT set customer_id — NEVER fabricate or guess a UUID.
 - When creating a meeting for someone, set title to "Meeting with <customer name>".
 - NEVER include host_id — it references auth users, NOT customers.
 - For scheduled_at, use ISO 8601 format WITH the PST/PDT offset.
 - The user is in Pacific Time (America/Los_Angeles). When they say "12PM", they mean 12:00 PM Pacific.
 - Convert all user-provided times to UTC for storage: PST = UTC-8, PDT = UTC-7.
-- Example: "12PM" Pacific (PDT) = "2026-03-10T19:00:00Z" in ISO 8601 UTC.
+- Example: "2PM" Pacific (PDT) = "2026-03-10T21:00:00Z" in ISO 8601 UTC.
 - Today is ${new Date().toISOString().split('T')[0]}.`
 
         const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
