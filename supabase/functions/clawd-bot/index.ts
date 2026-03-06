@@ -3262,7 +3262,11 @@ IMPORTANT:
 - Resolve customer names to their IDs from the list above.
 - When creating a meeting for someone, set title to "Meeting with <customer name>".
 - NEVER include host_id — it references auth users, NOT customers.
-- For scheduled_at, use ISO 8601 format.`
+- For scheduled_at, use ISO 8601 format WITH the PST/PDT offset.
+- The user is in Pacific Time (America/Los_Angeles). When they say "12PM", they mean 12:00 PM Pacific.
+- Convert all user-provided times to UTC for storage: PST = UTC-8, PDT = UTC-7.
+- Example: "12PM" Pacific (PDT) = "2026-03-10T19:00:00Z" in ISO 8601 UTC.
+- Today is ${new Date().toISOString().split('T')[0]}.`
 
         const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
         const geminiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -3409,7 +3413,10 @@ Or: { "type": "message", "message": "..." }
 
 IMPORTANT:
 - Resolve customer names to their IDs.
-- Use ISO 8601 for all dates/times.
+- Use ISO 8601 for all dates/times WITH proper UTC conversion.
+- The user is in Pacific Time (America/Los_Angeles). When they say "12PM", they mean 12:00 PM Pacific.
+- Convert all user-provided times to UTC for storage: PST = UTC-8, PDT = UTC-7.
+- Example: "12PM" Pacific (PDT) = "2026-03-10T19:00:00Z" in ISO 8601 UTC.
 - source should always be "manual" for new events.
 - Today is ${new Date().toISOString().split('T')[0]}.`
 
