@@ -89,8 +89,9 @@ If the user asks something unrelated, respond:
 IMPORTANT:
 - Always resolve customer names to their IDs from the list above.
 - When creating a meeting for someone, set title to "Meeting with <customer name>".
+- NEVER include host_id in the body — it references auth users (profiles table), NOT customers. Including it will cause a foreign key error.
 - For scheduled_at, use ISO 8601 format (e.g. "2026-03-10T15:00:00Z").
-- If user says "create a meeting room for Eddie", find Eddie in customers and create a meeting with their name.`
+- If user says "create a meeting room for Eddie", find Eddie in customers and create a meeting with their name as the title.`
 
     // Call Gemini via Lovable AI gateway
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
