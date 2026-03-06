@@ -3460,6 +3460,12 @@ IMPORTANT:
           for (const action of parsed.actions) {
             try {
               if (action.action === 'create') {
+                // Validate customer_id exists in DB before inserting — never trust AI-generated UUIDs
+                let validCustomerId: string | null = null
+                if (action.customer_id) {
+                  const { data: custCheck } = await supabase.from('customers').select('id').eq('id', action.customer_id).maybeSingle()
+                  validCustomerId = custCheck?.id || null
+                }
                 const { data: evt, error } = await supabase.from('calendar_events').insert({
                   title: action.title || 'Event',
                   start_time: action.start_time,
@@ -3467,7 +3473,7 @@ IMPORTANT:
                   all_day: action.all_day || false,
                   category: action.category || null,
                   description: action.description || null,
-                  customer_id: action.customer_id || null,
+                  customer_id: validCustomerId,
                   source: 'manual',
                 }).select().single()
                 if (error) throw new Error(error.message)
