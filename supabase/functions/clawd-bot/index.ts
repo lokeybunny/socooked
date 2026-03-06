@@ -1321,7 +1321,7 @@ Deno.serve(async (req) => {
     }
 
     if (path === 'meeting' && req.method === 'POST') {
-      const { id, title, host_id, scheduled_at, category, status } = body
+      const { id, title, host_id, scheduled_at, category, status, customer_id } = body
       if (id && body._delete) {
         await supabase.from('meetings').delete().eq('id', id)
         await logActivity(supabase, 'meeting', id, 'deleted')
@@ -1334,10 +1334,17 @@ Deno.serve(async (req) => {
         if (scheduled_at !== undefined) updates.scheduled_at = scheduled_at
         if (category !== undefined) updates.category = category
         if (status) updates.status = status
+        if (customer_id !== undefined) updates.customer_id = customer_id
         const { data, error } = await supabase.from('meetings').update(updates).eq('id', id).select().single()
         if (error) return fail(error.message)
         await logActivity(supabase, 'meeting', id, 'updated', title || data.title)
         return ok({ action: 'updated', meeting: data, room_url: `https://stu25.com/meet/${data.room_code}` })
+      }
+      // Validate customer_id if provided
+      let validCustomerId: string | null = null
+      if (customer_id) {
+        const { data: custCheck } = await supabase.from('customers').select('id').eq('id', customer_id).maybeSingle()
+        validCustomerId = custCheck?.id || null
       }
       const { data, error } = await supabase.from('meetings').insert({
         title: title || 'Meeting',
@@ -1345,9 +1352,51 @@ Deno.serve(async (req) => {
         scheduled_at: scheduled_at || null,
         category: category || null,
         status: status || 'waiting',
+        customer_id: validCustomerId,
       }).select().single()
       if (error) return fail(error.message)
       await logActivity(supabase, 'meeting', data.id, 'created', data.title)
+
+      // ─── Auto-create calendar event for this meeting ───
+      const calendarInsert: Record<string, unknown> = {
+        title: data.title || 'Meeting',
+        source: 'meeting',
+        source_id: data.id,
+        customer_id: validCustomerId,
+      }
+      if (data.scheduled_at) {
+        calendarInsert.start_time = data.scheduled_at
+        // Default 30 min duration
+        const endTime = new Date(new Date(data.scheduled_at).getTime() + 30 * 60 * 1000).toISOString()
+        calendarInsert.end_time = endTime
+      } else {
+        calendarInsert.start_time = new Date().toISOString()
+        calendarInsert.all_day = true
+      }
+      await supabase.from('calendar_events').insert(calendarInsert)
+
+      // ─── Auto-email customer with meeting details ───
+      if (validCustomerId) {
+        const { data: cust } = await supabase.from('customers').select('full_name, email').eq('id', validCustomerId).maybeSingle()
+        if (cust?.email) {
+          const roomUrl = `https://stu25.com/meet/${data.room_code}`
+          const scheduledDisplay = data.scheduled_at
+            ? new Date(data.scheduled_at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+            : 'To be determined'
+
+          // Fire-and-forget email via email-command
+          const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+          const BOT_SECRET_VAL = Deno.env.get('BOT_SECRET')!
+          fetch(`${SUPABASE_URL}/functions/v1/email-command`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-bot-secret': BOT_SECRET_VAL },
+            body: JSON.stringify({
+              prompt: `Send a professional meeting invitation email to ${cust.full_name} at ${cust.email}. Meeting details: Title: "${data.title}", Date/Time: ${scheduledDisplay} (Pacific Time), Meeting Room Link: ${roomUrl}. Keep it warm and professional, signed by Warren / STU25.`,
+            }),
+          }).catch(() => { /* fire-and-forget */ })
+        }
+      }
+
       return ok({ action: 'created', meeting: data, room_url: `https://stu25.com/meet/${data.room_code}` })
     }
 
