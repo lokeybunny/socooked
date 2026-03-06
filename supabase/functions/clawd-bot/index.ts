@@ -3259,13 +3259,13 @@ Or for clarification: { "type": "clarify", "message": "..." }
 Or for non-meeting requests: { "type": "message", "message": "..." }
 
 IMPORTANT:
-- Resolve customer names to their IDs from the list above.
+- Only use customer IDs from the customer list above. If a name is not found, do NOT set customer_id — NEVER fabricate or guess a UUID.
 - When creating a meeting for someone, set title to "Meeting with <customer name>".
 - NEVER include host_id — it references auth users, NOT customers.
 - For scheduled_at, use ISO 8601 format WITH the PST/PDT offset.
 - The user is in Pacific Time (America/Los_Angeles). When they say "12PM", they mean 12:00 PM Pacific.
 - Convert all user-provided times to UTC for storage: PST = UTC-8, PDT = UTC-7.
-- Example: "12PM" Pacific (PDT) = "2026-03-10T19:00:00Z" in ISO 8601 UTC.
+- Example: "2PM" Pacific (PDT) = "2026-03-10T21:00:00Z" in ISO 8601 UTC.
 - Today is ${new Date().toISOString().split('T')[0]}.`
 
         const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
@@ -3412,13 +3412,14 @@ Or: { "type": "clarify", "message": "..." }
 Or: { "type": "message", "message": "..." }
 
 IMPORTANT:
-- Resolve customer names to their IDs.
+- Only use customer_id values from the customer list above. If a customer name is not found in the list, set customer_id to null — NEVER fabricate or guess a UUID.
 - Use ISO 8601 for all dates/times WITH proper UTC conversion.
 - The user is in Pacific Time (America/Los_Angeles). When they say "12PM", they mean 12:00 PM Pacific.
 - Convert all user-provided times to UTC for storage: PST = UTC-8, PDT = UTC-7.
-- Example: "12PM" Pacific (PDT) = "2026-03-10T19:00:00Z" in ISO 8601 UTC.
+- Example: "2PM" Pacific (PDT) = "2026-03-10T21:00:00Z" in ISO 8601 UTC.
 - source should always be "manual" for new events.
-- Today is ${new Date().toISOString().split('T')[0]}.`
+- Today is ${new Date().toISOString().split('T')[0]}.
+- Include the person's name in the event title (e.g. "Meeting with Warren Thompson") even if customer_id is null.`
 
         const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
         const geminiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
