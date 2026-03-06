@@ -3518,6 +3518,136 @@ IMPORTANT:
       }
     }
 
+    // ─── CALENDLY: AI Command (prompt-driven availability CRUD via Gemini) ──
+    if (path === 'availability-command' && req.method === 'POST') {
+      const { prompt, history: manualHistory } = body as { prompt?: string; history?: any[] }
+      if (!prompt) return fail('prompt is required')
+
+      try {
+        const { data: slots } = await supabase.from('availability_slots').select('*').order('day_of_week')
+
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        const slotList = (slots || []).map((s: any) =>
+          `- ${dayNames[s.day_of_week]}: ${s.start_time}–${s.end_time} (active: ${s.is_active}, id: ${s.id})`
+        ).join('\n')
+
+        const systemPrompt = `You are an availability/scheduling assistant. Parse natural language commands into structured actions for managing availability slots.
+
+Current availability slots:
+${slotList || 'No slots configured yet.'}
+
+Day mapping: Sunday=0, Monday=1, Tuesday=2, Wednesday=3, Thursday=4, Friday=5, Saturday=6
+
+Actions you can perform:
+1. CREATE: { "action": "create", "day_of_week": 1, "start_time": "09:00", "end_time": "17:00", "is_active": true }
+2. UPDATE: { "action": "update", "id": "uuid", "start_time?": "...", "end_time?": "...", "is_active?": true }
+3. DELETE: { "action": "delete", "id": "uuid" }
+4. LIST: { "action": "list" }
+5. REPLACE_ALL: { "action": "replace_all", "slots": [ { "day_of_week": 1, "start_time": "09:00", "end_time": "17:00" }, ... ] }
+
+Respond with JSON:
+{ "type": "executed", "actions": [ { ...action, "description": "Human-readable description" } ] }
+Or: { "type": "clarify", "message": "..." }
+Or: { "type": "message", "message": "..." }
+
+IMPORTANT:
+- Times should be in 24h format (e.g. "09:00", "17:00")
+- The user is in Pacific Time. Store times as-is (they represent local time).
+- When user says "Mon-Fri 9am-5pm", create slots for days 1-5 with 09:00-17:00.
+- For "replace_all", delete all existing slots first then create new ones.
+- Today is ${new Date().toISOString().split('T')[0]}.`
+
+        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+        const geminiRes = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LOVABLE_API_KEY}` },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...(manualHistory || []).map((h: any) => ({ role: h.role === 'user' ? 'user' : 'assistant', content: h.text })),
+              { role: 'user', content: prompt },
+            ],
+            temperature: 0.1,
+          }),
+        })
+
+        const geminiPayload = await geminiRes.json()
+        let rawText = geminiPayload.choices?.[0]?.message?.content || ''
+
+        let parsed: any
+        try {
+          let cleaned = rawText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim()
+          const jsonStart = cleaned.search(/[\{\[]/)
+          if (jsonStart === -1) throw new Error('No JSON')
+          const startChar = cleaned[jsonStart]
+          const endChar = startChar === '[' ? ']' : '}'
+          const jsonEnd = cleaned.lastIndexOf(endChar)
+          cleaned = cleaned.substring(jsonStart, jsonEnd + 1).replace(/,\s*}/g, '}').replace(/,\s*]/g, ']')
+          parsed = JSON.parse(cleaned)
+        } catch {
+          parsed = { type: 'message', message: rawText || 'Could not process request.' }
+        }
+
+        if (parsed.type === 'clarify' || parsed.type === 'message') return ok(parsed)
+
+        if (parsed.type === 'executed' && Array.isArray(parsed.actions)) {
+          const results: any[] = []
+          for (const action of parsed.actions) {
+            try {
+              if (action.action === 'create') {
+                const { data: slot, error } = await supabase.from('availability_slots').insert({
+                  day_of_week: action.day_of_week,
+                  start_time: action.start_time,
+                  end_time: action.end_time,
+                  is_active: action.is_active !== false,
+                }).select().single()
+                if (error) throw new Error(error.message)
+                results.push({ success: true, description: action.description, data: slot })
+              } else if (action.action === 'update' && action.id) {
+                const updates: any = {}
+                if (action.start_time) updates.start_time = action.start_time
+                if (action.end_time) updates.end_time = action.end_time
+                if (action.is_active !== undefined) updates.is_active = action.is_active
+                const { data: slot, error } = await supabase.from('availability_slots').update(updates).eq('id', action.id).select().single()
+                if (error) throw new Error(error.message)
+                results.push({ success: true, description: action.description, data: slot })
+              } else if (action.action === 'delete' && action.id) {
+                const { error } = await supabase.from('availability_slots').delete().eq('id', action.id)
+                if (error) throw new Error(error.message)
+                results.push({ success: true, description: action.description, data: { deleted: action.id } })
+              } else if (action.action === 'list') {
+                const { data: allSlots } = await supabase.from('availability_slots').select('*').order('day_of_week')
+                results.push({ success: true, description: action.description, data: { slots: allSlots } })
+              } else if (action.action === 'replace_all') {
+                await supabase.from('availability_slots').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+                const newSlots = (action.slots || []).map((s: any) => ({
+                  day_of_week: s.day_of_week,
+                  start_time: s.start_time,
+                  end_time: s.end_time,
+                  is_active: s.is_active !== false,
+                }))
+                if (newSlots.length > 0) {
+                  const { error } = await supabase.from('availability_slots').insert(newSlots)
+                  if (error) throw new Error(error.message)
+                }
+                results.push({ success: true, description: action.description, data: { replaced: newSlots.length } })
+              } else {
+                results.push({ success: false, description: action.description, error: 'Unknown action' })
+              }
+            } catch (e: any) {
+              results.push({ success: false, description: action.description, error: e.message })
+            }
+          }
+          return ok({ type: 'executed', actions: results })
+        }
+
+        return ok(parsed)
+      } catch (e: any) {
+        return fail(e.message, 500)
+      }
+    }
+
     return fail('Unknown endpoint', 404)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
