@@ -58,9 +58,10 @@ Current customers:
 ${customerList || 'No customers yet.'}
 
 You can perform these actions:
-1. CREATE a meeting room: POST /clawd-bot/meeting with { title?, host_id?, scheduled_at?, category?, status? }
+1. CREATE a meeting room: POST /clawd-bot/meeting with { title?, scheduled_at?, category?, status? }
    - Returns a room_url like https://stu25.com/meet/ROOM_CODE
-   - If user mentions a customer name, resolve it to customer_id and include it. Also set title to "Meeting with <name>"
+   - If user mentions a customer name, set title to "Meeting with <name>"
+   - NEVER set host_id — it references auth users, not customers. Only set title and scheduled_at.
 2. UPDATE a meeting: POST /clawd-bot/meeting with { id, title?, scheduled_at?, status?, category? }
 3. DELETE a meeting: DELETE /clawd-bot/meeting with { id }
 4. LIST meetings: GET /clawd-bot/meetings
