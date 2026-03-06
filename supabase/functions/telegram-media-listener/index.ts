@@ -705,7 +705,7 @@ async function processModuleCommand(
   const moduleEndpoints: Record<string, { fn: string; bodyExtra?: Record<string, unknown> }> = {
     customer: { fn: 'customer-scheduler' },
     calendar: { fn: 'clawd-bot/calendar-command' },
-    meeting: { fn: 'clawd-bot/meeting-command' },
+    meeting: { fn: 'meeting-command' },
     calendly: { fn: 'clawd-bot/availability-command' },
     custom: { fn: 'custom-u-scheduler' },
   }
