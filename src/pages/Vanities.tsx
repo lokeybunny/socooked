@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Check, Loader2, Gift, ShieldCheck, Brain, MousePointer, Clock, Lock } from "lucide-react";
+import { Copy, Check, Loader2, Gift, ShieldCheck, Brain, MousePointer, Clock, Lock, Fingerprint } from "lucide-react";
 import { toast } from "sonner";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -17,9 +17,15 @@ async function solvePoW(nonce: string, difficulty: number): Promise<string> {
     const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
     if (hex.startsWith("0".repeat(difficulty))) return candidate;
     i++;
-    // Yield every 5000 iterations to keep UI responsive
     if (i % 5000 === 0) await new Promise(r => setTimeout(r, 0));
   }
+}
+
+function solveCaptcha(a: number, b: number, op: string): number {
+  if (op === "+") return a + b;
+  if (op === "-") return a - b;
+  if (op === "×") return a * b;
+  return a + b;
 }
 
 interface Challenge {
@@ -37,15 +43,19 @@ export default function Vanities() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [cooldown, setCooldown] = useState(false);
 
-  // Security state
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [captchaInput, setCaptchaInput] = useState("");
   const [loadingChallenge, setLoadingChallenge] = useState(false);
   const [powStatus, setPowStatus] = useState<"idle" | "solving" | "solved">("idle");
   const [powSolution, setPowSolution] = useState<string | null>(null);
   const [mouseMovements, setMouseMovements] = useState(0);
+  const [keystrokes, setKeystrokes] = useState(0);
   const [pageLoadTime] = useState(Date.now());
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const REQUIRED_MOUSE = 10;
+  const REQUIRED_KEYS = 3;
+  const REQUIRED_DWELL = 5;
 
   // Track mouse movements
   useEffect(() => {
@@ -63,7 +73,13 @@ export default function Vanities() {
     };
   }, []);
 
-  // Fetch challenge from server
+  // Track keystrokes
+  useEffect(() => {
+    const handler = () => setKeystrokes(k => k + 1);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   const fetchChallenge = useCallback(async () => {
     setLoadingChallenge(true);
     setPowStatus("idle");
@@ -77,7 +93,6 @@ export default function Vanities() {
       const data = await res.json();
       setChallenge(data);
 
-      // Auto-start PoW in background
       setPowStatus("solving");
       const solution = await solvePoW(data.nonce, data.pow_difficulty);
       setPowSolution(solution);
@@ -89,14 +104,14 @@ export default function Vanities() {
     }
   }, []);
 
-  // Fetch initial challenge on mount
   useEffect(() => { fetchChallenge(); }, [fetchChallenge]);
 
   const dwellMs = Date.now() - pageLoadTime;
-  const hasEnoughMouse = mouseMovements >= 5;
-  const hasEnoughDwell = dwellMs >= 3000;
-  const captchaCorrect = challenge ? Number(captchaInput) === (challenge.captcha.a + challenge.captcha.b) : false;
-  const allChecksPass = challenge && captchaCorrect && powStatus === "solved" && hasEnoughMouse && hasEnoughDwell;
+  const hasEnoughMouse = mouseMovements >= REQUIRED_MOUSE;
+  const hasEnoughKeys = keystrokes >= REQUIRED_KEYS;
+  const hasEnoughDwell = dwellMs >= REQUIRED_DWELL * 1000;
+  const captchaCorrect = challenge ? Number(captchaInput) === solveCaptcha(challenge.captcha.a, challenge.captcha.b, challenge.captcha.op) : false;
+  const allChecksPass = challenge && captchaCorrect && powStatus === "solved" && hasEnoughMouse && hasEnoughDwell && hasEnoughKeys;
 
   const generate = useCallback(async () => {
     if (!challenge || !powSolution) return;
@@ -105,20 +120,20 @@ export default function Vanities() {
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/vanity-claim`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_KEY,
-        },
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY },
         body: JSON.stringify({
           nonce: challenge.nonce,
           captcha_answer: Number(captchaInput),
           captcha_a: challenge.captcha.a,
           captcha_b: challenge.captcha.b,
+          captcha_op: challenge.captcha.op,
           pow_solution: powSolution,
-          honeypot: "", // must be empty
+          honeypot: "",
           dwell_ms: Date.now() - pageLoadTime,
           issued: challenge.issued,
           sig: challenge.sig,
+          mouse_movements: mouseMovements,
+          user_agent_hash: navigator.userAgent.length,
         }),
       });
 
@@ -127,33 +142,25 @@ export default function Vanities() {
       if (res.status === 429) {
         setCooldown(true);
         toast.error(data.message);
-        setTimeout(() => setCooldown(false), 30_000);
+        setTimeout(() => setCooldown(false), 60_000);
         return;
       }
-      if (res.status === 410) {
-        toast.error(data.message);
-        return;
-      }
-      if (!res.ok) {
-        toast.error(data.message || "Something went wrong");
-        return;
-      }
+      if (res.status === 410) { toast.error(data.message); return; }
+      if (!res.ok) { toast.error(data.message || "Something went wrong"); return; }
 
       setVanity(data.vanity);
       setRemaining(data.remaining ?? null);
       if (data.remaining === 0) {
         setCooldown(true);
-        setTimeout(() => { setCooldown(false); setRemaining(null); }, 5 * 60 * 1000);
+        setTimeout(() => { setCooldown(false); setRemaining(null); }, 10 * 60 * 1000);
       }
-
-      // Refresh challenge for next claim
       fetchChallenge();
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [challenge, captchaInput, powSolution, pageLoadTime, fetchChallenge]);
+  }, [challenge, captchaInput, powSolution, pageLoadTime, fetchChallenge, mouseMovements]);
 
   const copyToClipboard = useCallback(() => {
     if (!vanity) return;
@@ -162,6 +169,8 @@ export default function Vanities() {
     toast.success("Copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);
   }, [vanity]);
+
+  const opLabel = challenge?.captcha.op === "×" ? "×" : challenge?.captcha.op || "+";
 
   return (
     <div ref={containerRef} className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -172,20 +181,14 @@ export default function Vanities() {
         ← Home
       </a>
       <div className="w-full max-w-md space-y-6 text-center">
-        {/* Header */}
         <div className="space-y-2">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 mb-4">
             <Gift className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Vanity Generator
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Generate a unique vanity. Complete all security checks below.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Vanity Generator</h1>
+          <p className="text-muted-foreground text-sm">Complete all 6 security checks below to generate.</p>
         </div>
 
-        {/* Result */}
         {vanity && (
           <div className="relative group">
             <div className="bg-muted/50 border border-border rounded-xl p-5 font-mono text-base text-foreground break-all select-all">
@@ -194,37 +197,35 @@ export default function Vanities() {
             <button
               onClick={copyToClipboard}
               className="absolute top-3 right-3 p-2 rounded-lg bg-background/80 border border-border/50 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-accent"
-              aria-label="Copy vanity"
             >
               {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
             </button>
           </div>
         )}
 
-        {/* Security Checks Panel */}
         <div className="bg-muted/30 border border-border rounded-xl p-4 space-y-4 text-left">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <ShieldCheck className="w-4 h-4 text-primary" />
-            Security Verification
+            Security Verification (6 checks)
           </div>
 
           {/* 1. Math CAPTCHA */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Brain className="w-3.5 h-3.5" />
-              <span>CAPTCHA — Solve to prove you're human</span>
+              <span>CAPTCHA — Solve the math problem</span>
               {captchaCorrect && <Check className="w-3.5 h-3.5 text-green-500 ml-auto" />}
             </div>
             {challenge ? (
               <div className="flex items-center gap-2">
                 <span className="font-mono text-sm text-foreground bg-muted px-3 py-1.5 rounded-lg border border-border">
-                  {challenge.captcha.a} + {challenge.captcha.b} = ?
+                  {challenge.captcha.a} {opLabel} {challenge.captcha.b} = ?
                 </span>
                 <Input
                   type="number"
                   value={captchaInput}
                   onChange={(e) => setCaptchaInput(e.target.value)}
-                  className="w-20 h-9 text-center font-mono"
+                  className="w-24 h-9 text-center font-mono"
                   placeholder="?"
                 />
               </div>
@@ -236,7 +237,7 @@ export default function Vanities() {
           {/* 2. Proof of Work */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Lock className="w-3.5 h-3.5" />
-            <span>Proof of Work — Browser computing…</span>
+            <span>Proof of Work — Heavy computation…</span>
             {powStatus === "solved" ? (
               <Check className="w-3.5 h-3.5 text-green-500 ml-auto" />
             ) : powStatus === "solving" ? (
@@ -247,24 +248,25 @@ export default function Vanities() {
           {/* 3. Mouse Movement */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <MousePointer className="w-3.5 h-3.5" />
-            <span>Mouse Activity — Move your cursor ({Math.min(mouseMovements, 5)}/5)</span>
+            <span>Mouse Activity ({Math.min(mouseMovements, REQUIRED_MOUSE)}/{REQUIRED_MOUSE})</span>
             {hasEnoughMouse && <Check className="w-3.5 h-3.5 text-green-500 ml-auto" />}
           </div>
 
-          {/* 4. Dwell Time */}
-          <DwellTimer pageLoadTime={pageLoadTime} />
+          {/* 4. Keystroke check */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Fingerprint className="w-3.5 h-3.5" />
+            <span>Keystroke Activity ({Math.min(keystrokes, REQUIRED_KEYS)}/{REQUIRED_KEYS})</span>
+            {hasEnoughKeys && <Check className="w-3.5 h-3.5 text-green-500 ml-auto" />}
+          </div>
 
-          {/* 5. Honeypot (hidden) */}
-          <input
-            type="text"
-            name="website_url"
-            tabIndex={-1}
-            autoComplete="off"
-            style={{ position: "absolute", left: "-9999px", opacity: 0, height: 0 }}
-          />
+          {/* 5. Dwell Time */}
+          <DwellTimer pageLoadTime={pageLoadTime} required={REQUIRED_DWELL} />
+
+          {/* 6. Honeypot (hidden) */}
+          <input type="text" name="website_url" tabIndex={-1} autoComplete="off"
+            style={{ position: "absolute", left: "-9999px", opacity: 0, height: 0 }} />
         </div>
 
-        {/* Generate button */}
         <Button
           onClick={generate}
           disabled={loading || cooldown || !allChecksPass || loadingChallenge}
@@ -272,17 +274,8 @@ export default function Vanities() {
           className="w-full h-12 text-base"
         >
           {loading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Generating…
-            </>
-          ) : cooldown ? (
-            "Please wait…"
-          ) : !allChecksPass ? (
-            "Complete all checks above"
-          ) : (
-            "Generate Vanity"
-          )}
+            <><Loader2 className="w-5 h-5 animate-spin" /> Generating…</>
+          ) : cooldown ? "Please wait…" : !allChecksPass ? "Complete all checks above" : "Generate Vanity"}
         </Button>
 
         {remaining !== null && !cooldown && (
@@ -292,7 +285,7 @@ export default function Vanities() {
         )}
         {cooldown && (
           <p className="text-xs text-muted-foreground">
-            Rate limit reached. Please wait ~5 minutes before generating again.
+            Rate limit reached. Please wait ~10 minutes before generating again.
           </p>
         )}
       </div>
@@ -300,23 +293,20 @@ export default function Vanities() {
   );
 }
 
-/** Live dwell-time countdown component */
-function DwellTimer({ pageLoadTime }: { pageLoadTime: number }) {
+function DwellTimer({ pageLoadTime, required }: { pageLoadTime: number; required: number }) {
   const [now, setNow] = useState(Date.now());
-
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(id);
   }, []);
-
   const elapsed = now - pageLoadTime;
-  const ready = elapsed >= 3000;
-  const seconds = Math.min(Math.floor(elapsed / 1000), 3);
+  const ready = elapsed >= required * 1000;
+  const seconds = Math.min(Math.floor(elapsed / 1000), required);
 
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
       <Clock className="w-3.5 h-3.5" />
-      <span>Dwell Time — Wait 3 seconds ({seconds}/3s)</span>
+      <span>Dwell Time — Wait {required}s ({seconds}/{required}s)</span>
       {ready && <Check className="w-3.5 h-3.5 text-green-500 ml-auto" />}
     </div>
   );
