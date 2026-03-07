@@ -6,11 +6,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const RATE_LIMIT = 3;
-const WINDOW_MINUTES = 5;
-const POW_DIFFICULTY = 4; // number of leading zeros required
-const MIN_DWELL_MS = 3000; // minimum 3 seconds on page
-const CHALLENGE_TTL_MS = 120_000; // challenge valid for 2 minutes
+const RATE_LIMIT = 2;
+const WINDOW_MINUTES = 10;
+const POW_DIFFICULTY = 6; // number of leading zeros required (was 4)
+const MIN_DWELL_MS = 5000; // minimum 5 seconds on page
+const CHALLENGE_TTL_MS = 90_000; // challenge valid for 90 seconds
+const MIN_CAPTCHA_A = 5;
+const MAX_CAPTCHA_A = 50;
+const MIN_CAPTCHA_B = 5;
+const MAX_CAPTCHA_B = 50;
 
 // ── HMAC signing for tamper-proof challenges ──
 async function hmacSign(data: string, secret: string): Promise<string> {
@@ -46,16 +50,19 @@ Deno.serve(async (req) => {
     // ─── GET = Issue a challenge ───
     if (req.method === "GET") {
       const nonce = crypto.randomUUID();
-      const a = Math.floor(Math.random() * 20) + 3;
-      const b = Math.floor(Math.random() * 20) + 3;
+      const a = Math.floor(Math.random() * (MAX_CAPTCHA_A - MIN_CAPTCHA_A + 1)) + MIN_CAPTCHA_A;
+      const b = Math.floor(Math.random() * (MAX_CAPTCHA_B - MIN_CAPTCHA_B + 1)) + MIN_CAPTCHA_B;
+      // Randomly pick an operator
+      const ops = ["+", "-", "×"] as const;
+      const op = ops[Math.floor(Math.random() * ops.length)];
       const issued = Date.now();
-      const payload = `${nonce}|${a}|${b}|${issued}`;
+      const payload = `${nonce}|${a}|${b}|${op}|${issued}`;
       const sig = await hmacSign(payload, SECRET);
 
       return new Response(
         JSON.stringify({
           nonce,
-          captcha: { a, b, op: "+" },
+          captcha: { a, b, op },
           pow_difficulty: POW_DIFFICULTY,
           issued,
           sig,
@@ -69,8 +76,28 @@ Deno.serve(async (req) => {
     const {
       nonce, captcha_answer, pow_solution,
       honeypot, dwell_ms, issued, sig,
-      captcha_a, captcha_b,
+      captcha_a, captcha_b, captcha_op,
+      mouse_movements, user_agent_hash,
     } = body;
+
+    // ── Type validation ──
+    if (typeof nonce !== "string" || typeof pow_solution !== "string" ||
+        typeof captcha_a !== "number" || typeof captcha_b !== "number" ||
+        typeof captcha_op !== "string" || typeof issued !== "number" ||
+        typeof sig !== "string" || typeof dwell_ms !== "number") {
+      return new Response(
+        JSON.stringify({ error: "invalid_payload", message: "Malformed request." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── Mouse movement validation (server-side) ──
+    if (typeof mouse_movements !== "number" || mouse_movements < 10) {
+      return new Response(
+        JSON.stringify({ error: "bot_behavior", message: "Insufficient interaction detected." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // 1️⃣ Honeypot check — must be empty
     if (honeypot) {
@@ -81,7 +108,7 @@ Deno.serve(async (req) => {
     }
 
     // 2️⃣ Verify challenge signature (tamper-proof)
-    const payload = `${nonce}|${captcha_a}|${captcha_b}|${issued}`;
+    const payload = `${nonce}|${captcha_a}|${captcha_b}|${captcha_op}|${issued}`;
     const validSig = await hmacVerify(payload, sig, SECRET);
     if (!validSig) {
       return new Response(
@@ -98,8 +125,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 4️⃣ Math CAPTCHA verification
-    const expectedAnswer = captcha_a + captcha_b;
+    // 4️⃣ Math CAPTCHA verification (supports +, -, ×)
+    let expectedAnswer: number;
+    if (captcha_op === "+") expectedAnswer = captcha_a + captcha_b;
+    else if (captcha_op === "-") expectedAnswer = captcha_a - captcha_b;
+    else if (captcha_op === "×") expectedAnswer = captcha_a * captcha_b;
+    else {
+      return new Response(
+        JSON.stringify({ error: "invalid_op", message: "Invalid captcha operator." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     if (Number(captcha_answer) !== expectedAnswer) {
       return new Response(
         JSON.stringify({ error: "captcha_failed", message: "Incorrect CAPTCHA answer." }),
