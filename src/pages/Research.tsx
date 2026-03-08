@@ -39,7 +39,6 @@ interface SourceCategory { id: string; label: string; icon: LucideIcon | (({ cla
 
 const RESEARCH_SOURCES: SourceCategory[] = [
   { id: 'google-maps', label: 'Google Maps', icon: MapPin, description: 'Local businesses, reviews & map listings' },
-  { id: 'x', label: 'WGB', icon: XIcon as any, description: 'Solana Ecosystem' },
   { id: 'other', label: 'Other', icon: Search, description: 'Web scrapes, APIs & misc sources' },
 ];
 
@@ -95,7 +94,7 @@ interface Narrative {
 
 export default function Research() {
   const { user } = useAuth();
-  const isRestricted = user?.email === 'warren@guru.com';
+  const isRestricted = false;
 
   const researchLoop = useResearchLoop();
   const leadLoop = useLeadLoop();
@@ -126,7 +125,7 @@ export default function Research() {
   const gmapsProgressLog = gmapsState.progressLog;
   const gmapsInterval = gmapsState.interval;
 
-  const [selectedSource, setSelectedSource] = useState<string | null>(isRestricted ? 'x' : null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [allFindings, setAllFindings] = useState<any[]>([]);
   const [findings, setFindings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -459,8 +458,7 @@ export default function Research() {
 
   const categoryCounts = RESEARCH_SOURCES.reduce((acc, src) => {
     const catItems = allFindings.filter(f => normSource(f.category) === src.id);
-    // For X, apply dedup so the badge matches displayed count
-    acc[src.id] = src.id === 'x' ? deduplicateXFindings(catItems).length : catItems.length;
+    acc[src.id] = catItems.length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -563,7 +561,6 @@ export default function Research() {
     const cls = className || 'h-3 w-3';
     switch (cat) {
       case 'google-maps': return <MapPin className={cls} />;
-      case 'x': return <XIcon className={cls} />;
       case 'yelp': return <Star className={cls} />;
       case 'instagram': return <Instagram className={cls} />;
       default: return <Search className={cls} />;
@@ -680,7 +677,7 @@ export default function Research() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
-            {(isRestricted ? RESEARCH_SOURCES.filter(s => s.id === 'x') : RESEARCH_SOURCES).map(src => {
+            {RESEARCH_SOURCES.map(src => {
               const count = categoryCounts[src.id] || 0;
               const hasNew = categoryNewFlags[src.id];
               return (
@@ -735,53 +732,6 @@ export default function Research() {
 
           {/* Column 2: Actions */}
           <div className="flex flex-col items-end gap-2">
-            {selectedSource === 'x' && (
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                {/* Source toggles */}
-                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-                  <button
-                    className="px-3 py-1.5 rounded text-base font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                  >
-                    𝕏 X
-                  </button>
-                </div>
-                {/* Interval selector */}
-                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-                  {[
-                    { label: '5m', val: 5 },
-                    { label: '15m', val: 15 },
-                    { label: '30m', val: 30 },
-                    { label: '1h', val: 60 },
-                  ].map(opt => (
-                    <button
-                      key={opt.val}
-                      onClick={() => researchLoop.setInterval(loopInterval === opt.val ? null : opt.val)}
-                      className={cn(
-                        "px-3 py-1.5 rounded text-sm font-semibold transition-colors",
-                        loopInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                {loopActive ? (
-                  <Button size="sm" variant="destructive" onClick={stopLoop} className="gap-1.5">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Stop Loop
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={loopInterval ? startLoop : handleGenerate}
-                    disabled={generating || scrapeSources.length === 0}
-                    className="gap-1.5"
-                  >
-                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-                    {generating ? 'Running...' : loopInterval ? `Loop ${loopInterval}m` : 'Generate'}
-                  </Button>
-                )}
-              </div>
-            )}
             {selectedSource === 'other' && (
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
@@ -935,21 +885,6 @@ export default function Research() {
               </div>
             )}
             <div className="flex items-center gap-2">
-              {selectedSource === 'x' && (
-                <Button
-                  variant={showDrafts ? "default" : "outline"}
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => { setShowDrafts(!showDrafts); if (!showDrafts) loadDrafts(); }}
-                >
-                  <Archive className="h-4 w-4" /> Drafts{draftCount > 0 && ` (${draftCount})`}
-                </Button>
-              )}
-              {selectedSource === 'x' && filtered.length > 0 && (
-                <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setShowPurgeConfirm(true)} disabled={purging}>
-                  <Trash2 className="h-4 w-4" /> Purge All
-                </Button>
-              )}
               <Button variant="outline" size="sm" onClick={load} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
               </Button>
@@ -988,56 +923,7 @@ export default function Research() {
         </div>
 
 
-        {/* ══════ Cortex Pipeline Log ══════ */}
-        {selectedSource === 'x' && showLog && (
-          <div className="glass-card rounded-lg overflow-hidden border border-border">
-            <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">cortex pipeline</span>
-                {generating && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                {!generating && progressLog.length > 1 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">COMPLETE</span>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => setShowLog(false)}>
-                Hide
-              </Button>
-            </div>
-            <div className="max-h-72 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-sm">
-              {progressLog.length === 0 && generating && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Connecting to Cortex engine...</span>
-                </div>
-              )}
-              {progressLog.map((entry, i) => (
-                <div key={`${entry.step}-${i}`} className="flex items-start gap-2 animate-fade-in">
-                  <span className="text-muted-foreground shrink-0 w-16">{entry.ts}</span>
-                  <span className="shrink-0">
-                    {entry.status === 'running' ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                    ) : entry.status === 'done' ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-                    ) : (
-                      <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <span className={cn(
-                      "font-medium",
-                      entry.status === 'running' ? "text-foreground" : entry.status === 'done' ? "text-muted-foreground" : "text-destructive"
-                    )}>
-                      {entry.step >= 0 ? `[${entry.step}] ` : ''}{entry.label}
-                    </span>
-                    <p className="text-muted-foreground break-words">{entry.detail}</p>
-                  </div>
-                </div>
-              ))}
-              <div ref={logEndRef} />
-            </div>
-          </div>
-        )}
+
 
         {/* ══════ Lead Agent Pipeline Log ══════ */}
         {selectedSource === 'other' && leadProgressLog.length > 0 && (
@@ -1179,364 +1065,6 @@ export default function Research() {
 
         {/* Credits depleted warning removed — using Apify agents only */}
 
-        {/* TikTok radar removed */}
-
-        {/* ══════ Cortex Analyst Report ══════ */}
-        {selectedSource === 'x' && topNarratives.length > 0 && (
-          <div className="glass-card rounded-lg overflow-hidden border border-emerald-500/30">
-            <div className="px-4 py-3 bg-emerald-500/5 border-b border-emerald-500/20 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-emerald-500" />
-                <span className="text-base font-bold text-foreground">📊 Cortex Analyst Report — {topNarratives.length} Narratives</span>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 text-sm"
-                onClick={() => {
-                  const report = topNarratives.map((n, i) => {
-                    const rating = n.narrative_rating ?? n.bundle_score ?? 0;
-                    const lines = [
-                      `━━━ #${i + 1} — ${rating}/10 ━━━`,
-                      `Name: ${n.name}`,
-                      `Symbol: ${n.symbol || n.suggested_tickers?.[0] || '—'}`,
-                      `Description: ${n.description || n.why_bundle || '—'}`,
-                      `Rating: ${rating}/10 — ${n.rating_justification || n.why_bundle || ''}`,
-                      `On-Chain: ${n.on_chain_evidence || '—'}`,
-                      `Competition: ${n.competition}`,
-                      `Window: ${n.deploy_window}`,
-                      `Risk: ${n.risk || '—'}`,
-                    ];
-                    if (n.twitter_source_url || n.tweet_sources?.[0]?.url) {
-                      lines.push(`Twitter: ${n.twitter_source_url || n.tweet_sources[0].url}`);
-                    }
-                    if (n.website) lines.push(`Website: ${n.website}`);
-                    if (n.tweet_sources?.length) {
-                      lines.push(`Sources:`);
-                      n.tweet_sources.slice(0, 3).forEach(tw => {
-                        lines.push(`  ${tw.user} (${tw.engagement}): "${tw.text.slice(0, 100)}"`);
-                        if (tw.url) lines.push(`  ${tw.url}`);
-                      });
-                    }
-                    return lines.join('\n');
-                  }).join('\n\n');
-                  const header = `CORTEX ANALYST REPORT — ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}\nSolana / Pump.fun Narrative Intelligence\n${'═'.repeat(50)}\n`;
-                  const footer = `\n${'═'.repeat(50)}\n${cycleReasoning || ''}`;
-                  navigator.clipboard.writeText(header + report + footer);
-                  toast.success('Full report copied to clipboard');
-                }}
-              >
-                <Copy className="h-3.5 w-3.5" /> Copy Full Report
-              </Button>
-            </div>
-            <div className="p-4 space-y-4">
-              {/* Analyst Summary */}
-              {cycleReasoning && cycleReasoning !== 'No AI analysis available' && (
-                <div className="p-3 rounded-lg bg-muted/30 border border-border">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                      <Brain className="h-3.5 w-3.5 text-primary" /> Analyst Summary
-                    </span>
-                    <button
-                      onClick={() => copyToClipboard(cycleReasoning)}
-                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                    >
-                      <Copy className="h-2.5 w-2.5" /> Copy
-                    </button>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{cycleReasoning}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {topNarratives.map((n, i) => {
-                  const rating = n.narrative_rating ?? n.bundle_score ?? 0;
-                  const copyCard = () => {
-                    const text = [
-                      `Name: ${n.name}`,
-                      `Symbol: ${n.symbol || n.suggested_tickers?.[0] || '—'}`,
-                      `Description: ${n.description || n.why_bundle || '—'}`,
-                      `Rating: ${rating}/10`,
-                      `${n.rating_justification || n.why_bundle || ''}`,
-                      n.twitter_source_url ? `Twitter: ${n.twitter_source_url}` : '',
-                      n.website ? `Website: ${n.website}` : '',
-                    ].filter(Boolean).join('\n');
-                    copyToClipboard(text);
-                  };
-
-                  return (
-                    <div key={i} className={cn(
-                      "flex flex-col overflow-hidden rounded-xl border",
-                      n.source_platform === 'tiktok' ? "bg-purple-500/5 border-purple-500/30" :
-                      n.source_platform === 'cross-platform' ? "bg-gradient-to-r from-blue-500/5 to-purple-500/5 border-amber-500/30" :
-                      n.source_platform === 'x' ? "bg-blue-500/5 border-blue-500/30" :
-                      "bg-muted/30 border-border"
-                    )}>
-                      {/* Header strip */}
-                      <div className={cn(
-                        "px-3 py-1.5 border-b flex items-center gap-2 shrink-0",
-                        n.source_platform === 'tiktok' ? "bg-purple-500/10 border-purple-500/20" :
-                        n.source_platform === 'x' ? "bg-blue-500/10 border-blue-500/20" :
-                        "bg-muted/40 border-border"
-                      )}>
-                        <span className="text-base font-bold text-foreground">{i + 1}.</span>
-                        {n.tier && (
-                          <span className={cn(
-                            "text-sm px-2 py-0.5 rounded-full font-black",
-                            n.tier === 'S' ? "bg-red-500/20 text-red-400 animate-pulse" :
-                            n.tier === 'A' ? "bg-amber-500/20 text-amber-400" :
-                            "bg-muted text-muted-foreground"
-                          )}>
-                            {n.tier}
-                          </span>
-                        )}
-                        {n.source_platform && (
-                          <span className={cn(
-                            "text-sm px-2 py-0.5 rounded-full font-bold",
-                            n.source_platform === 'cross-platform' ? "bg-amber-500/20 text-amber-400" :
-                            n.source_platform === 'tiktok' ? "bg-purple-500/20 text-purple-400" :
-                            "bg-blue-500/20 text-blue-400"
-                          )}>
-                            {n.source_platform === 'cross-platform' ? '🔀 X+TT' : n.source_platform === 'tiktok' ? '🎵 TT' : '𝕏'}
-                          </span>
-                        )}
-                        <div className="flex items-center gap-1.5 ml-auto shrink-0">
-                          {(n.twitter_source_url || n.tweet_sources?.[0]?.url) && (
-                            <a
-                              href={n.twitter_source_url || n.tweet_sources[0].url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-muted-foreground hover:text-blue-400 transition-colors"
-                              title="View original post"
-                            >
-                              <Eye className="h-3 w-3" />
-                            </a>
-                          )}
-                          <button onClick={() => setDetailNarrative(n)} className="text-muted-foreground hover:text-foreground" title="View full details">
-                            <ExternalLink className="h-3 w-3" />
-                          </button>
-                          <button onClick={copyCard} className="text-muted-foreground hover:text-foreground">
-                            <Copy className="h-3 w-3" />
-                          </button>
-                          <span className={cn(
-                            "px-2.5 py-1 rounded-full text-sm font-bold",
-                            rating >= 8 ? "bg-primary/20 text-primary" :
-                            rating >= 6 ? "bg-accent/20 text-accent-foreground" :
-                            "bg-muted text-muted-foreground"
-                          )}>
-                            {rating}/10
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Body */}
-                      <div className="p-2 space-y-1">
-                        <div className="flex items-baseline gap-2">
-                          <h3 className="text-base font-bold text-foreground line-clamp-1 leading-tight">{n.name}</h3>
-                          {n.symbol && (
-                            <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">${n.symbol}</span>
-                          )}
-                        </div>
-
-                        {n.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-1">{n.description}</p>
-                        )}
-
-                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-                          {n.deploy_window && (
-                            <span>⏱ <span className={cn("font-semibold", n.deploy_window === 'NOW' ? "text-primary" : "text-foreground")}>{n.deploy_window}</span></span>
-                          )}
-                          {n.risk && <span>⚠ {n.risk}</span>}
-                          {n.competition && <span>🏁 {n.competition}</span>}
-                        </div>
-
-                        {n.rating_justification && (
-                          <p className="text-xs text-foreground leading-snug line-clamp-1">
-                            <Zap className="h-2.5 w-2.5 inline mr-0.5 text-primary" />
-                            <strong>{rating}/10</strong> — {n.rating_justification}
-                          </p>
-                        )}
-
-                        {n.on_chain_evidence && (
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            <TrendingUp className="h-2.5 w-2.5 inline mr-0.5 text-emerald-500" />
-                            {n.on_chain_evidence}
-                          </p>
-                        )}
-
-                        {(n.tweet_sources?.length > 0 || n.twitter_source_url) && (
-                          <div className="pt-0.5 border-t border-border space-y-0.5">
-                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
-                            {n.tweet_sources?.length > 0 ? (
-                              n.tweet_sources.slice(0, 1).map((tw, j) => (
-                                <div key={j} className="flex items-center gap-1 text-xs">
-                                  <XIcon className="h-2.5 w-2.5 text-blue-400 shrink-0" />
-                                  <span className="font-bold text-foreground truncate">@{tw.user}</span>
-                                  <span className="text-blue-400 shrink-0">{tw.engagement}</span>
-                                  {tw.url && (
-                                    <a href={tw.url} target="_blank" rel="noopener noreferrer" className="ml-auto text-blue-400 hover:underline shrink-0">
-                                      <ExternalLink className="h-2.5 w-2.5" />
-                                    </a>
-                                  )}
-                                </div>
-                              ))
-                            ) : n.twitter_source_url ? (
-                              <div className="flex items-center gap-1 text-xs">
-                                <XIcon className="h-2.5 w-2.5 text-blue-400 shrink-0" />
-                                <a href={n.twitter_source_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline truncate">
-                                  View original post
-                                </a>
-                                <a href={n.twitter_source_url} target="_blank" rel="noopener noreferrer" className="ml-auto text-blue-400 hover:underline shrink-0">
-                                  <ExternalLink className="h-2.5 w-2.5" />
-                                </a>
-                              </div>
-                            ) : null}
-                          </div>
-                        )}
-
-
-                        {n.image_gen_prompt && (
-                          <div className="pt-0.5 border-t border-border">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">🎨 Prompt</span>
-                              <button onClick={() => copyToClipboard(n.image_gen_prompt!)} className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5">
-                                <Copy className="h-2.5 w-2.5" />
-                              </button>
-                            </div>
-                            <p className="text-xs text-muted-foreground font-mono line-clamp-1">{n.image_gen_prompt}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Top tweets fallback */}
-              {topTweets.length > 0 && topNarratives.length === 0 && (
-                <div className="space-y-3">
-                  <span className="text-base font-semibold text-foreground flex items-center gap-1.5">
-                    <Activity className="h-3.5 w-3.5" /> Top Tweets Found
-                  </span>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {topTweets.slice(0, 8).map((tw, j) => (
-                      <div key={j} className="rounded-lg border border-blue-500/20 bg-blue-500/5 overflow-hidden hover:border-blue-500/40 transition-colors">
-                        {tw.media_url && (
-                          <img
-                            src={tw.media_url}
-                            alt=""
-                            className="w-full h-32 object-cover bg-muted"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
-                        )}
-                        <div className="p-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            {tw.profile_pic && (
-                              <img src={tw.profile_pic} alt="" className="w-7 h-7 rounded-full object-cover bg-muted shrink-0" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                            )}
-                            <div className="min-w-0">
-                              <span className="text-sm font-bold text-foreground block truncate">@{tw.user}</span>
-                              {tw.token_symbol && (
-                                <span className="text-sm font-mono font-bold px-2 py-0.5 rounded bg-blue-500/15 text-blue-400">${tw.token_symbol}</span>
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-sm text-muted-foreground leading-snug line-clamp-3">{tw.text}</p>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                              <span>❤ {tw.favorites}</span>
-                              <span>🔁 {tw.retweets}</span>
-                            </div>
-                            {tw.url && (
-                              <a href={tw.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-blue-400 hover:underline font-medium">
-                                <ExternalLink className="h-2.5 w-2.5" /> Open
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {cycleChainOfThought && (
-                <details className="text-sm">
-                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">Chain-of-Thought Reasoning</summary>
-                  <div className="mt-2 flex justify-end">
-                    <button onClick={() => copyToClipboard(cycleChainOfThought)} className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-                      <Copy className="h-2.5 w-2.5" /> Copy
-                    </button>
-                  </div>
-                  <p className="mt-1 text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-lg">{cycleChainOfThought}</p>
-                </details>
-              )}
-
-              {evolvedQueries.length > 0 && (
-                <details className="text-sm">
-                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">Evolved Search Queries (next cycle)</summary>
-                  <ul className="mt-2 space-y-1">
-                    {evolvedQueries.map((q, i) => (
-                      <li key={i} className="text-muted-foreground font-mono bg-muted/30 px-2 py-1 rounded text-sm">{q}</li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ══════ Drafts Panel ══════ */}
-        {showDrafts && selectedSource === 'x' && (
-          <div className="glass-card rounded-lg overflow-hidden border border-amber-500/30">
-            <div className="px-4 py-3 bg-amber-500/5 border-b border-amber-500/20 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Archive className="h-4 w-4 text-amber-500" />
-                <span className="text-sm font-bold text-foreground">📁 Drafts — {draftFindings.length} findings</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-medium">Auto-archived after 24h · Deleted after 7 days</span>
-              </div>
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => setShowDrafts(false)}>
-                Hide
-              </Button>
-            </div>
-            {draftFindings.length === 0 ? (
-              <div className="p-6 text-center text-muted-foreground text-sm">
-                No drafted findings yet. Findings are auto-drafted 24 hours after generation.
-              </div>
-            ) : (
-              <div className="p-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[500px] overflow-y-auto">
-                {draftFindings.map(f => {
-                  const rd = f.raw_data as any;
-                  return (
-                    <div key={f.id} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-2 space-y-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-[10px] text-muted-foreground truncate">{format(new Date(f.created_at), 'M/d h:mma')}</span>
-                        {rd?.narrative_rating && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-400 ml-auto shrink-0">{rd.narrative_rating}/10</span>
-                        )}
-                      </div>
-                      <h4 className="text-xs font-bold text-foreground line-clamp-2 break-words">{f.title}</h4>
-                      {rd?.symbol && <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">${rd.symbol}</span>}
-                      {rd?.deploy_window && <span className="text-[10px] text-muted-foreground block">⏱ {rd.deploy_window}</span>}
-                      <div className="flex items-center gap-1 pt-1">
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => copyToClipboard(`${f.title}\n${f.summary || ''}\n${f.source_url || ''}`)}>
-                          <Copy className="h-2.5 w-2.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5 text-destructive ml-auto" onClick={async () => {
-                          await supabase.from('research_findings').delete().eq('id', f.id);
-                          loadDrafts();
-                          toast.success('Draft deleted');
-                        }}>
-                          <Trash2 className="h-2.5 w-2.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ══════ Lead Finder Panel (Other source) ══════ */}
         {selectedSource === 'other' && (
@@ -1793,19 +1321,16 @@ export default function Research() {
         )}
 
 
-        {/* Two-column layout: findings + X feed */}
+        {/* Findings grid */}
         {(
-        <div className={cn("flex gap-6", selectedSource === 'x' ? "flex-col lg:flex-row" : "")}>
-        <div className={cn("min-w-0", selectedSource === 'x' ? "flex-1" : "w-full")}>
+        <div className="flex gap-6">
+        <div className="min-w-0 w-full">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {paginatedFiltered.filter(f => {
             // Gate: only show findings with required fields per source type
             const rd = f.raw_data as any;
             if (!rd) return false;
             const hasName = !!(rd.name || f.title);
-            const isX = normSource(f.category) === 'x';
-            // X findings only need a name/title to display
-            if (isX) return hasName;
             // Non-X findings require richer data
             const hasSymbol = !!rd.symbol;
             const hasWindow = !!rd.deploy_window;
@@ -2115,31 +1640,6 @@ export default function Research() {
           </div>
         )}
         </div>
-        {/* X Feed Panel + Market Cap Alerts - right side */}
-        {selectedSource === 'x' && (
-          <div className="lg:w-[420px] shrink-0 lg:sticky lg:top-4 lg:self-start space-y-4" style={{ height: 'calc(380vh - 420px)' }}>
-            {/* Meta & DEV AI buttons */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 flex-1 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
-                onClick={() => setMetaOpen(true)}
-              >
-                <TrendingUp className="h-3.5 w-3.5" /> Last 10M Meta
-              </Button>
-              <Button
-                size="sm"
-                className="gap-1.5 flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
-                onClick={() => setDevAIOpen(true)}
-              >
-                <Sparkles className="h-3.5 w-3.5" /> DEV AI
-              </Button>
-            </div>
-            <MarketCapAlerts />
-            <XFeedPanel />
-          </div>
-        )}
         </div>
         )}
       </div>
@@ -2157,20 +1657,6 @@ export default function Research() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showPurgeConfirm} onOpenChange={setShowPurgeConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Purge All X Findings?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete all {filtered.length} findings in this view. This cannot be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePurgeAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={purging}>
-              {purging ? 'Purging...' : `Delete ${filtered.length} findings`}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Image Preview Modal */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
