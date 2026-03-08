@@ -40,7 +40,7 @@ const RESTRICTED_EMAIL = 'warren@guru.com';
 
 export function Sidebar() {
   const { signOut, user } = useAuth();
-  const isRestricted = user?.email === RESTRICTED_EMAIL;
+  const isRestricted = false;
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [hasNewMessages, setHasNewMessages] = useState(false);
