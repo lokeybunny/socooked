@@ -39,7 +39,6 @@ interface SourceCategory { id: string; label: string; icon: LucideIcon | (({ cla
 
 const RESEARCH_SOURCES: SourceCategory[] = [
   { id: 'google-maps', label: 'Google Maps', icon: MapPin, description: 'Local businesses, reviews & map listings' },
-  { id: 'x', label: 'WGB', icon: XIcon as any, description: 'Solana Ecosystem' },
   { id: 'other', label: 'Other', icon: Search, description: 'Web scrapes, APIs & misc sources' },
 ];
 
@@ -95,7 +94,7 @@ interface Narrative {
 
 export default function Research() {
   const { user } = useAuth();
-  const isRestricted = user?.email === 'warren@guru.com';
+  const isRestricted = false;
 
   const researchLoop = useResearchLoop();
   const leadLoop = useLeadLoop();
@@ -126,7 +125,7 @@ export default function Research() {
   const gmapsProgressLog = gmapsState.progressLog;
   const gmapsInterval = gmapsState.interval;
 
-  const [selectedSource, setSelectedSource] = useState<string | null>(isRestricted ? 'x' : null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [allFindings, setAllFindings] = useState<any[]>([]);
   const [findings, setFindings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -459,8 +458,7 @@ export default function Research() {
 
   const categoryCounts = RESEARCH_SOURCES.reduce((acc, src) => {
     const catItems = allFindings.filter(f => normSource(f.category) === src.id);
-    // For X, apply dedup so the badge matches displayed count
-    acc[src.id] = src.id === 'x' ? deduplicateXFindings(catItems).length : catItems.length;
+    acc[src.id] = catItems.length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -563,7 +561,6 @@ export default function Research() {
     const cls = className || 'h-3 w-3';
     switch (cat) {
       case 'google-maps': return <MapPin className={cls} />;
-      case 'x': return <XIcon className={cls} />;
       case 'yelp': return <Star className={cls} />;
       case 'instagram': return <Instagram className={cls} />;
       default: return <Search className={cls} />;
@@ -680,7 +677,7 @@ export default function Research() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full max-w-4xl">
-            {(isRestricted ? RESEARCH_SOURCES.filter(s => s.id === 'x') : RESEARCH_SOURCES).map(src => {
+            {RESEARCH_SOURCES.map(src => {
               const count = categoryCounts[src.id] || 0;
               const hasNew = categoryNewFlags[src.id];
               return (
@@ -735,53 +732,6 @@ export default function Research() {
 
           {/* Column 2: Actions */}
           <div className="flex flex-col items-end gap-2">
-            {selectedSource === 'x' && (
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                {/* Source toggles */}
-                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-                  <button
-                    className="px-3 py-1.5 rounded text-base font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                  >
-                    𝕏 X
-                  </button>
-                </div>
-                {/* Interval selector */}
-                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-                  {[
-                    { label: '5m', val: 5 },
-                    { label: '15m', val: 15 },
-                    { label: '30m', val: 30 },
-                    { label: '1h', val: 60 },
-                  ].map(opt => (
-                    <button
-                      key={opt.val}
-                      onClick={() => researchLoop.setInterval(loopInterval === opt.val ? null : opt.val)}
-                      className={cn(
-                        "px-3 py-1.5 rounded text-sm font-semibold transition-colors",
-                        loopInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                {loopActive ? (
-                  <Button size="sm" variant="destructive" onClick={stopLoop} className="gap-1.5">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Stop Loop
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={loopInterval ? startLoop : handleGenerate}
-                    disabled={generating || scrapeSources.length === 0}
-                    className="gap-1.5"
-                  >
-                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-                    {generating ? 'Running...' : loopInterval ? `Loop ${loopInterval}m` : 'Generate'}
-                  </Button>
-                )}
-              </div>
-            )}
             {selectedSource === 'other' && (
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
@@ -935,21 +885,6 @@ export default function Research() {
               </div>
             )}
             <div className="flex items-center gap-2">
-              {selectedSource === 'x' && (
-                <Button
-                  variant={showDrafts ? "default" : "outline"}
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => { setShowDrafts(!showDrafts); if (!showDrafts) loadDrafts(); }}
-                >
-                  <Archive className="h-4 w-4" /> Drafts{draftCount > 0 && ` (${draftCount})`}
-                </Button>
-              )}
-              {selectedSource === 'x' && filtered.length > 0 && (
-                <Button variant="outline" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setShowPurgeConfirm(true)} disabled={purging}>
-                  <Trash2 className="h-4 w-4" /> Purge All
-                </Button>
-              )}
               <Button variant="outline" size="sm" onClick={load} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
               </Button>
@@ -988,56 +923,7 @@ export default function Research() {
         </div>
 
 
-        {/* ══════ Cortex Pipeline Log ══════ */}
-        {selectedSource === 'x' && showLog && (
-          <div className="glass-card rounded-lg overflow-hidden border border-border">
-            <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
-              <div className="flex items-center gap-2">
-                <Terminal className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">cortex pipeline</span>
-                {generating && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                {!generating && progressLog.length > 1 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">COMPLETE</span>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => setShowLog(false)}>
-                Hide
-              </Button>
-            </div>
-            <div className="max-h-72 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-sm">
-              {progressLog.length === 0 && generating && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Connecting to Cortex engine...</span>
-                </div>
-              )}
-              {progressLog.map((entry, i) => (
-                <div key={`${entry.step}-${i}`} className="flex items-start gap-2 animate-fade-in">
-                  <span className="text-muted-foreground shrink-0 w-16">{entry.ts}</span>
-                  <span className="shrink-0">
-                    {entry.status === 'running' ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                    ) : entry.status === 'done' ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-                    ) : (
-                      <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <span className={cn(
-                      "font-medium",
-                      entry.status === 'running' ? "text-foreground" : entry.status === 'done' ? "text-muted-foreground" : "text-destructive"
-                    )}>
-                      {entry.step >= 0 ? `[${entry.step}] ` : ''}{entry.label}
-                    </span>
-                    <p className="text-muted-foreground break-words">{entry.detail}</p>
-                  </div>
-                </div>
-              ))}
-              <div ref={logEndRef} />
-            </div>
-          </div>
-        )}
+
 
         {/* ══════ Lead Agent Pipeline Log ══════ */}
         {selectedSource === 'other' && leadProgressLog.length > 0 && (
@@ -1793,19 +1679,16 @@ export default function Research() {
         )}
 
 
-        {/* Two-column layout: findings + X feed */}
+        {/* Findings grid */}
         {(
-        <div className={cn("flex gap-6", selectedSource === 'x' ? "flex-col lg:flex-row" : "")}>
-        <div className={cn("min-w-0", selectedSource === 'x' ? "flex-1" : "w-full")}>
+        <div className="flex gap-6">
+        <div className="min-w-0 w-full">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {paginatedFiltered.filter(f => {
             // Gate: only show findings with required fields per source type
             const rd = f.raw_data as any;
             if (!rd) return false;
             const hasName = !!(rd.name || f.title);
-            const isX = normSource(f.category) === 'x';
-            // X findings only need a name/title to display
-            if (isX) return hasName;
             // Non-X findings require richer data
             const hasSymbol = !!rd.symbol;
             const hasWindow = !!rd.deploy_window;
@@ -2115,31 +1998,6 @@ export default function Research() {
           </div>
         )}
         </div>
-        {/* X Feed Panel + Market Cap Alerts - right side */}
-        {selectedSource === 'x' && (
-          <div className="lg:w-[420px] shrink-0 lg:sticky lg:top-4 lg:self-start space-y-4" style={{ height: 'calc(380vh - 420px)' }}>
-            {/* Meta & DEV AI buttons */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 flex-1 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10"
-                onClick={() => setMetaOpen(true)}
-              >
-                <TrendingUp className="h-3.5 w-3.5" /> Last 10M Meta
-              </Button>
-              <Button
-                size="sm"
-                className="gap-1.5 flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
-                onClick={() => setDevAIOpen(true)}
-              >
-                <Sparkles className="h-3.5 w-3.5" /> DEV AI
-              </Button>
-            </div>
-            <MarketCapAlerts />
-            <XFeedPanel />
-          </div>
-        )}
         </div>
         )}
       </div>
@@ -2157,20 +2015,6 @@ export default function Research() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showPurgeConfirm} onOpenChange={setShowPurgeConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Purge All X Findings?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete all {filtered.length} findings in this view. This cannot be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePurgeAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={purging}>
-              {purging ? 'Purging...' : `Delete ${filtered.length} findings`}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Image Preview Modal */}
       <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
