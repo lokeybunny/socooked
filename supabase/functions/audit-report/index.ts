@@ -354,13 +354,18 @@ class PDFBuilder {
     this.roundedRect(40, 680, 130, 24, 12, this.colors.accent)
     this.text(55, 685, 'DIGITAL AUDIT', 10, this.colors.white, true)
     
-    // Business name
+    // Business name — auto-size to fit
     const bizName = (data.business_name || 'Business').toUpperCase()
-    this.text(40, 620, bizName, 32, this.colors.white, true)
+    const nameLen = bizName.length
+    let nameSize = 32
+    let maxCharsName = 22
+    if (nameLen > 30) { nameSize = 20; maxCharsName = 36 }
+    else if (nameLen > 22) { nameSize = 24; maxCharsName = 30 }
+    const nameBottomY = this.wordWrapText(40, 640, bizName, nameSize, this.colors.white, maxCharsName, true)
     
     // Tagline
     if (data.tagline) {
-      this.wordWrapText(40, 590, data.tagline, 12, this.colors.midText, 70)
+      this.wordWrapText(40, nameBottomY - 4, data.tagline, 12, this.colors.midText, 70)
     }
     
     // Big overall score
