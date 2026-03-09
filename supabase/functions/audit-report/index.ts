@@ -814,6 +814,7 @@ class PDFBuilder {
     this.text(55, pkgY + pkgH - 24, 'ESSENTIAL', 12, this.colors.green, true)
     this.text(55, pkgY + pkgH - 42, 'Quick Fixes', 9, this.colors.midText)
     this.wordWrapText(55, pkgY + pkgH - 65, data.essential_package || 'Immediate improvements to boost your online presence.', 8, this.colors.darkText, 26)
+    this.text(55, pkgY + 16, '$250/mo', 16, this.colors.green, true)
     
     // Growth
     const gx = 40 + pkgW + 10
@@ -822,6 +823,7 @@ class PDFBuilder {
     this.text(gx + 15, pkgY + pkgH - 24, 'GROWTH', 12, this.colors.accent, true)
     this.text(gx + 15, pkgY + pkgH - 42, 'Full Overhaul', 9, this.colors.midText)
     this.wordWrapText(gx + 15, pkgY + pkgH - 65, data.growth_package || 'Comprehensive digital presence transformation.', 8, this.colors.white, 26)
+    this.text(gx + 15, pkgY + 16, '$500/mo', 16, this.colors.accent, true)
     // "POPULAR" badge
     this.roundedRect(gx + pkgW - 60, pkgY + pkgH + 4, 55, 18, 9, this.colors.gold)
     this.text(gx + pkgW - 52, pkgY + pkgH + 8, 'POPULAR', 8, this.colors.white, true)
