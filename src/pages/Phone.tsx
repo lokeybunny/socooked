@@ -415,18 +415,7 @@ export default function PhonePage() {
     }
   };
 
-  // Send audit report to prospect email
-  const handleSendReport = async (lead: any) => {
-    if (!lead?.email) {
-      toast.error('No email on file for this lead');
-      return;
-    }
   // Step 1: Generate email draft for preview
-  const handleSendReport = async (lead: any) => {
-    if (!lead?.email) {
-      toast.error('No email on file for this lead');
-      return;
-    }
     const metaObj = typeof lead.meta === 'object' ? lead.meta : {};
     const pdfUrl = metaObj?.audit_pdf_url;
     if (!pdfUrl) {
