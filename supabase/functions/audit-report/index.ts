@@ -610,10 +610,10 @@ class PDFBuilder {
     
     // Score bars on cover
     const barY = 310
-    this.scoreBar(80, barY, 180, 10, data.website_score || 0, 'Website')
-    this.scoreBar(80, barY - 36, 180, 10, data.seo_score || 0, 'SEO')
-    this.scoreBar(330, barY, 180, 10, data.social_score || 0, 'Social Media')
-    this.scoreBar(330, barY - 36, 180, 10, data.branding_score || 0, 'Branding')
+    this.scoreBar(80, barY, 180, 10, data.website_score || 0, 'Website', true)
+    this.scoreBar(80, barY - 36, 180, 10, data.seo_score || 0, 'SEO', true)
+    this.scoreBar(330, barY, 180, 10, data.social_score || 0, 'Social Media', true)
+    this.scoreBar(330, barY - 36, 180, 10, data.branding_score || 0, 'Branding', true)
     
     // Footer
     this.text(40, 50, 'Warren Guru Creative Management / STU25', 10, this.colors.midText, true)
