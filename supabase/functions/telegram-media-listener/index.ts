@@ -154,6 +154,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'email' || normalized === '/email') return 'email'
   if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
   if (normalized === 'proposal' || normalized === '/proposal') return 'proposal'
+  if (normalized === 'audit' || normalized === '/audit') return 'audit'
   if (normalized === 'gains' || normalized === '/gains') return 'gains'
   return null
 }
