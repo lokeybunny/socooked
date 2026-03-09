@@ -484,6 +484,15 @@ class PDFBuilder {
     
     y = this.pageHeight - 90
     
+    // Instagram profile picture
+    if (igHandle && this.imageObjects.has('instagram')) {
+      this.roundedRect(40, y - 90, 90, 90, 8, [0.1, 0.14, 0.22])
+      this.placeImage('instagram', 45, y - 85, 80, 80)
+      this.text(140, y - 20, `@${igHandle}`, 14, this.colors.accent, true)
+      this.text(140, y - 40, data.business_name || '', 10, this.colors.darkText)
+      y -= 105
+    }
+    
     // Social stats cards (if IG data)
     if (igHandle) {
       // Stats row
