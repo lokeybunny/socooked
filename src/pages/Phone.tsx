@@ -1383,10 +1383,7 @@ export default function PhonePage() {
           {/* ─── Right Column: RingCentral Softphone ─── */}
           <div className="space-y-4">
             <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Phone className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-semibold text-foreground">(424) 465-1253</h2>
-              </div>
+              <Phone className="h-5 w-5 text-primary" />
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <span className="font-medium">Call Back #:</span>
                 <span className="text-foreground">(702) 997-6750</span>
