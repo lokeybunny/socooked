@@ -168,6 +168,8 @@ class PDFBuilder {
   private pageWidth = 595.28
   private pageHeight = 841.89
   private currentStream = ''
+  private imageObjects: Map<string, { objNum: number; width: number; height: number }> = new Map()
+  private currentPageImageRefs: string[] = []
 
   // Colors (RGB 0-1)
   private colors = {
