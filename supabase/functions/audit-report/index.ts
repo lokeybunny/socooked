@@ -384,7 +384,7 @@ class PDFBuilder {
     this.scoreBar(330, barY - 36, 180, 10, data.branding_score || 0, 'Branding')
     
     // Footer
-    this.text(40, 50, 'SOCooked Creative Management', 10, this.colors.midText, true)
+    this.text(40, 50, 'Warren Guru Creative Management / STU25', 10, this.colors.midText, true)
     this.text(40, 36, new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 9, this.colors.midText)
     this.text(400, 50, websiteUrl || '', 8, this.colors.midText)
     if (igHandle) this.text(400, 36, `@${igHandle}`, 8, this.colors.accent)
