@@ -256,9 +256,20 @@ export default function PhonePage() {
   };
 
   const filteredLeads = useMemo(() => {
-    if (leadsCategoryFilter === 'all') return leads;
-    return leads.filter(l => (l.category || 'other') === leadsCategoryFilter);
-  }, [leads, leadsCategoryFilter]);
+    let result = leads;
+    if (leadsCategoryFilter !== 'all') {
+      result = result.filter(l => (l.category || 'other') === leadsCategoryFilter);
+    }
+    if (areaCodeFilter.length === 3) {
+      result = result.filter(l => {
+        const phone = (l.phone || '').replace(/\D/g, '');
+        // Handle both 10-digit and 11-digit (1+10) US numbers
+        const areaCode = phone.length === 11 && phone.startsWith('1') ? phone.substring(1, 4) : phone.substring(0, 3);
+        return areaCode === areaCodeFilter;
+      });
+    }
+    return result;
+  }, [leads, leadsCategoryFilter, areaCodeFilter]);
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
 
