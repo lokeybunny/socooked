@@ -293,15 +293,16 @@ class PDFBuilder {
     this.currentStream += `f\n`
   }
 
-  private scoreBar(x: number, y: number, w: number, h: number, score: number, label: string) {
+  private scoreBar(x: number, y: number, w: number, h: number, score: number, label: string, darkBg = false) {
     // Background bar
-    this.roundedRect(x, y, w, h, 4, this.colors.lightGray)
+    this.roundedRect(x, y, w, h, 4, darkBg ? [0.15, 0.19, 0.28] : this.colors.lightGray)
     // Filled portion
     const fillW = Math.max(8, (score / 100) * w)
     const barColor = score >= 70 ? this.colors.green : score >= 40 ? this.colors.orange : this.colors.red
     this.roundedRect(x, y, fillW, h, 4, barColor)
     // Label
-    this.text(x, y + h + 6, label, 9, this.colors.darkText, true)
+    const labelColor = darkBg ? this.colors.white : this.colors.darkText
+    this.text(x, y + h + 6, label, 9, labelColor, true)
     // Score
     this.text(x + w - 20, y + h + 6, `${score}`, 9, barColor, true)
   }
