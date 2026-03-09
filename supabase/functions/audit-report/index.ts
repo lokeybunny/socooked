@@ -213,6 +213,7 @@ CRITICAL RULES — READ CAREFULLY:
 
 ${websiteSection}
 ${igSection}
+${fbSection}
 
 Return this exact JSON structure:
 {
