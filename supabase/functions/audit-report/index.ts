@@ -1528,6 +1528,7 @@ Deno.serve(async (req) => {
       pdf_url: publicUrl?.publicUrl || '',
       website_scraped: !!websiteData,
       ig_scraped: !!igData,
+      fb_scraped: !!fbData,
       scores: {
         overall: analysis.overall_score,
         website: analysis.website_score,
