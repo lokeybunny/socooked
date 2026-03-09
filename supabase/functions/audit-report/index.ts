@@ -168,6 +168,8 @@ class PDFBuilder {
   private pageWidth = 595.28
   private pageHeight = 841.89
   private currentStream = ''
+  private imageObjects: Map<string, { objNum: number; width: number; height: number }> = new Map()
+  private currentPageImageRefs: string[] = []
 
   // Colors (RGB 0-1)
   private colors = {
@@ -325,6 +327,29 @@ class PDFBuilder {
     return lineY
   }
 
+  // Register a JPEG image and return its reference name
+  registerImage(name: string, jpegBytes: Uint8Array, width: number, height: number) {
+    const objNum = this.allocObj()
+    // Create image XObject
+    const hexStream = Array.from(jpegBytes).map(b => b.toString(16).padStart(2, '0')).join('')
+    this.objects.push(
+      `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
+    )
+    // We need to handle binary data specially — store raw bytes reference
+    this.imageObjects.set(name, { objNum, width, height })
+    // Store raw bytes for later assembly
+    ;(this as any)[`_imgBytes_${name}`] = jpegBytes
+  }
+
+  // Place a registered image on the current page
+  private placeImage(name: string, x: number, y: number, displayW: number, displayH: number) {
+    if (!this.imageObjects.has(name)) return
+    this.currentStream += `q\n${displayW} 0 0 ${displayH} ${x} ${y} cm\n/Img_${name} Do\nQ\n`
+    if (!this.currentPageImageRefs.includes(name)) {
+      this.currentPageImageRefs.push(name)
+    }
+  }
+
   build(data: any, websiteUrl: string, igHandle: string | null): Uint8Array {
     // Reserve first objects for catalog, pages, fonts
     const catalogObj = this.allocObj() // 1
@@ -406,6 +431,14 @@ class PDFBuilder {
     
     let y = this.pageHeight - 90
     
+    // Website screenshot
+    if (this.imageObjects.has('website')) {
+      this.roundedRect(40, y - 220, this.pageWidth - 80, 220, 8, [0.1, 0.14, 0.22])
+      this.placeImage('website', 48, y - 212, this.pageWidth - 96, 204)
+      this.text(40, y - 228, 'Current Website Screenshot', 8, this.colors.midText, true)
+      y -= 250
+    }
+    
     // What's Working section
     y = this.sectionHeader(y, "What's Working Well", '>')
     const goods = data.website_good || ['No data']
@@ -450,6 +483,15 @@ class PDFBuilder {
     this.scoreCircle(530, this.pageHeight - 25, data.social_score || 0, 'SCORE')
     
     y = this.pageHeight - 90
+    
+    // Instagram profile picture
+    if (igHandle && this.imageObjects.has('instagram')) {
+      this.roundedRect(40, y - 90, 90, 90, 8, [0.1, 0.14, 0.22])
+      this.placeImage('instagram', 45, y - 85, 80, 80)
+      this.text(140, y - 20, `@${igHandle}`, 14, this.colors.accent, true)
+      this.text(140, y - 40, data.business_name || '', 10, this.colors.darkText)
+      y -= 105
+    }
     
     // Social stats cards (if IG data)
     if (igHandle) {
@@ -711,7 +753,7 @@ class PDFBuilder {
     // ASSEMBLE PDF
     // ═══════════════════════════════════════════
     
-    const allObjects: { num: number; content: string }[] = []
+    const allObjects: { num: number; content: string; binaryData?: Uint8Array }[] = []
     
     // Catalog
     allObjects.push({ num: catalogObj, content: `${catalogObj} 0 obj\n<< /Type /Catalog /Pages ${pagesObj} 0 R >>\nendobj` })
@@ -723,6 +765,18 @@ class PDFBuilder {
     allObjects.push({ num: font1Obj, content: `${font1Obj} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj` })
     allObjects.push({ num: font2Obj, content: `${font2Obj} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj` })
     
+    // Add image XObjects
+    for (const [name, imgInfo] of this.imageObjects) {
+      const imgBytes = (this as any)[`_imgBytes_${name}`] as Uint8Array
+      if (imgBytes) {
+        allObjects.push({
+          num: imgInfo.objNum,
+          content: `${imgInfo.objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgInfo.width} /Height ${imgInfo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`,
+          binaryData: imgBytes,
+        })
+      }
+    }
+    
     // Add page objects
     for (const obj of this.objects) {
       const numMatch = obj.match(/^(\d+) 0 obj/)
@@ -732,37 +786,65 @@ class PDFBuilder {
     // Sort by object number
     allObjects.sort((a, b) => a.num - b.num)
     
-    let pdf = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'
-    const offsets: number[] = []
-    const maxObjNum = allObjects[allObjects.length - 1]?.num || 0
-    
-    // Map obj number -> offset
+    // Build PDF as binary (to support image streams)
+    const chunks: Uint8Array[] = []
+    const encoder = new TextEncoder()
     const offsetMap = new Map<number, number>()
+    let currentOffset = 0
+    
+    const headerBytes = encoder.encode('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n')
+    chunks.push(headerBytes)
+    currentOffset += headerBytes.length
     
     for (const obj of allObjects) {
-      offsetMap.set(obj.num, pdf.length)
-      pdf += obj.content + '\n'
+      offsetMap.set(obj.num, currentOffset)
+      const textPart = encoder.encode(obj.content)
+      chunks.push(textPart)
+      currentOffset += textPart.length
+      
+      if (obj.binaryData) {
+        chunks.push(obj.binaryData)
+        currentOffset += obj.binaryData.length
+        const endStream = encoder.encode('\nendstream\nendobj\n')
+        chunks.push(endStream)
+        currentOffset += endStream.length
+      } else {
+        const newline = encoder.encode('\n')
+        chunks.push(newline)
+        currentOffset += newline.length
+      }
     }
     
-    const xrefOffset = pdf.length
-    pdf += 'xref\n'
-    pdf += `0 ${maxObjNum + 1}\n`
-    pdf += '0000000000 65535 f \n'
+    const maxObjNum = allObjects[allObjects.length - 1]?.num || 0
+    const xrefOffset = currentOffset
+    
+    let xref = 'xref\n'
+    xref += `0 ${maxObjNum + 1}\n`
+    xref += '0000000000 65535 f \n'
     for (let i = 1; i <= maxObjNum; i++) {
       const off = offsetMap.get(i)
       if (off !== undefined) {
-        pdf += `${String(off).padStart(10, '0')} 00000 n \n`
+        xref += `${String(off).padStart(10, '0')} 00000 n \n`
       } else {
-        pdf += '0000000000 00000 f \n'
+        xref += '0000000000 00000 f \n'
       }
     }
-    pdf += 'trailer\n'
-    pdf += `<< /Size ${maxObjNum + 1} /Root ${catalogObj} 0 R >>\n`
-    pdf += 'startxref\n'
-    pdf += `${xrefOffset}\n`
-    pdf += '%%EOF'
+    xref += 'trailer\n'
+    xref += `<< /Size ${maxObjNum + 1} /Root ${catalogObj} 0 R >>\n`
+    xref += 'startxref\n'
+    xref += `${xrefOffset}\n`
+    xref += '%%EOF'
     
-    return new TextEncoder().encode(pdf)
+    chunks.push(encoder.encode(xref))
+    
+    // Merge all chunks
+    let totalLen = 0
+    for (const c of chunks) totalLen += c.length
+    const result = new Uint8Array(totalLen)
+    let pos = 0
+    for (const c of chunks) { result.set(c, pos); pos += c.length }
+    
+    return result
   }
   
   private finalizePage(pagesObj: number, font1Obj: number, font2Obj: number, pageRefs: number[]) {
@@ -770,11 +852,25 @@ class PDFBuilder {
     const contentObj = this.allocObj()
     const pageObj = this.allocObj()
     
+    // Build image XObject references for this page
+    let imgResources = ''
+    if (this.currentPageImageRefs.length > 0) {
+      const imgEntries = this.currentPageImageRefs
+        .map(name => {
+          const img = this.imageObjects.get(name)
+          return img ? `/Img_${name} ${img.objNum} 0 R` : ''
+        })
+        .filter(Boolean)
+        .join(' ')
+      imgResources = ` /XObject << ${imgEntries} >>`
+    }
+    
     this.objects.push(`${contentObj} 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n${this.currentStream}endstream\nendobj`)
-    this.objects.push(`${pageObj} 0 obj\n<< /Type /Page /Parent ${pagesObj} 0 R /MediaBox [0 0 ${this.pageWidth} ${this.pageHeight}] /Contents ${contentObj} 0 R /Resources << /Font << /F1 ${font1Obj} 0 R /F2 ${font2Obj} 0 R >> >> >>\nendobj`)
+    this.objects.push(`${pageObj} 0 obj\n<< /Type /Page /Parent ${pagesObj} 0 R /MediaBox [0 0 ${this.pageWidth} ${this.pageHeight}] /Contents ${contentObj} 0 R /Resources << /Font << /F1 ${font1Obj} 0 R /F2 ${font2Obj} 0 R >>${imgResources} >> >>\nendobj`)
     
     pageRefs.push(pageObj)
     this.currentStream = ''
+    this.currentPageImageRefs = []
   }
   
   private pageFooter(pageNum: number) {
@@ -839,8 +935,65 @@ Deno.serve(async (req) => {
 
     console.log('[audit] AI analysis complete')
 
-    // Generate visual PDF
+    // Fetch images for PDF embedding
     const builder = new PDFBuilder()
+    
+    // Website screenshot from Firecrawl (base64 PNG → we need JPEG)
+    if (websiteData?.screenshot) {
+      try {
+        console.log('[audit] Processing website screenshot...')
+        // Firecrawl returns a base64 data URL or URL to screenshot
+        let screenshotBytes: Uint8Array | null = null
+        const ss = websiteData.screenshot
+        
+        if (ss.startsWith('data:image/')) {
+          // Base64 data URL
+          const b64 = ss.split(',')[1]
+          const raw = atob(b64)
+          screenshotBytes = new Uint8Array(raw.length)
+          for (let i = 0; i < raw.length; i++) screenshotBytes[i] = raw.charCodeAt(i)
+        } else if (ss.startsWith('http')) {
+          // URL — fetch it
+          const imgRes = await fetch(ss)
+          if (imgRes.ok) screenshotBytes = new Uint8Array(await imgRes.arrayBuffer())
+        }
+        
+        if (screenshotBytes && screenshotBytes.length > 0) {
+          // Check if it's JPEG (starts with FF D8)
+          const isJpeg = screenshotBytes[0] === 0xFF && screenshotBytes[1] === 0xD8
+          if (isJpeg) {
+            // Use as-is — estimate dimensions from typical screenshot
+            builder.registerImage('website', screenshotBytes, 1280, 800)
+            console.log('[audit] Website screenshot registered (JPEG)')
+          } else {
+            // PNG or other format — skip for now (PDF DCTDecode only supports JPEG)
+            console.log('[audit] Website screenshot is not JPEG, skipping embed')
+          }
+        }
+      } catch (e) {
+        console.error('[audit] Screenshot processing error:', e)
+      }
+    }
+    
+    // Instagram profile picture
+    if (igData?.profilePicUrl) {
+      try {
+        console.log('[audit] Fetching IG profile pic...')
+        const igPicRes = await fetch(igData.profilePicUrl)
+        if (igPicRes.ok) {
+          const igPicBytes = new Uint8Array(await igPicRes.arrayBuffer())
+          const isJpeg = igPicBytes[0] === 0xFF && igPicBytes[1] === 0xD8
+          if (isJpeg) {
+            builder.registerImage('instagram', igPicBytes, 320, 320)
+            console.log('[audit] IG profile pic registered (JPEG)')
+          }
+        }
+      } catch (e) {
+        console.error('[audit] IG pic fetch error:', e)
+      }
+    }
+
+    // Generate visual PDF
     const pdfBytes = builder.build(analysis, website_url || 'N/A', ig_handle || null)
 
     // Upload PDF
