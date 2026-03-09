@@ -431,6 +431,14 @@ class PDFBuilder {
     
     let y = this.pageHeight - 90
     
+    // Website screenshot
+    if (this.imageObjects.has('website')) {
+      this.roundedRect(40, y - 220, this.pageWidth - 80, 220, 8, [0.1, 0.14, 0.22])
+      this.placeImage('website', 48, y - 212, this.pageWidth - 96, 204)
+      this.text(40, y - 228, 'Current Website Screenshot', 8, this.colors.midText, true)
+      y -= 250
+    }
+    
     // What's Working section
     y = this.sectionHeader(y, "What's Working Well", '>')
     const goods = data.website_good || ['No data']
