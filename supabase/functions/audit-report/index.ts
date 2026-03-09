@@ -1004,15 +1004,13 @@ Deno.serve(async (req) => {
         }
         
         if (screenshotBytes && screenshotBytes.length > 0) {
-          // Check if it's JPEG (starts with FF D8)
           const isJpeg = screenshotBytes[0] === 0xFF && screenshotBytes[1] === 0xD8
-          if (isJpeg) {
-            // Use as-is — estimate dimensions from typical screenshot
+          const isPng = screenshotBytes[0] === 0x89 && screenshotBytes[1] === 0x50
+          if (isJpeg || isPng) {
             builder.registerImage('website', screenshotBytes, 1280, 800)
-            console.log('[audit] Website screenshot registered (JPEG)')
+            console.log(`[audit] Website screenshot registered (${isJpeg ? 'JPEG' : 'PNG'})`)
           } else {
-            // PNG or other format — skip for now (PDF DCTDecode only supports JPEG)
-            console.log('[audit] Website screenshot is not JPEG, skipping embed')
+            console.log('[audit] Website screenshot format not recognized, skipping')
           }
         }
       } catch (e) {
@@ -1028,9 +1026,12 @@ Deno.serve(async (req) => {
         if (igPicRes.ok) {
           const igPicBytes = new Uint8Array(await igPicRes.arrayBuffer())
           const isJpeg = igPicBytes[0] === 0xFF && igPicBytes[1] === 0xD8
-          if (isJpeg) {
+          const isPng = igPicBytes[0] === 0x89 && igPicBytes[1] === 0x50
+          if (isJpeg || isPng) {
             builder.registerImage('instagram', igPicBytes, 320, 320)
-            console.log('[audit] IG profile pic registered (JPEG)')
+            console.log(`[audit] IG profile pic registered (${isJpeg ? 'JPEG' : 'PNG'})`)
+          } else {
+            console.log('[audit] IG profile pic format not recognized, skipping')
           }
         }
       } catch (e) {
