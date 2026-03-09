@@ -16,7 +16,7 @@ async function scrapeWebsite(url: string): Promise<any> {
   const res = await fetch('https://api.firecrawl.dev/v1/scrape', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: formattedUrl, formats: ['markdown', 'screenshot', 'links', 'branding'], onlyMainContent: false, waitFor: 3000 }),
+    body: JSON.stringify({ url: formattedUrl, formats: ['markdown', 'screenshot', 'links', 'branding'], onlyMainContent: false, waitFor: 10000 }),
   })
 
   const data = await res.json()
