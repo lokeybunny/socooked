@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { prompt, history } = await req.json()
+    const body = await req.json()
+    const { prompt, history, draft_only } = body
     if (!prompt || typeof prompt !== 'string') {
       return new Response(JSON.stringify({ type: 'clarify', message: 'What email would you like me to send? Try: "Send Bryan an email about the project update"' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
