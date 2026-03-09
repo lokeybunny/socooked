@@ -51,7 +51,8 @@ const PAGE_2_KEYBOARD = {
     [{ text: '🌐 Web Dev' }, { text: '🍌 Banana' }],
     [{ text: '🍌2️⃣ Banana2' }, { text: '🎬 Higgsfield' }],
     [{ text: '🤖 AI Assistant' }, { text: '📧 Email' }],
-    [{ text: '📝 Proposal' }, { text: '⬅️ Back' }],
+    [{ text: '📝 Proposal' }, { text: '🔍 Audit' }],
+    [{ text: '⬅️ Back' }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -82,6 +83,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'higs', description: '🎬 Higgsfield model list' },
     { command: 'cancel', description: '❌ Cancel active session' },
     { command: 'proposal', description: '📝 Create & send a proposal' },
+    { command: 'audit', description: '🔍 Audit a website + Instagram' },
     { command: 'gains', description: '⚡ Toggle TP10 gain alerts on/off' },
   ]
 
@@ -131,7 +133,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
@@ -152,6 +154,7 @@ function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' 
   if (normalized === 'email' || normalized === '/email') return 'email'
   if (normalized === 'ai assistant' || normalized === 'assistant' || normalized === '/assistant') return 'assistant'
   if (normalized === 'proposal' || normalized === '/proposal') return 'proposal'
+  if (normalized === 'audit' || normalized === '/audit') return 'audit'
   if (normalized === 'gains' || normalized === '/gains') return 'gains'
   return null
 }
@@ -1870,6 +1873,154 @@ startxref
   return new TextEncoder().encode(pdfText)
 }
 
+// ─── Audit Session: multi-step wizard (website → IG → generate) ───
+async function processAuditSession(
+  chatId: number,
+  text: string,
+  sessionId: string,
+  sp: any,
+  tgToken: string,
+  supabaseUrl: string,
+  supabase: any,
+) {
+  const step = sp.step || 'website'
+  const data = sp.data || {}
+
+  if (step === 'website') {
+    const lower = text.trim().toLowerCase()
+    if (lower === 'skip') {
+      // Skip website, go to IG
+      await supabase.from('webhook_events').update({
+        payload: { ...sp, step: 'instagram', data: { ...data, website_url: null } },
+      }).eq('id', sessionId)
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: '📱 <b>Step 2:</b> Enter the Instagram handle\n\n<i>Example: @somebrand or somebrand</i>\n<i>Type "skip" to skip Instagram too (at least one is needed).</i>',
+        parse_mode: 'HTML',
+      })
+    } else {
+      // Validate URL
+      let url = text.trim()
+      if (!url.startsWith('http')) url = 'https://' + url
+      await supabase.from('webhook_events').update({
+        payload: { ...sp, step: 'instagram', data: { ...data, website_url: url } },
+      }).eq('id', sessionId)
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: `✅ Website: <code>${url}</code>\n\n📱 <b>Step 2:</b> Enter the Instagram handle\n\n<i>Example: @somebrand or somebrand</i>\n<i>Type "skip" to skip Instagram.</i>`,
+        parse_mode: 'HTML',
+      })
+    }
+    return
+  }
+
+  if (step === 'instagram') {
+    const lower = text.trim().toLowerCase()
+    let igHandle: string | null = null
+
+    if (lower !== 'skip') {
+      igHandle = text.trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '')
+    }
+
+    if (!data.website_url && !igHandle) {
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: '⚠️ You need at least a website URL or Instagram handle. Please enter an Instagram handle or type /audit to start over.',
+        parse_mode: 'HTML',
+      })
+      return
+    }
+
+    // Start the audit
+    await supabase.from('webhook_events').delete().eq('id', sessionId)
+
+    const targets: string[] = []
+    if (data.website_url) targets.push(`🌐 ${data.website_url}`)
+    if (igHandle) targets.push(`📱 @${igHandle}`)
+
+    await tgPost(tgToken, 'sendMessage', {
+      chat_id: chatId,
+      text: `🔍 <b>Starting Audit...</b>\n\n${targets.join('\n')}\n\n⏳ This takes 1-2 minutes. I'll scrape, analyze, and generate your PDF report.`,
+      parse_mode: 'HTML',
+    })
+
+    try {
+      const auditRes = await fetch(`${supabaseUrl}/functions/v1/audit-report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')!}`,
+          'apikey': Deno.env.get('SUPABASE_ANON_KEY')!,
+        },
+        body: JSON.stringify({
+          website_url: data.website_url || null,
+          ig_handle: igHandle || null,
+          chat_id: String(chatId),
+        }),
+        signal: AbortSignal.timeout(180000), // 3 min timeout
+      })
+
+      const result = await auditRes.json()
+
+      if (!auditRes.ok || result.error) {
+        await tgPost(tgToken, 'sendMessage', {
+          chat_id: chatId,
+          text: `❌ <b>Audit failed:</b> ${result.error || 'Unknown error'}`,
+          parse_mode: 'HTML',
+        })
+        return
+      }
+
+      // Send summary stats
+      const statsLines: string[] = ['📊 <b>Audit Complete!</b>\n']
+      if (result.website_scraped) statsLines.push('✅ Website scraped')
+      if (result.ig_scraped && result.ig_data) {
+        statsLines.push(`✅ Instagram: ${result.ig_data.followers?.toLocaleString()} followers | ${result.ig_data.engagement_rate} engagement`)
+      }
+
+      // Try to send PDF as document
+      if (result.pdf_url) {
+        statsLines.push(`\n📄 <a href="${result.pdf_url}">Download Full PDF Report</a>`)
+        try {
+          await tgPost(tgToken, 'sendDocument', {
+            chat_id: chatId,
+            document: result.pdf_url,
+            caption: `📊 Digital Audit Report — ${igHandle ? '@' + igHandle : data.website_url || 'Client'}`,
+          })
+        } catch (e) {
+          console.log('[audit-tg] Could not send PDF as document, sending link instead')
+        }
+      }
+
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: statsLines.join('\n'),
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      })
+
+      // Send a truncated text preview
+      if (result.report_text) {
+        const preview = result.report_text.slice(0, 3500)
+          .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        await tgPost(tgToken, 'sendMessage', {
+          chat_id: chatId,
+          text: `<pre>${preview}</pre>\n\n<i>Full report in the PDF above ☝️</i>`,
+          parse_mode: 'HTML',
+        })
+      }
+    } catch (e: any) {
+      console.error('[audit-tg] error:', e)
+      await tgPost(tgToken, 'sendMessage', {
+        chat_id: chatId,
+        text: `❌ <b>Audit failed:</b> <code>${(e.message || String(e)).slice(0, 300)}</code>`,
+        parse_mode: 'HTML',
+      })
+    }
+    return
+  }
+}
+
 Deno.serve(async (req) => {
   // minimal logging — only log errors
 
@@ -2965,8 +3116,8 @@ Deno.serve(async (req) => {
     }
 
     // Session types we track (moved to module-level constants for performance)
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session']
-    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session']
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session']
+    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session']
 
     // action already resolved above (before reply guard)
 
@@ -3143,6 +3294,24 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Audit special handling: multi-step wizard ───
+    if (action === 'audit') {
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'audit_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'audit_session',
+        payload: { chat_id: chatId, step: 'website', data: {}, created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🔍 <b>Digital Audit Tool</b>\n\nI\'ll scrape a website + Instagram and generate a full PDF report with analysis and recommendations.\n\n🌐 <b>Step 1:</b> Enter the website URL\n\n<i>Example: example.com</i>\n<i>Type "skip" to skip website and go straight to Instagram.</i>',
+        parse_mode: 'HTML',
+      })
+      return new Response('ok')
+    }
+
     // ─── Proposal special handling: multi-step wizard ───
     if (action === 'proposal') {
       await supabase.from('webhook_events').delete()
@@ -3279,6 +3448,8 @@ Deno.serve(async (req) => {
         await processHiggsFieldCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl, sp.gen_type, sp.model)
       } else if (sessionType === 'proposal_session') {
         await processProposalSession(chatId, text, session.id, sp, TG_TOKEN, SUPABASE_URL, supabase)
+      } else if (sessionType === 'audit_session') {
+        await processAuditSession(chatId, text, session.id, sp, TG_TOKEN, SUPABASE_URL, supabase)
       } else {
         const mod = sessionType.replace('_session', '') as any
         await processModuleCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, mod)
