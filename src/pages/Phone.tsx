@@ -476,6 +476,36 @@ export default function PhonePage() {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+      // Fetch the PDF and encode as base64 for attachment
+      const lead = emailDraft.lead;
+      const metaObj = typeof lead?.meta === 'object' ? lead.meta : {};
+      const pdfUrl = metaObj?.audit_pdf_url;
+      let attachments: { filename: string; mimeType: string; data: string }[] | undefined;
+
+      if (pdfUrl) {
+        try {
+          const pdfRes = await fetch(pdfUrl);
+          if (pdfRes.ok) {
+            const pdfBuffer = await pdfRes.arrayBuffer();
+            const bytes = new Uint8Array(pdfBuffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+              binary += String.fromCharCode(bytes[i]);
+            }
+            const base64Pdf = btoa(binary);
+            const customerName = (lead?.full_name || 'Prospect').replace(/\s+/g, '_');
+            attachments = [{
+              filename: `Digital_Audit_${customerName}.pdf`,
+              mimeType: 'application/pdf',
+              data: base64Pdf,
+            }];
+          }
+        } catch (pdfErr) {
+          console.error('Failed to fetch PDF for attachment:', pdfErr);
+          // Continue sending without attachment
+        }
+      }
+
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`,
         {
@@ -485,6 +515,7 @@ export default function PhonePage() {
             to: emailDraft.to,
             subject: emailSubjectEdit,
             body: emailBodyEdit,
+            ...(attachments ? { attachments } : {}),
           }),
         }
       );
