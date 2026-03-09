@@ -170,6 +170,22 @@ CLARIFY format:
         })
       }
 
+      // Draft-only mode: return composed email for preview without sending
+      if (draft_only) {
+        return new Response(JSON.stringify({
+          type: 'draft',
+          to,
+          subject,
+          body_html: body_html || '',
+          body_text: body_text || '',
+          customer_name: customer_name || null,
+          customer_id: customer_id || null,
+          summary: summary || '',
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       // Send via gmail-api
       const gmailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/gmail-api?action=send`
       const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
