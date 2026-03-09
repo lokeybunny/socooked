@@ -1474,7 +1474,7 @@ Deno.serve(async (req) => {
     }
 
     // Generate visual PDF
-    const pdfBytes = builder.build(analysis, website_url || 'N/A', ig_handle || null)
+    const pdfBytes = builder.build(analysis, website_url || 'N/A', ig_handle || null, fb_url || null)
 
     // Upload PDF
     const fileName = `audit-${(ig_handle || website_url || 'report').replace(/[^a-zA-Z0-9]/g, '_')}-${Date.now()}.pdf`
