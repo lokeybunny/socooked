@@ -795,11 +795,25 @@ class PDFBuilder {
     const contentObj = this.allocObj()
     const pageObj = this.allocObj()
     
+    // Build image XObject references for this page
+    let imgResources = ''
+    if (this.currentPageImageRefs.length > 0) {
+      const imgEntries = this.currentPageImageRefs
+        .map(name => {
+          const img = this.imageObjects.get(name)
+          return img ? `/Img_${name} ${img.objNum} 0 R` : ''
+        })
+        .filter(Boolean)
+        .join(' ')
+      imgResources = ` /XObject << ${imgEntries} >>`
+    }
+    
     this.objects.push(`${contentObj} 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n${this.currentStream}endstream\nendobj`)
-    this.objects.push(`${pageObj} 0 obj\n<< /Type /Page /Parent ${pagesObj} 0 R /MediaBox [0 0 ${this.pageWidth} ${this.pageHeight}] /Contents ${contentObj} 0 R /Resources << /Font << /F1 ${font1Obj} 0 R /F2 ${font2Obj} 0 R >> >> >>\nendobj`)
+    this.objects.push(`${pageObj} 0 obj\n<< /Type /Page /Parent ${pagesObj} 0 R /MediaBox [0 0 ${this.pageWidth} ${this.pageHeight}] /Contents ${contentObj} 0 R /Resources << /Font << /F1 ${font1Obj} 0 R /F2 ${font2Obj} 0 R >>${imgResources} >> >>\nendobj`)
     
     pageRefs.push(pageObj)
     this.currentStream = ''
+    this.currentPageImageRefs = []
   }
   
   private pageFooter(pageNum: number) {
