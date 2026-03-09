@@ -56,7 +56,8 @@ export default function PhonePage() {
 
   // Analyze lead state
   const [analyzing, setAnalyzing] = useState(false);
-  const [analyzeResult, setAnalyzeResult] = useState<{ instagram?: string; website?: string; leadId?: string } | null>(null);
+  const [analyzeResult, setAnalyzeResult] = useState<{ instagram?: string; website?: string; leadId?: string; pdfUrl?: string; scores?: any } | null>(null);
+  const [sendingReport, setSendingReport] = useState(false);
 
   // Transcription upload state
   const [dragOver, setDragOver] = useState(false);
@@ -218,73 +219,202 @@ export default function PhonePage() {
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
 
-  // Analyze lead — search for Instagram/website
-  const handleAnalyzeLead = async () => {
-    if (!currentLead) return;
+  // Analyze lead — full audit pipeline: find website/IG → scrape → generate PDF → download
+  const handleAnalyzeLead = async (targetLead?: any) => {
+    const lead = targetLead || currentLead;
+    if (!lead) return;
     setAnalyzing(true);
     setAnalyzeResult(null);
 
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
     try {
-      // Check existing fields first
-      const ig = currentLead.instagram_handle || null;
-      const metaObj = typeof currentLead.meta === 'object' ? currentLead.meta : {};
-      const website = metaObj?.website || metaObj?.url || metaObj?.site || null;
+      // Step 1: Gather existing data
+      const metaObj = typeof lead.meta === 'object' ? lead.meta : {};
+      let website = metaObj?.website || metaObj?.url || metaObj?.site || null;
+      let igHandle = lead.instagram_handle || null;
 
-      // If neither exists, try to search via lead-finder or firecrawl
-      if (!ig && !website) {
-        // Try a quick web search for the business
-        const searchName = currentLead.company || currentLead.full_name;
-        const searchLocation = currentLead.address || '';
-        const query = `${searchName} ${searchLocation} instagram OR website`.trim();
+      // Step 2: If no website/IG, search for them via meta-extract
+      if (!website || !igHandle) {
+        const searchName = lead.company || lead.full_name;
+        toast.info(`Searching for ${searchName}'s web presence...`);
 
-        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/meta-extract`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': anonKey,
-              'Authorization': `Bearer ${anonKey}`,
-            },
-            body: JSON.stringify({ url: `https://www.google.com/search?q=${encodeURIComponent(searchName + ' website')}`, name: searchName }),
+        try {
+          const res = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/meta-extract`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+              body: JSON.stringify({ url: `https://www.google.com/search?q=${encodeURIComponent(searchName + ' website')}`, name: searchName }),
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (!website) website = data?.website || data?.url || data?.data?.website || null;
+            if (!igHandle) igHandle = data?.instagram || data?.data?.instagram || null;
           }
-        );
-
-        if (res.ok) {
-          const data = await res.json();
-          const foundWebsite = data?.website || data?.url || data?.data?.website || null;
-          const foundIg = data?.instagram || data?.data?.instagram || null;
-          
-          if (foundWebsite || foundIg) {
-            // Save to customer meta
-            const updatedMeta = { ...metaObj, ...(foundWebsite ? { website: foundWebsite } : {}), ...(foundIg ? { instagram: foundIg } : {}) };
-            await supabase.from('customers').update({ 
-              meta: updatedMeta,
-              ...(foundIg ? { instagram_handle: foundIg } : {}),
-            } as any).eq('id', currentLead.id);
-            
-            setAnalyzeResult({ instagram: foundIg || undefined, website: foundWebsite || undefined, leadId: currentLead.id });
-            setLeads(prev => prev.map(l => l.id === currentLead.id ? { ...l, meta: updatedMeta, instagram_handle: foundIg || l.instagram_handle } : l));
-          } else {
-            setAnalyzeResult({ leadId: currentLead.id });
-            toast('No Instagram or website found for this lead', { icon: '🔍' });
-          }
-        } else {
-          // Fallback: just show what we have
-          setAnalyzeResult({ leadId: currentLead.id });
-          toast('Could not analyze — no results found', { icon: '🔍' });
+        } catch (e) {
+          console.error('Meta-extract error:', e);
         }
-      } else {
-        setAnalyzeResult({ instagram: ig || undefined, website: website || undefined, leadId: currentLead.id });
       }
-    } catch (err) {
-      console.error('Analyze error:', err);
-      toast.error('Failed to analyze lead');
+
+      // Step 3: If website found but no IG, try to find IG from website links
+      if (website && !igHandle) {
+        toast.info('Checking website for Instagram link...');
+        try {
+          const scrapeRes = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/firecrawl-scrape`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+              body: JSON.stringify({ url: website, options: { formats: ['links'], onlyMainContent: false } }),
+            }
+          );
+          if (scrapeRes.ok) {
+            const scrapeData = await scrapeRes.json();
+            const links = scrapeData?.data?.links || scrapeData?.links || [];
+            const igLink = links.find((l: string) => l.includes('instagram.com/'));
+            if (igLink) {
+              const match = igLink.match(/instagram\.com\/([^/?#]+)/);
+              if (match && match[1] !== 'p' && match[1] !== 'reel' && match[1] !== 'explore') {
+                igHandle = match[1];
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Scrape for IG error:', e);
+        }
+      }
+
+      // Step 4: If IG found but no website, try to get website from IG external URL (handled by audit-report internally)
+
+      // Save discovered data to CRM
+      if (website || igHandle) {
+        const updatedMeta = { ...metaObj, ...(website ? { website } : {}), ...(igHandle ? { instagram: igHandle } : {}) };
+        await supabase.from('customers').update({
+          meta: updatedMeta,
+          ...(igHandle ? { instagram_handle: igHandle } : {}),
+        } as any).eq('id', lead.id);
+        setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, meta: updatedMeta, instagram_handle: igHandle || l.instagram_handle } : l));
+      }
+
+      if (!website && !igHandle) {
+        toast.error('Could not find any website or Instagram for this lead. Try adding them manually.');
+        setAnalyzeResult({ leadId: lead.id });
+        return;
+      }
+
+      // Step 5: Run the full audit
+      toast.info(`Running full digital audit${website ? ` on ${website}` : ''}${igHandle ? ` + @${igHandle}` : ''}...`, { duration: 10000 });
+
+      const auditRes = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/audit-report`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+          body: JSON.stringify({
+            website_url: website || null,
+            ig_handle: igHandle || null,
+            customer_id: lead.id,
+            customer_name: lead.full_name,
+          }),
+        }
+      );
+
+      if (!auditRes.ok) {
+        const errData = await auditRes.json().catch(() => ({}));
+        throw new Error(errData.error || `Audit failed: ${auditRes.status}`);
+      }
+
+      const auditData = await auditRes.json();
+      const pdfUrl = auditData.pdf_url;
+
+      // Step 6: Auto-download the PDF
+      if (pdfUrl) {
+        try {
+          const pdfRes = await fetch(pdfUrl);
+          const blob = await pdfRes.blob();
+          const downloadUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `Digital_Audit_${lead.full_name.replace(/\s+/g, '_')}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(downloadUrl);
+          toast.success('Audit PDF downloaded!');
+        } catch (dlErr) {
+          console.error('Download error:', dlErr);
+          toast.error('PDF generated but download failed. Check Content library.');
+        }
+      }
+
+      // Update local lead state with analyzed flag
+      setLeads(prev => prev.map(l => l.id === lead.id ? {
+        ...l,
+        meta: { ...(typeof l.meta === 'object' ? l.meta : {}), analyzed: true, audit_pdf_url: pdfUrl, audit_date: new Date().toISOString(), website, instagram: igHandle },
+      } : l));
+
+      setAnalyzeResult({
+        instagram: igHandle || undefined,
+        website: website || undefined,
+        leadId: lead.id,
+        pdfUrl: pdfUrl || undefined,
+        scores: auditData.scores || undefined,
+      });
+
+      toast.success(`Audit complete for ${lead.full_name}! Score: ${auditData.scores?.overall || '?'}/100`);
+    } catch (err: any) {
+      console.error('Analyze/Audit error:', err);
+      toast.error(err.message || 'Failed to analyze lead');
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  // Send audit report to prospect email
+  const handleSendReport = async (lead: any) => {
+    if (!lead?.email) {
+      toast.error('No email on file for this lead');
+      return;
+    }
+    const metaObj = typeof lead.meta === 'object' ? lead.meta : {};
+    const pdfUrl = metaObj?.audit_pdf_url;
+    if (!pdfUrl) {
+      toast.error('No audit report found. Run Analyze first.');
+      return;
+    }
+
+    setSendingReport(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/email-command`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+          body: JSON.stringify({
+            intent: `Send a professional email to ${lead.full_name} at ${lead.email} about their free digital audit results. Include a link to their audit report: ${pdfUrl}. Mention their overall score and suggest scheduling a call to discuss the findings. Keep it brief and professional. Sign as Warren from STU25 / Warren Guru Creative Management.`,
+            to: lead.email,
+            customer_name: lead.full_name,
+          }),
+        }
+      );
+
+      if (res.ok) {
+        toast.success(`Audit report sent to ${lead.email}`);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error || 'Failed to send report');
+      }
+    } catch (err: any) {
+      console.error('Send report error:', err);
+      toast.error('Failed to send report email');
+    } finally {
+      setSendingReport(false);
     }
   };
 
@@ -628,10 +758,10 @@ export default function PhonePage() {
                     variant="outline" size="sm"
                     className="h-8 text-xs gap-1.5"
                     disabled={!currentLead || analyzing}
-                    onClick={handleAnalyzeLead}
+                    onClick={() => handleAnalyzeLead()}
                   >
                     {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-                    Analyze
+                    {analyzing ? 'Auditing...' : 'Analyze & Audit'}
                   </Button>
                   <div className="w-44">
                     <Select value={leadsCategoryFilter} onValueChange={v => { setLeadsCategoryFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
@@ -690,6 +820,11 @@ export default function PhonePage() {
                               <button onClick={() => handleLeadDoubleClick(lead)} className="text-base font-semibold text-primary hover:underline truncate cursor-pointer text-left">{lead.full_name}</button>
                               {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy</Badge>}
                               {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">Call Back</Badge>}
+                              {(typeof lead.meta === 'object' && lead.meta?.analyzed) && (
+                                <Badge variant="outline" className="text-[9px] h-4 border-green-500/40 text-green-600 gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleSendReport(lead); }}>
+                                  <Check className="h-2.5 w-2.5" /> Audited
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                               {lead.company && <span>{lead.company}</span>}
@@ -725,7 +860,7 @@ export default function PhonePage() {
                         {analyzeResult && analyzeResult.leadId === lead.id && (
                           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
                             <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                              <Globe className="h-3.5 w-3.5 text-primary" /> Web Presence
+                              <Globe className="h-3.5 w-3.5 text-primary" /> Audit Results
                             </p>
                             {analyzeResult.website && (
                               <a href={analyzeResult.website.startsWith('http') ? analyzeResult.website : `https://${analyzeResult.website}`} target="_blank" rel="noopener noreferrer"
@@ -741,9 +876,62 @@ export default function PhonePage() {
                                 @{analyzeResult.instagram.replace('@', '')}
                               </a>
                             )}
+                            {analyzeResult.scores && (
+                              <div className="flex items-center gap-3 pt-1">
+                                <Badge variant="secondary" className="text-[10px]">Overall: {analyzeResult.scores.overall}/100</Badge>
+                                <Badge variant="secondary" className="text-[10px]">Website: {analyzeResult.scores.website}</Badge>
+                                <Badge variant="secondary" className="text-[10px]">Social: {analyzeResult.scores.social}</Badge>
+                              </div>
+                            )}
+                            {analyzeResult.pdfUrl && (
+                              <div className="flex items-center gap-2 pt-1">
+                                <a href={analyzeResult.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                  <Download className="h-3 w-3" /> View PDF
+                                </a>
+                                {lead.email && (
+                                  <Button
+                                    variant="outline" size="sm"
+                                    className="h-6 text-[10px] gap-1"
+                                    disabled={sendingReport}
+                                    onClick={() => handleSendReport(lead)}
+                                  >
+                                    {sendingReport ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                    Send to {lead.full_name}
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                             {!analyzeResult.website && !analyzeResult.instagram && (
                               <p className="text-xs text-muted-foreground">No Instagram or website found.</p>
                             )}
+                          </div>
+                        )}
+
+                        {/* Previously analyzed — show resend option */}
+                        {!analyzeResult && typeof lead.meta === 'object' && lead.meta?.analyzed && lead.meta?.audit_pdf_url && (
+                          <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-2">
+                            <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                              <Check className="h-3.5 w-3.5 text-green-600" /> Previously Audited
+                              <span className="text-muted-foreground text-[10px]">
+                                {lead.meta.audit_date ? new Date(lead.meta.audit_date).toLocaleDateString() : ''}
+                              </span>
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <a href={lead.meta.audit_pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                <Download className="h-3 w-3" /> View Report
+                              </a>
+                              {lead.email && (
+                                <Button
+                                  variant="outline" size="sm"
+                                  className="h-6 text-[10px] gap-1"
+                                  disabled={sendingReport}
+                                  onClick={() => handleSendReport(lead)}
+                                >
+                                  {sendingReport ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                  Send Report
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         )}
 
