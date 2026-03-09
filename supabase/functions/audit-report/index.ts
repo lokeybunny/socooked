@@ -185,6 +185,21 @@ Avg comments: ${igData.recentPosts.length > 0 ? Math.round(igData.recentPosts.re
 Engagement rate: ${igData.followersCount > 0 && igData.recentPosts.length > 0 ? ((igData.recentPosts.reduce((a: number, p: any) => a + p.likes + p.comments, 0) / igData.recentPosts.length / igData.followersCount) * 100).toFixed(2) : '0'}%
 ` : 'No Instagram data.'
 
+  const fbSection = fbData ? `
+FACEBOOK PAGE: ${fbData.pageName || fbData.pageUrl}
+URL: ${fbData.pageUrl}
+Likes: ${fbData.likes || 0}
+Followers: ${fbData.followers || 0}
+Category: ${fbData.category || 'N/A'}
+Rating: ${fbData.rating ? `${fbData.rating}/5 (${fbData.reviewCount} reviews)` : 'N/A'}
+Verified: ${fbData.isVerified || false}
+About: ${(fbData.about || '').slice(0, 500)}
+Address: ${fbData.address || 'N/A'}
+Phone: ${fbData.phone || 'N/A'}
+Website (from FB): ${fbData.website || 'N/A'}
+Check-ins: ${fbData.checkins || 0}
+` : 'No Facebook data.'
+
   const prompt = `Analyze this business's digital presence and return ONLY valid JSON (no markdown, no backticks). Keep language simple — a 10-year-old should understand every point. Use short sentences. Be specific and actionable.
 
 CRITICAL RULES — READ CAREFULLY:
