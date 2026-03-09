@@ -1309,17 +1309,27 @@ Deno.serve(async (req) => {
       '## Quick Wins', ...(analysis.quick_wins || []).map((q: string, i: number) => `${i + 1}. ${q}`),
     ].join('\n')
 
-    // Store as content asset
+    // Store as content asset (category: 'other' so it shows in Content library)
     await supabase.from('content_assets').insert({
-      title: `Audit: ${ig_handle || website_url || 'Unknown'}`,
+      title: `Audit: ${customer_name || ig_handle || website_url || 'Unknown'}`,
       type: 'document',
       status: 'published',
       url: publicUrl?.publicUrl || '',
       source: 'audit-report',
-      category: 'audit',
+      category: 'other',
+      customer_id: customer_id || null,
       body: reportText.slice(0, 5000),
       tags: ['audit', website_url || '', ig_handle || ''].filter(Boolean),
     })
+
+    // Mark the customer as analyzed if customer_id provided
+    if (customer_id) {
+      const { data: cust } = await supabase.from('customers').select('meta').eq('id', customer_id).single()
+      const existingMeta = (cust?.meta && typeof cust.meta === 'object') ? cust.meta : {}
+      await supabase.from('customers').update({
+        meta: { ...existingMeta, analyzed: true, audit_pdf_url: publicUrl?.publicUrl || '', audit_date: new Date().toISOString() },
+      }).eq('id', customer_id)
+    }
 
     return new Response(JSON.stringify({
       success: true,
