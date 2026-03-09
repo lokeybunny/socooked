@@ -126,11 +126,11 @@ Return this exact JSON structure:
   "seo_score": 0-100,
   "branding_score": 0-100,
   "content_score": 0-100,
-  "website_good": ["Up to 3 verifiable things they do well — cite the evidence"],
-  "website_bad": ["Up to 3 verifiable problems — cite what data shows this, with fix suggestion"],
-  "social_good": ["Up to 3 verifiable things they do well on social — cite evidence"],
-  "social_bad": ["Up to 3 verifiable problems on social — cite evidence, with fix suggestion"],
-  "quick_wins": ["Up to 5 things we can fix THIS WEEK — must be grounded in real data"],
+  "website_good": [{"text": "verifiable thing they do well — cite evidence", "confidence": "high|medium|low"}],
+  "website_bad": [{"text": "verifiable problem — cite evidence, with fix", "confidence": "high|medium|low"}],
+  "social_good": [{"text": "verifiable thing on social — cite evidence", "confidence": "high|medium|low"}],
+  "social_bad": [{"text": "verifiable problem on social — cite evidence, with fix", "confidence": "high|medium|low"}],
+  "quick_wins": [{"text": "thing we can fix THIS WEEK — grounded in real data", "confidence": "high|medium|low"}],
   "big_moves": ["Up to 3 strategic projects for major growth (1-4 weeks)"],
   "competitor_edge": "One paragraph on what makes them unique based on their actual content",
   "essential_package": "2-3 sentence description of quick-fix package",
@@ -144,6 +144,13 @@ Return this exact JSON structure:
     }
   ]
 }
+
+Confidence levels:
+- "high" = directly and clearly visible in the scraped data (e.g. exact text, meta tag present/missing, specific stat)
+- "medium" = strongly implied but requires minor interpretation (e.g. engagement rate calculation, content tone analysis)
+- "low" = reasonable inference based on limited data (e.g. assumption about mobile experience from content structure)
+
+Up to 3 items per array. Each item MUST have a confidence level.
 
 IMPORTANT for sources_evidence: Include one entry for EVERY specific claim made in website_good, website_bad, social_good, social_bad, and quick_wins. Each entry must quote the exact data that proves the claim. This is for accountability — if you cannot provide exact evidence, do not make the claim.`
 
