@@ -16,7 +16,7 @@ async function scrapeWebsite(url: string): Promise<any> {
   const res = await fetch('https://api.firecrawl.dev/v1/scrape', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: formattedUrl, formats: ['markdown', 'screenshot', 'links', 'branding'], onlyMainContent: false, waitFor: 3000 }),
+    body: JSON.stringify({ url: formattedUrl, formats: ['markdown', 'screenshot', 'links', 'branding'], onlyMainContent: false, waitFor: 10000 }),
   })
 
   const data = await res.json()
@@ -1195,11 +1195,8 @@ Deno.serve(async (req) => {
     const igData = igResult.status === 'fulfilled' ? igResult.value : null
 
     if (!websiteData && !igData) {
-      const errors = [
-        websiteResult.status === 'rejected' ? `Website: ${websiteResult.reason}` : '',
-        igResult.status === 'rejected' ? `IG: ${igResult.reason}` : '',
-      ].filter(Boolean).join('; ')
-      throw new Error(`Both scrapes failed: ${errors}`)
+      console.warn('[audit] Both scrapes failed — generating CRM-only audit')
+      // Proceed with empty data; the AI will produce findings based on the URL/handle alone
     }
 
     console.log('[audit] Scrape complete. Website:', !!websiteData, 'IG:', !!igData)
