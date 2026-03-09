@@ -3146,6 +3146,24 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Audit special handling: multi-step wizard ───
+    if (action === 'audit') {
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'audit_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'audit_session',
+        payload: { chat_id: chatId, step: 'website', data: {}, created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🔍 <b>Digital Audit Tool</b>\n\nI\'ll scrape a website + Instagram and generate a full PDF report with analysis and recommendations.\n\n🌐 <b>Step 1:</b> Enter the website URL\n\n<i>Example: example.com</i>\n<i>Type "skip" to skip website and go straight to Instagram.</i>',
+        parse_mode: 'HTML',
+      })
+      return new Response('ok')
+    }
+
     // ─── Proposal special handling: multi-step wizard ───
     if (action === 'proposal') {
       await supabase.from('webhook_events').delete()
