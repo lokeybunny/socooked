@@ -702,7 +702,7 @@ class PDFBuilder {
     this.text(60, y - 36, 'socooked.com  |  Let\'s build something incredible together.', 10, this.colors.white)
     
     // Footer
-    this.text(40, 50, 'SOCooked Creative Management', 8, this.colors.midText, true)
+    this.text(40, 50, 'Warren Guru Creative Management / STU25', 8, this.colors.midText, true)
     this.rect(0, 0, this.pageWidth, 3, this.colors.accent)
     
     this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
