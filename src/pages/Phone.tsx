@@ -39,10 +39,12 @@ export default function PhonePage() {
   const [promoteCustomerId, setPromoteCustomerId] = useState<string | null>(null);
   const [promoteCustomerName, setPromoteCustomerName] = useState('');
 
-  // Lead detail popup
+  // Lead detail popup (editable)
   const [leadDetailOpen, setLeadDetailOpen] = useState(false);
   const [leadDetail, setLeadDetail] = useState<any>(null);
   const [leadDetailLoading, setLeadDetailLoading] = useState(false);
+  const [leadEditForm, setLeadEditForm] = useState<Record<string, string>>({});
+  const [leadSaving, setLeadSaving] = useState(false);
 
   // Not interested confirmation
   const [deleteLeadOpen, setDeleteLeadOpen] = useState(false);
@@ -121,7 +123,40 @@ export default function PhonePage() {
 
   const handleLeadDoubleClick = async (lead: any) => {
     setLeadDetail(lead);
+    setLeadEditForm({
+      full_name: lead.full_name || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      company: lead.company || '',
+      address: lead.address || '',
+      source: lead.source || '',
+      instagram_handle: lead.instagram_handle || '',
+      notes: lead.notes || '',
+      tags: Array.isArray(lead.tags) ? lead.tags.join(', ') : '',
+    });
     setLeadDetailOpen(true);
+  };
+
+  const handleLeadDetailSave = async () => {
+    if (!leadDetail) return;
+    setLeadSaving(true);
+    const payload = {
+      full_name: leadEditForm.full_name,
+      email: leadEditForm.email || null,
+      phone: leadEditForm.phone || null,
+      company: leadEditForm.company || null,
+      address: leadEditForm.address || null,
+      source: leadEditForm.source || null,
+      instagram_handle: leadEditForm.instagram_handle || null,
+      notes: leadEditForm.notes || null,
+      tags: leadEditForm.tags ? leadEditForm.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+    };
+    const { error } = await supabase.from('customers').update(payload).eq('id', leadDetail.id);
+    setLeadSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Lead updated');
+    setLeadDetailOpen(false);
+    loadData();
   };
 
   const handleLeadStatus = async (leadId: string, leadName: string, action: 'busy' | 'not_interested' | 'call_back') => {
@@ -380,13 +415,6 @@ export default function PhonePage() {
     }
   };
 
-  // Send audit report to prospect email
-  const handleSendReport = async (lead: any) => {
-    if (!lead?.email) {
-      toast.error('No email on file for this lead');
-      return;
-    }
-  // Step 1: Generate email draft for preview
   const handleSendReport = async (lead: any) => {
     if (!lead?.email) {
       toast.error('No email on file for this lead');
@@ -1403,114 +1431,77 @@ export default function PhonePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Lead Detail Dialog (double-click) */}
+      {/* Lead Detail Dialog (double-click, editable) */}
       <Dialog open={leadDetailOpen} onOpenChange={setLeadDetailOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Info className="h-5 w-5 text-primary" />
-              Lead Details
+              Edit Lead
             </DialogTitle>
           </DialogHeader>
           {leadDetail && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <User className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">{leadDetail.full_name}</h3>
-                  {leadDetail.company && <p className="text-sm text-muted-foreground">{leadDetail.company}</p>}
-                </div>
+              <div className="space-y-2">
+                <Label>Full Name *</Label>
+                <Input value={leadEditForm.full_name || ''} onChange={e => setLeadEditForm(f => ({ ...f, full_name: e.target.value }))} required />
               </div>
-
               <div className="grid grid-cols-2 gap-3">
-                {leadDetail.phone && (
-                  <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-                    <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Phone</p>
-                      <p className="text-sm text-foreground font-medium truncate">{leadDetail.phone}</p>
-                    </div>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto shrink-0" onClick={() => copyToClipboard(leadDetail.phone, 'Phone')}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-                {leadDetail.email && (
-                  <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-                    <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Email</p>
-                      <p className="text-sm text-foreground font-medium truncate">{leadDetail.email}</p>
-                    </div>
-                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto shrink-0" onClick={() => copyToClipboard(leadDetail.email, 'Email')}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-                {leadDetail.address && (
-                  <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Address</p>
-                      <p className="text-sm text-foreground truncate">{leadDetail.address}</p>
-                    </div>
-                  </div>
-                )}
-                {leadDetail.instagram_handle && (
-                  <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
-                    <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Instagram</p>
-                      <p className="text-sm text-foreground truncate">@{leadDetail.instagram_handle}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                {leadDetail.source && (
-                  <div className="bg-muted rounded-lg px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Source</p>
-                    <p className="text-foreground font-medium mt-0.5">{leadDetail.source}</p>
-                  </div>
-                )}
-                {leadDetail.category && (
-                  <div className="bg-muted rounded-lg px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Category</p>
-                    <p className="text-foreground font-medium mt-0.5">{leadDetail.category}</p>
-                  </div>
-                )}
-                <div className="bg-muted rounded-lg px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Added</p>
-                  <p className="text-foreground font-medium mt-0.5">{format(new Date(leadDetail.created_at), 'MMM d, yyyy')}</p>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5" /> Email</Label>
+                  <Input type="email" value={leadEditForm.email || ''} onChange={e => setLeadEditForm(f => ({ ...f, email: e.target.value }))} />
                 </div>
-                {leadDetail.tags?.length > 0 && (
-                  <div className="bg-muted rounded-lg px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tags</p>
-                    <div className="flex flex-wrap gap-1 mt-0.5">
-                      {leadDetail.tags.map((t: string) => <Badge key={t} variant="secondary" className="text-[9px] h-4">{t}</Badge>)}
-                    </div>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Phone</Label>
+                  <Input value={leadEditForm.phone || ''} onChange={e => setLeadEditForm(f => ({ ...f, phone: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /> Company</Label>
+                  <Input value={leadEditForm.company || ''} onChange={e => setLeadEditForm(f => ({ ...f, company: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Source</Label>
+                  <Input value={leadEditForm.source || ''} onChange={e => setLeadEditForm(f => ({ ...f, source: e.target.value }))} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Address</Label>
+                <Input value={leadEditForm.address || ''} onChange={e => setLeadEditForm(f => ({ ...f, address: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5"><Instagram className="h-3.5 w-3.5" /> Instagram Handle</Label>
+                <Input value={leadEditForm.instagram_handle || ''} onChange={e => setLeadEditForm(f => ({ ...f, instagram_handle: e.target.value }))} placeholder="@username" />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5"><Tag className="h-3.5 w-3.5" /> Tags</Label>
+                <Input value={leadEditForm.tags || ''} onChange={e => setLeadEditForm(f => ({ ...f, tags: e.target.value }))} placeholder="Comma-separated" />
+              </div>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <textarea value={leadEditForm.notes || ''} onChange={e => setLeadEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any additional notes..." className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
               </div>
 
-              {leadDetail.notes && (
+              {leadDetail.category && (
                 <div className="bg-muted rounded-lg px-3 py-2">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Notes</p>
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{leadDetail.notes}</p>
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Category</p>
+                  <p className="text-sm text-foreground font-medium mt-0.5">{leadDetail.category}</p>
                 </div>
               )}
 
+              <div className="bg-muted rounded-lg px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Added</p>
+                <p className="text-sm text-foreground font-medium mt-0.5">{format(new Date(leadDetail.created_at), 'MMM d, yyyy')}</p>
+              </div>
+
               <DialogFooter className="gap-2 sm:gap-0">
-                {leadDetail.phone && (
-                  <Button variant="outline" className="gap-1.5" onClick={() => { copyToClipboard(leadDetail.phone, leadDetail.full_name); setLeadDetailOpen(false); }}>
-                    <Copy className="h-3.5 w-3.5" /> Copy Phone & Dial
-                  </Button>
-                )}
                 <Button variant="destructive" size="sm" className="gap-1.5" onClick={() => { setLeadDetailOpen(false); handleLeadStatus(leadDetail.id, leadDetail.full_name, 'not_interested'); }}>
                   <Ban className="h-3.5 w-3.5" /> Not Interested
+                </Button>
+                <Button className="gap-1.5" onClick={handleLeadDetailSave} disabled={leadSaving || !leadEditForm.full_name}>
+                  {leadSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Save Changes
                 </Button>
               </DialogFooter>
             </div>
