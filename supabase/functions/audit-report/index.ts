@@ -384,7 +384,7 @@ class PDFBuilder {
     this.scoreBar(330, barY - 36, 180, 10, data.branding_score || 0, 'Branding')
     
     // Footer
-    this.text(40, 50, 'SOCooked Creative Management', 10, this.colors.midText, true)
+    this.text(40, 50, 'Warren Guru Creative Management / STU25', 10, this.colors.midText, true)
     this.text(40, 36, new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 9, this.colors.midText)
     this.text(400, 50, websiteUrl || '', 8, this.colors.midText)
     if (igHandle) this.text(400, 36, `@${igHandle}`, 8, this.colors.accent)
@@ -599,7 +599,7 @@ class PDFBuilder {
     this.text(60, ctaY + 10, 'Reply to this message or visit socooked.com to get started.', 10, this.colors.white)
     
     // Footer branding
-    this.text(40, 50, 'SOCooked Creative Management', 10, this.colors.midText, true)
+    this.text(40, 50, 'Warren Guru Creative Management / STU25', 10, this.colors.midText, true)
     this.text(40, 36, 'This report was generated automatically using AI-powered analysis.', 8, this.colors.midText)
     this.rect(0, 0, this.pageWidth, 4, this.colors.accent)
     
@@ -702,7 +702,7 @@ class PDFBuilder {
     this.text(60, y - 36, 'socooked.com  |  Let\'s build something incredible together.', 10, this.colors.white)
     
     // Footer
-    this.text(40, 50, 'SOCooked Creative Management', 8, this.colors.midText, true)
+    this.text(40, 50, 'Warren Guru Creative Management / STU25', 8, this.colors.midText, true)
     this.rect(0, 0, this.pageWidth, 3, this.colors.accent)
     
     this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
@@ -779,7 +779,7 @@ class PDFBuilder {
   
   private pageFooter(pageNum: number) {
     this.line(40, 65, 555, 65, this.colors.lightGray, 0.5)
-    this.text(40, 50, 'SOCooked Creative Management', 8, this.colors.midText, true)
+    this.text(40, 50, 'Warren Guru Creative Management / STU25', 8, this.colors.midText, true)
     this.text(510, 50, `Page ${pageNum + 1}`, 8, this.colors.midText)
     this.rect(0, 0, this.pageWidth, 3, this.colors.accent)
   }
