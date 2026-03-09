@@ -1010,9 +1010,10 @@ class PDFBuilder {
     for (const [name, imgInfo] of this.imageObjects) {
       const imgBytes = (this as any)[`_imgBytes_${name}`] as Uint8Array
       if (imgBytes) {
+        const filter = imgInfo.isJpeg ? '/DCTDecode' : '/FlateDecode'
         allObjects.push({
           num: imgInfo.objNum,
-          content: `${imgInfo.objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgInfo.width} /Height ${imgInfo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`,
+          content: `${imgInfo.objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgInfo.width} /Height ${imgInfo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter ${filter} /Length ${imgBytes.length} >>\nstream\n`,
           binaryData: imgBytes,
         })
       }
