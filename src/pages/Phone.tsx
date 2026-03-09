@@ -758,10 +758,10 @@ export default function PhonePage() {
                     variant="outline" size="sm"
                     className="h-8 text-xs gap-1.5"
                     disabled={!currentLead || analyzing}
-                    onClick={handleAnalyzeLead}
+                    onClick={() => handleAnalyzeLead()}
                   >
                     {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-                    Analyze
+                    {analyzing ? 'Auditing...' : 'Analyze & Audit'}
                   </Button>
                   <div className="w-44">
                     <Select value={leadsCategoryFilter} onValueChange={v => { setLeadsCategoryFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
