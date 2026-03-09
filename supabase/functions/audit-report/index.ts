@@ -833,6 +833,40 @@ class PDFBuilder {
       
       y -= cardH + 24
     }
+
+    // Facebook stats cards (if FB data)
+    if (fbUrl && data._fb_pageName) {
+      y -= 6
+      this.roundedRect(40, y - 20, this.pageWidth - 80, 20, 4, this.colors.navy)
+      this.text(50, y - 14, `Facebook: ${data._fb_pageName}`, 10, this.colors.white, true)
+      y -= 32
+
+      const cardW = 110
+      const cardH = 55
+      const startX = 50
+
+      // Followers card
+      this.roundedRect(startX, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + 10, y - 18, 'Followers', 8, this.colors.midText, true)
+      this.text(startX + 10, y - 38, String(data._fb_followers || '0'), 16, this.colors.navy, true)
+
+      // Likes card
+      this.roundedRect(startX + cardW + 15, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + cardW + 25, y - 18, 'Page Likes', 8, this.colors.midText, true)
+      this.text(startX + cardW + 25, y - 38, String(data._fb_likes || '0'), 16, this.colors.navy, true)
+
+      // Rating card
+      this.roundedRect(startX + (cardW + 15) * 2, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + (cardW + 15) * 2 + 10, y - 18, 'Rating', 8, this.colors.midText, true)
+      this.text(startX + (cardW + 15) * 2 + 10, y - 38, data._fb_rating || 'N/A', 14, this.colors.navy, true)
+
+      // Reviews card
+      this.roundedRect(startX + (cardW + 15) * 3, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + (cardW + 15) * 3 + 10, y - 18, 'Reviews', 8, this.colors.midText, true)
+      this.text(startX + (cardW + 15) * 3 + 10, y - 38, String(data._fb_reviews || '0'), 14, this.colors.navy, true)
+
+      y -= cardH + 24
+    }
     
     // Social good
     y = this.sectionHeader(y, "What's Working", '>')
