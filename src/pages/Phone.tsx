@@ -386,6 +386,12 @@ export default function PhonePage() {
       toast.error('No email on file for this lead');
       return;
     }
+  // Step 1: Generate email draft for preview
+  const handleSendReport = async (lead: any) => {
+    if (!lead?.email) {
+      toast.error('No email on file for this lead');
+      return;
+    }
     const metaObj = typeof lead.meta === 'object' ? lead.meta : {};
     const pdfUrl = metaObj?.audit_pdf_url;
     if (!pdfUrl) {
@@ -393,43 +399,82 @@ export default function PhonePage() {
       return;
     }
 
-    setSendingReport(true);
+    setEmailDraftLoading(true);
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
+
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/email-command`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
           body: JSON.stringify({
-            intent: `Send a professional email to ${lead.full_name} at ${lead.email} about their free digital audit results. Include a link to their audit report: ${pdfUrl}. Mention their overall score and suggest scheduling a call to discuss the findings. Keep it brief and professional. Sign as Warren from STU25 / Warren Guru Creative Management.`,
-            to: lead.email,
-            customer_name: lead.full_name,
+            prompt: `Send a professional email to ${lead.full_name} at ${lead.email} about their free digital audit results. Include a link to their audit report: ${pdfUrl}. Mention their overall score and suggest scheduling a call to discuss the findings. Keep it brief and professional. Sign as Warren from STU25 / Warren Guru Creative Management.`,
+            draft_only: true,
+          }),
+        }
+      );
+
+      const data = await res.json();
+      if (data.type === 'draft') {
+        setEmailDraft({
+          to: data.to,
+          subject: data.subject,
+          body_html: data.body_html,
+          customer_name: data.customer_name || lead.full_name,
+          customer_id: data.customer_id || lead.id,
+          lead,
+        });
+        setEmailSubjectEdit(data.subject);
+        setEmailBodyEdit(data.body_html);
+        setEmailPreviewOpen(true);
+      } else {
+        toast.error(data.message || 'Failed to compose email');
+      }
+    } catch (err: any) {
+      console.error('Draft email error:', err);
+      toast.error('Failed to compose email');
+    } finally {
+      setEmailDraftLoading(false);
+    }
+  };
+
+  // Step 2: Actually send the email after preview/edit
+  const handleConfirmSendEmail = async () => {
+    if (!emailDraft) return;
+    setSendingReport(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+          body: JSON.stringify({
+            to: emailDraft.to,
+            subject: emailSubjectEdit,
+            body: emailBodyEdit,
           }),
         }
       );
 
       if (res.ok) {
-        toast.success(`Audit report sent to ${lead.email}`);
+        toast.success(`Audit report sent to ${emailDraft.to}`);
+        setEmailPreviewOpen(false);
+        setEmailDraft(null);
       } else {
         const errData = await res.json().catch(() => ({}));
-        toast.error(errData.error || 'Failed to send report');
+        toast.error(errData.error || 'Failed to send email');
       }
     } catch (err: any) {
-      console.error('Send report error:', err);
-      toast.error('Failed to send report email');
+      console.error('Send email error:', err);
+      toast.error('Failed to send email');
     } finally {
       setSendingReport(false);
     }
-  };
-
-  const handleNextLead = () => {
-    if (filteredLeads.length <= 1) return;
-    const randomOffset = Math.floor(Math.random() * (filteredLeads.length - 1)) + 1;
-    setCurrentLeadIndex(prev => (prev + randomOffset) % filteredLeads.length);
-    setAnalyzeResult(null);
   };
 
   // Filter transcriptions by search query
