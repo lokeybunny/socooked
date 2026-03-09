@@ -355,7 +355,7 @@ class PDFBuilder {
         `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`
       )
       ;(this as any)[`_imgBytes_${name}`] = imgBytes
-      this.imageObjects.set(name, { objNum, width, height })
+      this.imageObjects.set(name, { objNum, width, height, isJpeg: true })
       return
     }
     
