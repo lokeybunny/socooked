@@ -950,10 +950,10 @@ export default function PhonePage() {
                                   <Button
                                     variant="outline" size="sm"
                                     className="h-6 text-[10px] gap-1"
-                                    disabled={sendingReport}
+                                    disabled={sendingReport || emailDraftLoading}
                                     onClick={() => handleSendReport(lead)}
                                   >
-                                    {sendingReport ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                    {emailDraftLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
                                     Send to {lead.full_name}
                                   </Button>
                                 )}
