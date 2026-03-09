@@ -59,6 +59,13 @@ export default function PhonePage() {
   const [analyzeResult, setAnalyzeResult] = useState<{ instagram?: string; website?: string; leadId?: string; pdfUrl?: string; scores?: any } | null>(null);
   const [sendingReport, setSendingReport] = useState(false);
 
+  // Email preview state
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
+  const [emailDraft, setEmailDraft] = useState<{ to: string; subject: string; body_html: string; customer_name: string; customer_id: string | null; lead: any } | null>(null);
+  const [emailDraftLoading, setEmailDraftLoading] = useState(false);
+  const [emailSubjectEdit, setEmailSubjectEdit] = useState('');
+  const [emailBodyEdit, setEmailBodyEdit] = useState('');
+
   // Transcription upload state
   const [dragOver, setDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
