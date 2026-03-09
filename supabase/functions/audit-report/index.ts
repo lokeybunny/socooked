@@ -656,7 +656,7 @@ class PDFBuilder {
     }
   }
 
-  build(data: any, websiteUrl: string, igHandle: string | null): Uint8Array {
+  build(data: any, websiteUrl: string, igHandle: string | null, fbUrl: string | null = null): Uint8Array {
     // Reserve first objects for catalog, pages, fonts
     const catalogObj = this.allocObj() // 1
     const pagesObj = this.allocObj()   // 2
