@@ -133,7 +133,7 @@ async function tgPost(token: string, method: string, body: Record<string, unknow
   return res
 }
 
-function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | null {
+function resolvePersistentAction(input: string): 'invoice' | 'smm' | 'customer' | 'calendar' | 'calendly' | 'meeting' | 'custom' | 'start' | 'cancel' | 'more' | 'back' | 'webdev' | 'banana' | 'banana2' | 'higgsfield' | 'email' | 'assistant' | 'proposal' | 'gains' | 'audit' | null {
   // Strip leading emoji, @botname suffix, and normalize
   const normalized = input.replace(/^[^a-zA-Z0-9/]+/, '').replace(/@\S+/, '').trim().toLowerCase()
   if (normalized === '/start' || normalized === '/menu' || normalized === 'menu' || normalized === 'start') return 'start'
