@@ -135,8 +135,17 @@ Return this exact JSON structure:
   "competitor_edge": "One paragraph on what makes them unique based on their actual content",
   "essential_package": "2-3 sentence description of quick-fix package",
   "growth_package": "2-3 sentence description of growth package",
-  "premium_package": "2-3 sentence description of full-service package"
-}`
+  "premium_package": "2-3 sentence description of full-service package",
+  "sources_evidence": [
+    {
+      "finding": "Short description of the finding or claim made in this report",
+      "data_source": "website_content | meta_tags | ig_profile | ig_stats | ig_posts | link_analysis | branding_data",
+      "exact_evidence": "The exact text, number, or data point from the scraped data that supports this finding — quote it verbatim where possible"
+    }
+  ]
+}
+
+IMPORTANT for sources_evidence: Include one entry for EVERY specific claim made in website_good, website_bad, social_good, social_bad, and quick_wins. Each entry must quote the exact data that proves the claim. This is for accountability — if you cannot provide exact evidence, do not make the claim.`
 
   const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
