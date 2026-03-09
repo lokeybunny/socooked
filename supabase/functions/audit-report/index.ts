@@ -599,7 +599,7 @@ class PDFBuilder {
     this.text(60, ctaY + 10, 'Reply to this message or visit socooked.com to get started.', 10, this.colors.white)
     
     // Footer branding
-    this.text(40, 50, 'SOCooked Creative Management', 10, this.colors.midText, true)
+    this.text(40, 50, 'Warren Guru Creative Management / STU25', 10, this.colors.midText, true)
     this.text(40, 36, 'This report was generated automatically using AI-powered analysis.', 8, this.colors.midText)
     this.rect(0, 0, this.pageWidth, 4, this.colors.accent)
     
