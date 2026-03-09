@@ -596,7 +596,7 @@ class PDFBuilder {
     const ctaY = pkgY - 60
     this.roundedRect(40, ctaY, this.pageWidth - 80, 50, 8, this.colors.accent)
     this.text(60, ctaY + 28, 'Ready to grow? Let\'s talk.', 14, this.colors.white, true)
-    this.text(60, ctaY + 10, 'Reply to this message or visit socooked.com to get started.', 10, this.colors.white)
+    this.text(60, ctaY + 10, 'Reply to this message or visit Warren.Guru / STU25.com to get started.', 10, this.colors.white)
     
     // Footer branding
     this.text(40, 50, 'Warren Guru Creative Management / STU25', 10, this.colors.midText, true)
@@ -699,7 +699,7 @@ class PDFBuilder {
     // Bottom CTA
     this.roundedRect(40, y - 50, this.pageWidth - 80, 50, 8, this.colors.accent)
     this.text(60, y - 18, 'Your business could be the next success story.', 13, this.colors.white, true)
-    this.text(60, y - 36, 'socooked.com  |  Let\'s build something incredible together.', 10, this.colors.white)
+    this.text(60, y - 36, 'Warren.Guru / STU25.com  |  Let\'s build something incredible together.', 10, this.colors.white)
     
     // Footer
     this.text(40, 50, 'Warren Guru Creative Management / STU25', 8, this.colors.midText, true)
