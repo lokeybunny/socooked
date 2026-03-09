@@ -13,27 +13,14 @@ async function scrapeWebsite(url: string): Promise<any> {
   let formattedUrl = url.trim()
   if (!formattedUrl.startsWith('http')) formattedUrl = `https://${formattedUrl}`
 
-  console.log('[audit] Scraping website:', formattedUrl)
-
   const res = await fetch('https://api.firecrawl.dev/v1/scrape', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      url: formattedUrl,
-      formats: ['markdown', 'screenshot', 'links', 'branding'],
-      onlyMainContent: false,
-      waitFor: 3000,
-    }),
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: formattedUrl, formats: ['markdown', 'screenshot', 'links', 'branding'], onlyMainContent: false, waitFor: 3000 }),
   })
 
   const data = await res.json()
-  if (!res.ok) {
-    console.error('[audit] Firecrawl error:', data)
-    throw new Error(data.error || `Firecrawl failed: ${res.status}`)
-  }
+  if (!res.ok) throw new Error(data.error || `Firecrawl failed: ${res.status}`)
 
   return {
     markdown: data.data?.markdown || data.markdown || '',
@@ -50,29 +37,19 @@ async function scrapeInstagram(handle: string): Promise<any> {
   if (!token) throw new Error('APIFY_TOKEN not configured')
 
   const cleanHandle = handle.replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/$/, '')
-  console.log('[audit] Scraping Instagram:', cleanHandle)
 
-  // Use Apify Instagram Profile Scraper
   const runRes = await fetch('https://api.apify.com/v2/acts/apify~instagram-profile-scraper/run-sync-get-dataset-items?token=' + token, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      usernames: [cleanHandle],
-      resultsLimit: 12,
-    }),
+    body: JSON.stringify({ usernames: [cleanHandle], resultsLimit: 12 }),
     signal: AbortSignal.timeout(120000),
   })
 
-  if (!runRes.ok) {
-    const errText = await runRes.text()
-    console.error('[audit] Apify error:', errText)
-    throw new Error(`Apify scrape failed: ${runRes.status}`)
-  }
+  if (!runRes.ok) throw new Error(`Apify scrape failed: ${runRes.status}`)
 
   const items = await runRes.json()
   const profile = items?.[0] || {}
 
-  // Extract key metrics
   return {
     username: profile.username || cleanHandle,
     fullName: profile.fullName || '',
@@ -96,309 +73,626 @@ async function scrapeInstagram(handle: string): Promise<any> {
   }
 }
 
-// ─── Gemini: analyze and generate report ───
-async function generateAnalysis(websiteData: any, igData: any | null, websiteUrl: string, igHandle: string | null): Promise<string> {
+// ─── Gemini: generate STRUCTURED JSON report ───
+async function generateAnalysis(websiteData: any, igData: any | null, websiteUrl: string, igHandle: string | null): Promise<any> {
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured')
 
   const websiteSection = `
-## WEBSITE DATA
-URL: ${websiteUrl}
+WEBSITE URL: ${websiteUrl}
 Title: ${websiteData.metadata?.title || 'N/A'}
 Description: ${websiteData.metadata?.description || 'N/A'}
-Total links found: ${websiteData.links?.length || 0}
-Has screenshot: ${websiteData.screenshot ? 'Yes' : 'No'}
-
-### Branding
-${websiteData.branding ? JSON.stringify(websiteData.branding, null, 2) : 'No branding data extracted'}
-
-### Content (first 3000 chars)
-${(websiteData.markdown || '').slice(0, 3000)}
+Total links: ${websiteData.links?.length || 0}
+Branding: ${websiteData.branding ? JSON.stringify(websiteData.branding, null, 2) : 'None'}
+Content (first 3000 chars): ${(websiteData.markdown || '').slice(0, 3000)}
 `
 
   const igSection = igData ? `
-## INSTAGRAM DATA
-Handle: @${igData.username}
-Full Name: ${igData.fullName}
+INSTAGRAM: @${igData.username}
+Name: ${igData.fullName}
 Bio: ${igData.biography}
-Followers: ${igData.followersCount.toLocaleString()}
-Following: ${igData.followsCount.toLocaleString()}
-Posts: ${igData.postsCount.toLocaleString()}
+Followers: ${igData.followersCount}
+Following: ${igData.followsCount}
+Posts: ${igData.postsCount}
 Verified: ${igData.isVerified}
-Business Account: ${igData.isBusinessAccount}
-Business Category: ${igData.businessCategory || 'None'}
-External URL: ${igData.externalUrl || 'None'}
-Profile Pic: ${igData.profilePicUrl ? 'Present' : 'Missing'}
-
-### Recent Posts (last 12)
-${igData.recentPosts.map((p: any, i: number) => {
-  const engagement = p.likes + p.comments
-  return `${i + 1}. ${p.type} | ❤️ ${p.likes} | 💬 ${p.comments} | Hashtags: ${p.hashtags.length} | "${(p.caption || '').slice(0, 80)}..."`
-}).join('\n')}
-
-### Engagement Analysis
-Average likes: ${igData.recentPosts.length > 0 ? Math.round(igData.recentPosts.reduce((a: number, p: any) => a + p.likes, 0) / igData.recentPosts.length) : 0}
-Average comments: ${igData.recentPosts.length > 0 ? Math.round(igData.recentPosts.reduce((a: number, p: any) => a + p.comments, 0) / igData.recentPosts.length) : 0}
+Business: ${igData.isBusinessAccount}
+Category: ${igData.businessCategory || 'None'}
+Avg likes: ${igData.recentPosts.length > 0 ? Math.round(igData.recentPosts.reduce((a: number, p: any) => a + p.likes, 0) / igData.recentPosts.length) : 0}
+Avg comments: ${igData.recentPosts.length > 0 ? Math.round(igData.recentPosts.reduce((a: number, p: any) => a + p.comments, 0) / igData.recentPosts.length) : 0}
 Engagement rate: ${igData.followersCount > 0 && igData.recentPosts.length > 0 ? ((igData.recentPosts.reduce((a: number, p: any) => a + p.likes + p.comments, 0) / igData.recentPosts.length / igData.followersCount) * 100).toFixed(2) : '0'}%
-` : '## INSTAGRAM DATA\nNo Instagram handle provided.'
+` : 'No Instagram data.'
 
-  const prompt = `You are a professional digital marketing consultant creating an audit report for a prospective client. Analyze the following data and produce a comprehensive, actionable report.
+  const prompt = `Analyze this business's digital presence and return ONLY valid JSON (no markdown, no backticks). Keep language simple — a 10-year-old should understand every point. Use short sentences. Be specific and actionable.
 
 ${websiteSection}
-
 ${igSection}
 
-Generate a DETAILED audit report in the following format. Use clear sections, bullet points, and specific recommendations. Be honest but constructive — frame weaknesses as opportunities.
-
-# 📊 DIGITAL PRESENCE AUDIT REPORT
-**Client:** [business name from data]
-**Date:** ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-
-## 🌐 WEBSITE ANALYSIS
-
-### Current State
-- Overall impression (design, branding, user experience)
-- Content quality and messaging
-- Navigation and structure
-- Mobile responsiveness indicators
-- SEO indicators (title, meta description, headings)
-- Call-to-action effectiveness
-- Page load / technical indicators
-
-### Issues Found
-- List specific problems with priority (🔴 Critical, 🟡 Medium, 🟢 Minor)
-
-### Recommendations
-- Specific, actionable improvements we can implement
-
-${igData ? `
-## 📱 INSTAGRAM ANALYSIS
-
-### Current State
-- Profile completeness and optimization
-- Content strategy assessment
-- Posting frequency and consistency
-- Engagement rate analysis (compare to industry avg ~1-3%)
-- Hashtag strategy
-- Bio optimization
-- Link in bio usage
-- Content mix (photos, reels, carousels)
-
-### Issues Found
-- List specific problems with priority
-
-### Recommendations
-- Specific improvements for growth
-` : ''}
-
-## 🎯 COMPETITIVE ADVANTAGES
-- What they're doing well (acknowledge strengths)
-
-## 📈 GROWTH OPPORTUNITIES
-- Top 5 quick wins (implementable in < 1 week)
-- Top 5 strategic improvements (1-4 week projects)
-
-## 💼 PROPOSED SERVICES
-Based on the audit, recommend specific service packages:
-1. **Essential Package** — Quick fixes and immediate improvements
-2. **Growth Package** — Comprehensive digital overhaul
-3. **Premium Package** — Full-service management
-
-## 📊 PROJECTED IMPACT
-- Expected improvements with specific metrics where possible
-
-Keep the tone professional, data-driven, and consultative. This report should demonstrate expertise and convince the prospect to work with us.`
+Return this exact JSON structure:
+{
+  "business_name": "string",
+  "tagline": "One sentence summary of what this business does",
+  "overall_score": 0-100,
+  "website_score": 0-100,
+  "social_score": 0-100,
+  "seo_score": 0-100,
+  "branding_score": 0-100,
+  "content_score": 0-100,
+  "website_good": ["3 things they do well - short sentences"],
+  "website_bad": ["3 problems found - short sentences with fix suggestion"],
+  "social_good": ["3 things they do well on social - short sentences"],
+  "social_bad": ["3 problems on social - short sentences with fix suggestion"],
+  "quick_wins": ["5 things we can fix THIS WEEK to improve their presence"],
+  "big_moves": ["3 strategic projects for major growth (1-4 weeks)"],
+  "competitor_edge": "One paragraph on what makes them unique vs competitors",
+  "essential_package": "2-3 sentence description of quick-fix package",
+  "growth_package": "2-3 sentence description of growth package",
+  "premium_package": "2-3 sentence description of full-service package"
+}`
 
   const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: 'You are a senior digital marketing consultant who creates detailed, actionable audit reports. Be specific, data-driven, and professional.' },
+        { role: 'system', content: 'You are a digital marketing consultant. Return ONLY valid JSON. No markdown. No code fences. Keep language extremely simple and clear.' },
         { role: 'user', content: prompt },
       ],
     }),
   })
 
-  if (!res.ok) {
-    const errText = await res.text()
-    console.error('[audit] Gemini error:', errText)
-    throw new Error(`AI analysis failed: ${res.status}`)
-  }
+  if (!res.ok) throw new Error(`AI analysis failed: ${res.status}`)
 
   const aiResult = await res.json()
-  return aiResult.choices?.[0]?.message?.content || 'Analysis failed to generate.'
+  const raw = aiResult.choices?.[0]?.message?.content || '{}'
+  
+  // Strip any markdown fences
+  const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  
+  try {
+    return JSON.parse(cleaned)
+  } catch {
+    console.error('[audit] Failed to parse AI JSON, raw:', raw.slice(0, 500))
+    return { business_name: 'Unknown', overall_score: 50, website_score: 50, social_score: 50, seo_score: 50, branding_score: 50, content_score: 50, website_good: ['Data unavailable'], website_bad: ['Analysis failed'], social_good: ['Data unavailable'], social_bad: ['Analysis failed'], quick_wins: ['Re-run audit'], big_moves: ['Contact us'], competitor_edge: 'N/A', essential_package: 'N/A', growth_package: 'N/A', premium_package: 'N/A', tagline: '' }
+  }
 }
 
-// ─── PDF Generation (text-based PDF 1.4) ───
-function generatePDF(report: string, websiteUrl: string, igHandle: string | null): Uint8Array {
-  // Simple PDF 1.4 generator
-  const lines = report.split('\n')
-  const pageWidth = 595.28  // A4
-  const pageHeight = 841.89
-  const margin = 50
-  const lineHeight = 14
-  const maxCharsPerLine = 85
+// ─────────────────────────────────────────────────────────
+// VISUAL PDF GENERATOR — branded, colorful, score bars
+// ─────────────────────────────────────────────────────────
 
-  // Word-wrap + format lines
-  const formattedLines: { text: string; bold: boolean; heading: boolean; size: number }[] = []
+class PDFBuilder {
+  private objects: string[] = []
+  private pages: { contentObj: number; pageObj: number }[] = []
+  private nextObj = 1
+  private pageWidth = 595.28
+  private pageHeight = 841.89
+  private currentStream = ''
 
-  for (const rawLine of lines) {
-    const trimmed = rawLine.trim()
-    if (!trimmed) {
-      formattedLines.push({ text: '', bold: false, heading: false, size: 10 })
-      continue
-    }
-
-    let text = trimmed
-    let bold = false
-    let heading = false
-    let size = 10
-
-    // Headings
-    if (text.startsWith('# ')) { text = text.slice(2); bold = true; heading = true; size = 18 }
-    else if (text.startsWith('## ')) { text = text.slice(3); bold = true; heading = true; size = 14 }
-    else if (text.startsWith('### ')) { text = text.slice(4); bold = true; heading = true; size = 12 }
-
-    // Bold markers
-    if (text.startsWith('**') && text.endsWith('**')) {
-      text = text.slice(2, -2); bold = true
-    }
-    // Strip remaining markdown
-    text = text.replace(/\*\*/g, '').replace(/\*/g, '').replace(/`/g, '')
-
-    // Bullets
-    if (text.startsWith('- ')) text = '• ' + text.slice(2)
-
-    // Word wrap
-    const maxChars = heading ? 60 : maxCharsPerLine
-    while (text.length > maxChars) {
-      let breakAt = text.lastIndexOf(' ', maxChars)
-      if (breakAt <= 0) breakAt = maxChars
-      formattedLines.push({ text: text.slice(0, breakAt), bold, heading, size })
-      text = text.slice(breakAt).trim()
-    }
-    formattedLines.push({ text, bold, heading, size })
+  // Colors (RGB 0-1)
+  private colors = {
+    navy: [0.071, 0.098, 0.169],      // #121B2B
+    accent: [0.286, 0.502, 1.0],       // #4980FF
+    green: [0.2, 0.78, 0.4],           // #33C766
+    orange: [1.0, 0.6, 0.2],           // #FF9933
+    red: [0.95, 0.25, 0.25],           // #F24040
+    white: [1, 1, 1],
+    lightGray: [0.94, 0.95, 0.96],     // #F0F1F5
+    darkText: [0.15, 0.15, 0.2],       // #262633
+    midText: [0.45, 0.45, 0.52],       // #737385
+    gold: [1.0, 0.76, 0.03],           // #FFC208
   }
 
-  // Calculate pages
-  const usableHeight = pageHeight - margin * 2
-  const linesPerPage = Math.floor(usableHeight / lineHeight)
-  const totalPages = Math.ceil(formattedLines.length / linesPerPage)
+  private allocObj(): number {
+    return this.nextObj++
+  }
 
-  // Build PDF objects
-  const objects: string[] = []
-  const pageRefs: number[] = []
+  private escText(t: string): string {
+    return t.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+  }
 
-  // Obj 1: Catalog
-  objects.push('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj')
+  // Drawing primitives
+  private rect(x: number, y: number, w: number, h: number, color: number[], fill = true) {
+    this.currentStream += `${color[0]} ${color[1]} ${color[2]} ${fill ? 'rg' : 'RG'}\n`
+    this.currentStream += `${x} ${y} ${w} ${h} re ${fill ? 'f' : 'S'}\n`
+  }
 
-  // Obj 2: Pages (placeholder - we'll fill refs later)
-  objects.push('') // placeholder
+  private roundedRect(x: number, y: number, w: number, h: number, r: number, color: number[]) {
+    this.currentStream += `${color[0]} ${color[1]} ${color[2]} rg\n`
+    // Approximate rounded rect with bezier
+    const k = 0.5523 * r
+    this.currentStream += `${x + r} ${y} m\n`
+    this.currentStream += `${x + w - r} ${y} l\n`
+    this.currentStream += `${x + w - r + k} ${y} ${x + w} ${y + r - k} ${x + w} ${y + r} c\n`
+    this.currentStream += `${x + w} ${y + h - r} l\n`
+    this.currentStream += `${x + w} ${y + h - r + k} ${x + w - r + k} ${y + h} ${x + w - r} ${y + h} c\n`
+    this.currentStream += `${x + r} ${y + h} l\n`
+    this.currentStream += `${x + r - k} ${y + h} ${x} ${y + h - r + k} ${x} ${y + h - r} c\n`
+    this.currentStream += `${x} ${y + r} l\n`
+    this.currentStream += `${x} ${y + r - k} ${x + r - k} ${y} ${x + r} ${y} c\n`
+    this.currentStream += `f\n`
+  }
 
-  // Obj 3: Font Helvetica
-  objects.push('3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj')
+  private text(x: number, y: number, str: string, size: number, color: number[], bold = false) {
+    const fontKey = bold ? '/F2' : '/F1'
+    this.currentStream += `BT\n`
+    this.currentStream += `${color[0]} ${color[1]} ${color[2]} rg\n`
+    this.currentStream += `${fontKey} ${size} Tf\n`
+    this.currentStream += `${x} ${y} Td\n`
+    this.currentStream += `(${this.escText(str)}) Tj\n`
+    this.currentStream += `ET\n`
+  }
 
-  // Obj 4: Font Helvetica-Bold
-  objects.push('4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj')
+  private line(x1: number, y1: number, x2: number, y2: number, color: number[], width = 1) {
+    this.currentStream += `${color[0]} ${color[1]} ${color[2]} RG\n`
+    this.currentStream += `${width} w\n`
+    this.currentStream += `${x1} ${y1} m ${x2} ${y2} l S\n`
+  }
 
-  let nextObj = 5
+  private circle(cx: number, cy: number, r: number, color: number[]) {
+    const k = 0.5523 * r
+    this.currentStream += `${color[0]} ${color[1]} ${color[2]} rg\n`
+    this.currentStream += `${cx + r} ${cy} m\n`
+    this.currentStream += `${cx + r} ${cy + k} ${cx + k} ${cy + r} ${cx} ${cy + r} c\n`
+    this.currentStream += `${cx - k} ${cy + r} ${cx - r} ${cy + k} ${cx - r} ${cy} c\n`
+    this.currentStream += `${cx - r} ${cy - k} ${cx - k} ${cy - r} ${cx} ${cy - r} c\n`
+    this.currentStream += `${cx + k} ${cy - r} ${cx + r} ${cy - k} ${cx + r} ${cy} c\n`
+    this.currentStream += `f\n`
+  }
 
-  // Generate pages
-  for (let page = 0; page < totalPages; page++) {
-    const startLine = page * linesPerPage
-    const endLine = Math.min(startLine + linesPerPage, formattedLines.length)
+  private scoreBar(x: number, y: number, w: number, h: number, score: number, label: string) {
+    // Background bar
+    this.roundedRect(x, y, w, h, 4, this.colors.lightGray)
+    // Filled portion
+    const fillW = Math.max(8, (score / 100) * w)
+    const barColor = score >= 70 ? this.colors.green : score >= 40 ? this.colors.orange : this.colors.red
+    this.roundedRect(x, y, fillW, h, 4, barColor)
+    // Label
+    this.text(x, y + h + 6, label, 9, this.colors.darkText, true)
+    // Score
+    this.text(x + w - 20, y + h + 6, `${score}`, 9, barColor, true)
+  }
 
-    let stream = 'BT\n'
-    let y = pageHeight - margin
+  private scoreCircle(cx: number, cy: number, score: number, label: string) {
+    const r = 32
+    const color = score >= 70 ? this.colors.green : score >= 40 ? this.colors.orange : this.colors.red
+    // Outer ring
+    this.circle(cx, cy, r, color)
+    // Inner white
+    this.circle(cx, cy, r - 5, this.colors.white)
+    // Score text
+    this.text(cx - (score >= 100 ? 14 : score >= 10 ? 10 : 5), cy - 7, `${score}`, 20, color, true)
+    // Label below
+    const labelX = cx - (label.length * 2.5)
+    this.text(labelX, cy - r - 16, label, 8, this.colors.midText, true)
+  }
 
-    for (let i = startLine; i < endLine; i++) {
-      const line = formattedLines[i]
-      if (!line.text) { y -= lineHeight; continue }
-
-      const fontRef = line.bold ? '4' : '3'
-      const escapedText = line.text
-        .replace(/\\/g, '\\\\')
-        .replace(/\(/g, '\\(')
-        .replace(/\)/g, '\\)')
-
-      stream += `/F${line.bold ? 2 : 1} ${line.size} Tf\n`
-      stream += `${margin} ${y} Td\n`
-      stream += `(${escapedText}) Tj\n`
-      stream += `${-margin} ${-y} Td\n`
-      y -= line.heading ? lineHeight * 1.5 : lineHeight
+  private bulletPoint(x: number, y: number, text_str: string, color: number[], isGood: boolean): number {
+    const icon = isGood ? '+' : '!'
+    const iconColor = isGood ? this.colors.green : this.colors.red
+    // Icon circle
+    this.circle(x + 5, y + 4, 5, iconColor)
+    this.text(x + 2.5, y + 0.5, icon, 8, this.colors.white, true)
+    // Text - word wrap
+    const maxW = 75
+    const words = text_str.split(' ')
+    let currentLine = ''
+    let lineY = y
+    const lines: string[] = []
+    for (const word of words) {
+      const test = currentLine ? currentLine + ' ' + word : word
+      if (test.length > maxW && currentLine) {
+        lines.push(currentLine)
+        currentLine = word
+      } else {
+        currentLine = test
+      }
     }
+    if (currentLine) lines.push(currentLine)
+    for (const ln of lines) {
+      this.text(x + 16, lineY, ln, 9, this.colors.darkText)
+      lineY -= 14
+    }
+    return lineY - 4
+  }
 
+  private sectionHeader(y: number, title: string, icon: string): number {
+    // Accent bar on left
+    this.rect(40, y - 4, 4, 20, this.colors.accent)
+    this.text(52, y, `${icon}  ${title}`, 14, this.colors.navy, true)
+    this.line(40, y - 8, 555, y - 8, this.colors.lightGray, 1)
+    return y - 28
+  }
+
+  private wordWrapText(x: number, y: number, str: string, size: number, color: number[], maxChars: number, bold = false): number {
+    const words = str.split(' ')
+    let currentLine = ''
+    let lineY = y
+    for (const word of words) {
+      const test = currentLine ? currentLine + ' ' + word : word
+      if (test.length > maxChars && currentLine) {
+        this.text(x, lineY, currentLine, size, color, bold)
+        lineY -= size + 4
+        currentLine = word
+      } else {
+        currentLine = test
+      }
+    }
+    if (currentLine) {
+      this.text(x, lineY, currentLine, size, color, bold)
+      lineY -= size + 4
+    }
+    return lineY
+  }
+
+  build(data: any, websiteUrl: string, igHandle: string | null): Uint8Array {
+    // Reserve first objects for catalog, pages, fonts
+    const catalogObj = this.allocObj() // 1
+    const pagesObj = this.allocObj()   // 2
+    const font1Obj = this.allocObj()   // 3
+    const font2Obj = this.allocObj()   // 4
+
+    const pageRefs: number[] = []
+
+    // ═══════════════════════════════════════════
+    // PAGE 1 — COVER
+    // ═══════════════════════════════════════════
+    this.currentStream = ''
+    
+    // Full navy background
+    this.rect(0, 0, this.pageWidth, this.pageHeight, this.colors.navy)
+    
+    // Accent stripe top
+    this.rect(0, this.pageHeight - 8, this.pageWidth, 8, this.colors.accent)
+    
+    // Decorative circles
+    this.circle(480, 720, 60, [0.1, 0.14, 0.22])
+    this.circle(120, 200, 40, [0.1, 0.14, 0.22])
+    this.circle(500, 150, 25, [0.1, 0.14, 0.22])
+    
+    // "DIGITAL AUDIT" label
+    this.roundedRect(40, 680, 130, 24, 12, this.colors.accent)
+    this.text(55, 685, 'DIGITAL AUDIT', 10, this.colors.white, true)
+    
+    // Business name
+    const bizName = (data.business_name || 'Business').toUpperCase()
+    this.text(40, 620, bizName, 32, this.colors.white, true)
+    
+    // Tagline
+    if (data.tagline) {
+      this.wordWrapText(40, 590, data.tagline, 12, this.colors.midText, 70)
+    }
+    
+    // Big overall score
+    this.circle(298, 430, 75, [0.12, 0.16, 0.25])
+    this.circle(298, 430, 65, this.colors.navy)
+    const overallScore = data.overall_score || 50
+    const scoreColor = overallScore >= 70 ? this.colors.green : overallScore >= 40 ? this.colors.orange : this.colors.red
+    this.text(overallScore >= 100 ? 265 : overallScore >= 10 ? 272 : 285, 418, `${overallScore}`, 42, scoreColor, true)
+    this.text(260, 390, 'OVERALL SCORE', 10, this.colors.midText, true)
+    
+    // Score bars on cover
+    const barY = 310
+    this.scoreBar(80, barY, 180, 10, data.website_score || 0, 'Website')
+    this.scoreBar(80, barY - 36, 180, 10, data.seo_score || 0, 'SEO')
+    this.scoreBar(330, barY, 180, 10, data.social_score || 0, 'Social Media')
+    this.scoreBar(330, barY - 36, 180, 10, data.branding_score || 0, 'Branding')
+    
     // Footer
-    stream += `/F1 8 Tf\n`
-    stream += `${margin} 30 Td\n`
-    stream += `(Page ${page + 1} of ${totalPages} | SOCooked Creative Management | ${new Date().toLocaleDateString()}) Tj\n`
-    stream += `${-margin} -30 Td\n`
-
-    stream += 'ET\n'
-
-    const streamBytes = new TextEncoder().encode(stream)
-
-    // Content stream object
-    const contentObjNum = nextObj++
-    objects.push(`${contentObjNum} 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n${stream}endstream\nendobj`)
-
-    // Page object
-    const pageObjNum = nextObj++
-    objects.push(`${pageObjNum} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents ${contentObjNum} 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>\nendobj`)
-    pageRefs.push(pageObjNum)
+    this.text(40, 50, 'SOCooked Creative Management', 10, this.colors.midText, true)
+    this.text(40, 36, new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), 9, this.colors.midText)
+    this.text(400, 50, websiteUrl || '', 8, this.colors.midText)
+    if (igHandle) this.text(400, 36, `@${igHandle}`, 8, this.colors.accent)
+    
+    // Accent stripe bottom
+    this.rect(0, 0, this.pageWidth, 4, this.colors.accent)
+    
+    this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
+    
+    // ═══════════════════════════════════════════
+    // PAGE 2 — WEBSITE ANALYSIS
+    // ═══════════════════════════════════════════
+    this.currentStream = ''
+    
+    // Header bar
+    this.rect(0, this.pageHeight - 50, this.pageWidth, 50, this.colors.navy)
+    this.text(40, this.pageHeight - 35, 'WEBSITE ANALYSIS', 16, this.colors.white, true)
+    this.scoreCircle(530, this.pageHeight - 25, data.website_score || 0, 'SCORE')
+    
+    let y = this.pageHeight - 90
+    
+    // What's Working section
+    y = this.sectionHeader(y, "What's Working Well", '>')
+    const goods = data.website_good || ['No data']
+    for (const item of goods) {
+      y = this.bulletPoint(50, y, item, this.colors.green, true)
+      if (y < 100) break
+    }
+    
+    y -= 16
+    
+    // What Needs Work section
+    y = this.sectionHeader(y, 'What Needs Work', '!')
+    const bads = data.website_bad || ['No data']
+    for (const item of bads) {
+      y = this.bulletPoint(50, y, item, this.colors.red, false)
+      if (y < 100) break
+    }
+    
+    y -= 16
+    
+    // SEO & Content scores side by side
+    if (y > 180) {
+      y = this.sectionHeader(y, 'Performance Breakdown', '#')
+      y -= 10
+      this.scoreBar(50, y, 200, 12, data.seo_score || 0, 'SEO Score')
+      this.scoreBar(310, y, 200, 12, data.content_score || 0, 'Content Score')
+      y -= 20
+      this.scoreBar(50, y, 200, 12, data.branding_score || 0, 'Branding Score')
+    }
+    
+    // Footer
+    this.pageFooter(1)
+    this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
+    
+    // ═══════════════════════════════════════════
+    // PAGE 3 — SOCIAL MEDIA ANALYSIS
+    // ═══════════════════════════════════════════
+    this.currentStream = ''
+    
+    this.rect(0, this.pageHeight - 50, this.pageWidth, 50, this.colors.navy)
+    this.text(40, this.pageHeight - 35, 'SOCIAL MEDIA ANALYSIS', 16, this.colors.white, true)
+    this.scoreCircle(530, this.pageHeight - 25, data.social_score || 0, 'SCORE')
+    
+    y = this.pageHeight - 90
+    
+    // Social stats cards (if IG data)
+    if (igHandle) {
+      // Stats row
+      const cardW = 110
+      const cardH = 55
+      const startX = 50
+      y -= 10
+      
+      // Followers card
+      this.roundedRect(startX, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + 10, y - 18, 'Followers', 8, this.colors.midText, true)
+      this.text(startX + 10, y - 38, String(data._ig_followers || 0), 16, this.colors.navy, true)
+      
+      // Posts card
+      this.roundedRect(startX + cardW + 15, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + cardW + 25, y - 18, 'Posts', 8, this.colors.midText, true)
+      this.text(startX + cardW + 25, y - 38, String(data._ig_posts || 0), 16, this.colors.navy, true)
+      
+      // Engagement card
+      this.roundedRect(startX + (cardW + 15) * 2, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + (cardW + 15) * 2 + 10, y - 18, 'Engagement', 8, this.colors.midText, true)
+      this.text(startX + (cardW + 15) * 2 + 10, y - 38, data._ig_engagement || 'N/A', 14, this.colors.navy, true)
+      
+      // Score card
+      this.roundedRect(startX + (cardW + 15) * 3, y - cardH, cardW, cardH, 6, this.colors.accent)
+      this.text(startX + (cardW + 15) * 3 + 10, y - 18, 'Social Score', 8, this.colors.white, true)
+      this.text(startX + (cardW + 15) * 3 + 10, y - 38, `${data.social_score || 0}/100`, 14, this.colors.white, true)
+      
+      y -= cardH + 24
+    }
+    
+    // Social good
+    y = this.sectionHeader(y, "What's Working", '>')
+    const sgood = data.social_good || ['No data']
+    for (const item of sgood) {
+      y = this.bulletPoint(50, y, item, this.colors.green, true)
+      if (y < 100) break
+    }
+    
+    y -= 16
+    
+    // Social bad
+    y = this.sectionHeader(y, 'Opportunities', '!')
+    const sbad = data.social_bad || ['No data']
+    for (const item of sbad) {
+      y = this.bulletPoint(50, y, item, this.colors.red, false)
+      if (y < 100) break
+    }
+    
+    this.pageFooter(2)
+    this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
+    
+    // ═══════════════════════════════════════════
+    // PAGE 4 — ACTION PLAN
+    // ═══════════════════════════════════════════
+    this.currentStream = ''
+    
+    this.rect(0, this.pageHeight - 50, this.pageWidth, 50, this.colors.navy)
+    this.text(40, this.pageHeight - 35, 'YOUR ACTION PLAN', 16, this.colors.white, true)
+    
+    y = this.pageHeight - 90
+    
+    // Quick Wins
+    y = this.sectionHeader(y, 'Quick Wins (This Week)', '>')
+    const qwins = data.quick_wins || []
+    for (let i = 0; i < qwins.length; i++) {
+      // Number badge
+      this.circle(58, y + 4, 8, this.colors.accent)
+      this.text(55, y, `${i + 1}`, 9, this.colors.white, true)
+      y = this.wordWrapText(74, y, qwins[i], 9, this.colors.darkText, 72) - 6
+      if (y < 250) break
+    }
+    
+    y -= 16
+    
+    // Big Moves
+    y = this.sectionHeader(y, 'Strategic Projects (1-4 Weeks)', '#')
+    const bmoves = data.big_moves || []
+    for (let i = 0; i < bmoves.length; i++) {
+      this.circle(58, y + 4, 8, this.colors.gold)
+      this.text(55, y, `${i + 1}`, 9, this.colors.white, true)
+      y = this.wordWrapText(74, y, bmoves[i], 9, this.colors.darkText, 72) - 6
+      if (y < 140) break
+    }
+    
+    y -= 16
+    
+    // Competitive edge box
+    if (data.competitor_edge && y > 140) {
+      this.roundedRect(40, y - 60, this.pageWidth - 80, 70, 8, this.colors.lightGray)
+      this.text(55, y - 4, 'YOUR COMPETITIVE EDGE', 10, this.colors.accent, true)
+      this.wordWrapText(55, y - 22, data.competitor_edge, 9, this.colors.darkText, 75)
+    }
+    
+    this.pageFooter(3)
+    this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
+    
+    // ═══════════════════════════════════════════
+    // PAGE 5 — PACKAGES / CTA
+    // ═══════════════════════════════════════════
+    this.currentStream = ''
+    
+    // Full accent header
+    this.rect(0, this.pageHeight - 80, this.pageWidth, 80, this.colors.accent)
+    this.text(40, this.pageHeight - 40, 'HOW WE CAN HELP', 22, this.colors.white, true)
+    this.text(40, this.pageHeight - 60, 'Tailored packages based on your audit results', 11, this.colors.white)
+    
+    y = this.pageHeight - 120
+    
+    // Package cards
+    const pkgW = (this.pageWidth - 100) / 3
+    const pkgH = 220
+    const pkgY = y - pkgH
+    
+    // Essential
+    this.roundedRect(40, pkgY, pkgW, pkgH, 8, this.colors.lightGray)
+    this.roundedRect(40, pkgY + pkgH - 40, pkgW, 40, 8, this.colors.lightGray) // overlap fix
+    this.rect(40, pkgY + pkgH - 8, pkgW, 8, this.colors.green) // top accent
+    this.text(55, pkgY + pkgH - 24, 'ESSENTIAL', 12, this.colors.green, true)
+    this.text(55, pkgY + pkgH - 42, 'Quick Fixes', 9, this.colors.midText)
+    this.wordWrapText(55, pkgY + pkgH - 65, data.essential_package || 'Immediate improvements to boost your online presence.', 8, this.colors.darkText, 26)
+    
+    // Growth
+    const gx = 40 + pkgW + 10
+    this.roundedRect(gx, pkgY, pkgW, pkgH, 8, this.colors.navy)
+    this.rect(gx, pkgY + pkgH - 8, pkgW, 8, this.colors.accent)
+    this.text(gx + 15, pkgY + pkgH - 24, 'GROWTH', 12, this.colors.accent, true)
+    this.text(gx + 15, pkgY + pkgH - 42, 'Full Overhaul', 9, this.colors.midText)
+    this.wordWrapText(gx + 15, pkgY + pkgH - 65, data.growth_package || 'Comprehensive digital presence transformation.', 8, this.colors.white, 26)
+    // "POPULAR" badge
+    this.roundedRect(gx + pkgW - 60, pkgY + pkgH + 4, 55, 18, 9, this.colors.gold)
+    this.text(gx + pkgW - 52, pkgY + pkgH + 8, 'POPULAR', 8, this.colors.white, true)
+    
+    // Premium
+    const px = gx + pkgW + 10
+    this.roundedRect(px, pkgY, pkgW, pkgH, 8, this.colors.lightGray)
+    this.rect(px, pkgY + pkgH - 8, pkgW, 8, this.colors.gold)
+    this.text(px + 15, pkgY + pkgH - 24, 'PREMIUM', 12, this.colors.gold, true)
+    this.text(px + 15, pkgY + pkgH - 42, 'Full Service', 9, this.colors.midText)
+    this.wordWrapText(px + 15, pkgY + pkgH - 65, data.premium_package || 'Complete management of your digital presence.', 8, this.colors.darkText, 26)
+    
+    // CTA section
+    const ctaY = pkgY - 60
+    this.roundedRect(40, ctaY, this.pageWidth - 80, 50, 8, this.colors.accent)
+    this.text(60, ctaY + 28, 'Ready to grow? Let\'s talk.', 14, this.colors.white, true)
+    this.text(60, ctaY + 10, 'Reply to this message or visit socooked.com to get started.', 10, this.colors.white)
+    
+    // Footer branding
+    this.text(40, 50, 'SOCooked Creative Management', 10, this.colors.midText, true)
+    this.text(40, 36, 'This report was generated automatically using AI-powered analysis.', 8, this.colors.midText)
+    this.rect(0, 0, this.pageWidth, 4, this.colors.accent)
+    
+    this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
+    
+    // ═══════════════════════════════════════════
+    // ASSEMBLE PDF
+    // ═══════════════════════════════════════════
+    
+    const allObjects: { num: number; content: string }[] = []
+    
+    // Catalog
+    allObjects.push({ num: catalogObj, content: `${catalogObj} 0 obj\n<< /Type /Catalog /Pages ${pagesObj} 0 R >>\nendobj` })
+    
+    // Pages
+    allObjects.push({ num: pagesObj, content: `${pagesObj} 0 obj\n<< /Type /Pages /Kids [${pageRefs.map(r => `${r} 0 R`).join(' ')}] /Count ${pageRefs.length} >>\nendobj` })
+    
+    // Fonts
+    allObjects.push({ num: font1Obj, content: `${font1Obj} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj` })
+    allObjects.push({ num: font2Obj, content: `${font2Obj} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj` })
+    
+    // Add page objects
+    for (const obj of this.objects) {
+      const numMatch = obj.match(/^(\d+) 0 obj/)
+      if (numMatch) allObjects.push({ num: parseInt(numMatch[1]), content: obj })
+    }
+    
+    // Sort by object number
+    allObjects.sort((a, b) => a.num - b.num)
+    
+    let pdf = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'
+    const offsets: number[] = []
+    const maxObjNum = allObjects[allObjects.length - 1]?.num || 0
+    
+    // Map obj number -> offset
+    const offsetMap = new Map<number, number>()
+    
+    for (const obj of allObjects) {
+      offsetMap.set(obj.num, pdf.length)
+      pdf += obj.content + '\n'
+    }
+    
+    const xrefOffset = pdf.length
+    pdf += 'xref\n'
+    pdf += `0 ${maxObjNum + 1}\n`
+    pdf += '0000000000 65535 f \n'
+    for (let i = 1; i <= maxObjNum; i++) {
+      const off = offsetMap.get(i)
+      if (off !== undefined) {
+        pdf += `${String(off).padStart(10, '0')} 00000 n \n`
+      } else {
+        pdf += '0000000000 00000 f \n'
+      }
+    }
+    pdf += 'trailer\n'
+    pdf += `<< /Size ${maxObjNum + 1} /Root ${catalogObj} 0 R >>\n`
+    pdf += 'startxref\n'
+    pdf += `${xrefOffset}\n`
+    pdf += '%%EOF'
+    
+    return new TextEncoder().encode(pdf)
   }
-
-  // Fill Pages object (obj 2)
-  objects[1] = `2 0 obj\n<< /Type /Pages /Kids [${pageRefs.map(r => `${r} 0 R`).join(' ')}] /Count ${pageRefs.length} >>\nendobj`
-
-  // Build final PDF
-  let pdf = '%PDF-1.4\n'
-  const offsets: number[] = []
-
-  for (let i = 0; i < objects.length; i++) {
-    offsets.push(pdf.length)
-    pdf += objects[i] + '\n'
+  
+  private finalizePage(pagesObj: number, font1Obj: number, font2Obj: number, pageRefs: number[]) {
+    const streamBytes = new TextEncoder().encode(this.currentStream)
+    const contentObj = this.allocObj()
+    const pageObj = this.allocObj()
+    
+    this.objects.push(`${contentObj} 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n${this.currentStream}endstream\nendobj`)
+    this.objects.push(`${pageObj} 0 obj\n<< /Type /Page /Parent ${pagesObj} 0 R /MediaBox [0 0 ${this.pageWidth} ${this.pageHeight}] /Contents ${contentObj} 0 R /Resources << /Font << /F1 ${font1Obj} 0 R /F2 ${font2Obj} 0 R >> >> >>\nendobj`)
+    
+    pageRefs.push(pageObj)
+    this.currentStream = ''
   }
-
-  const xrefOffset = pdf.length
-  pdf += 'xref\n'
-  pdf += `0 ${objects.length + 1}\n`
-  pdf += '0000000000 65535 f \n'
-  for (const off of offsets) {
-    pdf += `${String(off).padStart(10, '0')} 00000 n \n`
+  
+  private pageFooter(pageNum: number) {
+    this.line(40, 65, 555, 65, this.colors.lightGray, 0.5)
+    this.text(40, 50, 'SOCooked Creative Management', 8, this.colors.midText, true)
+    this.text(510, 50, `Page ${pageNum + 1}`, 8, this.colors.midText)
+    this.rect(0, 0, this.pageWidth, 3, this.colors.accent)
   }
-  pdf += 'trailer\n'
-  pdf += `<< /Size ${objects.length + 1} /Root 1 0 R >>\n`
-  pdf += 'startxref\n'
-  pdf += `${xrefOffset}\n`
-  pdf += '%%EOF'
-
-  return new TextEncoder().encode(pdf)
 }
 
+// ─── Main handler ───
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
     const body = await req.json()
-    const { website_url, ig_handle, chat_id } = body
+    const { website_url, ig_handle } = body
 
     if (!website_url && !ig_handle) {
       return new Response(JSON.stringify({ error: 'Provide at least a website_url or ig_handle' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     // Scrape in parallel
     const [websiteResult, igResult] = await Promise.allSettled([
@@ -419,20 +713,30 @@ Deno.serve(async (req) => {
 
     console.log('[audit] Scrape complete. Website:', !!websiteData, 'IG:', !!igData)
 
-    // Generate AI analysis
-    const report = await generateAnalysis(
+    // Generate structured AI analysis
+    const analysis = await generateAnalysis(
       websiteData || { markdown: '', metadata: {}, links: [], branding: null },
       igData,
       website_url || 'N/A',
       ig_handle || null,
     )
 
-    console.log('[audit] AI analysis complete, length:', report.length)
+    // Inject raw IG stats into analysis for PDF
+    if (igData) {
+      analysis._ig_followers = igData.followersCount?.toLocaleString() || '0'
+      analysis._ig_posts = igData.postsCount?.toLocaleString() || '0'
+      analysis._ig_engagement = igData.followersCount > 0 && igData.recentPosts?.length > 0
+        ? ((igData.recentPosts.reduce((a: number, p: any) => a + p.likes + p.comments, 0) / igData.recentPosts.length / igData.followersCount) * 100).toFixed(2) + '%'
+        : 'N/A'
+    }
 
-    // Generate PDF
-    const pdfBytes = generatePDF(report, website_url || 'N/A', ig_handle || null)
+    console.log('[audit] AI analysis complete')
 
-    // Upload PDF to storage
+    // Generate visual PDF
+    const builder = new PDFBuilder()
+    const pdfBytes = builder.build(analysis, website_url || 'N/A', ig_handle || null)
+
+    // Upload PDF
     const fileName = `audit-${(ig_handle || website_url || 'report').replace(/[^a-zA-Z0-9]/g, '_')}-${Date.now()}.pdf`
     const { error: uploadErr } = await supabase.storage
       .from('content-uploads')
@@ -444,6 +748,18 @@ Deno.serve(async (req) => {
       .from('content-uploads')
       .getPublicUrl(`audits/${fileName}`)
 
+    // Build a readable text report from the structured data
+    const reportText = [
+      `# Digital Audit: ${analysis.business_name || 'Unknown'}`,
+      `Overall Score: ${analysis.overall_score}/100`,
+      '',
+      '## Website', ...(analysis.website_good || []).map((g: string) => `+ ${g}`), ...(analysis.website_bad || []).map((b: string) => `- ${b}`),
+      '',
+      '## Social', ...(analysis.social_good || []).map((g: string) => `+ ${g}`), ...(analysis.social_bad || []).map((b: string) => `- ${b}`),
+      '',
+      '## Quick Wins', ...(analysis.quick_wins || []).map((q: string, i: number) => `${i + 1}. ${q}`),
+    ].join('\n')
+
     // Store as content asset
     await supabase.from('content_assets').insert({
       title: `Audit: ${ig_handle || website_url || 'Unknown'}`,
@@ -452,32 +768,30 @@ Deno.serve(async (req) => {
       url: publicUrl?.publicUrl || '',
       source: 'audit-report',
       category: 'audit',
-      body: report.slice(0, 5000),
+      body: reportText.slice(0, 5000),
       tags: ['audit', website_url || '', ig_handle || ''].filter(Boolean),
     })
 
     return new Response(JSON.stringify({
       success: true,
-      report_text: report,
+      report_text: reportText,
       pdf_url: publicUrl?.publicUrl || '',
-      pdf_base64: btoa(String.fromCharCode(...pdfBytes)),
       website_scraped: !!websiteData,
       ig_scraped: !!igData,
-      ig_data: igData ? {
-        followers: igData.followersCount,
-        posts: igData.postsCount,
-        engagement_rate: igData.followersCount > 0 && igData.recentPosts?.length > 0
-          ? ((igData.recentPosts.reduce((a: number, p: any) => a + p.likes + p.comments, 0) / igData.recentPosts.length / igData.followersCount) * 100).toFixed(2) + '%'
-          : 'N/A',
-      } : null,
+      scores: {
+        overall: analysis.overall_score,
+        website: analysis.website_score,
+        social: analysis.social_score,
+        seo: analysis.seo_score,
+        branding: analysis.branding_score,
+      },
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
     console.error('[audit-report] error:', err)
     return new Response(JSON.stringify({ error: err.message || 'Audit failed' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
