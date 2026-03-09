@@ -779,7 +779,7 @@ class PDFBuilder {
   
   private pageFooter(pageNum: number) {
     this.line(40, 65, 555, 65, this.colors.lightGray, 0.5)
-    this.text(40, 50, 'SOCooked Creative Management', 8, this.colors.midText, true)
+    this.text(40, 50, 'Warren Guru Creative Management / STU25', 8, this.colors.midText, true)
     this.text(510, 50, `Page ${pageNum + 1}`, 8, this.colors.midText)
     this.rect(0, 0, this.pageWidth, 3, this.colors.accent)
   }
