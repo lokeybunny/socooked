@@ -126,11 +126,11 @@ Return this exact JSON structure:
   "seo_score": 0-100,
   "branding_score": 0-100,
   "content_score": 0-100,
-  "website_good": ["Up to 3 verifiable things they do well — cite the evidence"],
-  "website_bad": ["Up to 3 verifiable problems — cite what data shows this, with fix suggestion"],
-  "social_good": ["Up to 3 verifiable things they do well on social — cite evidence"],
-  "social_bad": ["Up to 3 verifiable problems on social — cite evidence, with fix suggestion"],
-  "quick_wins": ["Up to 5 things we can fix THIS WEEK — must be grounded in real data"],
+  "website_good": [{"text": "verifiable thing they do well — cite evidence", "confidence": "high|medium|low"}],
+  "website_bad": [{"text": "verifiable problem — cite evidence, with fix", "confidence": "high|medium|low"}],
+  "social_good": [{"text": "verifiable thing on social — cite evidence", "confidence": "high|medium|low"}],
+  "social_bad": [{"text": "verifiable problem on social — cite evidence, with fix", "confidence": "high|medium|low"}],
+  "quick_wins": [{"text": "thing we can fix THIS WEEK — grounded in real data", "confidence": "high|medium|low"}],
   "big_moves": ["Up to 3 strategic projects for major growth (1-4 weeks)"],
   "competitor_edge": "One paragraph on what makes them unique based on their actual content",
   "essential_package": "2-3 sentence description of quick-fix package",
@@ -144,6 +144,13 @@ Return this exact JSON structure:
     }
   ]
 }
+
+Confidence levels:
+- "high" = directly and clearly visible in the scraped data (e.g. exact text, meta tag present/missing, specific stat)
+- "medium" = strongly implied but requires minor interpretation (e.g. engagement rate calculation, content tone analysis)
+- "low" = reasonable inference based on limited data (e.g. assumption about mobile experience from content structure)
+
+Up to 3 items per array. Each item MUST have a confidence level.
 
 IMPORTANT for sources_evidence: Include one entry for EVERY specific claim made in website_good, website_bad, social_good, social_bad, and quick_wins. Each entry must quote the exact data that proves the claim. This is for accountability — if you cannot provide exact evidence, do not make the claim.`
 
@@ -287,14 +294,25 @@ class PDFBuilder {
     this.text(labelX, cy - r - 16, label, 8, this.colors.midText, true)
   }
 
-  private bulletPoint(x: number, y: number, text_str: string, color: number[], isGood: boolean): number {
+  private bulletPoint(x: number, y: number, text_str: string, color: number[], isGood: boolean, confidence?: string): number {
     const icon = isGood ? '+' : '!'
     const iconColor = isGood ? this.colors.green : this.colors.red
     // Icon circle
     this.circle(x + 5, y + 4, 5, iconColor)
     this.text(x + 2.5, y + 0.5, icon, 8, this.colors.white, true)
+    
+    // Confidence badge (right-aligned)
+    if (confidence) {
+      const badgeColor = confidence === 'high' ? this.colors.green : confidence === 'medium' ? this.colors.gold : this.colors.midText
+      const badgeLabel = confidence.toUpperCase()
+      const badgeW = badgeLabel.length * 5 + 12
+      const badgeX = this.pageWidth - 40 - badgeW
+      this.roundedRect(badgeX, y - 1, badgeW, 13, 4, badgeColor)
+      this.text(badgeX + 6, y + 1, badgeLabel, 6.5, this.colors.white, true)
+    }
+    
     // Text - word wrap
-    const maxW = 75
+    const maxW = confidence ? 65 : 75
     const words = text_str.split(' ')
     let currentLine = ''
     let lineY = y
@@ -605,7 +623,9 @@ class PDFBuilder {
     y = this.sectionHeader(y, "What's Working Well", '>')
     const goods = data.website_good || ['No data']
     for (const item of goods) {
-      y = this.bulletPoint(50, y, item, this.colors.green, true)
+      const txt = typeof item === 'object' ? item.text : item
+      const conf = typeof item === 'object' ? item.confidence : undefined
+      y = this.bulletPoint(50, y, txt, this.colors.green, true, conf)
       if (y < 100) break
     }
     
@@ -615,7 +635,9 @@ class PDFBuilder {
     y = this.sectionHeader(y, 'What Needs Work', '!')
     const bads = data.website_bad || ['No data']
     for (const item of bads) {
-      y = this.bulletPoint(50, y, item, this.colors.red, false)
+      const txt = typeof item === 'object' ? item.text : item
+      const conf = typeof item === 'object' ? item.confidence : undefined
+      y = this.bulletPoint(50, y, txt, this.colors.red, false, conf)
       if (y < 100) break
     }
     
@@ -690,7 +712,9 @@ class PDFBuilder {
     y = this.sectionHeader(y, "What's Working", '>')
     const sgood = data.social_good || ['No data']
     for (const item of sgood) {
-      y = this.bulletPoint(50, y, item, this.colors.green, true)
+      const txt = typeof item === 'object' ? item.text : item
+      const conf = typeof item === 'object' ? item.confidence : undefined
+      y = this.bulletPoint(50, y, txt, this.colors.green, true, conf)
       if (y < 100) break
     }
     
@@ -700,7 +724,9 @@ class PDFBuilder {
     y = this.sectionHeader(y, 'Opportunities', '!')
     const sbad = data.social_bad || ['No data']
     for (const item of sbad) {
-      y = this.bulletPoint(50, y, item, this.colors.red, false)
+      const txt = typeof item === 'object' ? item.text : item
+      const conf = typeof item === 'object' ? item.confidence : undefined
+      y = this.bulletPoint(50, y, txt, this.colors.red, false, conf)
       if (y < 100) break
     }
     
@@ -721,10 +747,22 @@ class PDFBuilder {
     y = this.sectionHeader(y, 'Quick Wins (This Week)', '>')
     const qwins = data.quick_wins || []
     for (let i = 0; i < qwins.length; i++) {
+      const qItem = qwins[i]
+      const qText = typeof qItem === 'object' ? qItem.text : qItem
+      const qConf = typeof qItem === 'object' ? qItem.confidence : undefined
       // Number badge
       this.circle(58, y + 4, 8, this.colors.accent)
       this.text(55, y, `${i + 1}`, 9, this.colors.white, true)
-      y = this.wordWrapText(74, y, qwins[i], 9, this.colors.darkText, 72) - 6
+      // Confidence badge
+      if (qConf) {
+        const badgeColor = qConf === 'high' ? this.colors.green : qConf === 'medium' ? this.colors.gold : this.colors.midText
+        const badgeLabel = qConf.toUpperCase()
+        const badgeW = badgeLabel.length * 5 + 12
+        const badgeX = this.pageWidth - 40 - badgeW
+        this.roundedRect(badgeX, y - 1, badgeW, 13, 4, badgeColor)
+        this.text(badgeX + 6, y + 1, badgeLabel, 6.5, this.colors.white, true)
+      }
+      y = this.wordWrapText(74, y, qText, 9, this.colors.darkText, 65) - 6
       if (y < 250) break
     }
     
@@ -776,6 +814,7 @@ class PDFBuilder {
     this.text(55, pkgY + pkgH - 24, 'ESSENTIAL', 12, this.colors.green, true)
     this.text(55, pkgY + pkgH - 42, 'Quick Fixes', 9, this.colors.midText)
     this.wordWrapText(55, pkgY + pkgH - 65, data.essential_package || 'Immediate improvements to boost your online presence.', 8, this.colors.darkText, 26)
+    this.text(55, pkgY + 16, '$250/mo', 16, this.colors.green, true)
     
     // Growth
     const gx = 40 + pkgW + 10
@@ -784,6 +823,7 @@ class PDFBuilder {
     this.text(gx + 15, pkgY + pkgH - 24, 'GROWTH', 12, this.colors.accent, true)
     this.text(gx + 15, pkgY + pkgH - 42, 'Full Overhaul', 9, this.colors.midText)
     this.wordWrapText(gx + 15, pkgY + pkgH - 65, data.growth_package || 'Comprehensive digital presence transformation.', 8, this.colors.white, 26)
+    this.text(gx + 15, pkgY + 16, '$500/mo', 16, this.colors.accent, true)
     // "POPULAR" badge
     this.roundedRect(gx + pkgW - 60, pkgY + pkgH + 4, 55, 18, 9, this.colors.gold)
     this.text(gx + pkgW - 52, pkgY + pkgH + 8, 'POPULAR', 8, this.colors.white, true)
@@ -795,6 +835,7 @@ class PDFBuilder {
     this.text(px + 15, pkgY + pkgH - 24, 'PREMIUM', 12, this.colors.gold, true)
     this.text(px + 15, pkgY + pkgH - 42, 'Full Service', 9, this.colors.midText)
     this.wordWrapText(px + 15, pkgY + pkgH - 65, data.premium_package || 'Complete management of your digital presence.', 8, this.colors.darkText, 26)
+    this.text(px + 15, pkgY + 16, '$1,000/mo', 16, this.colors.gold, true)
     
     // CTA section
     const ctaY = pkgY - 60
