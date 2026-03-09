@@ -499,7 +499,7 @@ class PDFBuilder {
       `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pngWidth} /Height ${pngHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${compressedRgb.length} >>\nstream\n`
     )
     ;(this as any)[`_imgBytes_${name}`] = compressedRgb
-    this.imageObjects.set(name, { objNum, width: pngWidth, height: pngHeight })
+    this.imageObjects.set(name, { objNum, width: pngWidth, height: pngHeight, isJpeg: false })
     console.log(`[audit] PNG ${name} decoded: ${pngWidth}x${pngHeight} colorType=${colorType} → ${compressedRgb.length} bytes compressed RGB`)
   }
 
