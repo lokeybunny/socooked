@@ -1564,6 +1564,58 @@ export default function PhonePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Preview Dialog */}
+      <Dialog open={emailPreviewOpen} onOpenChange={setEmailPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Email Preview
+            </DialogTitle>
+          </DialogHeader>
+          {emailDraft && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="font-medium">To:</span>
+                <span>{emailDraft.to}</span>
+                <span className="text-xs">({emailDraft.customer_name})</span>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Subject</Label>
+                <Input
+                  value={emailSubjectEdit}
+                  onChange={(e) => setEmailSubjectEdit(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Email Body</Label>
+                <div
+                  className="border rounded-md p-4 min-h-[200px] bg-background text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-foreground"
+                  contentEditable
+                  suppressContentEditableWarning
+                  dangerouslySetInnerHTML={{ __html: emailBodyEdit }}
+                  onBlur={(e) => setEmailBodyEdit(e.currentTarget.innerHTML)}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEmailPreviewOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmSendEmail}
+              disabled={sendingReport}
+              className="gap-2"
+            >
+              {sendingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              Send Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
