@@ -354,13 +354,18 @@ class PDFBuilder {
     this.roundedRect(40, 680, 130, 24, 12, this.colors.accent)
     this.text(55, 685, 'DIGITAL AUDIT', 10, this.colors.white, true)
     
-    // Business name
+    // Business name — auto-size to fit
     const bizName = (data.business_name || 'Business').toUpperCase()
-    this.text(40, 620, bizName, 32, this.colors.white, true)
+    const nameLen = bizName.length
+    let nameSize = 32
+    let maxCharsName = 22
+    if (nameLen > 30) { nameSize = 20; maxCharsName = 36 }
+    else if (nameLen > 22) { nameSize = 24; maxCharsName = 30 }
+    const nameBottomY = this.wordWrapText(40, 640, bizName, nameSize, this.colors.white, maxCharsName, true)
     
     // Tagline
     if (data.tagline) {
-      this.wordWrapText(40, 590, data.tagline, 12, this.colors.midText, 70)
+      this.wordWrapText(40, nameBottomY - 4, data.tagline, 12, this.colors.midText, 70)
     }
     
     // Big overall score
@@ -597,6 +602,108 @@ class PDFBuilder {
     this.text(40, 50, 'SOCooked Creative Management', 10, this.colors.midText, true)
     this.text(40, 36, 'This report was generated automatically using AI-powered analysis.', 8, this.colors.midText)
     this.rect(0, 0, this.pageWidth, 4, this.colors.accent)
+    
+    this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
+    
+    // ═══════════════════════════════════════════
+    // PAGE 6 — BEFORE & AFTER SHOWCASE
+    // ═══════════════════════════════════════════
+    this.currentStream = ''
+    
+    // Navy background
+    this.rect(0, 0, this.pageWidth, this.pageHeight, this.colors.navy)
+    this.rect(0, this.pageHeight - 8, this.pageWidth, 8, this.colors.accent)
+    
+    // Header
+    this.text(40, this.pageHeight - 50, 'WHAT THE FINISHED PRODUCT LOOKS LIKE', 16, this.colors.white, true)
+    this.text(40, this.pageHeight - 70, 'Real results from real clients — here\'s what we deliver.', 10, this.colors.midText)
+    
+    // Divider
+    this.line(40, this.pageHeight - 80, 555, this.pageHeight - 80, this.colors.accent, 2)
+    
+    y = this.pageHeight - 110
+    
+    // ── BEFORE column header ──
+    const colW = 240
+    const leftX = 40
+    const rightX = 320
+    
+    // BEFORE label
+    this.roundedRect(leftX, y, 80, 22, 6, this.colors.red)
+    this.text(leftX + 14, y + 6, 'BEFORE', 10, this.colors.white, true)
+    
+    // AFTER label
+    this.roundedRect(rightX, y, 70, 22, 6, this.colors.green)
+    this.text(rightX + 14, y + 6, 'AFTER', 10, this.colors.white, true)
+    
+    y -= 30
+    
+    // ── Example 1: Warren Guru ──
+    this.text(leftX, y, 'CASE STUDY: WARREN GURU', 11, this.colors.gold, true)
+    y -= 18
+    
+    // Before card
+    this.roundedRect(leftX, y - 130, colW, 130, 8, [0.1, 0.14, 0.22])
+    this.text(leftX + 12, y - 16, 'Outdated single-page site', 10, this.colors.red, true)
+    this.text(leftX + 12, y - 34, '- No clear call-to-action', 9, this.colors.midText)
+    this.text(leftX + 12, y - 50, '- Generic template design', 9, this.colors.midText)
+    this.text(leftX + 12, y - 66, '- No portfolio or social proof', 9, this.colors.midText)
+    this.text(leftX + 12, y - 82, '- Poor mobile experience', 9, this.colors.midText)
+    this.text(leftX + 12, y - 98, '- No booking system', 9, this.colors.midText)
+    this.text(leftX + 12, y - 116, 'Score: 35/100', 10, this.colors.red, true)
+    
+    // After card
+    this.roundedRect(rightX, y - 130, colW, 130, 8, [0.1, 0.14, 0.22])
+    this.text(rightX + 12, y - 16, 'Modern branded experience', 10, this.colors.green, true)
+    this.text(rightX + 12, y - 34, '+ Video-first landing page', 9, this.colors.midText)
+    this.text(rightX + 12, y - 50, '+ Custom branding & animations', 9, this.colors.midText)
+    this.text(rightX + 12, y - 66, '+ Full portfolio showcase', 9, this.colors.midText)
+    this.text(rightX + 12, y - 82, '+ Mobile-optimized design', 9, this.colors.midText)
+    this.text(rightX + 12, y - 98, '+ Integrated booking & CRM', 9, this.colors.midText)
+    this.text(rightX + 12, y - 116, 'Score: 94/100', 10, this.colors.green, true)
+    
+    // Arrow between
+    this.text(270, y - 65, '>>>', 18, this.colors.accent, true)
+    
+    y -= 165
+    
+    // ── Example 2: STU25 ──
+    this.text(leftX, y, 'CASE STUDY: STU25 CREATIVE', 11, this.colors.gold, true)
+    y -= 18
+    
+    // Before card
+    this.roundedRect(leftX, y - 130, colW, 130, 8, [0.1, 0.14, 0.22])
+    this.text(leftX + 12, y - 16, 'No web presence at all', 10, this.colors.red, true)
+    this.text(leftX + 12, y - 34, '- Instagram-only business', 9, this.colors.midText)
+    this.text(leftX + 12, y - 50, '- No website or landing page', 9, this.colors.midText)
+    this.text(leftX + 12, y - 66, '- Inconsistent brand identity', 9, this.colors.midText)
+    this.text(leftX + 12, y - 82, '- No automated workflows', 9, this.colors.midText)
+    this.text(leftX + 12, y - 98, '- Manual client management', 9, this.colors.midText)
+    this.text(leftX + 12, y - 116, 'Score: 20/100', 10, this.colors.red, true)
+    
+    // After card
+    this.roundedRect(rightX, y - 130, colW, 130, 8, [0.1, 0.14, 0.22])
+    this.text(rightX + 12, y - 16, 'Full digital ecosystem', 10, this.colors.green, true)
+    this.text(rightX + 12, y - 34, '+ 3D interactive brand site', 9, this.colors.midText)
+    this.text(rightX + 12, y - 50, '+ Client portal & uploads', 9, this.colors.midText)
+    this.text(rightX + 12, y - 66, '+ Cohesive brand identity', 9, this.colors.midText)
+    this.text(rightX + 12, y - 82, '+ Automated CRM & invoicing', 9, this.colors.midText)
+    this.text(rightX + 12, y - 98, '+ Social media management', 9, this.colors.midText)
+    this.text(rightX + 12, y - 116, 'Score: 97/100', 10, this.colors.green, true)
+    
+    // Arrow between
+    this.text(270, y - 65, '>>>', 18, this.colors.accent, true)
+    
+    y -= 165
+    
+    // Bottom CTA
+    this.roundedRect(40, y - 50, this.pageWidth - 80, 50, 8, this.colors.accent)
+    this.text(60, y - 18, 'Your business could be the next success story.', 13, this.colors.white, true)
+    this.text(60, y - 36, 'socooked.com  |  Let\'s build something incredible together.', 10, this.colors.white)
+    
+    // Footer
+    this.text(40, 50, 'SOCooked Creative Management', 8, this.colors.midText, true)
+    this.rect(0, 0, this.pageWidth, 3, this.colors.accent)
     
     this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
     
