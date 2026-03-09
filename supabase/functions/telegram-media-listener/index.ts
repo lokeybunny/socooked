@@ -83,6 +83,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'higs', description: '🎬 Higgsfield model list' },
     { command: 'cancel', description: '❌ Cancel active session' },
     { command: 'proposal', description: '📝 Create & send a proposal' },
+    { command: 'audit', description: '🔍 Audit a website + Instagram' },
     { command: 'gains', description: '⚡ Toggle TP10 gain alerts on/off' },
   ]
 
