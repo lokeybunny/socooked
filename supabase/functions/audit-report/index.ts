@@ -1195,11 +1195,8 @@ Deno.serve(async (req) => {
     const igData = igResult.status === 'fulfilled' ? igResult.value : null
 
     if (!websiteData && !igData) {
-      const errors = [
-        websiteResult.status === 'rejected' ? `Website: ${websiteResult.reason}` : '',
-        igResult.status === 'rejected' ? `IG: ${igResult.reason}` : '',
-      ].filter(Boolean).join('; ')
-      throw new Error(`Both scrapes failed: ${errors}`)
+      console.warn('[audit] Both scrapes failed — generating CRM-only audit')
+      // Proceed with empty data; the AI will produce findings based on the URL/handle alone
     }
 
     console.log('[audit] Scrape complete. Website:', !!websiteData, 'IG:', !!igData)
