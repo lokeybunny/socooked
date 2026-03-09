@@ -73,8 +73,91 @@ async function scrapeInstagram(handle: string): Promise<any> {
   }
 }
 
-// ─── Gemini: generate STRUCTURED JSON report ───
-async function generateAnalysis(websiteData: any, igData: any | null, websiteUrl: string, igHandle: string | null): Promise<any> {
+// ─── Apify: scrape Facebook page ───
+async function scrapeFacebook(fbUrl: string): Promise<any> {
+  const token = Deno.env.get('APIFY_TOKEN')
+  if (!token) throw new Error('APIFY_TOKEN not configured')
+
+  // Extract the page slug/ID from the URL
+  const cleanUrl = fbUrl.replace(/\/$/, '')
+
+  try {
+    const runRes = await fetch('https://api.apify.com/v2/acts/apify~facebook-pages-scraper/run-sync-get-dataset-items?token=' + token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startUrls: [{ url: cleanUrl }], resultsLimit: 1 }),
+      signal: AbortSignal.timeout(120000),
+    })
+
+    if (!runRes.ok) {
+      console.warn(`[audit] Facebook Apify scrape failed: ${runRes.status}, trying Firecrawl fallback...`)
+      return await scrapeFacebookFallback(cleanUrl)
+    }
+
+    const items = await runRes.json()
+    const page = items?.[0] || {}
+
+    return {
+      platform: 'facebook',
+      pageName: page.title || page.name || '',
+      pageUrl: cleanUrl,
+      likes: page.likes || page.likesCount || 0,
+      followers: page.followers || page.followersCount || 0,
+      about: page.about || page.description || page.info || '',
+      category: page.categories?.join(', ') || page.category || '',
+      rating: page.overallStarRating || null,
+      reviewCount: page.reviewsCount || 0,
+      isVerified: page.verified || page.isVerified || false,
+      profilePicUrl: page.profilePhoto || page.profilePicUrl || '',
+      address: page.address || '',
+      phone: page.phone || '',
+      website: page.website || '',
+      checkins: page.checkins || 0,
+    }
+  } catch (e) {
+    console.warn('[audit] Facebook Apify error, trying fallback:', e)
+    return await scrapeFacebookFallback(cleanUrl)
+  }
+}
+
+// Fallback: scrape Facebook page via Firecrawl for basic info
+async function scrapeFacebookFallback(fbUrl: string): Promise<any> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY')
+  if (!apiKey) return { platform: 'facebook', pageName: '', pageUrl: fbUrl, likes: 0, followers: 0, about: '' }
+
+  try {
+    const res = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: fbUrl, formats: ['markdown'], onlyMainContent: false, waitFor: 5000 }),
+      signal: AbortSignal.timeout(30000),
+    })
+    if (!res.ok) return { platform: 'facebook', pageName: '', pageUrl: fbUrl, likes: 0, followers: 0, about: '' }
+    const data = await res.json()
+    const md = data.data?.markdown || data.markdown || ''
+    const title = data.data?.metadata?.title || ''
+
+    // Try to extract follower/like counts from markdown text
+    const followersMatch = md.match(/([\d,]+)\s*followers/i)
+    const likesMatch = md.match(/([\d,]+)\s*likes/i)
+
+    return {
+      platform: 'facebook',
+      pageName: title.replace(/ \| Facebook$/i, '').replace(/ - Facebook$/i, ''),
+      pageUrl: fbUrl,
+      likes: likesMatch ? parseInt(likesMatch[1].replace(/,/g, '')) : 0,
+      followers: followersMatch ? parseInt(followersMatch[1].replace(/,/g, '')) : 0,
+      about: md.slice(0, 1000),
+      category: '',
+      rating: null,
+      reviewCount: 0,
+    }
+  } catch {
+    return { platform: 'facebook', pageName: '', pageUrl: fbUrl, likes: 0, followers: 0, about: '' }
+  }
+}
+
+async function generateAnalysis(websiteData: any, igData: any | null, fbData: any | null, websiteUrl: string, igHandle: string | null): Promise<any> {
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured')
 
@@ -102,6 +185,21 @@ Avg comments: ${igData.recentPosts.length > 0 ? Math.round(igData.recentPosts.re
 Engagement rate: ${igData.followersCount > 0 && igData.recentPosts.length > 0 ? ((igData.recentPosts.reduce((a: number, p: any) => a + p.likes + p.comments, 0) / igData.recentPosts.length / igData.followersCount) * 100).toFixed(2) : '0'}%
 ` : 'No Instagram data.'
 
+  const fbSection = fbData ? `
+FACEBOOK PAGE: ${fbData.pageName || fbData.pageUrl}
+URL: ${fbData.pageUrl}
+Likes: ${fbData.likes || 0}
+Followers: ${fbData.followers || 0}
+Category: ${fbData.category || 'N/A'}
+Rating: ${fbData.rating ? `${fbData.rating}/5 (${fbData.reviewCount} reviews)` : 'N/A'}
+Verified: ${fbData.isVerified || false}
+About: ${(fbData.about || '').slice(0, 500)}
+Address: ${fbData.address || 'N/A'}
+Phone: ${fbData.phone || 'N/A'}
+Website (from FB): ${fbData.website || 'N/A'}
+Check-ins: ${fbData.checkins || 0}
+` : 'No Facebook data.'
+
   const prompt = `Analyze this business's digital presence and return ONLY valid JSON (no markdown, no backticks). Keep language simple — a 10-year-old should understand every point. Use short sentences. Be specific and actionable.
 
 CRITICAL RULES — READ CAREFULLY:
@@ -115,6 +213,7 @@ CRITICAL RULES — READ CAREFULLY:
 
 ${websiteSection}
 ${igSection}
+${fbSection}
 
 Return this exact JSON structure:
 {
@@ -139,7 +238,7 @@ Return this exact JSON structure:
   "sources_evidence": [
     {
       "finding": "Short description of the finding or claim made in this report",
-      "data_source": "website_content | meta_tags | ig_profile | ig_stats | ig_posts | link_analysis | branding_data",
+      "data_source": "website_content | meta_tags | ig_profile | ig_stats | ig_posts | fb_page | fb_stats | fb_reviews | link_analysis | branding_data",
       "exact_evidence": "The exact text, number, or data point from the scraped data that supports this finding — quote it verbatim where possible"
     }
   ]
@@ -557,7 +656,7 @@ class PDFBuilder {
     }
   }
 
-  build(data: any, websiteUrl: string, igHandle: string | null): Uint8Array {
+  build(data: any, websiteUrl: string, igHandle: string | null, fbUrl: string | null = null): Uint8Array {
     // Reserve first objects for catalog, pages, fonts
     const catalogObj = this.allocObj() // 1
     const pagesObj = this.allocObj()   // 2
@@ -732,6 +831,40 @@ class PDFBuilder {
       this.text(startX + (cardW + 15) * 3 + 10, y - 18, 'Social Score', 8, this.colors.white, true)
       this.text(startX + (cardW + 15) * 3 + 10, y - 38, `${data.social_score || 0}/100`, 14, this.colors.white, true)
       
+      y -= cardH + 24
+    }
+
+    // Facebook stats cards (if FB data)
+    if (fbUrl && data._fb_pageName) {
+      y -= 6
+      this.roundedRect(40, y - 20, this.pageWidth - 80, 20, 4, this.colors.navy)
+      this.text(50, y - 14, `Facebook: ${data._fb_pageName}`, 10, this.colors.white, true)
+      y -= 32
+
+      const cardW = 110
+      const cardH = 55
+      const startX = 50
+
+      // Followers card
+      this.roundedRect(startX, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + 10, y - 18, 'Followers', 8, this.colors.midText, true)
+      this.text(startX + 10, y - 38, String(data._fb_followers || '0'), 16, this.colors.navy, true)
+
+      // Likes card
+      this.roundedRect(startX + cardW + 15, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + cardW + 25, y - 18, 'Page Likes', 8, this.colors.midText, true)
+      this.text(startX + cardW + 25, y - 38, String(data._fb_likes || '0'), 16, this.colors.navy, true)
+
+      // Rating card
+      this.roundedRect(startX + (cardW + 15) * 2, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + (cardW + 15) * 2 + 10, y - 18, 'Rating', 8, this.colors.midText, true)
+      this.text(startX + (cardW + 15) * 2 + 10, y - 38, data._fb_rating || 'N/A', 14, this.colors.navy, true)
+
+      // Reviews card
+      this.roundedRect(startX + (cardW + 15) * 3, y - cardH, cardW, cardH, 6, this.colors.lightGray)
+      this.text(startX + (cardW + 15) * 3 + 10, y - 18, 'Reviews', 8, this.colors.midText, true)
+      this.text(startX + (cardW + 15) * 3 + 10, y - 38, String(data._fb_reviews || '0'), 14, this.colors.navy, true)
+
       y -= cardH + 24
     }
     
@@ -997,6 +1130,7 @@ class PDFBuilder {
     const sources: string[] = []
     if (websiteUrl && websiteUrl !== 'N/A') sources.push(`Website scraped: ${websiteUrl}`)
     if (igHandle) sources.push(`Instagram profile: @${igHandle}`)
+    if (fbUrl) sources.push(`Facebook page: ${fbUrl}`)
     sources.push(`Report generated: ${new Date().toISOString().split('T')[0]}`)
     for (const s of sources) {
       this.text(55, y, s, 9, this.colors.darkText)
@@ -1202,10 +1336,10 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { website_url, ig_handle, customer_id, customer_name } = body
+    const { website_url, ig_handle, fb_url, customer_id, customer_name } = body
 
-    if (!website_url && !ig_handle) {
-      return new Response(JSON.stringify({ error: 'Provide at least a website_url or ig_handle' }), {
+    if (!website_url && !ig_handle && !fb_url) {
+      return new Response(JSON.stringify({ error: 'Provide at least a website_url, ig_handle, or fb_url' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -1213,25 +1347,27 @@ Deno.serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     // Scrape in parallel
-    const [websiteResult, igResult] = await Promise.allSettled([
+    const [websiteResult, igResult, fbResult] = await Promise.allSettled([
       website_url ? scrapeWebsite(website_url) : Promise.resolve(null),
       ig_handle ? scrapeInstagram(ig_handle) : Promise.resolve(null),
+      fb_url ? scrapeFacebook(fb_url) : Promise.resolve(null),
     ])
 
     const websiteData = websiteResult.status === 'fulfilled' ? websiteResult.value : null
     const igData = igResult.status === 'fulfilled' ? igResult.value : null
+    const fbData = fbResult.status === 'fulfilled' ? fbResult.value : null
 
-    if (!websiteData && !igData) {
-      console.warn('[audit] Both scrapes failed — generating CRM-only audit')
-      // Proceed with empty data; the AI will produce findings based on the URL/handle alone
+    if (!websiteData && !igData && !fbData) {
+      console.warn('[audit] All scrapes failed — generating CRM-only audit')
     }
 
-    console.log('[audit] Scrape complete. Website:', !!websiteData, 'IG:', !!igData)
+    console.log('[audit] Scrape complete. Website:', !!websiteData, 'IG:', !!igData, 'FB:', !!fbData)
 
     // Generate structured AI analysis
     const analysis = await generateAnalysis(
       websiteData || { markdown: '', metadata: {}, links: [], branding: null },
       igData,
+      fbData,
       website_url || 'N/A',
       ig_handle || null,
     )
@@ -1243,6 +1379,16 @@ Deno.serve(async (req) => {
       analysis._ig_engagement = igData.followersCount > 0 && igData.recentPosts?.length > 0
         ? ((igData.recentPosts.reduce((a: number, p: any) => a + p.likes + p.comments, 0) / igData.recentPosts.length / igData.followersCount) * 100).toFixed(2) + '%'
         : 'N/A'
+    }
+
+    // Inject raw FB stats into analysis for PDF
+    if (fbData) {
+      analysis._fb_pageName = fbData.pageName || ''
+      analysis._fb_followers = (fbData.followers || 0).toLocaleString()
+      analysis._fb_likes = (fbData.likes || 0).toLocaleString()
+      analysis._fb_rating = fbData.rating ? `${fbData.rating}/5` : 'N/A'
+      analysis._fb_reviews = (fbData.reviewCount || 0).toLocaleString()
+      analysis._fb_url = fbData.pageUrl || fb_url || ''
     }
 
     console.log('[audit] AI analysis complete')
@@ -1329,7 +1475,7 @@ Deno.serve(async (req) => {
     }
 
     // Generate visual PDF
-    const pdfBytes = builder.build(analysis, website_url || 'N/A', ig_handle || null)
+    const pdfBytes = builder.build(analysis, website_url || 'N/A', ig_handle || null, fb_url || null)
 
     // Upload PDF
     const fileName = `audit-${(ig_handle || website_url || 'report').replace(/[^a-zA-Z0-9]/g, '_')}-${Date.now()}.pdf`
@@ -1383,6 +1529,7 @@ Deno.serve(async (req) => {
       pdf_url: publicUrl?.publicUrl || '',
       website_scraped: !!websiteData,
       ig_scraped: !!igData,
+      fb_scraped: !!fbData,
       scores: {
         overall: analysis.overall_score,
         website: analysis.website_score,

@@ -340,9 +340,10 @@ export default function PhonePage() {
         } catch { /* invalid URL, keep as-is */ }
       }
 
-      // Step 3: If website found but no IG, try to find IG from website scrape (links + HTML)
-      if (website && !igHandle) {
-        toast.info('Checking website for Instagram link...');
+      // Step 3: If website found, scrape it for social links (IG + Facebook)
+      let fbUrl: string | null = null;
+      if (website && (!igHandle || !fbUrl)) {
+        toast.info('Checking website for social media links...');
         try {
           const scrapeRes = await fetch(
             `https://${projectId}.supabase.co/functions/v1/firecrawl-scrape`,
@@ -366,16 +367,29 @@ export default function PhonePage() {
               return null;
             };
 
-            // 1) Check extracted links array
+            // Helper to extract Facebook page URL
+            const extractFbUrl = (url: string): string | null => {
+              const match = url.match(/(facebook\.com\/[A-Za-z0-9._-]+)/);
+              if (match) {
+                const slug = match[1].split('/')[1]?.toLowerCase();
+                const reserved = ['sharer', 'share', 'dialog', 'login', 'help', 'policies', 'settings', 'events', 'groups', 'marketplace', 'watch', 'gaming', 'fundraisers', 'pages', 'ads', 'business', 'privacy', 'terms'];
+                if (slug && !reserved.includes(slug)) return `https://www.${match[1]}`;
+              }
+              return null;
+            };
+
             const links: string[] = scrapeData?.data?.links || scrapeData?.links || [];
+            const html: string = scrapeData?.data?.html || scrapeData?.html || '';
+
+            // Search links array for IG and FB
             for (const l of links) {
-              const h = extractIgHandle(l);
-              if (h) { igHandle = h; break; }
+              if (!igHandle) { const h = extractIgHandle(l); if (h) igHandle = h; }
+              if (!fbUrl) { const f = extractFbUrl(l); if (f) fbUrl = f; }
+              if (igHandle && fbUrl) break;
             }
 
-            // 2) If still not found, parse the full HTML for instagram.com hrefs
+            // Fallback: parse HTML for IG
             if (!igHandle) {
-              const html: string = scrapeData?.data?.html || scrapeData?.html || '';
               const hrefRegex = /href=["']([^"']*instagram\.com\/[A-Za-z0-9._]+[^"']*?)["']/gi;
               let hrefMatch;
               while ((hrefMatch = hrefRegex.exec(html)) !== null) {
@@ -383,17 +397,27 @@ export default function PhonePage() {
                 if (h) { igHandle = h; break; }
               }
             }
+
+            // Fallback: parse HTML for Facebook
+            if (!fbUrl) {
+              const fbRegex = /href=["']([^"']*facebook\.com\/[A-Za-z0-9._-]+[^"']*?)["']/gi;
+              let fbMatch;
+              while ((fbMatch = fbRegex.exec(html)) !== null) {
+                const f = extractFbUrl(fbMatch[1]);
+                if (f) { fbUrl = f; break; }
+              }
+            }
           }
         } catch (e) {
-          console.error('Scrape for IG error:', e);
+          console.error('Scrape for social links error:', e);
         }
       }
 
       // Step 4: If IG found but no website, try to get website from IG external URL (handled by audit-report internally)
 
       // Save discovered data to CRM
-      if (website || igHandle) {
-        const updatedMeta = { ...metaObj, ...(website ? { website } : {}), ...(igHandle ? { instagram: igHandle } : {}) };
+      if (website || igHandle || fbUrl) {
+        const updatedMeta = { ...metaObj, ...(website ? { website } : {}), ...(igHandle ? { instagram: igHandle } : {}), ...(fbUrl ? { facebook: fbUrl } : {}) };
         await supabase.from('customers').update({
           meta: updatedMeta,
           ...(igHandle ? { instagram_handle: igHandle } : {}),
@@ -401,14 +425,14 @@ export default function PhonePage() {
         setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, meta: updatedMeta, instagram_handle: igHandle || l.instagram_handle } : l));
       }
 
-      if (!website && !igHandle) {
-        toast.error('Could not find any website or Instagram for this lead. Try adding them manually.');
+      if (!website && !igHandle && !fbUrl) {
+        toast.error('Could not find any website, Instagram, or Facebook for this lead. Try adding them manually.');
         setAnalyzeResult({ leadId: lead.id });
         return;
       }
 
       // Step 5: Run the full audit
-      toast.info(`Running full digital audit${website ? ` on ${website}` : ''}${igHandle ? ` + @${igHandle}` : ''}...`, { duration: 10000 });
+      toast.info(`Running full digital audit${website ? ` on ${website}` : ''}${igHandle ? ` + @${igHandle}` : ''}${fbUrl ? ` + Facebook` : ''}...`, { duration: 10000 });
 
       const auditRes = await fetch(
         `https://${projectId}.supabase.co/functions/v1/audit-report`,
@@ -418,6 +442,7 @@ export default function PhonePage() {
           body: JSON.stringify({
             website_url: website || null,
             ig_handle: igHandle || null,
+            fb_url: fbUrl || null,
             customer_id: lead.id,
             customer_name: lead.full_name,
           }),
