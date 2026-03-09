@@ -31,6 +31,7 @@ export default function PhonePage() {
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<any[]>([]);
   const [leadsCategoryFilter, setLeadsCategoryFilter] = useState<string>('all');
+  const [areaCodeFilter, setAreaCodeFilter] = useState<string>('');
   const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
   const [transcriptionsOpen, setTranscriptionsOpen] = useState(false);
 
@@ -255,9 +256,20 @@ export default function PhonePage() {
   };
 
   const filteredLeads = useMemo(() => {
-    if (leadsCategoryFilter === 'all') return leads;
-    return leads.filter(l => (l.category || 'other') === leadsCategoryFilter);
-  }, [leads, leadsCategoryFilter]);
+    let result = leads;
+    if (leadsCategoryFilter !== 'all') {
+      result = result.filter(l => (l.category || 'other') === leadsCategoryFilter);
+    }
+    if (areaCodeFilter.length === 3) {
+      result = result.filter(l => {
+        const phone = (l.phone || '').replace(/\D/g, '');
+        // Handle both 10-digit and 11-digit (1+10) US numbers
+        const areaCode = phone.length === 11 && phone.startsWith('1') ? phone.substring(1, 4) : phone.substring(0, 3);
+        return areaCode === areaCodeFilter;
+      });
+    }
+    return result;
+  }, [leads, leadsCategoryFilter, areaCodeFilter]);
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
 
@@ -983,10 +995,25 @@ export default function PhonePage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="w-24">
+                    <Input
+                      placeholder="Area code"
+                      maxLength={3}
+                      value={areaCodeFilter}
+                      onChange={e => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 3);
+                        setAreaCodeFilter(v);
+                        setCurrentLeadIndex(0);
+                        setAnalyzeResult(null);
+                      }}
+                      className="h-8 text-xs text-center font-mono tracking-widest"
+                    />
+                  </div>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
                 SpaceBot-sourced leads — one at a time. Copy phone → dial → transcribe → promote.
+                {areaCodeFilter.length === 3 && <span className="ml-1 text-primary font-medium">· Filtered by ({areaCodeFilter})</span>}
               </p>
 
               {!currentLead ? (
