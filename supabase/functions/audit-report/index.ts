@@ -1019,10 +1019,15 @@ class PDFBuilder {
       }
     }
     
-    // Add page objects
+    // Add page objects (skip image XObjects — already added above)
+    const imageObjNums = new Set([...this.imageObjects.values()].map(i => i.objNum))
     for (const obj of this.objects) {
       const numMatch = obj.match(/^(\d+) 0 obj/)
-      if (numMatch) allObjects.push({ num: parseInt(numMatch[1]), content: obj })
+      if (numMatch) {
+        const objNum = parseInt(numMatch[1])
+        if (imageObjNums.has(objNum)) continue // skip duplicate image headers
+        allObjects.push({ num: objNum, content: obj })
+      }
     }
     
     // Sort by object number
