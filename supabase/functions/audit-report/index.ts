@@ -747,10 +747,22 @@ class PDFBuilder {
     y = this.sectionHeader(y, 'Quick Wins (This Week)', '>')
     const qwins = data.quick_wins || []
     for (let i = 0; i < qwins.length; i++) {
+      const qItem = qwins[i]
+      const qText = typeof qItem === 'object' ? qItem.text : qItem
+      const qConf = typeof qItem === 'object' ? qItem.confidence : undefined
       // Number badge
       this.circle(58, y + 4, 8, this.colors.accent)
       this.text(55, y, `${i + 1}`, 9, this.colors.white, true)
-      y = this.wordWrapText(74, y, qwins[i], 9, this.colors.darkText, 72) - 6
+      // Confidence badge
+      if (qConf) {
+        const badgeColor = qConf === 'high' ? this.colors.green : qConf === 'medium' ? this.colors.gold : this.colors.midText
+        const badgeLabel = qConf.toUpperCase()
+        const badgeW = badgeLabel.length * 5 + 12
+        const badgeX = this.pageWidth - 40 - badgeW
+        this.roundedRect(badgeX, y - 1, badgeW, 13, 4, badgeColor)
+        this.text(badgeX + 6, y + 1, badgeLabel, 6.5, this.colors.white, true)
+      }
+      y = this.wordWrapText(74, y, qText, 9, this.colors.darkText, 65) - 6
       if (y < 250) break
     }
     
