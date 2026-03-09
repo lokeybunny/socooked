@@ -820,6 +820,11 @@ export default function PhonePage() {
                               <button onClick={() => handleLeadDoubleClick(lead)} className="text-base font-semibold text-primary hover:underline truncate cursor-pointer text-left">{lead.full_name}</button>
                               {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy</Badge>}
                               {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">Call Back</Badge>}
+                              {(typeof lead.meta === 'object' && lead.meta?.analyzed) && (
+                                <Badge variant="outline" className="text-[9px] h-4 border-green-500/40 text-green-600 gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleSendReport(lead); }}>
+                                  <Check className="h-2.5 w-2.5" /> Audited
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                               {lead.company && <span>{lead.company}</span>}
