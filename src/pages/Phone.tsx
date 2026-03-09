@@ -123,7 +123,40 @@ export default function PhonePage() {
 
   const handleLeadDoubleClick = async (lead: any) => {
     setLeadDetail(lead);
+    setLeadEditForm({
+      full_name: lead.full_name || '',
+      email: lead.email || '',
+      phone: lead.phone || '',
+      company: lead.company || '',
+      address: lead.address || '',
+      source: lead.source || '',
+      instagram_handle: lead.instagram_handle || '',
+      notes: lead.notes || '',
+      tags: Array.isArray(lead.tags) ? lead.tags.join(', ') : '',
+    });
     setLeadDetailOpen(true);
+  };
+
+  const handleLeadDetailSave = async () => {
+    if (!leadDetail) return;
+    setLeadSaving(true);
+    const payload = {
+      full_name: leadEditForm.full_name,
+      email: leadEditForm.email || null,
+      phone: leadEditForm.phone || null,
+      company: leadEditForm.company || null,
+      address: leadEditForm.address || null,
+      source: leadEditForm.source || null,
+      instagram_handle: leadEditForm.instagram_handle || null,
+      notes: leadEditForm.notes || null,
+      tags: leadEditForm.tags ? leadEditForm.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+    };
+    const { error } = await supabase.from('customers').update(payload).eq('id', leadDetail.id);
+    setLeadSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Lead updated');
+    setLeadDetailOpen(false);
+    loadData();
   };
 
   const handleLeadStatus = async (leadId: string, leadName: string, action: 'busy' | 'not_interested' | 'call_back') => {
