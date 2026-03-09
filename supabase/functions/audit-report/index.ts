@@ -1301,10 +1301,10 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { website_url, ig_handle, customer_id, customer_name } = body
+    const { website_url, ig_handle, fb_url, customer_id, customer_name } = body
 
-    if (!website_url && !ig_handle) {
-      return new Response(JSON.stringify({ error: 'Provide at least a website_url or ig_handle' }), {
+    if (!website_url && !ig_handle && !fb_url) {
+      return new Response(JSON.stringify({ error: 'Provide at least a website_url, ig_handle, or fb_url' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -1312,25 +1312,27 @@ Deno.serve(async (req) => {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
     // Scrape in parallel
-    const [websiteResult, igResult] = await Promise.allSettled([
+    const [websiteResult, igResult, fbResult] = await Promise.allSettled([
       website_url ? scrapeWebsite(website_url) : Promise.resolve(null),
       ig_handle ? scrapeInstagram(ig_handle) : Promise.resolve(null),
+      fb_url ? scrapeFacebook(fb_url) : Promise.resolve(null),
     ])
 
     const websiteData = websiteResult.status === 'fulfilled' ? websiteResult.value : null
     const igData = igResult.status === 'fulfilled' ? igResult.value : null
+    const fbData = fbResult.status === 'fulfilled' ? fbResult.value : null
 
-    if (!websiteData && !igData) {
-      console.warn('[audit] Both scrapes failed — generating CRM-only audit')
-      // Proceed with empty data; the AI will produce findings based on the URL/handle alone
+    if (!websiteData && !igData && !fbData) {
+      console.warn('[audit] All scrapes failed — generating CRM-only audit')
     }
 
-    console.log('[audit] Scrape complete. Website:', !!websiteData, 'IG:', !!igData)
+    console.log('[audit] Scrape complete. Website:', !!websiteData, 'IG:', !!igData, 'FB:', !!fbData)
 
     // Generate structured AI analysis
     const analysis = await generateAnalysis(
       websiteData || { markdown: '', metadata: {}, links: [], branding: null },
       igData,
+      fbData,
       website_url || 'N/A',
       ig_handle || null,
     )
@@ -1342,6 +1344,16 @@ Deno.serve(async (req) => {
       analysis._ig_engagement = igData.followersCount > 0 && igData.recentPosts?.length > 0
         ? ((igData.recentPosts.reduce((a: number, p: any) => a + p.likes + p.comments, 0) / igData.recentPosts.length / igData.followersCount) * 100).toFixed(2) + '%'
         : 'N/A'
+    }
+
+    // Inject raw FB stats into analysis for PDF
+    if (fbData) {
+      analysis._fb_pageName = fbData.pageName || ''
+      analysis._fb_followers = (fbData.followers || 0).toLocaleString()
+      analysis._fb_likes = (fbData.likes || 0).toLocaleString()
+      analysis._fb_rating = fbData.rating ? `${fbData.rating}/5` : 'N/A'
+      analysis._fb_reviews = (fbData.reviewCount || 0).toLocaleString()
+      analysis._fb_url = fbData.pageUrl || fb_url || ''
     }
 
     console.log('[audit] AI analysis complete')
