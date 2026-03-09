@@ -1136,7 +1136,7 @@ Deno.serve(async (req) => {
           const isJpeg = igPicBytes[0] === 0xFF && igPicBytes[1] === 0xD8
           const isPng = igPicBytes[0] === 0x89 && igPicBytes[1] === 0x50
           if (isJpeg || isPng) {
-            builder.registerImage('instagram', igPicBytes, 320, 320)
+            await builder.registerImage('instagram', igPicBytes, 320, 320)
             console.log(`[audit] IG profile pic registered (${isJpeg ? 'JPEG' : 'PNG'})`)
           } else {
             console.log('[audit] IG profile pic format not recognized, skipping')
