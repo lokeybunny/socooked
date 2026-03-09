@@ -327,6 +327,29 @@ class PDFBuilder {
     return lineY
   }
 
+  // Register a JPEG image and return its reference name
+  registerImage(name: string, jpegBytes: Uint8Array, width: number, height: number) {
+    const objNum = this.allocObj()
+    // Create image XObject
+    const hexStream = Array.from(jpegBytes).map(b => b.toString(16).padStart(2, '0')).join('')
+    this.objects.push(
+      `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
+    )
+    // We need to handle binary data specially — store raw bytes reference
+    this.imageObjects.set(name, { objNum, width, height })
+    // Store raw bytes for later assembly
+    ;(this as any)[`_imgBytes_${name}`] = jpegBytes
+  }
+
+  // Place a registered image on the current page
+  private placeImage(name: string, x: number, y: number, displayW: number, displayH: number) {
+    if (!this.imageObjects.has(name)) return
+    this.currentStream += `q\n${displayW} 0 0 ${displayH} ${x} ${y} cm\n/Img_${name} Do\nQ\n`
+    if (!this.currentPageImageRefs.includes(name)) {
+      this.currentPageImageRefs.push(name)
+    }
+  }
+
   build(data: any, websiteUrl: string, igHandle: string | null): Uint8Array {
     // Reserve first objects for catalog, pages, fonts
     const catalogObj = this.allocObj() // 1
