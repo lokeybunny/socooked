@@ -935,8 +935,65 @@ Deno.serve(async (req) => {
 
     console.log('[audit] AI analysis complete')
 
-    // Generate visual PDF
+    // Fetch images for PDF embedding
     const builder = new PDFBuilder()
+    
+    // Website screenshot from Firecrawl (base64 PNG → we need JPEG)
+    if (websiteData?.screenshot) {
+      try {
+        console.log('[audit] Processing website screenshot...')
+        // Firecrawl returns a base64 data URL or URL to screenshot
+        let screenshotBytes: Uint8Array | null = null
+        const ss = websiteData.screenshot
+        
+        if (ss.startsWith('data:image/')) {
+          // Base64 data URL
+          const b64 = ss.split(',')[1]
+          const raw = atob(b64)
+          screenshotBytes = new Uint8Array(raw.length)
+          for (let i = 0; i < raw.length; i++) screenshotBytes[i] = raw.charCodeAt(i)
+        } else if (ss.startsWith('http')) {
+          // URL — fetch it
+          const imgRes = await fetch(ss)
+          if (imgRes.ok) screenshotBytes = new Uint8Array(await imgRes.arrayBuffer())
+        }
+        
+        if (screenshotBytes && screenshotBytes.length > 0) {
+          // Check if it's JPEG (starts with FF D8)
+          const isJpeg = screenshotBytes[0] === 0xFF && screenshotBytes[1] === 0xD8
+          if (isJpeg) {
+            // Use as-is — estimate dimensions from typical screenshot
+            builder.registerImage('website', screenshotBytes, 1280, 800)
+            console.log('[audit] Website screenshot registered (JPEG)')
+          } else {
+            // PNG or other format — skip for now (PDF DCTDecode only supports JPEG)
+            console.log('[audit] Website screenshot is not JPEG, skipping embed')
+          }
+        }
+      } catch (e) {
+        console.error('[audit] Screenshot processing error:', e)
+      }
+    }
+    
+    // Instagram profile picture
+    if (igData?.profilePicUrl) {
+      try {
+        console.log('[audit] Fetching IG profile pic...')
+        const igPicRes = await fetch(igData.profilePicUrl)
+        if (igPicRes.ok) {
+          const igPicBytes = new Uint8Array(await igPicRes.arrayBuffer())
+          const isJpeg = igPicBytes[0] === 0xFF && igPicBytes[1] === 0xD8
+          if (isJpeg) {
+            builder.registerImage('instagram', igPicBytes, 320, 320)
+            console.log('[audit] IG profile pic registered (JPEG)')
+          }
+        }
+      } catch (e) {
+        console.error('[audit] IG pic fetch error:', e)
+      }
+    }
+
+    // Generate visual PDF
     const pdfBytes = builder.build(analysis, website_url || 'N/A', ig_handle || null)
 
     // Upload PDF
