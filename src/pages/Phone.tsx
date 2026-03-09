@@ -477,7 +477,13 @@ export default function PhonePage() {
     }
   };
 
-  // Filter transcriptions by search query
+  const handleNextLead = () => {
+    if (filteredLeads.length <= 1) return;
+    const randomOffset = Math.floor(Math.random() * (filteredLeads.length - 1)) + 1;
+    setCurrentLeadIndex(prev => (prev + randomOffset) % filteredLeads.length);
+    setAnalyzeResult(null);
+  };
+
   const filteredTranscriptions = useMemo(() => {
     if (!searchQuery.trim()) return transcriptions;
     const q = searchQuery.toLowerCase();
