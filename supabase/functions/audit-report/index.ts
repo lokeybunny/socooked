@@ -293,15 +293,16 @@ class PDFBuilder {
     this.currentStream += `f\n`
   }
 
-  private scoreBar(x: number, y: number, w: number, h: number, score: number, label: string) {
+  private scoreBar(x: number, y: number, w: number, h: number, score: number, label: string, darkBg = false) {
     // Background bar
-    this.roundedRect(x, y, w, h, 4, this.colors.lightGray)
+    this.roundedRect(x, y, w, h, 4, darkBg ? [0.15, 0.19, 0.28] : this.colors.lightGray)
     // Filled portion
     const fillW = Math.max(8, (score / 100) * w)
     const barColor = score >= 70 ? this.colors.green : score >= 40 ? this.colors.orange : this.colors.red
     this.roundedRect(x, y, fillW, h, 4, barColor)
     // Label
-    this.text(x, y + h + 6, label, 9, this.colors.darkText, true)
+    const labelColor = darkBg ? this.colors.white : this.colors.darkText
+    this.text(x, y + h + 6, label, 9, labelColor, true)
     // Score
     this.text(x + w - 20, y + h + 6, `${score}`, 9, barColor, true)
   }
@@ -609,10 +610,10 @@ class PDFBuilder {
     
     // Score bars on cover
     const barY = 310
-    this.scoreBar(80, barY, 180, 10, data.website_score || 0, 'Website')
-    this.scoreBar(80, barY - 36, 180, 10, data.seo_score || 0, 'SEO')
-    this.scoreBar(330, barY, 180, 10, data.social_score || 0, 'Social Media')
-    this.scoreBar(330, barY - 36, 180, 10, data.branding_score || 0, 'Branding')
+    this.scoreBar(80, barY, 180, 10, data.website_score || 0, 'Website', true)
+    this.scoreBar(80, barY - 36, 180, 10, data.seo_score || 0, 'SEO', true)
+    this.scoreBar(330, barY, 180, 10, data.social_score || 0, 'Social Media', true)
+    this.scoreBar(330, barY - 36, 180, 10, data.branding_score || 0, 'Branding', true)
     
     // Footer
     this.text(40, 50, 'Warren Guru Creative Management / STU25', 10, this.colors.midText, true)
@@ -1249,23 +1250,45 @@ Deno.serve(async (req) => {
     // Fetch images for PDF embedding
     const builder = new PDFBuilder()
     
-    // Website screenshot from Firecrawl (base64 PNG → we need JPEG)
-    if (websiteData?.screenshot) {
+    // Website screenshot from Firecrawl
+    const screenshotSource = websiteData?.screenshot
+    // If main scrape didn't include a screenshot, try a dedicated screenshot-only scrape
+    let screenshotToProcess = screenshotSource
+    if (!screenshotToProcess && website_url) {
+      try {
+        console.log('[audit] No screenshot from main scrape, trying dedicated screenshot scrape...')
+        const ssApiKey = Deno.env.get('FIRECRAWL_API_KEY')
+        if (ssApiKey) {
+          const ssRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${ssApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: website_url, formats: ['screenshot'], waitFor: 10000 }),
+            signal: AbortSignal.timeout(30000),
+          })
+          if (ssRes.ok) {
+            const ssData = await ssRes.json()
+            screenshotToProcess = ssData.data?.screenshot || ssData.screenshot || null
+            if (screenshotToProcess) console.log('[audit] Got screenshot from dedicated scrape')
+          }
+        }
+      } catch (e) {
+        console.error('[audit] Dedicated screenshot scrape failed:', e)
+      }
+    }
+
+    if (screenshotToProcess) {
       try {
         console.log('[audit] Processing website screenshot...')
-        // Firecrawl returns a base64 data URL or URL to screenshot
         let screenshotBytes: Uint8Array | null = null
-        const ss = websiteData.screenshot
+        const ss = screenshotToProcess
         
         if (ss.startsWith('data:image/')) {
-          // Base64 data URL
           const b64 = ss.split(',')[1]
           const raw = atob(b64)
           screenshotBytes = new Uint8Array(raw.length)
           for (let i = 0; i < raw.length; i++) screenshotBytes[i] = raw.charCodeAt(i)
         } else if (ss.startsWith('http')) {
-          // URL — fetch it
-          const imgRes = await fetch(ss)
+          const imgRes = await fetch(ss, { signal: AbortSignal.timeout(15000) })
           if (imgRes.ok) screenshotBytes = new Uint8Array(await imgRes.arrayBuffer())
         }
         
