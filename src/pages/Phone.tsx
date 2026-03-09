@@ -301,7 +301,7 @@ export default function PhonePage() {
         }
       }
 
-      // Step 3: If website found but no IG, try to find IG from website links
+      // Step 3: If website found but no IG, try to find IG from website scrape (links + HTML)
       if (website && !igHandle) {
         toast.info('Checking website for Instagram link...');
         try {
@@ -310,17 +310,38 @@ export default function PhonePage() {
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-              body: JSON.stringify({ url: website, options: { formats: ['links'], onlyMainContent: false } }),
+              body: JSON.stringify({ url: website, options: { formats: ['links', 'html'], onlyMainContent: false, waitFor: 5000 } }),
             }
           );
           if (scrapeRes.ok) {
             const scrapeData = await scrapeRes.json();
-            const links = scrapeData?.data?.links || scrapeData?.links || [];
-            const igLink = links.find((l: string) => l.includes('instagram.com/'));
-            if (igLink) {
-              const match = igLink.match(/instagram\.com\/([^/?#]+)/);
-              if (match && match[1] !== 'p' && match[1] !== 'reel' && match[1] !== 'explore') {
-                igHandle = match[1];
+
+            // Helper to extract IG handle from a URL string
+            const extractIgHandle = (url: string): string | null => {
+              const match = url.match(/instagram\.com\/([A-Za-z0-9._]+)/);
+              if (match) {
+                const handle = match[1].toLowerCase();
+                const reserved = ['p', 'reel', 'reels', 'explore', 'stories', 'accounts', 'directory', 'about', 'developer', 'legal', 'api', 'static', 'direct', 'tv'];
+                if (!reserved.includes(handle)) return match[1];
+              }
+              return null;
+            };
+
+            // 1) Check extracted links array
+            const links: string[] = scrapeData?.data?.links || scrapeData?.links || [];
+            for (const l of links) {
+              const h = extractIgHandle(l);
+              if (h) { igHandle = h; break; }
+            }
+
+            // 2) If still not found, parse the full HTML for instagram.com hrefs
+            if (!igHandle) {
+              const html: string = scrapeData?.data?.html || scrapeData?.html || '';
+              const hrefRegex = /href=["']([^"']*instagram\.com\/[A-Za-z0-9._]+[^"']*?)["']/gi;
+              let hrefMatch;
+              while ((hrefMatch = hrefRegex.exec(html)) !== null) {
+                const h = extractIgHandle(hrefMatch[1]);
+                if (h) { igHandle = h; break; }
               }
             }
           }
