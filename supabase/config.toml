@@ -116,3 +116,6 @@ verify_jwt = false
 
 [functions.vanity-claim]
 verify_jwt = false
+
+[functions.audit-report]
+verify_jwt = false
