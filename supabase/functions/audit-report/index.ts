@@ -327,18 +327,63 @@ class PDFBuilder {
     return lineY
   }
 
-  // Register a JPEG image and return its reference name
-  registerImage(name: string, jpegBytes: Uint8Array, width: number, height: number) {
+  // Register an image (JPEG or PNG) for embedding
+  registerImage(name: string, imgBytes: Uint8Array, width: number, height: number) {
     const objNum = this.allocObj()
-    // Create image XObject
-    const hexStream = Array.from(jpegBytes).map(b => b.toString(16).padStart(2, '0')).join('')
-    this.objects.push(
-      `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`
-    )
-    // We need to handle binary data specially — store raw bytes reference
+    const isJpeg = imgBytes[0] === 0xFF && imgBytes[1] === 0xD8
+    
+    if (isJpeg) {
+      this.objects.push(
+        `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`
+      )
+      ;(this as any)[`_imgBytes_${name}`] = imgBytes
+    } else {
+      // PNG — embed as FlateDecode with raw compressed data
+      // For PNG we use the original compressed data with FlateDecode + DecodeParms for PNG prediction
+      // Extract IDAT chunks from PNG
+      const idatChunks: Uint8Array[] = []
+      let pngWidth = width, pngHeight = height, bitDepth = 8, colorType = 2
+      let offset = 8 // skip PNG signature
+      while (offset < imgBytes.length) {
+        const len = (imgBytes[offset] << 24) | (imgBytes[offset+1] << 16) | (imgBytes[offset+2] << 8) | imgBytes[offset+3]
+        const type = String.fromCharCode(imgBytes[offset+4], imgBytes[offset+5], imgBytes[offset+6], imgBytes[offset+7])
+        if (type === 'IHDR') {
+          pngWidth = (imgBytes[offset+8] << 24) | (imgBytes[offset+9] << 16) | (imgBytes[offset+10] << 8) | imgBytes[offset+11]
+          pngHeight = (imgBytes[offset+12] << 24) | (imgBytes[offset+13] << 16) | (imgBytes[offset+14] << 8) | imgBytes[offset+15]
+          bitDepth = imgBytes[offset+16]
+          colorType = imgBytes[offset+17]
+        } else if (type === 'IDAT') {
+          idatChunks.push(imgBytes.slice(offset + 8, offset + 8 + len))
+        } else if (type === 'IEND') break
+        offset += 12 + len // 4 len + 4 type + data + 4 crc
+      }
+      
+      // Concatenate all IDAT chunks (this is raw zlib/deflate data)
+      let totalIdatLen = 0
+      for (const c of idatChunks) totalIdatLen += c.length
+      const idatData = new Uint8Array(totalIdatLen)
+      let pos = 0
+      for (const c of idatChunks) { idatData.set(c, pos); pos += c.length }
+      
+      // Determine colors per pixel
+      const colors = colorType === 6 ? 4 : colorType === 2 ? 3 : colorType === 4 ? 2 : 1
+      const hasAlpha = colorType === 4 || colorType === 6
+      const colorSpace = '/DeviceRGB'
+      const bpc = bitDepth
+      const columns = pngWidth
+      
+      // Use PNG predictor in PDF to handle filter bytes
+      const decodeParms = `/DecodeParms << /Predictor 15 /Colors ${colors} /BitsPerComponent ${bpc} /Columns ${columns} >>`
+      
+      this.objects.push(
+        `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pngWidth} /Height ${pngHeight} /ColorSpace ${colorSpace} /BitsPerComponent ${bpc} /Filter /FlateDecode ${decodeParms} /Length ${idatData.length} >>\nstream\n`
+      )
+      ;(this as any)[`_imgBytes_${name}`] = idatData
+      width = pngWidth
+      height = pngHeight
+    }
+    
     this.imageObjects.set(name, { objNum, width, height })
-    // Store raw bytes for later assembly
-    ;(this as any)[`_imgBytes_${name}`] = jpegBytes
   }
 
   // Place a registered image on the current page
