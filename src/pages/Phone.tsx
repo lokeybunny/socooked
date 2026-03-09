@@ -860,7 +860,7 @@ export default function PhonePage() {
                         {analyzeResult && analyzeResult.leadId === lead.id && (
                           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
                             <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                              <Globe className="h-3.5 w-3.5 text-primary" /> Web Presence
+                              <Globe className="h-3.5 w-3.5 text-primary" /> Audit Results
                             </p>
                             {analyzeResult.website && (
                               <a href={analyzeResult.website.startsWith('http') ? analyzeResult.website : `https://${analyzeResult.website}`} target="_blank" rel="noopener noreferrer"
@@ -876,9 +876,62 @@ export default function PhonePage() {
                                 @{analyzeResult.instagram.replace('@', '')}
                               </a>
                             )}
+                            {analyzeResult.scores && (
+                              <div className="flex items-center gap-3 pt-1">
+                                <Badge variant="secondary" className="text-[10px]">Overall: {analyzeResult.scores.overall}/100</Badge>
+                                <Badge variant="secondary" className="text-[10px]">Website: {analyzeResult.scores.website}</Badge>
+                                <Badge variant="secondary" className="text-[10px]">Social: {analyzeResult.scores.social}</Badge>
+                              </div>
+                            )}
+                            {analyzeResult.pdfUrl && (
+                              <div className="flex items-center gap-2 pt-1">
+                                <a href={analyzeResult.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                  <Download className="h-3 w-3" /> View PDF
+                                </a>
+                                {lead.email && (
+                                  <Button
+                                    variant="outline" size="sm"
+                                    className="h-6 text-[10px] gap-1"
+                                    disabled={sendingReport}
+                                    onClick={() => handleSendReport(lead)}
+                                  >
+                                    {sendingReport ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                    Send to {lead.full_name}
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                             {!analyzeResult.website && !analyzeResult.instagram && (
                               <p className="text-xs text-muted-foreground">No Instagram or website found.</p>
                             )}
+                          </div>
+                        )}
+
+                        {/* Previously analyzed — show resend option */}
+                        {!analyzeResult && typeof lead.meta === 'object' && lead.meta?.analyzed && lead.meta?.audit_pdf_url && (
+                          <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3 space-y-2">
+                            <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                              <Check className="h-3.5 w-3.5 text-green-600" /> Previously Audited
+                              <span className="text-muted-foreground text-[10px]">
+                                {lead.meta.audit_date ? new Date(lead.meta.audit_date).toLocaleDateString() : ''}
+                              </span>
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <a href={lead.meta.audit_pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                                <Download className="h-3 w-3" /> View Report
+                              </a>
+                              {lead.email && (
+                                <Button
+                                  variant="outline" size="sm"
+                                  className="h-6 text-[10px] gap-1"
+                                  disabled={sendingReport}
+                                  onClick={() => handleSendReport(lead)}
+                                >
+                                  {sendingReport ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                  Send Report
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         )}
 
