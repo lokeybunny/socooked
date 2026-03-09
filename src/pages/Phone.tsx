@@ -56,7 +56,8 @@ export default function PhonePage() {
 
   // Analyze lead state
   const [analyzing, setAnalyzing] = useState(false);
-  const [analyzeResult, setAnalyzeResult] = useState<{ instagram?: string; website?: string; leadId?: string } | null>(null);
+  const [analyzeResult, setAnalyzeResult] = useState<{ instagram?: string; website?: string; leadId?: string; pdfUrl?: string; scores?: any } | null>(null);
+  const [sendingReport, setSendingReport] = useState(false);
 
   // Transcription upload state
   const [dragOver, setDragOver] = useState(false);
