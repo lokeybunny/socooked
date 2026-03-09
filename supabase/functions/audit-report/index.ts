@@ -157,7 +157,7 @@ async function scrapeFacebookFallback(fbUrl: string): Promise<any> {
   }
 }
 
-async function generateAnalysis(websiteData: any, igData: any | null, websiteUrl: string, igHandle: string | null): Promise<any> {
+async function generateAnalysis(websiteData: any, igData: any | null, fbData: any | null, websiteUrl: string, igHandle: string | null): Promise<any> {
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured')
 
