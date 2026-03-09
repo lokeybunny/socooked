@@ -151,7 +151,7 @@ IMPORTANT for sources_evidence: Include one entry for EVERY specific claim made 
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: 'google/gemini-3-flash-preview',
       messages: [
         { role: 'system', content: 'You are a digital marketing consultant producing audit reports. Return ONLY valid JSON. No markdown. No code fences. CRITICAL: You must ONLY report facts that are directly verifiable from the scraped text data provided. You CANNOT see images, logos, or visual design elements — do not comment on them. Never fabricate, assume, or guess details. If you cannot verify something from the data, do not include it. Accuracy and honesty are more important than filling every field.' },
         { role: 'user', content: prompt },
