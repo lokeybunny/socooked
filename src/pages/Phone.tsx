@@ -995,10 +995,25 @@ export default function PhonePage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="w-24">
+                    <Input
+                      placeholder="Area code"
+                      maxLength={3}
+                      value={areaCodeFilter}
+                      onChange={e => {
+                        const v = e.target.value.replace(/\D/g, '').slice(0, 3);
+                        setAreaCodeFilter(v);
+                        setCurrentLeadIndex(0);
+                        setAnalyzeResult(null);
+                      }}
+                      className="h-8 text-xs text-center font-mono tracking-widest"
+                    />
+                  </div>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
                 SpaceBot-sourced leads — one at a time. Copy phone → dial → transcribe → promote.
+                {areaCodeFilter.length === 3 && <span className="ml-1 text-primary font-medium">· Filtered by ({areaCodeFilter})</span>}
               </p>
 
               {!currentLead ? (
