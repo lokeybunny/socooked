@@ -1250,23 +1250,45 @@ Deno.serve(async (req) => {
     // Fetch images for PDF embedding
     const builder = new PDFBuilder()
     
-    // Website screenshot from Firecrawl (base64 PNG → we need JPEG)
-    if (websiteData?.screenshot) {
+    // Website screenshot from Firecrawl
+    const screenshotSource = websiteData?.screenshot
+    // If main scrape didn't include a screenshot, try a dedicated screenshot-only scrape
+    let screenshotToProcess = screenshotSource
+    if (!screenshotToProcess && website_url) {
+      try {
+        console.log('[audit] No screenshot from main scrape, trying dedicated screenshot scrape...')
+        const ssApiKey = Deno.env.get('FIRECRAWL_API_KEY')
+        if (ssApiKey) {
+          const ssRes = await fetch('https://api.firecrawl.dev/v1/scrape', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${ssApiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: website_url, formats: ['screenshot'], waitFor: 10000 }),
+            signal: AbortSignal.timeout(30000),
+          })
+          if (ssRes.ok) {
+            const ssData = await ssRes.json()
+            screenshotToProcess = ssData.data?.screenshot || ssData.screenshot || null
+            if (screenshotToProcess) console.log('[audit] Got screenshot from dedicated scrape')
+          }
+        }
+      } catch (e) {
+        console.error('[audit] Dedicated screenshot scrape failed:', e)
+      }
+    }
+
+    if (screenshotToProcess) {
       try {
         console.log('[audit] Processing website screenshot...')
-        // Firecrawl returns a base64 data URL or URL to screenshot
         let screenshotBytes: Uint8Array | null = null
-        const ss = websiteData.screenshot
+        const ss = screenshotToProcess
         
         if (ss.startsWith('data:image/')) {
-          // Base64 data URL
           const b64 = ss.split(',')[1]
           const raw = atob(b64)
           screenshotBytes = new Uint8Array(raw.length)
           for (let i = 0; i < raw.length; i++) screenshotBytes[i] = raw.charCodeAt(i)
         } else if (ss.startsWith('http')) {
-          // URL — fetch it
-          const imgRes = await fetch(ss)
+          const imgRes = await fetch(ss, { signal: AbortSignal.timeout(15000) })
           if (imgRes.ok) screenshotBytes = new Uint8Array(await imgRes.arrayBuffer())
         }
         
