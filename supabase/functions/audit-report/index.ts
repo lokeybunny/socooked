@@ -835,6 +835,7 @@ class PDFBuilder {
     this.text(px + 15, pkgY + pkgH - 24, 'PREMIUM', 12, this.colors.gold, true)
     this.text(px + 15, pkgY + pkgH - 42, 'Full Service', 9, this.colors.midText)
     this.wordWrapText(px + 15, pkgY + pkgH - 65, data.premium_package || 'Complete management of your digital presence.', 8, this.colors.darkText, 26)
+    this.text(px + 15, pkgY + 16, '$1,000/mo', 16, this.colors.gold, true)
     
     // CTA section
     const ctaY = pkgY - 60
