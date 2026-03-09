@@ -912,6 +912,85 @@ class PDFBuilder {
     this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
     
     // ═══════════════════════════════════════════
+    // PAGE 7 — SOURCES & EVIDENCE
+    // ═══════════════════════════════════════════
+    this.currentStream = ''
+    
+    this.rect(0, this.pageHeight - 50, this.pageWidth, 50, this.colors.navy)
+    this.text(40, this.pageHeight - 35, 'SOURCES & EVIDENCE', 16, this.colors.white, true)
+    
+    y = this.pageHeight - 80
+    
+    this.text(40, y, 'Every finding in this report is backed by data we collected. Here is the proof:', 9, this.colors.midText)
+    y -= 20
+    
+    // Data sources summary
+    y = this.sectionHeader(y, 'Data Collected', '#')
+    const sources: string[] = []
+    if (websiteUrl && websiteUrl !== 'N/A') sources.push(`Website scraped: ${websiteUrl}`)
+    if (igHandle) sources.push(`Instagram profile: @${igHandle}`)
+    sources.push(`Report generated: ${new Date().toISOString().split('T')[0]}`)
+    for (const s of sources) {
+      this.text(55, y, s, 9, this.colors.darkText)
+      y -= 14
+    }
+    
+    y -= 10
+    
+    // Evidence items
+    y = this.sectionHeader(y, 'Evidence for Each Finding', '>')
+    
+    const evidence = data.sources_evidence || []
+    let evidencePageNum = 6
+    
+    for (let i = 0; i < evidence.length; i++) {
+      const ev = evidence[i]
+      if (!ev?.finding) continue
+      
+      // Check if we need a new page
+      if (y < 120) {
+        this.pageFooter(evidencePageNum)
+        this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
+        evidencePageNum++
+        
+        this.currentStream = ''
+        this.rect(0, this.pageHeight - 50, this.pageWidth, 50, this.colors.navy)
+        this.text(40, this.pageHeight - 35, 'SOURCES & EVIDENCE (CONTINUED)', 16, this.colors.white, true)
+        y = this.pageHeight - 80
+      }
+      
+      // Finding label
+      const sourceLabel = (ev.data_source || 'unknown').toUpperCase().replace(/_/g, ' ')
+      this.roundedRect(50, y - 2, sourceLabel.length * 5.5 + 16, 14, 4, this.colors.accent)
+      this.text(58, y, sourceLabel, 7, this.colors.white, true)
+      y -= 18
+      
+      // Finding text
+      y = this.wordWrapText(55, y, `Finding: ${ev.finding}`, 9, this.colors.darkText, 78, true)
+      
+      // Evidence quote
+      if (ev.exact_evidence) {
+        const evidenceText = `"${ev.exact_evidence}"`
+        this.roundedRect(50, y - 4, this.pageWidth - 100, 2, 1, this.colors.lightGray)
+        y -= 4
+        y = this.wordWrapText(60, y, evidenceText, 8, this.colors.midText, 75)
+      }
+      
+      y -= 10
+      this.line(50, y + 4, 545, y + 4, this.colors.lightGray, 0.5)
+      y -= 6
+    }
+    
+    if (evidence.length === 0) {
+      this.text(55, y, 'No structured evidence was generated for this report.', 9, this.colors.midText)
+      y -= 14
+      this.text(55, y, 'The AI analysis is based on scraped website content and Instagram profile data.', 9, this.colors.midText)
+    }
+    
+    this.pageFooter(evidencePageNum)
+    this.finalizePage(pagesObj, font1Obj, font2Obj, pageRefs)
+
+    // ═══════════════════════════════════════════
     // ASSEMBLE PDF
     // ═══════════════════════════════════════════
     
