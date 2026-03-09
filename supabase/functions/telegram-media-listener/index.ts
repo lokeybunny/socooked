@@ -3300,6 +3300,8 @@ Deno.serve(async (req) => {
         await processHiggsFieldCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, imageUrl, sp.gen_type, sp.model)
       } else if (sessionType === 'proposal_session') {
         await processProposalSession(chatId, text, session.id, sp, TG_TOKEN, SUPABASE_URL, supabase)
+      } else if (sessionType === 'audit_session') {
+        await processAuditSession(chatId, text, session.id, sp, TG_TOKEN, SUPABASE_URL, supabase)
       } else {
         const mod = sessionType.replace('_session', '') as any
         await processModuleCommand(chatId, text, history, TG_TOKEN, SUPABASE_URL, BOT_SECRET, supabase, mod)
