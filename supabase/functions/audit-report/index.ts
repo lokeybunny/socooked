@@ -712,7 +712,9 @@ class PDFBuilder {
     y = this.sectionHeader(y, "What's Working", '>')
     const sgood = data.social_good || ['No data']
     for (const item of sgood) {
-      y = this.bulletPoint(50, y, item, this.colors.green, true)
+      const txt = typeof item === 'object' ? item.text : item
+      const conf = typeof item === 'object' ? item.confidence : undefined
+      y = this.bulletPoint(50, y, txt, this.colors.green, true, conf)
       if (y < 100) break
     }
     
@@ -722,7 +724,9 @@ class PDFBuilder {
     y = this.sectionHeader(y, 'Opportunities', '!')
     const sbad = data.social_bad || ['No data']
     for (const item of sbad) {
-      y = this.bulletPoint(50, y, item, this.colors.red, false)
+      const txt = typeof item === 'object' ? item.text : item
+      const conf = typeof item === 'object' ? item.confidence : undefined
+      y = this.bulletPoint(50, y, txt, this.colors.red, false, conf)
       if (y < 100) break
     }
     
