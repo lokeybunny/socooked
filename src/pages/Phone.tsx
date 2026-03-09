@@ -272,10 +272,37 @@ export default function PhonePage() {
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
     try {
+      // Step 0: Extract website domain from email address (skip free email providers)
+      const FREE_EMAIL_DOMAINS = new Set([
+        'gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com',
+        'mail.com','protonmail.com','zoho.com','yandex.com','gmx.com','live.com',
+        'msn.com','me.com','inbox.com','fastmail.com','tutanota.com','hey.com',
+      ]);
+      const VALID_TLDS = new Set(['.com','.net','.org','.biz','.co','.us','.io','.info','.pro','.me','.tv','.app','.dev','.store','.shop','.agency','.design','.media','.studio','.tech','.digital','.solutions','.services','.consulting','.marketing','.group','.team','.site','.website','.online','.cloud','.space','.xyz']);
+
+      const extractDomainFromEmail = (email: string | null): string | null => {
+        if (!email || !email.includes('@')) return null;
+        const domain = email.split('@')[1]?.toLowerCase().trim();
+        if (!domain || FREE_EMAIL_DOMAINS.has(domain)) return null;
+        // Check that the TLD is in our valid list
+        const tldMatch = domain.match(/(\.[a-z]+)$/);
+        if (!tldMatch || !VALID_TLDS.has(tldMatch[1])) return null;
+        return domain;
+      };
+
       // Step 1: Gather existing data
       const metaObj = typeof lead.meta === 'object' ? lead.meta : {};
       let website = metaObj?.website || metaObj?.url || metaObj?.site || null;
       let igHandle = lead.instagram_handle || null;
+
+      // Step 1b: Try to derive website from email domain
+      if (!website) {
+        const emailDomain = extractDomainFromEmail(lead.email);
+        if (emailDomain) {
+          website = `https://${emailDomain}`;
+          toast.info(`Detected website from email: ${emailDomain}`);
+        }
+      }
 
       // Step 2: If no website/IG, search for them via meta-extract
       if (!website || !igHandle) {
@@ -299,6 +326,18 @@ export default function PhonePage() {
         } catch (e) {
           console.error('Meta-extract error:', e);
         }
+      }
+
+      // Step 2b: Validate any discovered website URL has a valid TLD
+      if (website) {
+        try {
+          const parsedHost = new URL(website.startsWith('http') ? website : `https://${website}`).hostname;
+          const tldMatch = parsedHost.match(/(\.[a-z]+)$/);
+          if (tldMatch && !VALID_TLDS.has(tldMatch[1])) {
+            console.warn(`Rejecting website with invalid TLD: ${parsedHost}`);
+            website = null;
+          }
+        } catch { /* invalid URL, keep as-is */ }
       }
 
       // Step 3: If website found but no IG, try to find IG from website scrape (links + HTML)
