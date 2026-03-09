@@ -294,14 +294,25 @@ class PDFBuilder {
     this.text(labelX, cy - r - 16, label, 8, this.colors.midText, true)
   }
 
-  private bulletPoint(x: number, y: number, text_str: string, color: number[], isGood: boolean): number {
+  private bulletPoint(x: number, y: number, text_str: string, color: number[], isGood: boolean, confidence?: string): number {
     const icon = isGood ? '+' : '!'
     const iconColor = isGood ? this.colors.green : this.colors.red
     // Icon circle
     this.circle(x + 5, y + 4, 5, iconColor)
     this.text(x + 2.5, y + 0.5, icon, 8, this.colors.white, true)
+    
+    // Confidence badge (right-aligned)
+    if (confidence) {
+      const badgeColor = confidence === 'high' ? this.colors.green : confidence === 'medium' ? this.colors.gold : this.colors.midText
+      const badgeLabel = confidence.toUpperCase()
+      const badgeW = badgeLabel.length * 5 + 12
+      const badgeX = this.pageWidth - 40 - badgeW
+      this.roundedRect(badgeX, y - 1, badgeW, 13, 4, badgeColor)
+      this.text(badgeX + 6, y + 1, badgeLabel, 6.5, this.colors.white, true)
+    }
+    
     // Text - word wrap
-    const maxW = 75
+    const maxW = confidence ? 65 : 75
     const words = text_str.split(' ')
     let currentLine = ''
     let lineY = y
