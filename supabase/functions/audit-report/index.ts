@@ -337,7 +337,7 @@ class PDFBuilder {
   }
 
   // Register an image (JPEG or PNG) for embedding
-  registerImage(name: string, imgBytes: Uint8Array, width: number, height: number) {
+  async registerImage(name: string, imgBytes: Uint8Array, width: number, height: number) {
     const objNum = this.allocObj()
     const isJpeg = imgBytes[0] === 0xFF && imgBytes[1] === 0xD8
     
@@ -346,53 +346,152 @@ class PDFBuilder {
         `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`
       )
       ;(this as any)[`_imgBytes_${name}`] = imgBytes
-    } else {
-      // PNG — embed as FlateDecode with raw compressed data
-      // For PNG we use the original compressed data with FlateDecode + DecodeParms for PNG prediction
-      // Extract IDAT chunks from PNG
-      const idatChunks: Uint8Array[] = []
-      let pngWidth = width, pngHeight = height, bitDepth = 8, colorType = 2
-      let offset = 8 // skip PNG signature
-      while (offset < imgBytes.length) {
-        const len = (imgBytes[offset] << 24) | (imgBytes[offset+1] << 16) | (imgBytes[offset+2] << 8) | imgBytes[offset+3]
-        const type = String.fromCharCode(imgBytes[offset+4], imgBytes[offset+5], imgBytes[offset+6], imgBytes[offset+7])
-        if (type === 'IHDR') {
-          pngWidth = (imgBytes[offset+8] << 24) | (imgBytes[offset+9] << 16) | (imgBytes[offset+10] << 8) | imgBytes[offset+11]
-          pngHeight = (imgBytes[offset+12] << 24) | (imgBytes[offset+13] << 16) | (imgBytes[offset+14] << 8) | imgBytes[offset+15]
-          bitDepth = imgBytes[offset+16]
-          colorType = imgBytes[offset+17]
-        } else if (type === 'IDAT') {
-          idatChunks.push(imgBytes.slice(offset + 8, offset + 8 + len))
-        } else if (type === 'IEND') break
-        offset += 12 + len // 4 len + 4 type + data + 4 crc
-      }
-      
-      // Concatenate all IDAT chunks (this is raw zlib/deflate data)
-      let totalIdatLen = 0
-      for (const c of idatChunks) totalIdatLen += c.length
-      const idatData = new Uint8Array(totalIdatLen)
-      let pos = 0
-      for (const c of idatChunks) { idatData.set(c, pos); pos += c.length }
-      
-      // Determine colors per pixel
-      const colors = colorType === 6 ? 4 : colorType === 2 ? 3 : colorType === 4 ? 2 : 1
-      const hasAlpha = colorType === 4 || colorType === 6
-      const colorSpace = '/DeviceRGB'
-      const bpc = bitDepth
-      const columns = pngWidth
-      
-      // Use PNG predictor in PDF to handle filter bytes
-      const decodeParms = `/DecodeParms << /Predictor 15 /Colors ${colors} /BitsPerComponent ${bpc} /Columns ${columns} >>`
-      
-      this.objects.push(
-        `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pngWidth} /Height ${pngHeight} /ColorSpace ${colorSpace} /BitsPerComponent ${bpc} /Filter /FlateDecode ${decodeParms} /Length ${idatData.length} >>\nstream\n`
-      )
-      ;(this as any)[`_imgBytes_${name}`] = idatData
-      width = pngWidth
-      height = pngHeight
+      this.imageObjects.set(name, { objNum, width, height })
+      return
     }
     
-    this.imageObjects.set(name, { objNum, width, height })
+    // PNG — parse IHDR and IDAT chunks
+    const idatChunks: Uint8Array[] = []
+    let pngWidth = width, pngHeight = height, bitDepth = 8, colorType = 2
+    let offset = 8 // skip PNG signature
+    while (offset + 8 <= imgBytes.length) {
+      const len = (imgBytes[offset] << 24) | (imgBytes[offset+1] << 16) | (imgBytes[offset+2] << 8) | imgBytes[offset+3]
+      const type = String.fromCharCode(imgBytes[offset+4], imgBytes[offset+5], imgBytes[offset+6], imgBytes[offset+7])
+      if (type === 'IHDR') {
+        pngWidth = (imgBytes[offset+8] << 24) | (imgBytes[offset+9] << 16) | (imgBytes[offset+10] << 8) | imgBytes[offset+11]
+        pngHeight = (imgBytes[offset+12] << 24) | (imgBytes[offset+13] << 16) | (imgBytes[offset+14] << 8) | imgBytes[offset+15]
+        bitDepth = imgBytes[offset+16]
+        colorType = imgBytes[offset+17]
+      } else if (type === 'IDAT') {
+        idatChunks.push(imgBytes.slice(offset + 8, offset + 8 + len))
+      } else if (type === 'IEND') break
+      offset += 12 + len
+    }
+    
+    // Concatenate IDAT chunks (zlib-compressed data)
+    let totalIdatLen = 0
+    for (const c of idatChunks) totalIdatLen += c.length
+    const zlibData = new Uint8Array(totalIdatLen)
+    let pos = 0
+    for (const c of idatChunks) { zlibData.set(c, pos); pos += c.length }
+    
+    // Decompress zlib data to get raw filtered scanlines
+    const ds = new DecompressionStream('deflate')
+    // Strip 2-byte zlib header for raw deflate — actually DecompressionStream('deflate') 
+    // handles raw deflate. Zlib = 2 byte header + deflate + 4 byte checksum.
+    // Use 'deflate' which expects zlib-wrapped data in most runtimes
+    let rawPixels: Uint8Array
+    try {
+      // Try with full zlib data first (DecompressionStream handles zlib wrapper)
+      const blob = new Blob([zlibData])
+      const decompStream = blob.stream().pipeThrough(new DecompressionStream('deflate'))
+      const reader = decompStream.getReader()
+      const decompChunks: Uint8Array[] = []
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        decompChunks.push(value)
+      }
+      let decompLen = 0
+      for (const c of decompChunks) decompLen += c.length
+      rawPixels = new Uint8Array(decompLen)
+      let dp = 0
+      for (const c of decompChunks) { rawPixels.set(c, dp); dp += c.length }
+    } catch (e) {
+      console.error(`[audit] PNG decompression failed for ${name}:`, e)
+      return
+    }
+    
+    // Determine bytes per pixel
+    const channels = colorType === 6 ? 4 : colorType === 2 ? 3 : colorType === 4 ? 2 : 1
+    const hasAlpha = colorType === 4 || colorType === 6
+    const srcBpp = channels
+    const dstBpp = hasAlpha ? channels - 1 : channels // strip alpha for PDF
+    const rowBytes = pngWidth * srcBpp + 1 // +1 for filter byte
+    
+    // Reconstruct unfiltered pixel data (apply PNG filters)
+    const unfiltered = new Uint8Array(pngHeight * pngWidth * srcBpp)
+    const prevRow = new Uint8Array(pngWidth * srcBpp)
+    
+    for (let row = 0; row < pngHeight; row++) {
+      const rowStart = row * rowBytes
+      const filterType = rawPixels[rowStart]
+      const scanline = rawPixels.slice(rowStart + 1, rowStart + 1 + pngWidth * srcBpp)
+      const decoded = new Uint8Array(pngWidth * srcBpp)
+      
+      for (let i = 0; i < scanline.length; i++) {
+        const a = i >= srcBpp ? decoded[i - srcBpp] : 0
+        const b = prevRow[i]
+        const c = i >= srcBpp ? prevRow[i - srcBpp] : 0
+        
+        switch (filterType) {
+          case 0: decoded[i] = scanline[i]; break
+          case 1: decoded[i] = (scanline[i] + a) & 0xFF; break
+          case 2: decoded[i] = (scanline[i] + b) & 0xFF; break
+          case 3: decoded[i] = (scanline[i] + ((a + b) >> 1)) & 0xFF; break
+          case 4: { // Paeth
+            const p = a + b - c
+            const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c)
+            const pr = pa <= pb && pa <= pc ? a : pb <= pc ? b : c
+            decoded[i] = (scanline[i] + pr) & 0xFF
+            break
+          }
+          default: decoded[i] = scanline[i]
+        }
+      }
+      
+      unfiltered.set(decoded, row * pngWidth * srcBpp)
+      prevRow.set(decoded)
+    }
+    
+    // Extract RGB only (strip alpha if RGBA)
+    let rgbData: Uint8Array
+    if (hasAlpha && channels === 4) {
+      rgbData = new Uint8Array(pngHeight * pngWidth * 3)
+      for (let i = 0, j = 0; i < unfiltered.length; i += 4, j += 3) {
+        rgbData[j] = unfiltered[i]
+        rgbData[j + 1] = unfiltered[i + 1]
+        rgbData[j + 2] = unfiltered[i + 2]
+      }
+    } else if (channels === 3) {
+      rgbData = unfiltered
+    } else {
+      // Grayscale — expand to RGB
+      rgbData = new Uint8Array(pngHeight * pngWidth * 3)
+      const step = hasAlpha ? 2 : 1
+      for (let i = 0, j = 0; i < unfiltered.length; i += step, j += 3) {
+        rgbData[j] = rgbData[j + 1] = rgbData[j + 2] = unfiltered[i]
+      }
+    }
+    
+    // Compress RGB data with deflate for PDF FlateDecode
+    let compressedRgb: Uint8Array
+    try {
+      const blob = new Blob([rgbData])
+      const compStream = blob.stream().pipeThrough(new CompressionStream('deflate'))
+      const reader = compStream.getReader()
+      const compChunks: Uint8Array[] = []
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        compChunks.push(value)
+      }
+      let compLen = 0
+      for (const c of compChunks) compLen += c.length
+      compressedRgb = new Uint8Array(compLen)
+      let cp = 0
+      for (const c of compChunks) { compressedRgb.set(c, cp); cp += c.length }
+    } catch (e) {
+      console.error(`[audit] PNG compression failed for ${name}:`, e)
+      return
+    }
+    
+    this.objects.push(
+      `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pngWidth} /Height ${pngHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${compressedRgb.length} >>\nstream\n`
+    )
+    ;(this as any)[`_imgBytes_${name}`] = compressedRgb
+    this.imageObjects.set(name, { objNum, width: pngWidth, height: pngHeight })
+    console.log(`[audit] PNG ${name} decoded: ${pngWidth}x${pngHeight} colorType=${colorType} → ${compressedRgb.length} bytes compressed RGB`)
   }
 
   // Place a registered image on the current page
