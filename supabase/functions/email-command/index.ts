@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { prompt, history } = await req.json()
+    const body = await req.json()
+    const { prompt, history, draft_only } = body
     if (!prompt || typeof prompt !== 'string') {
       return new Response(JSON.stringify({ type: 'clarify', message: 'What email would you like me to send? Try: "Send Bryan an email about the project update"' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -164,6 +165,22 @@ CLARIFY format:
         return new Response(JSON.stringify({
           type: 'clarify',
           message: 'I need at least a recipient email and subject to send. Who should I email?',
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Draft-only mode: return composed email for preview without sending
+      if (draft_only) {
+        return new Response(JSON.stringify({
+          type: 'draft',
+          to,
+          subject,
+          body_html: body_html || '',
+          body_text: body_text || '',
+          customer_name: customer_name || null,
+          customer_id: customer_id || null,
+          summary: summary || '',
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })

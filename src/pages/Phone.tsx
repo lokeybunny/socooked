@@ -59,6 +59,13 @@ export default function PhonePage() {
   const [analyzeResult, setAnalyzeResult] = useState<{ instagram?: string; website?: string; leadId?: string; pdfUrl?: string; scores?: any } | null>(null);
   const [sendingReport, setSendingReport] = useState(false);
 
+  // Email preview state
+  const [emailPreviewOpen, setEmailPreviewOpen] = useState(false);
+  const [emailDraft, setEmailDraft] = useState<{ to: string; subject: string; body_html: string; customer_name: string; customer_id: string | null; lead: any } | null>(null);
+  const [emailDraftLoading, setEmailDraftLoading] = useState(false);
+  const [emailSubjectEdit, setEmailSubjectEdit] = useState('');
+  const [emailBodyEdit, setEmailBodyEdit] = useState('');
+
   // Transcription upload state
   const [dragOver, setDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -379,6 +386,12 @@ export default function PhonePage() {
       toast.error('No email on file for this lead');
       return;
     }
+  // Step 1: Generate email draft for preview
+  const handleSendReport = async (lead: any) => {
+    if (!lead?.email) {
+      toast.error('No email on file for this lead');
+      return;
+    }
     const metaObj = typeof lead.meta === 'object' ? lead.meta : {};
     const pdfUrl = metaObj?.audit_pdf_url;
     if (!pdfUrl) {
@@ -386,33 +399,79 @@ export default function PhonePage() {
       return;
     }
 
-    setSendingReport(true);
+    setEmailDraftLoading(true);
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
+
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/email-command`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
           body: JSON.stringify({
-            intent: `Send a professional email to ${lead.full_name} at ${lead.email} about their free digital audit results. Include a link to their audit report: ${pdfUrl}. Mention their overall score and suggest scheduling a call to discuss the findings. Keep it brief and professional. Sign as Warren from STU25 / Warren Guru Creative Management.`,
-            to: lead.email,
-            customer_name: lead.full_name,
+            prompt: `Send a professional email to ${lead.full_name} at ${lead.email} about their free digital audit results. Include a link to their audit report: ${pdfUrl}. Mention their overall score and suggest scheduling a call to discuss the findings. Keep it brief and professional. Sign as Warren from STU25 / Warren Guru Creative Management.`,
+            draft_only: true,
+          }),
+        }
+      );
+
+      const data = await res.json();
+      if (data.type === 'draft') {
+        setEmailDraft({
+          to: data.to,
+          subject: data.subject,
+          body_html: data.body_html,
+          customer_name: data.customer_name || lead.full_name,
+          customer_id: data.customer_id || lead.id,
+          lead,
+        });
+        setEmailSubjectEdit(data.subject);
+        setEmailBodyEdit(data.body_html);
+        setEmailPreviewOpen(true);
+      } else {
+        toast.error(data.message || 'Failed to compose email');
+      }
+    } catch (err: any) {
+      console.error('Draft email error:', err);
+      toast.error('Failed to compose email');
+    } finally {
+      setEmailDraftLoading(false);
+    }
+  };
+
+  // Step 2: Actually send the email after preview/edit
+  const handleConfirmSendEmail = async () => {
+    if (!emailDraft) return;
+    setSendingReport(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+          body: JSON.stringify({
+            to: emailDraft.to,
+            subject: emailSubjectEdit,
+            body: emailBodyEdit,
           }),
         }
       );
 
       if (res.ok) {
-        toast.success(`Audit report sent to ${lead.email}`);
+        toast.success(`Audit report sent to ${emailDraft.to}`);
+        setEmailPreviewOpen(false);
+        setEmailDraft(null);
       } else {
         const errData = await res.json().catch(() => ({}));
-        toast.error(errData.error || 'Failed to send report');
+        toast.error(errData.error || 'Failed to send email');
       }
     } catch (err: any) {
-      console.error('Send report error:', err);
-      toast.error('Failed to send report email');
+      console.error('Send email error:', err);
+      toast.error('Failed to send email');
     } finally {
       setSendingReport(false);
     }
@@ -425,7 +484,6 @@ export default function PhonePage() {
     setAnalyzeResult(null);
   };
 
-  // Filter transcriptions by search query
   const filteredTranscriptions = useMemo(() => {
     if (!searchQuery.trim()) return transcriptions;
     const q = searchQuery.toLowerCase();
@@ -892,10 +950,10 @@ export default function PhonePage() {
                                   <Button
                                     variant="outline" size="sm"
                                     className="h-6 text-[10px] gap-1"
-                                    disabled={sendingReport}
+                                    disabled={sendingReport || emailDraftLoading}
                                     onClick={() => handleSendReport(lead)}
                                   >
-                                    {sendingReport ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                    {emailDraftLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
                                     Send to {lead.full_name}
                                   </Button>
                                 )}
@@ -924,10 +982,10 @@ export default function PhonePage() {
                                 <Button
                                   variant="outline" size="sm"
                                   className="h-6 text-[10px] gap-1"
-                                  disabled={sendingReport}
+                                  disabled={sendingReport || emailDraftLoading}
                                   onClick={() => handleSendReport(lead)}
                                 >
-                                  {sendingReport ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                                  {emailDraftLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
                                   Send Report
                                 </Button>
                               )}
@@ -1506,6 +1564,58 @@ export default function PhonePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Email Preview Dialog */}
+      <Dialog open={emailPreviewOpen} onOpenChange={setEmailPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Email Preview
+            </DialogTitle>
+          </DialogHeader>
+          {emailDraft && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="font-medium">To:</span>
+                <span>{emailDraft.to}</span>
+                <span className="text-xs">({emailDraft.customer_name})</span>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Subject</Label>
+                <Input
+                  value={emailSubjectEdit}
+                  onChange={(e) => setEmailSubjectEdit(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Email Body</Label>
+                <div
+                  className="border rounded-md p-4 min-h-[200px] bg-background text-sm prose prose-sm dark:prose-invert max-w-none [&_*]:text-foreground"
+                  contentEditable
+                  suppressContentEditableWarning
+                  dangerouslySetInnerHTML={{ __html: emailBodyEdit }}
+                  onBlur={(e) => setEmailBodyEdit(e.currentTarget.innerHTML)}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEmailPreviewOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmSendEmail}
+              disabled={sendingReport}
+              className="gap-2"
+            >
+              {sendingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              Send Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
