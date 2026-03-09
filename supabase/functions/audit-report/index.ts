@@ -238,7 +238,7 @@ Return this exact JSON structure:
   "sources_evidence": [
     {
       "finding": "Short description of the finding or claim made in this report",
-      "data_source": "website_content | meta_tags | ig_profile | ig_stats | ig_posts | link_analysis | branding_data",
+      "data_source": "website_content | meta_tags | ig_profile | ig_stats | ig_posts | fb_page | fb_stats | fb_reviews | link_analysis | branding_data",
       "exact_evidence": "The exact text, number, or data point from the scraped data that supports this finding — quote it verbatim where possible"
     }
   ]
