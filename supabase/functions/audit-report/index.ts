@@ -1130,6 +1130,7 @@ class PDFBuilder {
     const sources: string[] = []
     if (websiteUrl && websiteUrl !== 'N/A') sources.push(`Website scraped: ${websiteUrl}`)
     if (igHandle) sources.push(`Instagram profile: @${igHandle}`)
+    if (fbUrl) sources.push(`Facebook page: ${fbUrl}`)
     sources.push(`Report generated: ${new Date().toISOString().split('T')[0]}`)
     for (const s of sources) {
       this.text(55, y, s, 9, this.colors.darkText)
