@@ -166,9 +166,24 @@ IMPORTANT for sources_evidence: Include one entry for EVERY specific claim made 
     }),
   })
 
-  if (!res.ok) throw new Error(`AI analysis failed: ${res.status}`)
+  if (!res.ok) {
+    console.error('[audit] AI analysis HTTP error:', res.status)
+    return fallbackAnalysis()
+  }
 
-  const aiResult = await res.json()
+  let aiResult: any
+  try {
+    const rawText = await res.text()
+    if (!rawText || rawText.trim().length === 0) {
+      console.error('[audit] AI returned empty body')
+      return fallbackAnalysis()
+    }
+    aiResult = JSON.parse(rawText)
+  } catch (e) {
+    console.error('[audit] Failed to parse AI response body:', e)
+    return fallbackAnalysis()
+  }
+
   const raw = aiResult.choices?.[0]?.message?.content || '{}'
   
   // Strip any markdown fences
@@ -177,9 +192,20 @@ IMPORTANT for sources_evidence: Include one entry for EVERY specific claim made 
   try {
     return JSON.parse(cleaned)
   } catch {
+    // Try recovery: find last complete JSON object
+    const lastBrace = cleaned.lastIndexOf('}')
+    if (lastBrace > 0) {
+      try {
+        return JSON.parse(cleaned.substring(0, lastBrace + 1))
+      } catch { /* fall through */ }
+    }
     console.error('[audit] Failed to parse AI JSON, raw:', raw.slice(0, 500))
-    return { business_name: 'Unknown', overall_score: 50, website_score: 50, social_score: 50, seo_score: 50, branding_score: 50, content_score: 50, website_good: ['Data unavailable'], website_bad: ['Analysis failed'], social_good: ['Data unavailable'], social_bad: ['Analysis failed'], quick_wins: ['Re-run audit'], big_moves: ['Contact us'], competitor_edge: 'N/A', essential_package: 'N/A', growth_package: 'N/A', premium_package: 'N/A', tagline: '' }
+    return fallbackAnalysis()
   }
+}
+
+function fallbackAnalysis() {
+  return { business_name: 'Unknown', tagline: '', overall_score: 50, website_score: 50, social_score: 50, seo_score: 50, branding_score: 50, content_score: 50, website_good: [{ text: 'Data unavailable — scraping was blocked', confidence: 'low' }], website_bad: [{ text: 'Could not access website for analysis — try again later', confidence: 'low' }], social_good: [{ text: 'Data unavailable', confidence: 'low' }], social_bad: [{ text: 'Could not access social data', confidence: 'low' }], quick_wins: [{ text: 'Re-run audit when website is accessible', confidence: 'low' }], big_moves: ['Contact us for a manual review'], competitor_edge: 'N/A', essential_package: 'Quick-fix improvements to get your digital presence started.', growth_package: 'Comprehensive growth strategy with ongoing support.', premium_package: 'Full-service digital transformation.', sources_evidence: [] }
 }
 
 // ─────────────────────────────────────────────────────────
