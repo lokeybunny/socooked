@@ -623,7 +623,9 @@ class PDFBuilder {
     y = this.sectionHeader(y, "What's Working Well", '>')
     const goods = data.website_good || ['No data']
     for (const item of goods) {
-      y = this.bulletPoint(50, y, item, this.colors.green, true)
+      const txt = typeof item === 'object' ? item.text : item
+      const conf = typeof item === 'object' ? item.confidence : undefined
+      y = this.bulletPoint(50, y, txt, this.colors.green, true, conf)
       if (y < 100) break
     }
     
@@ -633,7 +635,9 @@ class PDFBuilder {
     y = this.sectionHeader(y, 'What Needs Work', '!')
     const bads = data.website_bad || ['No data']
     for (const item of bads) {
-      y = this.bulletPoint(50, y, item, this.colors.red, false)
+      const txt = typeof item === 'object' ? item.text : item
+      const conf = typeof item === 'object' ? item.confidence : undefined
+      y = this.bulletPoint(50, y, txt, this.colors.red, false, conf)
       if (y < 100) break
     }
     
