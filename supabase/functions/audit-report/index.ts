@@ -151,7 +151,7 @@ IMPORTANT for sources_evidence: Include one entry for EVERY specific claim made 
     method: 'POST',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
+      model: 'google/gemini-3-flash-preview',
       messages: [
         { role: 'system', content: 'You are a digital marketing consultant producing audit reports. Return ONLY valid JSON. No markdown. No code fences. CRITICAL: You must ONLY report facts that are directly verifiable from the scraped text data provided. You CANNOT see images, logos, or visual design elements — do not comment on them. Never fabricate, assume, or guess details. If you cannot verify something from the data, do not include it. Accuracy and honesty are more important than filling every field.' },
         { role: 'user', content: prompt },
@@ -186,7 +186,7 @@ class PDFBuilder {
   private pageWidth = 595.28
   private pageHeight = 841.89
   private currentStream = ''
-  private imageObjects: Map<string, { objNum: number; width: number; height: number }> = new Map()
+  private imageObjects: Map<string, { objNum: number; width: number; height: number; isJpeg: boolean }> = new Map()
   private currentPageImageRefs: string[] = []
 
   // Colors (RGB 0-1)
@@ -355,7 +355,7 @@ class PDFBuilder {
         `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`
       )
       ;(this as any)[`_imgBytes_${name}`] = imgBytes
-      this.imageObjects.set(name, { objNum, width, height })
+      this.imageObjects.set(name, { objNum, width, height, isJpeg: true })
       return
     }
     
@@ -499,7 +499,7 @@ class PDFBuilder {
       `${objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${pngWidth} /Height ${pngHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length ${compressedRgb.length} >>\nstream\n`
     )
     ;(this as any)[`_imgBytes_${name}`] = compressedRgb
-    this.imageObjects.set(name, { objNum, width: pngWidth, height: pngHeight })
+    this.imageObjects.set(name, { objNum, width: pngWidth, height: pngHeight, isJpeg: false })
     console.log(`[audit] PNG ${name} decoded: ${pngWidth}x${pngHeight} colorType=${colorType} → ${compressedRgb.length} bytes compressed RGB`)
   }
 
@@ -1010,9 +1010,10 @@ class PDFBuilder {
     for (const [name, imgInfo] of this.imageObjects) {
       const imgBytes = (this as any)[`_imgBytes_${name}`] as Uint8Array
       if (imgBytes) {
+        const filter = imgInfo.isJpeg ? '/DCTDecode' : '/FlateDecode'
         allObjects.push({
           num: imgInfo.objNum,
-          content: `${imgInfo.objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgInfo.width} /Height ${imgInfo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`,
+          content: `${imgInfo.objNum} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgInfo.width} /Height ${imgInfo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter ${filter} /Length ${imgBytes.length} >>\nstream\n`,
           binaryData: imgBytes,
         })
       }
