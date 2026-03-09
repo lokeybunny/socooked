@@ -39,10 +39,12 @@ export default function PhonePage() {
   const [promoteCustomerId, setPromoteCustomerId] = useState<string | null>(null);
   const [promoteCustomerName, setPromoteCustomerName] = useState('');
 
-  // Lead detail popup
+  // Lead detail popup (editable)
   const [leadDetailOpen, setLeadDetailOpen] = useState(false);
   const [leadDetail, setLeadDetail] = useState<any>(null);
   const [leadDetailLoading, setLeadDetailLoading] = useState(false);
+  const [leadEditForm, setLeadEditForm] = useState<Record<string, string>>({});
+  const [leadSaving, setLeadSaving] = useState(false);
 
   // Not interested confirmation
   const [deleteLeadOpen, setDeleteLeadOpen] = useState(false);
