@@ -73,7 +73,90 @@ async function scrapeInstagram(handle: string): Promise<any> {
   }
 }
 
-// ─── Gemini: generate STRUCTURED JSON report ───
+// ─── Apify: scrape Facebook page ───
+async function scrapeFacebook(fbUrl: string): Promise<any> {
+  const token = Deno.env.get('APIFY_TOKEN')
+  if (!token) throw new Error('APIFY_TOKEN not configured')
+
+  // Extract the page slug/ID from the URL
+  const cleanUrl = fbUrl.replace(/\/$/, '')
+
+  try {
+    const runRes = await fetch('https://api.apify.com/v2/acts/apify~facebook-pages-scraper/run-sync-get-dataset-items?token=' + token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ startUrls: [{ url: cleanUrl }], resultsLimit: 1 }),
+      signal: AbortSignal.timeout(120000),
+    })
+
+    if (!runRes.ok) {
+      console.warn(`[audit] Facebook Apify scrape failed: ${runRes.status}, trying Firecrawl fallback...`)
+      return await scrapeFacebookFallback(cleanUrl)
+    }
+
+    const items = await runRes.json()
+    const page = items?.[0] || {}
+
+    return {
+      platform: 'facebook',
+      pageName: page.title || page.name || '',
+      pageUrl: cleanUrl,
+      likes: page.likes || page.likesCount || 0,
+      followers: page.followers || page.followersCount || 0,
+      about: page.about || page.description || page.info || '',
+      category: page.categories?.join(', ') || page.category || '',
+      rating: page.overallStarRating || null,
+      reviewCount: page.reviewsCount || 0,
+      isVerified: page.verified || page.isVerified || false,
+      profilePicUrl: page.profilePhoto || page.profilePicUrl || '',
+      address: page.address || '',
+      phone: page.phone || '',
+      website: page.website || '',
+      checkins: page.checkins || 0,
+    }
+  } catch (e) {
+    console.warn('[audit] Facebook Apify error, trying fallback:', e)
+    return await scrapeFacebookFallback(cleanUrl)
+  }
+}
+
+// Fallback: scrape Facebook page via Firecrawl for basic info
+async function scrapeFacebookFallback(fbUrl: string): Promise<any> {
+  const apiKey = Deno.env.get('FIRECRAWL_API_KEY')
+  if (!apiKey) return { platform: 'facebook', pageName: '', pageUrl: fbUrl, likes: 0, followers: 0, about: '' }
+
+  try {
+    const res = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: fbUrl, formats: ['markdown'], onlyMainContent: false, waitFor: 5000 }),
+      signal: AbortSignal.timeout(30000),
+    })
+    if (!res.ok) return { platform: 'facebook', pageName: '', pageUrl: fbUrl, likes: 0, followers: 0, about: '' }
+    const data = await res.json()
+    const md = data.data?.markdown || data.markdown || ''
+    const title = data.data?.metadata?.title || ''
+
+    // Try to extract follower/like counts from markdown text
+    const followersMatch = md.match(/([\d,]+)\s*followers/i)
+    const likesMatch = md.match(/([\d,]+)\s*likes/i)
+
+    return {
+      platform: 'facebook',
+      pageName: title.replace(/ \| Facebook$/i, '').replace(/ - Facebook$/i, ''),
+      pageUrl: fbUrl,
+      likes: likesMatch ? parseInt(likesMatch[1].replace(/,/g, '')) : 0,
+      followers: followersMatch ? parseInt(followersMatch[1].replace(/,/g, '')) : 0,
+      about: md.slice(0, 1000),
+      category: '',
+      rating: null,
+      reviewCount: 0,
+    }
+  } catch {
+    return { platform: 'facebook', pageName: '', pageUrl: fbUrl, likes: 0, followers: 0, about: '' }
+  }
+}
+
 async function generateAnalysis(websiteData: any, igData: any | null, websiteUrl: string, igHandle: string | null): Promise<any> {
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
   if (!apiKey) throw new Error('LOVABLE_API_KEY not configured')
