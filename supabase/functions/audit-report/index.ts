@@ -1175,7 +1175,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-    const { website_url, ig_handle } = body
+    const { website_url, ig_handle, customer_id, customer_name } = body
 
     if (!website_url && !ig_handle) {
       return new Response(JSON.stringify({ error: 'Provide at least a website_url or ig_handle' }), {
