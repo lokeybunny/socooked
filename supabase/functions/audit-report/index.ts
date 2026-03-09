@@ -1115,7 +1115,7 @@ Deno.serve(async (req) => {
           const isJpeg = screenshotBytes[0] === 0xFF && screenshotBytes[1] === 0xD8
           const isPng = screenshotBytes[0] === 0x89 && screenshotBytes[1] === 0x50
           if (isJpeg || isPng) {
-            builder.registerImage('website', screenshotBytes, 1280, 800)
+            await builder.registerImage('website', screenshotBytes, 1280, 800)
             console.log(`[audit] Website screenshot registered (${isJpeg ? 'JPEG' : 'PNG'})`)
           } else {
             console.log('[audit] Website screenshot format not recognized, skipping')
