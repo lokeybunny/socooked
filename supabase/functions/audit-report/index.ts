@@ -84,7 +84,7 @@ Title: ${websiteData.metadata?.title || 'N/A'}
 Description: ${websiteData.metadata?.description || 'N/A'}
 Total links: ${websiteData.links?.length || 0}
 Branding: ${websiteData.branding ? JSON.stringify(websiteData.branding, null, 2) : 'None'}
-Content (first 3000 chars): ${(websiteData.markdown || '').slice(0, 3000)}
+Content (first 5000 chars): ${(websiteData.markdown || '').slice(0, 5000)}
 `
 
   const igSection = igData ? `
@@ -104,26 +104,35 @@ Engagement rate: ${igData.followersCount > 0 && igData.recentPosts.length > 0 ? 
 
   const prompt = `Analyze this business's digital presence and return ONLY valid JSON (no markdown, no backticks). Keep language simple — a 10-year-old should understand every point. Use short sentences. Be specific and actionable.
 
+CRITICAL RULES — READ CAREFULLY:
+1. ONLY state things you can DIRECTLY SEE in the scraped data provided below. Never assume, infer, or guess information that is not explicitly present.
+2. Do NOT make claims about what a logo says, what colors are used, or what images show — you cannot see images, only text content. If you want to comment on branding, say "Based on the text content..." not "The logo says..."
+3. Do NOT make geographic claims unless an address is explicitly stated in the scraped text.
+4. Do NOT fabricate specific details. If you're unsure about something, skip it or say "Could not verify from available data."
+5. Every point in website_good, website_bad, social_good, social_bad MUST be directly supported by the data below. If you can't find 3 real issues, list fewer — NEVER make things up to fill the list.
+6. For each issue found, reference WHERE in the data you found it (e.g. "The meta description is missing" or "The bio mentions X but the website doesn't").
+7. Focus on what IS verifiable: page title, meta tags, link count, content structure, social stats, engagement rates, bio text, posting frequency.
+
 ${websiteSection}
 ${igSection}
 
 Return this exact JSON structure:
 {
-  "business_name": "string",
-  "tagline": "One sentence summary of what this business does",
+  "business_name": "string — extract from page title or content, do not guess",
+  "tagline": "One sentence summary of what this business does based on their content",
   "overall_score": 0-100,
   "website_score": 0-100,
   "social_score": 0-100,
   "seo_score": 0-100,
   "branding_score": 0-100,
   "content_score": 0-100,
-  "website_good": ["3 things they do well - short sentences"],
-  "website_bad": ["3 problems found - short sentences with fix suggestion"],
-  "social_good": ["3 things they do well on social - short sentences"],
-  "social_bad": ["3 problems on social - short sentences with fix suggestion"],
-  "quick_wins": ["5 things we can fix THIS WEEK to improve their presence"],
-  "big_moves": ["3 strategic projects for major growth (1-4 weeks)"],
-  "competitor_edge": "One paragraph on what makes them unique vs competitors",
+  "website_good": ["Up to 3 verifiable things they do well — cite the evidence"],
+  "website_bad": ["Up to 3 verifiable problems — cite what data shows this, with fix suggestion"],
+  "social_good": ["Up to 3 verifiable things they do well on social — cite evidence"],
+  "social_bad": ["Up to 3 verifiable problems on social — cite evidence, with fix suggestion"],
+  "quick_wins": ["Up to 5 things we can fix THIS WEEK — must be grounded in real data"],
+  "big_moves": ["Up to 3 strategic projects for major growth (1-4 weeks)"],
+  "competitor_edge": "One paragraph on what makes them unique based on their actual content",
   "essential_package": "2-3 sentence description of quick-fix package",
   "growth_package": "2-3 sentence description of growth package",
   "premium_package": "2-3 sentence description of full-service package"
@@ -135,7 +144,7 @@ Return this exact JSON structure:
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
-        { role: 'system', content: 'You are a digital marketing consultant. Return ONLY valid JSON. No markdown. No code fences. Keep language extremely simple and clear.' },
+        { role: 'system', content: 'You are a digital marketing consultant producing audit reports. Return ONLY valid JSON. No markdown. No code fences. CRITICAL: You must ONLY report facts that are directly verifiable from the scraped text data provided. You CANNOT see images, logos, or visual design elements — do not comment on them. Never fabricate, assume, or guess details. If you cannot verify something from the data, do not include it. Accuracy and honesty are more important than filling every field.' },
         { role: 'user', content: prompt },
       ],
     }),
