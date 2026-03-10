@@ -95,15 +95,19 @@ function buildScript(lead: any | null, competitors: string[]): { section: string
         "we're already working with",
         'a few businesses in your space like:',
         '',
-        ...(industry ? [
-          `• Top ${industry} competitor`,
-          `• Established ${industry} brand`,
-          `• Growing ${industry} business`,
-        ] : [
-          '• Competitor in your market',
-          '• Similar business in your area',
-          '• Established player in your space',
-        ]),
+        ...(competitors.length > 0
+          ? competitors.slice(0, 3).map(c => `• ${c}`)
+          : industry
+          ? [
+              `• Top ${industry} competitor`,
+              `• Established ${industry} brand`,
+              `• Growing ${industry} business`,
+            ]
+          : [
+              '• Competitor in your market',
+              '• Similar business in your area',
+              '• Established player in your space',
+            ]),
         '',
         "So we're already seeing",
         "what's actually working",
