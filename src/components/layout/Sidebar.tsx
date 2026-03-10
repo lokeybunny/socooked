@@ -37,10 +37,12 @@ const navItems: NavItem[] = [
 ];
 
 const RESTRICTED_EMAIL = 'warren@guru.com';
+const PHONE_ONLY_EMAIL = 'brucemillis786@gmail.com';
 
 export function Sidebar() {
   const { signOut, user } = useAuth();
   const isRestricted = false;
+  const isPhoneOnly = user?.email === PHONE_ONLY_EMAIL;
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [hasNewMessages, setHasNewMessages] = useState(false);
@@ -161,7 +163,7 @@ export function Sidebar() {
 
         {/* Nav */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {(isRestricted ? navItems.filter(i => i.to === '/research') : navItems).map(({ to, icon: Icon, label, botIcon, highlight, divider, green }, idx) => {
+          {(isRestricted ? navItems.filter(i => i.to === '/research') : isPhoneOnly ? navItems.filter(i => i.to === '/phone') : navItems).map(({ to, icon: Icon, label, botIcon, highlight, divider, green }, idx) => {
             const isActive = location.pathname === to;
             const showDot = to === '/messages' && hasNewMessages;
             const nextItem = navItems[idx + 1];

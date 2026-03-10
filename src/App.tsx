@@ -61,6 +61,13 @@ const queryClient = new QueryClient();
 function RestrictedGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   if (user?.email === 'warren@guru.com') return <Navigate to="/research" replace />;
+  // Phone-only user
+  if (user?.email === 'brucemillis786@gmail.com') return <Navigate to="/phone" replace />;
+  return <>{children}</>;
+}
+
+/** Gate for phone page — allow phone-only users */
+function PhoneGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
@@ -91,7 +98,7 @@ const App = () => (
             <Route path="/invoices" element={<RestrictedGate><Invoices /></RestrictedGate>} />
             
             <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
-            <Route path="/phone" element={<RestrictedGate><PhonePage /></RestrictedGate>} />
+            <Route path="/phone" element={<PhonePage />} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />
             <Route path="/notifications" element={<RestrictedGate><Notifications /></RestrictedGate>} />
             <Route path="/meetings" element={<RestrictedGate><Meetings /></RestrictedGate>} />
