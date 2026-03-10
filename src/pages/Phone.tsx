@@ -81,6 +81,7 @@ export default function PhonePage() {
   const [results, setResults] = useState<any[]>([]);
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [teleprompterOpen, setTeleprompterOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
