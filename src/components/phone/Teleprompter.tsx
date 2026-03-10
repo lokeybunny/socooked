@@ -193,8 +193,30 @@ function buildScript(lead: any | null, competitors: string[]): { section: string
   ];
 }
 
-export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
-  const script = buildScript(lead);
+  const [competitors, setCompetitors] = useState<string[]>([]);
+
+  // Fetch competitors from CRM matching the lead's category
+  useEffect(() => {
+    if (!open || !lead) { setCompetitors([]); return; }
+    const category = lead?.category;
+    if (!category) { setCompetitors([]); return; }
+    const leadId = lead?.id;
+    supabase
+      .from('customers')
+      .select('company, full_name')
+      .eq('category', category)
+      .neq('id', leadId)
+      .in('status', ['active', 'client', 'lead'])
+      .limit(5)
+      .then(({ data }) => {
+        const names = (data || [])
+          .map(c => c.company || c.full_name)
+          .filter(Boolean) as string[];
+        setCompetitors(names);
+      });
+  }, [open, lead]);
+
+  const script = buildScript(lead, competitors);
   const allLines = script.flatMap(s => [
     `── ${s.section} ──`,
     ...s.lines,
