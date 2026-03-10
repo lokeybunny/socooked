@@ -240,10 +240,6 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
           <div style={{ height: '50vh' }} />
         </div>
 
-        {/* Center guide line */}
-        <div className="absolute left-0 right-0 pointer-events-none" style={{ top: 'calc(50% + 24px)' }}>
-          <div className="h-px bg-primary/40 mx-4" />
-        </div>
 
         {/* Controls */}
         <div className="flex items-center gap-4 px-4 py-3 border-t border-primary/20 bg-black">
