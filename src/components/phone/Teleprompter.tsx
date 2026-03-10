@@ -11,7 +11,7 @@ interface TeleprompterProps {
   lead: any | null;
 }
 
-function buildScript(lead: any | null): { section: string; lines: string[] }[] {
+function buildScript(lead: any | null, competitors: string[]): { section: string; lines: string[] }[] {
   // Extract business context from lead
   const meta = lead?.meta && typeof lead.meta === 'object' ? lead.meta : {};
   const categories: string[] = meta.yelp_categories || meta.gmaps_categories || [];
