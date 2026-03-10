@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
-import { Play, Pause, RotateCcw, Minus, Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, Pause, RotateCcw, Minus, Plus, ChevronUp, ChevronDown, X, GripHorizontal } from 'lucide-react';
 
 interface TeleprompterProps {
   open: boolean;
