@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star, Globe, Instagram, ExternalLink } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star, Globe, Instagram, ExternalLink, MonitorPlay } from 'lucide-react';
+import { Teleprompter } from '@/components/phone/Teleprompter';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
@@ -80,6 +81,7 @@ export default function PhonePage() {
   const [results, setResults] = useState<any[]>([]);
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [teleprompterOpen, setTeleprompterOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -1391,6 +1393,13 @@ export default function PhonePage() {
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <span className="font-medium">Cell:</span>
                 <span className="text-foreground">(423) 465-1253</span>
+                <button
+                  onClick={() => setTeleprompterOpen(true)}
+                  className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                  title="Open Teleprompter"
+                >
+                  <MonitorPlay className="h-4 w-4" />
+                </button>
               </div>
             </div>
             <div className="glass-card overflow-hidden rounded-xl">
@@ -1757,6 +1766,7 @@ export default function PhonePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Teleprompter open={teleprompterOpen} onOpenChange={setTeleprompterOpen} lead={currentLead} />
     </AppLayout>
   );
 }
