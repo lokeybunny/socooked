@@ -1520,71 +1520,127 @@ export default function Research() {
                     </div>
                   )}
 
-                  {/* Lead Finder sources */}
+                  {/* Lead Finder sources — Google Maps style */}
                   {rawData?.type === 'lead_finder' && (
-                    <div className="space-y-1 pt-1 border-t border-border">
+                    <div className="space-y-1.5 pt-1 border-t border-border">
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Lead Details</span>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
-                        {rawData.email && <span className="flex items-center gap-0.5"><Mail className="h-2.5 w-2.5" />{rawData.email}</span>}
-                        {rawData.phone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{rawData.phone}</span>}
-                        {rawData.company_name && <span className="flex items-center gap-0.5"><Building2 className="h-2.5 w-2.5" />{rawData.company_name}</span>}
-                        {rawData.linkedin && (
-                          <a href={rawData.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-primary hover:underline">
-                            <Linkedin className="h-2.5 w-2.5" /> LinkedIn
-                          </a>
+                      <div className="flex items-center gap-1 text-xs">
+                        <Target className="h-2.5 w-2.5 text-emerald-400" />
+                        <span className="font-bold text-emerald-400">{rawData.job_title || 'B2B Lead'}</span>
+                      </div>
+                      <div className="space-y-0.5 text-[10px] text-muted-foreground">
+                        {rawData.email && (
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-2.5 w-2.5 shrink-0" />
+                            <span className="break-all">{rawData.email}</span>
+                          </div>
                         )}
+                        {rawData.phone && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-2.5 w-2.5 shrink-0" />
+                            <span>{rawData.phone}</span>
+                          </div>
+                        )}
+                        {rawData.company_name && (
+                          <div className="flex items-center gap-1">
+                            <Building2 className="h-2.5 w-2.5 shrink-0" />
+                            <span className="break-words">{rawData.company_name}</span>
+                          </div>
+                        )}
+                        {(rawData.city || rawData.location) && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-2.5 w-2.5 shrink-0" />
+                            <span className="break-words">{rawData.city || rawData.location}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 pt-0.5">
+                          {rawData.linkedin && (
+                            <a href={rawData.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-emerald-400 hover:underline">
+                              <Linkedin className="h-2.5 w-2.5" /> LinkedIn
+                            </a>
+                          )}
+                          {rawData.company_website && (
+                            <a href={rawData.company_website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-emerald-400 hover:underline">
+                              <Globe className="h-2.5 w-2.5" /> Website
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* Yelp Business details */}
                   {rawData?.type === 'yelp_business' && (
-                    <div className="space-y-1 pt-1 border-t border-border">
+                    <div className="space-y-1.5 pt-1 border-t border-border">
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Yelp Business</span>
                       <div className="flex items-center gap-1 text-xs">
                         <Star className="h-2.5 w-2.5 text-yellow-500" />
                         <span className="font-bold text-yellow-500">{rawData.rating}★</span>
                         <span className="text-muted-foreground">({rawData.review_count} reviews)</span>
                       </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
-                        {rawData.phone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{rawData.phone}</span>}
-                        {rawData.address && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{rawData.address}</span>}
-                        {rawData.website && (
-                          <a href={rawData.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-yellow-500 hover:underline">
-                            <Globe className="h-2.5 w-2.5" /> Website
-                          </a>
+                      <div className="space-y-0.5 text-[10px] text-muted-foreground">
+                        {rawData.phone && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-2.5 w-2.5 shrink-0" />
+                            <span>{rawData.phone}</span>
+                          </div>
                         )}
-                        {rawData.yelp_url && (
-                          <a href={rawData.yelp_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-yellow-500 hover:underline">
-                            <Star className="h-2.5 w-2.5" /> Yelp
-                          </a>
+                        {rawData.address && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-2.5 w-2.5 shrink-0" />
+                            <span className="break-words">{rawData.address}</span>
+                          </div>
                         )}
+                        <div className="flex items-center gap-2 pt-0.5">
+                          {rawData.website && (
+                            <a href={rawData.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-yellow-500 hover:underline">
+                              <Globe className="h-2.5 w-2.5" /> Website
+                            </a>
+                          )}
+                          {rawData.yelp_url && (
+                            <a href={rawData.yelp_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-yellow-500 hover:underline">
+                              <Star className="h-2.5 w-2.5" /> Yelp
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* Google Maps Business details */}
                   {rawData?.type === 'gmaps_business' && (
-                    <div className="space-y-1 pt-1 border-t border-border">
+                    <div className="space-y-1.5 pt-1 border-t border-border">
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Google Maps</span>
                       <div className="flex items-center gap-1 text-xs">
                         <MapPin className="h-2.5 w-2.5 text-blue-400" />
                         <span className="font-bold text-blue-400">{rawData.rating}★</span>
                         <span className="text-muted-foreground">({rawData.review_count} reviews)</span>
                       </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
-                        {rawData.phone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{rawData.phone}</span>}
-                        {rawData.address && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{rawData.address}</span>}
-                        {rawData.website && (
-                          <a href={rawData.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-400 hover:underline">
-                            <Globe className="h-2.5 w-2.5" /> Website
-                          </a>
+                      <div className="space-y-0.5 text-[10px] text-muted-foreground">
+                        {rawData.phone && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-2.5 w-2.5 shrink-0" />
+                            <span>{rawData.phone}</span>
+                          </div>
                         )}
-                        {rawData.gmaps_url && (
-                          <a href={rawData.gmaps_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-400 hover:underline">
-                            <MapPin className="h-2.5 w-2.5" /> Maps
-                          </a>
+                        {rawData.address && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-2.5 w-2.5 shrink-0" />
+                            <span className="break-words">{rawData.address}</span>
+                          </div>
                         )}
+                        <div className="flex items-center gap-2 pt-0.5">
+                          {rawData.website && (
+                            <a href={rawData.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-400 hover:underline">
+                              <Globe className="h-2.5 w-2.5" /> Website
+                            </a>
+                          )}
+                          {rawData.gmaps_url && (
+                            <a href={rawData.gmaps_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-400 hover:underline">
+                              <MapPin className="h-2.5 w-2.5" /> Maps
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
