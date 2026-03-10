@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { Play, Pause, RotateCcw, Minus, Plus, ChevronUp, ChevronDown, X, GripHorizontal } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TeleprompterProps {
   open: boolean;
