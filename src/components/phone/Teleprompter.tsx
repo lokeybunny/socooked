@@ -193,6 +193,7 @@ function buildScript(lead: any | null, competitors: string[]): { section: string
   ];
 }
 
+export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
   const [competitors, setCompetitors] = useState<string[]>([]);
 
   // Fetch competitors from CRM matching the lead's category
