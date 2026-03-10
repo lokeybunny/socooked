@@ -264,9 +264,9 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
             <Slider
               value={[scrollSpeed]}
               onValueChange={([v]) => setScrollSpeed(v)}
-              min={10}
-              max={120}
-              step={5}
+              min={5}
+              max={200}
+              step={1}
               className="flex-1"
             />
             <span className="text-[10px] text-muted-foreground font-mono shrink-0">FAST</span>
