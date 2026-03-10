@@ -1123,27 +1123,42 @@ export default function Research() {
                   <p className="text-xs text-muted-foreground">
                     {lfResults.length} leads found · <span className="text-primary font-medium">{lfCreatedCount} new</span> added to CRM & findings
                   </p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[300px] overflow-y-auto">
-                    {lfResults.slice(0, 12).map((lead: any, i: number) => {
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
+                    {lfResults.slice(0, 16).map((lead: any, i: number) => {
                       const name = lead.full_name || `${lead.first_name || ''} ${lead.last_name || ''}`.trim();
                       return (
-                        <div key={i} className="rounded-lg border border-border bg-muted/30 p-2 space-y-1 text-xs">
-                          <span className="font-semibold text-foreground block truncate">{name}</span>
-                          {lead.job_title && <span className="text-muted-foreground block truncate">{lead.job_title}</span>}
-                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-                            {lead.email && <span className="flex items-center gap-0.5"><Mail className="h-2.5 w-2.5" />{lead.email}</span>}
-                            {lead.company_name && <span className="flex items-center gap-0.5"><Building2 className="h-2.5 w-2.5" />{lead.company_name}</span>}
-                            {lead.linkedin && (
-                              <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-primary hover:underline">
-                                <Linkedin className="h-2.5 w-2.5" /> LinkedIn
-                              </a>
+                        <div key={i} className="rounded-lg border border-border bg-muted/30 overflow-hidden text-xs">
+                          <div className="p-2 space-y-1">
+                            <span className="font-semibold text-foreground block truncate">{name}</span>
+                            {lead.job_title && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-emerald-400 font-bold truncate">{lead.job_title}</span>
+                              </div>
                             )}
+                            {lead.company_name && (
+                              <span className="text-muted-foreground block truncate">{lead.company_name}</span>
+                            )}
+                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                              {lead.email && <span className="flex items-center gap-0.5"><Mail className="h-2.5 w-2.5" />{lead.email}</span>}
+                              {(lead.mobile_number || lead.company_phone) && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{lead.mobile_number || lead.company_phone}</span>}
+                              {(lead.city || lead.country) && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{[lead.city, lead.state, lead.country].filter(Boolean).join(', ')}</span>}
+                              {lead.linkedin && (
+                                <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-emerald-400 hover:underline">
+                                  <Linkedin className="h-2.5 w-2.5" /> LinkedIn
+                                </a>
+                              )}
+                              {lead.company_website && (
+                                <a href={lead.company_website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-emerald-400 hover:underline">
+                                  <Globe className="h-2.5 w-2.5" /> Site
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                  {lfResults.length > 12 && <p className="text-[10px] text-muted-foreground">+{lfResults.length - 12} more (all saved as findings below)</p>}
+                  {lfResults.length > 16 && <p className="text-[10px] text-muted-foreground">+{lfResults.length - 16} more (all saved as findings below)</p>}
                 </div>
               )}
 
