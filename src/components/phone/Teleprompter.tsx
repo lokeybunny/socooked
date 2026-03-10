@@ -241,6 +241,9 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={() => setFontSize(f => Math.min(48, f + 2))}>
               <Plus className="h-4 w-4" />
             </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={() => onOpenChange(false)}>
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
