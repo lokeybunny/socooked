@@ -14,8 +14,9 @@ interface TeleprompterProps {
 function buildScript(lead: any | null, competitors: string[]): { section: string; lines: string[] }[] {
   // Extract business context from lead
   const meta = lead?.meta && typeof lead.meta === 'object' ? lead.meta : {};
-  const categories: string[] = meta.yelp_categories || meta.gmaps_categories || [];
-  const industry = categories[0] || meta.category_name || lead?.category || '';
+  const metaCategories: string[] = meta.yelp_categories || meta.gmaps_categories || [];
+  // Use specific niche from meta only — never broad category like "brick-and-mortar" or status like "potential"
+  const industry = metaCategories[0] || meta.category_name || '';
 
   return [
     {
