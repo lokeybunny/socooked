@@ -37,10 +37,12 @@ const navItems: NavItem[] = [
 ];
 
 const RESTRICTED_EMAIL = 'warren@guru.com';
+const PHONE_ONLY_EMAIL = 'brucemillis786@gmail.com';
 
 export function Sidebar() {
   const { signOut, user } = useAuth();
   const isRestricted = false;
+  const isPhoneOnly = user?.email === PHONE_ONLY_EMAIL;
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [hasNewMessages, setHasNewMessages] = useState(false);
