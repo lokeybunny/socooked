@@ -199,21 +199,36 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
   // Fetch competitors from CRM matching the lead's category
   useEffect(() => {
     if (!open || !lead) { setCompetitors([]); return; }
-    const category = lead?.category;
+
+    // Derive category from the lead — same logic as buildScript
+    const meta = lead?.meta && typeof lead.meta === 'object' ? lead.meta : {};
+    const metaCategories: string[] = meta.yelp_categories || meta.gmaps_categories || [];
+    const category = lead?.category || meta.category_name || metaCategories[0] || '';
+
     if (!category) { setCompetitors([]); return; }
+
     const leadId = lead?.id;
+
+    // Query customers that share the same category field
     supabase
       .from('customers')
-      .select('company, full_name')
-      .eq('category', category)
+      .select('company, full_name, category, meta')
       .neq('id', leadId)
-      .in('status', ['active', 'client', 'lead'])
-      .limit(5)
+      .limit(50)
       .then(({ data }) => {
+        const categoryLower = category.toLowerCase();
         const names = (data || [])
+          .filter(c => {
+            // Match on explicit category field
+            if (c.category && c.category.toLowerCase() === categoryLower) return true;
+            // Match on meta categories (yelp/gmaps)
+            const cMeta = c.meta && typeof c.meta === 'object' ? c.meta as Record<string, any> : {};
+            const cCats: string[] = cMeta.yelp_categories || cMeta.gmaps_categories || [];
+            return cCats.some((cat: string) => cat.toLowerCase() === categoryLower);
+          })
           .map(c => c.company || c.full_name)
           .filter(Boolean) as string[];
-        setCompetitors(names);
+        setCompetitors(names.slice(0, 3));
       });
   }, [open, lead]);
 
