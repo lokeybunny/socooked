@@ -1393,6 +1393,13 @@ export default function PhonePage() {
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <span className="font-medium">Cell:</span>
                 <span className="text-foreground">(423) 465-1253</span>
+                <button
+                  onClick={() => setTeleprompterOpen(true)}
+                  className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                  title="Open Teleprompter"
+                >
+                  <MonitorPlay className="h-4 w-4" />
+                </button>
               </div>
             </div>
             <div className="glass-card overflow-hidden rounded-xl">
