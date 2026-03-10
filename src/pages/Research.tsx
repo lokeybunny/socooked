@@ -1346,6 +1346,10 @@ export default function Research() {
             const rd = f.raw_data as any;
             if (!rd) return false;
             const hasName = !!(rd.name || f.title);
+            // For "other" source, only show B2B lead_finder results (no X/narrative content)
+            if (selectedSource === 'other') {
+              return hasName && rd.type === 'lead_finder';
+            }
             // Non-X findings require richer data
             const hasSymbol = !!rd.symbol;
             const hasWindow = !!rd.deploy_window;
