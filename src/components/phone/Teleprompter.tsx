@@ -185,16 +185,53 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
 
   const businessName = lead?.company || lead?.full_name || 'Unknown';
 
+  // Draggable state
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const draggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    draggingRef.current = true;
+    dragStartRef.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return;
+      setPos({ x: ev.clientX - dragStartRef.current.x, y: ev.clientY - dragStartRef.current.y });
+    };
+    const onUp = () => {
+      draggingRef.current = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [pos]);
+
+  // Reset position on open
+  useEffect(() => {
+    if (open) setPos({ x: 0, y: 0 });
+  }, [open]);
+
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] p-0 gap-0 overflow-hidden bg-black border-primary/30">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-primary/20 bg-black">
-          <div className="min-w-0">
-            <DialogHeader>
-              <DialogTitle className="text-primary font-mono text-sm">📟 TELEPROMPTER</DialogTitle>
-            </DialogHeader>
-            <p className="text-[11px] text-muted-foreground mt-0.5 truncate">Lead: <span className="text-foreground font-medium">{businessName}</span></p>
+    <div className="fixed inset-0 z-50" onClick={() => onOpenChange(false)}>
+      <div className="absolute inset-0 bg-black/60" />
+      <div
+        className="absolute top-1/2 left-1/2 w-[700px] max-w-[95vw] max-h-[90vh] rounded-lg overflow-hidden border border-primary/30 bg-black shadow-2xl"
+        style={{ transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px))` }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header — draggable */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b border-primary/20 bg-black cursor-grab active:cursor-grabbing select-none"
+          onMouseDown={onDragStart}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <GripHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <p className="text-primary font-mono text-sm font-bold">📟 TELEPROMPTER</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 truncate">Lead: <span className="text-foreground font-medium">{businessName}</span></p>
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={() => setFontSize(f => Math.max(16, f - 2))}>
