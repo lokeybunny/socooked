@@ -310,8 +310,8 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
           {/* Top padding so text starts centered */}
           <div style={{ height: '30vh' }} />
           {allLines.map((line, i) => {
-            const isSection = line.startsWith('──');
-            const isAlt = line.startsWith('── ALT') || line.startsWith('── ULTRA');
+            const safeLine = line ?? '';
+            const isSection = safeLine.startsWith('──');
             return (
               <p
                 key={i}
@@ -319,13 +319,13 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
                   'leading-relaxed transition-colors text-center',
                   isSection
                     ? 'text-primary font-bold uppercase tracking-wider mt-8 mb-4'
-                    : line === ''
+                    : safeLine === ''
                     ? 'h-4'
                     : 'text-white font-medium mb-2'
                 )}
                 style={{ fontSize: isSection ? fontSize * 0.55 : fontSize }}
               >
-                {line}
+                {safeLine}
               </p>
             );
           })}
