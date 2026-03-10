@@ -465,7 +465,21 @@ export default function Research() {
   const filtered = findings.filter(f => {
     if (filterType !== 'all' && f.finding_type !== filterType) return false;
     if (filterStatus !== 'all' && f.status !== filterStatus) return false;
-    return true;
+    // Pre-filter by source-specific data requirements so pagination counts are accurate
+    const rd = f.raw_data as any;
+    if (!rd) return false;
+    const hasName = !!(rd.name || f.title);
+    if (selectedSource === 'other') {
+      return hasName && rd.type === 'lead_finder';
+    }
+    if (selectedSource === 'google-maps') {
+      return hasName && (rd.type === 'gmaps_business' || rd.type === 'yelp_business' || rd.type === 'lead_finder');
+    }
+    // Default: require rich data for narrative sources
+    const hasSymbol = !!rd.symbol;
+    const hasWindow = !!rd.deploy_window;
+    const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder') || (rd.type === 'yelp_business') || (rd.type === 'gmaps_business');
+    return hasName && hasSymbol && hasWindow && hasSources;
   });
 
   // Reset page when filters change
