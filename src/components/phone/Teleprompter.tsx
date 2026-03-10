@@ -90,7 +90,7 @@ function buildScript(lead: any | null): { section: string; lines: string[] }[] {
         '• install AI systems that run your digital presence 24/7',
         '',
         "If we don't improve results…",
-        'you don't pay.',
+        "you don\'t pay.",,
       ],
     },
     {
