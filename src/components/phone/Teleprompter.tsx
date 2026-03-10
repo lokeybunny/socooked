@@ -319,7 +319,7 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
