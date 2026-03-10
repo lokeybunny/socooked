@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { Play, Pause, RotateCcw, Minus, Plus, ChevronUp, ChevronDown, X, GripHorizontal } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TeleprompterProps {
   open: boolean;
@@ -10,7 +11,7 @@ interface TeleprompterProps {
   lead: any | null;
 }
 
-function buildScript(lead: any | null): { section: string; lines: string[] }[] {
+function buildScript(lead: any | null, competitors: string[]): { section: string; lines: string[] }[] {
   // Extract business context from lead
   const meta = lead?.meta && typeof lead.meta === 'object' ? lead.meta : {};
   const categories: string[] = meta.yelp_categories || meta.gmaps_categories || [];
@@ -94,15 +95,19 @@ function buildScript(lead: any | null): { section: string; lines: string[] }[] {
         "we're already working with",
         'a few businesses in your space like:',
         '',
-        ...(industry ? [
-          `• Top ${industry} competitor`,
-          `• Established ${industry} brand`,
-          `• Growing ${industry} business`,
-        ] : [
-          '• Competitor in your market',
-          '• Similar business in your area',
-          '• Established player in your space',
-        ]),
+        ...(competitors.length > 0
+          ? competitors.slice(0, 3).map(c => `• ${c}`)
+          : industry
+          ? [
+              `• Top ${industry} competitor`,
+              `• Established ${industry} brand`,
+              `• Growing ${industry} business`,
+            ]
+          : [
+              '• Competitor in your market',
+              '• Similar business in your area',
+              '• Established player in your space',
+            ]),
         '',
         "So we're already seeing",
         "what's actually working",
@@ -189,7 +194,30 @@ function buildScript(lead: any | null): { section: string; lines: string[] }[] {
 }
 
 export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
-  const script = buildScript(lead);
+  const [competitors, setCompetitors] = useState<string[]>([]);
+
+  // Fetch competitors from CRM matching the lead's category
+  useEffect(() => {
+    if (!open || !lead) { setCompetitors([]); return; }
+    const category = lead?.category;
+    if (!category) { setCompetitors([]); return; }
+    const leadId = lead?.id;
+    supabase
+      .from('customers')
+      .select('company, full_name')
+      .eq('category', category)
+      .neq('id', leadId)
+      .in('status', ['active', 'client', 'lead'])
+      .limit(5)
+      .then(({ data }) => {
+        const names = (data || [])
+          .map(c => c.company || c.full_name)
+          .filter(Boolean) as string[];
+        setCompetitors(names);
+      });
+  }, [open, lead]);
+
+  const script = buildScript(lead, competitors);
   const allLines = script.flatMap(s => [
     `── ${s.section} ──`,
     ...s.lines,
