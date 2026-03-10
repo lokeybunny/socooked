@@ -1355,21 +1355,7 @@ export default function Research() {
         <div className="flex gap-6">
         <div className="min-w-0 w-full">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {paginatedFiltered.filter(f => {
-            // Gate: only show findings with required fields per source type
-            const rd = f.raw_data as any;
-            if (!rd) return false;
-            const hasName = !!(rd.name || f.title);
-            // For "other" source, only show B2B lead_finder results (no X/narrative content)
-            if (selectedSource === 'other') {
-              return hasName && rd.type === 'lead_finder';
-            }
-            // Non-X findings require richer data
-            const hasSymbol = !!rd.symbol;
-            const hasWindow = !!rd.deploy_window;
-            const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder') || (rd.type === 'yelp_business') || (rd.type === 'gmaps_business');
-            return hasName && hasSymbol && hasWindow && hasSources;
-          }).map(f => {
+          {paginatedFiltered.map(f => {
             const rawData = f.raw_data as any;
             const isNarrative = rawData?.type === 'narrative_report';
             const rating = rawData?.narrative_rating ?? rawData?.bundle_score ?? null;
