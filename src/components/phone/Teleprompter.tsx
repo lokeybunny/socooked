@@ -12,123 +12,146 @@ interface TeleprompterProps {
 
 function buildScript(lead: any | null): { section: string; lines: string[] }[] {
   // Extract business context from lead
-  const businessName = lead?.company || lead?.full_name || 'your business';
   const meta = lead?.meta && typeof lead.meta === 'object' ? lead.meta : {};
   const categories: string[] = meta.yelp_categories || meta.gmaps_categories || [];
   const industry = categories[0] || meta.category_name || lead?.category || '';
-  const notes = lead?.notes || '';
-  const rating = meta.yelp_rating || meta.gmaps_rating || null;
-  const reviewCount = meta.yelp_review_count || meta.gmaps_review_count || null;
-  const website = meta.website || null;
-
-  // Build a business-aware intro snippet
-  let bizContext = '';
-  if (industry) {
-    bizContext = `I see you're in the ${industry} space`;
-    if (rating) bizContext += ` — ${rating}★ on ${meta.yelp_rating ? 'Yelp' : 'Google'}`;
-    if (reviewCount) bizContext += ` with ${reviewCount} reviews`;
-    bizContext += '.';
-  }
 
   return [
     {
-      section: '1️⃣ FIND THE OWNER',
+      section: '🔥 GURU Enterprise – SWERVE Style Cold Script',
+      lines: [],
+    },
+    {
+      section: '1️⃣ Find the Owner',
       lines: [
-        'Hey quick question —',
-        'are you the owner of this business',
+        'Quick question —',
+        'are you the owner of the business',
         'or do you help manage the page?',
       ],
     },
     {
-      section: '2️⃣ IF THEY ARE THE OWNER',
+      section: '2️⃣ Once Owner Confirms',
       lines: [
-        'Nice. Let me ask you something straight —',
-        'is the business making good money right now',
-        'or struggling a bit?',
+        'Alright cool.',
         '',
-        '── ALTERNATIVE ──',
-        'Respect. Quick question —',
-        'is the business doing well financially',
-        'right now or are you trying to grow it?',
+        "Let me be up front with you,",
+        "and I'm gonna take a second of your time.",
         '',
-        '── ULTRA-DIRECT ──',
-        'Straight up —',
-        'is the business printing money right now',
-        'or are you trying to make it grow?',
+        "If you don't like what I say,",
+        'you can hang up respectfully —',
+        'no hard feelings.',
       ],
     },
     {
-      section: '3️⃣ IF DOING WELL',
+      section: '3️⃣ Straightforward Hook',
       lines: [
-        'Good. That usually means',
-        "there's room to scale even more.",
+        "Here's the deal.",
         '',
-        'Out of curiosity —',
-        "what's currently bringing you",
-        'most of your customers?',
+        "You're either going to make",
+        'a lot more money working with us,',
+        'or this won't make sense',
+        'and we both move on.',
+        '',
+        "Either way, I'm not here",
+        'to waste your time.',
       ],
     },
     {
-      section: '4️⃣ IF SLOW / STRUGGLING',
+      section: '4️⃣ Competitor Positioning (Early Authority)',
       lines: [
-        'Appreciate the honesty.',
-        'Most businesses we talk to',
-        'say the same thing.',
+        'Full transparency —',
+        "we're already working with",
+        'a few businesses in your space like:',
         '',
-        'Usually it comes down to',
-        'lead flow or visibility online.',
-        '',
-        "What's currently bringing you",
-        'most of your customers?',
-      ],
-    },
-    {
-      section: '5️⃣ TRANSITION — GURU ENTERPRISE',
-      lines: [
-        'Got it.',
-        ...(bizContext ? [bizContext, ''] : []),
-        'I work with GURU Enterprise',
-        'by Warren Guru',
-        'and we help businesses install systems',
-        'that bring in consistent leads',
-        'from their website and social media.',
-        '',
-        'Not just posts —',
-        'actual customer inquiries.',
         ...(industry ? [
-          '',
-          `For ${industry} businesses like yours,`,
-          'we typically focus on',
-          'local search visibility,',
-          'review generation,',
-          'and direct lead capture.',
-        ] : []),
+          `• Top ${industry} competitor`,
+          `• Established ${industry} brand`,
+          `• Growing ${industry} business`,
+        ] : [
+          '• Competitor in your market',
+          '• Similar business in your area',
+          '• Established player in your space',
+        ]),
+        '',
+        "So we're already seeing",
+        "what's actually working",
+        'in your market right now.',
       ],
     },
     {
-      section: '6️⃣ QUALIFICATION',
+      section: '5️⃣ What You Do',
       lines: [
-        'Quick thing though —',
-        'we only work with owners',
-        'who are serious about growth.',
+        'Me and my partner Warren',
+        'from GURU Enterprise',
+        'basically do three things:',
         '',
-        'If the strategy actually made sense,',
-        'would you be open to investing',
-        'in scaling the business?',
+        '• run ads that bring in customers',
+        '• fix every mistake on your website and social media',
+        '• install AI systems that run your digital presence 24/7',
+        '',
+        "If we don't improve results…",
+        'you don't pay.',
       ],
     },
     {
-      section: '7️⃣ BOOK THE CALL',
+      section: '6️⃣ Position Warren',
       lines: [
-        'Perfect.',
+        'Just so you know how we work —',
         '',
-        'Best move is a quick',
-        '15-minute strategy call with Warren',
-        'so he can look at what you\'re doing',
-        'and show you what we\'d change.',
+        'I handle the front end',
+        'talking with business owners,',
+        'and Warren is the brain',
+        'behind the systems —',
+        'the ads, AI automation,',
+        'and the backend that actually',
+        'drives results.',
+      ],
+    },
+    {
+      section: '7️⃣ Engagement Question',
+      lines: [
+        'Let me ask you something —',
         '',
-        'Grab a time here:',
-        '[Send Calendar Link]',
+        "Who's currently managing",
+        'your ads, website,',
+        'and social media growth',
+        'right now?',
+      ],
+    },
+    {
+      section: '8️⃣ Control the Frame',
+      lines: [
+        '── IF NO ONE / THEMSELVES ──',
+        '',
+        "Yeah… that's what we see",
+        'most of the time.',
+        '',
+        '── IF AN AGENCY ──',
+        '',
+        'Got it. A lot of the businesses',
+        'we work with said the same thing',
+        'before we stepped in.',
+      ],
+    },
+    {
+      section: '9️⃣ Close for Meeting',
+      lines: [
+        'Look —',
+        'the easiest way to see',
+        'if this makes sense is',
+        'a quick Zoom call with me and Warren.',
+        '',
+        "He'll look at what you've got running",
+        'and show you what we\'d fix',
+        'to bring in more customers.',
+      ],
+    },
+    {
+      section: '🔟 Command Close',
+      lines: [
+        'It takes about 15 minutes.',
+        '',
+        'Are you free later today or tomorrow?',
       ],
     },
   ];
