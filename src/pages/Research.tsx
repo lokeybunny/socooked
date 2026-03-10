@@ -1472,8 +1472,8 @@ export default function Research() {
                     </div>
                   )}
 
-              {/* Tweet sources (compact) */}
-                  {(tweetSources.length > 0 || rawData?.twitter_source_url || f.source_url) && (
+              {/* Tweet sources (compact) — only for non-business-finder types */}
+                  {rawData?.type !== 'lead_finder' && rawData?.type !== 'yelp_business' && rawData?.type !== 'gmaps_business' && (tweetSources.length > 0 || rawData?.twitter_source_url || f.source_url) && (
                     <div className="space-y-1 pt-1 border-t border-border">
                       <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">𝕏 Sources</span>
                       {tweetSources.length > 0 ? tweetSources.slice(0, 2).map((tw, j) => {
