@@ -230,11 +230,36 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
   }, [open, lead]);
 
   const script = buildScript(lead, competitors);
-  const allLines = script.flatMap(s => [
+  const baseLines = script.flatMap(s => [
     `── ${s.section} ──`,
     ...s.lines,
     '', // gap between sections
   ]);
+
+  // Session-editable lines
+  const [editMode, setEditMode] = useState(false);
+  const [editedLines, setEditedLines] = useState<string[] | null>(null);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Reset edits when lead changes
+  useEffect(() => { setEditedLines(null); }, [lead]);
+
+  const allLines = editedLines ?? baseLines;
+
+  const handleLineClick = (idx: number) => {
+    if (!editMode) return;
+    setIsPlaying(false);
+    setEditingIdx(idx);
+    setTimeout(() => editInputRef.current?.focus(), 30);
+  };
+
+  const commitEdit = (idx: number, value: string) => {
+    const updated = [...allLines];
+    updated[idx] = value;
+    setEditedLines(updated);
+    setEditingIdx(null);
+  };
 
   const [scrollSpeed, setScrollSpeed] = useState(35); // pixels per second
   const [isPlaying, setIsPlaying] = useState(false);
