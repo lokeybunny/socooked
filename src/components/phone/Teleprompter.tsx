@@ -14,8 +14,9 @@ interface TeleprompterProps {
 function buildScript(lead: any | null, competitors: string[]): { section: string; lines: string[] }[] {
   // Extract business context from lead
   const meta = lead?.meta && typeof lead.meta === 'object' ? lead.meta : {};
-  const categories: string[] = meta.yelp_categories || meta.gmaps_categories || [];
-  const industry = categories[0] || meta.category_name || lead?.category || '';
+  const metaCategories: string[] = meta.yelp_categories || meta.gmaps_categories || [];
+  // Use specific niche from meta only — never broad category like "brick-and-mortar" or status like "potential"
+  const industry = metaCategories[0] || meta.category_name || '';
 
   return [
     {
@@ -90,29 +91,27 @@ function buildScript(lead: any | null, competitors: string[]): { section: string
     },
     {
       section: '4️⃣ Competitor Positioning (Early Authority)',
-      lines: [
-        'Full transparency —',
-        "we're already working with",
-        'a few businesses in your space like:',
-        '',
-        ...(competitors.length > 0
-          ? competitors.slice(0, 3).map(c => `• ${c}`)
-          : industry
-          ? [
-              `• Top ${industry} competitor`,
-              `• Established ${industry} brand`,
-              `• Growing ${industry} business`,
-            ]
-          : [
-              '• Competitor in your market',
-              '• Similar business in your area',
-              '• Established player in your space',
-            ]),
-        '',
-        "So we're already seeing",
-        "what's actually working",
-        'in your market right now.',
-      ],
+      lines: competitors.length > 0
+        ? [
+            'Full transparency —',
+            "we're already working with",
+            'a few businesses in your space like:',
+            '',
+            ...competitors.slice(0, 3).map(c => `• ${c}`),
+            '',
+            "So we're already seeing",
+            "what's actually working",
+            'in your market right now.',
+          ]
+        : [
+            'Full transparency —',
+            "we're already working with",
+            'a few businesses in your space.',
+            '',
+            "So we're already seeing",
+            "what's actually working",
+            'in your market right now.',
+          ],
     },
     {
       section: '5️⃣ What You Do',
