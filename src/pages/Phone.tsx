@@ -1766,6 +1766,7 @@ export default function PhonePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <Teleprompter open={teleprompterOpen} onOpenChange={setTeleprompterOpen} lead={currentLead} />
     </AppLayout>
   );
 }
