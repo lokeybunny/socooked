@@ -98,7 +98,7 @@ const App = () => (
             <Route path="/invoices" element={<RestrictedGate><Invoices /></RestrictedGate>} />
             
             <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
-            <Route path="/phone" element={<RestrictedGate><PhonePage /></RestrictedGate>} />
+            <Route path="/phone" element={<PhonePage />} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />
             <Route path="/notifications" element={<RestrictedGate><Notifications /></RestrictedGate>} />
             <Route path="/meetings" element={<RestrictedGate><Meetings /></RestrictedGate>} />
