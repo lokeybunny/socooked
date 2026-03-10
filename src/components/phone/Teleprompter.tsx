@@ -386,6 +386,27 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
           {allLines.map((line, i) => {
             const safeLine = line ?? '';
             const isSection = safeLine.startsWith('──');
+            const isEditing = editingIdx === i;
+
+            if (isEditing) {
+              return (
+                <div key={i} className="mb-2 flex justify-center">
+                  <textarea
+                    ref={editInputRef}
+                    defaultValue={safeLine}
+                    className="w-full max-w-[90%] bg-white/10 text-white border border-primary/40 rounded px-3 py-2 text-center font-medium resize-none focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    style={{ fontSize }}
+                    rows={Math.max(1, Math.ceil(safeLine.length / 40))}
+                    onBlur={(e) => commitEdit(i, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(i, (e.target as HTMLTextAreaElement).value); }
+                      if (e.key === 'Escape') setEditingIdx(null);
+                    }}
+                  />
+                </div>
+              );
+            }
+
             return (
               <p
                 key={i}
@@ -395,9 +416,11 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
                     ? 'text-primary font-bold uppercase tracking-wider mt-8 mb-4'
                     : safeLine === ''
                     ? 'h-4'
-                    : 'text-white font-medium mb-2'
+                    : 'text-white font-medium mb-2',
+                  editMode && !isSection && safeLine !== '' && 'cursor-pointer hover:bg-white/5 rounded px-2 py-0.5'
                 )}
                 style={{ fontSize: isSection ? fontSize * 0.55 : fontSize }}
+                onClick={() => handleLineClick(i)}
               >
                 {safeLine}
               </p>
