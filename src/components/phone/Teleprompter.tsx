@@ -91,29 +91,27 @@ function buildScript(lead: any | null, competitors: string[]): { section: string
     },
     {
       section: '4️⃣ Competitor Positioning (Early Authority)',
-      lines: [
-        'Full transparency —',
-        "we're already working with",
-        'a few businesses in your space like:',
-        '',
-        ...(competitors.length > 0
-          ? competitors.slice(0, 3).map(c => `• ${c}`)
-          : industry
-          ? [
-              `• Top ${industry} competitor`,
-              `• Established ${industry} brand`,
-              `• Growing ${industry} business`,
-            ]
-          : [
-              '• Competitor in your market',
-              '• Similar business in your area',
-              '• Established player in your space',
-            ]),
-        '',
-        "So we're already seeing",
-        "what's actually working",
-        'in your market right now.',
-      ],
+      lines: competitors.length > 0
+        ? [
+            'Full transparency —',
+            "we're already working with",
+            'a few businesses in your space like:',
+            '',
+            ...competitors.slice(0, 3).map(c => `• ${c}`),
+            '',
+            "So we're already seeing",
+            "what's actually working",
+            'in your market right now.',
+          ]
+        : [
+            'Full transparency —',
+            "we're already working with",
+            'a few businesses in your space.',
+            '',
+            "So we're already seeing",
+            "what's actually working",
+            'in your market right now.',
+          ],
     },
     {
       section: '5️⃣ What You Do',
