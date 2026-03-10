@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
-import { Play, Pause, RotateCcw, Minus, Plus, ChevronUp, ChevronDown, X, GripHorizontal } from 'lucide-react';
+import { Play, Pause, RotateCcw, Minus, Plus, ChevronUp, ChevronDown, X, GripHorizontal, Pencil, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TeleprompterProps {
@@ -230,11 +230,36 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
   }, [open, lead]);
 
   const script = buildScript(lead, competitors);
-  const allLines = script.flatMap(s => [
+  const baseLines = script.flatMap(s => [
     `── ${s.section} ──`,
     ...s.lines,
     '', // gap between sections
   ]);
+
+  // Session-editable lines
+  const [editMode, setEditMode] = useState(false);
+  const [editedLines, setEditedLines] = useState<string[] | null>(null);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Reset edits when lead changes
+  useEffect(() => { setEditedLines(null); }, [lead]);
+
+  const allLines = editedLines ?? baseLines;
+
+  const handleLineClick = (idx: number) => {
+    if (!editMode) return;
+    setIsPlaying(false);
+    setEditingIdx(idx);
+    setTimeout(() => editInputRef.current?.focus(), 30);
+  };
+
+  const commitEdit = (idx: number, value: string) => {
+    const updated = [...allLines];
+    updated[idx] = value;
+    setEditedLines(updated);
+    setEditingIdx(null);
+  };
 
   const [scrollSpeed, setScrollSpeed] = useState(35); // pixels per second
   const [isPlaying, setIsPlaying] = useState(false);
@@ -335,6 +360,15 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={() => setFontSize(f => Math.min(48, f + 2))}>
               <Plus className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn("h-8 w-8 p-0", editMode ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground")}
+              onClick={() => { setEditMode(!editMode); setEditingIdx(null); }}
+              title={editMode ? "Done editing" : "Edit script"}
+            >
+              {editMode ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground" onClick={() => onOpenChange(false)}>
               <X className="h-4 w-4" />
             </Button>
@@ -352,6 +386,27 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
           {allLines.map((line, i) => {
             const safeLine = line ?? '';
             const isSection = safeLine.startsWith('──');
+            const isEditing = editingIdx === i;
+
+            if (isEditing) {
+              return (
+                <div key={i} className="mb-2 flex justify-center">
+                  <textarea
+                    ref={editInputRef}
+                    defaultValue={safeLine}
+                    className="w-full max-w-[90%] bg-white/10 text-white border border-primary/40 rounded px-3 py-2 text-center font-medium resize-none focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    style={{ fontSize }}
+                    rows={Math.max(1, Math.ceil(safeLine.length / 40))}
+                    onBlur={(e) => commitEdit(i, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(i, (e.target as HTMLTextAreaElement).value); }
+                      if (e.key === 'Escape') setEditingIdx(null);
+                    }}
+                  />
+                </div>
+              );
+            }
+
             return (
               <p
                 key={i}
@@ -361,9 +416,11 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
                     ? 'text-primary font-bold uppercase tracking-wider mt-8 mb-4'
                     : safeLine === ''
                     ? 'h-4'
-                    : 'text-white font-medium mb-2'
+                    : 'text-white font-medium mb-2',
+                  editMode && !isSection && safeLine !== '' && 'cursor-pointer hover:bg-white/5 rounded px-2 py-0.5'
                 )}
                 style={{ fontSize: isSection ? fontSize * 0.55 : fontSize }}
+                onClick={() => handleLineClick(i)}
               >
                 {safeLine}
               </p>
