@@ -49,7 +49,7 @@ function buildScript(lead: any | null): { section: string; lines: string[] }[] {
         '',
         "You're either going to make",
         'a lot more money working with us,',
-        'or this won't make sense',
+        "or this won\'t make sense",
         'and we both move on.',
         '',
         "Either way, I'm not here",
