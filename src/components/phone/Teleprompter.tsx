@@ -196,35 +196,33 @@ function buildScript(lead: any | null, competitors: string[]): { section: string
 export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
   const [competitors, setCompetitors] = useState<string[]>([]);
 
-  // Fetch competitors from CRM matching the lead's category
+  // Fetch competitors from CRM matching the lead's specific niche (not broad category)
   useEffect(() => {
     if (!open || !lead) { setCompetitors([]); return; }
 
-    // Derive category from the lead — same logic as buildScript
+    // Get the lead's specific niche industries from meta
     const meta = lead?.meta && typeof lead.meta === 'object' ? lead.meta : {};
     const metaCategories: string[] = meta.yelp_categories || meta.gmaps_categories || [];
-    const category = lead?.category || meta.category_name || metaCategories[0] || '';
+    // Use specific niche keywords (e.g. "Dentists", "General Dentistry") — NOT broad category like "brick-and-mortar"
+    const nicheKeywords = metaCategories.map((c: string) => c.toLowerCase());
 
-    if (!category) { setCompetitors([]); return; }
+    if (nicheKeywords.length === 0) { setCompetitors([]); return; }
 
     const leadId = lead?.id;
 
-    // Query customers that share the same category field
     supabase
       .from('customers')
-      .select('company, full_name, category, meta')
+      .select('company, full_name, meta')
       .neq('id', leadId)
-      .limit(50)
+      .limit(200)
       .then(({ data }) => {
-        const categoryLower = category.toLowerCase();
         const names = (data || [])
           .filter(c => {
-            // Match on explicit category field
-            if (c.category && c.category.toLowerCase() === categoryLower) return true;
-            // Match on meta categories (yelp/gmaps)
             const cMeta = c.meta && typeof c.meta === 'object' ? c.meta as Record<string, any> : {};
-            const cCats: string[] = cMeta.yelp_categories || cMeta.gmaps_categories || [];
-            return cCats.some((cat: string) => cat.toLowerCase() === categoryLower);
+            const cCats: string[] = (cMeta.yelp_categories || cMeta.gmaps_categories || [])
+              .map((cat: string) => cat.toLowerCase());
+            // Must share at least one specific niche category
+            return nicheKeywords.some(nk => cCats.some(cc => cc.includes(nk) || nk.includes(cc)));
           })
           .map(c => c.company || c.full_name)
           .filter(Boolean) as string[];
