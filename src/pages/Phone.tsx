@@ -59,6 +59,10 @@ export default function PhonePage() {
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null } | null>(null);
 
+  // Meeting scheduler after interested
+  const [meetingSchedulerOpen, setMeetingSchedulerOpen] = useState(false);
+  const [meetingSchedulerLead, setMeetingSchedulerLead] = useState<any>(null);
+
   // Analyze lead state
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeResult, setAnalyzeResult] = useState<{ instagram?: string; website?: string; leadId?: string; pdfUrl?: string; scores?: any } | null>(null);
