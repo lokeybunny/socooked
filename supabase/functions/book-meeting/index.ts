@@ -302,7 +302,7 @@ serve(async (req) => {
         end_time,
         duration_minutes,
         guest_name,
-        guest_email,
+        guest_email: guest_email || 'no-email@placeholder.local',
         guest_phone: guest_phone || null,
         meeting_id: meeting?.id || null,
         room_code: meeting?.room_code || null,
