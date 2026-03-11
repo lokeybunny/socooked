@@ -243,6 +243,48 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Potential Leads Section */}
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-amber-500" />
+              Potential Leads
+            </h2>
+            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500">
+              {loading ? '—' : potentialLeads.length}
+            </span>
+          </div>
+          {potentialLeads.length === 0 && !loading ? (
+            <p className="text-sm text-muted-foreground">No potential leads yet. They'll appear here from your lead finder tools.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {potentialLeads.slice(0, 12).map(lead => {
+                const sourceIcon = lead.source === 'google-maps' ? MapPin :
+                                   lead.source === 'yelp' ? Globe : Building;
+                const SourceIcon = sourceIcon;
+                return (
+                  <div key={lead.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 border border-border/50">
+                    <div className="p-1.5 rounded-md bg-amber-500/10 mt-0.5">
+                      <SourceIcon className="h-3.5 w-3.5 text-amber-500" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{lead.full_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{lead.company || lead.email || '—'}</p>
+                      {lead.source && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5 capitalize">{lead.source.replace(/-/g, ' ')}</p>
+                      )}
+                    </div>
+                    <StatusBadge status={lead.status} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {potentialLeads.length > 12 && (
+            <p className="text-xs text-muted-foreground mt-3 text-center">+ {potentialLeads.length - 12} more potential leads</p>
+          )}
+        </div>
       </div>
     </AppLayout>
   );
