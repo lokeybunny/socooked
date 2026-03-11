@@ -57,7 +57,7 @@ export default function PhonePage() {
 
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
-  const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null } | null>(null);
+  const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null; email?: string; phone?: string } | null>(null);
 
   // Meeting scheduler after interested
   const [meetingSchedulerOpen, setMeetingSchedulerOpen] = useState(false);
