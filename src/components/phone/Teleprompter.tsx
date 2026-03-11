@@ -333,13 +333,14 @@ export function Teleprompter({ open, onOpenChange, lead }: TeleprompterProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50" onClick={() => onOpenChange(false)}>
-      <div className="absolute inset-0 bg-black/60" />
-      <div
-        className="absolute top-1/2 left-1/2 w-[700px] max-w-[95vw] max-h-[90vh] rounded-lg overflow-hidden border border-primary/30 bg-black shadow-2xl"
-        style={{ transform: `translate(calc(-50% + ${pos.x}px), calc(-50% + ${pos.y}px))` }}
-        onClick={e => e.stopPropagation()}
-      >
+    <div
+      className="fixed z-50 w-[700px] max-w-[95vw] max-h-[90vh] rounded-lg overflow-hidden border border-primary/30 bg-black shadow-2xl"
+      style={{
+        top: `calc(50% + ${pos.y}px)`,
+        left: `calc(50% + ${pos.x}px)`,
+        transform: 'translate(-50%, -50%)',
+      }}
+    >
         {/* Header — draggable */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b border-primary/20 bg-black cursor-grab active:cursor-grabbing select-none"
