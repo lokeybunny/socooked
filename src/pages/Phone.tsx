@@ -1432,7 +1432,7 @@ export default function PhonePage() {
                           </Button>
                           <Button
                             variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1 border-green-500/40 text-green-600 hover:bg-green-500/10"
-                            onClick={() => { setInterestedLead({ id: lead.id, name: lead.full_name, category: lead.category }); setInterestedOpen(true); }}
+                            onClick={() => { setInterestedLead({ id: lead.id, name: lead.full_name, category: lead.category, email: lead.email, phone: lead.phone }); setInterestedOpen(true); }}
                           >
                             <Star className="h-3 w-3" /> Interested
                           </Button>
