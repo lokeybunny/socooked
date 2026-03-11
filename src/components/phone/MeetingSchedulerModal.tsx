@@ -168,12 +168,17 @@ export default function MeetingSchedulerModal({ open, onOpenChange, lead, onBook
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 block">Type</Label>
                 <div className="flex gap-2">
-                  <Button size="sm" variant={meetingType === 'video' ? 'default' : 'outline'} onClick={() => setMeetingType('video')}>
-                    <Video className="h-3.5 w-3.5 mr-1" /> Video
-                  </Button>
-                  <Button size="sm" variant={meetingType === 'phone' ? 'default' : 'outline'} onClick={() => setMeetingType('phone')}>
-                    <Phone className="h-3.5 w-3.5 mr-1" /> Phone
-                  </Button>
+                   <Button size="sm" variant={meetingType === 'video' ? 'default' : 'outline'} onClick={() => setMeetingType('video')}>
+                     <Video className="h-3.5 w-3.5 mr-1" /> Video
+                   </Button>
+                   <Button size="sm" variant={meetingType === 'phone' ? 'default' : 'outline'} onClick={() => setMeetingType('phone')}>
+                     <Phone className="h-3.5 w-3.5 mr-1" /> Phone
+                   </Button>
+                   {showInPerson && (
+                     <Button size="sm" variant={meetingType === 'in_person' ? 'default' : 'outline'} onClick={() => setMeetingType('in_person')} className="border-amber-500/40">
+                       <MapPin className="h-3.5 w-3.5 mr-1" /> In Person
+                     </Button>
+                   )}
                 </div>
               </div>
               <div>
