@@ -2012,7 +2012,6 @@ export default function PhonePage() {
                 onClick={() => {
                   setInterestedOpen(false);
                   setInterestedLead(null);
-                  // Open lead detail to add email
                   const lead = leads.find(l => l.id === interestedLead?.id);
                   if (lead) {
                     setLeadDetail(lead);
@@ -2028,6 +2027,62 @@ export default function PhonePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Workflow Gate Dialog */}
+      <Dialog open={workflowGateOpen} onOpenChange={(open) => { if (!open) { setWorkflowGateOpen(false); setWorkflowGateLead(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" /> Outreach Workflow
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              <span className="font-semibold text-foreground">{workflowGateLead?.full_name}</span> has been marked as Interested. Choose which steps to run:
+            </p>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors">
+              <input type="checkbox" checked={workflowOpts.audit} onChange={e => setWorkflowOpts(prev => ({ ...prev, audit: e.target.checked, auditEmail: e.target.checked ? prev.auditEmail : false }))} className="h-4 w-4 rounded accent-primary" />
+              <div className="flex-1">
+                <span className="text-sm font-medium">🔍 Run Digital Audit</span>
+                <p className="text-xs text-muted-foreground">Analyze website, social media & generate PDF report</p>
+              </div>
+            </label>
+            <label className={cn("flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors", !workflowOpts.audit && "opacity-50 pointer-events-none")}>
+              <input type="checkbox" checked={workflowOpts.auditEmail} disabled={!workflowOpts.audit} onChange={e => setWorkflowOpts(prev => ({ ...prev, auditEmail: e.target.checked }))} className="h-4 w-4 rounded accent-primary" />
+              <div className="flex-1">
+                <span className="text-sm font-medium">📧 Send Audit Report Email</span>
+                <p className="text-xs text-muted-foreground">Email the PDF audit report to {workflowGateLead?.email || 'customer'}</p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors">
+              <input type="checkbox" checked={workflowOpts.meetingEmail} onChange={e => setWorkflowOpts(prev => ({ ...prev, meetingEmail: e.target.checked }))} className="h-4 w-4 rounded accent-primary" />
+              <div className="flex-1">
+                <span className="text-sm font-medium">📅 Send Meeting Invite Email</span>
+                <p className="text-xs text-muted-foreground">Follow-up email with booking link</p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors">
+              <input type="checkbox" checked={workflowOpts.schedule} onChange={e => setWorkflowOpts(prev => ({ ...prev, schedule: e.target.checked }))} className="h-4 w-4 rounded accent-primary" />
+              <div className="flex-1">
+                <span className="text-sm font-medium">🗓️ Open Meeting Scheduler</span>
+                <p className="text-xs text-muted-foreground">Schedule a meeting on the calendar now</p>
+              </div>
+            </label>
+          </div>
+          {!workflowGateLead?.email && (workflowOpts.audit || workflowOpts.auditEmail || workflowOpts.meetingEmail) && (
+            <p className="text-xs text-amber-600 flex items-center gap-1"><Mail className="h-3 w-3" /> No email on file — email steps will be skipped.</p>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setWorkflowGateOpen(false); setWorkflowGateLead(null); }}>
+              Skip All
+            </Button>
+            <Button onClick={executeWorkflow} disabled={workflowRunning} className="gap-1.5">
+              <Zap className="h-4 w-4" />
+              Run Selected
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Email Preview Dialog */}
       <Dialog open={emailPreviewOpen} onOpenChange={setEmailPreviewOpen}>
