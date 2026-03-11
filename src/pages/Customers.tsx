@@ -35,6 +35,7 @@ export default function Customers() {
     if (!deleteId) return;
     // Unlink/delete related records to avoid FK constraint errors
     await supabase.from('cards').update({ customer_id: null }).eq('customer_id', deleteId);
+    await supabase.from('transcriptions').delete().eq('customer_id', deleteId);
     await supabase.from('signatures').delete().eq('customer_id', deleteId);
     await supabase.from('documents').delete().eq('customer_id', deleteId);
     await supabase.from('invoices').delete().eq('customer_id', deleteId);
