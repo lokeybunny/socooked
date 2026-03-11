@@ -248,21 +248,19 @@ export default function PhonePage() {
     });
 
     // ── Open Meeting Scheduler ──
+    skipMeetingEmailRef.current = false;
     if (leadObj) {
       setMeetingSchedulerLead(leadObj);
       setMeetingSchedulerOpen(true);
     }
 
     // ── Auto Audit + Dual Email Pipeline (runs in background) ──
-    // Note: meeting invite email may be skipped if in-person is booked (handled by onBooked callback)
     if (leadObj?.email) {
       toast.info(`Starting automated audit & outreach for ${leadName}...`, { duration: 8000 });
-      runAutoAuditAndEmail(leadObj, false).catch(err => {
+      runAutoAuditAndEmail(leadObj).catch(err => {
         console.error('Auto audit pipeline error:', err);
         toast.error(`Auto-audit failed for ${leadName}: ${err.message}`);
       });
-    } else {
-      toast.warning(`${leadName} has no email — skipping automated audit & outreach.`);
     }
 
     setLeads(prev => prev.filter(l => l.id !== leadId));
