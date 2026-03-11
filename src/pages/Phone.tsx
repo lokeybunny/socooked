@@ -253,9 +253,10 @@ export default function PhonePage() {
     }
 
     // ── Auto Audit + Dual Email Pipeline (runs in background) ──
+    // Note: meeting invite email may be skipped if in-person is booked (handled by onBooked callback)
     if (leadObj?.email) {
       toast.info(`Starting automated audit & outreach for ${leadName}...`, { duration: 8000 });
-      runAutoAuditAndEmail(leadObj).catch(err => {
+      runAutoAuditAndEmail(leadObj, false).catch(err => {
         console.error('Auto audit pipeline error:', err);
         toast.error(`Auto-audit failed for ${leadName}: ${err.message}`);
       });
