@@ -48,7 +48,8 @@ export default function MeetingSchedulerModal({ open, onOpenChange, lead, onBook
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [meetingType, setMeetingType] = useState<'video' | 'phone'>('video');
+  const [meetingType, setMeetingType] = useState<'video' | 'phone' | 'in_person'>('video');
+  const showInPerson = is702Number(lead?.phone);
   const [duration, setDuration] = useState(30);
   const [submitting, setSubmitting] = useState(false);
   const [booked, setBooked] = useState(false);
