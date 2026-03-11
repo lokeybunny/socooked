@@ -139,7 +139,7 @@ export default function Leads() {
   );
 
   const loadLeads = async () => {
-    let q = supabase.from('customers').select('*').eq('status', 'lead').order('created_at', { ascending: false });
+    let q = supabase.from('customers').select('*').eq('category', 'potential').eq('status', 'lead').order('created_at', { ascending: false });
     if (filterSource !== 'all') q = q.eq('source', filterSource);
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
     const { data } = await q;
