@@ -1942,25 +1942,54 @@ export default function PhonePage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Mark as Interested?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure <span className="font-semibold text-foreground">{interestedLead?.name}</span> is interested? This will move their deal to <span className="font-semibold text-foreground">Qualified</span> and update their status to <span className="font-semibold text-foreground">Prospect</span>.
-            </AlertDialogDescription>
+            {!interestedLead?.email ? (
+              <AlertDialogDescription className="space-y-2">
+                <span className="flex items-center gap-2 text-amber-600 font-semibold">
+                  <Mail className="h-4 w-4" /> Email Required
+                </span>
+                <span className="block"><span className="font-semibold text-foreground">{interestedLead?.name}</span> does not have an email address on file. Please ask the customer for their email before marking them as interested — it's needed for the automated audit & outreach pipeline.</span>
+              </AlertDialogDescription>
+            ) : (
+              <AlertDialogDescription>
+                Are you sure <span className="font-semibold text-foreground">{interestedLead?.name}</span> is interested? This will move their deal to <span className="font-semibold text-foreground">Qualified</span> and update their status to <span className="font-semibold text-foreground">Prospect</span>.
+              </AlertDialogDescription>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-green-600 text-white hover:bg-green-700 gap-1.5"
-              onClick={() => {
-                if (interestedLead) {
-                  handleLeadInterested(interestedLead.id, interestedLead.name, interestedLead.category);
-                }
-                setInterestedOpen(false);
-                setInterestedLead(null);
-              }}
-            >
-              <Star className="h-4 w-4" />
-              Yes, mark Interested
-            </AlertDialogAction>
+            {interestedLead?.email ? (
+              <AlertDialogAction
+                className="bg-green-600 text-white hover:bg-green-700 gap-1.5"
+                onClick={() => {
+                  if (interestedLead) {
+                    handleLeadInterested(interestedLead.id, interestedLead.name, interestedLead.category);
+                  }
+                  setInterestedOpen(false);
+                  setInterestedLead(null);
+                }}
+              >
+                <Star className="h-4 w-4" />
+                Yes, mark Interested
+              </AlertDialogAction>
+            ) : (
+              <AlertDialogAction
+                className="bg-amber-600 text-white hover:bg-amber-700 gap-1.5"
+                onClick={() => {
+                  setInterestedOpen(false);
+                  setInterestedLead(null);
+                  // Open lead detail to add email
+                  const lead = leads.find(l => l.id === interestedLead?.id);
+                  if (lead) {
+                    setLeadDetail(lead);
+                    setLeadEditForm({ full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '', company: lead.company || '', address: lead.address || '', notes: lead.notes || '' });
+                    setLeadDetailOpen(true);
+                  }
+                }}
+              >
+                <Mail className="h-4 w-4" />
+                Add Email First
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
