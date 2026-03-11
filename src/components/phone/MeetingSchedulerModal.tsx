@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  ChevronLeft, ChevronRight, Clock, Loader2, Video, Phone, Check,
+  ChevronLeft, ChevronRight, Clock, Loader2, Video, Phone, Check, MapPin,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth,
@@ -30,8 +30,15 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   lead: { id: string; full_name: string; email?: string; phone?: string } | null;
-  onBooked?: () => void;
+  onBooked?: (meetingType: 'video' | 'phone' | 'in_person') => void;
 }
+
+const is702Number = (phone?: string | null): boolean => {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, '');
+  // Check for 702 area code (with or without country code 1)
+  return digits.startsWith('702') || digits.startsWith('1702');
+};
 
 const DURATIONS = [15, 30, 60];
 
@@ -41,7 +48,8 @@ export default function MeetingSchedulerModal({ open, onOpenChange, lead, onBook
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [meetingType, setMeetingType] = useState<'video' | 'phone'>('video');
+  const [meetingType, setMeetingType] = useState<'video' | 'phone' | 'in_person'>('video');
+  const showInPerson = is702Number(lead?.phone);
   const [duration, setDuration] = useState(30);
   const [submitting, setSubmitting] = useState(false);
   const [booked, setBooked] = useState(false);
@@ -123,8 +131,8 @@ export default function MeetingSchedulerModal({ open, onOpenChange, lead, onBook
       if (!data?.success) throw new Error(data?.error || 'Booking failed');
 
       setBooked(true);
-      toast.success(`Meeting booked with ${lead.full_name} on ${format(selectedDate, 'MMM d')} at ${new Date(`2000-01-01T${selectedTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`);
-      onBooked?.();
+      toast.success(`${meetingType === 'in_person' ? 'In-person meeting' : 'Meeting'} booked with ${lead.full_name} on ${format(selectedDate, 'MMM d')} at ${new Date(`2000-01-01T${selectedTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`);
+      onBooked?.(meetingType);
     } catch (err: any) {
       toast.error(err.message || 'Failed to book meeting');
     } finally {
@@ -160,12 +168,17 @@ export default function MeetingSchedulerModal({ open, onOpenChange, lead, onBook
               <div>
                 <Label className="text-xs text-muted-foreground mb-1.5 block">Type</Label>
                 <div className="flex gap-2">
-                  <Button size="sm" variant={meetingType === 'video' ? 'default' : 'outline'} onClick={() => setMeetingType('video')}>
-                    <Video className="h-3.5 w-3.5 mr-1" /> Video
-                  </Button>
-                  <Button size="sm" variant={meetingType === 'phone' ? 'default' : 'outline'} onClick={() => setMeetingType('phone')}>
-                    <Phone className="h-3.5 w-3.5 mr-1" /> Phone
-                  </Button>
+                   <Button size="sm" variant={meetingType === 'video' ? 'default' : 'outline'} onClick={() => setMeetingType('video')}>
+                     <Video className="h-3.5 w-3.5 mr-1" /> Video
+                   </Button>
+                   <Button size="sm" variant={meetingType === 'phone' ? 'default' : 'outline'} onClick={() => setMeetingType('phone')}>
+                     <Phone className="h-3.5 w-3.5 mr-1" /> Phone
+                   </Button>
+                   {showInPerson && (
+                     <Button size="sm" variant={meetingType === 'in_person' ? 'default' : 'outline'} onClick={() => setMeetingType('in_person')} className="border-amber-500/40">
+                       <MapPin className="h-3.5 w-3.5 mr-1" /> In Person
+                     </Button>
+                   )}
                 </div>
               </div>
               <div>

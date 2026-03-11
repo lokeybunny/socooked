@@ -57,7 +57,7 @@ export default function PhonePage() {
 
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
-  const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null } | null>(null);
+  const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null; email?: string; phone?: string } | null>(null);
 
   // Meeting scheduler after interested
   const [meetingSchedulerOpen, setMeetingSchedulerOpen] = useState(false);
@@ -87,6 +87,7 @@ export default function PhonePage() {
   const [expandedResult, setExpandedResult] = useState<string | null>(null);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [teleprompterOpen, setTeleprompterOpen] = useState(false);
+  const skipMeetingEmailRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -247,6 +248,7 @@ export default function PhonePage() {
     });
 
     // ── Open Meeting Scheduler ──
+    skipMeetingEmailRef.current = false;
     if (leadObj) {
       setMeetingSchedulerLead(leadObj);
       setMeetingSchedulerOpen(true);
@@ -259,8 +261,6 @@ export default function PhonePage() {
         console.error('Auto audit pipeline error:', err);
         toast.error(`Auto-audit failed for ${leadName}: ${err.message}`);
       });
-    } else {
-      toast.warning(`${leadName} has no email — skipping automated audit & outreach.`);
     }
 
     setLeads(prev => prev.filter(l => l.id !== leadId));
@@ -440,7 +440,17 @@ export default function PhonePage() {
     }
 
     // ── Step 3: Send Meeting Invite Email (Email #2) — delay 62s to clear anti-spam window ──
+    // Skip if in-person meeting was booked (no zoom link needed)
+    if (skipMeetingEmailRef.current) {
+      toast.info('In-person meeting booked — skipping video meeting invite email.');
+      return;
+    }
     await new Promise(resolve => setTimeout(resolve, 62000));
+    // Re-check after delay in case in-person was selected during wait
+    if (skipMeetingEmailRef.current) {
+      toast.info('In-person meeting booked — skipping video meeting invite email.');
+      return;
+    }
 
     try {
       const meetingUrl = `${window.location.origin}/letsmeet`;
@@ -1432,7 +1442,7 @@ export default function PhonePage() {
                           </Button>
                           <Button
                             variant="outline" size="sm" className="h-7 text-[11px] gap-1 flex-1 border-green-500/40 text-green-600 hover:bg-green-500/10"
-                            onClick={() => { setInterestedLead({ id: lead.id, name: lead.full_name, category: lead.category }); setInterestedOpen(true); }}
+                            onClick={() => { setInterestedLead({ id: lead.id, name: lead.full_name, category: lead.category, email: lead.email, phone: lead.phone }); setInterestedOpen(true); }}
                           >
                             <Star className="h-3 w-3" /> Interested
                           </Button>
@@ -1942,25 +1952,54 @@ export default function PhonePage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Mark as Interested?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure <span className="font-semibold text-foreground">{interestedLead?.name}</span> is interested? This will move their deal to <span className="font-semibold text-foreground">Qualified</span> and update their status to <span className="font-semibold text-foreground">Prospect</span>.
-            </AlertDialogDescription>
+            {!interestedLead?.email ? (
+              <AlertDialogDescription className="space-y-2">
+                <span className="flex items-center gap-2 text-amber-600 font-semibold">
+                  <Mail className="h-4 w-4" /> Email Required
+                </span>
+                <span className="block"><span className="font-semibold text-foreground">{interestedLead?.name}</span> does not have an email address on file. Please ask the customer for their email before marking them as interested — it's needed for the automated audit & outreach pipeline.</span>
+              </AlertDialogDescription>
+            ) : (
+              <AlertDialogDescription>
+                Are you sure <span className="font-semibold text-foreground">{interestedLead?.name}</span> is interested? This will move their deal to <span className="font-semibold text-foreground">Qualified</span> and update their status to <span className="font-semibold text-foreground">Prospect</span>.
+              </AlertDialogDescription>
+            )}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-green-600 text-white hover:bg-green-700 gap-1.5"
-              onClick={() => {
-                if (interestedLead) {
-                  handleLeadInterested(interestedLead.id, interestedLead.name, interestedLead.category);
-                }
-                setInterestedOpen(false);
-                setInterestedLead(null);
-              }}
-            >
-              <Star className="h-4 w-4" />
-              Yes, mark Interested
-            </AlertDialogAction>
+            {interestedLead?.email ? (
+              <AlertDialogAction
+                className="bg-green-600 text-white hover:bg-green-700 gap-1.5"
+                onClick={() => {
+                  if (interestedLead) {
+                    handleLeadInterested(interestedLead.id, interestedLead.name, interestedLead.category);
+                  }
+                  setInterestedOpen(false);
+                  setInterestedLead(null);
+                }}
+              >
+                <Star className="h-4 w-4" />
+                Yes, mark Interested
+              </AlertDialogAction>
+            ) : (
+              <AlertDialogAction
+                className="bg-amber-600 text-white hover:bg-amber-700 gap-1.5"
+                onClick={() => {
+                  setInterestedOpen(false);
+                  setInterestedLead(null);
+                  // Open lead detail to add email
+                  const lead = leads.find(l => l.id === interestedLead?.id);
+                  if (lead) {
+                    setLeadDetail(lead);
+                    setLeadEditForm({ full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '', company: lead.company || '', address: lead.address || '', notes: lead.notes || '' });
+                    setLeadDetailOpen(true);
+                  }
+                }}
+              >
+                <Mail className="h-4 w-4" />
+                Add Email First
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2021,7 +2060,12 @@ export default function PhonePage() {
         open={meetingSchedulerOpen}
         onOpenChange={setMeetingSchedulerOpen}
         lead={meetingSchedulerLead}
-        onBooked={() => loadData()}
+        onBooked={(bookedMeetingType) => {
+          loadData();
+          if (bookedMeetingType === 'in_person') {
+            skipMeetingEmailRef.current = true;
+          }
+        }}
       />
     </AppLayout>
   );
