@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig, Mail, Phone, MessageSquareText, Clock, RefreshCw } from 'lucide-react';
+import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig, Mail, Phone, MessageSquareText, Clock, RefreshCw, Smartphone, MapPin, Globe, Building } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 
