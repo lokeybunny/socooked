@@ -131,8 +131,8 @@ export default function MeetingSchedulerModal({ open, onOpenChange, lead, onBook
       if (!data?.success) throw new Error(data?.error || 'Booking failed');
 
       setBooked(true);
-      toast.success(`Meeting booked with ${lead.full_name} on ${format(selectedDate, 'MMM d')} at ${new Date(`2000-01-01T${selectedTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`);
-      onBooked?.();
+      toast.success(`${meetingType === 'in_person' ? 'In-person meeting' : 'Meeting'} booked with ${lead.full_name} on ${format(selectedDate, 'MMM d')} at ${new Date(`2000-01-01T${selectedTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`);
+      onBooked?.(meetingType);
     } catch (err: any) {
       toast.error(err.message || 'Failed to book meeting');
     } finally {
