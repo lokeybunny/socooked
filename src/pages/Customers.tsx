@@ -50,11 +50,23 @@ export default function Customers() {
   };
 
   const loadAll = async () => {
-    let q = supabase.from('customers').select('*').order('created_at', { ascending: false });
-    if (filterStatus !== 'all') q = q.eq('status', filterStatus);
-    if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
-    const { data } = await q;
-    setAllCustomers(data || []);
+    // Fetch non-potential and potential separately to avoid Supabase 1000-row default limit
+    let qReal = supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false });
+    let qPotential = supabase.from('customers').select('*').eq('category', 'potential').order('created_at', { ascending: false }).limit(1000);
+
+    if (filterStatus !== 'all') {
+      qReal = qReal.eq('status', filterStatus);
+      qPotential = qPotential.eq('status', filterStatus);
+    }
+    if (search) {
+      const searchFilter = `full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`;
+      qReal = qReal.or(searchFilter);
+      qPotential = qPotential.or(searchFilter);
+    }
+
+    const [realRes, potentialRes] = await Promise.all([qReal, qPotential]);
+    const combined = [...(realRes.data || []), ...(potentialRes.data || [])];
+    setAllCustomers(combined);
     setLoading(false);
   };
 
