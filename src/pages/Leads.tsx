@@ -181,7 +181,7 @@ export default function Leads() {
     const { error } = await supabase.from('customers').insert({
       full_name: form.full_name.trim(), email: form.email || null, phone: form.phone || null,
       address: form.address || null, company: form.company || null, source: form.source || 'manual',
-      notes: form.notes || null, status: 'lead', category: categoryGate.selectedCategory,
+      notes: form.notes || null, status: 'lead', category: 'potential',
     });
     if (error) { toast.error(error.message); return; }
     toast.success('Lead added');
