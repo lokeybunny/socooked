@@ -2017,6 +2017,12 @@ export default function PhonePage() {
         </DialogContent>
       </Dialog>
       <Teleprompter open={teleprompterOpen} onOpenChange={setTeleprompterOpen} lead={currentLead} />
+      <MeetingSchedulerModal
+        open={meetingSchedulerOpen}
+        onOpenChange={setMeetingSchedulerOpen}
+        lead={meetingSchedulerLead}
+        onBooked={() => loadData()}
+      />
     </AppLayout>
   );
 }
