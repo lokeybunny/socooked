@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star, Globe, Instagram, ExternalLink, MonitorPlay } from 'lucide-react';
 import { Teleprompter } from '@/components/phone/Teleprompter';
+import MeetingSchedulerModal from '@/components/phone/MeetingSchedulerModal';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
@@ -57,6 +58,10 @@ export default function PhonePage() {
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null } | null>(null);
+
+  // Meeting scheduler after interested
+  const [meetingSchedulerOpen, setMeetingSchedulerOpen] = useState(false);
+  const [meetingSchedulerLead, setMeetingSchedulerLead] = useState<any>(null);
 
   // Analyze lead state
   const [analyzing, setAnalyzing] = useState(false);
@@ -226,11 +231,28 @@ export default function PhonePage() {
 
     // Also update customer status to prospect
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', leadId);
-    setLeads(prev => prev.filter(l => l.id !== leadId));
     toast.success(`${leadName} marked as Interested — moved to Qualified`);
 
-    // ── Auto Audit + Dual Email Pipeline (runs in background) ──
+    // ── Telegram Notification: Interested Client ──
     const leadObj = leads.find(l => l.id === leadId);
+    const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+    await supabase.from('activity_log').insert({
+      entity_type: 'lead',
+      entity_id: leadId,
+      action: 'created',
+      meta: {
+        message: `⭐ *Interested Client*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n\n_Cold caller marked this lead as interested_`,
+        name: leadName,
+      },
+    });
+
+    // ── Open Meeting Scheduler ──
+    if (leadObj) {
+      setMeetingSchedulerLead(leadObj);
+      setMeetingSchedulerOpen(true);
+    }
+
+    // ── Auto Audit + Dual Email Pipeline (runs in background) ──
     if (leadObj?.email) {
       toast.info(`Starting automated audit & outreach for ${leadName}...`, { duration: 8000 });
       runAutoAuditAndEmail(leadObj).catch(err => {
@@ -240,6 +262,8 @@ export default function PhonePage() {
     } else {
       toast.warning(`${leadName} has no email — skipping automated audit & outreach.`);
     }
+
+    setLeads(prev => prev.filter(l => l.id !== leadId));
   };
 
   // ── Automated pipeline: Audit → Send Report Email → Send Meeting Email ──
@@ -1993,6 +2017,12 @@ export default function PhonePage() {
         </DialogContent>
       </Dialog>
       <Teleprompter open={teleprompterOpen} onOpenChange={setTeleprompterOpen} lead={currentLead} />
+      <MeetingSchedulerModal
+        open={meetingSchedulerOpen}
+        onOpenChange={setMeetingSchedulerOpen}
+        lead={meetingSchedulerLead}
+        onBooked={() => loadData()}
+      />
     </AppLayout>
   );
 }
