@@ -59,6 +59,12 @@ export default function PhonePage() {
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null; email?: string; phone?: string } | null>(null);
 
+  // Workflow gate (post-interested)
+  const [workflowGateOpen, setWorkflowGateOpen] = useState(false);
+  const [workflowGateLead, setWorkflowGateLead] = useState<any>(null);
+  const [workflowOpts, setWorkflowOpts] = useState({ audit: true, auditEmail: true, meetingEmail: true, schedule: true });
+  const [workflowRunning, setWorkflowRunning] = useState(false);
+
   // Meeting scheduler after interested
   const [meetingSchedulerOpen, setMeetingSchedulerOpen] = useState(false);
   const [meetingSchedulerLead, setMeetingSchedulerLead] = useState<any>(null);
@@ -189,7 +195,10 @@ export default function PhonePage() {
   };
 
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
-    // Find existing deal for this customer, or it was auto-created by the trigger
+    const leadObj = leads.find(l => l.id === leadId);
+    const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+
+    // ── 1. Update deal to Qualified ──
     const { data: existingDeal } = await supabase
       .from('deals')
       .select('id')
@@ -198,92 +207,144 @@ export default function PhonePage() {
       .maybeSingle();
 
     if (existingDeal) {
-      // Update existing deal to qualified
       await supabase.from('deals').update({ stage: 'qualified' }).eq('id', existingDeal.id);
-      // Log stage transition
       await supabase.from('activity_log').insert({
-        entity_type: 'deal',
-        entity_id: existingDeal.id,
-        action: 'updated',
+        entity_type: 'deal', entity_id: existingDeal.id, action: 'updated',
         meta: { title: `${leadName}`, customer_name: leadName, from_stage: 'new', to_stage: 'qualified' },
       });
     } else {
-      // Create a new deal at qualified stage
-      const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
       const { data: newDeal } = await supabase.from('deals').insert({
-        title: `${leadName} — ${catLabel}`,
-        customer_id: leadId,
-        category: leadCategory || 'other',
-        stage: 'qualified',
-        status: 'open',
-        pipeline: 'default',
-        deal_value: 0,
-        probability: 30,
+        title: `${leadName} — ${catLabel}`, customer_id: leadId, category: leadCategory || 'other',
+        stage: 'qualified', status: 'open', pipeline: 'default', deal_value: 0, probability: 30,
       }).select('id').single();
       if (newDeal) {
         await supabase.from('activity_log').insert({
-          entity_type: 'deal',
-          entity_id: newDeal.id,
-          action: 'updated',
+          entity_type: 'deal', entity_id: newDeal.id, action: 'updated',
           meta: { title: `${leadName} — ${catLabel}`, customer_name: leadName, from_stage: 'new', to_stage: 'qualified' },
         });
       }
     }
 
-    // Also update customer status to prospect
+    // ── 2. Update customer status ──
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', leadId);
     toast.success(`${leadName} marked as Interested — moved to Qualified`);
 
-    // ── Telegram Notification: Interested Client ──
-    const leadObj = leads.find(l => l.id === leadId);
-    const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+    // ── 3. Telegram Notification (direct call) ──
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    try {
+      await fetch(`https://${projectId}.supabase.co/functions/v1/telegram-notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({
+          entity_type: 'lead', action: 'created',
+          meta: {
+            message: `⭐ *Interested Client*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n\n_Cold caller marked this lead as interested_`,
+            name: leadName,
+          },
+        }),
+      });
+    } catch (e) { console.error('Telegram notify error:', e); }
+
+    // Also log to activity_log for record keeping
     await supabase.from('activity_log').insert({
-      entity_type: 'lead',
-      entity_id: leadId,
-      action: 'created',
+      entity_type: 'lead', entity_id: leadId, action: 'created',
       meta: {
         message: `⭐ *Interested Client*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n\n_Cold caller marked this lead as interested_`,
         name: leadName,
       },
     });
 
-    // ── Open Meeting Scheduler ──
+    // ── 4. Remove from leads list ──
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+
+    // ── 5. Show Workflow Gate dialog instead of auto-firing everything ──
     skipMeetingEmailRef.current = false;
-    if (leadObj) {
-      setMeetingSchedulerLead(leadObj);
+    setWorkflowGateLead(leadObj);
+    setWorkflowOpts({ audit: true, auditEmail: true, meetingEmail: true, schedule: true });
+    setWorkflowGateOpen(true);
+  };
+
+  // ── Execute selected workflow steps ──
+  const executeWorkflow = async () => {
+    const lead = workflowGateLead;
+    if (!lead) return;
+    setWorkflowRunning(true);
+    setWorkflowGateOpen(false);
+
+    // Schedule meeting if selected
+    if (workflowOpts.schedule) {
+      setMeetingSchedulerLead(lead);
       setMeetingSchedulerOpen(true);
     }
 
-    // ── Auto Audit + Dual Email Pipeline (runs in background) ──
-    if (leadObj?.email) {
-      toast.info(`Starting automated audit & outreach for ${leadName}...`, { duration: 8000 });
-      runAutoAuditAndEmail(leadObj).catch(err => {
-        console.error('Auto audit pipeline error:', err);
-        toast.error(`Auto-audit failed for ${leadName}: ${err.message}`);
-      });
+    // Run audit + emails in background if selected
+    if (lead.email && (workflowOpts.audit || workflowOpts.auditEmail || workflowOpts.meetingEmail)) {
+      const shouldAudit = workflowOpts.audit;
+      const shouldAuditEmail = workflowOpts.auditEmail;
+      const shouldMeetingEmail = workflowOpts.meetingEmail;
+
+      toast.info(`Starting selected workflow steps for ${lead.full_name}...`, { duration: 6000 });
+
+      (async () => {
+        try {
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+          let pdfUrl: string | null = null;
+          let auditScores: any = null;
+
+          // Run audit if selected
+          if (shouldAudit) {
+            const result = await runAuditOnly(lead);
+            pdfUrl = result.pdfUrl;
+            auditScores = result.auditScores;
+          }
+
+          // Send audit email if selected
+          if (shouldAuditEmail && pdfUrl) {
+            await sendAuditEmail(lead, pdfUrl, auditScores);
+          } else if (shouldAuditEmail && !shouldAudit) {
+            toast.warning('Skipping audit email — no audit was run to generate a report.');
+          }
+
+          // Send meeting email if selected (with delay if audit email was also sent)
+          if (shouldMeetingEmail) {
+            if (skipMeetingEmailRef.current) {
+              toast.info('In-person meeting booked — skipping video meeting invite email.');
+            } else {
+              if (shouldAuditEmail && pdfUrl) {
+                await new Promise(resolve => setTimeout(resolve, 62000));
+                if (skipMeetingEmailRef.current) {
+                  toast.info('In-person meeting booked — skipping video meeting invite email.');
+                  return;
+                }
+              }
+              await sendMeetingEmail(lead);
+            }
+          }
+        } catch (err: any) {
+          console.error('Workflow pipeline error:', err);
+          toast.error(`Workflow failed: ${err.message}`);
+        }
+      })();
     }
 
-    setLeads(prev => prev.filter(l => l.id !== leadId));
+    setWorkflowRunning(false);
+    setWorkflowGateLead(null);
   };
 
-  // ── Automated pipeline: Audit → Send Report Email → Send Meeting Email ──
-  const runAutoAuditAndEmail = async (lead: any) => {
+  // ── Audit-only step (extracted from runAutoAuditAndEmail) ──
+  const runAuditOnly = async (lead: any): Promise<{ pdfUrl: string | null; auditScores: any }> => {
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-    // ── Step 1: Run the full analyze/audit (reuses same logic as handleAnalyzeLead) ──
     setAnalyzing(true);
     let pdfUrl: string | null = null;
     let auditScores: any = null;
 
     try {
-      const FREE_EMAIL_DOMAINS = new Set([
-        'gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com',
-        'mail.com','protonmail.com','zoho.com','yandex.com','gmx.com','live.com',
-        'msn.com','me.com','inbox.com','fastmail.com','tutanota.com','hey.com',
-      ]);
+      const FREE_EMAIL_DOMAINS = new Set(['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com','mail.com','protonmail.com','zoho.com','yandex.com','gmx.com','live.com','msn.com','me.com','inbox.com','fastmail.com','tutanota.com','hey.com']);
       const VALID_TLDS = new Set(['.com','.net','.org','.biz','.co','.us','.io','.info','.pro','.me','.tv','.app','.dev','.store','.shop','.agency','.design','.media','.studio','.tech','.digital','.solutions','.services','.consulting','.marketing','.group','.team','.site','.website','.online','.cloud','.space','.xyz']);
-
       const extractDomain = (email: string | null): string | null => {
         if (!email || !email.includes('@')) return null;
         const domain = email.split('@')[1]?.toLowerCase().trim();
@@ -318,7 +379,6 @@ export default function PhonePage() {
         } catch (e) { console.error('Auto meta-extract error:', e); }
       }
 
-      // Validate TLD
       if (website) {
         try {
           const parsedHost = new URL(website.startsWith('http') ? website : `https://${website}`).hostname;
@@ -327,7 +387,6 @@ export default function PhonePage() {
         } catch { /* invalid URL */ }
       }
 
-      // Scrape for social links
       let fbUrl: string | null = null;
       if (website) {
         try {
@@ -349,16 +408,14 @@ export default function PhonePage() {
         } catch (e) { console.error('Auto scrape error:', e); }
       }
 
-      // Save discovered data
       if (website || igHandle || fbUrl) {
         const updatedMeta = { ...metaObj, ...(website ? { website } : {}), ...(igHandle ? { instagram: igHandle } : {}), ...(fbUrl ? { facebook: fbUrl } : {}) };
         await supabase.from('customers').update({ meta: updatedMeta, ...(igHandle ? { instagram_handle: igHandle } : {}) } as any).eq('id', lead.id);
       }
 
       if (!website && !igHandle && !fbUrl) {
-        toast.warning(`Could not find web presence for ${lead.full_name}. Skipping audit, still sending meeting invite.`);
+        toast.warning(`Could not find web presence for ${lead.full_name}. Skipping audit.`);
       } else {
-        // Run audit
         toast.info(`Running digital audit for ${lead.full_name}...`, { duration: 10000 });
         const auditRes = await fetch(`https://${projectId}.supabase.co/functions/v1/audit-report`, {
           method: 'POST',
@@ -369,89 +426,68 @@ export default function PhonePage() {
           const auditData = await auditRes.json();
           pdfUrl = auditData.pdf_url || null;
           auditScores = auditData.scores || null;
-          // Update lead meta
           await supabase.from('customers').update({
             meta: { ...(typeof lead.meta === 'object' ? lead.meta : {}), analyzed: true, audit_pdf_url: pdfUrl, audit_date: new Date().toISOString(), website, instagram: igHandle },
           } as any).eq('id', lead.id);
           toast.success(`Audit complete for ${lead.full_name}! Score: ${auditScores?.overall || '?'}/100`);
         } else {
           const errData = await auditRes.json().catch(() => ({}));
-          console.error('Auto audit error:', errData);
           toast.error(`Audit failed for ${lead.full_name}: ${errData.error || auditRes.status}`);
         }
       }
     } catch (err: any) {
-      console.error('Auto audit error:', err);
       toast.error(`Audit pipeline error: ${err.message}`);
     } finally {
       setAnalyzing(false);
     }
+    return { pdfUrl, auditScores };
+  };
 
-    // ── Step 2: Send Audit Report Email (Email #1) ──
-    if (pdfUrl) {
+  // ── Send audit report email ──
+  const sendAuditEmail = async (lead: any, pdfUrl: string, auditScores: any) => {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    try {
+      let attachments: { filename: string; mimeType: string; data: string }[] | undefined;
       try {
-        // Fetch PDF and encode as base64
-        let attachments: { filename: string; mimeType: string; data: string }[] | undefined;
-        try {
-          const pdfRes = await fetch(pdfUrl);
-          if (pdfRes.ok) {
-            const pdfBuffer = await pdfRes.arrayBuffer();
-            const bytes = new Uint8Array(pdfBuffer);
-            let binary = '';
-            for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-            const base64Pdf = btoa(binary);
-            attachments = [{ filename: `Digital_Audit_${lead.full_name.replace(/\s+/g, '_')}.pdf`, mimeType: 'application/pdf', data: base64Pdf }];
-          }
-        } catch (pdfErr) { console.error('PDF fetch for attachment failed:', pdfErr); }
-
-        const scoreText = auditScores?.overall ? ` Your overall digital presence score is ${auditScores.overall}/100.` : '';
-        const reportBody = `
-          <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.7;">
-            <p>Hi ${lead.full_name},</p>
-            <p>Thank you for your interest! I've put together a complimentary <strong>Digital Audit Report</strong> for your brand.${scoreText}</p>
-            <p>The full report is attached as a PDF — it covers your website, social media presence, and actionable recommendations to strengthen your digital footprint.</p>
-            ${pdfUrl ? `<p>You can also <a href="${pdfUrl}" style="color:#2754C5;">view the report online here</a>.</p>` : ''}
-            <p>I'd love to walk you through the findings and discuss how we can help. I'll be sending over a meeting link in a follow-up email shortly.</p>
-            <p>Looking forward to connecting!</p>
-          </div>`;
-
-        const sendRes = await fetch(`https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-          body: JSON.stringify({
-            to: lead.email,
-            subject: `Your Free Digital Audit Report — ${lead.company || lead.full_name}`,
-            body: reportBody,
-            ...(attachments ? { attachments } : {}),
-          }),
-        });
-
-        if (sendRes.ok) {
-          toast.success(`📧 Audit report sent to ${lead.email}`);
-        } else {
-          const errData = await sendRes.json().catch(() => ({}));
-          console.error('Auto send report error:', errData);
-          toast.error(`Failed to send audit email: ${errData.error || 'unknown error'}`);
+        const pdfRes = await fetch(pdfUrl);
+        if (pdfRes.ok) {
+          const pdfBuffer = await pdfRes.arrayBuffer();
+          const bytes = new Uint8Array(pdfBuffer);
+          let binary = '';
+          for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+          attachments = [{ filename: `Digital_Audit_${lead.full_name.replace(/\s+/g, '_')}.pdf`, mimeType: 'application/pdf', data: btoa(binary) }];
         }
-      } catch (err: any) {
-        console.error('Auto report email error:', err);
-        toast.error(`Report email failed: ${err.message}`);
-      }
-    }
+      } catch (pdfErr) { console.error('PDF fetch for attachment failed:', pdfErr); }
 
-    // ── Step 3: Send Meeting Invite Email (Email #2) — delay 62s to clear anti-spam window ──
-    // Skip if in-person meeting was booked (no zoom link needed)
-    if (skipMeetingEmailRef.current) {
-      toast.info('In-person meeting booked — skipping video meeting invite email.');
-      return;
-    }
-    await new Promise(resolve => setTimeout(resolve, 62000));
-    // Re-check after delay in case in-person was selected during wait
-    if (skipMeetingEmailRef.current) {
-      toast.info('In-person meeting booked — skipping video meeting invite email.');
-      return;
-    }
+      const scoreText = auditScores?.overall ? ` Your overall digital presence score is ${auditScores.overall}/100.` : '';
+      const reportBody = `
+        <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.7;">
+          <p>Hi ${lead.full_name},</p>
+          <p>Thank you for your interest! I've put together a complimentary <strong>Digital Audit Report</strong> for your brand.${scoreText}</p>
+          <p>The full report is attached as a PDF — it covers your website, social media presence, and actionable recommendations to strengthen your digital footprint.</p>
+          ${pdfUrl ? `<p>You can also <a href="${pdfUrl}" style="color:#2754C5;">view the report online here</a>.</p>` : ''}
+          <p>I'd love to walk you through the findings and discuss how we can help. I'll be sending over a meeting link in a follow-up email shortly.</p>
+          <p>Looking forward to connecting!</p>
+        </div>`;
 
+      const sendRes = await fetch(`https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({
+          to: lead.email, subject: `Your Free Digital Audit Report — ${lead.company || lead.full_name}`,
+          body: reportBody, ...(attachments ? { attachments } : {}),
+        }),
+      });
+      if (sendRes.ok) toast.success(`📧 Audit report sent to ${lead.email}`);
+      else { const errData = await sendRes.json().catch(() => ({})); toast.error(`Failed to send audit email: ${errData.error || 'unknown error'}`); }
+    } catch (err: any) { toast.error(`Report email failed: ${err.message}`); }
+  };
+
+  // ── Send meeting invite email ──
+  const sendMeetingEmail = async (lead: any) => {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     try {
       const meetingUrl = `${window.location.origin}/letsmeet`;
       const meetingBody = `
@@ -470,25 +506,14 @@ export default function PhonePage() {
       const meetRes = await fetch(`https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
-        body: JSON.stringify({
-          to: lead.email,
-          subject: `Let's Connect — Book a Free Strategy Call`,
-          body: meetingBody,
-        }),
+        body: JSON.stringify({ to: lead.email, subject: `Let's Connect — Book a Free Strategy Call`, body: meetingBody }),
       });
-
-      if (meetRes.ok) {
-        toast.success(`📅 Meeting invite sent to ${lead.email}`);
-      } else {
-        const errData = await meetRes.json().catch(() => ({}));
-        console.error('Auto meeting email error:', errData);
-        toast.error(`Failed to send meeting invite: ${errData.error || 'unknown error'}`);
-      }
-    } catch (err: any) {
-      console.error('Auto meeting email error:', err);
-      toast.error(`Meeting invite email failed: ${err.message}`);
-    }
+      if (meetRes.ok) toast.success(`📅 Meeting invite sent to ${lead.email}`);
+      else { const errData = await meetRes.json().catch(() => ({})); toast.error(`Failed to send meeting invite: ${errData.error || 'unknown error'}`); }
+    } catch (err: any) { toast.error(`Meeting invite email failed: ${err.message}`); }
   };
+
+  // (runAutoAuditAndEmail removed — replaced by workflow gate with runAuditOnly, sendAuditEmail, sendMeetingEmail above)
 
   const handleDeleteLead = async () => {
     if (!deleteLeadId) return;
@@ -1987,7 +2012,6 @@ export default function PhonePage() {
                 onClick={() => {
                   setInterestedOpen(false);
                   setInterestedLead(null);
-                  // Open lead detail to add email
                   const lead = leads.find(l => l.id === interestedLead?.id);
                   if (lead) {
                     setLeadDetail(lead);
@@ -2003,6 +2027,62 @@ export default function PhonePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Workflow Gate Dialog */}
+      <Dialog open={workflowGateOpen} onOpenChange={(open) => { if (!open) { setWorkflowGateOpen(false); setWorkflowGateLead(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" /> Outreach Workflow
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              <span className="font-semibold text-foreground">{workflowGateLead?.full_name}</span> has been marked as Interested. Choose which steps to run:
+            </p>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors">
+              <input type="checkbox" checked={workflowOpts.audit} onChange={e => setWorkflowOpts(prev => ({ ...prev, audit: e.target.checked, auditEmail: e.target.checked ? prev.auditEmail : false }))} className="h-4 w-4 rounded accent-primary" />
+              <div className="flex-1">
+                <span className="text-sm font-medium">🔍 Run Digital Audit</span>
+                <p className="text-xs text-muted-foreground">Analyze website, social media & generate PDF report</p>
+              </div>
+            </label>
+            <label className={cn("flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors", !workflowOpts.audit && "opacity-50 pointer-events-none")}>
+              <input type="checkbox" checked={workflowOpts.auditEmail} disabled={!workflowOpts.audit} onChange={e => setWorkflowOpts(prev => ({ ...prev, auditEmail: e.target.checked }))} className="h-4 w-4 rounded accent-primary" />
+              <div className="flex-1">
+                <span className="text-sm font-medium">📧 Send Audit Report Email</span>
+                <p className="text-xs text-muted-foreground">Email the PDF audit report to {workflowGateLead?.email || 'customer'}</p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors">
+              <input type="checkbox" checked={workflowOpts.meetingEmail} onChange={e => setWorkflowOpts(prev => ({ ...prev, meetingEmail: e.target.checked }))} className="h-4 w-4 rounded accent-primary" />
+              <div className="flex-1">
+                <span className="text-sm font-medium">📅 Send Meeting Invite Email</span>
+                <p className="text-xs text-muted-foreground">Follow-up email with booking link</p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors">
+              <input type="checkbox" checked={workflowOpts.schedule} onChange={e => setWorkflowOpts(prev => ({ ...prev, schedule: e.target.checked }))} className="h-4 w-4 rounded accent-primary" />
+              <div className="flex-1">
+                <span className="text-sm font-medium">🗓️ Open Meeting Scheduler</span>
+                <p className="text-xs text-muted-foreground">Schedule a meeting on the calendar now</p>
+              </div>
+            </label>
+          </div>
+          {!workflowGateLead?.email && (workflowOpts.audit || workflowOpts.auditEmail || workflowOpts.meetingEmail) && (
+            <p className="text-xs text-amber-600 flex items-center gap-1"><Mail className="h-3 w-3" /> No email on file — email steps will be skipped.</p>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setWorkflowGateOpen(false); setWorkflowGateLead(null); }}>
+              Skip All
+            </Button>
+            <Button onClick={executeWorkflow} disabled={workflowRunning} className="gap-1.5">
+              <Zap className="h-4 w-4" />
+              Run Selected
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Email Preview Dialog */}
       <Dialog open={emailPreviewOpen} onOpenChange={setEmailPreviewOpen}>
