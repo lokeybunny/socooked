@@ -64,8 +64,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [c, d, p, t, comms] = await Promise.all([
-        supabase.from('customers').select('id', { count: 'exact', head: true }),
+      const [cReal, cPotential, d, p, t, comms] = await Promise.all([
+        supabase.from('customers').select('id', { count: 'exact', head: true }).neq('category', 'potential'),
+        supabase.from('customers').select('id, full_name, email, company, status, source, created_at, category').eq('category', 'potential').order('created_at', { ascending: false }),
         supabase.from('deals').select('deal_value, status'),
         supabase.from('projects').select('status'),
         supabase.from('tasks').select('status'),
@@ -76,10 +77,11 @@ export default function Dashboard() {
       const tasks = t.data || [];
       const projects = p.data || [];
       const allComms = comms.data || [];
+      const potentialList = cPotential.data || [];
       const today = new Date().toISOString().slice(0, 10);
 
       setStats({
-        customers: c.count || 0,
+        customers: cReal.count || 0,
         deals: deals.length,
         projects: projects.length,
         tasks: tasks.length,
@@ -94,8 +96,10 @@ export default function Dashboard() {
         totalSms: allComms.filter(c => c.type === 'sms').length,
       });
 
+      setPotentialLeads(potentialList);
+
       const [rc, rd] = await Promise.all([
-        supabase.from('customers').select('*').order('created_at', { ascending: false }).limit(5),
+        supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false }).limit(5),
         supabase.from('deals').select('*').order('created_at', { ascending: false }).limit(5),
       ]);
 
