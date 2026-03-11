@@ -65,13 +65,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [cReal, cPotential, d, p, t, comms] = await Promise.all([
+      const [cReal, cPotential, d, p, t, comms, activeDealsRes] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).neq('category', 'potential'),
         supabase.from('customers').select('id, full_name, email, company, status, source, created_at, category').eq('category', 'potential').order('created_at', { ascending: false }),
         supabase.from('deals').select('deal_value, status'),
         supabase.from('projects').select('status'),
         supabase.from('tasks').select('status'),
         supabase.from('communications').select('type, created_at'),
+        supabase.from('deals').select('id, customer_id, status').eq('status', 'won'),
       ]);
 
       const deals = d.data || [];
@@ -79,11 +80,16 @@ export default function Dashboard() {
       const projects = p.data || [];
       const allComms = comms.data || [];
       const potentialList = cPotential.data || [];
+      const wonDeals = activeDealsRes.data || [];
       const today = new Date().toISOString().slice(0, 10);
+
+      // Active deals = won deals where customer is in "potential" category
+      const potentialIds = new Set(potentialList.map(c => c.id));
+      const activeDealsCount = wonDeals.filter(d => potentialIds.has(d.customer_id)).length;
 
       setStats({
         customers: cReal.count || 0,
-        deals: deals.length,
+        deals: activeDealsCount,
         projects: projects.length,
         tasks: tasks.length,
         dealValue: deals.reduce((sum, deal) => sum + Number(deal.deal_value || 0), 0),

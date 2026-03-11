@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
-import { CategoryGate, useCategoryGate, SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
 const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
@@ -117,7 +116,6 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { cont
 }
 
 export default function Leads() {
-  const categoryGate = useCategoryGate();
   const [allLeads, setAllLeads] = useState<any[]>([]);
   const [allProspects, setAllProspects] = useState<any[]>([]);
   const [allClients, setAllClients] = useState<any[]>([]);
@@ -141,7 +139,7 @@ export default function Leads() {
   );
 
   const loadLeads = async () => {
-    let q = supabase.from('customers').select('*').eq('status', 'lead').order('created_at', { ascending: false });
+    let q = supabase.from('customers').select('*').eq('category', 'potential').eq('status', 'lead').order('created_at', { ascending: false });
     if (filterSource !== 'all') q = q.eq('source', filterSource);
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
     const { data } = await q;
@@ -150,14 +148,14 @@ export default function Leads() {
   };
 
   const loadProspects = async () => {
-    let q = supabase.from('customers').select('*').eq('status', 'prospect').order('updated_at', { ascending: false });
+    let q = supabase.from('customers').select('*').eq('category', 'potential').eq('status', 'prospect').order('updated_at', { ascending: false });
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
     const { data } = await q;
     setAllProspects(data || []);
   };
 
   const loadClients = async () => {
-    let q = supabase.from('customers').select('*').eq('status', 'active').order('updated_at', { ascending: false });
+    let q = supabase.from('customers').select('*').eq('category', 'potential').eq('status', 'active').order('updated_at', { ascending: false });
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
     const { data } = await q;
     setAllClients(data || []);
@@ -165,25 +163,14 @@ export default function Leads() {
 
   const loadAll = () => { setLeadsPage(1); setProspectsPage(1); setClientsPage(1); loadLeads(); loadProspects(); loadClients(); };
 
-  // Filter by selected category
+  // All leads are potential category — no category filtering needed
   useEffect(() => {
-    const cat = categoryGate.selectedCategory;
-    if (cat) {
-      setLeads(allLeads.filter(c => (c.category || 'other') === cat));
-      setProspects(allProspects.filter(c => (c.category || 'other') === cat));
-      setClients(allClients.filter(c => (c.category || 'other') === cat));
-    } else {
-      setLeads(allLeads);
-      setProspects(allProspects);
-      setClients(allClients);
-    }
-  }, [categoryGate.selectedCategory, allLeads, allProspects, allClients]);
+    setLeads(allLeads);
+    setProspects(allProspects);
+    setClients(allClients);
+  }, [allLeads, allProspects, allClients]);
 
   const allContactsTotal = allLeads.length + allProspects.length + allClients.length;
-  const categoryCounts = SERVICE_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.id] = [...allLeads, ...allProspects, ...allClients].filter(c => (c.category || 'other') === cat.id).length;
-    return acc;
-  }, {} as Record<string, number>);
 
   useEffect(() => { loadAll(); }, [search, filterSource]);
 
@@ -194,7 +181,7 @@ export default function Leads() {
     const { error } = await supabase.from('customers').insert({
       full_name: form.full_name.trim(), email: form.email || null, phone: form.phone || null,
       address: form.address || null, company: form.company || null, source: form.source || 'manual',
-      notes: form.notes || null, status: 'lead', category: categoryGate.selectedCategory,
+      notes: form.notes || null, status: 'lead', category: 'potential',
     });
     if (error) { toast.error(error.message); return; }
     toast.success('Lead added');
@@ -351,8 +338,8 @@ export default function Leads() {
 
   return (
     <AppLayout>
-      <CategoryGate title="Leads" {...categoryGate} pageKey="leads" categoryTitle={`${SERVICE_CATEGORIES.find(c => c.id === categoryGate.selectedCategory)?.label || ''} Leads`} totalCount={allContactsTotal} countLabel="contacts" categoryCounts={categoryCounts}>
-        <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
+        <h1 className="text-2xl font-bold text-foreground">Potential Leads</h1>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
             <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
@@ -558,8 +545,7 @@ export default function Leads() {
               </DialogContent>
             </Dialog>
           )}
-        </div>
-      </CategoryGate>
+      </div>
     </AppLayout>
   );
 }
