@@ -116,7 +116,6 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { cont
 }
 
 export default function Leads() {
-  const categoryGate = useCategoryGate();
   const [allLeads, setAllLeads] = useState<any[]>([]);
   const [allProspects, setAllProspects] = useState<any[]>([]);
   const [allClients, setAllClients] = useState<any[]>([]);
