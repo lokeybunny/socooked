@@ -267,7 +267,7 @@ export default function PhonePage() {
   };
 
   // ── Automated pipeline: Audit → Send Report Email → Send Meeting Email ──
-  const runAutoAuditAndEmail = async (lead: any, skipMeetingEmail: boolean = false) => {
+  const runAutoAuditAndEmail = async (lead: any) => {
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
