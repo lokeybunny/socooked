@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig, Mail, Phone, MessageSquareText, Clock, RefreshCw } from 'lucide-react';
+import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig, Mail, Phone, MessageSquareText, Clock, RefreshCw, Smartphone, MapPin, Globe, Building } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0, emailsToday: 0, totalEmails: 0, totalCalls: 0, totalSms: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [recentDeals, setRecentDeals] = useState<any[]>([]);
+  const [potentialLeads, setPotentialLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
   const [cronCountdown, setCronCountdown] = useState(0);
@@ -64,8 +65,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [c, d, p, t, comms] = await Promise.all([
-        supabase.from('customers').select('id', { count: 'exact', head: true }),
+      const [cReal, cPotential, d, p, t, comms] = await Promise.all([
+        supabase.from('customers').select('id', { count: 'exact', head: true }).neq('category', 'potential'),
+        supabase.from('customers').select('id, full_name, email, company, status, source, created_at, category').eq('category', 'potential').order('created_at', { ascending: false }),
         supabase.from('deals').select('deal_value, status'),
         supabase.from('projects').select('status'),
         supabase.from('tasks').select('status'),
@@ -76,10 +78,11 @@ export default function Dashboard() {
       const tasks = t.data || [];
       const projects = p.data || [];
       const allComms = comms.data || [];
+      const potentialList = cPotential.data || [];
       const today = new Date().toISOString().slice(0, 10);
 
       setStats({
-        customers: c.count || 0,
+        customers: cReal.count || 0,
         deals: deals.length,
         projects: projects.length,
         tasks: tasks.length,
@@ -94,8 +97,10 @@ export default function Dashboard() {
         totalSms: allComms.filter(c => c.type === 'sms').length,
       });
 
+      setPotentialLeads(potentialList);
+
       const [rc, rd] = await Promise.all([
-        supabase.from('customers').select('*').order('created_at', { ascending: false }).limit(5),
+        supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false }).limit(5),
         supabase.from('deals').select('*').order('created_at', { ascending: false }).limit(5),
       ]);
 
@@ -237,6 +242,48 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Potential Leads Section */}
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-amber-500" />
+              Potential Leads
+            </h2>
+            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500">
+              {loading ? '—' : potentialLeads.length}
+            </span>
+          </div>
+          {potentialLeads.length === 0 && !loading ? (
+            <p className="text-sm text-muted-foreground">No potential leads yet. They'll appear here from your lead finder tools.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {potentialLeads.slice(0, 12).map(lead => {
+                const sourceIcon = lead.source === 'google-maps' ? MapPin :
+                                   lead.source === 'yelp' ? Globe : Building;
+                const SourceIcon = sourceIcon;
+                return (
+                  <div key={lead.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/40 border border-border/50">
+                    <div className="p-1.5 rounded-md bg-amber-500/10 mt-0.5">
+                      <SourceIcon className="h-3.5 w-3.5 text-amber-500" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{lead.full_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{lead.company || lead.email || '—'}</p>
+                      {lead.source && (
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5 capitalize">{lead.source.replace(/-/g, ' ')}</p>
+                      )}
+                    </div>
+                    <StatusBadge status={lead.status} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {potentialLeads.length > 12 && (
+            <p className="text-xs text-muted-foreground mt-3 text-center">+ {potentialLeads.length - 12} more potential leads</p>
+          )}
         </div>
       </div>
     </AppLayout>
