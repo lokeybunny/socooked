@@ -80,11 +80,16 @@ export default function Dashboard() {
       const projects = p.data || [];
       const allComms = comms.data || [];
       const potentialList = cPotential.data || [];
+      const wonDeals = activeDealsRes.data || [];
       const today = new Date().toISOString().slice(0, 10);
+
+      // Active deals = won deals where customer is in "potential" category
+      const potentialIds = new Set(potentialList.map(c => c.id));
+      const activeDealsCount = wonDeals.filter(d => potentialIds.has(d.customer_id)).length;
 
       setStats({
         customers: cReal.count || 0,
-        deals: deals.length,
+        deals: activeDealsCount,
         projects: projects.length,
         tasks: tasks.length,
         dealValue: deals.reduce((sum, deal) => sum + Number(deal.deal_value || 0), 0),
