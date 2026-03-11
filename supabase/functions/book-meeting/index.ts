@@ -263,8 +263,8 @@ serve(async (req) => {
     const { guest_name, guest_email, guest_phone, booking_date, start_time, duration_minutes, meeting_type } = body;
     const isPhone = meeting_type === "phone";
 
-    if (!guest_name || !guest_email || !booking_date || !start_time || !duration_minutes) {
-      throw new Error("Missing required fields");
+    if (!guest_name || !booking_date || !start_time || !duration_minutes) {
+      throw new Error("Missing required fields: guest_name, booking_date, start_time, duration_minutes are mandatory");
     }
     if (isPhone && !guest_phone) {
       throw new Error("Phone number is required for phone call meetings");
