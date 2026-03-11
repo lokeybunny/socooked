@@ -546,7 +546,7 @@ export default function Leads() {
             </Dialog>
           )}
         </div>
-      </CategoryGate>
+      </div>
     </AppLayout>
   );
 }
