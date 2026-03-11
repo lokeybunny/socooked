@@ -30,8 +30,15 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   lead: { id: string; full_name: string; email?: string; phone?: string } | null;
-  onBooked?: () => void;
+  onBooked?: (meetingType: 'video' | 'phone' | 'in_person') => void;
 }
+
+const is702Number = (phone?: string | null): boolean => {
+  if (!phone) return false;
+  const digits = phone.replace(/\D/g, '');
+  // Check for 702 area code (with or without country code 1)
+  return digits.startsWith('702') || digits.startsWith('1702');
+};
 
 const DURATIONS = [15, 30, 60];
 
