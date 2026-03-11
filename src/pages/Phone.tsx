@@ -441,11 +441,16 @@ export default function PhonePage() {
 
     // ── Step 3: Send Meeting Invite Email (Email #2) — delay 62s to clear anti-spam window ──
     // Skip if in-person meeting was booked (no zoom link needed)
-    if (skipMeetingEmail) {
+    if (skipMeetingEmailRef.current) {
       toast.info('In-person meeting booked — skipping video meeting invite email.');
       return;
     }
     await new Promise(resolve => setTimeout(resolve, 62000));
+    // Re-check after delay in case in-person was selected during wait
+    if (skipMeetingEmailRef.current) {
+      toast.info('In-person meeting booked — skipping video meeting invite email.');
+      return;
+    }
 
     try {
       const meetingUrl = `${window.location.origin}/letsmeet`;
