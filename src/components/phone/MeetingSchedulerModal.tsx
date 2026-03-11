@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  ChevronLeft, ChevronRight, Clock, Loader2, Video, Phone, Check,
+  ChevronLeft, ChevronRight, Clock, Loader2, Video, Phone, Check, MapPin,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth,
