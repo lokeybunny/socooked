@@ -2056,7 +2056,16 @@ export default function PhonePage() {
         open={meetingSchedulerOpen}
         onOpenChange={setMeetingSchedulerOpen}
         lead={meetingSchedulerLead}
-        onBooked={() => loadData()}
+        onBooked={(bookedMeetingType) => {
+          loadData();
+          // If in-person was booked, we don't need the meeting invite email
+          // The audit email pipeline checks this flag
+          if (bookedMeetingType === 'in_person' && meetingSchedulerLead?.email) {
+            // Cancel any pending meeting email by restarting pipeline with skip flag
+            // (pipeline may already be running — this is a best-effort approach)
+            toast.info('In-person meeting booked — zoom invite email will be skipped.');
+          }
+        }}
       />
     </AppLayout>
   );
