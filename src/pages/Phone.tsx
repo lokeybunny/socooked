@@ -59,6 +59,12 @@ export default function PhonePage() {
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null; email?: string; phone?: string } | null>(null);
 
+  // Workflow gate (post-interested)
+  const [workflowGateOpen, setWorkflowGateOpen] = useState(false);
+  const [workflowGateLead, setWorkflowGateLead] = useState<any>(null);
+  const [workflowOpts, setWorkflowOpts] = useState({ audit: true, auditEmail: true, meetingEmail: true, schedule: true });
+  const [workflowRunning, setWorkflowRunning] = useState(false);
+
   // Meeting scheduler after interested
   const [meetingSchedulerOpen, setMeetingSchedulerOpen] = useState(false);
   const [meetingSchedulerLead, setMeetingSchedulerLead] = useState<any>(null);
