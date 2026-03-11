@@ -195,7 +195,10 @@ export default function PhonePage() {
   };
 
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
-    // Find existing deal for this customer, or it was auto-created by the trigger
+    const leadObj = leads.find(l => l.id === leadId);
+    const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+
+    // ── 1. Update deal to Qualified ──
     const { data: existingDeal } = await supabase
       .from('deals')
       .select('id')
@@ -204,72 +207,310 @@ export default function PhonePage() {
       .maybeSingle();
 
     if (existingDeal) {
-      // Update existing deal to qualified
       await supabase.from('deals').update({ stage: 'qualified' }).eq('id', existingDeal.id);
-      // Log stage transition
       await supabase.from('activity_log').insert({
-        entity_type: 'deal',
-        entity_id: existingDeal.id,
-        action: 'updated',
+        entity_type: 'deal', entity_id: existingDeal.id, action: 'updated',
         meta: { title: `${leadName}`, customer_name: leadName, from_stage: 'new', to_stage: 'qualified' },
       });
     } else {
-      // Create a new deal at qualified stage
-      const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
       const { data: newDeal } = await supabase.from('deals').insert({
-        title: `${leadName} — ${catLabel}`,
-        customer_id: leadId,
-        category: leadCategory || 'other',
-        stage: 'qualified',
-        status: 'open',
-        pipeline: 'default',
-        deal_value: 0,
-        probability: 30,
+        title: `${leadName} — ${catLabel}`, customer_id: leadId, category: leadCategory || 'other',
+        stage: 'qualified', status: 'open', pipeline: 'default', deal_value: 0, probability: 30,
       }).select('id').single();
       if (newDeal) {
         await supabase.from('activity_log').insert({
-          entity_type: 'deal',
-          entity_id: newDeal.id,
-          action: 'updated',
+          entity_type: 'deal', entity_id: newDeal.id, action: 'updated',
           meta: { title: `${leadName} — ${catLabel}`, customer_name: leadName, from_stage: 'new', to_stage: 'qualified' },
         });
       }
     }
 
-    // Also update customer status to prospect
+    // ── 2. Update customer status ──
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', leadId);
     toast.success(`${leadName} marked as Interested — moved to Qualified`);
 
-    // ── Telegram Notification: Interested Client ──
-    const leadObj = leads.find(l => l.id === leadId);
-    const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+    // ── 3. Telegram Notification (direct call) ──
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    try {
+      await fetch(`https://${projectId}.supabase.co/functions/v1/telegram-notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({
+          entity_type: 'lead', action: 'created',
+          meta: {
+            message: `⭐ *Interested Client*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n\n_Cold caller marked this lead as interested_`,
+            name: leadName,
+          },
+        }),
+      });
+    } catch (e) { console.error('Telegram notify error:', e); }
+
+    // Also log to activity_log for record keeping
     await supabase.from('activity_log').insert({
-      entity_type: 'lead',
-      entity_id: leadId,
-      action: 'created',
+      entity_type: 'lead', entity_id: leadId, action: 'created',
       meta: {
         message: `⭐ *Interested Client*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n\n_Cold caller marked this lead as interested_`,
         name: leadName,
       },
     });
 
-    // ── Open Meeting Scheduler ──
+    // ── 4. Remove from leads list ──
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+
+    // ── 5. Show Workflow Gate dialog instead of auto-firing everything ──
     skipMeetingEmailRef.current = false;
-    if (leadObj) {
-      setMeetingSchedulerLead(leadObj);
+    setWorkflowGateLead(leadObj);
+    setWorkflowOpts({ audit: true, auditEmail: true, meetingEmail: true, schedule: true });
+    setWorkflowGateOpen(true);
+  };
+
+  // ── Execute selected workflow steps ──
+  const executeWorkflow = async () => {
+    const lead = workflowGateLead;
+    if (!lead) return;
+    setWorkflowRunning(true);
+    setWorkflowGateOpen(false);
+
+    // Schedule meeting if selected
+    if (workflowOpts.schedule) {
+      setMeetingSchedulerLead(lead);
       setMeetingSchedulerOpen(true);
     }
 
-    // ── Auto Audit + Dual Email Pipeline (runs in background) ──
-    if (leadObj?.email) {
-      toast.info(`Starting automated audit & outreach for ${leadName}...`, { duration: 8000 });
-      runAutoAuditAndEmail(leadObj).catch(err => {
-        console.error('Auto audit pipeline error:', err);
-        toast.error(`Auto-audit failed for ${leadName}: ${err.message}`);
-      });
+    // Run audit + emails in background if selected
+    if (lead.email && (workflowOpts.audit || workflowOpts.auditEmail || workflowOpts.meetingEmail)) {
+      const shouldAudit = workflowOpts.audit;
+      const shouldAuditEmail = workflowOpts.auditEmail;
+      const shouldMeetingEmail = workflowOpts.meetingEmail;
+
+      toast.info(`Starting selected workflow steps for ${lead.full_name}...`, { duration: 6000 });
+
+      (async () => {
+        try {
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+          let pdfUrl: string | null = null;
+          let auditScores: any = null;
+
+          // Run audit if selected
+          if (shouldAudit) {
+            const result = await runAuditOnly(lead);
+            pdfUrl = result.pdfUrl;
+            auditScores = result.auditScores;
+          }
+
+          // Send audit email if selected
+          if (shouldAuditEmail && pdfUrl) {
+            await sendAuditEmail(lead, pdfUrl, auditScores);
+          } else if (shouldAuditEmail && !shouldAudit) {
+            toast.warning('Skipping audit email — no audit was run to generate a report.');
+          }
+
+          // Send meeting email if selected (with delay if audit email was also sent)
+          if (shouldMeetingEmail) {
+            if (skipMeetingEmailRef.current) {
+              toast.info('In-person meeting booked — skipping video meeting invite email.');
+            } else {
+              if (shouldAuditEmail && pdfUrl) {
+                await new Promise(resolve => setTimeout(resolve, 62000));
+                if (skipMeetingEmailRef.current) {
+                  toast.info('In-person meeting booked — skipping video meeting invite email.');
+                  return;
+                }
+              }
+              await sendMeetingEmail(lead);
+            }
+          }
+        } catch (err: any) {
+          console.error('Workflow pipeline error:', err);
+          toast.error(`Workflow failed: ${err.message}`);
+        }
+      })();
     }
 
-    setLeads(prev => prev.filter(l => l.id !== leadId));
+    setWorkflowRunning(false);
+    setWorkflowGateLead(null);
+  };
+
+  // ── Audit-only step (extracted from runAutoAuditAndEmail) ──
+  const runAuditOnly = async (lead: any): Promise<{ pdfUrl: string | null; auditScores: any }> => {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    setAnalyzing(true);
+    let pdfUrl: string | null = null;
+    let auditScores: any = null;
+
+    try {
+      const FREE_EMAIL_DOMAINS = new Set(['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com','mail.com','protonmail.com','zoho.com','yandex.com','gmx.com','live.com','msn.com','me.com','inbox.com','fastmail.com','tutanota.com','hey.com']);
+      const VALID_TLDS = new Set(['.com','.net','.org','.biz','.co','.us','.io','.info','.pro','.me','.tv','.app','.dev','.store','.shop','.agency','.design','.media','.studio','.tech','.digital','.solutions','.services','.consulting','.marketing','.group','.team','.site','.website','.online','.cloud','.space','.xyz']);
+      const extractDomain = (email: string | null): string | null => {
+        if (!email || !email.includes('@')) return null;
+        const domain = email.split('@')[1]?.toLowerCase().trim();
+        if (!domain || FREE_EMAIL_DOMAINS.has(domain)) return null;
+        const tldMatch = domain.match(/(\.[a-z]+)$/);
+        if (!tldMatch || !VALID_TLDS.has(tldMatch[1])) return null;
+        return domain;
+      };
+
+      const metaObj = typeof lead.meta === 'object' ? lead.meta : {};
+      let website = metaObj?.website || metaObj?.url || metaObj?.site || null;
+      let igHandle = lead.instagram_handle || null;
+
+      if (!website) {
+        const emailDomain = extractDomain(lead.email);
+        if (emailDomain) website = `https://${emailDomain}`;
+      }
+
+      if (!website || !igHandle) {
+        const searchName = lead.company || lead.full_name;
+        try {
+          const res = await fetch(`https://${projectId}.supabase.co/functions/v1/meta-extract`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+            body: JSON.stringify({ url: `https://www.google.com/search?q=${encodeURIComponent(searchName + ' website')}`, name: searchName }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (!website) website = data?.website || data?.url || data?.data?.website || null;
+            if (!igHandle) igHandle = data?.instagram || data?.data?.instagram || null;
+          }
+        } catch (e) { console.error('Auto meta-extract error:', e); }
+      }
+
+      if (website) {
+        try {
+          const parsedHost = new URL(website.startsWith('http') ? website : `https://${website}`).hostname;
+          const tldMatch = parsedHost.match(/(\.[a-z]+)$/);
+          if (tldMatch && !VALID_TLDS.has(tldMatch[1])) website = null;
+        } catch { /* invalid URL */ }
+      }
+
+      let fbUrl: string | null = null;
+      if (website) {
+        try {
+          const scrapeRes = await fetch(`https://${projectId}.supabase.co/functions/v1/firecrawl-scrape`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+            body: JSON.stringify({ url: website, options: { formats: ['links', 'html'], onlyMainContent: false, waitFor: 5000 } }),
+          });
+          if (scrapeRes.ok) {
+            const scrapeData = await scrapeRes.json();
+            const links: string[] = scrapeData?.data?.links || scrapeData?.links || [];
+            const html: string = scrapeData?.data?.html || scrapeData?.html || '';
+            const extractIg = (u: string) => { const m = u.match(/instagram\.com\/([A-Za-z0-9._]+)/); if (m) { const h = m[1].toLowerCase(); const r = ['p','reel','reels','explore','stories','accounts','directory','about','developer','legal','api','static','direct','tv']; if (!r.includes(h)) return m[1]; } return null; };
+            const extractFb = (u: string) => { const m = u.match(/(facebook\.com\/[A-Za-z0-9._-]+)/); if (m) { const s = m[1].split('/')[1]?.toLowerCase(); const r = ['sharer','share','dialog','login','help','policies','settings','events','groups','marketplace','watch','gaming','fundraisers','pages','ads','business','privacy','terms']; if (s && !r.includes(s)) return `https://www.${m[1]}`; } return null; };
+            for (const l of links) { if (!igHandle) { const h = extractIg(l); if (h) igHandle = h; } if (!fbUrl) { const f = extractFb(l); if (f) fbUrl = f; } if (igHandle && fbUrl) break; }
+            if (!igHandle) { const re = /href=["']([^"']*instagram\.com\/[A-Za-z0-9._]+[^"']*?)["']/gi; let m2; while ((m2 = re.exec(html)) !== null) { const h = extractIg(m2[1]); if (h) { igHandle = h; break; } } }
+            if (!fbUrl) { const re = /href=["']([^"']*facebook\.com\/[A-Za-z0-9._-]+[^"']*?)["']/gi; let m2; while ((m2 = re.exec(html)) !== null) { const f = extractFb(m2[1]); if (f) { fbUrl = f; break; } } }
+          }
+        } catch (e) { console.error('Auto scrape error:', e); }
+      }
+
+      if (website || igHandle || fbUrl) {
+        const updatedMeta = { ...metaObj, ...(website ? { website } : {}), ...(igHandle ? { instagram: igHandle } : {}), ...(fbUrl ? { facebook: fbUrl } : {}) };
+        await supabase.from('customers').update({ meta: updatedMeta, ...(igHandle ? { instagram_handle: igHandle } : {}) } as any).eq('id', lead.id);
+      }
+
+      if (!website && !igHandle && !fbUrl) {
+        toast.warning(`Could not find web presence for ${lead.full_name}. Skipping audit.`);
+      } else {
+        toast.info(`Running digital audit for ${lead.full_name}...`, { duration: 10000 });
+        const auditRes = await fetch(`https://${projectId}.supabase.co/functions/v1/audit-report`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+          body: JSON.stringify({ website_url: website, ig_handle: igHandle, fb_url: fbUrl, customer_id: lead.id, customer_name: lead.full_name }),
+        });
+        if (auditRes.ok) {
+          const auditData = await auditRes.json();
+          pdfUrl = auditData.pdf_url || null;
+          auditScores = auditData.scores || null;
+          await supabase.from('customers').update({
+            meta: { ...(typeof lead.meta === 'object' ? lead.meta : {}), analyzed: true, audit_pdf_url: pdfUrl, audit_date: new Date().toISOString(), website, instagram: igHandle },
+          } as any).eq('id', lead.id);
+          toast.success(`Audit complete for ${lead.full_name}! Score: ${auditScores?.overall || '?'}/100`);
+        } else {
+          const errData = await auditRes.json().catch(() => ({}));
+          toast.error(`Audit failed for ${lead.full_name}: ${errData.error || auditRes.status}`);
+        }
+      }
+    } catch (err: any) {
+      toast.error(`Audit pipeline error: ${err.message}`);
+    } finally {
+      setAnalyzing(false);
+    }
+    return { pdfUrl, auditScores };
+  };
+
+  // ── Send audit report email ──
+  const sendAuditEmail = async (lead: any, pdfUrl: string, auditScores: any) => {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    try {
+      let attachments: { filename: string; mimeType: string; data: string }[] | undefined;
+      try {
+        const pdfRes = await fetch(pdfUrl);
+        if (pdfRes.ok) {
+          const pdfBuffer = await pdfRes.arrayBuffer();
+          const bytes = new Uint8Array(pdfBuffer);
+          let binary = '';
+          for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+          attachments = [{ filename: `Digital_Audit_${lead.full_name.replace(/\s+/g, '_')}.pdf`, mimeType: 'application/pdf', data: btoa(binary) }];
+        }
+      } catch (pdfErr) { console.error('PDF fetch for attachment failed:', pdfErr); }
+
+      const scoreText = auditScores?.overall ? ` Your overall digital presence score is ${auditScores.overall}/100.` : '';
+      const reportBody = `
+        <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.7;">
+          <p>Hi ${lead.full_name},</p>
+          <p>Thank you for your interest! I've put together a complimentary <strong>Digital Audit Report</strong> for your brand.${scoreText}</p>
+          <p>The full report is attached as a PDF — it covers your website, social media presence, and actionable recommendations to strengthen your digital footprint.</p>
+          ${pdfUrl ? `<p>You can also <a href="${pdfUrl}" style="color:#2754C5;">view the report online here</a>.</p>` : ''}
+          <p>I'd love to walk you through the findings and discuss how we can help. I'll be sending over a meeting link in a follow-up email shortly.</p>
+          <p>Looking forward to connecting!</p>
+        </div>`;
+
+      const sendRes = await fetch(`https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({
+          to: lead.email, subject: `Your Free Digital Audit Report — ${lead.company || lead.full_name}`,
+          body: reportBody, ...(attachments ? { attachments } : {}),
+        }),
+      });
+      if (sendRes.ok) toast.success(`📧 Audit report sent to ${lead.email}`);
+      else { const errData = await sendRes.json().catch(() => ({})); toast.error(`Failed to send audit email: ${errData.error || 'unknown error'}`); }
+    } catch (err: any) { toast.error(`Report email failed: ${err.message}`); }
+  };
+
+  // ── Send meeting invite email ──
+  const sendMeetingEmail = async (lead: any) => {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    try {
+      const meetingUrl = `${window.location.origin}/letsmeet`;
+      const meetingBody = `
+        <div style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.7;">
+          <p>Hi ${lead.full_name},</p>
+          <p>As a follow-up, I'd love to schedule a quick call to go over your audit results and explore how we can help grow your brand.</p>
+          <p style="margin:24px 0;">
+            <a href="${meetingUrl}" style="display:inline-block;padding:14px 28px;background:#2754C5;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:bold;font-size:15px;">
+              📅 Book a Meeting
+            </a>
+          </p>
+          <p>Click the button above to pick a time that works best for you. The meeting is completely free — no strings attached.</p>
+          <p>Talk soon!</p>
+        </div>`;
+
+      const meetRes = await fetch(`https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ to: lead.email, subject: `Let's Connect — Book a Free Strategy Call`, body: meetingBody }),
+      });
+      if (meetRes.ok) toast.success(`📅 Meeting invite sent to ${lead.email}`);
+      else { const errData = await meetRes.json().catch(() => ({})); toast.error(`Failed to send meeting invite: ${errData.error || 'unknown error'}`); }
+    } catch (err: any) { toast.error(`Meeting invite email failed: ${err.message}`); }
   };
 
   // ── Automated pipeline: Audit → Send Report Email → Send Meeting Email ──
