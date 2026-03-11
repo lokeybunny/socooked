@@ -360,26 +360,28 @@ serve(async (req) => {
            </a>
          </div>`;
 
-    await sendEmail(
-      guest_email,
-      `${meetingLabel} Confirmed - ${formattedDate} at ${formattedTime}`,
-      `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
-        <h2 style="color:#111;margin-bottom:16px;">${meetingLabel} Confirmed! 🎉</h2>
-        <p style="color:#333;font-size:15px;">Hi ${guest_name},</p>
-        <p style="color:#333;font-size:15px;">Your ${meetingLabel.toLowerCase()} has been booked successfully. Here are the details:</p>
-        <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;">
-          <p style="margin:6px 0;color:#333;"><strong>📅 Date:</strong> ${formattedDate}</p>
-          <p style="margin:6px 0;color:#333;"><strong>🕐 Time:</strong> ${formattedTime} (Las Vegas / PST)</p>
-          <p style="margin:6px 0;color:#333;"><strong>⏱ Duration:</strong> ${duration_minutes} minutes</p>
-          <p style="margin:6px 0;color:#333;"><strong>${isPhone ? '📞 Type: Phone Call' : '🎥 Type: Video Call'}</strong></p>
-        </div>
-        ${meetingActionHtml}
-        <div style="text-align:center;margin:16px 0;">
-          <a href="${manageUrl}" style="color:#2754C5;font-size:14px;text-decoration:underline;">Reschedule or Cancel this meeting</a>
-        </div>
-        <p style="color:#666;font-size:13px;">${isPhone ? 'We will call you at the scheduled time.' : 'Click the button above at the scheduled time to join. No downloads required.'}</p>
-      </div>`
-    );
+    if (guest_email) {
+      await sendEmail(
+        guest_email,
+        `${meetingLabel} Confirmed - ${formattedDate} at ${formattedTime}`,
+        `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">
+          <h2 style="color:#111;margin-bottom:16px;">${meetingLabel} Confirmed! 🎉</h2>
+          <p style="color:#333;font-size:15px;">Hi ${guest_name},</p>
+          <p style="color:#333;font-size:15px;">Your ${meetingLabel.toLowerCase()} has been booked successfully. Here are the details:</p>
+          <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;">
+            <p style="margin:6px 0;color:#333;"><strong>📅 Date:</strong> ${formattedDate}</p>
+            <p style="margin:6px 0;color:#333;"><strong>🕐 Time:</strong> ${formattedTime} (Las Vegas / PST)</p>
+            <p style="margin:6px 0;color:#333;"><strong>⏱ Duration:</strong> ${duration_minutes} minutes</p>
+            <p style="margin:6px 0;color:#333;"><strong>${isPhone ? '📞 Type: Phone Call' : '🎥 Type: Video Call'}</strong></p>
+          </div>
+          ${meetingActionHtml}
+          <div style="text-align:center;margin:16px 0;">
+            <a href="${manageUrl}" style="color:#2754C5;font-size:14px;text-decoration:underline;">Reschedule or Cancel this meeting</a>
+          </div>
+          <p style="color:#666;font-size:13px;">${isPhone ? 'We will call you at the scheduled time.' : 'Click the button above at the scheduled time to join. No downloads required.'}</p>
+        </div>`
+      );
+    }
 
     return new Response(JSON.stringify({ success: true, booking, room_url: roomUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
