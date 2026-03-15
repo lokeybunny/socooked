@@ -274,11 +274,6 @@ function BoostServicePicker({
     if (loaded) return;
     setLoadingServices(true);
     try {
-      const { data, error } = await supabase.functions.invoke('darkside-smm', {
-        body: {},
-        headers: { 'Content-Type': 'application/json' },
-      });
-      // Use query param approach
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/darkside-smm?action=services`,
         {
