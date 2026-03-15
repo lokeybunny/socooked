@@ -1945,6 +1945,30 @@ export type Database = {
           },
         ]
       }
+      smm_boost_presets: {
+        Row: {
+          created_at: string
+          id: string
+          preset_name: string
+          profile_username: string
+          services: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          preset_name: string
+          profile_username?: string
+          services?: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          preset_name?: string
+          profile_username?: string
+          services?: Json
+        }
+        Relationships: []
+      }
       smm_brand_prompts: {
         Row: {
           category: string
