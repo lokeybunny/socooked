@@ -940,7 +940,7 @@ export default function Research() {
 
 
         {/* ══════ Lead Agent Pipeline Log ══════ */}
-        {selectedSource === 'other' && leadProgressLog.length > 0 && (
+        {selectedSource === 'craigslist' && leadProgressLog.length > 0 && (
           <div className="glass-card rounded-lg overflow-hidden border border-border">
             <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
               <div className="flex items-center gap-2">
