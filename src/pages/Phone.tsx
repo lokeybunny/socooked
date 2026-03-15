@@ -183,6 +183,18 @@ export default function PhonePage() {
     loadData();
   };
 
+  const sendPhoneTelegramNotify = async (message: string, name: string) => {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    try {
+      await fetch(`https://${projectId}.supabase.co/functions/v1/telegram-notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ entity_type: 'lead', action: 'updated', meta: { message, name } }),
+      });
+    } catch (e) { console.error('Telegram notify error:', e); }
+  };
+
   const handleLeadStatus = async (leadId: string, leadName: string, action: 'busy' | 'not_interested' | 'call_back') => {
     if (action === 'not_interested') {
       setDeleteLeadId(leadId);
@@ -199,8 +211,8 @@ export default function PhonePage() {
       await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', leadId);
       setLeads(prev => prev.map(l => l.id === leadId ? { ...l, meta: updatedMeta } : l));
       toast('Busy — removed from queue for 24 hours', { icon: '⏸️' });
-      // Advance to next lead
       setCurrentLeadIndex(prev => prev + 1);
+      sendPhoneTelegramNotify(`⏸️ *Busy*\n👤 *${leadName}*\n📞 ${lead?.phone || 'No phone'}\n\n_Lead snoozed for 24 hours_`, leadName);
       return;
     }
     if (action === 'call_back') {
