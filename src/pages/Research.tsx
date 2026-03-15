@@ -1080,105 +1080,12 @@ export default function Research() {
         {/* Credits depleted warning removed — using Apify agents only */}
 
 
-        {/* ══════ Lead Finder Panel (Other source) ══════ */}
-        {selectedSource === 'other' && (
+        {/* ══════ Craigslist Leads (placeholder) ══════ */}
+        {selectedSource === 'craigslist' && (
           <Card className="border-border">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Target className="h-5 w-5 text-primary" />
-                Lead Finder — B2B Leads via Apify
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">Generate B2B leads with verified emails. Results auto-save as findings + create CRM customers in the "Potential" category.</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs"><Briefcase className="h-3 w-3" /> Job Title</Label>
-                  <Input value={lfJobTitle} onChange={e => setLfJobTitle(e.target.value)} placeholder="e.g. CEO, Realtor, Marketing Manager" className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs"><Globe className="h-3 w-3" /> Location</Label>
-                  <Input value={lfLocation} onChange={e => setLfLocation(e.target.value)} placeholder="e.g. United States, California" className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs"><MapPin className="h-3 w-3" /> City</Label>
-                  <Input value={lfCity} onChange={e => setLfCity(e.target.value)} placeholder="e.g. Los Angeles, Miami" className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs"><Building2 className="h-3 w-3" /> Industry</Label>
-                  <Input value={lfIndustry} onChange={e => setLfIndustry(e.target.value)} placeholder="e.g. Real Estate, SaaS" className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Company Keywords</Label>
-                  <Input value={lfKeywords} onChange={e => setLfKeywords(e.target.value)} placeholder="e.g. AI, blockchain" className="h-9 text-sm" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs"># Leads (max 100)</Label>
-                  <Input type="number" value={lfFetchCount} onChange={e => setLfFetchCount(e.target.value)} min="1" max="100" className="h-9 text-sm" />
-                </div>
-              </div>
-              <Button onClick={handleLeadFinderSearch} disabled={lfSearching} size="sm">
-                {lfSearching ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Searching…</> : <><Target className="h-4 w-4 mr-2" /> Find Leads</>}
-              </Button>
-
-              {/* Searching state */}
-              {lfSearching && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center space-y-2">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto" />
-                    <p className="text-xs text-muted-foreground">Searching for leads… This may take up to 3 minutes.</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Results preview */}
-              {!lfSearching && lfHasSearched && lfResults.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    {lfResults.length} leads found · <span className="text-primary font-medium">{lfCreatedCount} new</span> added to CRM & findings
-                  </p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
-                    {lfResults.slice(0, 16).map((lead: any, i: number) => {
-                      const name = lead.full_name || `${lead.first_name || ''} ${lead.last_name || ''}`.trim();
-                      return (
-                        <div key={i} className="rounded-lg border border-border bg-muted/30 overflow-hidden text-xs">
-                          <div className="p-2 space-y-1">
-                            <span className="font-semibold text-foreground block truncate">{name}</span>
-                            {lead.job_title && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-emerald-400 font-bold truncate">{lead.job_title}</span>
-                              </div>
-                            )}
-                            {lead.company_name && (
-                              <span className="text-muted-foreground block truncate">{lead.company_name}</span>
-                            )}
-                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-                              {lead.email && <span className="flex items-center gap-0.5"><Mail className="h-2.5 w-2.5" />{lead.email}</span>}
-                              {(lead.mobile_number || lead.company_phone) && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" />{lead.mobile_number || lead.company_phone}</span>}
-                              {(lead.city || lead.country) && <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{[lead.city, lead.state, lead.country].filter(Boolean).join(', ')}</span>}
-                              {lead.linkedin && (
-                                <a href={lead.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-emerald-400 hover:underline">
-                                  <Linkedin className="h-2.5 w-2.5" /> LinkedIn
-                                </a>
-                              )}
-                              {lead.company_website && (
-                                <a href={lead.company_website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-emerald-400 hover:underline">
-                                  <Globe className="h-2.5 w-2.5" /> Site
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {lfResults.length > 16 && <p className="text-[10px] text-muted-foreground">+{lfResults.length - 16} more (all saved as findings below)</p>}
-                </div>
-              )}
-
-              {!lfSearching && lfHasSearched && lfResults.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4">No leads found. Try broadening your search criteria.</p>
-              )}
+            <CardContent className="py-16 text-center">
+              <Search className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+              <p className="text-muted-foreground text-sm">Craigslist Leads — coming soon.</p>
             </CardContent>
           </Card>
         )}
