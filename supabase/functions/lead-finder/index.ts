@@ -13,7 +13,8 @@ async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 3)
       return await fn();
     } catch (err: any) {
       console.log(`${label} attempt ${attempt}/${maxRetries} failed: ${err.message}`);
-      if (attempt === maxRetries) throw err;
+      const shouldNotRetry = err?.noRetry === true || err?.status === 402 || err?.code === "APIFY_USAGE_LIMIT";
+      if (attempt === maxRetries || shouldNotRetry) throw err;
       const delay = Math.min(2000 * Math.pow(2, attempt - 1), 15000);
       await new Promise(r => setTimeout(r, delay));
     }
@@ -113,8 +114,24 @@ Deno.serve(async (req) => {
         signal: AbortSignal.timeout(180_000),
       });
       if (!res.ok) {
-        const err = await res.text().catch(() => "");
-        throw new Error(`Apify request failed (${res.status}): ${err.slice(0, 300)}`);
+        const errText = await res.text().catch(() => "");
+        if (res.status === 402) {
+          let apifyMessage = errText;
+          try {
+            const parsed = JSON.parse(errText);
+            apifyMessage = parsed?.error?.message || errText;
+          } catch {
+            // ignore parse errors and keep raw text
+          }
+
+          const quotaError: any = new Error(`Apify usage limit reached: ${apifyMessage}`);
+          quotaError.status = 402;
+          quotaError.code = "APIFY_USAGE_LIMIT";
+          quotaError.noRetry = true;
+          throw quotaError;
+        }
+
+        throw new Error(`Apify request failed (${res.status}): ${errText.slice(0, 300)}`);
       }
       return res.json();
     }, "LeadsFinder");
@@ -267,6 +284,20 @@ Deno.serve(async (req) => {
     );
   } catch (err: any) {
     console.error("Lead Finder error:", err);
+
+    if (err?.code === "APIFY_USAGE_LIMIT" || err?.status === 402) {
+      return new Response(
+        JSON.stringify({
+          leads: [],
+          created_count: 0,
+          total_found: 0,
+          warning: "Lead search is temporarily unavailable because the provider usage limit was reached. Please top up credits and retry.",
+          error_code: "APIFY_USAGE_LIMIT",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
