@@ -363,7 +363,7 @@ function BoostServicePicker({
       )}
 
       {expanded && (
-        <div className="border border-border/50 rounded-lg p-2 space-y-2 max-h-48 overflow-y-auto bg-muted/20">
+        <div className="border border-border/50 rounded-lg p-2 space-y-2 max-h-[60vh] overflow-y-auto bg-muted/20">
           <Input
             placeholder="Search services…"
             value={search}
