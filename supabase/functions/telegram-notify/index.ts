@@ -277,7 +277,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, discord_sent: discordSent }),
+      JSON.stringify({
+        success: true,
+        discord_sent: discordSent,
+        sent_to: targetList,
+        failed_deliveries: failedDeliveries.map((d) => ({ chat_id: d.chat_id, error: d.data })),
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
