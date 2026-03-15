@@ -183,6 +183,18 @@ export default function PhonePage() {
     loadData();
   };
 
+  const sendPhoneTelegramNotify = async (message: string, name: string) => {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    try {
+      await fetch(`https://${projectId}.supabase.co/functions/v1/telegram-notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ entity_type: 'lead', action: 'updated', meta: { message, name } }),
+      });
+    } catch (e) { console.error('Telegram notify error:', e); }
+  };
+
   const handleLeadStatus = async (leadId: string, leadName: string, action: 'busy' | 'not_interested' | 'call_back') => {
     if (action === 'not_interested') {
       setDeleteLeadId(leadId);
@@ -199,8 +211,8 @@ export default function PhonePage() {
       await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', leadId);
       setLeads(prev => prev.map(l => l.id === leadId ? { ...l, meta: updatedMeta } : l));
       toast('Busy — removed from queue for 24 hours', { icon: '⏸️' });
-      // Advance to next lead
       setCurrentLeadIndex(prev => prev + 1);
+      sendPhoneTelegramNotify(`⏸️ *Busy*\n👤 *${leadName}*\n📞 ${lead?.phone || 'No phone'}\n\n_Lead snoozed for 24 hours_`, leadName);
       return;
     }
     if (action === 'call_back') {
@@ -228,6 +240,7 @@ export default function PhonePage() {
     setCallBackLeadId(null);
     // Advance to next lead
     setCurrentLeadIndex(prev => prev + 1);
+    sendPhoneTelegramNotify(`📅 *Call Back Scheduled*\n👤 *${callBackLeadName}*\n📞 ${lead?.phone || 'No phone'}\n🕐 ${format(callbackAt, 'MMM d, h:mm a')}\n\n_Lead will reappear at scheduled time_`, callBackLeadName);
   };
 
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
@@ -581,6 +594,7 @@ export default function PhonePage() {
     // Reset index to avoid pointing at a stale position
     setCurrentLeadIndex(0);
     toast.success(`${deleteLeadName} removed from CRM`);
+    sendPhoneTelegramNotify(`🚫 *Lead Removed*\n👤 *${deleteLeadName}*\n\n_Marked as Not Interested and deleted from CRM_`, deleteLeadName);
     setDeleteLeadOpen(false);
     setDeleteLeadId(null);
     setDeleteLeadName('');
