@@ -746,7 +746,7 @@ export default function Research() {
 
           {/* Column 2: Actions */}
           <div className="flex flex-col items-end gap-2">
-            {selectedSource === 'other' && (
+            {selectedSource === 'craigslist' && (
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
                   <span className="px-3 py-1.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
