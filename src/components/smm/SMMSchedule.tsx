@@ -35,6 +35,13 @@ import type { SMMProfile } from '@/lib/smm/types';
 import { format, parseISO, isToday, differenceInHours } from 'date-fns';
 
 // ─── Types ───
+export interface BoostService {
+  service_id: string;
+  service_name: string;
+  quantity: number;
+  rate?: string;
+}
+
 interface ScheduleItem {
   id: string;
   date: string;
@@ -47,6 +54,7 @@ interface ScheduleItem {
   carousel_urls?: string[];
   status: 'draft' | 'generating' | 'ready' | 'published' | 'failed' | 'planned';
   favorited?: boolean;
+  boost_services?: BoostService[];
 }
 
 interface ContentPlan {
