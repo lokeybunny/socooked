@@ -457,7 +457,11 @@ export default function Research() {
   }, [selectedSource, allFindings, deduplicateXFindings]);
 
   const categoryCounts = RESEARCH_SOURCES.reduce((acc, src) => {
-    const catItems = allFindings.filter(f => normSource(f.category) === src.id);
+    const catItems = allFindings.filter(f => {
+      // For craigslist, only count explicitly tagged items (no fallback)
+      if (src.id === 'craigslist') return f.category === 'craigslist';
+      return normSource(f.category) === src.id;
+    });
     acc[src.id] = catItems.length;
     return acc;
   }, {} as Record<string, number>);
