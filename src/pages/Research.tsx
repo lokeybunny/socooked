@@ -643,13 +643,8 @@ export default function Research() {
             <p className="text-muted-foreground">Select a source to browse findings</p>
             <div className="flex items-center gap-3 mt-3">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted/60 border border-border">
-                <span className="text-2xl font-bold text-foreground">{allFindings.length}</span>
-                <span className="text-sm text-muted-foreground">Total Finds</span>
-              </div>
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20">
-                <MapPin className="h-4 w-4 text-blue-400" />
-                <span className="text-2xl font-bold text-foreground">{(categoryCounts['google-maps'] || 0) + (categoryCounts['craigslist'] || 0)}</span>
-                <span className="text-sm text-muted-foreground">Local Leads</span>
+                <span className="text-2xl font-bold text-foreground">{categoryCounts['craigslist'] || 0}</span>
+                <span className="text-sm text-muted-foreground">Craigslist Leads</span>
               </div>
             </div>
           </div>
