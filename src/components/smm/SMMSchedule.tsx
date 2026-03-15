@@ -1868,7 +1868,6 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                       </span>
                     )}
                   </AlertDialogDescription>
-                  </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
