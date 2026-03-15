@@ -1043,12 +1043,65 @@ export default function Research() {
         {/* Credits depleted warning removed — using Apify agents only */}
 
 
-        {/* ══════ Craigslist Leads (placeholder) ══════ */}
+        {/* ══════ Craigslist Leads ══════ */}
         {selectedSource === 'craigslist' && (
           <Card className="border-border">
-            <CardContent className="py-16 text-center">
-              <Search className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-              <p className="text-muted-foreground text-sm">Craigslist Leads — coming soon.</p>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Search className="h-5 w-5 text-primary" />
+                Craigslist Finder
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Craigslist Search URL</Label>
+                <Input
+                  placeholder="https://atlanta.craigslist.org/search/ggg#search=1~thumb~0~0"
+                  value={clSearchUrl}
+                  onChange={e => setClSearchUrl(e.target.value)}
+                  className="font-mono text-xs"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Go to craigslist.org, search for what you want, then paste the URL here.
+                </p>
+              </div>
+
+              <Button onClick={handleCraigslistSearch} disabled={clSearching} className="w-full">
+                {clSearching ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scraping Craigslist…</> : <><Search className="h-4 w-4 mr-2" /> Scrape Craigslist</>}
+              </Button>
+
+              {clHasSearched && !clSearching && (
+                <div className="text-sm text-muted-foreground text-center py-2">
+                  {clResults.length > 0
+                    ? `Found ${clResults.length} posts · ${clCreatedCount} new leads added to CRM`
+                    : 'No posts found for this search URL'}
+                </div>
+              )}
+
+              {clResults.length > 0 && (
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {clResults.map((post: any, i: number) => {
+                    const title = post.title || post.postTitle || 'Untitled';
+                    const url = post.url || post.postUrl || post.link;
+                    const price = post.price || post.postPrice;
+                    const location = post.location || post.hood || post.subareaName;
+                    return (
+                      <div key={i} className="p-3 rounded-lg border border-border bg-muted/30 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-sm font-medium text-foreground line-clamp-1">{title}</span>
+                          {price && <span className="text-xs font-bold text-primary shrink-0">{price}</span>}
+                        </div>
+                        {location && <span className="text-[10px] text-muted-foreground">{location}</span>}
+                        {url && (
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1">
+                            <ExternalLink className="h-3 w-3" /> View on Craigslist
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
