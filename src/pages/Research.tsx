@@ -166,7 +166,7 @@ export default function Research() {
   const [findingSource, setFindingSource] = useState<string>('craigslist');
   const [creating, setCreating] = useState(false);
 
-  // Lead Finder state (for "Other" source)
+  // Lead Finder state (for "Craigslist" source)
   const [lfJobTitle, setLfJobTitle] = useState('');
   const [lfLocation, setLfLocation] = useState('');
   const [lfCity, setLfCity] = useState('');
