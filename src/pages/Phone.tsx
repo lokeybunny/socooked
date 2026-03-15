@@ -2019,6 +2019,48 @@ export default function PhonePage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Call Back Scheduler */}
+      <Dialog open={callBackOpen} onOpenChange={setCallBackOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-blue-500" />
+              Schedule Call Back
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            When should <span className="font-semibold text-foreground">{callBackLeadName}</span> reappear in the queue?
+          </p>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={callBackDate}
+                onSelect={setCallBackDate}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                className="p-3 pointer-events-auto"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Time</Label>
+              <Input
+                type="time"
+                value={callBackTime}
+                onChange={e => setCallBackTime(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCallBackOpen(false)}>Cancel</Button>
+            <Button disabled={!callBackDate} onClick={handleConfirmCallBack} className="gap-1.5">
+              <CalendarClock className="h-4 w-4" />
+              Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Interested Confirmation */}
       <AlertDialog open={interestedOpen} onOpenChange={setInterestedOpen}>
         <AlertDialogContent>
