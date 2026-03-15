@@ -1605,7 +1605,10 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     for (let i = 0; i <= 7; i++) {
       const d = new Date(now);
       d.setDate(d.getDate() + i);
-      dates.push(d.toISOString().split('T')[0]);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      dates.push(`${yyyy}-${mm}-${dd}`);
     }
     return dates;
   };
@@ -1630,7 +1633,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           title: `📱 [${currentPlan.platform.toUpperCase()}] ${item.caption?.substring(0, 60) || item.type}`,
           description: `${item.caption || ''}\n\nType: ${item.type}\nHashtags: ${(item.hashtags || []).join(' ')}\nPlan: ${currentPlan.plan_name}`,
           start_time: startTime,
-          end_time: new Date(new Date(startTime).getTime() + 30 * 60000).toISOString(),
+          end_time: (() => { const e = new Date(new Date(startTime).getTime() + 30 * 60000); return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}T${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}:00`; })(),
           source: 'smm',
           source_id: item.id,
           category: 'smm',

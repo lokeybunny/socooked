@@ -68,7 +68,7 @@ export default function SMMComposer({ profiles, onRefresh }: { profiles: SMMProf
     setSubmitting(true);
     const profile = profiles.find(p => p.id === localProfileId);
     const scheduledDate = publishMode === 'schedule' && scheduleDate && scheduleTime
-      ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
+      ? `${scheduleDate}T${scheduleTime}:00`
       : null;
 
     try {
@@ -83,6 +83,7 @@ export default function SMMComposer({ profiles, onRefresh }: { profiles: SMMProf
         first_comment: firstComment || undefined,
         media_url: mediaUrl || undefined,
         scheduled_date: scheduledDate,
+        timezone: scheduledDate ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined,
         add_to_queue: publishMode === 'queue',
         platform_overrides: Object.keys(overrides).length > 0 ? overrides : undefined,
       });
