@@ -883,7 +883,7 @@ export default function Research() {
               </Dialog>
             </div>
           </div>
-        </div>
+        </div>}
 
 
 
