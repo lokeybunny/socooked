@@ -544,7 +544,7 @@ function BoostServicePicker({
 }
 
 function ScheduleItemModal({
-  item, open, onOpenChange, onSave, planIsLive, plan,
+  item, open, onOpenChange, onSave, planIsLive, plan, onApplyBoostToAll,
 }: {
   item: ScheduleItem | null;
   open: boolean;
@@ -552,6 +552,7 @@ function ScheduleItemModal({
   onSave: (updated: ScheduleItem) => void;
   planIsLive?: boolean;
   plan?: ContentPlan | null;
+  onApplyBoostToAll?: (services: BoostService[]) => void;
 }) {
   const [caption, setCaption] = useState('');
   const [hashtags, setHashtags] = useState('');
