@@ -1161,7 +1161,7 @@ export default function Research() {
 
 
         {/* Findings grid */}
-        {(
+        {selectedSource !== 'craigslist' && (
         <div className="flex gap-6">
         <div className="min-w-0 w-full">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
