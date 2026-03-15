@@ -28,6 +28,7 @@ import {
   ThumbsUp, Repeat2, Eye, Play, Zap, Clock, CheckCircle2,
   AlertCircle, Loader2, RotateCcw, Pencil, Upload, Trash2,
   ChevronLeft, ChevronRight, ImagePlus, X, Rocket, TrendingUp,
+  Save, FolderOpen,
 } from 'lucide-react';
 import { uploadToStorage } from '@/lib/storage';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
