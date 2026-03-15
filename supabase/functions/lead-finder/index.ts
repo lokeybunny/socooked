@@ -114,8 +114,24 @@ Deno.serve(async (req) => {
         signal: AbortSignal.timeout(180_000),
       });
       if (!res.ok) {
-        const err = await res.text().catch(() => "");
-        throw new Error(`Apify request failed (${res.status}): ${err.slice(0, 300)}`);
+        const errText = await res.text().catch(() => "");
+        if (res.status === 402) {
+          let apifyMessage = errText;
+          try {
+            const parsed = JSON.parse(errText);
+            apifyMessage = parsed?.error?.message || errText;
+          } catch {
+            // ignore parse errors and keep raw text
+          }
+
+          const quotaError: any = new Error(`Apify usage limit reached: ${apifyMessage}`);
+          quotaError.status = 402;
+          quotaError.code = "APIFY_USAGE_LIMIT";
+          quotaError.noRetry = true;
+          throw quotaError;
+        }
+
+        throw new Error(`Apify request failed (${res.status}): ${errText.slice(0, 300)}`);
       }
       return res.json();
     }, "LeadsFinder");
