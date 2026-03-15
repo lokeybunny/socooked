@@ -1340,7 +1340,7 @@ export default function Research() {
                       <h3 className="text-xs font-bold text-foreground line-clamp-2 leading-tight break-words">{f.title}</h3>
                       <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                         <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                          {sourceIcon(normSource(f.category))} {SOURCE_LABELS[normSource(f.category)] || 'Other'}
+                          {sourceIcon(normSource(f.category))} {SOURCE_LABELS[normSource(f.category)] || 'Craigslist'}
                         </span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium capitalize">{f.finding_type}</span>
                       </div>
