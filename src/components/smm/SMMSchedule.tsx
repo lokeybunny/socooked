@@ -335,6 +335,8 @@ function BoostServicePicker({
 
   const handleLoadPreset = (preset: typeof presets[0]) => {
     onServicesChange(preset.services);
+    setExpanded(true);
+    fetchServices();
     toast.success(`Loaded preset "${preset.preset_name}"`);
   };
 
