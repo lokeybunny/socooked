@@ -746,57 +746,6 @@ export default function Research() {
 
           {/* Column 2: Actions */}
           <div className="flex flex-col items-end gap-2">
-            {selectedSource === 'craigslist' && (
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-                  <span className="px-3 py-1.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    🤖 Lead Agent
-                  </span>
-                </div>
-                {/* All States toggle */}
-                <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-border bg-muted/30 px-3 py-1.5">
-                  <Checkbox
-                    checked={leadLoop.loopState.allStates}
-                    onCheckedChange={(checked) => leadLoop.setAllStates(!!checked)}
-                  />
-                  <span className="text-xs font-medium text-foreground">All States</span>
-                </label>
-                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-                  {[
-                    { label: '5m', val: 5 },
-                    { label: '15m', val: 15 },
-                    { label: '30m', val: 30 },
-                    { label: '1h', val: 60 },
-                  ].map(opt => (
-                    <button
-                      key={opt.val}
-                      onClick={() => leadLoop.setInterval(leadInterval === opt.val ? null : opt.val)}
-                      className={cn(
-                        "px-3 py-1.5 rounded text-sm font-semibold transition-colors",
-                        leadInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                {leadLoopActive ? (
-                  <Button size="sm" variant="destructive" onClick={() => { leadLoop.stopLoop(); }} className="gap-1.5">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Stop Agent
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={leadInterval ? () => leadLoop.startLoop() : () => leadLoop.runOnce()}
-                    disabled={leadGenerating}
-                    className="gap-1.5"
-                  >
-                    {leadGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
-                    {leadGenerating ? 'Searching...' : leadInterval ? `Loop ${leadInterval}m` : 'Run Once'}
-                  </Button>
-                )}
-              </div>
-            )}
             {selectedSource === 'yelp' && (
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
