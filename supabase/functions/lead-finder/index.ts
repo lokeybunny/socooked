@@ -284,6 +284,20 @@ Deno.serve(async (req) => {
     );
   } catch (err: any) {
     console.error("Lead Finder error:", err);
+
+    if (err?.code === "APIFY_USAGE_LIMIT" || err?.status === 402) {
+      return new Response(
+        JSON.stringify({
+          leads: [],
+          created_count: 0,
+          total_found: 0,
+          warning: "Lead search is temporarily unavailable because the provider usage limit was reached. Please top up credits and retry.",
+          error_code: "APIFY_USAGE_LIMIT",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
