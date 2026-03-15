@@ -442,6 +442,7 @@ function ScheduleItemModal({
   const [uploading, setUploading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [pushingSingle, setPushingSingle] = useState(false);
+  const [boostServices, setBoostServices] = useState<BoostService[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
