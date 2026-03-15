@@ -594,6 +594,7 @@ export default function PhonePage() {
     // Reset index to avoid pointing at a stale position
     setCurrentLeadIndex(0);
     toast.success(`${deleteLeadName} removed from CRM`);
+    sendPhoneTelegramNotify(`🚫 *Lead Removed*\n👤 *${deleteLeadName}*\n\n_Marked as Not Interested and deleted from CRM_`, deleteLeadName);
     setDeleteLeadOpen(false);
     setDeleteLeadId(null);
     setDeleteLeadName('');
