@@ -502,7 +502,7 @@ export default function Research() {
     if (error) { toast.error(error.message); setCreating(false); return; }
     toast.success('Finding added');
     setDialogOpen(false);
-    setTitle(''); setSourceUrl(''); setSummary(''); setFindingType('lead'); setFindingSource('other');
+    setTitle(''); setSourceUrl(''); setSummary(''); setFindingType('lead'); setFindingSource('craigslist');
     setCreating(false);
     load();
   };
