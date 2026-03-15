@@ -311,6 +311,60 @@ export default function Research() {
     }
   };
 
+  const handleCraigslistSearch = async () => {
+    if (!clSearchUrl || !clSearchUrl.includes('craigslist.org')) {
+      toast.error('Enter a valid Craigslist search URL');
+      return;
+    }
+    setClSearching(true);
+    setClHasSearched(true);
+    setClResults([]);
+    setClCreatedCount(0);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 210_000);
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
+        },
+        body: JSON.stringify({ search_url: clSearchUrl.trim() }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => '');
+        throw new Error(errBody || `Request failed (${resp.status})`);
+      }
+      const data = await resp.json();
+
+      if (data.warning) {
+        toast.warning(data.warning);
+      }
+
+      setClResults(data.posts || []);
+      setClCreatedCount(data.created_count || 0);
+      if (data.created_count > 0) {
+        toast.success(`Found ${data.total_found} posts, ${data.created_count} new leads added`);
+        load();
+      } else if (data.total_found > 0) {
+        toast.info(`Found ${data.total_found} posts (all already in CRM)`);
+      } else {
+        toast.info('No posts found for this search URL');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Craigslist search failed');
+    } finally {
+      setClSearching(false);
+    }
+  };
+
   const handleLeadFinderSearch = async () => {
     if (!lfJobTitle && !lfLocation && !lfCity && !lfIndustry && !lfKeywords) {
       toast.error('Fill in at least one search field');
