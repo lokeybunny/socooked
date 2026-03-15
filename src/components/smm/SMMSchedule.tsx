@@ -1581,9 +1581,48 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         setRetryItems(failedItems);
       }
 
+      // 4. Fire auto-boost for items that have boost_services configured
+      let boosted = 0;
+      const boostableItems = items.filter(i => i.boost_services && i.boost_services.length > 0);
+      for (const item of boostableItems) {
+        try {
+          // Construct the likely post URL (platform-specific placeholder — real URL comes after publish)
+          // For now, use the media_url or a placeholder link that will be updated
+          const postLink = item.media_url || '';
+          if (!postLink) continue;
+
+          const res = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`,
+            {
+              method: 'POST',
+              headers: {
+                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                schedule_item_id: item.id,
+                plan_id: currentPlan.id,
+                link: postLink,
+                platform: apiPlatform,
+                profile_username: currentPlan.profile_username,
+                services: item.boost_services,
+              }),
+            }
+          );
+          const result = await res.json();
+          if (result.success && result.data?.placed > 0) {
+            boosted += result.data.placed;
+          }
+        } catch (boostErr) {
+          console.warn(`[push-live] Boost failed for item ${item.id}:`, boostErr);
+        }
+      }
+
       const summary = [];
       summary.push(`${calendarEvents.length} calendar events added`);
       if (scheduled > 0) summary.push(`${scheduled} post(s) scheduled to ${currentPlan.platform}`);
+      if (boosted > 0) summary.push(`🚀 ${boosted} boost order(s) placed`);
       if (failed > 0) summary.push(`${failed} failed (use Retry button)`);
 
       toast.success(`🟢 Schedule is LIVE! ${summary.join(', ')}.`);
