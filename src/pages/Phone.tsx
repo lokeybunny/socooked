@@ -57,6 +57,13 @@ export default function PhonePage() {
   const [deleteLeadName, setDeleteLeadName] = useState('');
   const [deletingLead, setDeletingLead] = useState(false);
 
+  // Call back scheduler popup
+  const [callBackOpen, setCallBackOpen] = useState(false);
+  const [callBackLeadId, setCallBackLeadId] = useState<string | null>(null);
+  const [callBackLeadName, setCallBackLeadName] = useState('');
+  const [callBackDate, setCallBackDate] = useState<Date | undefined>(undefined);
+  const [callBackTime, setCallBackTime] = useState('10:00');
+
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null; email?: string; phone?: string } | null>(null);
