@@ -128,11 +128,14 @@ Deno.serve(async (req) => {
   try {
     const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
     const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const sb = supabaseUrl && serviceKey ? createClient(supabaseUrl, serviceKey) : null;
 
-    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-      console.error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID");
+    if (!TELEGRAM_BOT_TOKEN) {
+      console.error("Missing TELEGRAM_BOT_TOKEN");
       return new Response(
-        JSON.stringify({ error: "Telegram not configured" }),
+        JSON.stringify({ error: "Telegram bot token not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -158,51 +161,98 @@ Deno.serve(async (req) => {
     }
 
     // Check if TP10 gains alerts are disabled
-    if (entry.entity_type === "top_gainer") {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL");
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-      if (supabaseUrl && serviceKey) {
-        const sb = createClient(supabaseUrl, serviceKey);
-        const { data: toggle } = await sb
-          .from('site_configs')
-          .select('content')
-          .eq('site_id', 'system')
-          .eq('section', 'tp8_alerts')
-          .single();
-        if (toggle?.content?.enabled === false) {
-          console.log('[telegram-notify] TP10 alerts disabled via /gains toggle');
-          return new Response(
-            JSON.stringify({ success: true, skipped: 'tp8_alerts_disabled' }),
-            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+    if (entry.entity_type === "top_gainer" && sb) {
+      const { data: toggle } = await sb
+        .from('site_configs')
+        .select('content')
+        .eq('site_id', 'system')
+        .eq('section', 'tp8_alerts')
+        .single();
+      if (toggle?.content?.enabled === false) {
+        console.log('[telegram-notify] TP10 alerts disabled via /gains toggle');
+        return new Response(
+          JSON.stringify({ success: true, skipped: 'tp8_alerts_disabled' }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
-    const message = formatMessage(entry);
-    console.log(`[telegram-notify] entity=${entry.entity_type} action=${entry.action} message_preview=${message.substring(0, 80)}`);
+    const explicitChatIds = new Set<string>();
+    const inlineChatId = entry?.chat_id ?? entry?.meta?.chat_id;
+    if (inlineChatId !== undefined && inlineChatId !== null) {
+      explicitChatIds.add(String(inlineChatId));
+    }
+    if (Array.isArray(entry?.chat_ids)) {
+      entry.chat_ids.forEach((chatId: unknown) => {
+        if (chatId !== undefined && chatId !== null) explicitChatIds.add(String(chatId));
+      });
+    }
+    if (Array.isArray(entry?.meta?.chat_ids)) {
+      entry.meta.chat_ids.forEach((chatId: unknown) => {
+        if (chatId !== undefined && chatId !== null) explicitChatIds.add(String(chatId));
+      });
+    }
 
-    const telegramRes = await fetch(
-      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: message,
-          parse_mode: "Markdown",
-        }),
-      }
-    );
+    const targetChatIds = new Set<string>();
+    if (TELEGRAM_CHAT_ID) targetChatIds.add(String(TELEGRAM_CHAT_ID));
+    explicitChatIds.forEach((chatId) => targetChatIds.add(chatId));
 
-    const telegramData = await telegramRes.json();
+    if (sb) {
+      const { data: recentChatSessions } = await sb
+        .from('webhook_events')
+        .select('payload')
+        .eq('source', 'telegram')
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-    if (!telegramRes.ok) {
-      console.error("Telegram API error:", telegramData);
+      recentChatSessions?.forEach((row: any) => {
+        const chatId = row?.payload?.chat_id;
+        if (chatId !== undefined && chatId !== null) {
+          targetChatIds.add(String(chatId));
+        }
+      });
+    }
+
+    if (targetChatIds.size === 0) {
+      console.error("No target Telegram chat IDs configured");
       return new Response(
-        JSON.stringify({ success: false, error: telegramData }),
+        JSON.stringify({ error: "No Telegram chat IDs configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    const message = formatMessage(entry);
+    const targetList = Array.from(targetChatIds);
+    console.log(`[telegram-notify] entity=${entry.entity_type} action=${entry.action} targets=${targetList.join(',')} message_preview=${message.substring(0, 80)}`);
+
+    const telegramResults = await Promise.all(targetList.map(async (chatId) => {
+      const telegramRes = await fetch(
+        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: message,
+            parse_mode: "Markdown",
+          }),
+        }
+      );
+      const telegramData = await telegramRes.json();
+      return { chat_id: chatId, ok: telegramRes.ok, data: telegramData };
+    }));
+
+    const failedDeliveries = telegramResults.filter((r) => !r.ok);
+    if (failedDeliveries.length === telegramResults.length) {
+      console.error("Telegram API error (all deliveries failed):", failedDeliveries);
+      return new Response(
+        JSON.stringify({ success: false, error: failedDeliveries }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (failedDeliveries.length > 0) {
+      console.error("Telegram API partial delivery failure:", failedDeliveries);
     }
 
     // Forward top_gainer alerts to Discord TP10 webhook
