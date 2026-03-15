@@ -363,7 +363,7 @@ export default function Research() {
   };
 
   const validSources = RESEARCH_SOURCES.map(s => s.id);
-  const normSource = (c: string | null) => (c && validSources.includes(c) ? c : 'other');
+  const normSource = (c: string | null) => (c && validSources.includes(c) ? c : 'craigslist');
 
   const load = async () => {
     setLoading(true);
