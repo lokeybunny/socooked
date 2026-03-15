@@ -414,6 +414,17 @@ function BoostServicePicker({
           )}
         </div>
       )}
+
+      {selectedServices.length > 0 && (
+        <div className="flex items-center justify-between px-2 py-1.5 rounded-md bg-primary/5 border border-primary/20">
+          <span className="text-xs font-medium text-muted-foreground">
+            {selectedServices.length} service{selectedServices.length > 1 ? 's' : ''} selected
+          </span>
+          <span className="text-sm font-semibold text-primary">
+            Est. ${selectedServices.reduce((sum, s) => sum + (s.quantity / 1000) * Number(s.rate || 0), 0).toFixed(2)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
