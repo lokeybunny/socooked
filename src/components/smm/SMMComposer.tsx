@@ -83,6 +83,7 @@ export default function SMMComposer({ profiles, onRefresh }: { profiles: SMMProf
         first_comment: firstComment || undefined,
         media_url: mediaUrl || undefined,
         scheduled_date: scheduledDate,
+        timezone: scheduledDate ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined,
         add_to_queue: publishMode === 'queue',
         platform_overrides: Object.keys(overrides).length > 0 ? overrides : undefined,
       });
