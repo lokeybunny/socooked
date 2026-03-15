@@ -18,7 +18,7 @@ export const SERVICE_CATEGORIES: CategoryInfo[] = [
   { id: 'food-and-beverage', label: 'Food & Beverage', icon: UtensilsCrossed, description: 'Restaurants, cafés, catering & food brands' },
   { id: 'mobile-services', label: 'Mobile Services', icon: Smartphone, description: 'Mobile apps, on-demand & field services' },
   { id: 'potential', label: 'Potential', icon: Smartphone, description: 'Auto-generated leads from lead finder tools' },
-  { id: 'other', label: 'Other', icon: Monitor, description: 'Uncategorized or miscellaneous items' },
+  { id: 'craigslist', label: 'Craigslist Leads', icon: Monitor, description: 'Leads sourced from Craigslist postings' },
 ];
 
 // Placeholder notification counts per category — replace with real API data when connected
