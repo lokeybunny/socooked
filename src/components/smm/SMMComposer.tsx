@@ -68,7 +68,7 @@ export default function SMMComposer({ profiles, onRefresh }: { profiles: SMMProf
     setSubmitting(true);
     const profile = profiles.find(p => p.id === localProfileId);
     const scheduledDate = publishMode === 'schedule' && scheduleDate && scheduleTime
-      ? new Date(`${scheduleDate}T${scheduleTime}`).toISOString()
+      ? `${scheduleDate}T${scheduleTime}:00`
       : null;
 
     try {

@@ -1633,7 +1633,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           title: `📱 [${currentPlan.platform.toUpperCase()}] ${item.caption?.substring(0, 60) || item.type}`,
           description: `${item.caption || ''}\n\nType: ${item.type}\nHashtags: ${(item.hashtags || []).join(' ')}\nPlan: ${currentPlan.plan_name}`,
           start_time: startTime,
-          end_time: new Date(new Date(startTime).getTime() + 30 * 60000).toISOString(),
+          end_time: (() => { const e = new Date(new Date(startTime).getTime() + 30 * 60000); return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}T${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}:00`; })(),
           source: 'smm',
           source_id: item.id,
           category: 'smm',
