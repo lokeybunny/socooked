@@ -259,17 +259,23 @@ function CarouselSlideEditor({
 // ─── Schedule Item Edit Modal ───
 // ─── Boost Service Picker ───
 function BoostServicePicker({
-  selectedServices, onServicesChange, platform,
+  selectedServices, onServicesChange, platform, profileUsername, onApplyToAll,
 }: {
   selectedServices: BoostService[];
   onServicesChange: (services: BoostService[]) => void;
   platform?: string;
+  profileUsername?: string;
+  onApplyToAll?: (services: BoostService[]) => void;
 }) {
   const [allServices, setAllServices] = useState<any[]>([]);
   const [loadingServices, setLoadingServices] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [search, setSearch] = useState('');
+  const [presets, setPresets] = useState<{ id: string; preset_name: string; services: BoostService[] }[]>([]);
+  const [presetName, setPresetName] = useState('');
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [showPresetInput, setShowPresetInput] = useState(false);
 
   const fetchServices = async () => {
     if (loaded) return;
@@ -297,6 +303,48 @@ function BoostServicePicker({
     setLoaded(true);
   };
 
+  const fetchPresets = async () => {
+    const { data } = await supabase
+      .from('smm_boost_presets')
+      .select('id, preset_name, services')
+      .eq('profile_username', profileUsername || 'STU25')
+      .order('created_at', { ascending: false });
+    if (data) setPresets(data as any);
+  };
+
+  useEffect(() => { fetchPresets(); }, [profileUsername]);
+
+  const handleSavePreset = async () => {
+    if (!presetName.trim() || selectedServices.length === 0) return;
+    setSavingPreset(true);
+    const { error } = await supabase.from('smm_boost_presets').insert({
+      profile_username: profileUsername || 'STU25',
+      preset_name: presetName.trim(),
+      services: selectedServices as any,
+    } as any);
+    if (error) {
+      toast.error('Failed to save preset');
+    } else {
+      toast.success(`Preset "${presetName.trim()}" saved!`);
+      setPresetName('');
+      setShowPresetInput(false);
+      fetchPresets();
+    }
+    setSavingPreset(false);
+  };
+
+  const handleLoadPreset = (preset: typeof presets[0]) => {
+    onServicesChange(preset.services);
+    toast.success(`Loaded preset "${preset.preset_name}"`);
+  };
+
+  const handleDeletePreset = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await supabase.from('smm_boost_presets').delete().eq('id', id);
+    toast('Preset deleted');
+    fetchPresets();
+  };
+
   // Filter services by platform keyword
   const filteredServices = useMemo(() => {
     let filtered = allServices;
@@ -306,7 +354,6 @@ function BoostServicePicker({
         s.name?.toLowerCase().includes(pf) ||
         s.category?.toLowerCase().includes(pf)
       );
-      // If no platform-specific results, show all
       if (filtered.length === 0) filtered = allServices;
     }
     if (search) {
@@ -316,7 +363,7 @@ function BoostServicePicker({
         s.category?.toLowerCase().includes(q)
       );
     }
-    return filtered.slice(0, 30); // limit display
+    return filtered.slice(0, 30);
   }, [allServices, platform, search]);
 
   const toggleService = (svc: any) => {
@@ -348,6 +395,29 @@ function BoostServicePicker({
         </Label>
         <Switch checked={expanded} onCheckedChange={(v) => { setExpanded(v); if (v) fetchServices(); }} />
       </div>
+
+      {/* Presets bar */}
+      {presets.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {presets.map(p => (
+            <Badge
+              key={p.id}
+              variant="outline"
+              className="text-[10px] gap-1 cursor-pointer hover:bg-primary/10 transition-colors"
+              onClick={() => handleLoadPreset(p)}
+            >
+              <FolderOpen className="h-2.5 w-2.5" />
+              {p.preset_name} ({(p.services as BoostService[]).length})
+              <button
+                onClick={(e) => handleDeletePreset(p.id, e)}
+                className="ml-0.5 hover:text-destructive"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {selectedServices.length > 0 && !expanded && (
         <div className="flex flex-wrap gap-1">
@@ -417,13 +487,56 @@ function BoostServicePicker({
       )}
 
       {selectedServices.length > 0 && (
-        <div className="flex items-center justify-between px-2 py-1.5 rounded-md bg-primary/5 border border-primary/20">
-          <span className="text-xs font-medium text-muted-foreground">
-            {selectedServices.length} service{selectedServices.length > 1 ? 's' : ''} selected
-          </span>
-          <span className="text-sm font-semibold text-primary">
-            Est. ${selectedServices.reduce((sum, s) => sum + (s.quantity / 1000) * Number(s.rate || 0), 0).toFixed(2)}
-          </span>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-2 py-1.5 rounded-md bg-primary/5 border border-primary/20">
+            <span className="text-xs font-medium text-muted-foreground">
+              {selectedServices.length} service{selectedServices.length > 1 ? 's' : ''} selected
+            </span>
+            <span className="text-sm font-semibold text-primary">
+              Est. ${selectedServices.reduce((sum, s) => sum + (s.quantity / 1000) * Number(s.rate || 0), 0).toFixed(2)}
+            </span>
+          </div>
+
+          <div className="flex gap-1.5">
+            {/* Save as preset */}
+            {showPresetInput ? (
+              <div className="flex gap-1 flex-1">
+                <Input
+                  placeholder="Preset name…"
+                  value={presetName}
+                  onChange={e => setPresetName(e.target.value)}
+                  className="h-7 text-xs flex-1"
+                  onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
+                />
+                <Button size="sm" variant="secondary" className="h-7 text-xs gap-1 px-2" onClick={handleSavePreset} disabled={savingPreset || !presetName.trim()}>
+                  {savingPreset ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Save
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setShowPresetInput(false)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1 flex-1" onClick={() => setShowPresetInput(true)}>
+                <Save className="h-3 w-3" /> Save as Preset
+              </Button>
+            )}
+
+            {/* Apply to all posts */}
+            {onApplyToAll && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1 flex-1"
+                onClick={() => {
+                  onApplyToAll(selectedServices);
+                  toast.success(`Applied boost to all posts`);
+                }}
+              >
+                <Zap className="h-3 w-3" /> Apply to All Posts
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>
