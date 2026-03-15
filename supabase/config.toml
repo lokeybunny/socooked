@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.audit-report]
 verify_jwt = false
+
+[functions.darkside-smm]
+verify_jwt = false
