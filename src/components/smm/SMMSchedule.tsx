@@ -902,6 +902,8 @@ function ScheduleItemModal({
             selectedServices={boostServices}
             onServicesChange={setBoostServices}
             platform={plan?.platform}
+            profileUsername={plan?.profile_username}
+            onApplyToAll={onApplyBoostToAll}
           />
         </div>
 
