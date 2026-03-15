@@ -1358,7 +1358,9 @@ export default function PhonePage() {
                   {/* Single lead card */}
                   {(() => {
                     const lead = currentLead;
-                    const noteTag = lead.notes?.startsWith('[BUSY]') ? 'busy' : lead.notes?.startsWith('[CALL BACK]') ? 'callback' : null;
+                    const meta = typeof lead.meta === 'object' ? lead.meta : {};
+                    const noteTag = meta?.callback_at ? 'callback' : meta?.busy_until ? 'busy' : null;
+                    const callbackLabel = meta?.callback_at ? `Call back: ${format(new Date(meta.callback_at), 'MMM d, h:mm a')}` : null;
                     return (
                       <div
                         className={cn(
