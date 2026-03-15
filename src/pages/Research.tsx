@@ -522,7 +522,7 @@ export default function Research() {
         full_name: finding.title,
         source: 'research',
         status: 'lead',
-        notes: `From research (${SOURCE_LABELS[finding.category] || 'Other'}): ${finding.summary || ''}\n${finding.source_url || ''}`.trim(),
+        notes: `From research (${SOURCE_LABELS[finding.category] || 'Craigslist'}): ${finding.summary || ''}\n${finding.source_url || ''}`.trim(),
         category: null,
       }]).select().single();
 
