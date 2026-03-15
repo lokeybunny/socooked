@@ -178,6 +178,13 @@ export default function Research() {
   const [lfCreatedCount, setLfCreatedCount] = useState(0);
   const [lfHasSearched, setLfHasSearched] = useState(false);
 
+  // Craigslist Finder state
+  const [clSearchUrl, setClSearchUrl] = useState('https://atlanta.craigslist.org/search/ggg#search=1~thumb~0~0');
+  const [clSearching, setClSearching] = useState(false);
+  const [clResults, setClResults] = useState<any[]>([]);
+  const [clCreatedCount, setClCreatedCount] = useState(0);
+  const [clHasSearched, setClHasSearched] = useState(false);
+
   // Yelp Finder state
   const [yelpSearchTerms, setYelpSearchTerms] = useState('');
   const [yelpLocation, setYelpLocation] = useState('');
