@@ -599,7 +599,7 @@ function ScheduleItemModal({
 
   const handleSave = () => {
     const parsed = hashtags.split(',').map(h => h.trim().replace(/^#/, '')).filter(Boolean);
-    onSave({ ...item, caption, hashtags: parsed, date, time, type, media_url: mediaUrl });
+    onSave({ ...item, caption, hashtags: parsed, date, time, type, media_url: mediaUrl, boost_services: boostServices });
     onOpenChange(false);
   };
 
