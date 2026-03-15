@@ -566,6 +566,13 @@ export default function PhonePage() {
       supabase.from('communications').delete().eq('customer_id', deleteLeadId),
       supabase.from('deals').delete().eq('customer_id', deleteLeadId),
       supabase.from('transcriptions').delete().eq('customer_id', deleteLeadId),
+      supabase.from('api_previews').delete().eq('customer_id', deleteLeadId),
+      supabase.from('boards').delete().eq('customer_id', deleteLeadId),
+      supabase.from('calendar_events').delete().eq('customer_id', deleteLeadId),
+      supabase.from('content_assets').delete().eq('customer_id', deleteLeadId),
+      supabase.from('research_findings').delete().eq('customer_id', deleteLeadId),
+      supabase.from('site_configs').delete().eq('customer_id', deleteLeadId),
+      supabase.from('meetings').delete().eq('customer_id', deleteLeadId),
     ]);
     const { error } = await supabase.from('customers').delete().eq('id', deleteLeadId);
     if (error) { toast.error('Failed to remove lead'); setDeletingLead(false); return; }
