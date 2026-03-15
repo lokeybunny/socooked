@@ -775,6 +775,13 @@ function ScheduleItemModal({
             <StatusBadge status={item.status} />
             {item.media_prompt && <span className="truncate max-w-xs">Prompt: {item.media_prompt}</span>}
           </div>
+
+          {/* Boost Services Picker */}
+          <BoostServicePicker
+            selectedServices={boostServices}
+            onServicesChange={setBoostServices}
+            platform={plan?.platform}
+          />
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
