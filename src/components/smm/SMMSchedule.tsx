@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSMMContext, PLATFORM_META } from '@/lib/smm/context';
 import { smmApi } from '@/lib/smm/store';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -26,7 +27,7 @@ import {
   Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Send,
   ThumbsUp, Repeat2, Eye, Play, Zap, Clock, CheckCircle2,
   AlertCircle, Loader2, RotateCcw, Pencil, Upload, Trash2,
-  ChevronLeft, ChevronRight, ImagePlus, X,
+  ChevronLeft, ChevronRight, ImagePlus, X, Rocket, TrendingUp,
 } from 'lucide-react';
 import { uploadToStorage } from '@/lib/storage';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
@@ -34,6 +35,13 @@ import type { SMMProfile } from '@/lib/smm/types';
 import { format, parseISO, isToday, differenceInHours } from 'date-fns';
 
 // ─── Types ───
+export interface BoostService {
+  service_id: string;
+  service_name: string;
+  quantity: number;
+  rate?: string;
+}
+
 interface ScheduleItem {
   id: string;
   date: string;
@@ -46,6 +54,7 @@ interface ScheduleItem {
   carousel_urls?: string[];
   status: 'draft' | 'generating' | 'ready' | 'published' | 'failed' | 'planned';
   favorited?: boolean;
+  boost_services?: BoostService[];
 }
 
 interface ContentPlan {
@@ -247,6 +256,173 @@ function CarouselSlideEditor({
 }
 
 // ─── Schedule Item Edit Modal ───
+// ─── Boost Service Picker ───
+function BoostServicePicker({
+  selectedServices, onServicesChange, platform,
+}: {
+  selectedServices: BoostService[];
+  onServicesChange: (services: BoostService[]) => void;
+  platform?: string;
+}) {
+  const [allServices, setAllServices] = useState<any[]>([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const fetchServices = async () => {
+    if (loaded) return;
+    setLoadingServices(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('darkside-smm', {
+        body: {},
+        headers: { 'Content-Type': 'application/json' },
+      });
+      // Use query param approach
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/darkside-smm?action=services`,
+        {
+          headers: {
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+        }
+      );
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setAllServices(json.data);
+      } else if (Array.isArray(json.data)) {
+        setAllServices(json.data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch Darkside services:', e);
+    }
+    setLoadingServices(false);
+    setLoaded(true);
+  };
+
+  // Filter services by platform keyword
+  const filteredServices = useMemo(() => {
+    let filtered = allServices;
+    if (platform) {
+      const pf = platform.toLowerCase();
+      filtered = filtered.filter(s =>
+        s.name?.toLowerCase().includes(pf) ||
+        s.category?.toLowerCase().includes(pf)
+      );
+      // If no platform-specific results, show all
+      if (filtered.length === 0) filtered = allServices;
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(s =>
+        s.name?.toLowerCase().includes(q) ||
+        s.category?.toLowerCase().includes(q)
+      );
+    }
+    return filtered.slice(0, 30); // limit display
+  }, [allServices, platform, search]);
+
+  const toggleService = (svc: any) => {
+    const existing = selectedServices.find(s => s.service_id === String(svc.service));
+    if (existing) {
+      onServicesChange(selectedServices.filter(s => s.service_id !== String(svc.service)));
+    } else {
+      onServicesChange([...selectedServices, {
+        service_id: String(svc.service),
+        service_name: svc.name || `Service #${svc.service}`,
+        quantity: Number(svc.min) || 100,
+        rate: svc.rate,
+      }]);
+    }
+  };
+
+  const updateQuantity = (serviceId: string, quantity: number) => {
+    onServicesChange(selectedServices.map(s =>
+      s.service_id === serviceId ? { ...s, quantity } : s
+    ));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-1.5 text-xs">
+          <Rocket className="h-3.5 w-3.5 text-primary" />
+          Auto-Boost Services
+        </Label>
+        <Switch checked={expanded} onCheckedChange={(v) => { setExpanded(v); if (v) fetchServices(); }} />
+      </div>
+
+      {selectedServices.length > 0 && !expanded && (
+        <div className="flex flex-wrap gap-1">
+          {selectedServices.map(s => (
+            <Badge key={s.service_id} variant="secondary" className="text-[10px] gap-1">
+              <TrendingUp className="h-2.5 w-2.5" />
+              {s.service_name.substring(0, 30)} × {s.quantity}
+              <button onClick={() => onServicesChange(selectedServices.filter(x => x.service_id !== s.service_id))} className="ml-1 hover:text-destructive">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {expanded && (
+        <div className="border border-border/50 rounded-lg p-2 space-y-2 max-h-48 overflow-y-auto bg-muted/20">
+          <Input
+            placeholder="Search services…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="h-7 text-xs"
+          />
+
+          {loadingServices ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <span className="text-xs text-muted-foreground ml-2">Loading services…</span>
+            </div>
+          ) : filteredServices.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-2">No services found</p>
+          ) : (
+            filteredServices.map(svc => {
+              const isSelected = selectedServices.some(s => s.service_id === String(svc.service));
+              const selected = selectedServices.find(s => s.service_id === String(svc.service));
+              return (
+                <div
+                  key={svc.service}
+                  className={`flex items-center gap-2 p-1.5 rounded text-xs cursor-pointer transition-colors ${
+                    isSelected ? 'bg-primary/10 border border-primary/30' : 'hover:bg-muted/50'
+                  }`}
+                  onClick={() => toggleService(svc)}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate text-[11px]">{svc.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      ${svc.rate}/1k · Min: {svc.min} · Max: {svc.max}
+                    </p>
+                  </div>
+                  {isSelected && selected && (
+                    <Input
+                      type="number"
+                      value={selected.quantity}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => { e.stopPropagation(); updateQuantity(String(svc.service), Number(e.target.value)); }}
+                      min={Number(svc.min) || 1}
+                      max={Number(svc.max) || 100000}
+                      className="w-20 h-6 text-[10px]"
+                    />
+                  )}
+                  <CheckCircle2 className={`h-3.5 w-3.5 shrink-0 ${isSelected ? 'text-primary' : 'text-muted-foreground/30'}`} />
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScheduleItemModal({
   item, open, onOpenChange, onSave, planIsLive, plan,
 }: {
@@ -266,6 +442,7 @@ function ScheduleItemModal({
   const [uploading, setUploading] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [pushingSingle, setPushingSingle] = useState(false);
+  const [boostServices, setBoostServices] = useState<BoostService[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -276,6 +453,7 @@ function ScheduleItemModal({
       setTime(item.time || '');
       setType(item.type);
       setMediaUrl(item.media_url);
+      setBoostServices(item.boost_services || []);
     }
   }, [item]);
 
@@ -421,7 +599,7 @@ function ScheduleItemModal({
 
   const handleSave = () => {
     const parsed = hashtags.split(',').map(h => h.trim().replace(/^#/, '')).filter(Boolean);
-    onSave({ ...item, caption, hashtags: parsed, date, time, type, media_url: mediaUrl });
+    onSave({ ...item, caption, hashtags: parsed, date, time, type, media_url: mediaUrl, boost_services: boostServices });
     onOpenChange(false);
   };
 
@@ -597,6 +775,13 @@ function ScheduleItemModal({
             <StatusBadge status={item.status} />
             {item.media_prompt && <span className="truncate max-w-xs">Prompt: {item.media_prompt}</span>}
           </div>
+
+          {/* Boost Services Picker */}
+          <BoostServicePicker
+            selectedServices={boostServices}
+            onServicesChange={setBoostServices}
+            platform={plan?.platform}
+          />
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -1396,9 +1581,48 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         setRetryItems(failedItems);
       }
 
+      // 4. Fire auto-boost for items that have boost_services configured
+      let boosted = 0;
+      const boostableItems = items.filter(i => i.boost_services && i.boost_services.length > 0);
+      for (const item of boostableItems) {
+        try {
+          // Construct the likely post URL (platform-specific placeholder — real URL comes after publish)
+          // For now, use the media_url or a placeholder link that will be updated
+          const postLink = item.media_url || '';
+          if (!postLink) continue;
+
+          const res = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`,
+            {
+              method: 'POST',
+              headers: {
+                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                schedule_item_id: item.id,
+                plan_id: currentPlan.id,
+                link: postLink,
+                platform: apiPlatform,
+                profile_username: currentPlan.profile_username,
+                services: item.boost_services,
+              }),
+            }
+          );
+          const result = await res.json();
+          if (result.success && result.data?.placed > 0) {
+            boosted += result.data.placed;
+          }
+        } catch (boostErr) {
+          console.warn(`[push-live] Boost failed for item ${item.id}:`, boostErr);
+        }
+      }
+
       const summary = [];
       summary.push(`${calendarEvents.length} calendar events added`);
       if (scheduled > 0) summary.push(`${scheduled} post(s) scheduled to ${currentPlan.platform}`);
+      if (boosted > 0) summary.push(`🚀 ${boosted} boost order(s) placed`);
       if (failed > 0) summary.push(`${failed} failed (use Retry button)`);
 
       toast.success(`🟢 Schedule is LIVE! ${summary.join(', ')}.`);
@@ -1638,6 +1862,11 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                   <AlertDialogTitle>Push Schedule Live?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will push the {currentPlan.platform} content schedule live and add {items.length} post{items.length !== 1 ? 's' : ''} to your calendar.
+                    {items.some(i => i.boost_services && i.boost_services.length > 0) && (
+                      <span className="block mt-1 text-primary font-medium">
+                        🚀 {items.filter(i => i.boost_services && i.boost_services.length > 0).length} post(s) have auto-boost services configured — orders will be placed automatically.
+                      </span>
+                    )}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

@@ -239,6 +239,38 @@ serve(async (req) => {
         return ok(result);
       }
 
+      // ═══ DARKSIDE SMM BOOST ═══
+      case 'boost': {
+        const { service, link, quantity, profile_username, schedule_item_id, plan_id, platform, service_name } = body;
+        if (!service || !link || !quantity) return fail('service, link, and quantity required');
+        const boostRes = await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=add`, {
+          method: 'POST',
+          headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ service, link, quantity, profile_username, schedule_item_id, plan_id, platform, service_name }),
+        });
+        const boostResult = await boostRes.json();
+        await logActivity('cortex_boost', { name: `Cortex boost order: ${service_name || service}`, link });
+        return ok(boostResult);
+      }
+
+      case 'boost-status': {
+        const orderId = url.searchParams.get('order') || body.order;
+        if (!orderId) return fail('order id required');
+        const statusRes = await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=status&order=${orderId}`, {
+          headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` },
+        });
+        const statusResult = await statusRes.json();
+        return ok(statusResult);
+      }
+
+      case 'boost-services': {
+        const svcRes = await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=services`, {
+          headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` },
+        });
+        const svcResult = await svcRes.json();
+        return ok(svcResult);
+      }
+
       default:
         return fail(`Unknown action: ${action}`);
     }

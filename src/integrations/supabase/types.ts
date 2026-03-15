@@ -1874,6 +1874,77 @@ export type Database = {
           },
         ]
       }
+      smm_boost_orders: {
+        Row: {
+          charge: number | null
+          created_at: string
+          darkside_status: string | null
+          id: string
+          link: string | null
+          order_id: string | null
+          plan_id: string | null
+          platform: string
+          post_id: string | null
+          profile_username: string
+          quantity: number
+          remains: number | null
+          schedule_item_id: string | null
+          service_id: string
+          service_name: string
+          start_count: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          charge?: number | null
+          created_at?: string
+          darkside_status?: string | null
+          id?: string
+          link?: string | null
+          order_id?: string | null
+          plan_id?: string | null
+          platform: string
+          post_id?: string | null
+          profile_username?: string
+          quantity?: number
+          remains?: number | null
+          schedule_item_id?: string | null
+          service_id: string
+          service_name: string
+          start_count?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          charge?: number | null
+          created_at?: string
+          darkside_status?: string | null
+          id?: string
+          link?: string | null
+          order_id?: string | null
+          plan_id?: string | null
+          platform?: string
+          post_id?: string | null
+          profile_username?: string
+          quantity?: number
+          remains?: number | null
+          schedule_item_id?: string | null
+          service_id?: string
+          service_name?: string
+          start_count?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smm_boost_orders_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "smm_content_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smm_brand_prompts: {
         Row: {
           category: string
