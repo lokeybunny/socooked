@@ -2159,6 +2159,16 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         onSave={handleSaveItem}
         planIsLive={isLive}
         plan={currentPlan || null}
+        onApplyBoostToAll={async (services) => {
+          if (!currentPlan) return;
+          const newItems = items.map(i => ({ ...i, boost_services: services }));
+          const { error } = await supabase
+            .from('smm_content_plans')
+            .update({ schedule_items: newItems as any, updated_at: new Date().toISOString() } as any)
+            .eq('id', currentPlan.id);
+          if (error) toast.error('Failed to apply: ' + error.message);
+          else { toast.success(`Applied boost services to all ${newItems.length} posts`); await fetchPlans(); }
+        }}
       />
 
       <CustomBrandDialog
