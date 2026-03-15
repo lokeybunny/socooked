@@ -453,6 +453,7 @@ function ScheduleItemModal({
       setTime(item.time || '');
       setType(item.type);
       setMediaUrl(item.media_url);
+      setBoostServices(item.boost_services || []);
     }
   }, [item]);
 
