@@ -1862,6 +1862,12 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                   <AlertDialogTitle>Push Schedule Live?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will push the {currentPlan.platform} content schedule live and add {items.length} post{items.length !== 1 ? 's' : ''} to your calendar.
+                    {items.some(i => i.boost_services && i.boost_services.length > 0) && (
+                      <span className="block mt-1 text-primary font-medium">
+                        🚀 {items.filter(i => i.boost_services && i.boost_services.length > 0).length} post(s) have auto-boost services configured — orders will be placed automatically.
+                      </span>
+                    )}
+                  </AlertDialogDescription>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
