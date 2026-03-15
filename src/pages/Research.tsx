@@ -469,7 +469,7 @@ export default function Research() {
     const rd = f.raw_data as any;
     if (!rd) return false;
     const hasName = !!(rd.name || f.title);
-    if (selectedSource === 'other') {
+    if (selectedSource === 'craigslist') {
       return hasName && rd.type === 'lead_finder';
     }
     if (selectedSource === 'google-maps') {
