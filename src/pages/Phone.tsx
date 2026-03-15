@@ -581,14 +581,21 @@ export default function PhonePage() {
   };
 
   const filteredLeads = useMemo(() => {
-    let result = leads;
+    const now = new Date().toISOString();
+    let result = leads.filter(l => {
+      const meta = typeof l.meta === 'object' ? l.meta : {};
+      // Hide busy leads until busy_until expires
+      if (meta?.busy_until && meta.busy_until > now) return false;
+      // Hide callback leads until callback_at arrives
+      if (meta?.callback_at && meta.callback_at > now) return false;
+      return true;
+    });
     if (leadsCategoryFilter !== 'all') {
       result = result.filter(l => (l.category || 'other') === leadsCategoryFilter);
     }
     if (areaCodeFilter.length === 3) {
       result = result.filter(l => {
         const phone = (l.phone || '').replace(/\D/g, '');
-        // Handle both 10-digit and 11-digit (1+10) US numbers
         const areaCode = phone.length === 11 && phone.startsWith('1') ? phone.substring(1, 4) : phone.substring(0, 3);
         return areaCode === areaCodeFilter;
       });
