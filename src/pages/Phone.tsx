@@ -571,6 +571,8 @@ export default function PhonePage() {
     if (error) { toast.error('Failed to remove lead'); setDeletingLead(false); return; }
     setLeads(prev => prev.filter(l => l.id !== deleteLeadId));
     setCustomers(prev => prev.filter(c => c.id !== deleteLeadId));
+    // Reset index to avoid pointing at a stale position
+    setCurrentLeadIndex(0);
     toast.success(`${deleteLeadName} removed from CRM`);
     setDeleteLeadOpen(false);
     setDeleteLeadId(null);
