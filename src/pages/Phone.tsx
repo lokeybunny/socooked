@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star, Globe, Instagram, ExternalLink, MonitorPlay } from 'lucide-react';
+import { Phone, Upload, FileAudio, X, Loader2, Check, FolderUp, Copy, ChevronDown, ChevronUp, Voicemail, PhoneCall, User, UserPlus, Search, ChevronLeft, ChevronRight, Play, Square, Download, ArrowUpRight, Zap, PhoneOff, Clock, Ban, Info, MapPin, Mail, Building2, Tag, Star, Globe, Instagram, ExternalLink, MonitorPlay, CalendarClock } from 'lucide-react';
 import { Teleprompter } from '@/components/phone/Teleprompter';
 import MeetingSchedulerModal from '@/components/phone/MeetingSchedulerModal';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from '@/components/ui/alert-dialog';
@@ -17,6 +17,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const RC_EMBED_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html';
 const CALL_TYPES = [
@@ -54,6 +56,13 @@ export default function PhonePage() {
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
   const [deleteLeadName, setDeleteLeadName] = useState('');
   const [deletingLead, setDeletingLead] = useState(false);
+
+  // Call back scheduler popup
+  const [callBackOpen, setCallBackOpen] = useState(false);
+  const [callBackLeadId, setCallBackLeadId] = useState<string | null>(null);
+  const [callBackLeadName, setCallBackLeadName] = useState('');
+  const [callBackDate, setCallBackDate] = useState<Date | undefined>(undefined);
+  const [callBackTime, setCallBackTime] = useState('10:00');
 
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
@@ -181,17 +190,44 @@ export default function PhonePage() {
       setDeleteLeadOpen(true);
       return;
     }
-    let newNotes = '';
     if (action === 'busy') {
-      newNotes = `[BUSY] ${new Date().toLocaleDateString()} — Will try again`;
-      toast('Marked as Busy — will show up for callback', { icon: '📞' });
+      // Set busy_until to 24 hours from now in meta
+      const lead = leads.find(l => l.id === leadId);
+      const existingMeta = typeof lead?.meta === 'object' ? lead.meta : {};
+      const busyUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const updatedMeta = { ...existingMeta, busy_until: busyUntil };
+      await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', leadId);
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, meta: updatedMeta } : l));
+      toast('Busy — removed from queue for 24 hours', { icon: '⏸️' });
+      // Advance to next lead
+      setCurrentLeadIndex(prev => prev + 1);
+      return;
     }
     if (action === 'call_back') {
-      newNotes = `[CALL BACK] ${new Date().toLocaleDateString()}`;
-      toast('Marked for Call Back', { icon: '🔁' });
+      setCallBackLeadId(leadId);
+      setCallBackLeadName(leadName);
+      setCallBackDate(undefined);
+      setCallBackTime('10:00');
+      setCallBackOpen(true);
+      return;
     }
-    await supabase.from('customers').update({ notes: newNotes } as any).eq('id', leadId);
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, notes: newNotes } : l));
+  };
+
+  const handleConfirmCallBack = async () => {
+    if (!callBackLeadId || !callBackDate) return;
+    const lead = leads.find(l => l.id === callBackLeadId);
+    const existingMeta = typeof lead?.meta === 'object' ? lead.meta : {};
+    const [hours, minutes] = callBackTime.split(':').map(Number);
+    const callbackAt = new Date(callBackDate);
+    callbackAt.setHours(hours, minutes, 0, 0);
+    const updatedMeta = { ...existingMeta, callback_at: callbackAt.toISOString() };
+    await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', callBackLeadId);
+    setLeads(prev => prev.map(l => l.id === callBackLeadId ? { ...l, meta: updatedMeta } : l));
+    toast.success(`Call back scheduled for ${format(callbackAt, 'MMM d, h:mm a')}`);
+    setCallBackOpen(false);
+    setCallBackLeadId(null);
+    // Advance to next lead
+    setCurrentLeadIndex(prev => prev + 1);
   };
 
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
@@ -535,6 +571,8 @@ export default function PhonePage() {
     if (error) { toast.error('Failed to remove lead'); setDeletingLead(false); return; }
     setLeads(prev => prev.filter(l => l.id !== deleteLeadId));
     setCustomers(prev => prev.filter(c => c.id !== deleteLeadId));
+    // Reset index to avoid pointing at a stale position
+    setCurrentLeadIndex(0);
     toast.success(`${deleteLeadName} removed from CRM`);
     setDeleteLeadOpen(false);
     setDeleteLeadId(null);
@@ -543,14 +581,21 @@ export default function PhonePage() {
   };
 
   const filteredLeads = useMemo(() => {
-    let result = leads;
+    const now = new Date().toISOString();
+    let result = leads.filter(l => {
+      const meta = typeof l.meta === 'object' ? l.meta : {};
+      // Hide busy leads until busy_until expires
+      if (meta?.busy_until && meta.busy_until > now) return false;
+      // Hide callback leads until callback_at arrives
+      if (meta?.callback_at && meta.callback_at > now) return false;
+      return true;
+    });
     if (leadsCategoryFilter !== 'all') {
       result = result.filter(l => (l.category || 'other') === leadsCategoryFilter);
     }
     if (areaCodeFilter.length === 3) {
       result = result.filter(l => {
         const phone = (l.phone || '').replace(/\D/g, '');
-        // Handle both 10-digit and 11-digit (1+10) US numbers
         const areaCode = phone.length === 11 && phone.startsWith('1') ? phone.substring(1, 4) : phone.substring(0, 3);
         return areaCode === areaCodeFilter;
       });
@@ -1313,7 +1358,9 @@ export default function PhonePage() {
                   {/* Single lead card */}
                   {(() => {
                     const lead = currentLead;
-                    const noteTag = lead.notes?.startsWith('[BUSY]') ? 'busy' : lead.notes?.startsWith('[CALL BACK]') ? 'callback' : null;
+                    const meta = typeof lead.meta === 'object' ? lead.meta : {};
+                    const noteTag = meta?.callback_at ? 'callback' : meta?.busy_until ? 'busy' : null;
+                    const callbackLabel = meta?.callback_at ? `Call back: ${format(new Date(meta.callback_at), 'MMM d, h:mm a')}` : null;
                     return (
                       <div
                         className={cn(
@@ -1334,8 +1381,8 @@ export default function PhonePage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <button onClick={() => handleLeadDoubleClick(lead)} className="text-base font-semibold text-primary hover:underline truncate cursor-pointer text-left">{lead.full_name}</button>
-                              {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy</Badge>}
-                              {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">Call Back</Badge>}
+                              {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy (24h)</Badge>}
+                              {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">{callbackLabel}</Badge>}
                               {(typeof lead.meta === 'object' && lead.meta?.analyzed) && (
                                 <Badge variant="outline" className="text-[9px] h-4 border-green-500/40 text-green-600 gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleSendReport(lead); }}>
                                   <Check className="h-2.5 w-2.5" /> Audited
@@ -1971,6 +2018,48 @@ export default function PhonePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Call Back Scheduler */}
+      <Dialog open={callBackOpen} onOpenChange={setCallBackOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-blue-500" />
+              Schedule Call Back
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            When should <span className="font-semibold text-foreground">{callBackLeadName}</span> reappear in the queue?
+          </p>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={callBackDate}
+                onSelect={setCallBackDate}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                className="p-3 pointer-events-auto"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Time</Label>
+              <Input
+                type="time"
+                value={callBackTime}
+                onChange={e => setCallBackTime(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCallBackOpen(false)}>Cancel</Button>
+            <Button disabled={!callBackDate} onClick={handleConfirmCallBack} className="gap-1.5">
+              <CalendarClock className="h-4 w-4" />
+              Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Interested Confirmation */}
       <AlertDialog open={interestedOpen} onOpenChange={setInterestedOpen}>
