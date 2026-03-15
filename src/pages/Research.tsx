@@ -738,7 +738,7 @@ export default function Research() {
         </div>
 
         {/* Controls — 1 row, 2 columns */}
-        <div className="grid grid-cols-2 gap-4 items-start">
+        {selectedSource !== 'craigslist' && <div className="grid grid-cols-2 gap-4 items-start">
           {/* Column 1: Findings count + Market Cap Alerts label */}
           <div className="space-y-2">
             <p className="text-muted-foreground text-lg">{filtered.length} findings</p>
