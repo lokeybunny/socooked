@@ -190,17 +190,44 @@ export default function PhonePage() {
       setDeleteLeadOpen(true);
       return;
     }
-    let newNotes = '';
     if (action === 'busy') {
-      newNotes = `[BUSY] ${new Date().toLocaleDateString()} — Will try again`;
-      toast('Marked as Busy — will show up for callback', { icon: '📞' });
+      // Set busy_until to 24 hours from now in meta
+      const lead = leads.find(l => l.id === leadId);
+      const existingMeta = typeof lead?.meta === 'object' ? lead.meta : {};
+      const busyUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const updatedMeta = { ...existingMeta, busy_until: busyUntil };
+      await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', leadId);
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, meta: updatedMeta } : l));
+      toast('Busy — removed from queue for 24 hours', { icon: '⏸️' });
+      // Advance to next lead
+      setCurrentLeadIndex(prev => prev + 1);
+      return;
     }
     if (action === 'call_back') {
-      newNotes = `[CALL BACK] ${new Date().toLocaleDateString()}`;
-      toast('Marked for Call Back', { icon: '🔁' });
+      setCallBackLeadId(leadId);
+      setCallBackLeadName(leadName);
+      setCallBackDate(undefined);
+      setCallBackTime('10:00');
+      setCallBackOpen(true);
+      return;
     }
-    await supabase.from('customers').update({ notes: newNotes } as any).eq('id', leadId);
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, notes: newNotes } : l));
+  };
+
+  const handleConfirmCallBack = async () => {
+    if (!callBackLeadId || !callBackDate) return;
+    const lead = leads.find(l => l.id === callBackLeadId);
+    const existingMeta = typeof lead?.meta === 'object' ? lead.meta : {};
+    const [hours, minutes] = callBackTime.split(':').map(Number);
+    const callbackAt = new Date(callBackDate);
+    callbackAt.setHours(hours, minutes, 0, 0);
+    const updatedMeta = { ...existingMeta, callback_at: callbackAt.toISOString() };
+    await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', callBackLeadId);
+    setLeads(prev => prev.map(l => l.id === callBackLeadId ? { ...l, meta: updatedMeta } : l));
+    toast.success(`Call back scheduled for ${format(callbackAt, 'MMM d, h:mm a')}`);
+    setCallBackOpen(false);
+    setCallBackLeadId(null);
+    // Advance to next lead
+    setCurrentLeadIndex(prev => prev + 1);
   };
 
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
