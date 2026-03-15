@@ -163,7 +163,7 @@ export default function Research() {
   const [sourceUrl, setSourceUrl] = useState('');
   const [summary, setSummary] = useState('');
   const [findingType, setFindingType] = useState<string>('lead');
-  const [findingSource, setFindingSource] = useState<string>('other');
+  const [findingSource, setFindingSource] = useState<string>('craigslist');
   const [creating, setCreating] = useState(false);
 
   // Lead Finder state (for "Other" source)
