@@ -240,6 +240,7 @@ export default function PhonePage() {
     setCallBackLeadId(null);
     // Advance to next lead
     setCurrentLeadIndex(prev => prev + 1);
+    sendPhoneTelegramNotify(`📅 *Call Back Scheduled*\n👤 *${callBackLeadName}*\n📞 ${lead?.phone || 'No phone'}\n🕐 ${format(callbackAt, 'MMM d, h:mm a')}\n\n_Lead will reappear at scheduled time_`, callBackLeadName);
   };
 
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
