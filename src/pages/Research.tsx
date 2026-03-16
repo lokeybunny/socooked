@@ -387,10 +387,24 @@ export default function Research() {
     { value: 'reno', label: 'Reno, NV', subdomain: 'reno' },
   ];
 
-  const handleCraigslistStop = () => {
+  const handleCraigslistStop = async () => {
     if (clAbortRef.current) {
       clAbortRef.current.abort();
       clAbortRef.current = null;
+    }
+    // Abort the actual Apify run
+    if (clRunIdRef.current) {
+      const runId = clRunIdRef.current;
+      clRunIdRef.current = null;
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+          body: JSON.stringify({ action: 'abort', run_id: runId }),
+        });
+      } catch {}
     }
     setClSearching(false);
     setClProgressMsg('Stopped by user');
