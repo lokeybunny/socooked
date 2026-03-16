@@ -294,6 +294,12 @@ export default function EmailPage() {
         if (offerAtt) allAttachments.push(offerAtt);
       }
 
+      if (maintenanceChecked) {
+        finalBody += MAINTENANCE_BODY_HTML;
+        const maintAtt = await loadMaintenanceAttachment();
+        if (maintAtt) allAttachments.push(maintAtt);
+      }
+
       await callGmailPost('send', {
         to: form.to, subject: form.subject, body: finalBody,
         attachments: allAttachments.length > 0 ? allAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
