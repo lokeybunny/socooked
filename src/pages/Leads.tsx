@@ -288,6 +288,7 @@ export default function Leads() {
       category: lead.category || 'other',
       instagram_handle: lead.instagram_handle || '',
       portal_niche: (meta.portal_niche as string) || (meta.mv_client ? 'mv' : ''),
+      ai_website: (meta.ai_website as string) || '',
     });
     setEditing(true);
   };
