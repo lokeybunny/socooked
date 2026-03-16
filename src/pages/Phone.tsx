@@ -303,7 +303,7 @@ export default function PhonePage() {
 
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
     const leadObj = leads.find(l => l.id === leadId);
-    const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+    const catLabel = leadCategory || 'Other';
     const meta = leadObj?.meta && typeof leadObj.meta === 'object' ? leadObj.meta : {};
     const hasAiWebsite = !!(meta as any).ai_website;
 
