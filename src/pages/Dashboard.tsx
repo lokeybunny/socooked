@@ -10,13 +10,14 @@ interface Stats {
   prospectCount: number;
   monthlyCount: number;
   clientCount: number;
+  actualTotalCustomers: number;
   paidConvertedCount: number;
   emailsToday: number;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, monthlyCount: 0, clientCount: 0, paidConvertedCount: 0, emailsToday: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
@@ -98,6 +99,7 @@ export default function Dashboard() {
         prospectCount,
         monthlyCount,
         clientCount,
+        actualTotalCustomers: convertedIds.size,
         paidConvertedCount,
         emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
       });
@@ -110,6 +112,7 @@ export default function Dashboard() {
 
   const metricCards = [
     { label: 'Prospects in Pipeline', value: stats.customers, icon: Users, color: 'text-blue-500' },
+    { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly (deduplicated)`, icon: Users, color: 'text-emerald-500' },
     { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 350).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects (pending websites) × $350`, icon: TrendingUp, color: 'text-green-500' },
     { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} invoiced & paid clients × $350`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Monthly Clients Revenue', value: `$${(stats.monthlyCount * 350).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $350`, icon: Layers, color: 'text-emerald-500' },
