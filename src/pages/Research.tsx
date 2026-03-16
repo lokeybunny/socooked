@@ -1491,7 +1491,7 @@ export default function Research() {
               </Card>
             );
           })()}
-        )}
+        </>)}
 
         {/* ══════ Yelp Finder Panel ══════ */}
         {selectedSource === 'yelp' && (
