@@ -20,6 +20,31 @@ import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
+const CL_SECTIONS = [
+  { value: 'bbb', label: 'All Services' },
+  { value: 'lbs', label: 'Labor / Hauling / Moving' },
+  { value: 'cps', label: 'Computer Services' },
+  { value: 'crs', label: 'Creative Services' },
+  { value: 'cys', label: 'Cycle Services' },
+  { value: 'evs', label: 'Event Services' },
+  { value: 'fgs', label: 'Farm & Garden Services' },
+  { value: 'fns', label: 'Financial Services' },
+  { value: 'hss', label: 'Health / Wellness' },
+  { value: 'hws', label: 'Household Services' },
+  { value: 'lgs', label: 'Legal Services' },
+  { value: 'lss', label: 'Lessons & Tutoring' },
+  { value: 'mas', label: 'Marine Services' },
+  { value: 'pas', label: 'Pet Services' },
+  { value: 'rts', label: 'Real Estate Services' },
+  { value: 'sks', label: 'Skilled Trade Services' },
+  { value: 'biz', label: 'Small Biz Ads' },
+  { value: 'trv', label: 'Travel / Vacation' },
+  { value: 'wrs', label: 'Writing / Editing' },
+  { value: 'aos', label: 'Automotive Services' },
+  { value: 'bts', label: 'Beauty Services' },
+  { value: 'cms', label: 'Cell / Mobile Services' },
+];
+
 const RC_EMBED_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html';
 const CALL_TYPES = [
   { value: 'voicemail', label: 'Voicemail', icon: Voicemail },
@@ -35,6 +60,7 @@ export default function PhonePage() {
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<any[]>([]);
   const [leadsCategoryFilter, setLeadsCategoryFilter] = useState<string>('all');
+  const [clSectionFilter, setClSectionFilter] = useState<string>('all');
   const [areaCodeFilter, setAreaCodeFilter] = useState<string>('');
   const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
   const [transcriptionsOpen, setTranscriptionsOpen] = useState(false);
@@ -644,6 +670,15 @@ export default function PhonePage() {
     if (leadsCategoryFilter !== 'all') {
       result = result.filter(l => (l.category || 'other') === leadsCategoryFilter);
     }
+    if (clSectionFilter !== 'all') {
+      result = result.filter(l => {
+        if (l.source !== 'craigslist') return false;
+        const meta = typeof l.meta === 'object' ? l.meta : {};
+        const clCat = (meta?.category || '').toLowerCase();
+        const sectionLabel = CL_SECTIONS.find(s => s.value === clSectionFilter)?.label?.toLowerCase() || '';
+        return clCat === sectionLabel || clCat.includes(sectionLabel.split(' ')[0] || '???');
+      });
+    }
     if (areaCodeFilter.length === 3) {
       result = result.filter(l => {
         const phone = (l.phone || '').replace(/\D/g, '');
@@ -652,7 +687,7 @@ export default function PhonePage() {
       });
     }
     return result;
-  }, [leads, leadsCategoryFilter, areaCodeFilter]);
+  }, [leads, leadsCategoryFilter, clSectionFilter, areaCodeFilter]);
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
 
@@ -1392,6 +1427,19 @@ export default function PhonePage() {
                               {cat.label}
                             </span>
                           </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-48">
+                    <Select value={clSectionFilter} onValueChange={v => { setClSectionFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="CL Section" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <SelectItem value="all">All CL Sections</SelectItem>
+                        {CL_SECTIONS.filter(s => s.value !== 'bbb').map(sec => (
+                          <SelectItem key={sec.value} value={sec.value}>{sec.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
