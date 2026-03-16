@@ -103,6 +103,7 @@ export default function Dashboard() {
         totalEmails: allComms.filter(c => c.type === 'email').length,
         totalCalls: allComms.filter(c => c.type === 'call').length,
         totalSms: allComms.filter(c => c.type === 'sms').length,
+        prospectCount: prospectsRes.count || 0,
       });
 
       setPotentialLeads(potentialList);
