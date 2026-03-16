@@ -542,12 +542,12 @@ export default function Leads() {
                     <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">{getCategoryLabel(selected.category)}</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground">{selected.address || '—'}</p></div>
-                  </div>
+                   <div className="grid grid-cols-2 gap-4 text-sm">
+                     <div className="space-y-1 min-w-0"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label><p className="text-foreground break-all">{selected.email || '—'}</p></div>
+                     <div className="space-y-1 min-w-0"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
+                     <div className="space-y-1 min-w-0"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Company</Label><p className="text-foreground break-words">{selected.company || '—'}</p></div>
+                     <div className="space-y-1 min-w-0"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground break-words">{selected.address || '—'}</p></div>
+                   </div>
 
                   {selected.instagram_handle && (
                     <div className="flex items-center gap-2 text-sm">
