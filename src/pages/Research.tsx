@@ -312,11 +312,56 @@ export default function Research() {
     }
   };
 
+  const CL_CITIES: { value: string; label: string; subdomain: string }[] = [
+    { value: 'lasvegas', label: 'Las Vegas, NV', subdomain: 'lasvegas' },
+    { value: 'losangeles', label: 'Los Angeles, CA', subdomain: 'losangeles' },
+    { value: 'sfbay', label: 'San Francisco Bay, CA', subdomain: 'sfbay' },
+    { value: 'sandiego', label: 'San Diego, CA', subdomain: 'sandiego' },
+    { value: 'phoenix', label: 'Phoenix, AZ', subdomain: 'phoenix' },
+    { value: 'denver', label: 'Denver, CO', subdomain: 'denver' },
+    { value: 'dallas', label: 'Dallas, TX', subdomain: 'dallas' },
+    { value: 'houston', label: 'Houston, TX', subdomain: 'houston' },
+    { value: 'austin', label: 'Austin, TX', subdomain: 'austin' },
+    { value: 'sanantonio', label: 'San Antonio, TX', subdomain: 'sanantonio' },
+    { value: 'atlanta', label: 'Atlanta, GA', subdomain: 'atlanta' },
+    { value: 'miami', label: 'Miami, FL', subdomain: 'miami' },
+    { value: 'tampa', label: 'Tampa, FL', subdomain: 'tampa' },
+    { value: 'orlando', label: 'Orlando, FL', subdomain: 'orlando' },
+    { value: 'jacksonville', label: 'Jacksonville, FL', subdomain: 'jacksonville' },
+    { value: 'chicago', label: 'Chicago, IL', subdomain: 'chicago' },
+    { value: 'newyork', label: 'New York, NY', subdomain: 'newyork' },
+    { value: 'seattle', label: 'Seattle, WA', subdomain: 'seattle' },
+    { value: 'portland', label: 'Portland, OR', subdomain: 'portland' },
+    { value: 'nashville', label: 'Nashville, TN', subdomain: 'nashville' },
+    { value: 'charlotte', label: 'Charlotte, NC', subdomain: 'charlotte' },
+    { value: 'raleigh', label: 'Raleigh, NC', subdomain: 'raleigh' },
+    { value: 'saltlakecity', label: 'Salt Lake City, UT', subdomain: 'saltlakecity' },
+    { value: 'minneapolis', label: 'Minneapolis, MN', subdomain: 'minneapolis' },
+    { value: 'detroit', label: 'Detroit, MI', subdomain: 'detroit' },
+    { value: 'boston', label: 'Boston, MA', subdomain: 'boston' },
+    { value: 'washingtondc', label: 'Washington, DC', subdomain: 'washingtondc' },
+    { value: 'philadelphia', label: 'Philadelphia, PA', subdomain: 'philadelphia' },
+    { value: 'sacramento', label: 'Sacramento, CA', subdomain: 'sacramento' },
+    { value: 'kansascity', label: 'Kansas City, MO', subdomain: 'kansascity' },
+    { value: 'stlouis', label: 'St. Louis, MO', subdomain: 'stlouis' },
+    { value: 'indianapolis', label: 'Indianapolis, IN', subdomain: 'indianapolis' },
+    { value: 'columbus', label: 'Columbus, OH', subdomain: 'columbus' },
+    { value: 'cleveland', label: 'Cleveland, OH', subdomain: 'cleveland' },
+    { value: 'cincinnati', label: 'Cincinnati, OH', subdomain: 'cincinnati' },
+    { value: 'pittsburgh', label: 'Pittsburgh, PA', subdomain: 'pittsburgh' },
+    { value: 'baltimore', label: 'Baltimore, MD', subdomain: 'baltimore' },
+    { value: 'milwaukee', label: 'Milwaukee, WI', subdomain: 'milwaukee' },
+    { value: 'neworleans', label: 'New Orleans, LA', subdomain: 'neworleans' },
+    { value: 'tucson', label: 'Tucson, AZ', subdomain: 'tucson' },
+    { value: 'honolulu', label: 'Honolulu, HI', subdomain: 'honolulu' },
+    { value: 'albuquerque', label: 'Albuquerque, NM', subdomain: 'albuquerque' },
+    { value: 'reno', label: 'Reno, NV', subdomain: 'reno' },
+  ];
+
   const handleCraigslistSearch = async () => {
-    if (!clSearchUrl || !clSearchUrl.includes('craigslist.org')) {
-      toast.error('Enter a valid Craigslist search URL');
-      return;
-    }
+    const city = clLasVegas ? CL_CITIES[0] : CL_CITIES.find(c => c.value === clSelectedCity) || CL_CITIES[0];
+    const searchUrl = `https://${city.subdomain}.craigslist.org/search/bbb#search=1~thumb~0~0`;
+    
     setClSearching(true);
     setClHasSearched(true);
     setClResults([]);
@@ -334,7 +379,7 @@ export default function Research() {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
         },
-        body: JSON.stringify({ search_url: clSearchUrl.trim() }),
+        body: JSON.stringify({ search_url: searchUrl }),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -352,12 +397,12 @@ export default function Research() {
       setClResults(data.posts || []);
       setClCreatedCount(data.created_count || 0);
       if (data.created_count > 0) {
-        toast.success(`Found ${data.total_found} posts, ${data.created_count} new leads added`);
+        toast.success(`Found ${data.total_found} posts from ${city.label}, ${data.created_count} new leads added`);
         load();
       } else if (data.total_found > 0) {
-        toast.info(`Found ${data.total_found} posts (all already in CRM)`);
+        toast.info(`Found ${data.total_found} posts from ${city.label} (all already in CRM)`);
       } else {
-        toast.info('No posts found for this search URL');
+        toast.info(`No service posts found in ${city.label}`);
       }
     } catch (err: any) {
       toast.error(err.message || 'Craigslist search failed');
