@@ -870,6 +870,28 @@ warren@stu25.com</p>`;
             </div>
             )}
 
+            {showProspectEmailed && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Send className="h-4 w-4 text-sky-400" />
+                <h2 className="text-sm font-semibold text-sky-400 uppercase tracking-wider">Prospects (AI Site Completed)</h2>
+                <span className="text-xs bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full">{prospectEmailed.length}</span>
+              </div>
+              <DroppableColumn id="prospect-emailed-column">
+                {pagedProspectEmailed.map(pe => (
+                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isProspect isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} />
+                ))}
+                {prospectEmailed.length === 0 && !loading && (
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                    <Send className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Send website emails to see them here</p>
+                  </div>
+                )}
+              </DroppableColumn>
+              <PaginationButtons current={prospectEmailedPage} total={prospectEmailedPageCount} onChange={setProspectEmailedPage} />
+            </div>
+            )}
+
             {showClients && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
