@@ -1186,56 +1186,6 @@ export default function Research() {
                 )}
               </div>
             )}
-            {selectedSource === 'google-maps' && (
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-                  <span className="px-3 py-1.5 rounded text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                    📍 GMaps Agent
-                  </span>
-                </div>
-                <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-border bg-muted/30 px-3 py-1.5">
-                  <Checkbox
-                    checked={gmapsLoop.loopState.allCities}
-                    onCheckedChange={(checked) => gmapsLoop.setAllCities(!!checked)}
-                  />
-                  <span className="text-xs font-medium text-foreground">All Cities</span>
-                </label>
-                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/30 p-0.5">
-                  {[
-                    { label: '5m', val: 5 },
-                    { label: '15m', val: 15 },
-                    { label: '30m', val: 30 },
-                    { label: '1h', val: 60 },
-                  ].map(opt => (
-                    <button
-                      key={opt.val}
-                      onClick={() => gmapsLoop.setInterval(gmapsInterval === opt.val ? null : opt.val)}
-                      className={cn(
-                        "px-3 py-1.5 rounded text-sm font-semibold transition-colors",
-                        gmapsInterval === opt.val ? "bg-primary/20 text-primary border border-primary/30" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                {gmapsLoopActive ? (
-                  <Button size="sm" variant="destructive" onClick={() => { gmapsLoop.stopLoop(); }} className="gap-1.5">
-                    <Loader2 className="h-4 w-4 animate-spin" /> Stop Agent
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={gmapsInterval ? () => gmapsLoop.startLoop() : () => gmapsLoop.runOnce()}
-                    disabled={gmapsGenerating}
-                    className="gap-1.5"
-                  >
-                    {gmapsGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-                    {gmapsGenerating ? 'Searching...' : gmapsInterval ? `Loop ${gmapsInterval}m` : 'Run Once'}
-                  </Button>
-                )}
-              </div>
-            )}
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={load} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
