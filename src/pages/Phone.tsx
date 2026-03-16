@@ -2127,7 +2127,7 @@ export default function PhonePage() {
               delete meta.callback_at;
               await supabase.from('customers').update({ meta } as any).eq('id', callbackReminder.id);
               setCallbackReminder(null);
-              loadLeads();
+              loadData();
             }}>
               <Phone className="h-4 w-4 mr-1" />Got it, calling now
             </AlertDialogAction>
