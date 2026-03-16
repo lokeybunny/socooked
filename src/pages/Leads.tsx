@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock } from 'lucide-react';
+import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
@@ -466,7 +467,7 @@ export default function Leads() {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <UserCheck className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
+                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects (pending websites)</h2>
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
               </div>
               <DroppableColumn id="prospects-column">
@@ -592,6 +593,8 @@ export default function Leads() {
                       {selected.tags.map((t: string) => <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>)}
                     </div>
                   )}
+
+                  <CustomerWebPreviews customerId={selected.id} />
 
                   <Button variant="outline" size="sm" className="w-full" asChild>
                     <a href={`/customers?open=${selected.id}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />Open in Customers</a>

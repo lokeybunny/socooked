@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Trash2, Instagram, Layers, ArrowRight, CalendarClock } from 'lucide-react';
+import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
 import { useNavigate } from 'react-router-dom';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -159,6 +160,7 @@ export default function Customers() {
             </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingId ? 'Edit Customer' : 'New Customer'}</DialogTitle></DialogHeader>
+              {editingId && <CustomerWebPreviews customerId={editingId} />}
               {editingId && (() => {
                 const customer = customers.find(c => c.id === editingId);
                 const meta = customer?.meta && typeof customer.meta === 'object' ? customer.meta : {};
