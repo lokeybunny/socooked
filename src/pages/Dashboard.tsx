@@ -67,7 +67,7 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       const [cReal, cPotential, d, p, t, comms, activeDealsRes, prospectsRes] = await Promise.all([
-        supabase.from('customers').select('id', { count: 'exact', head: true }).neq('category', 'potential'),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'new_client'),
         supabase.from('customers').select('id, full_name, email, company, status, source, created_at, category').eq('category', 'potential').order('created_at', { ascending: false }),
         supabase.from('deals').select('deal_value, status'),
         supabase.from('projects').select('status'),
@@ -121,11 +121,10 @@ export default function Dashboard() {
   }, []);
 
   const metricCards = [
-    { label: 'Total Customers', value: stats.customers, icon: Users, color: 'text-blue-500' },
+    { label: 'Potential Total Customers', value: stats.customers, icon: Users, color: 'text-blue-500' },
     { label: 'Active Deals', value: stats.deals, icon: Handshake, color: 'text-emerald-500' },
     { label: 'Pipeline Value', value: `$${stats.dealValue.toLocaleString()}`, icon: DollarSign, color: 'text-amber-500' },
     { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 250).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects × $250`, icon: TrendingUp, color: 'text-green-500' },
-    { label: 'Projects', value: stats.projects, icon: FolderKanban, color: 'text-purple-500' },
     { label: 'Total Tasks', value: stats.tasks, icon: CheckSquare, color: 'text-cyan-500' },
     { label: 'In Progress', value: stats.activeTasks, icon: TrendingUp, color: 'text-orange-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
