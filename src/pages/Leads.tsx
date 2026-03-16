@@ -542,12 +542,12 @@ export default function Leads() {
                     <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">{getCategoryLabel(selected.category)}</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground">{selected.address || '—'}</p></div>
-                  </div>
+                   <div className="grid grid-cols-2 gap-4 text-sm">
+                     <div className="space-y-1 min-w-0"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label><p className="text-foreground break-all">{selected.email || '—'}</p></div>
+                     <div className="space-y-1 min-w-0"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
+                     <div className="space-y-1 min-w-0"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Company</Label><p className="text-foreground break-words">{selected.company || '—'}</p></div>
+                     <div className="space-y-1 min-w-0"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground break-words">{selected.address || '—'}</p></div>
+                   </div>
 
                   {selected.instagram_handle && (
                     <div className="flex items-center gap-2 text-sm">
@@ -564,17 +564,17 @@ export default function Leads() {
                     return (
                       <div className="space-y-2 border-t border-border pt-3">
                         <Label className="text-xs text-muted-foreground uppercase tracking-wider">Extra Info</Label>
-                        <div className="grid gap-2">
-                          {metaKeys.map(k => (
-                            <div key={k} className="flex gap-2 text-sm">
-                              <span className="font-medium text-foreground min-w-[110px] capitalize">{k.replace(/_/g, ' ')}:</span>
-                              <span className="text-muted-foreground break-all">{typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : String(meta[k])}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                         <div className="grid gap-2">
+                           {metaKeys.map(k => (
+                             <div key={k} className="text-sm min-w-0">
+                               <span className="font-medium text-foreground capitalize">{k.replace(/_/g, ' ')}:</span>{' '}
+                               <span className="text-muted-foreground break-all">{typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : String(meta[k])}</span>
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     );
+                   })()}
 
                   {/* LinkedIn / Website links */}
                   {(() => {
@@ -593,7 +593,7 @@ export default function Leads() {
                   {selected.notes && (
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Notes</Label>
-                      <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selected.notes}</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap break-all bg-muted/50 rounded-lg p-3">{selected.notes}</p>
                     </div>
                   )}
                   {selected.tags && selected.tags.length > 0 && (
