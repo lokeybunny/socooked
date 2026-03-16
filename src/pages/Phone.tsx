@@ -71,6 +71,14 @@ export default function PhonePage() {
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null; email?: string; phone?: string } | null>(null);
+  const [pendingInterestedFromEdit, setPendingInterestedFromEdit] = useState(false);
+
+  // Interested callback scheduler
+  const [interestedCallbackOpen, setInterestedCallbackOpen] = useState(false);
+  const [interestedCallbackLead, setInterestedCallbackLead] = useState<any>(null);
+  const [interestedCallbackDate, setInterestedCallbackDate] = useState<Date | undefined>(undefined);
+  const [interestedCallbackTime, setInterestedCallbackTime] = useState('');
+
 
   // Workflow gate (post-interested)
   const [workflowGateOpen, setWorkflowGateOpen] = useState(false);
