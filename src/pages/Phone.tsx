@@ -1443,6 +1443,7 @@ export default function PhonePage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
                   <div className="w-24">
                     <Input
                       placeholder="Area code"
