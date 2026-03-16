@@ -378,7 +378,6 @@ export default function Leads() {
   const pagedProspects = prospects.slice((prospectsPage - 1) * PAGE_SIZE, prospectsPage * PAGE_SIZE);
   const pagedClients = clients.slice((clientsPage - 1) * PAGE_SIZE, clientsPage * PAGE_SIZE);
   const pagedMonthly = monthly.slice((monthlyPage - 1) * PAGE_SIZE, monthlyPage * PAGE_SIZE);
-  const pagedClients = clients.slice((clientsPage - 1) * PAGE_SIZE, clientsPage * PAGE_SIZE);
 
   const PaginationButtons = ({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) => {
     if (total <= 1) return null;
