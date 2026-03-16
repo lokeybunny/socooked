@@ -113,9 +113,9 @@ export default function Dashboard() {
   const metricCards = [
     { label: 'Prospects in Pipeline', value: stats.customers, icon: Users, color: 'text-blue-500' },
     { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly (deduplicated)`, icon: Users, color: 'text-emerald-500' },
+    { label: 'Current Recurring Monthly Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250/mo`, icon: DollarSign, color: 'text-amber-500' },
     { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 250).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects (pending websites) × $250`, icon: TrendingUp, color: 'text-green-500' },
     { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} invoiced & paid clients × $350`, icon: CircleCheckBig, color: 'text-emerald-500' },
-    
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
   ];
 
