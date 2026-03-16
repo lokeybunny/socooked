@@ -108,6 +108,7 @@ export default function EmailPage() {
   const [sending, setSending] = useState(false);
   const [composeAttachments, setComposeAttachments] = useState<Attachment[]>([]);
   const [offerChecked, setOfferChecked] = useState(false);
+  const [maintenanceChecked, setMaintenanceChecked] = useState(false);
 
   const [viewEmail, setViewEmail] = useState<GmailEmail | null>(null);
   const [replyOpen, setReplyOpen] = useState(false);
@@ -233,6 +234,37 @@ export default function EmailPage() {
 <p style="margin-top:12px;font-style:italic;color:#666;">See the attached graphic for a visual breakdown of both options.</p>
 `;
 
+  const MAINTENANCE_BODY_HTML = `
+<br/><hr style="border:none;border-top:1px solid #ccc;margin:24px 0"/>
+<h3 style="margin-bottom:8px;">Option C — Unlimited Website Updates</h3>
+
+<p>For just <strong>$250/month</strong>, get unlimited additions and changes to your website. Simply email us your requests, and we'll get it done within 24 hours.</p>
+
+<ul style="margin:12px 0;padding-left:20px;">
+<li>Unlimited additions &amp; changes to your website</li>
+<li>Must be paid upfront after website is live</li>
+<li>Works with the "Own It Outright" Deal (Option A) or the Partnership Deal (Option B)</li>
+</ul>
+
+<p style="margin-top:12px;font-style:italic;color:#666;">See the attached graphic for a visual breakdown of Option C.</p>
+`;
+
+  const loadMaintenanceAttachment = async (): Promise<Attachment | null> => {
+    try {
+      const res = await fetch('/images/option-c-maintenance.png');
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      const reader = new FileReader();
+      return new Promise((resolve) => {
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ filename: 'Option-C-Maintenance.png', mimeType: 'image/png', data: base64, size: blob.size });
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch { return null; }
+  };
+
   const loadOfferAttachment = async (): Promise<Attachment | null> => {
     try {
       const res = await fetch('/images/offer-options.png');
@@ -262,12 +294,18 @@ export default function EmailPage() {
         if (offerAtt) allAttachments.push(offerAtt);
       }
 
+      if (maintenanceChecked) {
+        finalBody += MAINTENANCE_BODY_HTML;
+        const maintAtt = await loadMaintenanceAttachment();
+        if (maintAtt) allAttachments.push(maintAtt);
+      }
+
       await callGmailPost('send', {
         to: form.to, subject: form.subject, body: finalBody,
         attachments: allAttachments.length > 0 ? allAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
       });
       toast.success('Email sent!');
-      setComposeOpen(false); setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false);
+      setComposeOpen(false); setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false); setMaintenanceChecked(false);
       if (activeTab === 'sent') loadEmails('sent');
     } catch (e: any) { toast.error(e.message || 'Failed to send'); }
     finally { setSending(false); }
@@ -288,7 +326,7 @@ export default function EmailPage() {
     if (activeTab === 'drafts') {
       const matchingCustomer = customers.find((c) => c.email && (email.to || '').toLowerCase().includes(c.email.toLowerCase()));
       setForm({ to: email.to || '', subject: email.subject || '', body: email.body || email.snippet || '', customer_id: matchingCustomer?.id || '' });
-      setComposeAttachments([]); setOfferChecked(false); setComposeOpen(true);
+      setComposeAttachments([]); setOfferChecked(false); setMaintenanceChecked(false); setComposeOpen(true);
       return;
     }
     setViewEmail(email); setReplyOpen(false); setReplyBody(''); setReplyAttachments([]);
@@ -532,7 +570,7 @@ export default function EmailPage() {
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
             </Button>
-            <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false); setComposeOpen(true); }} className="gap-1.5">
+            <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false); setMaintenanceChecked(false); setComposeOpen(true); }} className="gap-1.5">
               <Plus className="h-4 w-4" /> Compose
             </Button>
           </div>
@@ -702,6 +740,28 @@ export default function EmailPage() {
                 <p><strong>Option A:</strong> Client pays $10.41/mo (biannual) for domain & hosting — no revenue split, site is 100% theirs.</p>
                 <p><strong>Option B:</strong> Warren covers the $250 — 70/30 split on website payments (client 70%, Warren 30%).</p>
                 <p className="italic">The offer graphic will be auto-attached.</p>
+              </div>
+            )}
+            <div className="flex items-center gap-2 py-1">
+              <Checkbox id="maintenance-check" checked={maintenanceChecked} onCheckedChange={async (v) => {
+                const checked = !!v;
+                setMaintenanceChecked(checked);
+                if (checked) {
+                  const att = await loadMaintenanceAttachment();
+                  if (att) setComposeAttachments((prev) => [...prev.filter(a => a.filename !== 'Option-C-Maintenance.png'), att]);
+                } else {
+                  setComposeAttachments((prev) => prev.filter(a => a.filename !== 'Option-C-Maintenance.png'));
+                }
+              }} />
+              <label htmlFor="maintenance-check" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                <Gift className="h-4 w-4 text-primary" /> Include Option C Maintenance
+              </label>
+            </div>
+            {maintenanceChecked && (
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground space-y-1">
+                <p><strong>Option C:</strong> $250/month for unlimited website additions & changes — emailed requests completed within 24 hours.</p>
+                <p className="italic">The Option C graphic will be auto-attached.</p>
+                <img src="/images/option-c-maintenance.png" alt="Option C Maintenance" className="mt-2 rounded-md border border-border max-h-32 object-contain" />
               </div>
             )}
             <div className="flex justify-end gap-2">
