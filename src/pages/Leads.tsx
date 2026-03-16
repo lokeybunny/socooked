@@ -109,6 +109,7 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
           >
             <MessageSquare className="h-3.5 w-3.5" />
           </button>
+        )}
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           const clUrl = (meta as Record<string, unknown>).craigslist_url as string | undefined;
