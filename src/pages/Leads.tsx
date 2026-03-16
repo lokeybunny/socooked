@@ -420,7 +420,7 @@ export default function Leads() {
             </Button>
             <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
-              <DialogContent className="max-h-[85vh] overflow-y-auto">
+              <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
                 <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
               </DialogContent>
