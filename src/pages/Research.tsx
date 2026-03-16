@@ -610,6 +610,7 @@ export default function Research() {
       setClSearching(false);
       clAbortRef.current = null;
       clRunIdRef.current = null;
+      clearClRun();
     }
   };
 
