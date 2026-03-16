@@ -1098,6 +1098,7 @@ export default function Research() {
                 Craigslist Finder — All Services
               </CardTitle>
               <p className="text-xs text-muted-foreground">Scrape Craigslist services listings. Leads with phone numbers are auto-added to the CRM. Those with websites show yellow in Phone, without show red.</p>
+              <span className="inline-flex items-center gap-1.5 mt-1 text-[10px] font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">Runner: ivanvs/craigslist-scraper</span>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4 flex-wrap">
