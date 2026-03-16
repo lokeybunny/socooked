@@ -61,8 +61,7 @@ const queryClient = new QueryClient();
 function RestrictedGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   if (user?.email === 'warren@guru.com') return <Navigate to="/research" replace />;
-  // Phone-only user
-  if (user?.email === 'brucemillis786@gmail.com') return <Navigate to="/phone" replace />;
+  // brucemillis786@gmail.com now has full admin access (same as warren)
   return <>{children}</>;
 }
 

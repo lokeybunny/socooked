@@ -42,7 +42,7 @@ const PHONE_ONLY_EMAIL = 'brucemillis786@gmail.com';
 export function Sidebar() {
   const { signOut, user } = useAuth();
   const isRestricted = false;
-  const isPhoneOnly = user?.email === PHONE_ONLY_EMAIL;
+  const isPhoneOnly = false; // brucemillis786 now has full admin access
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [hasNewMessages, setHasNewMessages] = useState(false);
