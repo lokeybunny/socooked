@@ -58,23 +58,33 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
 function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean; isPaid?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  const [minimized, setMinimized] = useState(isPaid ? true : false);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "w-full text-left glass-card p-4 space-y-3 hover:ring-2 transition-all rounded-xl relative",
+        "w-full text-left glass-card space-y-3 hover:ring-2 transition-all rounded-xl relative",
         isPaid ? 'hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' : isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
-        isDragging && 'opacity-40 shadow-lg'
+        isDragging && 'opacity-40 shadow-lg',
+        minimized ? 'p-2.5' : 'p-4'
       )}
     >
       <button {...attributes} {...listeners} className="absolute top-3 left-3 p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing" onClick={e => e.stopPropagation()}>
         <GripVertical className="h-3.5 w-3.5" />
       </button>
-      <button className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onClick(); }} title="View details">
-        <Maximize2 className="h-3.5 w-3.5" />
-      </button>
+      <div className="absolute top-3 right-3 flex items-center gap-0.5">
+        {isPaid && (
+          <button className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); setMinimized(!minimized); }} title={minimized ? 'Expand' : 'Minimize'}>
+            {minimized ? <Maximize2 className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+          </button>
+        )}
+        <button className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onClick(); }} title="View details">
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
       <div className="flex items-center gap-2 px-6">
         <span className={cn("font-semibold truncate", isPaid ? 'text-emerald-500' : isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
         {(() => {
@@ -88,34 +98,41 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }
         {contact.source && (
           <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase shrink-0">{contact.source}</span>
         )}
+        {isPaid && minimized && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 shrink-0">Paid</span>
+        )}
       </div>
-      {/* Category badge */}
-      {contact.category && (
-        <div className="pl-6">
-          <span className={cn("text-[10px] px-2 py-0.5 rounded-full", isPaid ? 'bg-emerald-500/15 text-emerald-500' : 'bg-muted text-muted-foreground')}>{getCategoryLabel(contact.category)}</span>
-        </div>
+
+      {!minimized && (
+        <>
+          {contact.category && (
+            <div className="pl-6">
+              <span className={cn("text-[10px] px-2 py-0.5 rounded-full", isPaid ? 'bg-emerald-500/15 text-emerald-500' : 'bg-muted text-muted-foreground')}>{getCategoryLabel(contact.category)}</span>
+            </div>
+          )}
+          {contact.email && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
+              <Mail className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.email}</span>
+            </div>
+          )}
+          {contact.phone && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
+              <Phone className="h-3.5 w-3.5 shrink-0" /><span>{contact.phone}</span>
+            </div>
+          )}
+          {contact.company && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
+              <User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.company}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between pl-6">
+            <span className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</span>
+            <button className="p-1 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }} title="Delete lead">
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        </>
       )}
-      {contact.email && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
-          <Mail className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.email}</span>
-        </div>
-      )}
-      {contact.phone && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
-          <Phone className="h-3.5 w-3.5 shrink-0" /><span>{contact.phone}</span>
-        </div>
-      )}
-      {contact.company && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
-          <User className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.company}</span>
-        </div>
-      )}
-      <div className="flex items-center justify-between pl-6">
-        <span className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</span>
-        <button className="p-1 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }} title="Delete lead">
-          <Trash2 className="h-3 w-3" />
-        </button>
-      </div>
     </div>
   );
 }
