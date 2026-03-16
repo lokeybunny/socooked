@@ -237,6 +237,8 @@ export default function Previews() {
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [showGenerate, setShowGenerate] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
 
   useEffect(() => {
     fetchPreviews();
