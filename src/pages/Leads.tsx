@@ -279,6 +279,32 @@ export default function Leads() {
   const [emailOfferC, setEmailOfferC] = useState(false);
   const [emailAttachments, setEmailAttachments] = useState<{ filename: string; mimeType: string; data: string; size: number }[]>([]);
 
+  // ── SMS Confirm state ──
+  const [smsConfirmOpen, setSmsConfirmOpen] = useState(false);
+  const [smsConfirmTarget, setSmsConfirmTarget] = useState<any>(null);
+  const [smsConfirming, setSmsConfirming] = useState(false);
+
+  const openSmsConfirm = (contact: any) => {
+    setSmsConfirmTarget(contact);
+    setSmsConfirmOpen(true);
+  };
+
+  const handleSmsConfirmYes = async () => {
+    if (!smsConfirmTarget?.id) return;
+    setSmsConfirming(true);
+    try {
+      const prevStatus = smsConfirmTarget.status || 'prospect';
+      const { error } = await supabase.from('customers').update({ status: 'prospect_emailed' }).eq('id', smsConfirmTarget.id);
+      if (error) { toast.error('Failed to move customer'); return; }
+      await logStatusMove(smsConfirmTarget.full_name, smsConfirmTarget.id, prevStatus, 'prospect_emailed', smsConfirmTarget.category);
+      toast.success(`${smsConfirmTarget.full_name} moved to AI Site Completed`);
+      setSmsConfirmOpen(false);
+      setSmsConfirmTarget(null);
+      loadAll();
+    } catch (e: any) { toast.error(e.message || 'Failed'); }
+    finally { setSmsConfirming(false); }
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
