@@ -595,7 +595,7 @@ export default function Leads() {
                   {selected.notes && (
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Notes</Label>
-                      <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selected.notes}</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap break-all bg-muted/50 rounded-lg p-3">{selected.notes}</p>
                     </div>
                   )}
                   {selected.tags && selected.tags.length > 0 && (
