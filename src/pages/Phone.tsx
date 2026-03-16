@@ -175,6 +175,15 @@ export default function PhonePage() {
     const merged = [...allLeads, ...callbackProspects.filter(p => !leadIds.has(p.id))];
     setLeads(merged);
     setLoading(false);
+
+    // Load interested prospects for warren
+    if (user?.email === 'warren@stu25.com') {
+      const { data: prospects } = await supabase.from('customers')
+        .select('id, full_name, phone, email, company, address, notes, tags, category, instagram_handle, meta')
+        .eq('status', 'prospect')
+        .order('updated_at', { ascending: false });
+      setInterestedProspects(prospects || []);
+    }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
