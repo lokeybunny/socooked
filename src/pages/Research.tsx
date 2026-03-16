@@ -872,7 +872,7 @@ export default function Research() {
     // Default: require rich data for narrative sources
     const hasSymbol = !!rd.symbol;
     const hasWindow = !!rd.deploy_window;
-    const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder') || (rd.type === 'yelp_business') || (rd.type === 'gmaps_business');
+    const hasSources = (rd.tweet_sources?.length > 0) || (rd.type === 'lead_finder') || (rd.type === 'yelp_business');
     return hasName && hasSymbol && hasWindow && hasSources;
   });
 
