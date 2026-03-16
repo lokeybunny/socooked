@@ -1431,6 +1431,18 @@ export default function PhonePage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="w-48">
+                    <Select value={clSectionFilter} onValueChange={v => { setClSectionFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="CL Section" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        <SelectItem value="all">All CL Sections</SelectItem>
+                        {CL_SECTIONS.filter(s => s.value !== 'bbb').map(sec => (
+                          <SelectItem key={sec.value} value={sec.value}>{sec.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   <div className="w-24">
                     <Input
                       placeholder="Area code"
