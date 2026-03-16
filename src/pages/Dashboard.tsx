@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig, Mail, Phone, MessageSquareText, Clock, RefreshCw, Smartphone, MapPin, Globe, Building } from 'lucide-react';
+import { Users, Handshake, FolderKanban, CheckSquare, DollarSign, TrendingUp, CircleCheckBig, Mail, Phone, MessageSquareText, Clock, RefreshCw, Smartphone, MapPin, Globe, Building, Layers } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -20,11 +20,12 @@ interface Stats {
   totalCalls: number;
   totalSms: number;
   prospectCount: number;
+  monthlyCount: number;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0, emailsToday: 0, totalEmails: 0, totalCalls: 0, totalSms: 0, prospectCount: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0, emailsToday: 0, totalEmails: 0, totalCalls: 0, totalSms: 0, prospectCount: 0, monthlyCount: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [recentDeals, setRecentDeals] = useState<any[]>([]);
   const [potentialLeads, setPotentialLeads] = useState<any[]>([]);
@@ -66,7 +67,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [cReal, cPotential, d, p, t, comms, activeDealsRes, prospectsRes] = await Promise.all([
+      const [cReal, cPotential, d, p, t, comms, activeDealsRes, prospectsRes, monthlyRes] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
         supabase.from('customers').select('id, full_name, email, company, status, source, created_at, category').eq('category', 'potential').order('created_at', { ascending: false }),
         supabase.from('deals').select('deal_value, status'),
@@ -75,6 +76,7 @@ export default function Dashboard() {
         supabase.from('communications').select('type, created_at'),
         supabase.from('deals').select('id, customer_id, status').eq('status', 'won'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
       ]);
 
       const deals = d.data || [];
@@ -104,6 +106,7 @@ export default function Dashboard() {
         totalCalls: allComms.filter(c => c.type === 'call').length,
         totalSms: allComms.filter(c => c.type === 'sms').length,
         prospectCount: prospectsRes.count || 0,
+        monthlyCount: monthlyRes.count || 0,
       });
 
       setPotentialLeads(potentialList);
@@ -125,6 +128,7 @@ export default function Dashboard() {
     { label: 'Active Deals', value: stats.deals, icon: Handshake, color: 'text-emerald-500' },
     { label: 'Pipeline Value', value: `$${stats.dealValue.toLocaleString()}`, icon: DollarSign, color: 'text-amber-500' },
     { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 250).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects × $250`, icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Monthly Clients Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250`, icon: Layers, color: 'text-emerald-500' },
     { label: 'Total Tasks', value: stats.tasks, icon: CheckSquare, color: 'text-cyan-500' },
     { label: 'In Progress', value: stats.activeTasks, icon: TrendingUp, color: 'text-orange-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
