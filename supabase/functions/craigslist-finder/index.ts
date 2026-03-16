@@ -94,6 +94,19 @@ async function syncCraigslistResults({
 
     if (!phone) continue;
 
+    // Duplicate detection by phone number
+    const { data: phoneExists } = await sb
+      .from("customers")
+      .select("id")
+      .eq("phone", phone)
+      .limit(1);
+    if (phoneExists && phoneExists.length > 0) {
+      if (send) {
+        send("duplicate", { index: idx, phone, title: postTitle, existing_id: phoneExists[0].id });
+      }
+      continue;
+    }
+
     if (postUrl) {
       const { data: existing } = await sb
         .from("research_findings")
