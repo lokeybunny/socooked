@@ -6,10 +6,12 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Trash2, Instagram, Layers, ArrowRight } from 'lucide-react';
+import { Plus, Search, Trash2, Instagram, Layers, ArrowRight, CalendarClock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
@@ -32,6 +34,9 @@ export default function Customers() {
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
+  const [callbackOpen, setCallbackOpen] = useState(false);
+  const [callbackDate, setCallbackDate] = useState<Date | undefined>(undefined);
+  const [callbackTime, setCallbackTime] = useState('10:00');
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -227,10 +232,17 @@ export default function Customers() {
                     <p className="text-xs text-muted-foreground">Choose which niche landing page this customer sees on their Custom-U portal</p>
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button type="submit" className="flex-1">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
                   {editingId && (
                     <>
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        setCallbackDate(undefined);
+                        setCallbackTime('10:00');
+                        setCallbackOpen(true);
+                      }}>
+                        <CalendarClock className="h-4 w-4 mr-1" />Call Back
+                      </Button>
                       <Button type="button" variant="outline" onClick={async () => {
                         await supabase.from('customers').update({ status: 'lead' }).eq('id', editingId);
                         toast.success('Transferred to Leads pipeline');
@@ -328,6 +340,57 @@ export default function Customers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Callback Scheduler Dialog */}
+      <Dialog open={callbackOpen} onOpenChange={setCallbackOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-primary" />
+              Schedule Call Back
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            When should <span className="font-semibold text-foreground">{customers.find(c => c.id === editingId)?.full_name}</span> appear in the Phone queue?
+          </p>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={callbackDate}
+                onSelect={setCallbackDate}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                className="p-3 pointer-events-auto"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Time</Label>
+              <Input type="time" value={callbackTime} onChange={e => setCallbackTime(e.target.value)} className="font-mono" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCallbackOpen(false)}>Cancel</Button>
+            <Button disabled={!callbackDate} onClick={async () => {
+              if (!editingId || !callbackDate) return;
+              const customer = customers.find(c => c.id === editingId);
+              const existingMeta = customer?.meta && typeof customer.meta === 'object' ? customer.meta as Record<string, unknown> : {};
+              const [hours, minutes] = callbackTime.split(':').map(Number);
+              const dt = new Date(callbackDate);
+              dt.setHours(hours, minutes, 0, 0);
+              const updatedMeta = { ...existingMeta, callback_at: dt.toISOString() };
+              await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', editingId);
+              toast.success(`Call back scheduled for ${format(dt, 'MMM d, h:mm a')}`);
+              setCallbackOpen(false);
+              setDialogOpen(false);
+              setEditingId(null);
+              setForm(emptyForm);
+              loadAll();
+            }} className="gap-1.5">
+              <CalendarClock className="h-4 w-4" />Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

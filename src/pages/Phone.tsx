@@ -64,6 +64,10 @@ export default function PhonePage() {
   const [callBackDate, setCallBackDate] = useState<Date | undefined>(undefined);
   const [callBackTime, setCallBackTime] = useState('10:00');
 
+  // Callback reminder popup
+  const [callbackReminder, setCallbackReminder] = useState<any>(null);
+  const callbackReminderShown = useRef<Set<string>>(new Set());
+
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null; email?: string; phone?: string } | null>(null);
@@ -625,6 +629,24 @@ export default function PhonePage() {
   }, [leads, leadsCategoryFilter, areaCodeFilter]);
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
+
+  // Callback reminder — check every 30s for leads whose callback_at has arrived
+  useEffect(() => {
+    const checkCallbacks = () => {
+      const now = new Date().toISOString();
+      for (const lead of leads) {
+        const meta = typeof lead.meta === 'object' ? lead.meta : {};
+        if (meta?.callback_at && meta.callback_at <= now && !callbackReminderShown.current.has(lead.id)) {
+          callbackReminderShown.current.add(lead.id);
+          setCallbackReminder(lead);
+          break;
+        }
+      }
+    };
+    checkCallbacks();
+    const interval = setInterval(checkCallbacks, 30000);
+    return () => clearInterval(interval);
+  }, [leads]);
 
   // Analyze lead — full audit pipeline: find website/IG → scrape → generate PDF → download
   const handleAnalyzeLead = async (targetLead?: any) => {
@@ -2081,6 +2103,37 @@ export default function PhonePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Callback Reminder Popup */}
+      <AlertDialog open={!!callbackReminder} onOpenChange={(open) => { if (!open) setCallbackReminder(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-primary animate-pulse" />
+              Call Back Reminder
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">It's time to call back <span className="font-semibold text-foreground">{callbackReminder?.full_name}</span></span>
+              {callbackReminder?.phone && <span className="block text-foreground font-mono">{callbackReminder.phone}</span>}
+              {callbackReminder?.company && <span className="block text-muted-foreground">Company: {callbackReminder.company}</span>}
+              {callbackReminder?.meta?.callback_at && <span className="block text-xs text-muted-foreground">Scheduled for: {format(new Date(callbackReminder.meta.callback_at), 'MMM d, h:mm a')}</span>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Dismiss</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (!callbackReminder) return;
+              const meta = typeof callbackReminder.meta === 'object' ? { ...callbackReminder.meta } : {};
+              delete meta.callback_at;
+              await supabase.from('customers').update({ meta } as any).eq('id', callbackReminder.id);
+              setCallbackReminder(null);
+              loadData();
+            }}>
+              <Phone className="h-4 w-4 mr-1" />Got it, calling now
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Interested Confirmation */}
       <AlertDialog open={interestedOpen} onOpenChange={setInterestedOpen}>
