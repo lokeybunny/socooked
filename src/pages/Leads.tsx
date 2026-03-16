@@ -825,7 +825,7 @@ warren@stu25.com</p>`;
         </div>
 
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className={cn("grid gap-6", visibleColumnCount === 1 ? 'lg:grid-cols-1 max-w-xl' : visibleColumnCount === 2 ? 'lg:grid-cols-2' : visibleColumnCount === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4')}>
+          <div className={cn("grid gap-6", visibleColumnCount === 1 ? 'lg:grid-cols-1 max-w-xl' : visibleColumnCount === 2 ? 'lg:grid-cols-2' : visibleColumnCount === 3 ? 'lg:grid-cols-3' : visibleColumnCount === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-5')}>
             {showLeads && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
