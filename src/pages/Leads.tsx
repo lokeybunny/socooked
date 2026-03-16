@@ -229,12 +229,13 @@ export default function Leads() {
 
   const loadAll = async () => {
     setLeadsPage(1); setProspectsPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, clientRes, monthlyRes, paidRes] = await Promise.all([
+    const [leadRes, prospectRes, clientRes, monthlyRes, paidRes, recRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('active'),
       buildQuery('monthly'),
       supabase.from('invoices').select('customer_id, status'),
+      supabase.from('communications').select('customer_id, body, metadata').eq('type', 'recording').eq('provider', 'ringcentral').order('created_at', { ascending: false }),
     ]);
     // Build set of customer IDs where ALL invoices are 'paid'
     const invoicesByCustomer = new Map<string, boolean>();
