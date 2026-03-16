@@ -11,8 +11,9 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   Filter, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check, User, BookOpen, Trash2,
+  ChevronsUpDown, Check, User, BookOpen, Trash2, Gift,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
