@@ -20,11 +20,12 @@ interface Stats {
   totalCalls: number;
   totalSms: number;
   prospectCount: number;
+  monthlyCount: number;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0, emailsToday: 0, totalEmails: 0, totalCalls: 0, totalSms: 0, prospectCount: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0, emailsToday: 0, totalEmails: 0, totalCalls: 0, totalSms: 0, prospectCount: 0, monthlyCount: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [recentDeals, setRecentDeals] = useState<any[]>([]);
   const [potentialLeads, setPotentialLeads] = useState<any[]>([]);
