@@ -128,14 +128,21 @@ export default function PhonePage() {
   const [newCustSaving, setNewCustSaving] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [custRes, transRes, leadsRes] = await Promise.all([
+    const [custRes, transRes, leadsRes, callbackProspectsRes] = await Promise.all([
       supabase.from('customers').select('id, full_name, phone, email'),
       supabase.from('transcriptions').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('customers').select('id, full_name, phone, email, company, source, created_at, address, notes, tags, category, instagram_handle, meta').eq('status', 'lead').order('created_at', { ascending: false }),
+      // Also fetch prospects that have a scheduled callback — they re-enter the phone queue when the callback time arrives
+      supabase.from('customers').select('id, full_name, phone, email, company, source, created_at, address, notes, tags, category, instagram_handle, meta').eq('status', 'prospect').not('meta->callback_at', 'is', null),
     ]);
     setCustomers(custRes.data || []);
     setTranscriptions(transRes.data || []);
-    setLeads(leadsRes.data || []);
+    // Merge leads + callback prospects (deduplicated)
+    const allLeads = leadsRes.data || [];
+    const callbackProspects = callbackProspectsRes.data || [];
+    const leadIds = new Set(allLeads.map(l => l.id));
+    const merged = [...allLeads, ...callbackProspects.filter(p => !leadIds.has(p.id))];
+    setLeads(merged);
     setLoading(false);
   }, []);
 
