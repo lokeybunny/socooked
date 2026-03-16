@@ -36,7 +36,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     const { data: customers } = await supabase
       .from('customers')
-      .select('id, full_name, email, company, category, upload_token')
+      .select('id, full_name, email, company, category, upload_token, status')
+      .eq('status', 'prospect')
       .order('full_name')
       .limit(100)
 
