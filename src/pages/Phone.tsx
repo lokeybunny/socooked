@@ -670,6 +670,15 @@ export default function PhonePage() {
     if (leadsCategoryFilter !== 'all') {
       result = result.filter(l => (l.category || 'other') === leadsCategoryFilter);
     }
+    if (clSectionFilter !== 'all') {
+      result = result.filter(l => {
+        if (l.source !== 'craigslist') return false;
+        const meta = typeof l.meta === 'object' ? l.meta : {};
+        const clCat = (meta?.category || '').toLowerCase();
+        const sectionLabel = CL_SECTIONS.find(s => s.value === clSectionFilter)?.label?.toLowerCase() || '';
+        return clCat === sectionLabel || clCat.includes(sectionLabel.split(' ')[0] || '???');
+      });
+    }
     if (areaCodeFilter.length === 3) {
       result = result.filter(l => {
         const phone = (l.phone || '').replace(/\D/g, '');
@@ -678,7 +687,7 @@ export default function PhonePage() {
       });
     }
     return result;
-  }, [leads, leadsCategoryFilter, areaCodeFilter]);
+  }, [leads, leadsCategoryFilter, clSectionFilter, areaCodeFilter]);
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
 
