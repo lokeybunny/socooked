@@ -19,11 +19,12 @@ interface Stats {
   totalEmails: number;
   totalCalls: number;
   totalSms: number;
+  prospectCount: number;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0, emailsToday: 0, totalEmails: 0, totalCalls: 0, totalSms: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, deals: 0, projects: 0, tasks: 0, dealValue: 0, activeTasks: 0, completedTasks: 0, completedDeals: 0, completedProjects: 0, emailsToday: 0, totalEmails: 0, totalCalls: 0, totalSms: 0, prospectCount: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [recentDeals, setRecentDeals] = useState<any[]>([]);
   const [potentialLeads, setPotentialLeads] = useState<any[]>([]);
@@ -65,7 +66,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [cReal, cPotential, d, p, t, comms, activeDealsRes] = await Promise.all([
+      const [cReal, cPotential, d, p, t, comms, activeDealsRes, prospectsRes] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).neq('category', 'potential'),
         supabase.from('customers').select('id, full_name, email, company, status, source, created_at, category').eq('category', 'potential').order('created_at', { ascending: false }),
         supabase.from('deals').select('deal_value, status'),
@@ -73,6 +74,7 @@ export default function Dashboard() {
         supabase.from('tasks').select('status'),
         supabase.from('communications').select('type, created_at'),
         supabase.from('deals').select('id, customer_id, status').eq('status', 'won'),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
       ]);
 
       const deals = d.data || [];
@@ -101,6 +103,7 @@ export default function Dashboard() {
         totalEmails: allComms.filter(c => c.type === 'email').length,
         totalCalls: allComms.filter(c => c.type === 'call').length,
         totalSms: allComms.filter(c => c.type === 'sms').length,
+        prospectCount: prospectsRes.count || 0,
       });
 
       setPotentialLeads(potentialList);
@@ -121,6 +124,7 @@ export default function Dashboard() {
     { label: 'Total Customers', value: stats.customers, icon: Users, color: 'text-blue-500' },
     { label: 'Active Deals', value: stats.deals, icon: Handshake, color: 'text-emerald-500' },
     { label: 'Pipeline Value', value: `$${stats.dealValue.toLocaleString()}`, icon: DollarSign, color: 'text-amber-500' },
+    { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 200).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects × $200`, icon: TrendingUp, color: 'text-green-500' },
     { label: 'Projects', value: stats.projects, icon: FolderKanban, color: 'text-purple-500' },
     { label: 'Total Tasks', value: stats.tasks, icon: CheckSquare, color: 'text-cyan-500' },
     { label: 'In Progress', value: stats.activeTasks, icon: TrendingUp, color: 'text-orange-500' },
@@ -159,7 +163,7 @@ export default function Dashboard() {
 
         {/* Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {metricCards.map(({ label, value, icon: Icon, color }) => (
+          {metricCards.map(({ label, value, icon: Icon, color, subtitle }) => (
             <div key={label} className="metric-card">
               <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                 <div className={`p-1.5 sm:p-2 rounded-lg bg-muted ${color}`}>
@@ -168,6 +172,7 @@ export default function Dashboard() {
               </div>
               <p className="text-lg sm:text-2xl font-bold text-foreground">{loading ? '—' : value}</p>
               <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{label}</p>
+              {subtitle && <p className="text-[9px] sm:text-[10px] text-muted-foreground/70 mt-0.5">{subtitle}</p>}
             </div>
           ))}
         </div>
