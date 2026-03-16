@@ -7,17 +7,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, Eye, ExternalLink } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
+import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 
-const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '' };
+const DISPLAY_CATEGORIES = SERVICE_CATEGORIES.filter(c => c.id !== 'potential');
+const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '' };
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 const PAGE_SIZE = 10;
 
 const STATUS_LABELS: Record<string, string> = { lead: 'Lead', prospect: 'Prospect', active: 'Client', inactive: 'Dismissed' };
+
+const getCategoryLabel = (cat: string | null) => {
+  const found = DISPLAY_CATEGORIES.find(c => c.id === cat);
+  return found ? found.label : cat || '—';
+};
 
 async function logStatusMove(contactName: string, contactId: string, fromStatus: string, toStatus: string, category?: string) {
   const from = STATUS_LABELS[fromStatus] || fromStatus;
@@ -36,7 +43,6 @@ async function logStatusMove(contactName: string, contactId: string, fromStatus:
   });
 }
 
-// Droppable column wrapper
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   return (
@@ -46,7 +52,6 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-// Draggable card
 function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
@@ -61,31 +66,24 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { cont
         isDragging && 'opacity-40 shadow-lg'
       )}
     >
-      {/* Drag handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        className="absolute top-3 left-3 p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing"
-        onClick={e => e.stopPropagation()}
-      >
+      <button {...attributes} {...listeners} className="absolute top-3 left-3 p-1 rounded-md text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing" onClick={e => e.stopPropagation()}>
         <GripVertical className="h-3.5 w-3.5" />
       </button>
-      {/* Maximize */}
-      <button
-        className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
-        title="View details"
-      >
+      <button className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onClick(); }} title="View details">
         <Maximize2 className="h-3.5 w-3.5" />
       </button>
       <div className="flex items-center gap-2 px-6">
         <span className="font-semibold text-foreground truncate">{contact.full_name}</span>
         {contact.source && (
-          <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase shrink-0">
-            {contact.source}
-          </span>
+          <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase shrink-0">{contact.source}</span>
         )}
       </div>
+      {/* Category badge */}
+      {contact.category && (
+        <div className="pl-6">
+          <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{getCategoryLabel(contact.category)}</span>
+        </div>
+      )}
       {contact.email && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
           <Mail className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{contact.email}</span>
@@ -103,11 +101,7 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { cont
       )}
       <div className="flex items-center justify-between pl-6">
         <span className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</span>
-        <button
-          className="p-1 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
-          onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }}
-          title="Delete lead"
-        >
+        <button className="p-1 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }} title="Delete lead">
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
@@ -124,6 +118,7 @@ export default function Leads() {
   const [clients, setClients] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [loading, setLoading] = useState(true);
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
@@ -138,50 +133,44 @@ export default function Leads() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
-  const loadLeads = async () => {
-    let q = supabase.from('customers').select('*').eq('category', 'potential').eq('status', 'lead').order('created_at', { ascending: false });
+  const buildQuery = (status: string) => {
+    let q = supabase.from('customers').select('*').eq('status', status).order('created_at', { ascending: false });
     if (filterSource !== 'all') q = q.eq('source', filterSource);
+    if (filterCategory !== 'all') q = q.eq('category', filterCategory);
     if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
-    const { data } = await q;
-    setAllLeads(data || []);
+    return q;
+  };
+
+  const loadAll = async () => {
+    setLeadsPage(1); setProspectsPage(1); setClientsPage(1);
+    const [leadRes, prospectRes, clientRes] = await Promise.all([
+      buildQuery('lead'),
+      buildQuery('prospect'),
+      buildQuery('active'),
+    ]);
+    setAllLeads(leadRes.data || []);
+    setAllProspects(prospectRes.data || []);
+    setAllClients(clientRes.data || []);
     setLoading(false);
   };
 
-  const loadProspects = async () => {
-    let q = supabase.from('customers').select('*').eq('category', 'potential').eq('status', 'prospect').order('updated_at', { ascending: false });
-    if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
-    const { data } = await q;
-    setAllProspects(data || []);
-  };
-
-  const loadClients = async () => {
-    let q = supabase.from('customers').select('*').eq('category', 'potential').eq('status', 'active').order('updated_at', { ascending: false });
-    if (search) q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
-    const { data } = await q;
-    setAllClients(data || []);
-  };
-
-  const loadAll = () => { setLeadsPage(1); setProspectsPage(1); setClientsPage(1); loadLeads(); loadProspects(); loadClients(); };
-
-  // All leads are potential category — no category filtering needed
   useEffect(() => {
     setLeads(allLeads);
     setProspects(allProspects);
     setClients(allClients);
   }, [allLeads, allProspects, allClients]);
 
-  const allContactsTotal = allLeads.length + allProspects.length + allClients.length;
+  useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
-  useEffect(() => { loadAll(); }, [search, filterSource]);
-
-  // --- CRUD handlers (unchanged) ---
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.full_name.trim()) return;
     const { error } = await supabase.from('customers').insert({
       full_name: form.full_name.trim(), email: form.email || null, phone: form.phone || null,
       address: form.address || null, company: form.company || null, source: form.source || 'manual',
-      notes: form.notes || null, status: 'lead', category: 'potential',
+      notes: form.notes || null, status: 'lead', category: form.category || 'other',
+      instagram_handle: form.instagram_handle || null,
+      tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
     });
     if (error) { toast.error(error.message); return; }
     toast.success('Lead added');
@@ -191,9 +180,14 @@ export default function Leads() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected || !form.full_name.trim()) return;
+    const existingMeta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, unknown> : {};
     const { error } = await supabase.from('customers').update({
       full_name: form.full_name.trim(), email: form.email || null, phone: form.phone || null,
-      address: form.address || null, company: form.company || null, source: form.source || null, notes: form.notes || null,
+      address: form.address || null, company: form.company || null, source: form.source || null,
+      notes: form.notes || null, category: form.category || 'other',
+      instagram_handle: form.instagram_handle || null,
+      tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv' },
     }).eq('id', selected.id);
     if (error) { toast.error(error.message); return; }
     toast.success('Lead updated');
@@ -202,6 +196,7 @@ export default function Leads() {
 
   const handleDelete = async (id: string) => {
     await supabase.from('cards').update({ customer_id: null }).eq('customer_id', id);
+    await supabase.from('transcriptions').delete().eq('customer_id', id);
     await supabase.from('signatures').delete().eq('customer_id', id);
     await supabase.from('documents').delete().eq('customer_id', id);
     await supabase.from('invoices').delete().eq('customer_id', id);
@@ -212,6 +207,7 @@ export default function Leads() {
     await supabase.from('customers').delete().eq('id', id);
     toast.success('Lead deleted'); setSelected(null); loadAll();
   };
+
   const promote = async (id: string) => {
     const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', id);
@@ -232,18 +228,26 @@ export default function Leads() {
   };
 
   const openEdit = (lead: any) => {
-    setForm({ full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '', address: lead.address || '', company: lead.company || '', source: lead.source || '', notes: lead.notes || '' });
+    const meta = lead.meta && typeof lead.meta === 'object' ? lead.meta : {};
+    setForm({
+      full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '',
+      address: lead.address || '', company: lead.company || '', source: lead.source || '',
+      notes: lead.notes || '',
+      tags: Array.isArray(lead.tags) ? lead.tags.join(', ') : '',
+      category: lead.category || 'other',
+      instagram_handle: lead.instagram_handle || '',
+      portal_niche: (meta.portal_niche as string) || (meta.mv_client ? 'mv' : ''),
+    });
     setEditing(true);
   };
 
-  // --- Drag handlers ---
+  // Drag handlers
   const handleDragStart = (event: DragStartEvent) => setActiveId(event.active.id as string);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveId(null);
     const { active, over } = event;
     if (!over) return;
-
     const draggedId = active.id as string;
     const allContacts = [...leads, ...prospects, ...clients];
     const draggedContact = allContacts.find(c => c.id === draggedId);
@@ -251,7 +255,6 @@ export default function Leads() {
 
     let targetStatus: string | null = null;
     const overId = over.id as string;
-
     if (overId === 'leads-column') targetStatus = 'lead';
     else if (overId === 'prospects-column') targetStatus = 'prospect';
     else if (overId === 'clients-column') targetStatus = 'active';
@@ -259,40 +262,26 @@ export default function Leads() {
       const overContact = allContacts.find(c => c.id === overId);
       if (overContact) targetStatus = overContact.status;
     }
-
     if (!targetStatus || targetStatus === draggedContact.status) return;
 
-    // Optimistically update local state immediately
     const updatedContact = { ...draggedContact, status: targetStatus, updated_at: new Date().toISOString() };
     const removeFromList = (list: any[]) => list.filter(c => c.id !== draggedId);
     const addToList = (list: any[]) => [updatedContact, ...list];
 
-    const newLeads = targetStatus === 'lead' ? addToList(removeFromList(leads)) : removeFromList(leads);
-    const newProspects = targetStatus === 'prospect' ? addToList(removeFromList(prospects)) : removeFromList(prospects);
-    const newClients = targetStatus === 'active' ? addToList(removeFromList(clients)) : removeFromList(clients);
-
-    setLeads(newLeads);
-    setProspects(newProspects);
-    setClients(newClients);
+    setLeads(targetStatus === 'lead' ? addToList(removeFromList(leads)) : removeFromList(leads));
+    setProspects(targetStatus === 'prospect' ? addToList(removeFromList(prospects)) : removeFromList(prospects));
+    setClients(targetStatus === 'active' ? addToList(removeFromList(clients)) : removeFromList(clients));
 
     const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', active: 'Converted to client' };
     toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
 
-    // Persist to DB (no reload needed — optimistic state is already correct)
     const { error } = await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
-    if (error) {
-      // Revert on failure
-      toast.error('Failed to update status');
-      loadAll();
-    } else {
-      // Log the move for Telegram notification
-      await logStatusMove(draggedContact.full_name, draggedId, draggedContact.status, targetStatus, draggedContact.category);
-    }
+    if (error) { toast.error('Failed to update status'); loadAll(); }
+    else { await logStatusMove(draggedContact.full_name, draggedId, draggedContact.status, targetStatus, draggedContact.category); }
   };
 
   const activeContact = activeId ? [...leads, ...prospects, ...clients].find(c => c.id === activeId) : null;
 
-  // Pagination
   const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
   const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
   const clientsPageCount = Math.ceil(clients.length / PAGE_SIZE);
@@ -331,220 +320,258 @@ export default function Leads() {
         </div>
       </div>
       <div className="space-y-2"><Label>Address</Label><Input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1.5"><Instagram className="h-3.5 w-3.5" /> Instagram Handle</Label>
+        <Input value={form.instagram_handle} onChange={e => setForm({ ...form, instagram_handle: e.target.value })} placeholder="@username (optional)" />
+      </div>
+      <div className="space-y-2"><Label>Tags</Label><Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="Comma-separated, e.g. VIP, Referral" /></div>
       <div className="space-y-2"><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} /></div>
+      <div className="space-y-2">
+        <Label>Category</Label>
+        <Select value={form.category || 'other'} onValueChange={v => setForm({ ...form, category: v })}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {DISPLAY_CATEGORIES.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>)}
+            <SelectItem value="other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {editing && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-primary" />
+            <Label className="text-sm font-medium">Portal Landing Page</Label>
+          </div>
+          <Select value={form.portal_niche} onValueChange={v => setForm({ ...form, portal_niche: v === 'none' ? '' : v })}>
+            <SelectTrigger><SelectValue placeholder="None (default uploader)" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="mv">Music Video (MV)</SelectItem>
+              <SelectItem value="realtor">Realtor</SelectItem>
+              <SelectItem value="barber">Barber</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <Button type="submit" className="w-full">{submitLabel}</Button>
     </form>
   );
 
   return (
     <AppLayout>
-      <div className="space-y-6 animate-fade-in">
-        <h1 className="text-2xl font-bold text-foreground">Potential Leads</h1>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
-            <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
-              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
-                <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
-              </DialogContent>
-            </Dialog>
+      <div className="space-y-6 animate-fade-in p-6">
+        <h1 className="text-2xl font-bold text-foreground">Leads Pipeline</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
+          <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
+            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
+            <DialogContent className="max-h-[85vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
+              <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search leads..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
+          <Select value={filterSource} onValueChange={setFilterSource}>
+            <SelectTrigger className="w-44"><SelectValue placeholder="All Sources" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              {sources.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-48"><SelectValue placeholder="All Categories" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {DISPLAY_CATEGORIES.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>)}
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search leads..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-            <Select value={filterSource} onValueChange={setFilterSource}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="All Sources" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sources</SelectItem>
-                {sources.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Bot className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads</h2>
-                  <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{leads.length}</span>
-                </div>
-                <DroppableColumn id="leads-column">
-                  {pagedLeads.map(lead => (
-                    <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} />
-                  ))}
-                  {leads.length === 0 && !loading && (
-                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
-                      <Bot className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                      <p className="text-sm">No leads yet</p>
-                    </div>
-                  )}
-                </DroppableColumn>
-                <PaginationButtons current={leadsPage} total={leadsPageCount} onChange={setLeadsPage} />
+        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Bot className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Leads</h2>
+                <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{leads.length}</span>
               </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-primary" />
-                  <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
-                </div>
-                <DroppableColumn id="prospects-column">
-                  {pagedProspects.map(prospect => (
-                    <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect />
-                  ))}
-                  {prospects.length === 0 && !loading && (
-                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
-                      <ArrowLeft className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                      <p className="text-sm">Promote leads to see them here</p>
-                    </div>
-                  )}
-                </DroppableColumn>
-                <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <UserPlus className="h-4 w-4 text-primary" />
-                  <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">New Client</h2>
-                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{clients.length}</span>
-                </div>
-                <DroppableColumn id="clients-column">
-                  {pagedClients.map(client => (
-                    <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} isProspect />
-                  ))}
-                  {clients.length === 0 && !loading && (
-                    <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
-                      <UserPlus className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                      <p className="text-sm">Drag prospects here to convert</p>
-                    </div>
-                  )}
-                </DroppableColumn>
-                <PaginationButtons current={clientsPage} total={clientsPageCount} onChange={setClientsPage} />
-              </div>
-            </div>
-
-            <DragOverlay>
-              {activeContact && (
-                <div className="glass-card p-4 rounded-xl shadow-2xl opacity-90 w-80 border-l-2 border-l-primary">
-                  <p className="font-semibold text-foreground">{activeContact.full_name}</p>
-                  {activeContact.email && <p className="text-xs text-muted-foreground mt-1">{activeContact.email}</p>}
-                </div>
-              )}
-            </DragOverlay>
-          </DndContext>
-
-          {selected && (
-            <Dialog open onOpenChange={() => { setSelected(null); setEditing(false); setForm(emptyForm); }}>
-              <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-primary" />
-                    {editing ? `Edit ${selected.status}` : selected.full_name}
-                  </DialogTitle>
-                </DialogHeader>
-                {editing ? (
-                  <LeadForm onSubmit={handleUpdate} submitLabel="Save Changes" />
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
-                      <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status}</span>
-                    </div>
-
-                    {/* Contact info grid */}
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
-                      <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
-                      <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
-                      <div className="space-y-1"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground">{selected.address || '—'}</p></div>
-                    </div>
-
-                    {/* Meta / Extra Info from lead finder */}
-                    {(() => {
-                      const meta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, any> : {};
-                      const metaKeys = Object.keys(meta).filter(k => meta[k] != null && meta[k] !== '' && meta[k] !== false);
-                      if (metaKeys.length === 0) return null;
-                      return (
-                        <div className="space-y-2 border-t border-border pt-3">
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wider">Extra Info</Label>
-                          <div className="grid gap-2">
-                            {metaKeys.map(k => (
-                              <div key={k} className="flex gap-2 text-sm">
-                                <span className="font-medium text-foreground min-w-[110px] capitalize">{k.replace(/_/g, ' ')}:</span>
-                                <span className="text-muted-foreground break-all">{typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : String(meta[k])}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {/* LinkedIn link if available */}
-                    {(() => {
-                      const meta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, any> : {};
-                      const linkedin = meta.linkedin_url || meta.linkedin || meta.linkedIn;
-                      const website = meta.website || meta.website_url;
-                      if (!linkedin && !website) return null;
-                      return (
-                        <div className="flex gap-2">
-                          {linkedin && (
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={String(linkedin)} target="_blank" rel="noopener noreferrer"><Linkedin className="h-3.5 w-3.5 mr-1" />LinkedIn</a>
-                            </Button>
-                          )}
-                          {website && (
-                            <Button variant="outline" size="sm" asChild>
-                              <a href={String(website).startsWith('http') ? String(website) : `https://${website}`} target="_blank" rel="noopener noreferrer"><Globe className="h-3.5 w-3.5 mr-1" />Website</a>
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {selected.notes && (
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Notes</Label>
-                        <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selected.notes}</p>
-                      </div>
-                    )}
-                    {selected.tags && selected.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {selected.tags.map((t: string) => <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>)}
-                      </div>
-                    )}
-
-                    {/* Open in Customers CRM link */}
-                    <Button variant="outline" size="sm" className="w-full" asChild>
-                      <a href={`/customers?open=${selected.id}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />Open in Customers</a>
-                    </Button>
-
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-                      {selected.status === 'lead' && (
-                        <Button onClick={() => promote(selected.id)} className="flex-1"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
-                      )}
-                      {selected.status === 'prospect' && (
-                        <>
-                          <Button variant="outline" onClick={() => demote(selected.id)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
-                          <Button onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'prospect', 'active', selected.category); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
-                        </>
-                      )}
-                      {selected.status === 'active' && (
-                        <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'prospect', selected.category); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
-                      )}
-                      <Button variant="outline" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
-                      <Button variant="outline" onClick={() => dismiss(selected.id)}>Dismiss</Button>
-                      <Button variant="destructive" size="icon" onClick={() => handleDelete(selected.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
+              <DroppableColumn id="leads-column">
+                {pagedLeads.map(lead => (
+                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} />
+                ))}
+                {leads.length === 0 && !loading && (
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                    <Bot className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No leads yet</p>
                   </div>
                 )}
-              </DialogContent>
-            </Dialog>
-          )}
+              </DroppableColumn>
+              <PaginationButtons current={leadsPage} total={leadsPageCount} onChange={setLeadsPage} />
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <UserCheck className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
+              </div>
+              <DroppableColumn id="prospects-column">
+                {pagedProspects.map(prospect => (
+                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect />
+                ))}
+                {prospects.length === 0 && !loading && (
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                    <ArrowLeft className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Promote leads to see them here</p>
+                  </div>
+                )}
+              </DroppableColumn>
+              <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">New Client</h2>
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{clients.length}</span>
+              </div>
+              <DroppableColumn id="clients-column">
+                {pagedClients.map(client => (
+                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} isProspect />
+                ))}
+                {clients.length === 0 && !loading && (
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                    <UserPlus className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Drag prospects here to convert</p>
+                  </div>
+                )}
+              </DroppableColumn>
+              <PaginationButtons current={clientsPage} total={clientsPageCount} onChange={setClientsPage} />
+            </div>
+          </div>
+
+          <DragOverlay>
+            {activeContact && (
+              <div className="glass-card p-4 rounded-xl shadow-2xl opacity-90 w-80 border-l-2 border-l-primary">
+                <p className="font-semibold text-foreground">{activeContact.full_name}</p>
+                {activeContact.email && <p className="text-xs text-muted-foreground mt-1">{activeContact.email}</p>}
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+
+        {selected && (
+          <Dialog open onOpenChange={() => { setSelected(null); setEditing(false); setForm(emptyForm); }}>
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-primary" />
+                  {editing ? `Edit ${selected.status}` : selected.full_name}
+                </DialogTitle>
+              </DialogHeader>
+              {editing ? (
+                <LeadForm onSubmit={handleUpdate} submitLabel="Save Changes" />
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status}</span>
+                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">{getCategoryLabel(selected.category)}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> Email</Label><p className="text-foreground">{selected.email || '—'}</p></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</Label><p className="text-foreground">{selected.phone || '—'}</p></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Company</Label><p className="text-foreground">{selected.company || '—'}</p></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Address</Label><p className="text-foreground">{selected.address || '—'}</p></div>
+                  </div>
+
+                  {selected.instagram_handle && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Instagram className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-foreground">{selected.instagram_handle}</span>
+                    </div>
+                  )}
+
+                  {/* Meta / Extra Info */}
+                  {(() => {
+                    const meta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, any> : {};
+                    const metaKeys = Object.keys(meta).filter(k => meta[k] != null && meta[k] !== '' && meta[k] !== false);
+                    if (metaKeys.length === 0) return null;
+                    return (
+                      <div className="space-y-2 border-t border-border pt-3">
+                        <Label className="text-xs text-muted-foreground uppercase tracking-wider">Extra Info</Label>
+                        <div className="grid gap-2">
+                          {metaKeys.map(k => (
+                            <div key={k} className="flex gap-2 text-sm">
+                              <span className="font-medium text-foreground min-w-[110px] capitalize">{k.replace(/_/g, ' ')}:</span>
+                              <span className="text-muted-foreground break-all">{typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : String(meta[k])}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* LinkedIn / Website links */}
+                  {(() => {
+                    const meta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, any> : {};
+                    const linkedin = meta.linkedin_url || meta.linkedin || meta.linkedIn;
+                    const website = meta.website || meta.website_url;
+                    if (!linkedin && !website) return null;
+                    return (
+                      <div className="flex gap-2">
+                        {linkedin && <Button variant="outline" size="sm" asChild><a href={String(linkedin)} target="_blank" rel="noopener noreferrer"><Linkedin className="h-3.5 w-3.5 mr-1" />LinkedIn</a></Button>}
+                        {website && <Button variant="outline" size="sm" asChild><a href={String(website).startsWith('http') ? String(website) : `https://${website}`} target="_blank" rel="noopener noreferrer"><Globe className="h-3.5 w-3.5 mr-1" />Website</a></Button>}
+                      </div>
+                    );
+                  })()}
+
+                  {selected.notes && (
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground flex items-center gap-1"><StickyNote className="h-3 w-3" /> Notes</Label>
+                      <p className="text-sm text-foreground whitespace-pre-wrap bg-muted/50 rounded-lg p-3">{selected.notes}</p>
+                    </div>
+                  )}
+                  {selected.tags && selected.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {selected.tags.map((t: string) => <span key={t} className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">{t}</span>)}
+                    </div>
+                  )}
+
+                  <Button variant="outline" size="sm" className="w-full" asChild>
+                    <a href={`/customers?open=${selected.id}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />Open in Customers</a>
+                  </Button>
+
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+                    {selected.status === 'lead' && (
+                      <Button onClick={() => promote(selected.id)} className="flex-1"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
+                    )}
+                    {selected.status === 'prospect' && (
+                      <>
+                        <Button variant="outline" onClick={() => demote(selected.id)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
+                        <Button onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'prospect', 'active', selected.category); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
+                      </>
+                    )}
+                    {selected.status === 'active' && (
+                      <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'prospect', selected.category); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
+                    )}
+                    <Button variant="outline" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
+                    <Button variant="outline" onClick={() => dismiss(selected.id)}>Dismiss</Button>
+                    <Button variant="destructive" size="icon" onClick={() => handleDelete(selected.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </AppLayout>
   );
