@@ -419,7 +419,7 @@ export default function Research() {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
         },
-        body: JSON.stringify({ search_url: searchUrl }),
+        body: JSON.stringify({ search_url: searchUrl, keywords: clKeywords.trim() || '' }),
         signal: controller.signal,
       });
 
