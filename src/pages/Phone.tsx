@@ -127,6 +127,7 @@ export default function PhonePage() {
   const [emailBodyEdit, setEmailBodyEdit] = useState('');
 
   // Transcription upload state
+  const [coldCallVideoOpen, setColdCallVideoOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
@@ -1888,6 +1889,32 @@ export default function PhonePage() {
                 </div>
                 {transcriptionsOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
               </button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={() => setColdCallVideoOpen(true)}
+              >
+                <Play className="h-4 w-4" /> Watch Cold Call Video
+              </Button>
+
+              <Dialog open={coldCallVideoOpen} onOpenChange={setColdCallVideoOpen}>
+                <DialogContent className="max-w-3xl p-0 overflow-hidden">
+                  <DialogHeader className="p-4 pb-0">
+                    <DialogTitle>Cold Call Demo</DialogTitle>
+                  </DialogHeader>
+                  <div className="p-4 pt-2">
+                    <video
+                      src="/videos/cold-call-demo.mp4"
+                      controls
+                      autoPlay
+                      playsInline
+                      className="w-full rounded-lg"
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               {transcriptionsOpen && (
                 <>
