@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Trash2, Instagram, Layers, ArrowRight, CalendarClock } from 'lucide-react';
+import { Plus, Search, Trash2, Instagram, Layers, ArrowRight, CalendarClock, Globe, ExternalLink } from 'lucide-react';
 import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
 import { useNavigate } from 'react-router-dom';
 import { Calendar } from '@/components/ui/calendar';
@@ -20,7 +20,7 @@ import CortexTerminal from '@/components/terminal/CortexTerminal';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
 const DISPLAY_CATEGORIES = SERVICE_CATEGORIES.filter(c => c.id !== 'potential');
-const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '' };
+const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '', ai_website: '' };
 
 export default function Customers() {
   const navigate = useNavigate();
@@ -103,7 +103,7 @@ export default function Customers() {
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       category: form.category || 'other',
       instagram_handle: form.instagram_handle || null,
-      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv' },
+      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv', ai_website: form.ai_website || null },
     };
     if (editingId) {
       const { error } = await supabase.from('customers').update(payload).eq('id', editingId);
@@ -135,6 +135,7 @@ export default function Customers() {
       category: c.category || 'other',
       instagram_handle: c.instagram_handle || '',
       portal_niche: (meta.portal_niche as string) || (meta.mv_client ? 'mv' : ''),
+      ai_website: (meta.ai_website as string) || '',
     });
     setEditingId(c.id);
     setDialogOpen(true);
@@ -234,6 +235,18 @@ export default function Customers() {
                     <p className="text-xs text-muted-foreground">Choose which niche landing page this customer sees on their Custom-U portal</p>
                   </div>
                 )}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-medium">AI Generated Website</Label>
+                  </div>
+                  <Input value={form.ai_website} onChange={e => setForm({ ...form, ai_website: e.target.value })} placeholder="https://v0-example.vercel.app" />
+                  {form.ai_website && (
+                    <a href={form.ai_website.startsWith('http') ? form.ai_website : `https://${form.ai_website}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                      <ExternalLink className="h-3 w-3" />Open website
+                    </a>
+                  )}
+                </div>
                 <div className="flex gap-2 flex-wrap">
                   <Button type="submit" className="flex-1">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
                   {editingId && (

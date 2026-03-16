@@ -576,19 +576,35 @@ export default function Leads() {
                      );
                    })()}
 
-                  {/* LinkedIn / Website links */}
-                  {(() => {
-                    const meta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, any> : {};
-                    const linkedin = meta.linkedin_url || meta.linkedin || meta.linkedIn;
-                    const website = meta.website || meta.website_url;
-                    if (!linkedin && !website) return null;
-                    return (
-                      <div className="flex gap-2">
-                        {linkedin && <Button variant="outline" size="sm" asChild><a href={String(linkedin)} target="_blank" rel="noopener noreferrer"><Linkedin className="h-3.5 w-3.5 mr-1" />LinkedIn</a></Button>}
-                        {website && <Button variant="outline" size="sm" asChild><a href={String(website).startsWith('http') ? String(website) : `https://${website}`} target="_blank" rel="noopener noreferrer"><Globe className="h-3.5 w-3.5 mr-1" />Website</a></Button>}
-                      </div>
-                    );
-                  })()}
+                   {/* AI Generated Website */}
+                   {(() => {
+                     const meta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, any> : {};
+                     const aiSite = meta.ai_website;
+                     if (!aiSite) return null;
+                     const href = String(aiSite).startsWith('http') ? String(aiSite) : `https://${aiSite}`;
+                     return (
+                       <div className="space-y-1 border-t border-border pt-3">
+                         <Label className="text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Globe className="h-3 w-3" /> AI Generated Website</Label>
+                         <a href={href} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline break-all flex items-center gap-1">
+                           <ExternalLink className="h-3 w-3 shrink-0" />{String(aiSite)}
+                         </a>
+                       </div>
+                     );
+                   })()}
+
+                   {/* LinkedIn / Website links */}
+                   {(() => {
+                     const meta = selected.meta && typeof selected.meta === 'object' ? selected.meta as Record<string, any> : {};
+                     const linkedin = meta.linkedin_url || meta.linkedin || meta.linkedIn;
+                     const website = meta.website || meta.website_url;
+                     if (!linkedin && !website) return null;
+                     return (
+                       <div className="flex gap-2">
+                         {linkedin && <Button variant="outline" size="sm" asChild><a href={String(linkedin)} target="_blank" rel="noopener noreferrer"><Linkedin className="h-3.5 w-3.5 mr-1" />LinkedIn</a></Button>}
+                         {website && <Button variant="outline" size="sm" asChild><a href={String(website).startsWith('http') ? String(website) : `https://${website}`} target="_blank" rel="noopener noreferrer"><Globe className="h-3.5 w-3.5 mr-1" />Website</a></Button>}
+                       </div>
+                     );
+                   })()}
 
                   {selected.notes && (
                     <div className="space-y-1">
