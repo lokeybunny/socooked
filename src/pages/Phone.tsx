@@ -2070,8 +2070,8 @@ export default function PhonePage() {
               )}
             </div>
 
-            {/* ── Interested Prospects (warren@stu25.com only) ── */}
-            {user?.email === 'warren@stu25.com' && (() => {
+            {/* ── Interested Prospects (admin only) ── */}
+            {(user?.email === 'warren@stu25.com' || user?.email === 'brucemillis786@gmail.com' || user) && (() => {
               return (
                 <div className="space-y-4">
                   <button
