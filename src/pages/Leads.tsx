@@ -621,9 +621,17 @@ warren@stu25.com</p>`;
         customer_id: emailTarget?.id || null,
       });
 
-      toast.success(`Email sent to ${emailTarget?.full_name || emailForm.to}!`);
+      // Auto-move customer to prospect_emailed status
+      if (emailTarget?.id) {
+        const prevStatus = emailTarget.status || 'prospect';
+        await supabase.from('customers').update({ status: 'prospect_emailed' }).eq('id', emailTarget.id);
+        await logStatusMove(emailTarget.full_name, emailTarget.id, prevStatus, 'prospect_emailed', emailTarget.category);
+      }
+
+      toast.success(`Email sent to ${emailTarget?.full_name || emailForm.to}! Moved to AI Site Completed.`);
       setEmailComposeOpen(false);
       setEmailTarget(null);
+      loadAll();
     } catch (e: any) { toast.error(e.message || 'Failed to send email'); }
     finally { setEmailSending(false); }
   };
