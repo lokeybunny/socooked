@@ -99,29 +99,59 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid, 
             </a>
           );
         })()}
-        {recordingUrl && (
-          <button
-            className="shrink-0 text-emerald-500 hover:text-emerald-400 transition-colors"
-            title={playing ? 'Stop recording' : 'Play call recording'}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (playing && audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.currentTime = 0;
-                setPlaying(false);
-              } else {
-                if (!audioRef.current) {
-                  audioRef.current = new Audio(recordingUrl);
-                  audioRef.current.onended = () => setPlaying(false);
+        {(() => {
+          const hasRecording = !!recordingUrl;
+          const hasPhone = !!contact.phone;
+          return (
+            <button
+              className={cn("shrink-0 transition-colors", hasRecording ? 'text-emerald-500 hover:text-emerald-400' : 'text-muted-foreground/40 hover:text-emerald-500')}
+              title={playing ? 'Stop recording' : hasRecording ? 'Play call recording' : hasPhone ? 'Fetch & play recording' : 'No phone number'}
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (playing && audioRef.current) {
+                  audioRef.current.pause();
+                  audioRef.current.currentTime = 0;
+                  setPlaying(false);
+                  return;
                 }
-                audioRef.current.play().catch(() => {});
-                setPlaying(true);
-              }
-            }}
-          >
-            {playing ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current" />}
-          </button>
-        )}
+                if (hasRecording) {
+                  if (!audioRef.current) {
+                    audioRef.current = new Audio(recordingUrl);
+                    audioRef.current.onended = () => setPlaying(false);
+                  }
+                  audioRef.current.play().catch(() => {});
+                  setPlaying(true);
+                } else if (hasPhone) {
+                  // On-demand fetch from RingCentral
+                  toast.info(`Fetching recordings for ${contact.full_name}...`);
+                  try {
+                    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+                    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+                    const res = await fetch(`https://${projectId}.supabase.co/functions/v1/ringcentral-recordings`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}` },
+                      body: JSON.stringify({ action: 'pull', customer_id: contact.id }),
+                    });
+                    const data = await res.json();
+                    if (data.pulled > 0) {
+                      toast.success(`Found ${data.pulled} recording(s) — refreshing...`);
+                      // Small delay then parent will reload
+                      setTimeout(() => window.dispatchEvent(new Event('leads-reload')), 500);
+                    } else {
+                      toast.info('No recordings found for this contact');
+                    }
+                  } catch (err) {
+                    toast.error('Failed to fetch recordings');
+                  }
+                } else {
+                  toast.info('No phone number on file');
+                }
+              }}
+            >
+              {playing ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+            </button>
+          );
+        })()}
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           const callbackAt = (meta as Record<string, unknown>).callback_at as string | undefined;
