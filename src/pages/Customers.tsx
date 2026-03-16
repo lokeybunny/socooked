@@ -235,6 +235,18 @@ export default function Customers() {
                     <p className="text-xs text-muted-foreground">Choose which niche landing page this customer sees on their Custom-U portal</p>
                   </div>
                 )}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-medium">AI Generated Website</Label>
+                  </div>
+                  <Input value={form.ai_website} onChange={e => setForm({ ...form, ai_website: e.target.value })} placeholder="https://v0-example.vercel.app" />
+                  {form.ai_website && (
+                    <a href={form.ai_website.startsWith('http') ? form.ai_website : `https://${form.ai_website}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                      <ExternalLink className="h-3 w-3" />Open website
+                    </a>
+                  )}
+                </div>
                 <div className="flex gap-2 flex-wrap">
                   <Button type="submit" className="flex-1">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
                   {editingId && (
