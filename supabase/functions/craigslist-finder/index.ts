@@ -325,9 +325,9 @@ Deno.serve(async (req) => {
 
       if (!startRes.ok) {
         const errText = await startRes.text().catch(() => "");
-        if (startRes.status === 402) {
+        if (startRes.status === 402 || startRes.status === 403) {
           return new Response(
-            JSON.stringify({ error: "Apify usage limit reached. Please top up credits.", code: "APIFY_LIMIT" }),
+            JSON.stringify({ error: "Apify usage limit reached. Please upgrade your subscription or top up credits.", code: "APIFY_LIMIT" }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
