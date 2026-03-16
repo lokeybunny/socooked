@@ -135,6 +135,7 @@ export default function Customers() {
       category: c.category || 'other',
       instagram_handle: c.instagram_handle || '',
       portal_niche: (meta.portal_niche as string) || (meta.mv_client ? 'mv' : ''),
+      ai_website: (meta.ai_website as string) || '',
     });
     setEditingId(c.id);
     setDialogOpen(true);
