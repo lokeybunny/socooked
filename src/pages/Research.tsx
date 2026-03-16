@@ -426,6 +426,7 @@ export default function Research() {
     }
     setClSearching(false);
     setClProgressMsg('Stopped by user');
+    clearClRun();
     toast.info('Craigslist scrape stopped');
     if (clCreatedCount > 0) load();
   };
