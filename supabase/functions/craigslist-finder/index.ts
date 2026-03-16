@@ -18,8 +18,200 @@ function extractWebsite(text: string | null | undefined): string | null {
   return match ? match[0] : null;
 }
 
+function normalizePhone(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, "");
+  const normalized = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  return normalized.length === 10 ? normalized : null;
+}
+
+function extractPhones(...values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const matches: string[] = [];
+  const phoneRegex = /(?:\+?1[\s:.-]*)?(?:\(?\d{3}\)?[\s:.-]*)\d{3}[\s:.-]*\d{4}/g;
+
+  for (const value of values) {
+    if (!value) continue;
+    for (const raw of value.match(phoneRegex) || []) {
+      const normalized = normalizePhone(raw);
+      if (normalized && !seen.has(normalized)) {
+        seen.add(normalized);
+        matches.push(normalized);
+      }
+    }
+  }
+
+  return matches;
+}
+
 function sseEvent(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+async function syncCraigslistResults({
+  results,
+  sb,
+  send,
+  emitPosts = false,
+}: {
+  results: any[];
+  sb: ReturnType<typeof createClient>;
+  send?: (event: string, data: unknown) => void;
+  emitPosts?: boolean;
+}) {
+  if (!Array.isArray(results) || results.length === 0) {
+    return { totalFound: 0, createdCount: 0 };
+  }
+
+  let createdCount = 0;
+
+  for (let idx = 0; idx < results.length; idx++) {
+    const post = results[idx];
+    const postTitle = post.title || "Craigslist Post";
+    const postUrl = post.url || null;
+    const postLocation = post.location || null;
+    const postPrice = post.price || null;
+    const postDate = post.datetime || null;
+    const postBody = post.post || null;
+    const actorPhoneNumbers = Array.isArray(post.phoneNumbers) ? post.phoneNumbers : [];
+    const phoneNumbers = extractPhones(
+      actorPhoneNumbers.join(" "),
+      postTitle,
+      postBody,
+    );
+    const phone = phoneNumbers[0] || null;
+    const email = extractEmail(postBody);
+    const website = extractWebsite(postBody);
+    const hasWebsite = !!website;
+
+    if (emitPosts && send) {
+      send("post", {
+        index: idx,
+        total: results.length,
+        post: { ...post, phone, email, website, has_website: hasWebsite },
+      });
+    }
+
+    if (!phone) continue;
+
+    if (postUrl) {
+      const { data: existing } = await sb
+        .from("research_findings")
+        .select("id")
+        .eq("finding_type", "lead")
+        .eq("source_url", postUrl)
+        .limit(1);
+      if (existing && existing.length > 0) continue;
+    }
+
+    const customerPayload = {
+      full_name: postTitle.slice(0, 120),
+      email: email || null,
+      phone,
+      company: null,
+      status: "lead",
+      source: "craigslist",
+      category: "craigslist",
+      address: postLocation || null,
+      notes: [
+        postPrice && `Price: ${postPrice}`,
+        postLocation && `Location: ${postLocation}`,
+        postDate && `Posted: ${postDate}`,
+        phone && `Phone: ${phone}`,
+        phoneNumbers.length > 1 && `Alt phones: ${phoneNumbers.slice(1).join(", ")}`,
+        email && `Email: ${email}`,
+        website && `Website: ${website}`,
+        postBody && postBody.slice(0, 300),
+      ].filter(Boolean).join("\n") || null,
+      meta: {
+        craigslist_url: postUrl,
+        craigslist_id: post.id || null,
+        price: postPrice,
+        post_date: postDate,
+        location: postLocation,
+        phone,
+        phone_numbers: phoneNumbers,
+        email,
+        website,
+        has_website: hasWebsite,
+        category: post.category || null,
+        pics: Array.isArray(post.pics) ? post.pics.slice(0, 5) : [],
+        source_platform: "craigslist-finder",
+        actor: "ivanvs/craigslist-scraper",
+      },
+    };
+
+    const { data: inserted, error } = await sb
+      .from("customers")
+      .insert(customerPayload)
+      .select("id, full_name, email, company")
+      .single();
+
+    if (error) {
+      console.log(`Failed to create customer: ${error.message}`);
+      continue;
+    }
+
+    createdCount++;
+
+    if (send) {
+      send("lead_created", {
+        index: idx,
+        created_count: createdCount,
+        customer: {
+          ...inserted,
+          phone,
+          email,
+          website,
+          has_website: hasWebsite,
+          location: postLocation,
+          price: postPrice,
+        },
+        post,
+      });
+    }
+
+    await sb.from("research_findings").insert({
+      title: postTitle.slice(0, 200),
+      summary: [
+        postPrice,
+        postLocation,
+        phone && `📞 ${phone}`,
+        email && `✉️ ${email}`,
+        website && `🌐 ${website}`,
+        postBody?.slice(0, 200),
+      ].filter(Boolean).join(" · "),
+      source_url: postUrl,
+      finding_type: "lead",
+      category: "craigslist",
+      status: "new",
+      created_by: "craigslist-finder",
+      customer_id: inserted.id,
+      raw_data: {
+        type: "craigslist_post",
+        name: postTitle,
+        symbol: "CL",
+        deploy_window: "OUTREACH",
+        craigslist_id: post.id,
+        price: postPrice,
+        location: postLocation,
+        post_date: postDate,
+        body: postBody?.slice(0, 500),
+        url: postUrl,
+        phone,
+        phone_numbers: phoneNumbers,
+        email,
+        website,
+        has_website: hasWebsite,
+        pics: Array.isArray(post.pics) ? post.pics.slice(0, 5) : [],
+        source_platform: "craigslist-finder",
+        actor: "ivanvs/craigslist-scraper",
+      },
+      tags: ["craigslist-finder", postLocation].filter(Boolean),
+    });
+  }
+
+  return { totalFound: results.length, createdCount };
 }
 
 Deno.serve(async (req) => {
