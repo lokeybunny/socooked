@@ -18,7 +18,7 @@ import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { format } from 'date-fns';
 
 const DISPLAY_CATEGORIES = SERVICE_CATEGORIES.filter(c => c.id !== 'potential');
-const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '' };
+const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '', ai_website: '' };
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 const PAGE_SIZE = 10;
 
@@ -203,7 +203,7 @@ export default function Leads() {
       notes: form.notes || null, category: form.category || 'other',
       instagram_handle: form.instagram_handle || null,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv' },
+      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv', ai_website: form.ai_website || null },
     }).eq('id', selected.id);
     if (error) { toast.error(error.message); return; }
     toast.success('Lead updated');
@@ -288,6 +288,7 @@ export default function Leads() {
       category: lead.category || 'other',
       instagram_handle: lead.instagram_handle || '',
       portal_niche: (meta.portal_niche as string) || (meta.mv_client ? 'mv' : ''),
+      ai_website: (meta.ai_website as string) || '',
     });
     setEditing(true);
   };
@@ -388,21 +389,32 @@ export default function Leads() {
         </Select>
       </div>
       {editing && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-primary" />
-            <Label className="text-sm font-medium">Portal Landing Page</Label>
+        <>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> AI Generated Website</Label>
+            <Input value={form.ai_website} onChange={e => setForm({ ...form, ai_website: e.target.value })} placeholder="https://v0-example.vercel.app" />
+            {form.ai_website && (
+              <a href={form.ai_website.startsWith('http') ? form.ai_website : `https://${form.ai_website}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                <ExternalLink className="h-3 w-3" /> Open website
+              </a>
+            )}
           </div>
-          <Select value={form.portal_niche} onValueChange={v => setForm({ ...form, portal_niche: v === 'none' ? '' : v })}>
-            <SelectTrigger><SelectValue placeholder="None (default uploader)" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="mv">Music Video (MV)</SelectItem>
-              <SelectItem value="realtor">Realtor</SelectItem>
-              <SelectItem value="barber">Barber</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              <Label className="text-sm font-medium">Portal Landing Page</Label>
+            </div>
+            <Select value={form.portal_niche} onValueChange={v => setForm({ ...form, portal_niche: v === 'none' ? '' : v })}>
+              <SelectTrigger><SelectValue placeholder="None (default uploader)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="mv">Music Video (MV)</SelectItem>
+                <SelectItem value="realtor">Realtor</SelectItem>
+                <SelectItem value="barber">Barber</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
       )}
       <Button type="submit" className="w-full">{submitLabel}</Button>
     </form>
