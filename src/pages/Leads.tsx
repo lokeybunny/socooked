@@ -231,18 +231,9 @@ export default function Leads() {
         supabase.from('calendar_events').delete().eq('customer_id', id),
       ]);
 
-      const failedResult = deletionResults.find(
-        (result): result is PromiseFulfilledResult<{ error: { message: string } | null }> =>
-          result.status === 'fulfilled' && Boolean(result.value?.error)
-      );
-
-      if (failedResult?.value.error) {
-        throw failedResult.value.error;
-      }
-
-      const rejectedResult = deletionResults.find((result): result is PromiseRejectedResult => result.status === 'rejected');
-      if (rejectedResult) {
-        throw rejectedResult.reason;
+      for (const result of deletionResults) {
+        if (result.status === 'rejected') throw result.reason;
+        if (result.value.error) throw result.value.error;
       }
 
       await supabase.from('conversation_threads').delete().eq('customer_id', id);
