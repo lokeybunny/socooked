@@ -304,6 +304,13 @@ export default function Leads() {
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
+  // Listen for reload events (e.g. after on-demand recording fetch)
+  useEffect(() => {
+    const handler = () => loadAll();
+    window.addEventListener('leads-reload', handler);
+    return () => window.removeEventListener('leads-reload', handler);
+  }, [search, filterSource, filterCategory]);
+
   // Stage filter — hide columns not matching
   const showLeads = filterStage === 'all' || filterStage === 'lead';
   const showProspects = filterStage === 'all' || filterStage === 'prospect';
