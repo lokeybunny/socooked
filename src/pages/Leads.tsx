@@ -679,14 +679,16 @@ warren@stu25.com</p>`;
     else { await logStatusMove(draggedContact.full_name, draggedId, draggedContact.status, targetStatus, draggedContact.category); }
   };
 
-  const activeContact = activeId ? [...leads, ...prospects, ...clients, ...monthly].find(c => c.id === activeId) : null;
+  const activeContact = activeId ? [...leads, ...prospects, ...prospectEmailed, ...clients, ...monthly].find(c => c.id === activeId) : null;
 
   const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
   const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
+  const prospectEmailedPageCount = Math.ceil(prospectEmailed.length / PAGE_SIZE);
   const clientsPageCount = Math.ceil(clients.length / PAGE_SIZE);
   const monthlyPageCount = Math.ceil(monthly.length / PAGE_SIZE);
   const pagedLeads = leads.slice((leadsPage - 1) * PAGE_SIZE, leadsPage * PAGE_SIZE);
   const pagedProspects = prospects.slice((prospectsPage - 1) * PAGE_SIZE, prospectsPage * PAGE_SIZE);
+  const pagedProspectEmailed = prospectEmailed.slice((prospectEmailedPage - 1) * PAGE_SIZE, prospectEmailedPage * PAGE_SIZE);
   const pagedClients = clients.slice((clientsPage - 1) * PAGE_SIZE, clientsPage * PAGE_SIZE);
   const pagedMonthly = monthly.slice((monthlyPage - 1) * PAGE_SIZE, monthlyPage * PAGE_SIZE);
 
