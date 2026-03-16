@@ -20,7 +20,7 @@ import { Label } from '@/components/ui/label';
 import { useResearchLoop } from '@/hooks/useResearchLoop';
 import { useLeadLoop } from '@/hooks/useLeadLoop';
 import { useYelpLoop } from '@/hooks/useYelpLoop';
-import { useGMapsLoop } from '@/hooks/useGMapsLoop';
+
 import { XFeedPanel } from '@/components/research/XFeedPanel';
 import { MarketCapAlerts } from '@/components/research/MarketCapAlerts';
 import { MetaPopup } from '@/components/research/MetaPopup';
