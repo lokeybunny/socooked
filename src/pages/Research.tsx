@@ -664,6 +664,14 @@ export default function Research() {
 
   useEffect(() => { load(); loadDraftCount(); }, []);
 
+  useEffect(() => {
+    if (!clSearching) return;
+    const interval = window.setInterval(() => {
+      load();
+    }, 4000);
+    return () => window.clearInterval(interval);
+  }, [clSearching]);
+
   // Check for new findings per category using localStorage timestamps
   useEffect(() => {
     const flags: Record<string, boolean> = {};
