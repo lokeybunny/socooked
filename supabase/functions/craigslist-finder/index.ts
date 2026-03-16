@@ -14,8 +14,23 @@ function extractEmail(text: string | null | undefined): string | null {
 
 function extractWebsite(text: string | null | undefined): string | null {
   if (!text) return null;
-  const match = text.match(/https?:\/\/(?!.*craigslist\.org)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s)"]*/i);
-  return match ? match[0] : null;
+  // First try full URLs with protocol
+  const urlMatch = text.match(/https?:\/\/(?!.*craigslist\.org)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s)"<]*/i);
+  if (urlMatch) return urlMatch[0];
+  // Then try bare domains (e.g. "thevirtualoffice.us", "mybiz.com/page")
+  const tlds = 'com|net|org|us|co|io|biz|info|me|tv|app|dev|site|shop|store|online|xyz|pro|agency|design|studio|tech|digital|media|services|solutions|group|llc|inc';
+  const bareDomainRegex = new RegExp(
+    `(?:^|[\\s("|])([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\\.(?:${tlds})(?:\\.[a-zA-Z]{2})?)(?:[/][^\\s)"<]*)?`,
+    'i'
+  );
+  const bareMatch = text.match(bareDomainRegex);
+  if (bareMatch) {
+    const domain = (bareMatch[1] || bareMatch[0]).trim();
+    if (!domain.includes('craigslist.org') && !domain.includes('gmail.com') && !domain.includes('yahoo.com') && !domain.includes('hotmail.com') && !domain.includes('outlook.com')) {
+      return domain.startsWith('http') ? domain : `https://${domain}`;
+    }
+  }
+  return null;
 }
 
 function normalizePhone(value: string | null | undefined): string | null {
