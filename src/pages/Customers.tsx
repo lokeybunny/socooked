@@ -34,6 +34,9 @@ export default function Customers() {
   const [form, setForm] = useState(emptyForm);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deepLinkHandled, setDeepLinkHandled] = useState(false);
+  const [callbackOpen, setCallbackOpen] = useState(false);
+  const [callbackDate, setCallbackDate] = useState<Date | undefined>(undefined);
+  const [callbackTime, setCallbackTime] = useState('10:00');
 
   const handleDelete = async () => {
     if (!deleteId) return;
