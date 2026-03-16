@@ -303,7 +303,17 @@ export default function Customers() {
               <tbody>
                 {customers.map(c => (
                   <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => openEdit(c)}>
-                    <td className="py-3 px-4 font-medium text-foreground">{c.full_name}</td>
+                    <td className="py-3 px-4 font-medium text-foreground flex items-center gap-2">
+                      {c.full_name}
+                      {(() => {
+                        const meta = c.meta && typeof c.meta === 'object' ? c.meta : {};
+                        return (meta as Record<string, unknown>).callback_at ? (
+                          <span title={`Follow-up: ${format(new Date((meta as Record<string, unknown>).callback_at as string), 'MMM d, h:mm a')}`}>
+                            <CalendarClock className="h-3.5 w-3.5 text-blue-500" />
+                          </span>
+                        ) : null;
+                      })()}
+                    </td>
                     <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">{c.email || '—'}</td>
                     <td className="py-3 px-4 text-muted-foreground hidden lg:table-cell">{c.company || '—'}</td>
                     <td className="py-3 px-4"><StatusBadge status={c.status} /></td>

@@ -77,6 +77,14 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { cont
       </button>
       <div className="flex items-center gap-2 px-6">
         <span className="font-semibold text-foreground truncate">{contact.full_name}</span>
+        {(() => {
+          const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
+          return (meta as Record<string, unknown>).callback_at ? (
+            <span title={`Follow-up: ${format(new Date((meta as Record<string, unknown>).callback_at as string), 'MMM d, h:mm a')}`} className="shrink-0">
+              <CalendarClock className="h-3.5 w-3.5 text-blue-500" />
+            </span>
+          ) : null;
+        })()}
         {contact.source && (
           <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase shrink-0">{contact.source}</span>
         )}
