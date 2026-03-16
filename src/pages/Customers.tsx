@@ -232,10 +232,17 @@ export default function Customers() {
                     <p className="text-xs text-muted-foreground">Choose which niche landing page this customer sees on their Custom-U portal</p>
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button type="submit" className="flex-1">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
                   {editingId && (
                     <>
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        setCallbackDate(undefined);
+                        setCallbackTime('10:00');
+                        setCallbackOpen(true);
+                      }}>
+                        <CalendarClock className="h-4 w-4 mr-1" />Call Back
+                      </Button>
                       <Button type="button" variant="outline" onClick={async () => {
                         await supabase.from('customers').update({ status: 'lead' }).eq('id', editingId);
                         toast.success('Transferred to Leads pipeline');
