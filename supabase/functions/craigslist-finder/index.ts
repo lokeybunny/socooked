@@ -489,19 +489,30 @@ Deno.serve(async (req) => {
         );
       }
 
-      console.log(`CL-Finder: aborting run ${run_id}`);
+      console.log(`CL-Finder: force-aborting run ${run_id}`);
+      
+      // Force abort (gracefully=false) to immediately kill the run
       const abortRes = await fetch(
-        `https://api.apify.com/v2/actor-runs/${run_id}/abort?token=${apifyToken}`,
+        `https://api.apify.com/v2/actor-runs/${run_id}/abort?token=${apifyToken}&gracefully=false`,
         { method: "POST" }
       );
 
       if (!abortRes.ok) {
         const errText = await abortRes.text().catch(() => "");
         console.error(`CL-Finder: abort failed (${abortRes.status}): ${errText}`);
+        // Return error so frontend knows abort failed
+        return new Response(
+          JSON.stringify({ ok: false, error: `Abort failed: ${abortRes.status}`, status: "ABORT_FAILED" }),
+          { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
+      const abortData = await abortRes.json().catch(() => ({}));
+      const finalStatus = abortData?.data?.status || "ABORTED";
+      console.log(`CL-Finder: abort response status=${finalStatus}`);
+
       return new Response(
-        JSON.stringify({ ok: true, status: "ABORTED" }),
+        JSON.stringify({ ok: true, status: finalStatus }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
