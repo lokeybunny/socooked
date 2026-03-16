@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
       );
       if (!dataRes.ok) throw new Error(`Failed to fetch dataset: ${dataRes.status}`);
       const results = await dataRes.json();
+      console.log(`CL-Finder: dataset ${datasetId} returned ${Array.isArray(results) ? results.length : 0} items`);
 
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
