@@ -21,6 +21,27 @@ async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 3)
   throw new Error(`${label} exhausted all retries`);
 }
 
+/** Extract phone numbers from text */
+function extractPhone(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const match = text.match(/(\+?1?\s*[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})/);
+  return match ? match[1].replace(/\s+/g, '').trim() : null;
+}
+
+/** Extract email from text */
+function extractEmail(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  return match ? match[0].toLowerCase() : null;
+}
+
+/** Extract website URLs from text (non-craigslist) */
+function extractWebsite(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const match = text.match(/https?:\/\/(?!.*craigslist\.org)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s)"]*/i);
+  return match ? match[0] : null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -82,7 +103,6 @@ Deno.serve(async (req) => {
 
     console.log(`Craigslist Finder: got ${results.length} results from Apify`);
 
-    // Auto-create customers + research findings from craigslist posts
     const created: any[] = [];
     for (const post of results) {
       const postTitle = post.title || post.postTitle || "Craigslist Post";
@@ -91,6 +111,13 @@ Deno.serve(async (req) => {
       const postPrice = post.price || post.postPrice || null;
       const postDate = post.datetime || post.postDate || post.date || null;
       const postBody = post.body || post.postBody || post.description || null;
+
+      // Extract contact info from body text
+      const allText = [postTitle, postBody, post.replyEmail, post.replyPhone].filter(Boolean).join(" ");
+      const phone = post.replyPhone || post.phone || extractPhone(allText);
+      const email = post.replyEmail || post.email || extractEmail(allText);
+      const website = post.website || post.replyUrl || extractWebsite(postBody);
+      const hasWebsite = !!website;
 
       // Deduplicate by source_url
       if (postUrl) {
@@ -109,8 +136,8 @@ Deno.serve(async (req) => {
       // Create customer
       const customerPayload = {
         full_name: postTitle.slice(0, 120),
-        email: null,
-        phone: null,
+        email: email || null,
+        phone: phone || null,
         company: null,
         status: "lead",
         source: "craigslist",
@@ -120,6 +147,9 @@ Deno.serve(async (req) => {
           postPrice && `Price: ${postPrice}`,
           postLocation && `Location: ${postLocation}`,
           postDate && `Posted: ${postDate}`,
+          phone && `Phone: ${phone}`,
+          email && `Email: ${email}`,
+          website && `Website: ${website}`,
           postBody && postBody.slice(0, 300),
         ].filter(Boolean).join("\n") || null,
         meta: {
@@ -127,6 +157,10 @@ Deno.serve(async (req) => {
           price: postPrice,
           post_date: postDate,
           location: postLocation,
+          phone,
+          email,
+          website,
+          has_website: hasWebsite,
           source_platform: "craigslist-finder",
         },
       };
@@ -142,7 +176,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      created.push({ ...inserted, ...post });
+      created.push({ ...inserted, ...post, phone, email, website, has_website: hasWebsite });
 
       // Create research finding
       await sb.from("research_findings").insert({
@@ -150,6 +184,9 @@ Deno.serve(async (req) => {
         summary: [
           postPrice,
           postLocation,
+          phone && `📞 ${phone}`,
+          email && `✉️ ${email}`,
+          website && `🌐 ${website}`,
           postBody?.slice(0, 200),
         ].filter(Boolean).join(" · "),
         source_url: postUrl,
@@ -168,6 +205,10 @@ Deno.serve(async (req) => {
           post_date: postDate,
           body: postBody?.slice(0, 500),
           url: postUrl,
+          phone,
+          email,
+          website,
+          has_website: hasWebsite,
           source_platform: "craigslist-finder",
         },
         tags: ["craigslist-finder", postLocation].filter(Boolean),

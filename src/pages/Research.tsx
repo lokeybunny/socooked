@@ -1095,52 +1095,90 @@ export default function Research() {
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Search className="h-5 w-5 text-primary" />
-                Craigslist Finder
+                Craigslist Finder — All Services
               </CardTitle>
+              <p className="text-xs text-muted-foreground">Scrape Craigslist services listings. Leads with phone numbers are auto-added to the CRM. Those with websites show yellow in Phone, without show red.</p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Craigslist Search URL</Label>
-                <Input
-                  placeholder="https://atlanta.craigslist.org/search/ggg#search=1~thumb~0~0"
-                  value={clSearchUrl}
-                  onChange={e => setClSearchUrl(e.target.value)}
-                  className="font-mono text-xs"
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Go to craigslist.org, search for what you want, then paste the URL here.
-                </p>
+              <div className="flex items-center gap-4 flex-wrap">
+                {/* Las Vegas checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
+                  <Checkbox
+                    checked={clLasVegas}
+                    onCheckedChange={(checked) => {
+                      setClLasVegas(!!checked);
+                      if (checked) setClSelectedCity('lasvegas');
+                    }}
+                  />
+                  <MapPin className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold text-foreground">Las Vegas, NV</span>
+                </label>
+
+                {/* Other city dropdown */}
+                {!clLasVegas && (
+                  <div className="flex-1 min-w-[200px]">
+                    <Select value={clSelectedCity} onValueChange={(val) => setClSelectedCity(val)}>
+                      <SelectTrigger className="h-10">
+                        <SelectValue placeholder="Select a city..." />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {CL_CITIES.map(city => (
+                          <SelectItem key={city.value} value={city.value}>{city.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               <Button onClick={handleCraigslistSearch} disabled={clSearching} className="w-full">
-                {clSearching ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scraping Craigslist…</> : <><Search className="h-4 w-4 mr-2" /> Scrape Craigslist</>}
+                {clSearching ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scraping {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label} Services…</>
+                ) : (
+                  <><Search className="h-4 w-4 mr-2" /> Scrape All Services — {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label}</>
+                )}
               </Button>
 
               {clHasSearched && !clSearching && (
                 <div className="text-sm text-muted-foreground text-center py-2">
                   {clResults.length > 0
-                    ? `Found ${clResults.length} posts · ${clCreatedCount} new leads added to CRM`
-                    : 'No posts found for this search URL'}
+                    ? `Found ${clResults.length} service posts · ${clCreatedCount} new leads added to CRM`
+                    : 'No service posts found in this city'}
                 </div>
               )}
 
               {clResults.length > 0 && (
-                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
                   {clResults.map((post: any, i: number) => {
-                    const title = post.title || post.postTitle || 'Untitled';
+                    const postTitle = post.title || post.postTitle || 'Untitled';
                     const url = post.url || post.postUrl || post.link;
                     const price = post.price || post.postPrice;
                     const location = post.location || post.hood || post.subareaName;
+                    const phone = post.phone || post.replyPhone || null;
+                    const hasWebsite = !!(post.website || post.replyUrl);
                     return (
-                      <div key={i} className="p-3 rounded-lg border border-border bg-muted/30 space-y-1">
+                      <div key={i} className={cn(
+                        "p-3 rounded-lg border bg-muted/30 space-y-1",
+                        hasWebsite ? "border-yellow-500/40" : "border-red-500/40"
+                      )}>
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-medium text-foreground line-clamp-1">{title}</span>
-                          {price && <span className="text-xs font-bold text-primary shrink-0">{price}</span>}
+                          <span className="text-xs font-medium text-foreground line-clamp-2">{postTitle}</span>
+                          {hasWebsite ? (
+                            <Globe className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                          ) : (
+                            <span className="h-2 w-2 rounded-full bg-red-500 shrink-0 mt-1" />
+                          )}
                         </div>
-                        {location && <span className="text-[10px] text-muted-foreground">{location}</span>}
+                        {price && <span className="text-[10px] font-bold text-primary">{price}</span>}
+                        {location && <span className="text-[10px] text-muted-foreground block">{location}</span>}
+                        {phone && (
+                          <span className="text-[10px] text-foreground flex items-center gap-1">
+                            <Phone className="h-2.5 w-2.5" /> {phone}
+                          </span>
+                        )}
                         {url && (
                           <a href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline flex items-center gap-1">
-                            <ExternalLink className="h-3 w-3" /> View on Craigslist
+                            <ExternalLink className="h-2.5 w-2.5" /> View
                           </a>
                         )}
                       </div>

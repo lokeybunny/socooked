@@ -1414,13 +1414,30 @@ export default function PhonePage() {
                         <div className="flex items-center gap-3">
                           <div className={cn(
                             "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-                            noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
+                            lead.source === 'craigslist' 
+                              ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "bg-yellow-500/15" : "bg-red-500/15")
+                              : noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
                           )}>
-                            <User className={cn("h-5 w-5", noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground")} />
+                            <User className={cn("h-5 w-5", 
+                              lead.source === 'craigslist'
+                                ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "text-yellow-600" : "text-red-500")
+                                : noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground"
+                            )} />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <button onClick={() => handleLeadDoubleClick(lead)} className="text-base font-semibold text-primary hover:underline truncate cursor-pointer text-left">{lead.full_name}</button>
+                              {lead.source === 'craigslist' && (
+                                typeof lead.meta === 'object' && lead.meta?.has_website ? (
+                                  <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600 gap-0.5">
+                                    <Globe className="h-2.5 w-2.5" /> Has Website
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] h-4 border-red-500/40 text-red-500 gap-0.5">
+                                    No Website
+                                  </Badge>
+                                )
+                              )}
                               {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy (24h)</Badge>}
                               {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">{callbackLabel}</Badge>}
                               {(typeof lead.meta === 'object' && lead.meta?.analyzed) && (
