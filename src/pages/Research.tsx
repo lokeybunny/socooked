@@ -1367,13 +1367,14 @@ export default function Research() {
                 <div className="text-xs text-muted-foreground text-center py-1 animate-pulse">
                   {clProgressMsg}
                   {clCreatedCount > 0 && ` · ${clCreatedCount} leads added`}
+                  {clDuplicateCount > 0 && ` · ${clDuplicateCount} duplicates skipped`}
                 </div>
               )}
 
               {clHasSearched && !clSearching && (
                 <div className="text-sm text-muted-foreground text-center py-2">
                   {clResults.length > 0
-                    ? `Found ${clResults.length} service posts · ${clCreatedCount} new leads added to CRM`
+                    ? `Found ${clResults.length} service posts · ${clCreatedCount} new leads · ${clDuplicateCount} duplicates skipped`
                     : 'No service posts found in this city'}
                 </div>
               )}
