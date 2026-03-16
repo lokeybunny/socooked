@@ -128,6 +128,7 @@ export default function Leads() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<{ id: string; name: string; fromStatus: string; action: 'dismiss' | 'delete' | 'move' } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
