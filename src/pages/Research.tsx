@@ -156,7 +156,31 @@ export default function Research() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [metaOpen, setMetaOpen] = useState(false);
   const [devAIOpen, setDevAIOpen] = useState(false);
-  
+
+  const CL_SECTIONS = [
+    { value: 'bbb', label: 'All Services' },
+    { value: 'lbs', label: 'Labor / Hauling / Moving' },
+    { value: 'cps', label: 'Computer Services' },
+    { value: 'crs', label: 'Creative Services' },
+    { value: 'cys', label: 'Cycle Services' },
+    { value: 'evs', label: 'Event Services' },
+    { value: 'fgs', label: 'Farm & Garden Services' },
+    { value: 'fns', label: 'Financial Services' },
+    { value: 'hss', label: 'Health / Wellness' },
+    { value: 'hws', label: 'Household Services' },
+    { value: 'lgs', label: 'Legal Services' },
+    { value: 'lss', label: 'Lessons & Tutoring' },
+    { value: 'mas', label: 'Marine Services' },
+    { value: 'pas', label: 'Pet Services' },
+    { value: 'rts', label: 'Real Estate Services' },
+    { value: 'sks', label: 'Skilled Trade Services' },
+    { value: 'biz', label: 'Small Biz Ads' },
+    { value: 'trv', label: 'Travel / Vacation' },
+    { value: 'wrs', label: 'Writing / Editing' },
+    { value: 'aos', label: 'Automotive Services' },
+    { value: 'bts', label: 'Beauty Services' },
+    { value: 'cms', label: 'Cell / Mobile Services' },
+  ];
 
   // New finding form
   const [title, setTitle] = useState('');
@@ -181,6 +205,7 @@ export default function Research() {
   // Craigslist Finder state
   const [clLasVegas, setClLasVegas] = useState(true);
   const [clSelectedCity, setClSelectedCity] = useState('lasvegas');
+  const [clSelectedSection, setClSelectedSection] = useState('bbb');
   const [clSearching, setClSearching] = useState(false);
   const [clResults, setClResults] = useState<any[]>([]);
   const [clCreatedCount, setClCreatedCount] = useState(0);
@@ -360,7 +385,7 @@ export default function Research() {
 
   const handleCraigslistSearch = async () => {
     const city = clLasVegas ? CL_CITIES[0] : CL_CITIES.find(c => c.value === clSelectedCity) || CL_CITIES[0];
-    const searchUrl = `https://${city.subdomain}.craigslist.org/search/bbb#search=1~thumb~0~0`;
+    const searchUrl = `https://${city.subdomain}.craigslist.org/search/${clSelectedSection}#search=1~thumb~0~0`;
     
     setClSearching(true);
     setClHasSearched(true);
@@ -1095,12 +1120,27 @@ export default function Research() {
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Search className="h-5 w-5 text-primary" />
-                Craigslist Finder — All Services
+                Craigslist Finder
               </CardTitle>
-              <p className="text-xs text-muted-foreground">Scrape Craigslist services listings. Leads with phone numbers are auto-added to the CRM. Those with websites show yellow in Phone, without show red.</p>
+              <p className="text-xs text-muted-foreground">Scrape Craigslist listings by service category. Leads with phone numbers are auto-added to the CRM. Yellow = has website, Red = no website.</p>
               <span className="inline-flex items-center gap-1.5 mt-1 text-[10px] font-mono text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">Runner: ivanvs/craigslist-scraper</span>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Service section selector */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Service Category</label>
+                <Select value={clSelectedSection} onValueChange={(val) => setClSelectedSection(val)}>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Select a service category..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {CL_SECTIONS.map(sec => (
+                      <SelectItem key={sec.value} value={sec.value}>{sec.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex items-center gap-4 flex-wrap">
                 {/* Las Vegas checkbox */}
                 <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
@@ -1134,9 +1174,9 @@ export default function Research() {
 
               <Button onClick={handleCraigslistSearch} disabled={clSearching} className="w-full">
                 {clSearching ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scraping {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label} Services…</>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scraping {CL_SECTIONS.find(s => s.value === clSelectedSection)?.label} in {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label}…</>
                 ) : (
-                  <><Search className="h-4 w-4 mr-2" /> Scrape All Services — {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label}</>
+                  <><Search className="h-4 w-4 mr-2" /> Scrape {CL_SECTIONS.find(s => s.value === clSelectedSection)?.label} — {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label}</>
                 )}
               </Button>
 
