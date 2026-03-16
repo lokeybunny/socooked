@@ -399,7 +399,7 @@ export default function Research() {
 
   const handleCraigslistSearch = async () => {
     const city = clLasVegas ? CL_CITIES[0] : CL_CITIES.find(c => c.value === clSelectedCity) || CL_CITIES[0];
-    const searchUrl = `https://${city.subdomain}.craigslist.org/search/${clSelectedSection}#search=1~thumb~0~0`;
+    const searchUrl = `https://${city.subdomain}.craigslist.org/search/${clSelectedSection}`;
     
     const controller = new AbortController();
     clAbortRef.current = controller;
