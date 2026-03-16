@@ -340,6 +340,57 @@ export default function Customers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Callback Scheduler Dialog */}
+      <Dialog open={callbackOpen} onOpenChange={setCallbackOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-primary" />
+              Schedule Call Back
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            When should <span className="font-semibold text-foreground">{customers.find(c => c.id === editingId)?.full_name}</span> appear in the Phone queue?
+          </p>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={callbackDate}
+                onSelect={setCallbackDate}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                className="p-3 pointer-events-auto"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Time</Label>
+              <Input type="time" value={callbackTime} onChange={e => setCallbackTime(e.target.value)} className="font-mono" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCallbackOpen(false)}>Cancel</Button>
+            <Button disabled={!callbackDate} onClick={async () => {
+              if (!editingId || !callbackDate) return;
+              const customer = customers.find(c => c.id === editingId);
+              const existingMeta = customer?.meta && typeof customer.meta === 'object' ? customer.meta as Record<string, unknown> : {};
+              const [hours, minutes] = callbackTime.split(':').map(Number);
+              const dt = new Date(callbackDate);
+              dt.setHours(hours, minutes, 0, 0);
+              const updatedMeta = { ...existingMeta, callback_at: dt.toISOString() };
+              await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', editingId);
+              toast.success(`Call back scheduled for ${format(dt, 'MMM d, h:mm a')}`);
+              setCallbackOpen(false);
+              setDialogOpen(false);
+              setEditingId(null);
+              setForm(emptyForm);
+              loadAll();
+            }} className="gap-1.5">
+              <CalendarClock className="h-4 w-4" />Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
