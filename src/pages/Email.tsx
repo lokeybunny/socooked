@@ -288,7 +288,7 @@ export default function EmailPage() {
     if (activeTab === 'drafts') {
       const matchingCustomer = customers.find((c) => c.email && (email.to || '').toLowerCase().includes(c.email.toLowerCase()));
       setForm({ to: email.to || '', subject: email.subject || '', body: email.body || email.snippet || '', customer_id: matchingCustomer?.id || '' });
-      setComposeAttachments([]); setComposeOpen(true);
+      setComposeAttachments([]); setOfferChecked(false); setComposeOpen(true);
       return;
     }
     setViewEmail(email); setReplyOpen(false); setReplyBody(''); setReplyAttachments([]);
