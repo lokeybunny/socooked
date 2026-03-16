@@ -536,24 +536,36 @@ export default function Research() {
   ];
 
   const handleCraigslistStop = async () => {
+    // Kill the local polling loop
     if (clAbortRef.current) {
       clAbortRef.current.abort();
       clAbortRef.current = null;
     }
-    // Abort the actual Apify run
+
+    // Collect ALL run IDs to abort: current in-memory + any persisted from prior session
+    const runIdsToAbort = new Set<string>();
     if (clRunIdRef.current) {
-      const runId = clRunIdRef.current;
+      runIdsToAbort.add(clRunIdRef.current);
       clRunIdRef.current = null;
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
-          body: JSON.stringify({ action: 'abort', run_id: runId }),
-        });
-      } catch {}
     }
+    const saved = getSavedClRun();
+    if (saved?.runId) runIdsToAbort.add(saved.runId);
+
+    // Fire abort requests for every known run in parallel
+    if (runIdsToAbort.size > 0) {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      await Promise.allSettled(
+        [...runIdsToAbort].map(runId =>
+          fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+            body: JSON.stringify({ action: 'abort', run_id: runId }),
+          }).catch(() => {})
+        )
+      );
+    }
+
     setClSearching(false);
     setClProgressMsg('Stopped by user');
     clearClRun();
