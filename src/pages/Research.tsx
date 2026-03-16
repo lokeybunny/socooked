@@ -420,59 +420,6 @@ export default function Research() {
     }
   };
 
-  const handleGMapsSearch = async () => {
-    if (!gmapsSearchTerms && !gmapsLocation) {
-      toast.error('Enter search terms or a location');
-      return;
-    }
-    setGmapsSearching(true);
-    setGmapsHasSearched(true);
-    setGmapsResults([]);
-    setGmapsCreatedCount(0);
-    try {
-      const payload: Record<string, any> = { maxItems: parseInt(gmapsMaxItems) || 30 };
-      if (gmapsSearchTerms) payload.searchTerms = gmapsSearchTerms.split(',').map(s => s.trim()).filter(Boolean);
-      if (gmapsLocation) payload.location = gmapsLocation.trim();
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300_000);
-
-      const resp = await fetch(`${supabaseUrl}/functions/v1/gmaps-finder`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!resp.ok) {
-        const errBody = await resp.text().catch(() => '');
-        throw new Error(errBody || `Request failed (${resp.status})`);
-      }
-      const data = await resp.json();
-
-      setGmapsResults(data.businesses || []);
-      setGmapsCreatedCount(data.created_count || 0);
-      if (data.created_count > 0) {
-        toast.success(`Found ${data.low_rated_count} businesses, ${data.created_count} new added`);
-        load();
-      } else if (data.low_rated_count > 0) {
-        toast.info(`Found ${data.low_rated_count} businesses (all already in CRM)`);
-      } else {
-        toast.info(`Found ${data.all_results || 0} businesses but none matched.`);
-      }
-    } catch (err: any) {
-      toast.error(err.message || 'Google Maps search failed');
-    } finally {
-      setGmapsSearching(false);
-    }
-  };
 
   const CL_CITIES: { value: string; label: string; subdomain: string }[] = [
     { value: 'lasvegas', label: 'Las Vegas, NV', subdomain: 'lasvegas' },
