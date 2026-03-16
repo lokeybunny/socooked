@@ -1469,7 +1469,7 @@ export default function Research() {
                               )}
                               {website && (
                                 <a href={website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
-                                  <Globe className="h-3 w-3" /> {new URL(website).hostname}
+                                  <Globe className="h-3 w-3" /> {(() => { try { return new URL(website).hostname; } catch { return 'Website'; } })()}
                                 </a>
                               )}
                             </div>
