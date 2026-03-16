@@ -585,6 +585,7 @@ export default function Research() {
     } finally {
       setClSearching(false);
       clAbortRef.current = null;
+      clRunIdRef.current = null;
     }
   };
 
