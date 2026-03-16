@@ -12,25 +12,47 @@ function extractEmail(text: string | null | undefined): string | null {
   return match ? match[0].toLowerCase() : null;
 }
 
-function extractWebsite(text: string | null | undefined): string | null {
-  if (!text) return null;
-  // First try full URLs with protocol
-  const urlMatch = text.match(/https?:\/\/(?!.*craigslist\.org)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s)"<]*/i);
-  if (urlMatch) return urlMatch[0];
-  // Then try bare domains (e.g. "thevirtualoffice.us", "mybiz.com/page")
-  const tlds = 'com|net|org|us|co|io|biz|info|me|tv|app|dev|site|shop|store|online|xyz|pro|agency|design|studio|tech|digital|media|services|solutions|group|llc|inc';
+const EXCLUDED_DOMAINS = new Set([
+  'craigslist.org', 'gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+  'aol.com', 'icloud.com', 'mail.com', 'protonmail.com', 'live.com',
+  'msn.com', 'ymail.com', 'comcast.net', 'att.net', 'verizon.net',
+  'sbcglobal.net', 'cox.net', 'charter.net', 'earthlink.net',
+  'google.com', 'facebook.com', 'instagram.com', 'twitter.com', 'x.com',
+  'youtube.com', 'tiktok.com', 'linkedin.com', 'yelp.com', 'reddit.com',
+  'imgur.com', 'bit.ly', 't.co', 'goo.gl',
+]);
+
+const TLD_PATTERN = 'com|net|org|us|co|io|biz|info|me|tv|app|dev|site|shop|store|online|xyz|pro|agency|design|studio|tech|digital|media|services|solutions|group|llc|inc|cc|mobi|name|ws|la|gg|fm|am|to|in|uk|ca|de|fr|au|nz|mx|br|it|es|nl|se|no|fi|dk|jp|kr|ru|pl|cz|at|ch|be|ie|pt|za|ae|sg|hk|tw|ph|my|id|th|vn|club|space|website|company|world|center|email|today|life|live|rocks|work|zone|careers|guru|expert|photography|video|gallery|graphics|marketing|consulting|builders|ventures|enterprises|management|academy|institute|foundation|training|education|coach|fitness|health|care|dental|legal|law|attorney|finance|capital|fund|investments|insurance|loans|mortgage|realty|estate|properties|land|homes|house|apartments|rentals|construction|plumbing|heating|cleaning|repair|moving|taxi|limo|tours|travel|flights|hotels|restaurant|cafe|pizza|bar|pub|wine|beer|catering|delivery|supply|parts|auto|cars|bike|boats';
+
+function extractAllWebsites(text: string | null | undefined): string[] {
+  if (!text) return [];
+  const found = new Set<string>();
+
+  // Match full URLs with protocol
+  const urlRegex = /https?:\/\/[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?\.([a-zA-Z]{2,})(?:[/][^\s)"<,]*)*/gi;
+  for (const m of text.matchAll(urlRegex)) {
+    const hostname = m[0].replace(/https?:\/\//i, '').split('/')[0].toLowerCase();
+    if (!EXCLUDED_DOMAINS.has(hostname)) found.add(m[0]);
+  }
+
+  // Match bare domains without protocol
   const bareDomainRegex = new RegExp(
-    `(?:^|[\\s("|])([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\\.(?:${tlds})(?:\\.[a-zA-Z]{2})?)(?:[/][^\\s)"<]*)?`,
-    'i'
+    `(?:^|[\\s("|,;:])([a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\\.(?:${TLD_PATTERN})(?:\\.[a-zA-Z]{2})?)(?:[/][^\\s)"<,]*)?`,
+    'gi'
   );
-  const bareMatch = text.match(bareDomainRegex);
-  if (bareMatch) {
-    const domain = (bareMatch[1] || bareMatch[0]).trim();
-    if (!domain.includes('craigslist.org') && !domain.includes('gmail.com') && !domain.includes('yahoo.com') && !domain.includes('hotmail.com') && !domain.includes('outlook.com')) {
-      return domain.startsWith('http') ? domain : `https://${domain}`;
+  for (const m of text.matchAll(bareDomainRegex)) {
+    const domain = (m[1] || m[0]).trim().toLowerCase();
+    if (domain && !EXCLUDED_DOMAINS.has(domain) && !domain.includes('craigslist')) {
+      found.add(`https://${domain}`);
     }
   }
-  return null;
+
+  return [...found];
+}
+
+function extractWebsite(text: string | null | undefined): string | null {
+  const all = extractAllWebsites(text);
+  return all.length > 0 ? all[0] : null;
 }
 
 function normalizePhone(value: string | null | undefined): string | null {
