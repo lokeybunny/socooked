@@ -225,7 +225,7 @@ async function syncCraigslistResults({
     });
   }
 
-  return { totalFound: results.length, createdCount };
+  return { totalFound: results.length, createdCount, duplicateCount };
 }
 
 Deno.serve(async (req) => {
