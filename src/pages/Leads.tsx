@@ -466,7 +466,7 @@ export default function Leads() {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <UserCheck className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects</h2>
+                <h2 className="text-sm font-semibold text-primary uppercase tracking-wider">Prospects (pending websites)</h2>
                 <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{prospects.length}</span>
               </div>
               <DroppableColumn id="prospects-column">
