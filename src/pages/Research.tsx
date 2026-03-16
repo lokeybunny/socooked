@@ -1273,51 +1273,6 @@ export default function Research() {
           </div>
         )}
 
-        {/* ══════ GMaps Agent Pipeline Log ══════ */}
-        {selectedSource === 'google-maps' && gmapsProgressLog.length > 0 && (
-          <div className="glass-card rounded-lg overflow-hidden border border-border">
-            <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-blue-400" />
-                <span className="text-sm font-semibold text-foreground">gmaps agent pipeline</span>
-                {gmapsGenerating && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                {!gmapsGenerating && gmapsState.cyclesCompleted > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-medium">
-                    {gmapsState.cyclesCompleted} cycles · {gmapsState.totalNewCreated} new leads
-                  </span>
-                )}
-              </div>
-              <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground" onClick={() => gmapsLoop.clearLog()}>
-                Clear
-              </Button>
-            </div>
-            <div className="max-h-72 overflow-y-auto p-3 space-y-1.5 bg-background/50 font-mono text-sm">
-              {gmapsProgressLog.map((entry, i) => (
-                <div key={`gmaps-${entry.step}-${i}`} className="flex items-start gap-2 animate-fade-in">
-                  <span className="text-muted-foreground shrink-0 w-16">{entry.ts}</span>
-                  <span className="shrink-0">
-                    {entry.status === 'running' ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                    ) : entry.status === 'done' ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-blue-400" />
-                    ) : (
-                      <AlertCircle className="h-3.5 w-3.5 text-destructive" />
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <span className={cn(
-                      "font-medium",
-                      entry.status === 'running' ? "text-foreground" : entry.status === 'done' ? "text-muted-foreground" : "text-destructive"
-                    )}>
-                      {entry.label}
-                    </span>
-                    <p className="text-muted-foreground break-words">{entry.detail}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Credits depleted warning removed — using Apify agents only */}
 
