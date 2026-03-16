@@ -251,7 +251,136 @@ export default function Research() {
   const [gmapsCreatedCount, setGmapsCreatedCount] = useState(0);
   const [gmapsHasSearched, setGmapsHasSearched] = useState(false);
 
-  const handleYelpSearch = async () => {
+  // Resume CL polling if a run was active when user navigated away
+  useEffect(() => {
+    const saved = getSavedClRun();
+    if (!saved) return;
+    // Already polling
+    if (clSearching) return;
+
+    const resumePoll = async () => {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers = { 'Content-Type': 'application/json', 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` };
+
+      try {
+        const statusRes = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
+          method: 'POST', headers,
+          body: JSON.stringify({ action: 'poll', run_id: saved.runId }),
+        });
+        if (!statusRes.ok) { clearClRun(); return; }
+        const ct = statusRes.headers.get('content-type') || '';
+        if (ct.includes('text/event-stream')) {
+          // Run completed while away — results are streaming. Mark done.
+          clearClRun();
+          toast.success('Previous Craigslist scrape finished while you were away');
+          load();
+          return;
+        }
+        const data = await statusRes.json();
+        const status = data.status;
+        if (status === 'SUCCEEDED') {
+          clearClRun();
+          toast.success('Previous Craigslist scrape finished while you were away');
+          load();
+        } else if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
+          clearClRun();
+          toast.error(`Previous Craigslist run ${status}`);
+        } else {
+          // Still running — restore polling state
+          clRunIdRef.current = saved.runId;
+          setClSearching(true);
+          setClProgressMsg(`Resuming scrape (${status})...`);
+          // Re-use handleCraigslistSearch's polling by calling it indirectly
+          // We'll just set state and let the user see it's active; the poll loop will be kicked off via a secondary effect
+          const sectionLabel = CL_SECTIONS.find(s => s.value === saved.section)?.label || saved.section;
+          setClSelectedSection(saved.section);
+          setClProgressMsg(`Apify actor still running (${sectionLabel})... resumed polling`);
+          // Kick off polling
+          const controller = new AbortController();
+          clAbortRef.current = controller;
+          const maxPolls = 120;
+          let pollCount = 0;
+          let succeeded = false;
+
+          while (pollCount < maxPolls) {
+            if (controller.signal.aborted) return;
+            await new Promise(r => setTimeout(r, 5000));
+            pollCount++;
+            if (controller.signal.aborted) return;
+
+            const pollResp = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
+              method: 'POST', headers,
+              body: JSON.stringify({ action: 'poll', run_id: saved.runId }),
+              signal: controller.signal,
+            });
+            if (!pollResp.ok) break;
+
+            const pollCt = pollResp.headers.get('content-type') || '';
+            if (pollCt.includes('text/event-stream')) {
+              succeeded = true;
+              setClProgressMsg('Processing results...');
+              if (!pollResp.body) break;
+              const reader = pollResp.body.getReader();
+              const decoder = new TextDecoder();
+              let buffer = '';
+              let totalCreated = 0;
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const messages = buffer.split('\n\n');
+                buffer = messages.pop() || '';
+                for (const msg of messages) {
+                  if (!msg.trim()) continue;
+                  const lines = msg.split('\n');
+                  let eventType = '', dataStr = '';
+                  for (const line of lines) {
+                    if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+                    else if (line.startsWith('data: ')) dataStr += line.slice(6);
+                  }
+                  if (!eventType || !dataStr) continue;
+                  try {
+                    const d = JSON.parse(dataStr);
+                    if (eventType === 'post') { setClResults(prev => [...prev, d.post]); setClProgressMsg(`Processing ${d.index + 1} of ${d.total}...`); }
+                    else if (eventType === 'duplicate') setClDuplicateCount(d.duplicate_count ?? (prev => prev + 1));
+                    else if (eventType === 'lead_created') { totalCreated = d.created_count; setClCreatedCount(totalCreated); }
+                    else if (eventType === 'complete') {
+                      setClCreatedCount(d.created_count || totalCreated);
+                      setClDuplicateCount(prev => d.duplicate_count ?? prev);
+                      setClProgressMsg('');
+                      if (d.created_count > 0) { toast.success(`${d.total_found} posts scraped, ${d.created_count} new leads added`); load(); }
+                      else toast.info(`${d.total_found} posts scraped (all already in CRM or no phone)`);
+                    }
+                    else if (eventType === 'error') toast.error(d.message);
+                  } catch {}
+                }
+              }
+              break;
+            }
+
+            const pollData = await pollResp.json();
+            if (pollData.error) { toast.error(pollData.error); break; }
+            const st = pollData.status;
+            if (Number(pollData.created_count || 0) > 0) { setClCreatedCount(prev => prev + Number(pollData.created_count)); load(); }
+            setClProgressMsg(Number(pollData.partial_found || 0) > 0
+              ? `Apify: ${st} — ${pollData.partial_found} posts found...`
+              : `Apify: ${st} (poll ${pollCount})...`);
+            if (st === 'FAILED' || st === 'ABORTED' || st === 'TIMED-OUT') { toast.error(`Apify run ${st}`); break; }
+          }
+          if (!succeeded && pollCount >= maxPolls) toast.error('Scrape timed out');
+          setClSearching(false);
+          clAbortRef.current = null;
+          clRunIdRef.current = null;
+          clearClRun();
+        }
+      } catch { clearClRun(); }
+    };
+
+    resumePoll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
     if (!yelpSearchTerms && !yelpLocation) {
       toast.error('Enter search terms or a location');
       return;
