@@ -683,7 +683,16 @@ export default function EmailPage() {
               </label>
             </div>
             <div className="flex items-center gap-2 py-1">
-              <Checkbox id="offer-check" checked={offerChecked} onCheckedChange={(v) => setOfferChecked(!!v)} />
+              <Checkbox id="offer-check" checked={offerChecked} onCheckedChange={async (v) => {
+                const checked = !!v;
+                setOfferChecked(checked);
+                if (checked) {
+                  const att = await loadOfferAttachment();
+                  if (att) setComposeAttachments((prev) => [...prev.filter(a => a.filename !== 'Website-Offer-Options.png'), att]);
+                } else {
+                  setComposeAttachments((prev) => prev.filter(a => a.filename !== 'Website-Offer-Options.png'));
+                }
+              }} />
               <label htmlFor="offer-check" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
                 <Gift className="h-4 w-4 text-primary" /> Include Website Offer (Option A / B)
               </label>
