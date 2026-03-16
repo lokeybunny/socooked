@@ -224,8 +224,21 @@ export default function Leads() {
   const dismiss = async (id: string) => {
     const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'inactive' }).eq('id', id);
-    if (contact) await logStatusMove(contact.full_name, id, contact.status, 'inactive', contact.category);
+    if (contact) {
+      await logStatusMove(contact.full_name, id, contact.status, 'inactive', contact.category);
+      setLastAction({ id, name: contact.full_name, fromStatus: contact.status, action: 'dismiss' });
+    }
     toast.success('Dismissed'); setSelected(null); loadAll();
+  };
+
+  const undoLastAction = async () => {
+    if (!lastAction) return;
+    const { error } = await supabase.from('customers').update({ status: lastAction.fromStatus }).eq('id', lastAction.id);
+    if (error) { toast.error(error.message); return; }
+    await logStatusMove(lastAction.name, lastAction.id, 'inactive', lastAction.fromStatus);
+    toast.success(`Restored ${lastAction.name} to ${STATUS_LABELS[lastAction.fromStatus] || lastAction.fromStatus}`);
+    setLastAction(null);
+    loadAll();
   };
 
   const openEdit = (lead: any) => {
