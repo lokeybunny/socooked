@@ -34,7 +34,9 @@ export default function CustomU() {
   const PAGE_SIZE = 25;
 
   const load = async () => {
-    let q = supabase.from('customers').select('id, full_name, category, upload_token, email, company').order('full_name');
+    let q = supabase.from('customers').select('id, full_name, category, upload_token, email, company, status')
+      .eq('status', 'prospect')
+      .order('full_name');
     if (search) q = q.ilike('full_name', `%${search}%`);
     const { data } = await q;
     setCustomers(data || []);
