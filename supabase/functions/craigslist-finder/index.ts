@@ -389,6 +389,33 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── ACTION: ABORT ──
+    if (action === "abort") {
+      const { run_id } = body;
+      if (!run_id) {
+        return new Response(
+          JSON.stringify({ error: "run_id is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`CL-Finder: aborting run ${run_id}`);
+      const abortRes = await fetch(
+        `https://api.apify.com/v2/actor-runs/${run_id}/abort?token=${apifyToken}`,
+        { method: "POST" }
+      );
+
+      if (!abortRes.ok) {
+        const errText = await abortRes.text().catch(() => "");
+        console.error(`CL-Finder: abort failed (${abortRes.status}): ${errText}`);
+      }
+
+      return new Response(
+        JSON.stringify({ ok: true, status: "ABORTED" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: `Unknown action: ${action}` }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }

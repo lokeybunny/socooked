@@ -213,6 +213,7 @@ export default function Research() {
   const [clHasSearched, setClHasSearched] = useState(false);
   const [clProgressMsg, setClProgressMsg] = useState('');
   const clAbortRef = useRef<AbortController | null>(null);
+  const clRunIdRef = useRef<string | null>(null);
 
   // Yelp Finder state
   const [yelpSearchTerms, setYelpSearchTerms] = useState('');
@@ -386,10 +387,24 @@ export default function Research() {
     { value: 'reno', label: 'Reno, NV', subdomain: 'reno' },
   ];
 
-  const handleCraigslistStop = () => {
+  const handleCraigslistStop = async () => {
     if (clAbortRef.current) {
       clAbortRef.current.abort();
       clAbortRef.current = null;
+    }
+    // Abort the actual Apify run
+    if (clRunIdRef.current) {
+      const runId = clRunIdRef.current;
+      clRunIdRef.current = null;
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+        await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
+          body: JSON.stringify({ action: 'abort', run_id: runId }),
+        });
+      } catch {}
     }
     setClSearching(false);
     setClProgressMsg('Stopped by user');
@@ -440,6 +455,7 @@ export default function Research() {
 
       const runId = startData.runId;
       if (!runId) throw new Error('No run ID returned');
+      clRunIdRef.current = runId;
 
       setClProgressMsg('Apify actor running, waiting for results...');
 
@@ -569,6 +585,7 @@ export default function Research() {
     } finally {
       setClSearching(false);
       clAbortRef.current = null;
+      clRunIdRef.current = null;
     }
   };
 
