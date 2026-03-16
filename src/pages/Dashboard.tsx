@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Users, TrendingUp, Mail, Clock, RefreshCw, Layers, CircleCheckBig, DollarSign } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
+import FinancialReports from '@/components/dashboard/FinancialReports';
 
 interface Stats {
   customers: number;
@@ -160,6 +161,9 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+
+        {/* Financial Reports */}
+        <FinancialReports />
 
         {/* Recent Customers */}
         <div className="glass-card p-6">
