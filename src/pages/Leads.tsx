@@ -269,6 +269,7 @@ export default function Leads() {
     loadAll();
   };
 
+  const openEdit = (lead: any) => {
     const meta = lead.meta && typeof lead.meta === 'object' ? lead.meta : {};
     setForm({
       full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '',
