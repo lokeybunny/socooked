@@ -108,6 +108,7 @@ export default function EmailPage() {
   const [sending, setSending] = useState(false);
   const [composeAttachments, setComposeAttachments] = useState<Attachment[]>([]);
   const [offerChecked, setOfferChecked] = useState(false);
+  const [maintenanceChecked, setMaintenanceChecked] = useState(false);
 
   const [viewEmail, setViewEmail] = useState<GmailEmail | null>(null);
   const [replyOpen, setReplyOpen] = useState(false);
