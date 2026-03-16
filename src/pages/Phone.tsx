@@ -250,6 +250,8 @@ export default function PhonePage() {
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
     const leadObj = leads.find(l => l.id === leadId);
     const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+    const meta = leadObj?.meta && typeof leadObj.meta === 'object' ? leadObj.meta : {};
+    const hasAiWebsite = !!(meta as any).ai_website;
 
     // ── 1. Update deal to Qualified ──
     const { data: existingDeal } = await supabase
@@ -278,13 +280,14 @@ export default function PhonePage() {
       }
     }
 
-    // ── 2. Update customer status ──
+    // ── 2. Update customer status to prospect ──
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', leadId);
-    toast.success(`${leadName} marked as Interested — moved to Qualified`);
+    toast.success(`${leadName} moved to Prospects (pending websites)`);
 
-    // ── 3. Telegram Notification (direct call) ──
+    // ── 3. Telegram Notification — AI work required ──
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const aiStatus = hasAiWebsite ? '✅ AI Website already assigned' : '🔴 AI Website NEEDED — requires build ASAP';
     try {
       await fetch(`https://${projectId}.supabase.co/functions/v1/telegram-notify`, {
         method: 'POST',
@@ -292,30 +295,24 @@ export default function PhonePage() {
         body: JSON.stringify({
           entity_type: 'lead', action: 'created',
           meta: {
-            message: `⭐ *Interested Client*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n\n_Cold caller marked this lead as interested_`,
+            message: `⭐ *Interested Client — AI Work Required*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n${aiStatus}\n\n_Moved to Prospects Pending Websites_`,
             name: leadName,
           },
         }),
       });
     } catch (e) { console.error('Telegram notify error:', e); }
 
-    // Also log to activity_log for record keeping
+    // Log to activity_log
     await supabase.from('activity_log').insert({
       entity_type: 'lead', entity_id: leadId, action: 'created',
       meta: {
-        message: `⭐ *Interested Client*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n\n_Cold caller marked this lead as interested_`,
+        message: `⭐ *Interested Client — AI Work Required*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n${aiStatus}`,
         name: leadName,
       },
     });
 
     // ── 4. Remove from leads list ──
     setLeads(prev => prev.filter(l => l.id !== leadId));
-
-    // ── 5. Show Workflow Gate dialog instead of auto-firing everything ──
-    skipMeetingEmailRef.current = false;
-    setWorkflowGateLead(leadObj);
-    setWorkflowOpts({ audit: true, auditEmail: true, meetingEmail: true, schedule: true });
-    setWorkflowGateOpen(true);
   };
 
   // ── Execute selected workflow steps ──
@@ -2145,11 +2142,11 @@ export default function PhonePage() {
                 <span className="flex items-center gap-2 text-amber-600 font-semibold">
                   <Mail className="h-4 w-4" /> Email Required
                 </span>
-                <span className="block"><span className="font-semibold text-foreground">{interestedLead?.name}</span> does not have an email address on file. Please ask the customer for their email before marking them as interested — it's needed for the automated audit & outreach pipeline.</span>
+                <span className="block"><span className="font-semibold text-foreground">{interestedLead?.name}</span> does not have an email address on file. Please add their email before marking as interested.</span>
               </AlertDialogDescription>
             ) : (
               <AlertDialogDescription>
-                Are you sure <span className="font-semibold text-foreground">{interestedLead?.name}</span> is interested? This will move their deal to <span className="font-semibold text-foreground">Qualified</span> and update their status to <span className="font-semibold text-foreground">Prospect</span>.
+                Are you sure <span className="font-semibold text-foreground">{interestedLead?.name}</span> is interested? This will move them to <span className="font-semibold text-foreground">Prospects (pending websites)</span> and notify Telegram that AI work is required.
               </AlertDialogDescription>
             )}
           </AlertDialogHeader>
