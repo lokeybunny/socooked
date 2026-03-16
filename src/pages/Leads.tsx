@@ -628,6 +628,7 @@ export default function Leads() {
             </div>
             )}
 
+            {showMonthly && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-emerald-500" />
@@ -647,6 +648,7 @@ export default function Leads() {
               </DroppableColumn>
               <PaginationButtons current={monthlyPage} total={monthlyPageCount} onChange={setMonthlyPage} />
             </div>
+            )}
           </div>
 
           <DragOverlay>
