@@ -226,6 +226,13 @@ export default function Leads() {
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
+  // Stage filter — hide columns not matching
+  const showLeads = filterStage === 'all' || filterStage === 'lead';
+  const showProspects = filterStage === 'all' || filterStage === 'prospect';
+  const showClients = filterStage === 'all' || filterStage === 'active';
+  const showMonthly = filterStage === 'all' || filterStage === 'monthly';
+  const visibleColumnCount = [showLeads, showProspects, showClients, showMonthly].filter(Boolean).length;
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.full_name.trim()) return;
