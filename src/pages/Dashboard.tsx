@@ -99,6 +99,7 @@ export default function Dashboard() {
         prospectCount,
         monthlyCount,
         clientCount,
+        actualTotalCustomers: convertedIds.size,
         paidConvertedCount,
         emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
       });
