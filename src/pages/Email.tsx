@@ -11,8 +11,9 @@ import { toast } from 'sonner';
 import {
   Plus, Mail, Send, FileEdit, Inbox, RefreshCw, ArrowLeft,
   Filter, Eye, Reply, Paperclip, X,
-  ChevronsUpDown, Check, User, BookOpen, Trash2,
+  ChevronsUpDown, Check, User, BookOpen, Trash2, Gift,
 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
@@ -106,6 +107,7 @@ export default function EmailPage() {
   const [form, setForm] = useState(emptyForm);
   const [sending, setSending] = useState(false);
   const [composeAttachments, setComposeAttachments] = useState<Attachment[]>([]);
+  const [offerChecked, setOfferChecked] = useState(false);
 
   const [viewEmail, setViewEmail] = useState<GmailEmail | null>(null);
   const [replyOpen, setReplyOpen] = useState(false);
@@ -218,16 +220,54 @@ export default function EmailPage() {
     setRefreshing(false);
   };
 
+  const OFFER_BODY_HTML = `
+<br/><hr style="border:none;border-top:1px solid #ccc;margin:24px 0"/>
+<h3 style="margin-bottom:8px;">Website Offer — Two Options</h3>
+
+<p><strong>Option A — Self-Managed Hosting</strong></p>
+<p>Your website is fully built and ready to go — completely free of charge. The only cost is the domain registration and hosting transfer fee of <strong>$10.41/month billed biannually</strong> (2 years of hosting &amp; domain for $250). There are no payment splits, no revenue sharing — the site is 100% yours.</p>
+
+<p style="margin-top:16px;"><strong>Option B — Warren Covers Everything</strong></p>
+<p>Warren / STU25 will pay the entire $250 domain &amp; hosting cost on your behalf and fully build the website at no charge to you. In return, a payment gateway will be set up on the site where <strong>30% of all credit-card payments</strong> coming through the website go to Warren and <strong>you keep 70%</strong>. This split exists because Warren is covering the full cost of the website creation, domain registration, and hosting so you have zero out-of-pocket expense.</p>
+
+<p style="margin-top:12px;font-style:italic;color:#666;">See the attached graphic for a visual breakdown of both options.</p>
+`;
+
+  const loadOfferAttachment = async (): Promise<Attachment | null> => {
+    try {
+      const res = await fetch('/images/offer-options.png');
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      const reader = new FileReader();
+      return new Promise((resolve) => {
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ filename: 'Website-Offer-Options.png', mimeType: 'image/png', data: base64, size: blob.size });
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch { return null; }
+  };
+
   const handleSend = async () => {
     if (!form.to || !form.subject) { toast.error('To and Subject are required'); return; }
     setSending(true);
     try {
+      let finalBody = form.body;
+      const allAttachments = [...composeAttachments];
+
+      if (offerChecked) {
+        finalBody += OFFER_BODY_HTML;
+        const offerAtt = await loadOfferAttachment();
+        if (offerAtt) allAttachments.push(offerAtt);
+      }
+
       await callGmailPost('send', {
-        to: form.to, subject: form.subject, body: form.body,
-        attachments: composeAttachments.length > 0 ? composeAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
+        to: form.to, subject: form.subject, body: finalBody,
+        attachments: allAttachments.length > 0 ? allAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
       });
       toast.success('Email sent!');
-      setComposeOpen(false); setForm(emptyForm); setComposeAttachments([]);
+      setComposeOpen(false); setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false);
       if (activeTab === 'sent') loadEmails('sent');
     } catch (e: any) { toast.error(e.message || 'Failed to send'); }
     finally { setSending(false); }
@@ -248,7 +288,7 @@ export default function EmailPage() {
     if (activeTab === 'drafts') {
       const matchingCustomer = customers.find((c) => c.email && (email.to || '').toLowerCase().includes(c.email.toLowerCase()));
       setForm({ to: email.to || '', subject: email.subject || '', body: email.body || email.snippet || '', customer_id: matchingCustomer?.id || '' });
-      setComposeAttachments([]); setComposeOpen(true);
+      setComposeAttachments([]); setOfferChecked(false); setComposeOpen(true);
       return;
     }
     setViewEmail(email); setReplyOpen(false); setReplyBody(''); setReplyAttachments([]);
@@ -492,7 +532,7 @@ export default function EmailPage() {
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
             </Button>
-            <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setComposeOpen(true); }} className="gap-1.5">
+            <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false); setComposeOpen(true); }} className="gap-1.5">
               <Plus className="h-4 w-4" /> Compose
             </Button>
           </div>
@@ -642,6 +682,19 @@ export default function EmailPage() {
                 <Paperclip className="h-4 w-4" /> Attach files
               </label>
             </div>
+            <div className="flex items-center gap-2 py-1">
+              <Checkbox id="offer-check" checked={offerChecked} onCheckedChange={(v) => setOfferChecked(!!v)} />
+              <label htmlFor="offer-check" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                <Gift className="h-4 w-4 text-primary" /> Include Website Offer (Option A / B)
+              </label>
+            </div>
+            {offerChecked && (
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground space-y-1">
+                <p><strong>Option A:</strong> Client pays $10.41/mo (biannual) for domain & hosting — no revenue split, site is 100% theirs.</p>
+                <p><strong>Option B:</strong> Warren covers the $250 — 70/30 split on website payments (client 70%, Warren 30%).</p>
+                <p className="italic">The offer graphic will be auto-attached.</p>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleSaveDraft} disabled={sending}><FileEdit className="h-4 w-4 mr-1" /> Save Draft</Button>
               <Button onClick={handleSend} disabled={sending}><Send className="h-4 w-4 mr-1" /> {sending ? 'Sending...' : 'Send'}</Button>
