@@ -212,10 +212,12 @@ export default function Leads() {
 
   const handleDelete = async (id: string) => {
     try {
-      // Detach cards first (no delete, just unlink)
-      await supabase.from('cards').update({ customer_id: null }).eq('customer_id', id);
-      // Delete dependent records in parallel where safe
-      await Promise.all([
+      const detachCardsPromise = supabase.from('cards').update({ customer_id: null }).eq('customer_id', id);
+      const detachCommunicationsPromise = supabase.from('communications').update({ customer_id: null }).eq('customer_id', id);
+
+      const deletionResults = await Promise.allSettled([
+        detachCardsPromise,
+        detachCommunicationsPromise,
         supabase.from('transcriptions').delete().eq('customer_id', id),
         supabase.from('signatures').delete().eq('customer_id', id),
         supabase.from('documents').delete().eq('customer_id', id),
@@ -228,27 +230,34 @@ export default function Leads() {
         supabase.from('site_configs').delete().eq('customer_id', id),
         supabase.from('calendar_events').delete().eq('customer_id', id),
       ]);
-      // These have FK dependencies, do sequentially
-      await supabase.from('communications').delete().eq('customer_id', id);
-      await supabase.from('conversation_threads').delete().eq('customer_id', id);
-      // Delete deals (which may have meetings)
-      const { data: deals } = await supabase.from('deals').select('id').eq('customer_id', id);
-      if (deals?.length) await supabase.from('deals').delete().eq('customer_id', id);
-      // Delete meetings + cascaded bookings
-      await supabase.from('meetings').delete().eq('customer_id', id);
-      // Finally delete the customer
-      const { error } = await supabase.from('customers').delete().eq('id', id);
-      if (error) {
-        console.error('Delete customer error:', error);
-        toast.error(`Delete failed: ${error.message}`);
-        return;
+
+      const failedResult = deletionResults.find(
+        (result): result is PromiseFulfilledResult<{ error: { message: string } | null }> =>
+          result.status === 'fulfilled' && Boolean(result.value?.error)
+      );
+
+      if (failedResult?.value.error) {
+        throw failedResult.value.error;
       }
+
+      const rejectedResult = deletionResults.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (rejectedResult) {
+        throw rejectedResult.reason;
+      }
+
+      await supabase.from('conversation_threads').delete().eq('customer_id', id);
+      await supabase.from('deals').delete().eq('customer_id', id);
+      await supabase.from('meetings').delete().eq('customer_id', id);
+
+      const { error } = await supabase.from('customers').delete().eq('id', id);
+      if (error) throw error;
+
       toast.success('Lead deleted');
       setSelected(null);
       loadAll();
     } catch (err: any) {
       console.error('Delete cascade error:', err);
-      toast.error('Failed to delete lead. Please try again.');
+      toast.error(`Delete failed: ${err?.message || 'Please try again.'}`);
     }
   };
 
