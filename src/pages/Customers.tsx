@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Trash2, Instagram, Layers, ArrowRight, CalendarClock, Globe, ExternalLink } from 'lucide-react';
+import { Plus, Search, Trash2, Instagram, Layers, ArrowRight, CalendarClock, Globe, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
 import { useNavigate } from 'react-router-dom';
 import { Calendar } from '@/components/ui/calendar';
@@ -30,6 +30,9 @@ export default function Customers() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 25;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -58,18 +61,25 @@ export default function Customers() {
   };
 
   const loadAll = async () => {
-    let q = supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false });
+    let q = supabase.from('customers').select('*', { count: 'exact' }).neq('category', 'potential').order('created_at', { ascending: false });
     if (filterStatus !== 'all') q = q.eq('status', filterStatus);
     if (filterCategory !== 'all') q = q.eq('category', filterCategory);
     if (search) {
       q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
     }
-    const { data } = await q;
+    q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    const { data, count } = await q;
     setCustomers(data || []);
+    setTotalCount(count || 0);
     setLoading(false);
   };
 
-  useEffect(() => { loadAll(); }, [search, filterStatus, filterCategory]);
+  useEffect(() => { loadAll(); }, [search, filterStatus, filterCategory, page]);
+
+  // Reset to page 0 when filters change
+  useEffect(() => { setPage(0); }, [search, filterStatus, filterCategory]);
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   useEffect(() => {
     const openId = searchParams.get('open');
@@ -153,7 +163,7 @@ export default function Customers() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Customers</h1>
-            <p className="text-muted-foreground text-sm">{customers.length} total</p>
+            <p className="text-muted-foreground text-sm">{totalCount} total</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
             <DialogTrigger asChild>
@@ -342,6 +352,33 @@ export default function Customers() {
               </tbody>
             </table>
           </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="h-7 w-7 p-0">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <Button
+                    key={i}
+                    variant={i === page ? 'default' : 'ghost'}
+                    size="sm"
+                    className="h-7 w-7 p-0 text-xs"
+                    onClick={() => setPage(i)}
+                  >
+                    {i + 1}
+                  </Button>
+                )).slice(Math.max(0, page - 2), page + 3)}
+                <Button variant="ghost" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="h-7 w-7 p-0">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
