@@ -1259,7 +1259,7 @@ export default function Research() {
 
 
         {/* ══════ Craigslist Leads ══════ */}
-        {selectedSource === 'craigslist' && (
+        {selectedSource === 'craigslist' && (<>
           <Card className="border-border">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg flex items-center gap-2">
