@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
@@ -128,6 +128,7 @@ export default function Leads() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<{ id: string; name: string; fromStatus: string; action: 'dismiss' | 'delete' | 'move' } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -223,8 +224,21 @@ export default function Leads() {
   const dismiss = async (id: string) => {
     const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'inactive' }).eq('id', id);
-    if (contact) await logStatusMove(contact.full_name, id, contact.status, 'inactive', contact.category);
+    if (contact) {
+      await logStatusMove(contact.full_name, id, contact.status, 'inactive', contact.category);
+      setLastAction({ id, name: contact.full_name, fromStatus: contact.status, action: 'dismiss' });
+    }
     toast.success('Dismissed'); setSelected(null); loadAll();
+  };
+
+  const undoLastAction = async () => {
+    if (!lastAction) return;
+    const { error } = await supabase.from('customers').update({ status: lastAction.fromStatus }).eq('id', lastAction.id);
+    if (error) { toast.error(error.message); return; }
+    await logStatusMove(lastAction.name, lastAction.id, 'inactive', lastAction.fromStatus);
+    toast.success(`Restored ${lastAction.name} to ${STATUS_LABELS[lastAction.fromStatus] || lastAction.fromStatus}`);
+    setLastAction(null);
+    loadAll();
   };
 
   const openEdit = (lead: any) => {
@@ -363,13 +377,20 @@ export default function Leads() {
         <h1 className="text-2xl font-bold text-foreground">Leads Pipeline</h1>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
-          <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
-            <DialogContent className="max-h-[85vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
-              <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            {lastAction && (
+              <Button variant="outline" onClick={undoLastAction}>
+                <Undo2 className="h-4 w-4 mr-2" />Undo ({lastAction.name})
+              </Button>
+            )}
+            <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
+              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
+              <DialogContent className="max-h-[85vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
+                <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
