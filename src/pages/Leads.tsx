@@ -597,6 +597,10 @@ export default function Leads() {
                     <a href={`/customers?open=${selected.id}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />Open in Customers</a>
                   </Button>
 
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => openCallbackScheduler(selected)}>
+                    <CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule Call Back
+                  </Button>
+
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
                     {selected.status === 'lead' && (
                       <Button onClick={() => promote(selected.id)} className="flex-1"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
@@ -619,6 +623,42 @@ export default function Leads() {
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Callback Scheduler Dialog */}
+        <Dialog open={callbackOpen} onOpenChange={setCallbackOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CalendarClock className="h-5 w-5 text-primary" />
+                Schedule Call Back
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              When should <span className="font-semibold text-foreground">{callbackTarget?.full_name}</span> appear in the Phone queue?
+            </p>
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <Calendar
+                  mode="single"
+                  selected={callbackDate}
+                  onSelect={setCallbackDate}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  className="p-3 pointer-events-auto"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Time</Label>
+                <Input type="time" value={callbackTime} onChange={e => setCallbackTime(e.target.value)} className="font-mono" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCallbackOpen(false)}>Cancel</Button>
+              <Button disabled={!callbackDate} onClick={handleConfirmCallback} className="gap-1.5">
+                <CalendarClock className="h-4 w-4" />Schedule
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
