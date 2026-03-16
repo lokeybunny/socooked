@@ -206,6 +206,7 @@ export default function Research() {
   const [clLasVegas, setClLasVegas] = useState(true);
   const [clSelectedCity, setClSelectedCity] = useState('lasvegas');
   const [clSelectedSection, setClSelectedSection] = useState('bbb');
+  const [clKeywords, setClKeywords] = useState('');
   const [clSearching, setClSearching] = useState(false);
   const [clResults, setClResults] = useState<any[]>([]);
   const [clCreatedCount, setClCreatedCount] = useState(0);
@@ -418,7 +419,7 @@ export default function Research() {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
         },
-        body: JSON.stringify({ search_url: searchUrl }),
+        body: JSON.stringify({ search_url: searchUrl, keywords: clKeywords.trim() || '' }),
         signal: controller.signal,
       });
 
@@ -1194,6 +1195,17 @@ export default function Research() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Keyword search (optional) */}
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Keywords (optional)</Label>
+                <Input
+                  placeholder="e.g. web design, plumber, landscaping..."
+                  value={clKeywords}
+                  onChange={(e) => setClKeywords(e.target.value)}
+                  className="h-9"
+                />
               </div>
 
               <div className="flex items-center gap-4 flex-wrap">

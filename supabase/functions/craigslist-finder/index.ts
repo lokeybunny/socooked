@@ -6,21 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 3): Promise<T> {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (err: any) {
-      console.log(`${label} attempt ${attempt}/${maxRetries} failed: ${err.message}`);
-      const shouldNotRetry = err?.noRetry === true || err?.status === 402;
-      if (attempt === maxRetries || shouldNotRetry) throw err;
-      const delay = Math.min(2000 * Math.pow(2, attempt - 1), 15000);
-      await new Promise(r => setTimeout(r, delay));
-    }
-  }
-  throw new Error(`${label} exhausted all retries`);
-}
-
 function extractEmail(text: string | null | undefined): string | null {
   if (!text) return null;
   const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
@@ -37,12 +22,29 @@ function sseEvent(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
+/** Poll Apify run until finished, with timeout */
+async function pollApifyRun(runId: string, token: string, timeoutMs = 540_000): Promise<string> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const res = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${token}`);
+    if (!res.ok) throw new Error(`Failed to poll run status: ${res.status}`);
+    const data = await res.json();
+    const status = data?.data?.status;
+    if (status === "SUCCEEDED") return data.data.defaultDatasetId;
+    if (status === "FAILED" || status === "ABORTED" || status === "TIMED-OUT") {
+      throw new Error(`Apify run ${status}`);
+    }
+    await new Promise(r => setTimeout(r, 5000));
+  }
+  throw new Error("Apify run polling timed out");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const body = await req.json();
-    const { search_url = "" } = body;
+    const { search_url = "", keywords = "" } = body;
 
     if (!search_url || !search_url.includes("craigslist.org")) {
       return new Response(
@@ -58,53 +60,77 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
 
+    // Append keyword query param if provided
+    let finalUrl = search_url;
+    if (keywords && keywords.trim()) {
+      const sep = search_url.includes("?") ? "&" : "?";
+      finalUrl = `${search_url}${sep}query=${encodeURIComponent(keywords.trim())}`;
+    }
+
     const input = {
       maxConcurrency: 1,
       proxyConfiguration: { useApifyProxy: true },
-      urls: [{ url: search_url }],
+      urls: [{ url: finalUrl }],
     };
 
-    // Use SSE streaming
+    console.log(`CL-Finder: starting async run for ${finalUrl}`);
+
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         const send = (event: string, data: unknown) => {
-          controller.enqueue(encoder.encode(sseEvent(event, data)));
+          try { controller.enqueue(encoder.encode(sseEvent(event, data))); } catch {}
         };
 
         try {
-          send("progress", { step: 0, label: "Scraping", status: "running", detail: `Fetching posts from Craigslist...` });
+          send("progress", { step: 0, label: "Scraping", status: "running", detail: "Starting Apify actor..." });
 
+          // Start async run
           const actorId = "ivanvs~craigslist-scraper";
-          const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
-
-          const results = await withRetry(async () => {
-            const res = await fetch(runUrl, {
+          const startRes = await fetch(
+            `https://api.apify.com/v2/acts/${actorId}/runs?token=${apifyToken}`,
+            {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(input),
-              signal: AbortSignal.timeout(300_000),
-            });
-            if (!res.ok) {
-              const errText = await res.text().catch(() => "");
-              if (res.status === 402) {
-                const quotaError: any = new Error(`Apify usage limit reached`);
-                quotaError.status = 402;
-                quotaError.noRetry = true;
-                throw quotaError;
-              }
-              throw new Error(`Apify request failed (${res.status}): ${errText.slice(0, 300)}`);
             }
-            return res.json();
-          }, "CraigslistFinder");
+          );
+
+          if (!startRes.ok) {
+            const errText = await startRes.text().catch(() => "");
+            if (startRes.status === 402) {
+              send("warning", { message: "Apify usage limit reached. Please top up credits." });
+              controller.close();
+              return;
+            }
+            throw new Error(`Failed to start Apify run (${startRes.status}): ${errText.slice(0, 300)}`);
+          }
+
+          const startData = await startRes.json();
+          const runId = startData?.data?.id;
+          if (!runId) throw new Error("No run ID returned from Apify");
+
+          send("progress", { step: 0, label: "Scraping", status: "running", detail: "Apify actor running, waiting for results..." });
+
+          // Poll until complete
+          const datasetId = await pollApifyRun(runId, apifyToken);
+
+          send("progress", { step: 1, label: "Fetching", status: "running", detail: "Downloading results from Apify..." });
+
+          // Fetch dataset items
+          const dataRes = await fetch(
+            `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}&format=json`
+          );
+          if (!dataRes.ok) throw new Error(`Failed to fetch dataset: ${dataRes.status}`);
+          const results = await dataRes.json();
 
           if (!Array.isArray(results) || results.length === 0) {
-            send("complete", { posts: [], total_found: 0, created_count: 0, created_customers: [] });
+            send("complete", { total_found: 0, created_count: 0 });
             controller.close();
             return;
           }
 
-          send("progress", { step: 1, label: "Processing", status: "running", detail: `Got ${results.length} posts, processing leads...` });
+          send("progress", { step: 2, label: "Processing", status: "running", detail: `Got ${results.length} posts, processing leads...` });
 
           let createdCount = 0;
 
@@ -123,12 +149,16 @@ Deno.serve(async (req) => {
             const website = extractWebsite(postBody);
             const hasWebsite = !!website;
 
-            // Send each raw post to the client immediately for display
-            send("post", { index: idx, total: results.length, post: { ...post, phone, email, website, has_website: hasWebsite } });
+            // Send each raw post to client for live display
+            send("post", {
+              index: idx,
+              total: results.length,
+              post: { ...post, phone, email, website, has_website: hasWebsite },
+            });
 
             if (!phone) continue;
 
-            // Deduplicate
+            // Deduplicate by source_url
             if (postUrl) {
               const { data: existing } = await sb
                 .from("research_findings")
@@ -153,7 +183,7 @@ Deno.serve(async (req) => {
                 postLocation && `Location: ${postLocation}`,
                 postDate && `Posted: ${postDate}`,
                 phone && `Phone: ${phone}`,
-                phoneNumbers.length > 1 && `Alt phones: ${phoneNumbers.slice(1).join(', ')}`,
+                phoneNumbers.length > 1 && `Alt phones: ${phoneNumbers.slice(1).join(", ")}`,
                 email && `Email: ${email}`,
                 website && `Website: ${website}`,
                 postBody && postBody.slice(0, 300),
@@ -189,11 +219,19 @@ Deno.serve(async (req) => {
 
             createdCount++;
 
-            // Send the created lead to the client immediately
+            // Stream the created lead back immediately
             send("lead_created", {
               index: idx,
               created_count: createdCount,
-              customer: { ...inserted, phone, email, website, has_website: hasWebsite, location: postLocation, price: postPrice },
+              customer: {
+                ...inserted,
+                phone,
+                email,
+                website,
+                has_website: hasWebsite,
+                location: postLocation,
+                price: postPrice,
+              },
               post,
             });
 
@@ -238,11 +276,11 @@ Deno.serve(async (req) => {
             });
           }
 
+          console.log(`CL-Finder: done. ${createdCount} new leads from ${results.length} posts`);
           send("complete", { total_found: results.length, created_count: createdCount });
         } catch (err: any) {
-          console.error("Craigslist Finder stream error:", err);
-          const event = err?.status === 402 ? "warning" : "error";
-          send(event, { message: err.message || "Unknown error" });
+          console.error("CL-Finder stream error:", err);
+          send("error", { message: err.message || "Unknown error" });
         } finally {
           controller.close();
         }
@@ -258,7 +296,7 @@ Deno.serve(async (req) => {
       },
     });
   } catch (err: any) {
-    console.error("Craigslist Finder error:", err);
+    console.error("CL-Finder error:", err);
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
