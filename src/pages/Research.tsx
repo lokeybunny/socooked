@@ -423,6 +423,7 @@ export default function Research() {
     setClHasSearched(true);
     setClResults([]);
     setClCreatedCount(0);
+    setClDuplicateCount(0);
     setClProgressMsg('Starting Apify actor...');
 
     try {
