@@ -20,6 +20,31 @@ import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
+const CL_SECTIONS = [
+  { value: 'bbb', label: 'All Services' },
+  { value: 'lbs', label: 'Labor / Hauling / Moving' },
+  { value: 'cps', label: 'Computer Services' },
+  { value: 'crs', label: 'Creative Services' },
+  { value: 'cys', label: 'Cycle Services' },
+  { value: 'evs', label: 'Event Services' },
+  { value: 'fgs', label: 'Farm & Garden Services' },
+  { value: 'fns', label: 'Financial Services' },
+  { value: 'hss', label: 'Health / Wellness' },
+  { value: 'hws', label: 'Household Services' },
+  { value: 'lgs', label: 'Legal Services' },
+  { value: 'lss', label: 'Lessons & Tutoring' },
+  { value: 'mas', label: 'Marine Services' },
+  { value: 'pas', label: 'Pet Services' },
+  { value: 'rts', label: 'Real Estate Services' },
+  { value: 'sks', label: 'Skilled Trade Services' },
+  { value: 'biz', label: 'Small Biz Ads' },
+  { value: 'trv', label: 'Travel / Vacation' },
+  { value: 'wrs', label: 'Writing / Editing' },
+  { value: 'aos', label: 'Automotive Services' },
+  { value: 'bts', label: 'Beauty Services' },
+  { value: 'cms', label: 'Cell / Mobile Services' },
+];
+
 const RC_EMBED_URL = 'https://apps.ringcentral.com/integration/ringcentral-embeddable/latest/app.html';
 const CALL_TYPES = [
   { value: 'voicemail', label: 'Voicemail', icon: Voicemail },
