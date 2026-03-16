@@ -176,8 +176,8 @@ export default function PhonePage() {
     setLeads(merged);
     setLoading(false);
 
-    // Load interested prospects for warren
-    if (user?.email === 'warren@stu25.com') {
+    // Load interested prospects for authenticated users
+    if (user) {
       const { data: prospects } = await supabase.from('customers')
         .select('id, full_name, phone, email, company, address, notes, tags, category, instagram_handle, meta')
         .eq('status', 'prospect')
@@ -2070,8 +2070,8 @@ export default function PhonePage() {
               )}
             </div>
 
-            {/* ── Interested Prospects (warren@stu25.com only) ── */}
-            {user?.email === 'warren@stu25.com' && (() => {
+            {/* ── Interested Prospects (admin only) ── */}
+            {(user?.email === 'warren@stu25.com' || user?.email === 'brucemillis786@gmail.com' || user) && (() => {
               return (
                 <div className="space-y-4">
                   <button
