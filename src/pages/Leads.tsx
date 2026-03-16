@@ -584,6 +584,7 @@ export default function Leads() {
             </div>
             )}
 
+            {showProspects && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <UserCheck className="h-4 w-4 text-primary" />
@@ -603,6 +604,7 @@ export default function Leads() {
               </DroppableColumn>
               <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
             </div>
+            )}
 
             <div className="space-y-4">
               <div className="flex items-center gap-2">
