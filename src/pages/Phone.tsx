@@ -2142,11 +2142,11 @@ export default function PhonePage() {
                 <span className="flex items-center gap-2 text-amber-600 font-semibold">
                   <Mail className="h-4 w-4" /> Email Required
                 </span>
-                <span className="block"><span className="font-semibold text-foreground">{interestedLead?.name}</span> does not have an email address on file. Please ask the customer for their email before marking them as interested — it's needed for the automated audit & outreach pipeline.</span>
+                <span className="block"><span className="font-semibold text-foreground">{interestedLead?.name}</span> does not have an email address on file. Please add their email before marking as interested.</span>
               </AlertDialogDescription>
             ) : (
               <AlertDialogDescription>
-                Are you sure <span className="font-semibold text-foreground">{interestedLead?.name}</span> is interested? This will move their deal to <span className="font-semibold text-foreground">Qualified</span> and update their status to <span className="font-semibold text-foreground">Prospect</span>.
+                Are you sure <span className="font-semibold text-foreground">{interestedLead?.name}</span> is interested? This will move them to <span className="font-semibold text-foreground">Prospects (pending websites)</span> and notify Telegram that AI work is required.
               </AlertDialogDescription>
             )}
           </AlertDialogHeader>
