@@ -161,6 +161,7 @@ export default function Leads() {
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterStage, setFilterStage] = useState('all');
   const [loading, setLoading] = useState(true);
   const [paidCustomerIds, setPaidCustomerIds] = useState<Set<string>>(new Set());
   const [leadsPage, setLeadsPage] = useState(1);
@@ -225,6 +226,13 @@ export default function Leads() {
   }, [allLeads, allProspects, allClients, allMonthly]);
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
+
+  // Stage filter — hide columns not matching
+  const showLeads = filterStage === 'all' || filterStage === 'lead';
+  const showProspects = filterStage === 'all' || filterStage === 'prospect';
+  const showClients = filterStage === 'all' || filterStage === 'active';
+  const showMonthly = filterStage === 'all' || filterStage === 'monthly';
+  const visibleColumnCount = [showLeads, showProspects, showClients, showMonthly].filter(Boolean).length;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -540,10 +548,21 @@ export default function Leads() {
               <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={filterStage} onValueChange={setFilterStage}>
+            <SelectTrigger className="w-48"><SelectValue placeholder="All Stages" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Stages</SelectItem>
+              <SelectItem value="lead">Leads Only</SelectItem>
+              <SelectItem value="prospect">Prospects Only</SelectItem>
+              <SelectItem value="active">New Clients Only</SelectItem>
+              <SelectItem value="monthly">Monthly Clients Only</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="grid gap-6 lg:grid-cols-4">
+          <div className={cn("grid gap-6", visibleColumnCount === 1 ? 'lg:grid-cols-1 max-w-xl' : visibleColumnCount === 2 ? 'lg:grid-cols-2' : visibleColumnCount === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4')}>
+            {showLeads && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Bot className="h-4 w-4 text-muted-foreground" />
@@ -563,7 +582,9 @@ export default function Leads() {
               </DroppableColumn>
               <PaginationButtons current={leadsPage} total={leadsPageCount} onChange={setLeadsPage} />
             </div>
+            )}
 
+            {showProspects && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <UserCheck className="h-4 w-4 text-primary" />
@@ -583,7 +604,9 @@ export default function Leads() {
               </DroppableColumn>
               <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
             </div>
+            )}
 
+            {showClients && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <UserPlus className="h-4 w-4 text-primary" />
@@ -603,7 +626,9 @@ export default function Leads() {
               </DroppableColumn>
               <PaginationButtons current={clientsPage} total={clientsPageCount} onChange={setClientsPage} />
             </div>
+            )}
 
+            {showMonthly && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-emerald-500" />
@@ -623,6 +648,7 @@ export default function Leads() {
               </DroppableColumn>
               <PaginationButtons current={monthlyPage} total={monthlyPageCount} onChange={setMonthlyPage} />
             </div>
+            )}
           </div>
 
           <DragOverlay>
