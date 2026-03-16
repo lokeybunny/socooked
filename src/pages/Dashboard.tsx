@@ -19,6 +19,7 @@ interface Stats {
   totalEmails: number;
   totalCalls: number;
   totalSms: number;
+  prospectCount: number;
 }
 
 export default function Dashboard() {
