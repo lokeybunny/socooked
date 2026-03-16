@@ -624,8 +624,16 @@ warren@stu25.com</p>`;
       // Auto-move customer to prospect_emailed status
       if (emailTarget?.id) {
         const prevStatus = emailTarget.status || 'prospect';
-        await supabase.from('customers').update({ status: 'prospect_emailed' }).eq('id', emailTarget.id);
-        await logStatusMove(emailTarget.full_name, emailTarget.id, prevStatus, 'prospect_emailed', emailTarget.category);
+        const targetId = emailTarget.id;
+        const targetName = emailTarget.full_name;
+        const targetCategory = emailTarget.category;
+        const { error: moveError } = await supabase.from('customers').update({ status: 'prospect_emailed' }).eq('id', targetId);
+        if (moveError) {
+          console.error('Failed to move customer to prospect_emailed:', moveError);
+          toast.error('Email sent but failed to move customer');
+        } else {
+          await logStatusMove(targetName, targetId, prevStatus, 'prospect_emailed', targetCategory);
+        }
       }
 
       toast.success(`Email sent to ${emailTarget?.full_name || emailForm.to}! Moved to AI Site Completed.`);
