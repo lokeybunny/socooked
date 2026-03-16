@@ -1470,14 +1470,18 @@ export default function PhonePage() {
                         <div className="flex items-center gap-3">
                           <div className={cn(
                             "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-                            lead.source === 'craigslist' 
-                              ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "bg-yellow-500/15" : "bg-red-500/15")
-                              : noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
+                            lead.status === 'prospect' && typeof lead.meta === 'object' && lead.meta?.ai_website
+                              ? "bg-yellow-500/20 ring-2 ring-yellow-400/50"
+                              : lead.source === 'craigslist' 
+                                ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "bg-yellow-500/15" : "bg-red-500/15")
+                                : noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
                           )}>
                             <User className={cn("h-5 w-5", 
-                              lead.source === 'craigslist'
-                                ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "text-yellow-600" : "text-red-500")
-                                : noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground"
+                              lead.status === 'prospect' && typeof lead.meta === 'object' && lead.meta?.ai_website
+                                ? "text-yellow-500"
+                                : lead.source === 'craigslist'
+                                  ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "text-yellow-600" : "text-red-500")
+                                  : noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground"
                             )} />
                           </div>
                           <div className="min-w-0 flex-1">
@@ -1502,9 +1506,15 @@ export default function PhonePage() {
                               {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy (24h)</Badge>}
                               {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">{callbackLabel}</Badge>}
                               {lead.status === 'prospect' && (
-                                <Badge variant="outline" className="text-[9px] h-4 border-destructive/40 text-destructive gap-0.5 animate-pulse">
-                                  <Star className="h-2.5 w-2.5" /> Callback Prospect
-                                </Badge>
+                                (typeof lead.meta === 'object' && lead.meta?.ai_website) ? (
+                                  <Badge variant="outline" className="text-[9px] h-4 border-yellow-400/60 text-yellow-500 bg-yellow-500/10 gap-0.5 font-bold shadow-[0_0_6px_rgba(234,179,8,0.3)]">
+                                    <Zap className="h-2.5 w-2.5 fill-yellow-500" /> AI Ready — Callback
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[9px] h-4 border-destructive/40 text-destructive gap-0.5 animate-pulse">
+                                    <Star className="h-2.5 w-2.5" /> Callback Prospect
+                                  </Badge>
+                                )
                               )}
                               {(typeof lead.meta === 'object' && lead.meta?.analyzed) && (
                                 <Badge variant="outline" className="text-[9px] h-4 border-green-500/40 text-green-600 gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleSendReport(lead); }}>
