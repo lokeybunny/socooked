@@ -61,14 +61,16 @@ export default function Customers() {
   };
 
   const loadAll = async () => {
-    let q = supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false });
+    let q = supabase.from('customers').select('*', { count: 'exact' }).neq('category', 'potential').order('created_at', { ascending: false });
     if (filterStatus !== 'all') q = q.eq('status', filterStatus);
     if (filterCategory !== 'all') q = q.eq('category', filterCategory);
     if (search) {
       q = q.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
     }
-    const { data } = await q;
+    q = q.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    const { data, count } = await q;
     setCustomers(data || []);
+    setTotalCount(count || 0);
     setLoading(false);
   };
 
