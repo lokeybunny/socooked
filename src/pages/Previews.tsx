@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -172,6 +173,59 @@ function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Assign Client Popover ───
+function AssignClientPopover({ previewId, onAssigned }: { previewId: string; onAssigned: () => void }) {
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      supabase.from('customers').select('id, full_name, category').order('full_name').then(({ data }) => {
+        if (data) setCustomers(data);
+      });
+    }
+  }, [open]);
+
+  const assign = async (customerId: string) => {
+    setSaving(true);
+    const { error } = await supabase.from('api_previews').update({ customer_id: customerId }).eq('id', previewId);
+    setSaving(false);
+    if (error) { toast.error('Failed to assign'); return; }
+    toast.success('Assigned to client');
+    setOpen(false);
+    onAssigned();
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="inline-flex items-center gap-1 text-xs text-primary hover:underline" title="Assign to client">
+          <UserPlus className="h-3.5 w-3.5" />
+          Assign
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2" align="start">
+        <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Assign to client</p>
+        <div className="max-h-48 overflow-y-auto space-y-0.5">
+          {customers.map(c => (
+            <button
+              key={c.id}
+              disabled={saving}
+              onClick={() => assign(c.id)}
+              className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors truncate"
+            >
+              {c.full_name}
+              {c.category && <span className="text-muted-foreground ml-1 text-xs">· {c.category}</span>}
+            </button>
+          ))}
+          {customers.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">No clients found</p>}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -411,7 +465,7 @@ export default function Previews() {
                               {format(new Date(preview.created_at), 'MMM d, yyyy · h:mm a')}
                             </p>
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                               {preview.preview_url && (
                                 <a
                                   href={preview.preview_url}
@@ -434,7 +488,13 @@ export default function Previews() {
                                   Edit
                                 </a>
                               )}
-                              {!preview.preview_url && !preview.edit_url && (
+                              {!preview.customer_id && (
+                                <AssignClientPopover previewId={preview.id} onAssigned={fetchPreviews} />
+                              )}
+                              {preview.customer_id && (
+                                <AssignClientPopover previewId={preview.id} onAssigned={fetchPreviews} />
+                              )}
+                              {!preview.preview_url && !preview.edit_url && !preview.customer_id && (
                                 <span className="text-xs text-muted-foreground italic">No links available</span>
                               )}
                             </div>
