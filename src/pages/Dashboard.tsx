@@ -57,8 +57,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, monthlyRes, clientRes, comms, invoicesRes, rc] = await Promise.all([
+      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect_emailed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('communications').select('type, created_at'),
@@ -69,6 +70,7 @@ export default function Dashboard() {
       const allComms = comms.data || [];
       const today = new Date().toISOString().slice(0, 10);
       const prospectCount = prospectsRes.count || 0;
+      const prospectEmailedCount = prospectEmailedRes.count || 0;
       const monthlyCount = monthlyRes.count || 0;
       const clientCount = clientRes.count || 0;
 
