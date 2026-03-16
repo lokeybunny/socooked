@@ -247,7 +247,28 @@ export default function Leads() {
     loadAll();
   };
 
-  const openEdit = (lead: any) => {
+  const openCallbackScheduler = (contact: any) => {
+    setCallbackTarget(contact);
+    setCallbackDate(undefined);
+    setCallbackTime('10:00');
+    setCallbackOpen(true);
+  };
+
+  const handleConfirmCallback = async () => {
+    if (!callbackTarget || !callbackDate) return;
+    const existingMeta = typeof callbackTarget.meta === 'object' ? callbackTarget.meta : {};
+    const [hours, minutes] = callbackTime.split(':').map(Number);
+    const dt = new Date(callbackDate);
+    dt.setHours(hours, minutes, 0, 0);
+    const updatedMeta = { ...existingMeta, callback_at: dt.toISOString() };
+    await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', callbackTarget.id);
+    toast.success(`Call back scheduled for ${format(dt, 'MMM d, h:mm a')}`);
+    setCallbackOpen(false);
+    setCallbackTarget(null);
+    setSelected(null);
+    loadAll();
+  };
+
     const meta = lead.meta && typeof lead.meta === 'object' ? lead.meta : {};
     setForm({
       full_name: lead.full_name || '', email: lead.email || '', phone: lead.phone || '',
