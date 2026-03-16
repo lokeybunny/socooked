@@ -389,21 +389,32 @@ export default function Leads() {
         </Select>
       </div>
       {editing && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-primary" />
-            <Label className="text-sm font-medium">Portal Landing Page</Label>
+        <>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> AI Generated Website</Label>
+            <Input value={form.ai_website} onChange={e => setForm({ ...form, ai_website: e.target.value })} placeholder="https://v0-example.vercel.app" />
+            {form.ai_website && (
+              <a href={form.ai_website.startsWith('http') ? form.ai_website : `https://${form.ai_website}`} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                <ExternalLink className="h-3 w-3" /> Open website
+              </a>
+            )}
           </div>
-          <Select value={form.portal_niche} onValueChange={v => setForm({ ...form, portal_niche: v === 'none' ? '' : v })}>
-            <SelectTrigger><SelectValue placeholder="None (default uploader)" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="mv">Music Video (MV)</SelectItem>
-              <SelectItem value="realtor">Realtor</SelectItem>
-              <SelectItem value="barber">Barber</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              <Label className="text-sm font-medium">Portal Landing Page</Label>
+            </div>
+            <Select value={form.portal_niche} onValueChange={v => setForm({ ...form, portal_niche: v === 'none' ? '' : v })}>
+              <SelectTrigger><SelectValue placeholder="None (default uploader)" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="mv">Music Video (MV)</SelectItem>
+                <SelectItem value="realtor">Realtor</SelectItem>
+                <SelectItem value="barber">Barber</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
       )}
       <Button type="submit" className="w-full">{submitLabel}</Button>
     </form>
