@@ -2212,11 +2212,16 @@ export default function PhonePage() {
               <AlertDialogAction
                 className="bg-green-600 text-white hover:bg-green-700 gap-1.5"
                 onClick={() => {
-                  if (interestedLead) {
-                    handleLeadInterested(interestedLead.id, interestedLead.name, interestedLead.category);
-                  }
                   setInterestedOpen(false);
                   setInterestedLead(null);
+                  if (interestedLead) {
+                    const leadObj = leads.find(l => l.id === interestedLead.id) || interestedLead;
+                    setInterestedCallbackLead(leadObj);
+                    const inOneHour = new Date(Date.now() + 60 * 60 * 1000);
+                    setInterestedCallbackDate(inOneHour);
+                    setInterestedCallbackTime(`${inOneHour.getHours().toString().padStart(2, '0')}:${inOneHour.getMinutes().toString().padStart(2, '0')}`);
+                    setInterestedCallbackOpen(true);
+                  }
                 }}
               >
                 <Star className="h-4 w-4" />
