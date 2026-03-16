@@ -335,7 +335,7 @@ export default function Leads() {
     const { active, over } = event;
     if (!over) return;
     const draggedId = active.id as string;
-    const allContacts = [...leads, ...prospects, ...clients];
+    const allContacts = [...leads, ...prospects, ...clients, ...monthly];
     const draggedContact = allContacts.find(c => c.id === draggedId);
     if (!draggedContact) return;
 
@@ -344,6 +344,7 @@ export default function Leads() {
     if (overId === 'leads-column') targetStatus = 'lead';
     else if (overId === 'prospects-column') targetStatus = 'prospect';
     else if (overId === 'clients-column') targetStatus = 'active';
+    else if (overId === 'monthly-column') targetStatus = 'monthly';
     else {
       const overContact = allContacts.find(c => c.id === overId);
       if (overContact) targetStatus = overContact.status;
@@ -357,8 +358,9 @@ export default function Leads() {
     setLeads(targetStatus === 'lead' ? addToList(removeFromList(leads)) : removeFromList(leads));
     setProspects(targetStatus === 'prospect' ? addToList(removeFromList(prospects)) : removeFromList(prospects));
     setClients(targetStatus === 'active' ? addToList(removeFromList(clients)) : removeFromList(clients));
+    setMonthly(targetStatus === 'monthly' ? addToList(removeFromList(monthly)) : removeFromList(monthly));
 
-    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', active: 'Converted to client' };
+    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', active: 'Converted to client', monthly: 'Moved to monthly client' };
     toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
 
     const { error } = await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
@@ -366,7 +368,7 @@ export default function Leads() {
     else { await logStatusMove(draggedContact.full_name, draggedId, draggedContact.status, targetStatus, draggedContact.category); }
   };
 
-  const activeContact = activeId ? [...leads, ...prospects, ...clients].find(c => c.id === activeId) : null;
+  const activeContact = activeId ? [...leads, ...prospects, ...clients, ...monthly].find(c => c.id === activeId) : null;
 
   const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
   const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
