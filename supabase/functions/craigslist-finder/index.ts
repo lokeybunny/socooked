@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
 
     console.log(`Craigslist Finder: starting with URL: ${search_url}`);
 
-    const actorId = "zscrape~craigslist-scraper";
+    const actorId = "ivanvs~craigslist-scraper";
     const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
 
     const results = await withRetry(async () => {
