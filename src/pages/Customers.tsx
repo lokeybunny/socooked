@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Trash2, Instagram, Layers, ArrowRight, CalendarClock, Globe, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
+import { upsertAiPreview } from '@/lib/upsertAiPreview';
 import { useNavigate } from 'react-router-dom';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -118,10 +119,16 @@ export default function Customers() {
     if (editingId) {
       const { error } = await supabase.from('customers').update(payload).eq('id', editingId);
       if (error) { toast.error(error.message); return; }
+      if (form.ai_website) {
+        await upsertAiPreview(editingId, form.ai_website, form.full_name);
+      }
       toast.success('Customer updated');
     } else {
-      const { error } = await supabase.from('customers').insert([payload]);
+      const { data: inserted, error } = await supabase.from('customers').insert([payload]).select('id').single();
       if (error) { toast.error(error.message); return; }
+      if (form.ai_website && inserted) {
+        await upsertAiPreview(inserted.id, form.ai_website, form.full_name);
+      }
       toast.success('Customer created');
     }
     setForm(emptyForm);

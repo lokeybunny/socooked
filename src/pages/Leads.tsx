@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock, ChevronUp, Play, Square, Send, Gift, FileEdit, Paperclip, X, MessageSquare } from 'lucide-react';
 import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
+import { upsertAiPreview } from '@/lib/upsertAiPreview';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
 import { useDraggable } from '@dnd-kit/core';
@@ -410,6 +411,9 @@ export default function Leads() {
       meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv', ai_website: form.ai_website || null },
     }).eq('id', selected.id);
     if (error) { toast.error(error.message); return; }
+    if (form.ai_website) {
+      await upsertAiPreview(selected.id, form.ai_website, form.full_name.trim());
+    }
     toast.success('Lead updated');
     setEditing(false); setSelected(null); setForm(emptyForm); loadAll();
   };
