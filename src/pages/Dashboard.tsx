@@ -9,6 +9,7 @@ import FinancialReports from '@/components/dashboard/FinancialReports';
 interface Stats {
   customers: number;
   prospectCount: number;
+  prospectEmailedCount: number;
   monthlyCount: number;
   clientCount: number;
   actualTotalCustomers: number;
@@ -18,7 +19,7 @@ interface Stats {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, prospectEmailedCount: 0, monthlyCount: 0, clientCount: 0, actualTotalCustomers: 0, paidConvertedCount: 0, emailsToday: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
@@ -56,8 +57,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, monthlyRes, clientRes, comms, invoicesRes, rc] = await Promise.all([
+      const [prospectsRes, prospectEmailedRes, monthlyRes, clientRes, comms, invoicesRes, rc] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
+        supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect_emailed'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('communications').select('type, created_at'),
@@ -68,6 +70,7 @@ export default function Dashboard() {
       const allComms = comms.data || [];
       const today = new Date().toISOString().slice(0, 10);
       const prospectCount = prospectsRes.count || 0;
+      const prospectEmailedCount = prospectEmailedRes.count || 0;
       const monthlyCount = monthlyRes.count || 0;
       const clientCount = clientRes.count || 0;
 
@@ -98,6 +101,7 @@ export default function Dashboard() {
       setStats({
         customers: prospectCount,
         prospectCount,
+        prospectEmailedCount,
         monthlyCount,
         clientCount,
         actualTotalCustomers: convertedIds.size,
@@ -115,7 +119,7 @@ export default function Dashboard() {
     { label: 'Prospects in Pipeline', value: stats.customers, icon: Users, color: 'text-blue-500' },
     { label: 'Actual Total Customers', value: stats.actualTotalCustomers, subtitle: `${stats.clientCount} new + ${stats.monthlyCount} monthly (deduplicated)`, icon: Users, color: 'text-emerald-500' },
     { label: 'Current Recurring Monthly Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250/mo`, icon: DollarSign, color: 'text-amber-500' },
-    { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 250).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects (pending websites) × $250`, icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Potential Lead Conversion', value: `$${((stats.prospectCount + stats.prospectEmailedCount) * 250).toLocaleString()}`, subtitle: `${stats.prospectCount} pending + ${stats.prospectEmailedCount} AI completed × $250`, icon: TrendingUp, color: 'text-green-500' },
     { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} invoiced & paid clients × $350`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
   ];
