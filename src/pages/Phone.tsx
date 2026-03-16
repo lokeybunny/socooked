@@ -1720,13 +1720,8 @@ export default function PhonePage() {
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {SERVICE_CATEGORIES.map(cat => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          <span className="flex items-center gap-2">
-                            <cat.icon className="h-3.5 w-3.5" />
-                            {cat.label}
-                          </span>
-                        </SelectItem>
+                      {CL_SECTIONS.filter(s => s.value !== 'bbb').map(sec => (
+                        <SelectItem key={sec.value} value={sec.value}>{sec.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
