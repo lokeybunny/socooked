@@ -211,17 +211,45 @@ export default function Leads() {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from('cards').update({ customer_id: null }).eq('customer_id', id);
-    await supabase.from('transcriptions').delete().eq('customer_id', id);
-    await supabase.from('signatures').delete().eq('customer_id', id);
-    await supabase.from('documents').delete().eq('customer_id', id);
-    await supabase.from('invoices').delete().eq('customer_id', id);
-    await supabase.from('interactions').delete().eq('customer_id', id);
-    await supabase.from('conversation_threads').delete().eq('customer_id', id);
-    await supabase.from('bot_tasks').delete().eq('customer_id', id);
-    await supabase.from('communications').delete().eq('customer_id', id);
-    await supabase.from('customers').delete().eq('id', id);
-    toast.success('Lead deleted'); setSelected(null); loadAll();
+    try {
+      // Detach cards first (no delete, just unlink)
+      await supabase.from('cards').update({ customer_id: null }).eq('customer_id', id);
+      // Delete dependent records in parallel where safe
+      await Promise.all([
+        supabase.from('transcriptions').delete().eq('customer_id', id),
+        supabase.from('signatures').delete().eq('customer_id', id),
+        supabase.from('documents').delete().eq('customer_id', id),
+        supabase.from('invoices').delete().eq('customer_id', id),
+        supabase.from('interactions').delete().eq('customer_id', id),
+        supabase.from('bot_tasks').delete().eq('customer_id', id),
+        supabase.from('api_previews').delete().eq('customer_id', id),
+        supabase.from('content_assets').delete().eq('customer_id', id),
+        supabase.from('research_findings').delete().eq('customer_id', id),
+        supabase.from('site_configs').delete().eq('customer_id', id),
+        supabase.from('calendar_events').delete().eq('customer_id', id),
+      ]);
+      // These have FK dependencies, do sequentially
+      await supabase.from('communications').delete().eq('customer_id', id);
+      await supabase.from('conversation_threads').delete().eq('customer_id', id);
+      // Delete deals (which may have meetings)
+      const { data: deals } = await supabase.from('deals').select('id').eq('customer_id', id);
+      if (deals?.length) await supabase.from('deals').delete().eq('customer_id', id);
+      // Delete meetings + cascaded bookings
+      await supabase.from('meetings').delete().eq('customer_id', id);
+      // Finally delete the customer
+      const { error } = await supabase.from('customers').delete().eq('id', id);
+      if (error) {
+        console.error('Delete customer error:', error);
+        toast.error(`Delete failed: ${error.message}`);
+        return;
+      }
+      toast.success('Lead deleted');
+      setSelected(null);
+      loadAll();
+    } catch (err: any) {
+      console.error('Delete cascade error:', err);
+      toast.error('Failed to delete lead. Please try again.');
+    }
   };
 
   const promote = async (id: string) => {
