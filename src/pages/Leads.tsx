@@ -564,19 +564,17 @@ export default function Leads() {
                     return (
                       <div className="space-y-2 border-t border-border pt-3">
                         <Label className="text-xs text-muted-foreground uppercase tracking-wider">Extra Info</Label>
-                        <div className="grid gap-2">
+                         <div className="grid gap-2">
                            {metaKeys.map(k => (
                              <div key={k} className="text-sm min-w-0">
                                <span className="font-medium text-foreground capitalize">{k.replace(/_/g, ' ')}:</span>{' '}
                                <span className="text-muted-foreground break-all">{typeof meta[k] === 'object' ? JSON.stringify(meta[k]) : String(meta[k])}</span>
                              </div>
                            ))}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                         </div>
+                       </div>
+                     );
+                   })()}
 
                   {/* LinkedIn / Website links */}
                   {(() => {
