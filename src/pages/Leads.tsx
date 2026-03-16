@@ -256,6 +256,16 @@ export default function Leads() {
   const [callbackTime, setCallbackTime] = useState('10:00');
   const [callbackTarget, setCallbackTarget] = useState<any>(null);
 
+  // ── Website Email Composer state ──
+  const [emailComposeOpen, setEmailComposeOpen] = useState(false);
+  const [emailTarget, setEmailTarget] = useState<any>(null);
+  const [emailForm, setEmailForm] = useState({ to: '', subject: '', body: '' });
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailOfferA, setEmailOfferA] = useState(false);
+  const [emailOfferB, setEmailOfferB] = useState(false);
+  const [emailOfferC, setEmailOfferC] = useState(false);
+  const [emailAttachments, setEmailAttachments] = useState<{ filename: string; mimeType: string; data: string; size: number }[]>([]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
