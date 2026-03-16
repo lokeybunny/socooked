@@ -160,7 +160,7 @@ export default function Leads() {
   const [monthly, setMonthly] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('all');
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterStage, setFilterStage] = useState('all');
   const [loading, setLoading] = useState(true);
   const [paidCustomerIds, setPaidCustomerIds] = useState<Set<string>>(new Set());
   const [leadsPage, setLeadsPage] = useState(1);
