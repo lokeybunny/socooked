@@ -186,6 +186,7 @@ async function syncCraigslistResults({
         phone_numbers: phoneNumbers,
         email,
         website,
+        all_websites: allWebsites,
         has_website: hasWebsite,
         category: post.category || null,
         pics: Array.isArray(post.pics) ? post.pics.slice(0, 5) : [],
