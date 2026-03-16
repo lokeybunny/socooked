@@ -829,6 +829,56 @@ async function processWebDevCommand(
         + `🔗 <a href="${result.preview_url}">Preview</a>`
         + (result.edit_url ? ` · <a href="${result.edit_url}">Edit</a>` : '')
         + `\n📋 <i>${prompt.slice(0, 200)}</i>`
+    } else if (result?.status === 'generating' && result?.edit_url) {
+      // v0-designer returns immediately with edit_url — preview comes later via polling
+      replyText = `⏳ <b>Website is generating!</b>\n\n`
+        + `✏️ <a href="${result.edit_url}">Edit in V0</a>\n`
+        + `📋 <i>${prompt.slice(0, 200)}</i>\n\n`
+        + `<i>You'll get a notification with the preview link once it's ready.</i>`
+
+      // Fire-and-forget: trigger v0-poll after 30s to check for completion
+      const chatIdForPoll = result.chat_id
+      if (chatIdForPoll) {
+        setTimeout(async () => {
+          try {
+            for (let attempt = 0; attempt < 6; attempt++) {
+              await new Promise(r => setTimeout(r, 30000))
+              const pollRes = await fetch(`${supabaseUrl}/functions/v1/v0-poll?chat_id=${chatIdForPoll}`, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                  'Content-Type': 'application/json',
+                  'x-bot-secret': botSecret,
+                },
+              })
+              const pollData = await pollRes.json()
+              const pollResult = pollData?.data?.results?.[0]
+              if (pollResult?.status === 'completed' && pollResult?.preview_url) {
+                await tgPost(tgToken, 'sendMessage', {
+                  chat_id: chatId,
+                  text: `✅ <b>Website Ready!</b>\n\n🔗 <a href="${pollResult.preview_url}">Preview</a> · <a href="${result.edit_url}">Edit</a>\n📋 <i>${prompt.slice(0, 100)}</i>`,
+                  parse_mode: 'HTML',
+                  disable_web_page_preview: false,
+                })
+                return
+              }
+              if (pollResult?.status === 'failed') {
+                await tgPost(tgToken, 'sendMessage', {
+                  chat_id: chatId,
+                  text: `❌ <b>Website generation failed.</b> Try again with /webdev`,
+                  parse_mode: 'HTML',
+                })
+                return
+              }
+            }
+          } catch (e) {
+            console.error('[webdev-poll-bg] error:', e)
+          }
+        }, 0)
+      }
+    } else if (result?.chat_id && result?.edit_url) {
+      // Fallback for any response with edit_url but no preview yet
+      replyText = `⏳ <b>Website is generating!</b>\n\n✏️ <a href="${result.edit_url}">Edit in V0</a>\n📋 <i>${prompt.slice(0, 200)}</i>`
     } else if (result?.id) {
       replyText = `⏳ <b>Website generation started!</b>\n🆔 <code>${result.id}</code>\n\nYou'll get a notification when it's ready.`
     } else if (result?.error) {
