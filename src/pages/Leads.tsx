@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock, ChevronUp } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock, ChevronUp, Play, Square } from 'lucide-react';
 import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
@@ -55,10 +55,12 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean; isPaid?: boolean }) {
+function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid, recordingUrl }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const [minimized, setMinimized] = useState(isPaid ? true : false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
 
   return (
     <div
@@ -97,6 +99,29 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }
             </a>
           );
         })()}
+        {recordingUrl && (
+          <button
+            className="shrink-0 text-emerald-500 hover:text-emerald-400 transition-colors"
+            title={playing ? 'Stop recording' : 'Play call recording'}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (playing && audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                setPlaying(false);
+              } else {
+                if (!audioRef.current) {
+                  audioRef.current = new Audio(recordingUrl);
+                  audioRef.current.onended = () => setPlaying(false);
+                }
+                audioRef.current.play().catch(() => {});
+                setPlaying(true);
+              }
+            }}
+          >
+            {playing ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+          </button>
+        )}
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           const callbackAt = (meta as Record<string, unknown>).callback_at as string | undefined;
@@ -174,6 +199,7 @@ export default function Leads() {
   const [filterStage, setFilterStage] = useState('all');
   const [loading, setLoading] = useState(true);
   const [paidCustomerIds, setPaidCustomerIds] = useState<Set<string>>(new Set());
+  const [recordingMap, setRecordingMap] = useState<Map<string, string>>(new Map());
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
   const [clientsPage, setClientsPage] = useState(1);
@@ -203,12 +229,13 @@ export default function Leads() {
 
   const loadAll = async () => {
     setLeadsPage(1); setProspectsPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, clientRes, monthlyRes, paidRes] = await Promise.all([
+    const [leadRes, prospectRes, clientRes, monthlyRes, paidRes, recRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('active'),
       buildQuery('monthly'),
       supabase.from('invoices').select('customer_id, status'),
+      supabase.from('communications').select('customer_id, body, metadata').eq('type', 'recording').eq('provider', 'ringcentral').order('created_at', { ascending: false }),
     ]);
     // Build set of customer IDs where ALL invoices are 'paid'
     const invoicesByCustomer = new Map<string, boolean>();
@@ -220,6 +247,16 @@ export default function Leads() {
     const paidIds = new Set<string>();
     invoicesByCustomer.forEach((allPaid, cid) => { if (allPaid) paidIds.add(cid); });
     setPaidCustomerIds(paidIds);
+
+    // Build map of customer_id → most recent recording URL
+    const recMap = new Map<string, string>();
+    (recRes.data || []).forEach((rec: any) => {
+      if (rec.customer_id && !recMap.has(rec.customer_id)) {
+        const url = (rec.metadata as any)?.recording_url || rec.body;
+        if (url) recMap.set(rec.customer_id, url);
+      }
+    });
+    setRecordingMap(recMap);
 
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
@@ -581,7 +618,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="leads-column">
                 {pagedLeads.map(lead => (
-                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} isPaid={paidCustomerIds.has(lead.id)} />
+                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} />
                 ))}
                 {leads.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -603,7 +640,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="prospects-column">
                 {pagedProspects.map(prospect => (
-                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect isPaid={paidCustomerIds.has(prospect.id)} />
+                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect isPaid={paidCustomerIds.has(prospect.id)} recordingUrl={recordingMap.get(prospect.id)} />
                 ))}
                 {prospects.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -625,7 +662,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="clients-column">
                 {pagedClients.map(client => (
-                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} isProspect isPaid={paidCustomerIds.has(client.id)} />
+                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} isProspect isPaid={paidCustomerIds.has(client.id)} recordingUrl={recordingMap.get(client.id)} />
                 ))}
                 {clients.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -647,7 +684,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="monthly-column">
                 {pagedMonthly.map(m => (
-                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} isPaid={paidCustomerIds.has(m.id)} />
+                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} isPaid={paidCustomerIds.has(m.id)} recordingUrl={recordingMap.get(m.id)} />
                 ))}
                 {monthly.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
