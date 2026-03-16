@@ -411,6 +411,9 @@ export default function Leads() {
       meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv', ai_website: form.ai_website || null },
     }).eq('id', selected.id);
     if (error) { toast.error(error.message); return; }
+    if (form.ai_website) {
+      await upsertAiPreview(selected.id, form.ai_website, form.full_name.trim());
+    }
     toast.success('Lead updated');
     setEditing(false); setSelected(null); setForm(emptyForm); loadAll();
   };
