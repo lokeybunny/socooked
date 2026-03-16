@@ -420,7 +420,7 @@ export default function Leads() {
             </Button>
             <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
-              <DialogContent className="max-h-[85vh] overflow-y-auto">
+              <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
                 <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
               </DialogContent>
@@ -525,7 +525,7 @@ export default function Leads() {
 
         {selected && (
           <Dialog open onOpenChange={() => { setSelected(null); setEditing(false); setForm(emptyForm); }}>
-            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <User className="h-5 w-5 text-primary" />
@@ -612,23 +612,23 @@ export default function Leads() {
                     <CalendarClock className="h-3.5 w-3.5 mr-1" />Schedule Call Back
                   </Button>
 
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-                    {selected.status === 'lead' && (
-                      <Button onClick={() => promote(selected.id)} className="flex-1"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
-                    )}
-                    {selected.status === 'prospect' && (
-                      <>
-                        <Button variant="outline" onClick={() => demote(selected.id)}><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
-                        <Button onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'prospect', 'active', selected.category); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="flex-1"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert to Client</Button>
-                      </>
-                    )}
-                    {selected.status === 'active' && (
-                      <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'prospect', selected.category); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="flex-1"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
-                    )}
-                    <Button variant="outline" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
-                    <Button variant="outline" onClick={() => dismiss(selected.id)}>Dismiss</Button>
-                    <Button variant="destructive" size="icon" onClick={() => handleDelete(selected.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                  </div>
+                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+                     {selected.status === 'lead' && (
+                       <Button onClick={() => promote(selected.id)} className="col-span-2"><ArrowRight className="h-3.5 w-3.5 mr-1" />Promote</Button>
+                     )}
+                     {selected.status === 'prospect' && (
+                       <>
+                         <Button variant="outline" onClick={() => demote(selected.id)} className="text-xs"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Lead</Button>
+                         <Button onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'prospect', 'active', selected.category); toast.success('Converted to client'); setSelected(null); loadAll(); }} className="text-xs"><UserPlus className="h-3.5 w-3.5 mr-1" />Convert</Button>
+                       </>
+                     )}
+                     {selected.status === 'active' && (
+                       <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'prospect', selected.category); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="col-span-2 text-xs"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
+                     )}
+                     <Button variant="outline" size="sm" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
+                     <Button variant="outline" size="sm" onClick={() => dismiss(selected.id)}>Dismiss</Button>
+                     <Button variant="destructive" size="sm" className="col-span-2" onClick={() => handleDelete(selected.id)}><Trash2 className="h-3.5 w-3.5 mr-1" />Delete</Button>
+                   </div>
                 </div>
               )}
             </DialogContent>
