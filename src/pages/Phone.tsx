@@ -630,6 +630,24 @@ export default function PhonePage() {
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
 
+  // Callback reminder — check every 30s for leads whose callback_at has arrived
+  useEffect(() => {
+    const checkCallbacks = () => {
+      const now = new Date().toISOString();
+      for (const lead of leads) {
+        const meta = typeof lead.meta === 'object' ? lead.meta : {};
+        if (meta?.callback_at && meta.callback_at <= now && !callbackReminderShown.current.has(lead.id)) {
+          callbackReminderShown.current.add(lead.id);
+          setCallbackReminder(lead);
+          break;
+        }
+      }
+    };
+    checkCallbacks();
+    const interval = setInterval(checkCallbacks, 30000);
+    return () => clearInterval(interval);
+  }, [leads]);
+
   // Analyze lead — full audit pipeline: find website/IG → scrape → generate PDF → download
   const handleAnalyzeLead = async (targetLead?: any) => {
     const lead = targetLead || currentLead;
