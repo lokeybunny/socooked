@@ -305,7 +305,7 @@ export default function EmailPage() {
         attachments: allAttachments.length > 0 ? allAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
       });
       toast.success('Email sent!');
-      setComposeOpen(false); setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false);
+      setComposeOpen(false); setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false); setMaintenanceChecked(false);
       if (activeTab === 'sent') loadEmails('sent');
     } catch (e: any) { toast.error(e.message || 'Failed to send'); }
     finally { setSending(false); }
