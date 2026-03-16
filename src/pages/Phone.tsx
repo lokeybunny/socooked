@@ -250,6 +250,8 @@ export default function PhonePage() {
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
     const leadObj = leads.find(l => l.id === leadId);
     const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+    const meta = leadObj?.meta && typeof leadObj.meta === 'object' ? leadObj.meta : {};
+    const hasAiWebsite = !!(meta as any).ai_website;
 
     // ── 1. Update deal to Qualified ──
     const { data: existingDeal } = await supabase
@@ -278,13 +280,14 @@ export default function PhonePage() {
       }
     }
 
-    // ── 2. Update customer status ──
+    // ── 2. Update customer status to prospect ──
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', leadId);
-    toast.success(`${leadName} marked as Interested — moved to Qualified`);
+    toast.success(`${leadName} moved to Prospects (pending websites)`);
 
-    // ── 3. Telegram Notification (direct call) ──
+    // ── 3. Telegram Notification — AI work required ──
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const aiStatus = hasAiWebsite ? '✅ AI Website already assigned' : '🔴 AI Website NEEDED — requires build ASAP';
     try {
       await fetch(`https://${projectId}.supabase.co/functions/v1/telegram-notify`, {
         method: 'POST',
@@ -292,30 +295,24 @@ export default function PhonePage() {
         body: JSON.stringify({
           entity_type: 'lead', action: 'created',
           meta: {
-            message: `⭐ *Interested Client*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n\n_Cold caller marked this lead as interested_`,
+            message: `⭐ *Interested Client — AI Work Required*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n${aiStatus}\n\n_Moved to Prospects Pending Websites_`,
             name: leadName,
           },
         }),
       });
     } catch (e) { console.error('Telegram notify error:', e); }
 
-    // Also log to activity_log for record keeping
+    // Log to activity_log
     await supabase.from('activity_log').insert({
       entity_type: 'lead', entity_id: leadId, action: 'created',
       meta: {
-        message: `⭐ *Interested Client*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n📧 ${leadObj?.email || 'No email'}\n📞 ${leadObj?.phone || 'No phone'}\n\n_Cold caller marked this lead as interested_`,
+        message: `⭐ *Interested Client — AI Work Required*\n👤 *${leadName}*\n📂 Category: *${catLabel}*\n${aiStatus}`,
         name: leadName,
       },
     });
 
     // ── 4. Remove from leads list ──
     setLeads(prev => prev.filter(l => l.id !== leadId));
-
-    // ── 5. Show Workflow Gate dialog instead of auto-firing everything ──
-    skipMeetingEmailRef.current = false;
-    setWorkflowGateLead(leadObj);
-    setWorkflowOpts({ audit: true, auditEmail: true, meetingEmail: true, schedule: true });
-    setWorkflowGateOpen(true);
   };
 
   // ── Execute selected workflow steps ──
