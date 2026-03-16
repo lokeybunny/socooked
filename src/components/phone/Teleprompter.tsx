@@ -99,6 +99,87 @@ function buildScript(lead: any | null, _competitors: string[]): { section: strin
         '"When\'s the best time to reach them?"',
       ],
     },
+    // ── OWNER ON THE PHONE ──
+    {
+      section: '━━━ OWNER ON THE PHONE ━━━',
+      lines: [''],
+    },
+    {
+      section: '📞 Step 1 — Get the Decision Maker',
+      lines: [
+        '"Hey, is this the owner?"',
+        '',
+        'If yes:',
+        '"Perfect. Who am I speaking with?"',
+        '',
+        'If they ask who you are first:',
+        '"This is Warren with STU25."',
+      ],
+    },
+    {
+      section: '🛡️ Step 2 — Disarming Opener',
+      lines: [
+        '"Hey [Name], I\'m gonna be upfront with you real quick."',
+        '"This may honestly be a good use of my time… or a complete waste of it."',
+        '',
+        '(pause a second — this usually makes them curious)',
+      ],
+    },
+    {
+      section: '🚫 Step 3 — Position Yourself as NOT Selling',
+      lines: [
+        '"I\'m not trying to sell you any shit, so don\'t worry about that."',
+        '',
+        '"I actually spent a few hours messing around with some AI tools and built a website specifically for your business."',
+      ],
+    },
+    {
+      section: '🎨 Step 4 — Personalization',
+      lines: [
+        '"I pulled some of the photos and info from your Craigslist ad and used that to design everything."',
+        '',
+        '"So it\'s literally customized around your business already."',
+      ],
+    },
+    {
+      section: '🎁 Step 5 — Remove Resistance',
+      lines: [
+        '"I\'m not selling the site to you."',
+        '"I\'ll actually give it to you for free."',
+      ],
+    },
+    {
+      section: '💰 Step 6 — Introduce the Money Angle',
+      lines: [
+        '"The only reason I\'m calling is because I figured we might be able to make some money together off it."',
+      ],
+    },
+    {
+      section: '📧 Step 7 — Simple Ask',
+      lines: [
+        '"Would you be open if I just emailed it to you so you can take a look?"',
+      ],
+    },
+    {
+      section: '🤝 Step 8 — Close',
+      lines: [
+        '"And if you actually like it, my partner and I can hop on a quick call and show you how we\'d get it live for you and how the revenue split works."',
+      ],
+    },
+    {
+      section: '🔑 Delivery Tips',
+      lines: [
+        'When reading this:',
+        '• Speak slow and relaxed',
+        '• Act like you might hang up at any moment',
+        '• Don\'t sound like a salesperson',
+        '• Sound like a guy with an opportunity',
+        '',
+        'The magic line is:',
+        '"This might be a waste of my time."',
+        'It disarms the business owner immediately.',
+      ],
+    },
   ];
 }
 
