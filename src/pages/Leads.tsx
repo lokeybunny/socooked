@@ -228,10 +228,12 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, isPros
 export default function Leads() {
   const [allLeads, setAllLeads] = useState<any[]>([]);
   const [allProspects, setAllProspects] = useState<any[]>([]);
+  const [allProspectEmailed, setAllProspectEmailed] = useState<any[]>([]);
   const [allClients, setAllClients] = useState<any[]>([]);
   const [allMonthly, setAllMonthly] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [prospects, setProspects] = useState<any[]>([]);
+  const [prospectEmailed, setProspectEmailed] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [monthly, setMonthly] = useState<any[]>([]);
   const [search, setSearch] = useState('');
