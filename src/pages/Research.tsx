@@ -38,7 +38,6 @@ const XIcon = ({ className }: { className?: string }) => (
 interface SourceCategory { id: string; label: string; icon: LucideIcon | (({ className }: { className?: string }) => JSX.Element); description: string }
 
 const RESEARCH_SOURCES: SourceCategory[] = [
-  { id: 'google-maps', label: 'Google Maps', icon: MapPin, description: 'Local businesses, reviews & map listings' },
   { id: 'craigslist', label: 'Craigslist', icon: Search, description: 'Leads sourced from Craigslist postings' },
 ];
 
