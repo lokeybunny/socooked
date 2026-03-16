@@ -133,6 +133,7 @@ export default function Leads() {
   const [filterSource, setFilterSource] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [paidCustomerIds, setPaidCustomerIds] = useState<Set<string>>(new Set());
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
   const [clientsPage, setClientsPage] = useState(1);
