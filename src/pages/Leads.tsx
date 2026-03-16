@@ -131,6 +131,10 @@ export default function Leads() {
   const [form, setForm] = useState(emptyForm);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<{ id: string; name: string; fromStatus: string; action: 'dismiss' | 'delete' | 'move' } | null>(null);
+  const [callbackOpen, setCallbackOpen] = useState(false);
+  const [callbackDate, setCallbackDate] = useState<Date | undefined>(undefined);
+  const [callbackTime, setCallbackTime] = useState('10:00');
+  const [callbackTarget, setCallbackTarget] = useState<any>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
