@@ -608,7 +608,7 @@ export default function Leads() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 flex-wrap">
                     {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
-                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status}</span>
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : selected.status === 'monthly' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status === 'monthly' ? 'monthly client' : selected.status}</span>
                     <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">{getCategoryLabel(selected.category)}</span>
                   </div>
 
