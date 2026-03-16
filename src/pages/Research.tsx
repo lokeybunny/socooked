@@ -500,7 +500,7 @@ export default function Research() {
           });
           const respData = await resp.json().catch(() => ({}));
           console.log(`[CL-Stop] Abort response for ${runId}:`, resp.status, respData);
-          if (!resp.ok && attempt < 3) {
+          if (!resp.ok && resp.status !== 207 && attempt < 3) {
             await new Promise(r => setTimeout(r, 1000 * attempt));
             return abortRun(runId, attempt + 1);
           }
