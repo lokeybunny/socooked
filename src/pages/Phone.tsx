@@ -16,7 +16,6 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -59,7 +58,6 @@ export default function PhonePage() {
   const [transcriptions, setTranscriptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<any[]>([]);
-  const [leadsCategoryFilter, setLeadsCategoryFilter] = useState<string>('all');
   const [clSectionFilter, setClSectionFilter] = useState<string>('all');
   const [areaCodeFilter, setAreaCodeFilter] = useState<string>('');
   const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
@@ -304,7 +302,7 @@ export default function PhonePage() {
 
   const handleLeadInterested = async (leadId: string, leadName: string, leadCategory: string | null) => {
     const leadObj = leads.find(l => l.id === leadId);
-    const catLabel = SERVICE_CATEGORIES.find(c => c.id === (leadCategory || 'other'))?.label || 'Other';
+    const catLabel = leadCategory || 'Other';
     const meta = leadObj?.meta && typeof leadObj.meta === 'object' ? leadObj.meta : {};
     const hasAiWebsite = !!(meta as any).ai_website;
 
@@ -661,15 +659,14 @@ export default function PhonePage() {
     const now = new Date().toISOString();
     let result = leads.filter(l => {
       const meta = typeof l.meta === 'object' ? l.meta : {};
+      // Only show Craigslist leads by default
+      if (l.source !== 'craigslist') return false;
       // Hide busy leads until busy_until expires
       if (meta?.busy_until && meta.busy_until > now) return false;
       // Hide callback leads until callback_at arrives
       if (meta?.callback_at && meta.callback_at > now) return false;
       return true;
     });
-    if (leadsCategoryFilter !== 'all') {
-      result = result.filter(l => (l.category || 'other') === leadsCategoryFilter);
-    }
     if (clSectionFilter !== 'all') {
       result = result.filter(l => {
         if (l.source !== 'craigslist') return false;
@@ -687,7 +684,7 @@ export default function PhonePage() {
       });
     }
     return result;
-  }, [leads, leadsCategoryFilter, clSectionFilter, areaCodeFilter]);
+  }, [leads, clSectionFilter, areaCodeFilter]);
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
 
@@ -1413,24 +1410,6 @@ export default function PhonePage() {
                     {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
                     {analyzing ? 'Auditing...' : 'Analyze & Audit'}
                   </Button>
-                  <div className="w-44">
-                    <Select value={leadsCategoryFilter} onValueChange={v => { setLeadsCategoryFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="All categories" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {SERVICE_CATEGORIES.map(cat => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            <span className="flex items-center gap-2">
-                              <cat.icon className="h-3.5 w-3.5" />
-                              {cat.label}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div className="w-48">
                     <Select value={clSectionFilter} onValueChange={v => { setClSectionFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
                       <SelectTrigger className="h-8 text-xs">
