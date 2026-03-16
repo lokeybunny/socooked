@@ -421,7 +421,7 @@ export default function Leads() {
   };
 
   const promote = async (id: string) => {
-    const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
+    const contact = [...leads, ...prospects, ...prospectEmailed, ...clients].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', id);
     if (contact) await logStatusMove(contact.full_name, id, contact.status, 'prospect', contact.category);
     toast.success('Promoted to prospect'); setSelected(null); loadAll();
