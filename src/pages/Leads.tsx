@@ -163,12 +163,24 @@ export default function Leads() {
 
   const loadAll = async () => {
     setLeadsPage(1); setProspectsPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, clientRes, monthlyRes] = await Promise.all([
+    const [leadRes, prospectRes, clientRes, monthlyRes, paidRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('active'),
       buildQuery('monthly'),
+      supabase.from('invoices').select('customer_id, status'),
     ]);
+    // Build set of customer IDs where ALL invoices are 'paid'
+    const invoicesByCustomer = new Map<string, boolean>();
+    (paidRes.data || []).forEach((inv: any) => {
+      const cid = inv.customer_id;
+      if (!invoicesByCustomer.has(cid)) invoicesByCustomer.set(cid, true);
+      if (inv.status !== 'paid') invoicesByCustomer.set(cid, false);
+    });
+    const paidIds = new Set<string>();
+    invoicesByCustomer.forEach((allPaid, cid) => { if (allPaid) paidIds.add(cid); });
+    setPaidCustomerIds(paidIds);
+
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
     setAllClients(clientRes.data || []);
