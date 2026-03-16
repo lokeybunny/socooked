@@ -74,7 +74,12 @@ export default function Customers() {
     setLoading(false);
   };
 
-  useEffect(() => { loadAll(); }, [search, filterStatus, filterCategory]);
+  useEffect(() => { loadAll(); }, [search, filterStatus, filterCategory, page]);
+
+  // Reset to page 0 when filters change
+  useEffect(() => { setPage(0); }, [search, filterStatus, filterCategory]);
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   useEffect(() => {
     const openId = searchParams.get('open');
