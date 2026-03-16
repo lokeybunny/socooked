@@ -660,15 +660,14 @@ export default function PhonePage() {
     const now = new Date().toISOString();
     let result = leads.filter(l => {
       const meta = typeof l.meta === 'object' ? l.meta : {};
+      // Only show Craigslist leads by default
+      if (l.source !== 'craigslist') return false;
       // Hide busy leads until busy_until expires
       if (meta?.busy_until && meta.busy_until > now) return false;
       // Hide callback leads until callback_at arrives
       if (meta?.callback_at && meta.callback_at > now) return false;
       return true;
     });
-    if (leadsCategoryFilter !== 'all') {
-      result = result.filter(l => (l.category || 'other') === leadsCategoryFilter);
-    }
     if (clSectionFilter !== 'all') {
       result = result.filter(l => {
         if (l.source !== 'craigslist') return false;
@@ -686,7 +685,7 @@ export default function PhonePage() {
       });
     }
     return result;
-  }, [leads, leadsCategoryFilter, clSectionFilter, areaCodeFilter]);
+  }, [leads, clSectionFilter, areaCodeFilter]);
 
   const currentLead = filteredLeads.length > 0 ? filteredLeads[currentLeadIndex % filteredLeads.length] : null;
 
