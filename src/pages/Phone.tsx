@@ -1438,6 +1438,11 @@ export default function PhonePage() {
                                   </Badge>
                                 )
                               )}
+                              {lead.source === 'craigslist' && meta?.craigslist_url && (
+                                <a href={meta.craigslist_url} target="_blank" rel="noopener noreferrer" title="View Craigslist posting" className="shrink-0 text-purple-500 hover:text-purple-400 transition-colors">
+                                  <ExternalLink className="h-4 w-4" />
+                                </a>
+                              )}
                               {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy (24h)</Badge>}
                               {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">{callbackLabel}</Badge>}
                               {(typeof lead.meta === 'object' && lead.meta?.analyzed) && (
