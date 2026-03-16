@@ -9,6 +9,7 @@ import FinancialReports from '@/components/dashboard/FinancialReports';
 interface Stats {
   customers: number;
   prospectCount: number;
+  prospectEmailedCount: number;
   monthlyCount: number;
   clientCount: number;
   actualTotalCustomers: number;
