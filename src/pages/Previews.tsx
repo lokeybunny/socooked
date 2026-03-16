@@ -398,6 +398,7 @@ export default function Previews() {
             </Button>
           </div>
         ) : (
+          <>
           <div className="space-y-2">
             {sortedGroups.map(([clientId, group]) => {
               const isExpanded = expandedClients.has(clientId);
