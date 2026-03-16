@@ -1474,6 +1474,11 @@ export default function PhonePage() {
                               )}
                               {noteTag === 'busy' && <Badge variant="outline" className="text-[9px] h-4 border-yellow-500/40 text-yellow-600">Busy (24h)</Badge>}
                               {noteTag === 'callback' && <Badge variant="outline" className="text-[9px] h-4 border-blue-500/40 text-blue-500">{callbackLabel}</Badge>}
+                              {lead.status === 'prospect' && (
+                                <Badge variant="outline" className="text-[9px] h-4 border-destructive/40 text-destructive gap-0.5 animate-pulse">
+                                  <Star className="h-2.5 w-2.5" /> Callback Prospect
+                                </Badge>
+                              )}
                               {(typeof lead.meta === 'object' && lead.meta?.analyzed) && (
                                 <Badge variant="outline" className="text-[9px] h-4 border-green-500/40 text-green-600 gap-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); handleSendReport(lead); }}>
                                   <Check className="h-2.5 w-2.5" /> Audited
