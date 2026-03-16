@@ -119,8 +119,9 @@ async function syncCraigslistResults({
     );
     const phone = phoneNumbers[0] || null;
     const email = extractEmail(postBody);
-    const website = extractWebsite(postBody);
-    const hasWebsite = !!website;
+    const allWebsites = extractAllWebsites(postBody);
+    const website = allWebsites[0] || null;
+    const hasWebsite = allWebsites.length > 0;
 
     if (emitPosts && send) {
       send("post", {
