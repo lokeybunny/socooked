@@ -378,11 +378,9 @@ export default function Leads() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
           <div className="flex gap-2">
-            {lastAction && (
-              <Button variant="outline" onClick={undoLastAction}>
-                <Undo2 className="h-4 w-4 mr-2" />Undo ({lastAction.name})
-              </Button>
-            )}
+            <Button variant="outline" onClick={undoLastAction} disabled={!lastAction}>
+              <Undo2 className="h-4 w-4 mr-2" />{lastAction ? `Undo (${lastAction.name})` : 'Undo'}
+            </Button>
             <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
               <DialogContent className="max-h-[85vh] overflow-y-auto">
