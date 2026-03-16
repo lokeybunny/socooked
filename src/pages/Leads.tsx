@@ -377,13 +377,20 @@ export default function Leads() {
         <h1 className="text-2xl font-bold text-foreground">Leads Pipeline</h1>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
-          <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
-            <DialogContent className="max-h-[85vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
-              <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            {lastAction && (
+              <Button variant="outline" onClick={undoLastAction}>
+                <Undo2 className="h-4 w-4 mr-2" />Undo ({lastAction.name})
+              </Button>
+            )}
+            <Dialog open={addOpen} onOpenChange={o => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
+              <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
+              <DialogContent className="max-h-[85vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
+                <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
