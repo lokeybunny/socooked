@@ -55,7 +55,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean }) {
+function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean; isPaid?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
