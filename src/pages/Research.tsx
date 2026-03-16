@@ -235,14 +235,6 @@ export default function Research() {
   const [yelpCreatedCount, setYelpCreatedCount] = useState(0);
   const [yelpHasSearched, setYelpHasSearched] = useState(false);
 
-  // Google Maps Finder state
-  const [gmapsSearchTerms, setGmapsSearchTerms] = useState('');
-  const [gmapsLocation, setGmapsLocation] = useState('');
-  const [gmapsMaxItems, setGmapsMaxItems] = useState('30');
-  const [gmapsSearching, setGmapsSearching] = useState(false);
-  const [gmapsResults, setGmapsResults] = useState<any[]>([]);
-  const [gmapsCreatedCount, setGmapsCreatedCount] = useState(0);
-  const [gmapsHasSearched, setGmapsHasSearched] = useState(false);
 
   // Resume CL polling if a run was active when user navigated away
   useEffect(() => {
