@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock, ChevronUp, Play, Square } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock, ChevronUp, Play, Square, Send, Gift, FileEdit, Paperclip, X } from 'lucide-react';
 import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
@@ -16,6 +16,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
 import { format } from 'date-fns';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const DISPLAY_CATEGORIES = SERVICE_CATEGORIES.filter(c => c.id !== 'potential');
 const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '', source: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '', ai_website: '' };
@@ -55,7 +56,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid, recordingUrl }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string }) {
+function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, isProspect, isPaid, recordingUrl }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const [minimized, setMinimized] = useState(isPaid ? true : false);
@@ -89,6 +90,16 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid, 
 
       <div className="flex items-center gap-2 px-6">
         <span className={cn("font-semibold truncate", isPaid ? 'text-emerald-500' : isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
+        {/* Email icon — light blue */}
+        {contact.email && onEmailClick && (
+          <button
+            className="shrink-0 text-sky-400 hover:text-sky-300 transition-colors"
+            title="Send website email"
+            onClick={(e) => { e.stopPropagation(); onEmailClick(contact); }}
+          >
+            <Mail className="h-3.5 w-3.5" />
+          </button>
+        )}
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           const clUrl = (meta as Record<string, unknown>).craigslist_url as string | undefined;
@@ -244,6 +255,16 @@ export default function Leads() {
   const [callbackDate, setCallbackDate] = useState<Date | undefined>(undefined);
   const [callbackTime, setCallbackTime] = useState('10:00');
   const [callbackTarget, setCallbackTarget] = useState<any>(null);
+
+  // ── Website Email Composer state ──
+  const [emailComposeOpen, setEmailComposeOpen] = useState(false);
+  const [emailTarget, setEmailTarget] = useState<any>(null);
+  const [emailForm, setEmailForm] = useState({ to: '', subject: '', body: '' });
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailOfferA, setEmailOfferA] = useState(false);
+  const [emailOfferB, setEmailOfferB] = useState(false);
+  const [emailOfferC, setEmailOfferC] = useState(false);
+  const [emailAttachments, setEmailAttachments] = useState<{ filename: string; mimeType: string; data: string; size: number }[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -461,6 +482,145 @@ export default function Leads() {
     setEditing(true);
   };
 
+  // ── Website Email Composer helpers ──
+  const OFFER_A_HTML = `
+<br/><hr style="border:none;border-top:1px solid #ccc;margin:24px 0"/>
+<h3 style="margin-bottom:8px;">Option A — Own It Outright</h3>
+<p>Your website is fully built and ready to go — completely free of charge. The only cost is the domain registration and hosting transfer fee of <strong>$10.41/month billed biannually</strong> (2 years of hosting &amp; domain for $250). There are no payment splits, no revenue sharing — the site is 100% yours.</p>`;
+
+  const OFFER_B_HTML = `
+<br/><hr style="border:none;border-top:1px solid #ccc;margin:24px 0"/>
+<h3 style="margin-bottom:8px;">Option B — Warren Covers Everything</h3>
+<p>Warren / STU25 will pay the entire $250 domain &amp; hosting cost on your behalf and fully build the website at no charge to you. In return, a payment gateway will be set up on the site where <strong>30% of all credit-card payments</strong> coming through the website go to Warren and <strong>you keep 70%</strong>. This split exists because Warren is covering the full cost of the website creation, domain registration, and hosting so you have zero out-of-pocket expense.</p>`;
+
+  const OFFER_C_HTML = `
+<br/><hr style="border:none;border-top:1px solid #ccc;margin:24px 0"/>
+<h3 style="margin-bottom:8px;">Option C — Unlimited Website Updates</h3>
+<p>For just <strong>$250/month</strong>, get unlimited additions and changes to your website. Simply email us your requests, and we'll get it done within 24 hours.</p>
+<ul style="margin:12px 0;padding-left:20px;">
+<li>Unlimited additions &amp; changes to your website</li>
+<li>Must be paid upfront after website is live</li>
+<li>Works with the "Own It Outright" Deal (Option A) or the Partnership Deal (Option B)</li>
+</ul>`;
+
+  const loadOfferAttachment = async (): Promise<{ filename: string; mimeType: string; data: string; size: number } | null> => {
+    try {
+      const res = await fetch('/images/offer-options.png');
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ filename: 'Website-Offer-Options.png', mimeType: 'image/png', data: base64, size: blob.size });
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch { return null; }
+  };
+
+  const loadMaintenanceAttachment = async (): Promise<{ filename: string; mimeType: string; data: string; size: number } | null> => {
+    try {
+      const res = await fetch('/images/option-c-maintenance.png');
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ filename: 'Option-C-Maintenance.png', mimeType: 'image/png', data: base64, size: blob.size });
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch { return null; }
+  };
+
+  const openEmailComposer = (contact: any) => {
+    const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta as Record<string, any> : {};
+    const aiWebsite = meta.ai_website ? String(meta.ai_website) : '';
+    const websiteUrl = aiWebsite.startsWith('http') ? aiWebsite : aiWebsite ? `https://${aiWebsite}` : '';
+    const firstName = contact.full_name?.split(' ')[0] || contact.full_name || 'there';
+
+    const subject = `Your Free Custom Website is Ready — ${contact.full_name}`;
+    const body = `<p>Hi ${firstName},</p>
+
+<p>I hope this message finds you well! I wanted to reach out personally because I built a <strong>completely free custom website</strong> for your business.</p>
+
+${websiteUrl ? `<p>🔗 <strong>Your website preview:</strong> <a href="${websiteUrl}">${websiteUrl}</a></p>` : '<p><em>(Website link will be added here)</em></p>'}
+
+<p>This is a fully designed, mobile-responsive website tailored specifically to what you do. It's ready to go live — no cost, no obligation to look at it.</p>
+
+<p>I'd love to walk you through it and discuss a couple of simple options for getting it live on your own domain. Would you have a few minutes this week for a quick call or video chat?</p>
+
+<p>Looking forward to hearing from you!</p>
+
+<p>Best regards,<br/>
+<strong>Warren</strong><br/>
+STU25 — Web &amp; Social Media Services<br/>
+warren@stu25.com</p>`;
+
+    setEmailTarget(contact);
+    setEmailForm({ to: contact.email || '', subject, body });
+    setEmailOfferA(false);
+    setEmailOfferB(false);
+    setEmailOfferC(false);
+    setEmailAttachments([]);
+    setEmailComposeOpen(true);
+  };
+
+  const handleEmailSend = async () => {
+    if (!emailForm.to || !emailForm.subject) { toast.error('Email and subject required'); return; }
+    setEmailSending(true);
+    try {
+      let finalBody = emailForm.body;
+      const allAtt = [...emailAttachments];
+
+      if (emailOfferA || emailOfferB) {
+        if (emailOfferA) finalBody += OFFER_A_HTML;
+        if (emailOfferB) finalBody += OFFER_B_HTML;
+        const att = await loadOfferAttachment();
+        if (att && !allAtt.some(a => a.filename === att.filename)) allAtt.push(att);
+      }
+      if (emailOfferC) {
+        finalBody += OFFER_C_HTML;
+        const att = await loadMaintenanceAttachment();
+        if (att && !allAtt.some(a => a.filename === att.filename)) allAtt.push(att);
+      }
+
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/gmail-api?action=send`, {
+        method: 'POST',
+        headers: { 'apikey': anonKey, 'Authorization': `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: emailForm.to,
+          subject: emailForm.subject,
+          body: finalBody,
+          attachments: allAtt.length > 0 ? allAtt.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+
+      // Log to communications
+      await supabase.from('communications').insert({
+        type: 'email',
+        direction: 'outbound',
+        to_address: emailForm.to,
+        subject: emailForm.subject,
+        body: finalBody,
+        status: 'sent',
+        provider: 'leads-email-composer',
+        customer_id: emailTarget?.id || null,
+      });
+
+      toast.success(`Email sent to ${emailTarget?.full_name || emailForm.to}!`);
+      setEmailComposeOpen(false);
+      setEmailTarget(null);
+    } catch (e: any) { toast.error(e.message || 'Failed to send email'); }
+    finally { setEmailSending(false); }
+  };
+
   // Drag handlers
   const handleDragStart = (event: DragStartEvent) => setActiveId(event.active.id as string);
 
@@ -655,7 +815,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="leads-column">
                 {pagedLeads.map(lead => (
-                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} />
+                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} />
                 ))}
                 {leads.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -677,7 +837,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="prospects-column">
                 {pagedProspects.map(prospect => (
-                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect isPaid={paidCustomerIds.has(prospect.id)} recordingUrl={recordingMap.get(prospect.id)} />
+                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isProspect isPaid={paidCustomerIds.has(prospect.id)} recordingUrl={recordingMap.get(prospect.id)} />
                 ))}
                 {prospects.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -699,7 +859,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="clients-column">
                 {pagedClients.map(client => (
-                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} isProspect isPaid={paidCustomerIds.has(client.id)} recordingUrl={recordingMap.get(client.id)} />
+                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isProspect isPaid={paidCustomerIds.has(client.id)} recordingUrl={recordingMap.get(client.id)} />
                 ))}
                 {clients.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -721,7 +881,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="monthly-column">
                 {pagedMonthly.map(m => (
-                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} isPaid={paidCustomerIds.has(m.id)} recordingUrl={recordingMap.get(m.id)} />
+                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isPaid={paidCustomerIds.has(m.id)} recordingUrl={recordingMap.get(m.id)} />
                 ))}
                 {monthly.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -912,6 +1072,104 @@ export default function Leads() {
                 <CalendarClock className="h-4 w-4" />Schedule
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Website Email Composer Dialog ── */}
+        <Dialog open={emailComposeOpen} onOpenChange={setEmailComposeOpen}>
+          <DialogContent className="sm:max-w-[650px] max-h-[92vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-sky-400" />
+                Send Website Email — {emailTarget?.full_name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>To</Label>
+                <Input value={emailForm.to} onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })} placeholder="recipient@email.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>Subject</Label>
+                <Input value={emailForm.subject} onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Body (HTML)</Label>
+                <textarea
+                  value={emailForm.body}
+                  onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                  className="flex min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </div>
+
+              {/* AI Website Preview */}
+              {(() => {
+                const meta = emailTarget?.meta && typeof emailTarget.meta === 'object' ? emailTarget.meta as Record<string, any> : {};
+                const aiSite = meta.ai_website;
+                if (!aiSite) return (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                    ⚠️ No AI website URL set for this contact. Add one via Edit first.
+                  </div>
+                );
+                const href = String(aiSite).startsWith('http') ? String(aiSite) : `https://${aiSite}`;
+                return (
+                  <div className="rounded-md border border-sky-500/20 bg-sky-500/5 p-3 text-xs text-muted-foreground flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-sky-400 shrink-0" />
+                    <span>Website: <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{String(aiSite)}</a></span>
+                  </div>
+                );
+              })()}
+
+              {/* Offer Options */}
+              <div className="space-y-2 border-t border-border pt-3">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Signature Options (attach to email)</Label>
+
+                <div className="flex items-center gap-2 py-1">
+                  <Checkbox id="email-offer-a" checked={emailOfferA} onCheckedChange={v => setEmailOfferA(!!v)} />
+                  <label htmlFor="email-offer-a" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                    <Gift className="h-4 w-4 text-primary" /> Option A — Own It Outright ($10.41/mo)
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2 py-1">
+                  <Checkbox id="email-offer-b" checked={emailOfferB} onCheckedChange={v => setEmailOfferB(!!v)} />
+                  <label htmlFor="email-offer-b" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                    <Gift className="h-4 w-4 text-primary" /> Option B — Warren Covers Everything (70/30 split)
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2 py-1">
+                  <Checkbox id="email-offer-c" checked={emailOfferC} onCheckedChange={v => setEmailOfferC(!!v)} />
+                  <label htmlFor="email-offer-c" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                    <Gift className="h-4 w-4 text-primary" /> Option C — $250/mo Unlimited Updates
+                  </label>
+                </div>
+
+                {(emailOfferA || emailOfferB) && (
+                  <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground space-y-1">
+                    {emailOfferA && <p><strong>Option A:</strong> Client pays $10.41/mo (biannual) for domain & hosting — no revenue split, site is 100% theirs.</p>}
+                    {emailOfferB && <p><strong>Option B:</strong> Warren covers the $250 — 70/30 split on website payments (client 70%, Warren 30%).</p>}
+                    <p className="italic">The offer graphic will be auto-attached.</p>
+                    <img src="/images/offer-options.png" alt="Website Offer Options" className="mt-2 rounded-md border border-border max-h-32 object-contain" />
+                  </div>
+                )}
+
+                {emailOfferC && (
+                  <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground space-y-1">
+                    <p><strong>Option C:</strong> $250/month for unlimited website additions & changes — requests completed within 24 hours.</p>
+                    <p className="italic">The Option C graphic will be auto-attached.</p>
+                    <img src="/images/option-c-maintenance.png" alt="Option C Maintenance" className="mt-2 rounded-md border border-border max-h-32 object-contain" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setEmailComposeOpen(false)}>Cancel</Button>
+                <Button onClick={handleEmailSend} disabled={emailSending || !emailForm.to} className="gap-1.5">
+                  <Send className="h-4 w-4" /> {emailSending ? 'Sending...' : 'Send Email'}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
