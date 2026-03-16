@@ -88,7 +88,7 @@ const App = () => (
             <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
             <Route path="/customers" element={<RestrictedGate><Customers /></RestrictedGate>} />
             <Route path="/leads" element={<RestrictedGate><Leads /></RestrictedGate>} />
-            <Route path="/projects" element={<RestrictedGate><Projects /></RestrictedGate>} />
+            
             <Route path="/tasks" element={<RestrictedGate><Tasks /></RestrictedGate>} />
             <Route path="/content" element={<RestrictedGate><Content /></RestrictedGate>} />
             <Route path="/content/upload/:customerId" element={<RestrictedGate><CustomerUpload /></RestrictedGate>} />
