@@ -1227,13 +1227,27 @@ export default function Research() {
                 )}
               </div>
 
-              <Button onClick={handleCraigslistSearch} disabled={clSearching} className="w-full">
-                {clSearching ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scraping {CL_SECTIONS.find(s => s.value === clSelectedSection)?.label} in {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label}…</>
-                ) : (
-                  <><Search className="h-4 w-4 mr-2" /> Scrape {CL_SECTIONS.find(s => s.value === clSelectedSection)?.label} — {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label}</>
+              <div className="flex gap-2">
+                <Button onClick={handleCraigslistSearch} disabled={clSearching} className="flex-1">
+                  {clSearching ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Scraping {CL_SECTIONS.find(s => s.value === clSelectedSection)?.label}…</>
+                  ) : (
+                    <><Search className="h-4 w-4 mr-2" /> Scrape {CL_SECTIONS.find(s => s.value === clSelectedSection)?.label} — {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label}</>
+                  )}
+                </Button>
+                {clSearching && (
+                  <Button variant="destructive" onClick={handleCraigslistStop} className="shrink-0">
+                    Stop
+                  </Button>
                 )}
-              </Button>
+              </div>
+
+              {clSearching && clProgressMsg && (
+                <div className="text-xs text-muted-foreground text-center py-1 animate-pulse">
+                  {clProgressMsg}
+                  {clCreatedCount > 0 && ` · ${clCreatedCount} leads added`}
+                </div>
+              )}
 
               {clHasSearched && !clSearching && (
                 <div className="text-sm text-muted-foreground text-center py-2">
