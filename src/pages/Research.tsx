@@ -968,7 +968,7 @@ export default function Research() {
   const sourceIcon = (cat: string, className?: string) => {
     const cls = className || 'h-3 w-3';
     switch (cat) {
-      case 'google-maps': return <MapPin className={cls} />;
+      case 'craigslist': return <Search className={cls} />;
       case 'yelp': return <Star className={cls} />;
       case 'instagram': return <Instagram className={cls} />;
       default: return <Search className={cls} />;
