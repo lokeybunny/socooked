@@ -1258,6 +1258,34 @@ warren@stu25.com</p>`;
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* SMS Confirm Dialog */}
+        <Dialog open={smsConfirmOpen} onOpenChange={setSmsConfirmOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-blue-400" />
+                Confirm Text Message Sent
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-muted-foreground">
+                Have you sent the text message to <strong>{smsConfirmTarget?.full_name}</strong> showing them their website?
+              </p>
+              {smsConfirmTarget?.phone && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5" /> {smsConfirmTarget.phone}
+                </p>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setSmsConfirmOpen(false); setSmsConfirmTarget(null); }}>No, Cancel</Button>
+                <Button onClick={handleSmsConfirmYes} disabled={smsConfirming} className="gap-1.5 bg-blue-500 hover:bg-blue-600 text-white">
+                  <MessageSquare className="h-4 w-4" /> {smsConfirming ? 'Moving...' : 'Yes, Text Sent'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
