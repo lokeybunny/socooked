@@ -102,8 +102,9 @@ async function syncCraigslistResults({
       .eq("phone", phone)
       .limit(1);
     if (phoneExists && phoneExists.length > 0) {
+      duplicateCount++;
       if (send) {
-        send("duplicate", { index: idx, phone, title: postTitle, existing_id: phoneExists[0].id });
+        send("duplicate", { index: idx, phone, title: postTitle, existing_id: phoneExists[0].id, duplicate_count: duplicateCount });
       }
       continue;
     }
