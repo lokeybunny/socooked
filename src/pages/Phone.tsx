@@ -184,7 +184,7 @@ export default function PhonePage() {
         .order('updated_at', { ascending: false });
       setInterestedProspects(prospects || []);
     }
-  }, []);
+  }, [user?.email]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
