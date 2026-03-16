@@ -384,7 +384,7 @@ Deno.serve(async (req) => {
             });
 
             console.log(`CL-Finder: done. ${createdCount} new leads from ${totalFound} posts`);
-            send("complete", { total_found: totalFound, created_count: createdCount });
+            send("complete", { total_found: totalFound, created_count: createdCount, duplicate_count: duplicateCount });
           } catch (err: any) {
             console.error("CL-Finder stream error:", err);
             send("error", { message: err.message || "Unknown error" });
