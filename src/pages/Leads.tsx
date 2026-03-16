@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock, ChevronUp, Play, Square, Send, Gift, FileEdit, Paperclip, X } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock, ChevronUp, Play, Square, Send, Gift, FileEdit, Paperclip, X, MessageSquare } from 'lucide-react';
 import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
 import { toast } from 'sonner';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDroppable, pointerWithin } from '@dnd-kit/core';
@@ -56,7 +56,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, isProspect, isPaid, recordingUrl }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string }) {
+function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, recordingUrl }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const [minimized, setMinimized] = useState(isPaid ? true : false);
@@ -98,6 +98,16 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, isPros
             onClick={(e) => { e.stopPropagation(); onEmailClick(contact); }}
           >
             <Mail className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {/* SMS confirm icon — blue */}
+        {contact.phone && onSmsConfirm && (
+          <button
+            className="shrink-0 text-blue-400 hover:text-blue-300 transition-colors"
+            title="Confirm text sent"
+            onClick={(e) => { e.stopPropagation(); onSmsConfirm(contact); }}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
           </button>
         )}
         {(() => {
@@ -268,6 +278,32 @@ export default function Leads() {
   const [emailOfferB, setEmailOfferB] = useState(false);
   const [emailOfferC, setEmailOfferC] = useState(false);
   const [emailAttachments, setEmailAttachments] = useState<{ filename: string; mimeType: string; data: string; size: number }[]>([]);
+
+  // ── SMS Confirm state ──
+  const [smsConfirmOpen, setSmsConfirmOpen] = useState(false);
+  const [smsConfirmTarget, setSmsConfirmTarget] = useState<any>(null);
+  const [smsConfirming, setSmsConfirming] = useState(false);
+
+  const openSmsConfirm = (contact: any) => {
+    setSmsConfirmTarget(contact);
+    setSmsConfirmOpen(true);
+  };
+
+  const handleSmsConfirmYes = async () => {
+    if (!smsConfirmTarget?.id) return;
+    setSmsConfirming(true);
+    try {
+      const prevStatus = smsConfirmTarget.status || 'prospect';
+      const { error } = await supabase.from('customers').update({ status: 'prospect_emailed' }).eq('id', smsConfirmTarget.id);
+      if (error) { toast.error('Failed to move customer'); return; }
+      await logStatusMove(smsConfirmTarget.full_name, smsConfirmTarget.id, prevStatus, 'prospect_emailed', smsConfirmTarget.category);
+      toast.success(`${smsConfirmTarget.full_name} moved to AI Site Completed`);
+      setSmsConfirmOpen(false);
+      setSmsConfirmTarget(null);
+      loadAll();
+    } catch (e: any) { toast.error(e.message || 'Failed'); }
+    finally { setSmsConfirming(false); }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -843,7 +879,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="leads-column">
                 {pagedLeads.map(lead => (
-                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} />
+                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} />
                 ))}
                 {leads.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -865,7 +901,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="prospects-column">
                 {pagedProspects.map(prospect => (
-                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isProspect isPaid={paidCustomerIds.has(prospect.id)} recordingUrl={recordingMap.get(prospect.id)} />
+                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(prospect.id)} recordingUrl={recordingMap.get(prospect.id)} />
                 ))}
                 {prospects.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -887,7 +923,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="prospect-emailed-column">
                 {pagedProspectEmailed.map(pe => (
-                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isProspect isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} />
+                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} />
                 ))}
                 {prospectEmailed.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -909,7 +945,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="clients-column">
                 {pagedClients.map(client => (
-                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isProspect isPaid={paidCustomerIds.has(client.id)} recordingUrl={recordingMap.get(client.id)} />
+                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(client.id)} recordingUrl={recordingMap.get(client.id)} />
                 ))}
                 {clients.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -931,7 +967,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="monthly-column">
                 {pagedMonthly.map(m => (
-                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isPaid={paidCustomerIds.has(m.id)} recordingUrl={recordingMap.get(m.id)} />
+                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(m.id)} recordingUrl={recordingMap.get(m.id)} />
                 ))}
                 {monthly.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -1217,6 +1253,34 @@ warren@stu25.com</p>`;
                 <Button variant="outline" onClick={() => setEmailComposeOpen(false)}>Cancel</Button>
                 <Button onClick={handleEmailSend} disabled={emailSending || !emailForm.to} className="gap-1.5">
                   <Send className="h-4 w-4" /> {emailSending ? 'Sending...' : 'Send Email'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* SMS Confirm Dialog */}
+        <Dialog open={smsConfirmOpen} onOpenChange={setSmsConfirmOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-blue-400" />
+                Confirm Text Message Sent
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-muted-foreground">
+                Have you sent the text message to <strong>{smsConfirmTarget?.full_name}</strong> showing them their website?
+              </p>
+              {smsConfirmTarget?.phone && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5" /> {smsConfirmTarget.phone}
+                </p>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setSmsConfirmOpen(false); setSmsConfirmTarget(null); }}>No, Cancel</Button>
+                <Button onClick={handleSmsConfirmYes} disabled={smsConfirming} className="gap-1.5 bg-blue-500 hover:bg-blue-600 text-white">
+                  <MessageSquare className="h-4 w-4" /> {smsConfirming ? 'Moving...' : 'Yes, Text Sent'}
                 </Button>
               </div>
             </div>
