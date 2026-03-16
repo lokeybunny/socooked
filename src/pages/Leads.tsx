@@ -100,6 +100,15 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
             <Mail className="h-3.5 w-3.5" />
           </button>
         )}
+        {/* SMS confirm icon — blue */}
+        {contact.phone && onSmsConfirm && (
+          <button
+            className="shrink-0 text-blue-400 hover:text-blue-300 transition-colors"
+            title="Confirm text sent"
+            onClick={(e) => { e.stopPropagation(); onSmsConfirm(contact); }}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+          </button>
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           const clUrl = (meta as Record<string, unknown>).craigslist_url as string | undefined;
