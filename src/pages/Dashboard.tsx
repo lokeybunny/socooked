@@ -109,8 +109,8 @@ export default function Dashboard() {
   }, []);
 
   const metricCards = [
-    { label: 'Potential Total Customers', value: stats.customers, icon: Users, color: 'text-blue-500' },
-    { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 350).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects × $350`, icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Prospects in Pipeline', value: stats.customers, icon: Users, color: 'text-blue-500' },
+    { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 350).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects (pending websites) × $350`, icon: TrendingUp, color: 'text-green-500' },
     { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 350).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} invoiced & paid clients × $350`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Monthly Clients Revenue', value: `$${(stats.monthlyCount * 350).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $350`, icon: Layers, color: 'text-emerald-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
