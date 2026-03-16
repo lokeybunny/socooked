@@ -385,19 +385,31 @@ export default function Research() {
     { value: 'reno', label: 'Reno, NV', subdomain: 'reno' },
   ];
 
+  const handleCraigslistStop = () => {
+    if (clAbortRef.current) {
+      clAbortRef.current.abort();
+      clAbortRef.current = null;
+    }
+    setClSearching(false);
+    setClProgressMsg('Stopped by user');
+    toast.info('Craigslist scrape stopped');
+    if (clCreatedCount > 0) load();
+  };
+
   const handleCraigslistSearch = async () => {
     const city = clLasVegas ? CL_CITIES[0] : CL_CITIES.find(c => c.value === clSelectedCity) || CL_CITIES[0];
     const searchUrl = `https://${city.subdomain}.craigslist.org/search/${clSelectedSection}#search=1~thumb~0~0`;
     
+    const controller = new AbortController();
+    clAbortRef.current = controller;
     setClSearching(true);
     setClHasSearched(true);
     setClResults([]);
     setClCreatedCount(0);
+    setClProgressMsg('Starting scrape...');
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 330_000);
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
         method: 'POST',
@@ -409,32 +421,73 @@ export default function Research() {
         body: JSON.stringify({ search_url: searchUrl }),
         signal: controller.signal,
       });
-      clearTimeout(timeoutId);
 
       if (!resp.ok) {
         const errBody = await resp.text().catch(() => '');
         throw new Error(errBody || `Request failed (${resp.status})`);
       }
-      const data = await resp.json();
 
-      if (data.warning) {
-        toast.warning(data.warning);
-      }
+      if (!resp.body) throw new Error('No response body');
 
-      setClResults(data.posts || []);
-      setClCreatedCount(data.created_count || 0);
-      if (data.created_count > 0) {
-        toast.success(`Found ${data.total_found} posts from ${city.label}, ${data.created_count} new leads added`);
-        load();
-      } else if (data.total_found > 0) {
-        toast.info(`Found ${data.total_found} posts from ${city.label} (all already in CRM)`);
-      } else {
-        toast.info(`No service posts found in ${city.label}`);
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let totalCreated = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const messages = buffer.split('\n\n');
+        buffer = messages.pop() || '';
+
+        for (const msg of messages) {
+          if (!msg.trim()) continue;
+          const lines = msg.split('\n');
+          let eventType = '';
+          let dataStr = '';
+          for (const line of lines) {
+            if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+            else if (line.startsWith('data: ')) dataStr += line.slice(6);
+          }
+          if (!eventType || !dataStr) continue;
+          try {
+            const data = JSON.parse(dataStr);
+            if (eventType === 'progress') {
+              setClProgressMsg(data.detail || data.label || '');
+            } else if (eventType === 'post') {
+              // Show each post as it comes in
+              setClResults(prev => [...prev, data.post]);
+              setClProgressMsg(`Processing ${data.index + 1} of ${data.total}...`);
+            } else if (eventType === 'lead_created') {
+              totalCreated = data.created_count;
+              setClCreatedCount(totalCreated);
+            } else if (eventType === 'complete') {
+              setClCreatedCount(data.created_count || totalCreated);
+              setClProgressMsg('');
+              if (data.created_count > 0) {
+                toast.success(`${data.total_found} posts scraped, ${data.created_count} new leads added`);
+                load();
+              } else if (data.total_found > 0) {
+                toast.info(`${data.total_found} posts scraped (all already in CRM)`);
+              } else {
+                toast.info('No posts found');
+              }
+            } else if (eventType === 'warning') {
+              toast.warning(data.message);
+            } else if (eventType === 'error') {
+              toast.error(data.message);
+            }
+          } catch { /* skip bad JSON */ }
+        }
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') return; // user stopped
       toast.error(err.message || 'Craigslist search failed');
     } finally {
       setClSearching(false);
+      clAbortRef.current = null;
     }
   };
 
