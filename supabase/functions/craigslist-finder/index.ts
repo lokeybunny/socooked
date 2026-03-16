@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
-        signal: AbortSignal.timeout(180_000),
+        signal: AbortSignal.timeout(300_000),
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
