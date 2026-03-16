@@ -128,6 +128,7 @@ export default function PhonePage() {
 
   // Transcription upload state
   const [coldCallVideoOpen, setColdCallVideoOpen] = useState(false);
+  const [priceStructureOpen, setPriceStructureOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
