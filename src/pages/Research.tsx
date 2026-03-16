@@ -869,9 +869,6 @@ export default function Research() {
     if (selectedSource === 'craigslist') {
       return hasName && (rd.type === 'lead_finder' || rd.type === 'craigslist_post');
     }
-    if (selectedSource === 'google-maps') {
-      return hasName && (rd.type === 'gmaps_business' || rd.type === 'yelp_business' || rd.type === 'lead_finder');
-    }
     // Default: require rich data for narrative sources
     const hasSymbol = !!rd.symbol;
     const hasWindow = !!rd.deploy_window;
