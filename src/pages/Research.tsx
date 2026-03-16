@@ -210,6 +210,8 @@ export default function Research() {
   const [clResults, setClResults] = useState<any[]>([]);
   const [clCreatedCount, setClCreatedCount] = useState(0);
   const [clHasSearched, setClHasSearched] = useState(false);
+  const [clProgressMsg, setClProgressMsg] = useState('');
+  const clAbortRef = useRef<AbortController | null>(null);
 
   // Yelp Finder state
   const [yelpSearchTerms, setYelpSearchTerms] = useState('');
