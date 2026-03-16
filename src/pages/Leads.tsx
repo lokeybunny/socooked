@@ -644,7 +644,7 @@ warren@stu25.com</p>`;
     const { active, over } = event;
     if (!over) return;
     const draggedId = active.id as string;
-    const allContacts = [...leads, ...prospects, ...clients, ...monthly];
+    const allContacts = [...leads, ...prospects, ...prospectEmailed, ...clients, ...monthly];
     const draggedContact = allContacts.find(c => c.id === draggedId);
     if (!draggedContact) return;
 
@@ -652,6 +652,7 @@ warren@stu25.com</p>`;
     const overId = over.id as string;
     if (overId === 'leads-column') targetStatus = 'lead';
     else if (overId === 'prospects-column') targetStatus = 'prospect';
+    else if (overId === 'prospect-emailed-column') targetStatus = 'prospect_emailed';
     else if (overId === 'clients-column') targetStatus = 'active';
     else if (overId === 'monthly-column') targetStatus = 'monthly';
     else {
@@ -666,10 +667,11 @@ warren@stu25.com</p>`;
 
     setLeads(targetStatus === 'lead' ? addToList(removeFromList(leads)) : removeFromList(leads));
     setProspects(targetStatus === 'prospect' ? addToList(removeFromList(prospects)) : removeFromList(prospects));
+    setProspectEmailed(targetStatus === 'prospect_emailed' ? addToList(removeFromList(prospectEmailed)) : removeFromList(prospectEmailed));
     setClients(targetStatus === 'active' ? addToList(removeFromList(clients)) : removeFromList(clients));
     setMonthly(targetStatus === 'monthly' ? addToList(removeFromList(monthly)) : removeFromList(monthly));
 
-    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', active: 'Converted to client', monthly: 'Moved to monthly client' };
+    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', prospect_emailed: 'Moved to AI Site Completed', active: 'Converted to client', monthly: 'Moved to monthly client' };
     toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
 
     const { error } = await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
