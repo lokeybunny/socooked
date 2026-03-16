@@ -128,6 +128,7 @@ export default function Dashboard() {
     { label: 'Active Deals', value: stats.deals, icon: Handshake, color: 'text-emerald-500' },
     { label: 'Pipeline Value', value: `$${stats.dealValue.toLocaleString()}`, icon: DollarSign, color: 'text-amber-500' },
     { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 250).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects × $250`, icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Monthly Clients Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250`, icon: Layers, color: 'text-emerald-500' },
     { label: 'Total Tasks', value: stats.tasks, icon: CheckSquare, color: 'text-cyan-500' },
     { label: 'In Progress', value: stats.activeTasks, icon: TrendingUp, color: 'text-orange-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
