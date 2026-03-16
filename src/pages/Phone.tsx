@@ -192,7 +192,21 @@ export default function PhonePage() {
     if (error) { toast.error(error.message); return; }
     toast.success('Lead updated');
     setLeadDetailOpen(false);
-    loadData();
+
+    // If this save came from the "Interested → Add Email First" flow, show callback option
+    if (pendingInterestedFromEdit && leadEditForm.email) {
+      setPendingInterestedFromEdit(false);
+      const updatedLead = { ...leadDetail, ...payload, email: leadEditForm.email };
+      setInterestedCallbackLead(updatedLead);
+      // Default to 1 hour from now
+      const inOneHour = new Date(Date.now() + 60 * 60 * 1000);
+      setInterestedCallbackDate(inOneHour);
+      setInterestedCallbackTime(`${inOneHour.getHours().toString().padStart(2, '0')}:${inOneHour.getMinutes().toString().padStart(2, '0')}`);
+      setInterestedCallbackOpen(true);
+    } else {
+      setPendingInterestedFromEdit(false);
+      loadData();
+    }
   };
 
   const sendPhoneTelegramNotify = async (message: string, name: string) => {
