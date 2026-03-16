@@ -776,7 +776,7 @@ warren@stu25.com</p>`;
       <div className="space-y-6 animate-fade-in p-6">
         <h1 className="text-2xl font-bold text-foreground">Leads Pipeline</h1>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · {monthly.length} monthly · Drag to move</p>
+          <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {prospectEmailed.length} emailed · {clients.length} clients · {monthly.length} monthly · Drag to move</p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={undoLastAction} disabled={!lastAction}>
               <Undo2 className="h-4 w-4 mr-2" />{lastAction ? `Undo (${lastAction.name})` : 'Undo'}
