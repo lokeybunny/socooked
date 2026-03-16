@@ -179,7 +179,8 @@ export default function Research() {
   const [lfHasSearched, setLfHasSearched] = useState(false);
 
   // Craigslist Finder state
-  const [clSearchUrl, setClSearchUrl] = useState('https://atlanta.craigslist.org/search/ggg#search=1~thumb~0~0');
+  const [clLasVegas, setClLasVegas] = useState(true);
+  const [clSelectedCity, setClSelectedCity] = useState('lasvegas');
   const [clSearching, setClSearching] = useState(false);
   const [clResults, setClResults] = useState<any[]>([]);
   const [clCreatedCount, setClCreatedCount] = useState(0);
