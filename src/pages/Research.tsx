@@ -206,6 +206,7 @@ export default function Research() {
   const [clLasVegas, setClLasVegas] = useState(true);
   const [clSelectedCity, setClSelectedCity] = useState('lasvegas');
   const [clSelectedSection, setClSelectedSection] = useState('bbb');
+  const [clKeywords, setClKeywords] = useState('');
   const [clSearching, setClSearching] = useState(false);
   const [clResults, setClResults] = useState<any[]>([]);
   const [clCreatedCount, setClCreatedCount] = useState(0);
