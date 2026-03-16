@@ -163,7 +163,7 @@ export default function Customers() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Customers</h1>
-            <p className="text-muted-foreground text-sm">{customers.length} total</p>
+            <p className="text-muted-foreground text-sm">{totalCount} total</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setEditingId(null); setForm(emptyForm); } }}>
             <DialogTrigger asChild>
