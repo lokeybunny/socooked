@@ -433,7 +433,7 @@ export default function Leads() {
     toast.success('Moved back to lead'); setSelected(null); loadAll();
   };
   const dismiss = async (id: string) => {
-    const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
+    const contact = [...leads, ...prospects, ...prospectEmailed, ...clients].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'inactive' }).eq('id', id);
     if (contact) {
       await logStatusMove(contact.full_name, id, contact.status, 'inactive', contact.category);
