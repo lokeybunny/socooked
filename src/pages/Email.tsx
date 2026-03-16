@@ -742,6 +742,28 @@ export default function EmailPage() {
                 <p className="italic">The offer graphic will be auto-attached.</p>
               </div>
             )}
+            <div className="flex items-center gap-2 py-1">
+              <Checkbox id="maintenance-check" checked={maintenanceChecked} onCheckedChange={async (v) => {
+                const checked = !!v;
+                setMaintenanceChecked(checked);
+                if (checked) {
+                  const att = await loadMaintenanceAttachment();
+                  if (att) setComposeAttachments((prev) => [...prev.filter(a => a.filename !== 'Option-C-Maintenance.png'), att]);
+                } else {
+                  setComposeAttachments((prev) => prev.filter(a => a.filename !== 'Option-C-Maintenance.png'));
+                }
+              }} />
+              <label htmlFor="maintenance-check" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                <Gift className="h-4 w-4 text-primary" /> Include Option C Maintenance
+              </label>
+            </div>
+            {maintenanceChecked && (
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground space-y-1">
+                <p><strong>Option C:</strong> $250/month for unlimited website additions & changes — emailed requests completed within 24 hours.</p>
+                <p className="italic">The Option C graphic will be auto-attached.</p>
+                <img src="/images/option-c-maintenance.png" alt="Option C Maintenance" className="mt-2 rounded-md border border-border max-h-32 object-contain" />
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleSaveDraft} disabled={sending}><FileEdit className="h-4 w-4 mr-1" /> Save Draft</Button>
               <Button onClick={handleSend} disabled={sending}><Send className="h-4 w-4 mr-1" /> {sending ? 'Sending...' : 'Send'}</Button>
