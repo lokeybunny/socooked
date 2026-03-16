@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search, Trash2, Instagram, Layers } from 'lucide-react';
+import { Plus, Search, Trash2, Instagram, Layers, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { SERVICE_CATEGORIES } from '@/components/CategoryGate';
@@ -19,6 +20,7 @@ const DISPLAY_CATEGORIES = SERVICE_CATEGORIES.filter(c => c.id !== 'potential');
 const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '' };
 
 export default function Customers() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -228,9 +230,20 @@ export default function Customers() {
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
                   {editingId && (
-                    <Button type="button" variant="destructive" size="icon" onClick={() => { setDialogOpen(false); setDeleteId(editingId); }}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <>
+                      <Button type="button" variant="outline" onClick={async () => {
+                        await supabase.from('customers').update({ status: 'lead' }).eq('id', editingId);
+                        toast.success('Transferred to Leads pipeline');
+                        setDialogOpen(false); setEditingId(null); setForm(emptyForm);
+                        loadAll();
+                        navigate('/leads');
+                      }}>
+                        <ArrowRight className="h-4 w-4 mr-1" />To Leads
+                      </Button>
+                      <Button type="button" variant="destructive" size="icon" onClick={() => { setDialogOpen(false); setDeleteId(editingId); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
                   )}
                 </div>
               </form>
