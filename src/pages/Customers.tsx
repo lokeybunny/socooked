@@ -20,6 +20,7 @@ const DISPLAY_CATEGORIES = SERVICE_CATEGORIES.filter(c => c.id !== 'potential');
 const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '' };
 
 export default function Customers() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [customers, setCustomers] = useState<any[]>([]);
   const [search, setSearch] = useState('');
