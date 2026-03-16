@@ -24,14 +24,12 @@ const navItems: NavItem[] = [
   { to: '/custom-u', icon: Link2, label: 'Custom-U', botIcon: true },
   { to: '/calendly', icon: CalendarClock, label: 'Calendly', botIcon: true },
   { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
+  { to: '/content', icon: FileText, label: 'Content', highlight: true },
+  { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
+  { to: '/research', icon: Target, label: 'Finder', green: true },
   { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true, divider: 'Services' },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
-  
-  { to: '/content', icon: FileText, label: 'Content', highlight: true },
-  
-  { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
-  { to: '/research', icon: Target, label: 'Finder', green: true },
 ];
 
 const RESTRICTED_EMAIL = 'warren@guru.com';
