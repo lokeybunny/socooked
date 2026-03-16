@@ -509,6 +509,38 @@ export default function Previews() {
               );
             })}
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-xs text-muted-foreground">
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i)
+                  .filter(i => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 1)
+                  .reduce<(number | string)[]>((acc, i, idx, arr) => {
+                    if (idx > 0 && i - (arr[idx - 1] as number) > 1) acc.push('...');
+                    acc.push(i);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    typeof item === 'string' ? (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                    ) : (
+                      <Button key={item} variant={page === item ? 'default' : 'outline'} size="icon" className="h-8 w-8 text-xs" onClick={() => setPage(item)}>
+                        {item + 1}
+                      </Button>
+                    )
+                  )}
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         )}
       </div>
 
