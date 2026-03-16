@@ -99,6 +99,29 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid, 
             </a>
           );
         })()}
+        {recordingUrl && (
+          <button
+            className="shrink-0 text-emerald-500 hover:text-emerald-400 transition-colors"
+            title={playing ? 'Stop recording' : 'Play call recording'}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (playing && audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                setPlaying(false);
+              } else {
+                if (!audioRef.current) {
+                  audioRef.current = new Audio(recordingUrl);
+                  audioRef.current.onended = () => setPlaying(false);
+                }
+                audioRef.current.play().catch(() => {});
+                setPlaying(true);
+              }
+            }}
+          >
+            {playing ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+          </button>
+        )}
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           const callbackAt = (meta as Record<string, unknown>).callback_at as string | undefined;
