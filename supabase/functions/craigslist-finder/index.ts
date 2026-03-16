@@ -345,8 +345,29 @@ Deno.serve(async (req) => {
       }
 
       // Check run status
-      const statusRes = await fetch(`https://api.apify.com/v2/actor-runs/${run_id}?token=${apifyToken}`);
-      if (!statusRes.ok) throw new Error(`Failed to poll run status: ${statusRes.status}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      let statusRes: Response;
+      try {
+        statusRes = await fetch(`https://api.apify.com/v2/actor-runs/${run_id}?token=${apifyToken}`, { signal: controller.signal });
+      } catch (e: any) {
+        clearTimeout(timeout);
+        if (e.name === "AbortError") {
+          return new Response(
+            JSON.stringify({ status: "RUNNING", partial_found: 0, created_count: 0, retry: true }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        throw e;
+      }
+      clearTimeout(timeout);
+      if (!statusRes.ok) {
+        // Return a retryable response instead of throwing
+        return new Response(
+          JSON.stringify({ status: "RUNNING", partial_found: 0, created_count: 0, retry: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       const statusData = await statusRes.json();
       const runStatus = statusData?.data?.status;
       const datasetId = statusData?.data?.defaultDatasetId;
