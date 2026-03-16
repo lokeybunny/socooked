@@ -1896,14 +1896,24 @@ export default function PhonePage() {
                 {transcriptionsOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
               </button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                onClick={() => setColdCallVideoOpen(true)}
-              >
-                <Play className="h-4 w-4" /> Watch Cold Call Video
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                  onClick={() => setColdCallVideoOpen(true)}
+                >
+                  <Play className="h-4 w-4" /> Watch Cold Call Video
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                  onClick={() => setPriceStructureOpen(true)}
+                >
+                  <Tag className="h-4 w-4" /> Price Structure
+                </Button>
+              </div>
 
               <Dialog open={coldCallVideoOpen} onOpenChange={setColdCallVideoOpen}>
                 <DialogContent className="max-w-3xl p-0 overflow-hidden">
@@ -1918,6 +1928,24 @@ export default function PhonePage() {
                       playsInline
                       className="w-full rounded-lg"
                     />
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={priceStructureOpen} onOpenChange={setPriceStructureOpen}>
+                <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto overflow-x-hidden">
+                  <DialogHeader>
+                    <DialogTitle>Price Structure — Options A, B & C</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-6 p-2">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground mb-2">Option A & B — Website Offer</h3>
+                      <img src="/images/offer-options.png" alt="Website Offer Options A & B" className="w-full rounded-lg border border-border" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground mb-2">Option C — Unlimited Website Updates</h3>
+                      <img src="/images/option-c-maintenance.png" alt="Option C Maintenance" className="w-full rounded-lg border border-border" />
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>
