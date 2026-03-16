@@ -102,6 +102,7 @@ async function syncCraigslistResults({
 
   let createdCount = 0;
   let duplicateCount = 0;
+  const batchSeenPhones = new Set<string>();
 
   for (let idx = 0; idx < results.length; idx++) {
     const post = results[idx];
@@ -133,7 +134,17 @@ async function syncCraigslistResults({
 
     if (!phone) continue;
 
-    // Duplicate detection by phone number
+    // In-batch dedup: skip if we already processed this phone in this run
+    if (batchSeenPhones.has(phone)) {
+      duplicateCount++;
+      if (send) {
+        send("duplicate", { index: idx, phone, title: postTitle, existing_id: null, duplicate_count: duplicateCount, reason: "batch_duplicate" });
+      }
+      continue;
+    }
+    batchSeenPhones.add(phone);
+
+    // Duplicate detection by phone number in DB
     const { data: phoneExists } = await sb
       .from("customers")
       .select("id")
