@@ -1151,12 +1151,14 @@ export default function Research() {
               {clResults.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[400px] overflow-y-auto">
                   {clResults.map((post: any, i: number) => {
-                    const postTitle = post.title || post.postTitle || 'Untitled';
-                    const url = post.url || post.postUrl || post.link;
-                    const price = post.price || post.postPrice;
-                    const location = post.location || post.hood || post.subareaName;
-                    const phone = post.phone || post.replyPhone || null;
-                    const hasWebsite = !!(post.website || post.replyUrl);
+                    const postTitle = post.title || 'Untitled';
+                    const url = post.url || post.link;
+                    const price = post.price;
+                    const location = post.location;
+                    const phone = Array.isArray(post.phoneNumbers) && post.phoneNumbers.length > 0 ? post.phoneNumbers[0] : null;
+                    const postBody = post.post || '';
+                    const websiteMatch = postBody.match(/https?:\/\/(?!.*craigslist\.org)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s)"]*/i);
+                    const hasWebsite = !!websiteMatch;
                     return (
                       <div key={i} className={cn(
                         "p-3 rounded-lg border bg-muted/30 space-y-1",
