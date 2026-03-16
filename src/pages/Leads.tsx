@@ -22,7 +22,7 @@ const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 const PAGE_SIZE = 10;
 
-const STATUS_LABELS: Record<string, string> = { lead: 'Lead', prospect: 'Prospect', active: 'Client', inactive: 'Dismissed' };
+const STATUS_LABELS: Record<string, string> = { lead: 'Lead', prospect: 'Prospect', active: 'Client', monthly: 'Monthly Client', inactive: 'Dismissed' };
 
 const getCategoryLabel = (cat: string | null) => {
   const found = DISPLAY_CATEGORIES.find(c => c.id === cat);
@@ -124,9 +124,11 @@ export default function Leads() {
   const [allLeads, setAllLeads] = useState<any[]>([]);
   const [allProspects, setAllProspects] = useState<any[]>([]);
   const [allClients, setAllClients] = useState<any[]>([]);
+  const [allMonthly, setAllMonthly] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [prospects, setProspects] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [monthly, setMonthly] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -134,6 +136,7 @@ export default function Leads() {
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
   const [clientsPage, setClientsPage] = useState(1);
+  const [monthlyPage, setMonthlyPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -158,15 +161,17 @@ export default function Leads() {
   };
 
   const loadAll = async () => {
-    setLeadsPage(1); setProspectsPage(1); setClientsPage(1);
-    const [leadRes, prospectRes, clientRes] = await Promise.all([
+    setLeadsPage(1); setProspectsPage(1); setClientsPage(1); setMonthlyPage(1);
+    const [leadRes, prospectRes, clientRes, monthlyRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('active'),
+      buildQuery('monthly'),
     ]);
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
     setAllClients(clientRes.data || []);
+    setAllMonthly(monthlyRes.data || []);
     setLoading(false);
   };
 
@@ -174,7 +179,8 @@ export default function Leads() {
     setLeads(allLeads);
     setProspects(allProspects);
     setClients(allClients);
-  }, [allLeads, allProspects, allClients]);
+    setMonthly(allMonthly);
+  }, [allLeads, allProspects, allClients, allMonthly]);
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
@@ -329,7 +335,7 @@ export default function Leads() {
     const { active, over } = event;
     if (!over) return;
     const draggedId = active.id as string;
-    const allContacts = [...leads, ...prospects, ...clients];
+    const allContacts = [...leads, ...prospects, ...clients, ...monthly];
     const draggedContact = allContacts.find(c => c.id === draggedId);
     if (!draggedContact) return;
 
@@ -338,6 +344,7 @@ export default function Leads() {
     if (overId === 'leads-column') targetStatus = 'lead';
     else if (overId === 'prospects-column') targetStatus = 'prospect';
     else if (overId === 'clients-column') targetStatus = 'active';
+    else if (overId === 'monthly-column') targetStatus = 'monthly';
     else {
       const overContact = allContacts.find(c => c.id === overId);
       if (overContact) targetStatus = overContact.status;
@@ -351,8 +358,9 @@ export default function Leads() {
     setLeads(targetStatus === 'lead' ? addToList(removeFromList(leads)) : removeFromList(leads));
     setProspects(targetStatus === 'prospect' ? addToList(removeFromList(prospects)) : removeFromList(prospects));
     setClients(targetStatus === 'active' ? addToList(removeFromList(clients)) : removeFromList(clients));
+    setMonthly(targetStatus === 'monthly' ? addToList(removeFromList(monthly)) : removeFromList(monthly));
 
-    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', active: 'Converted to client' };
+    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', active: 'Converted to client', monthly: 'Moved to monthly client' };
     toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
 
     const { error } = await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
@@ -360,14 +368,16 @@ export default function Leads() {
     else { await logStatusMove(draggedContact.full_name, draggedId, draggedContact.status, targetStatus, draggedContact.category); }
   };
 
-  const activeContact = activeId ? [...leads, ...prospects, ...clients].find(c => c.id === activeId) : null;
+  const activeContact = activeId ? [...leads, ...prospects, ...clients, ...monthly].find(c => c.id === activeId) : null;
 
   const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
   const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
   const clientsPageCount = Math.ceil(clients.length / PAGE_SIZE);
+  const monthlyPageCount = Math.ceil(monthly.length / PAGE_SIZE);
   const pagedLeads = leads.slice((leadsPage - 1) * PAGE_SIZE, leadsPage * PAGE_SIZE);
   const pagedProspects = prospects.slice((prospectsPage - 1) * PAGE_SIZE, prospectsPage * PAGE_SIZE);
   const pagedClients = clients.slice((clientsPage - 1) * PAGE_SIZE, clientsPage * PAGE_SIZE);
+  const pagedMonthly = monthly.slice((monthlyPage - 1) * PAGE_SIZE, monthlyPage * PAGE_SIZE);
 
   const PaginationButtons = ({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) => {
     if (total <= 1) return null;
@@ -453,7 +463,7 @@ export default function Leads() {
       <div className="space-y-6 animate-fade-in p-6">
         <h1 className="text-2xl font-bold text-foreground">Leads Pipeline</h1>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · Drag to move</p>
+          <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · {monthly.length} monthly · Drag to move</p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={undoLastAction} disabled={!lastAction}>
               <Undo2 className="h-4 w-4 mr-2" />{lastAction ? `Undo (${lastAction.name})` : 'Undo'}
@@ -491,7 +501,7 @@ export default function Leads() {
         </div>
 
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-4">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Bot className="h-4 w-4 text-muted-foreground" />
@@ -551,6 +561,26 @@ export default function Leads() {
               </DroppableColumn>
               <PaginationButtons current={clientsPage} total={clientsPageCount} onChange={setClientsPage} />
             </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-emerald-500" />
+                <h2 className="text-sm font-semibold text-emerald-500 uppercase tracking-wider">Monthly Client</h2>
+                <span className="text-xs bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full">{monthly.length}</span>
+              </div>
+              <DroppableColumn id="monthly-column">
+                {pagedMonthly.map(m => (
+                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} />
+                ))}
+                {monthly.length === 0 && !loading && (
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                    <Layers className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Drag clients here for monthly</p>
+                  </div>
+                )}
+              </DroppableColumn>
+              <PaginationButtons current={monthlyPage} total={monthlyPageCount} onChange={setMonthlyPage} />
+            </div>
           </div>
 
           <DragOverlay>
@@ -578,7 +608,7 @@ export default function Leads() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 flex-wrap">
                     {selected.source && <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded uppercase">{selected.source}</span>}
-                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status}</span>
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${selected.status === 'active' ? 'bg-primary/20 text-primary' : selected.status === 'prospect' ? 'bg-primary/10 text-primary' : selected.status === 'monthly' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-muted text-muted-foreground'}`}>{selected.status === 'active' ? 'client' : selected.status === 'monthly' ? 'monthly client' : selected.status}</span>
                     <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">{getCategoryLabel(selected.category)}</span>
                   </div>
 
@@ -679,7 +709,13 @@ export default function Leads() {
                        </>
                      )}
                      {selected.status === 'active' && (
-                       <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'prospect', selected.category); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="col-span-2 text-xs"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
+                       <>
+                         <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'prospect', selected.category); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="text-xs"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
+                         <Button onClick={async () => { await supabase.from('customers').update({ status: 'monthly' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'monthly', selected.category); toast.success('Moved to monthly client'); setSelected(null); loadAll(); }} className="text-xs"><Layers className="h-3.5 w-3.5 mr-1" />Monthly Client</Button>
+                       </>
+                     )}
+                     {selected.status === 'monthly' && (
+                       <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'monthly', 'active', selected.category); toast.success('Moved back to new client'); setSelected(null); loadAll(); }} className="col-span-2 text-xs"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to New Client</Button>
                      )}
                      <Button variant="outline" size="sm" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
                      <Button variant="outline" size="sm" onClick={() => dismiss(selected.id)}>Dismiss</Button>
