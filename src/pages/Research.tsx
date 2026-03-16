@@ -525,7 +525,7 @@ export default function Research() {
                   setClResults(prev => [...prev, data.post]);
                   setClProgressMsg(`Processing ${data.index + 1} of ${data.total}...`);
                 } else if (eventType === 'duplicate') {
-                  setClDuplicateCount(data.duplicate_count || ((prev: number) => prev + 1));
+                  setClDuplicateCount(data.duplicate_count ?? (prev => prev + 1));
                 } else if (eventType === 'lead_created') {
                   totalCreated = data.created_count;
                   setClCreatedCount(totalCreated);
