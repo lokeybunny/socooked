@@ -89,6 +89,16 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }
         <span className={cn("font-semibold truncate", isPaid ? 'text-emerald-500' : isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
+          const clUrl = (meta as Record<string, unknown>).craigslist_url as string | undefined;
+          if (!clUrl) return null;
+          return (
+            <a href={clUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} title="Open Craigslist post" className="shrink-0 text-purple-500 hover:text-purple-400 transition-colors">
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          );
+        })()}
+        {(() => {
+          const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           const callbackAt = (meta as Record<string, unknown>).callback_at as string | undefined;
           if (!callbackAt) return null;
           const cbDate = new Date(callbackAt);
