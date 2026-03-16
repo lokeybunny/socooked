@@ -20,7 +20,7 @@ import CortexTerminal from '@/components/terminal/CortexTerminal';
 
 const statuses = ['lead', 'prospect', 'active', 'inactive', 'churned'] as const;
 const DISPLAY_CATEGORIES = SERVICE_CATEGORIES.filter(c => c.id !== 'potential');
-const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '' };
+const emptyForm = { full_name: '', email: '', phone: '', company: '', status: 'lead' as string, source: '', address: '', notes: '', tags: '', category: '', instagram_handle: '', portal_niche: '', ai_website: '' };
 
 export default function Customers() {
   const navigate = useNavigate();
