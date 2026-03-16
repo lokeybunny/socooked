@@ -1352,11 +1352,9 @@ export default function Research() {
                     <><Search className="h-4 w-4 mr-2" /> Scrape {CL_SECTIONS.find(s => s.value === clSelectedSection)?.label} — {clLasVegas ? 'Las Vegas' : CL_CITIES.find(c => c.value === clSelectedCity)?.label}</>
                   )}
                 </Button>
-                {clSearching && (
-                  <Button variant="destructive" onClick={handleCraigslistStop} className="shrink-0">
-                    Stop
-                  </Button>
-                )}
+                <Button variant="destructive" onClick={handleCraigslistStop} className="shrink-0">
+                  {clSearching ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Stop</> : <>Stop Apify</>}
+                </Button>
               </div>
 
               {clSearching && clProgressMsg && (
