@@ -260,15 +260,8 @@ export default function Previews() {
     if (!error && data) {
       const items = data as unknown as ApiPreview[];
       setPreviews(items);
-      const activeGroups = new Set<string>();
-      items.forEach(p => {
-        if (p.status === 'generating' || p.status === 'in_progress') {
-          activeGroups.add(p.customer_id || '__uncategorized');
-        }
-      });
-      if (activeGroups.size > 0) {
-        setExpandedClients(prev => new Set([...prev, ...activeGroups]));
-      }
+      // All groups start minimized by default
+      setExpandedClients(new Set());
     }
     setLoading(false);
   }
