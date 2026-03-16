@@ -65,7 +65,7 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }
       style={style}
       className={cn(
         "w-full text-left glass-card p-4 space-y-3 hover:ring-2 transition-all rounded-xl relative",
-        isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
+        isPaid ? 'hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' : isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
         isDragging && 'opacity-40 shadow-lg'
       )}
     >
