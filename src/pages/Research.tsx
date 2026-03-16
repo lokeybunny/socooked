@@ -531,7 +531,7 @@ export default function Research() {
           break;
         }
 
-        // JSON response — still polling
+        // JSON response — still polling / partial sync
         const pollData = await pollResp.json();
 
         if (pollData.error) {
@@ -540,7 +540,19 @@ export default function Research() {
         }
 
         const status = pollData.status;
-        setClProgressMsg(`Apify actor: ${status} (poll ${pollCount})...`);
+        const partialFound = Number(pollData.partial_found || 0);
+        const newCreated = Number(pollData.created_count || 0);
+
+        if (newCreated > 0) {
+          setClCreatedCount(prev => prev + newCreated);
+          load();
+        }
+
+        setClProgressMsg(
+          partialFound > 0
+            ? `Apify actor: ${status} — ${partialFound} posts found, syncing to CRM...`
+            : `Apify actor: ${status} (poll ${pollCount})...`
+        );
 
         if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
           toast.error(`Apify run ${status}`);
