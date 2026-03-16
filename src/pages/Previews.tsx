@@ -176,6 +176,59 @@ function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
   );
 }
 
+// ─── Assign Client Popover ───
+function AssignClientPopover({ previewId, onAssigned }: { previewId: string; onAssigned: () => void }) {
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      supabase.from('customers').select('id, full_name, category').order('full_name').then(({ data }) => {
+        if (data) setCustomers(data);
+      });
+    }
+  }, [open]);
+
+  const assign = async (customerId: string) => {
+    setSaving(true);
+    const { error } = await supabase.from('api_previews').update({ customer_id: customerId }).eq('id', previewId);
+    setSaving(false);
+    if (error) { toast.error('Failed to assign'); return; }
+    toast.success('Assigned to client');
+    setOpen(false);
+    onAssigned();
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="inline-flex items-center gap-1 text-xs text-primary hover:underline" title="Assign to client">
+          <UserPlus className="h-3.5 w-3.5" />
+          Assign
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-2" align="start">
+        <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Assign to client</p>
+        <div className="max-h-48 overflow-y-auto space-y-0.5">
+          {customers.map(c => (
+            <button
+              key={c.id}
+              disabled={saving}
+              onClick={() => assign(c.id)}
+              className="w-full text-left text-sm px-2 py-1.5 rounded hover:bg-accent transition-colors truncate"
+            >
+              {c.full_name}
+              {c.category && <span className="text-muted-foreground ml-1 text-xs">· {c.category}</span>}
+            </button>
+          ))}
+          {customers.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">No clients found</p>}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── Main Page ───
 export default function Previews() {
   const [previews, setPreviews] = useState<ApiPreview[]>([]);
