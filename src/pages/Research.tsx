@@ -468,20 +468,23 @@ export default function Research() {
   ];
 
   const handleCraigslistStop = async () => {
+    // Collect ALL run IDs BEFORE aborting the controller (so refs are still populated)
+    const runIdsToAbort = new Set<string>();
+    if (clRunIdRef.current) runIdsToAbort.add(clRunIdRef.current);
+    const saved = getSavedClRun();
+    if (saved?.runId) runIdsToAbort.add(saved.runId);
+
     // Kill the local polling loop
     if (clAbortRef.current) {
       clAbortRef.current.abort();
       clAbortRef.current = null;
     }
+    clRunIdRef.current = null;
 
-    // Collect ALL run IDs to abort: current in-memory + any persisted from prior session
-    const runIdsToAbort = new Set<string>();
-    if (clRunIdRef.current) {
-      runIdsToAbort.add(clRunIdRef.current);
-      clRunIdRef.current = null;
-    }
-    const saved = getSavedClRun();
-    if (saved?.runId) runIdsToAbort.add(saved.runId);
+    // Update UI immediately
+    setClSearching(false);
+    setClProgressMsg('Stopping Apify...');
+    clearClRun();
 
     // Fire abort requests for every known run in parallel, with retry on failure
     if (runIdsToAbort.size > 0) {
@@ -489,16 +492,20 @@ export default function Research() {
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const abortRun = async (runId: string, attempt = 1): Promise<void> => {
         try {
+          console.log(`[CL-Stop] Sending abort for run ${runId} (attempt ${attempt})`);
           const resp = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
             body: JSON.stringify({ action: 'abort', run_id: runId }),
           });
+          const respData = await resp.json().catch(() => ({}));
+          console.log(`[CL-Stop] Abort response for ${runId}:`, resp.status, respData);
           if (!resp.ok && attempt < 3) {
             await new Promise(r => setTimeout(r, 1000 * attempt));
             return abortRun(runId, attempt + 1);
           }
-        } catch {
+        } catch (err) {
+          console.error(`[CL-Stop] Abort fetch error for ${runId}:`, err);
           if (attempt < 3) {
             await new Promise(r => setTimeout(r, 1000 * attempt));
             return abortRun(runId, attempt + 1);
@@ -508,9 +515,7 @@ export default function Research() {
       await Promise.allSettled([...runIdsToAbort].map(runId => abortRun(runId)));
     }
 
-    setClSearching(false);
     setClProgressMsg('Stopped by user');
-    clearClRun();
     toast.info('Craigslist scrape stopped');
     if (clCreatedCount > 0) load();
   };
