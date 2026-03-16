@@ -532,7 +532,7 @@ export default function EmailPage() {
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing} className="gap-1.5">
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
             </Button>
-            <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setComposeOpen(true); }} className="gap-1.5">
+            <Button onClick={() => { setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false); setComposeOpen(true); }} className="gap-1.5">
               <Plus className="h-4 w-4" /> Compose
             </Button>
           </div>
