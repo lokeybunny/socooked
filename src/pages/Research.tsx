@@ -216,6 +216,23 @@ export default function Research() {
   const clAbortRef = useRef<AbortController | null>(null);
   const clRunIdRef = useRef<string | null>(null);
 
+  // Persist CL run across navigations
+  const CL_RUN_KEY = 'cl_active_run';
+  const saveClRun = (runId: string, city: string, section: string) => {
+    localStorage.setItem(CL_RUN_KEY, JSON.stringify({ runId, city, section, startedAt: Date.now() }));
+  };
+  const clearClRun = () => localStorage.removeItem(CL_RUN_KEY);
+  const getSavedClRun = () => {
+    try {
+      const raw = localStorage.getItem(CL_RUN_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Expire after 12 min
+      if (Date.now() - parsed.startedAt > 12 * 60 * 1000) { clearClRun(); return null; }
+      return parsed as { runId: string; city: string; section: string; startedAt: number };
+    } catch { return null; }
+  };
+
   // Yelp Finder state
   const [yelpSearchTerms, setYelpSearchTerms] = useState('');
   const [yelpLocation, setYelpLocation] = useState('');
