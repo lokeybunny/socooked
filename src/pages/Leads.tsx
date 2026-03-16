@@ -23,7 +23,7 @@ const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 const PAGE_SIZE = 10;
 
-const STATUS_LABELS: Record<string, string> = { lead: 'Lead', prospect: 'Prospect', active: 'Client', monthly: 'Monthly Client', inactive: 'Dismissed' };
+const STATUS_LABELS: Record<string, string> = { lead: 'Lead', prospect: 'Prospect', prospect_emailed: 'Prospect (AI Site Completed)', active: 'Client', monthly: 'Monthly Client', inactive: 'Dismissed' };
 
 const getCategoryLabel = (cat: string | null) => {
   const found = DISPLAY_CATEGORIES.find(c => c.id === cat);
@@ -228,10 +228,12 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, isPros
 export default function Leads() {
   const [allLeads, setAllLeads] = useState<any[]>([]);
   const [allProspects, setAllProspects] = useState<any[]>([]);
+  const [allProspectEmailed, setAllProspectEmailed] = useState<any[]>([]);
   const [allClients, setAllClients] = useState<any[]>([]);
   const [allMonthly, setAllMonthly] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [prospects, setProspects] = useState<any[]>([]);
+  const [prospectEmailed, setProspectEmailed] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [monthly, setMonthly] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -243,6 +245,7 @@ export default function Leads() {
   const [recordingMap, setRecordingMap] = useState<Map<string, string>>(new Map());
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
+  const [prospectEmailedPage, setProspectEmailedPage] = useState(1);
   const [clientsPage, setClientsPage] = useState(1);
   const [monthlyPage, setMonthlyPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
@@ -279,10 +282,11 @@ export default function Leads() {
   };
 
   const loadAll = async () => {
-    setLeadsPage(1); setProspectsPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, clientRes, monthlyRes, paidRes, recRes] = await Promise.all([
+    setLeadsPage(1); setProspectsPage(1); setProspectEmailedPage(1); setClientsPage(1); setMonthlyPage(1);
+    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
+      buildQuery('prospect_emailed'),
       buildQuery('active'),
       buildQuery('monthly'),
       supabase.from('invoices').select('customer_id, status'),
@@ -311,6 +315,7 @@ export default function Leads() {
 
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
+    setAllProspectEmailed(prospectEmailedRes.data || []);
     setAllClients(clientRes.data || []);
     setAllMonthly(monthlyRes.data || []);
     setLoading(false);
@@ -319,9 +324,10 @@ export default function Leads() {
   useEffect(() => {
     setLeads(allLeads);
     setProspects(allProspects);
+    setProspectEmailed(allProspectEmailed);
     setClients(allClients);
     setMonthly(allMonthly);
-  }, [allLeads, allProspects, allClients, allMonthly]);
+  }, [allLeads, allProspects, allProspectEmailed, allClients, allMonthly]);
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
@@ -335,9 +341,10 @@ export default function Leads() {
   // Stage filter — hide columns not matching
   const showLeads = filterStage === 'all' || filterStage === 'lead';
   const showProspects = filterStage === 'all' || filterStage === 'prospect';
+  const showProspectEmailed = filterStage === 'all' || filterStage === 'prospect_emailed';
   const showClients = filterStage === 'all' || filterStage === 'active';
   const showMonthly = filterStage === 'all' || filterStage === 'monthly';
-  const visibleColumnCount = [showLeads, showProspects, showClients, showMonthly].filter(Boolean).length;
+  const visibleColumnCount = [showLeads, showProspects, showProspectEmailed, showClients, showMonthly].filter(Boolean).length;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -414,19 +421,19 @@ export default function Leads() {
   };
 
   const promote = async (id: string) => {
-    const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
+    const contact = [...leads, ...prospects, ...prospectEmailed, ...clients].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'prospect' }).eq('id', id);
     if (contact) await logStatusMove(contact.full_name, id, contact.status, 'prospect', contact.category);
     toast.success('Promoted to prospect'); setSelected(null); loadAll();
   };
   const demote = async (id: string) => {
-    const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
+    const contact = [...leads, ...prospects, ...prospectEmailed, ...clients].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'lead' }).eq('id', id);
     if (contact) await logStatusMove(contact.full_name, id, contact.status, 'lead', contact.category);
     toast.success('Moved back to lead'); setSelected(null); loadAll();
   };
   const dismiss = async (id: string) => {
-    const contact = [...leads, ...prospects, ...clients].find(c => c.id === id);
+    const contact = [...leads, ...prospects, ...prospectEmailed, ...clients].find(c => c.id === id);
     await supabase.from('customers').update({ status: 'inactive' }).eq('id', id);
     if (contact) {
       await logStatusMove(contact.full_name, id, contact.status, 'inactive', contact.category);
@@ -614,9 +621,17 @@ warren@stu25.com</p>`;
         customer_id: emailTarget?.id || null,
       });
 
-      toast.success(`Email sent to ${emailTarget?.full_name || emailForm.to}!`);
+      // Auto-move customer to prospect_emailed status
+      if (emailTarget?.id) {
+        const prevStatus = emailTarget.status || 'prospect';
+        await supabase.from('customers').update({ status: 'prospect_emailed' }).eq('id', emailTarget.id);
+        await logStatusMove(emailTarget.full_name, emailTarget.id, prevStatus, 'prospect_emailed', emailTarget.category);
+      }
+
+      toast.success(`Email sent to ${emailTarget?.full_name || emailForm.to}! Moved to AI Site Completed.`);
       setEmailComposeOpen(false);
       setEmailTarget(null);
+      loadAll();
     } catch (e: any) { toast.error(e.message || 'Failed to send email'); }
     finally { setEmailSending(false); }
   };
@@ -629,7 +644,7 @@ warren@stu25.com</p>`;
     const { active, over } = event;
     if (!over) return;
     const draggedId = active.id as string;
-    const allContacts = [...leads, ...prospects, ...clients, ...monthly];
+    const allContacts = [...leads, ...prospects, ...prospectEmailed, ...clients, ...monthly];
     const draggedContact = allContacts.find(c => c.id === draggedId);
     if (!draggedContact) return;
 
@@ -637,6 +652,7 @@ warren@stu25.com</p>`;
     const overId = over.id as string;
     if (overId === 'leads-column') targetStatus = 'lead';
     else if (overId === 'prospects-column') targetStatus = 'prospect';
+    else if (overId === 'prospect-emailed-column') targetStatus = 'prospect_emailed';
     else if (overId === 'clients-column') targetStatus = 'active';
     else if (overId === 'monthly-column') targetStatus = 'monthly';
     else {
@@ -651,10 +667,11 @@ warren@stu25.com</p>`;
 
     setLeads(targetStatus === 'lead' ? addToList(removeFromList(leads)) : removeFromList(leads));
     setProspects(targetStatus === 'prospect' ? addToList(removeFromList(prospects)) : removeFromList(prospects));
+    setProspectEmailed(targetStatus === 'prospect_emailed' ? addToList(removeFromList(prospectEmailed)) : removeFromList(prospectEmailed));
     setClients(targetStatus === 'active' ? addToList(removeFromList(clients)) : removeFromList(clients));
     setMonthly(targetStatus === 'monthly' ? addToList(removeFromList(monthly)) : removeFromList(monthly));
 
-    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', active: 'Converted to client', monthly: 'Moved to monthly client' };
+    const labels: Record<string, string> = { lead: 'Moved to leads', prospect: 'Promoted to prospect', prospect_emailed: 'Moved to AI Site Completed', active: 'Converted to client', monthly: 'Moved to monthly client' };
     toast.success(labels[targetStatus] || `Status: ${targetStatus}`);
 
     const { error } = await supabase.from('customers').update({ status: targetStatus }).eq('id', draggedId);
@@ -662,14 +679,16 @@ warren@stu25.com</p>`;
     else { await logStatusMove(draggedContact.full_name, draggedId, draggedContact.status, targetStatus, draggedContact.category); }
   };
 
-  const activeContact = activeId ? [...leads, ...prospects, ...clients, ...monthly].find(c => c.id === activeId) : null;
+  const activeContact = activeId ? [...leads, ...prospects, ...prospectEmailed, ...clients, ...monthly].find(c => c.id === activeId) : null;
 
   const leadsPageCount = Math.ceil(leads.length / PAGE_SIZE);
   const prospectsPageCount = Math.ceil(prospects.length / PAGE_SIZE);
+  const prospectEmailedPageCount = Math.ceil(prospectEmailed.length / PAGE_SIZE);
   const clientsPageCount = Math.ceil(clients.length / PAGE_SIZE);
   const monthlyPageCount = Math.ceil(monthly.length / PAGE_SIZE);
   const pagedLeads = leads.slice((leadsPage - 1) * PAGE_SIZE, leadsPage * PAGE_SIZE);
   const pagedProspects = prospects.slice((prospectsPage - 1) * PAGE_SIZE, prospectsPage * PAGE_SIZE);
+  const pagedProspectEmailed = prospectEmailed.slice((prospectEmailedPage - 1) * PAGE_SIZE, prospectEmailedPage * PAGE_SIZE);
   const pagedClients = clients.slice((clientsPage - 1) * PAGE_SIZE, clientsPage * PAGE_SIZE);
   const pagedMonthly = monthly.slice((monthlyPage - 1) * PAGE_SIZE, monthlyPage * PAGE_SIZE);
 
@@ -757,7 +776,7 @@ warren@stu25.com</p>`;
       <div className="space-y-6 animate-fade-in p-6">
         <h1 className="text-2xl font-bold text-foreground">Leads Pipeline</h1>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {clients.length} clients · {monthly.length} monthly · Drag to move</p>
+          <p className="text-muted-foreground text-sm">{leads.length} leads · {prospects.length} prospects · {prospectEmailed.length} emailed · {clients.length} clients · {monthly.length} monthly · Drag to move</p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={undoLastAction} disabled={!lastAction}>
               <Undo2 className="h-4 w-4 mr-2" />{lastAction ? `Undo (${lastAction.name})` : 'Undo'}
@@ -798,6 +817,7 @@ warren@stu25.com</p>`;
               <SelectItem value="all">All Stages</SelectItem>
               <SelectItem value="lead">Leads Only</SelectItem>
               <SelectItem value="prospect">Prospects Only</SelectItem>
+              <SelectItem value="prospect_emailed">AI Site Completed Only</SelectItem>
               <SelectItem value="active">New Clients Only</SelectItem>
               <SelectItem value="monthly">Monthly Clients Only</SelectItem>
             </SelectContent>
@@ -805,7 +825,7 @@ warren@stu25.com</p>`;
         </div>
 
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className={cn("grid gap-6", visibleColumnCount === 1 ? 'lg:grid-cols-1 max-w-xl' : visibleColumnCount === 2 ? 'lg:grid-cols-2' : visibleColumnCount === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4')}>
+          <div className={cn("grid gap-6", visibleColumnCount === 1 ? 'lg:grid-cols-1 max-w-xl' : visibleColumnCount === 2 ? 'lg:grid-cols-2' : visibleColumnCount === 3 ? 'lg:grid-cols-3' : visibleColumnCount === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-5')}>
             {showLeads && (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
@@ -847,6 +867,28 @@ warren@stu25.com</p>`;
                 )}
               </DroppableColumn>
               <PaginationButtons current={prospectsPage} total={prospectsPageCount} onChange={setProspectsPage} />
+            </div>
+            )}
+
+            {showProspectEmailed && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Send className="h-4 w-4 text-sky-400" />
+                <h2 className="text-sm font-semibold text-sky-400 uppercase tracking-wider">Prospects (AI Site Completed)</h2>
+                <span className="text-xs bg-sky-500/10 text-sky-400 px-2 py-0.5 rounded-full">{prospectEmailed.length}</span>
+              </div>
+              <DroppableColumn id="prospect-emailed-column">
+                {pagedProspectEmailed.map(pe => (
+                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} isProspect isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} />
+                ))}
+                {prospectEmailed.length === 0 && !loading && (
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                    <Send className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Send website emails to see them here</p>
+                  </div>
+                )}
+              </DroppableColumn>
+              <PaginationButtons current={prospectEmailedPage} total={prospectEmailedPageCount} onChange={setProspectEmailedPage} />
             </div>
             )}
 
