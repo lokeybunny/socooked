@@ -381,6 +381,7 @@ export default function Research() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleYelpSearch = async () => {
     if (!yelpSearchTerms && !yelpLocation) {
       toast.error('Enter search terms or a location');
       return;
