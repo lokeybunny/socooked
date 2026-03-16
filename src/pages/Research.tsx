@@ -181,6 +181,7 @@ export default function Research() {
   // Craigslist Finder state
   const [clLasVegas, setClLasVegas] = useState(true);
   const [clSelectedCity, setClSelectedCity] = useState('lasvegas');
+  const [clSelectedSection, setClSelectedSection] = useState('bbb');
   const [clSearching, setClSearching] = useState(false);
   const [clResults, setClResults] = useState<any[]>([]);
   const [clCreatedCount, setClCreatedCount] = useState(0);
