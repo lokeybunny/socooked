@@ -1197,7 +1197,17 @@ export default function Research() {
                 </Select>
               </div>
 
-              <div className="flex items-center gap-4 flex-wrap">
+              {/* Keyword search (optional) */}
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Keywords (optional)</Label>
+                <Input
+                  placeholder="e.g. web design, plumber, landscaping..."
+                  value={clKeywords}
+                  onChange={(e) => setClKeywords(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+
                 {/* Las Vegas checkbox */}
                 <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
                   <Checkbox
