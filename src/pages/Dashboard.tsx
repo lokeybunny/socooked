@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, DollarSign, TrendingUp, Mail, Clock, RefreshCw, Layers, CircleCheckBig } from 'lucide-react';
+import { Users, TrendingUp, Mail, Clock, RefreshCw, Layers, CircleCheckBig } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -10,19 +10,18 @@ interface Stats {
   prospectCount: number;
   monthlyCount: number;
   clientCount: number;
+  paidConvertedCount: number;
   emailsToday: number;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, monthlyCount: 0, clientCount: 0, emailsToday: 0 });
+  const [stats, setStats] = useState<Stats>({ customers: 0, prospectCount: 0, monthlyCount: 0, clientCount: 0, paidConvertedCount: 0, emailsToday: 0 });
   const [recentCustomers, setRecentCustomers] = useState<any[]>([]);
-  const [recentDeals, setRecentDeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [vegasTime, setVegasTime] = useState('');
   const [cronCountdown, setCronCountdown] = useState(0);
 
-  // Las Vegas clock (server time = PST)
   useEffect(() => {
     const updateClock = () => {
       const now = new Date();
@@ -55,13 +54,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function load() {
-      const [prospectsRes, monthlyRes, clientRes, comms, rc, rd] = await Promise.all([
+      const [prospectsRes, monthlyRes, clientRes, comms, invoicesRes, rc] = await Promise.all([
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'prospect'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'monthly'),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('communications').select('type, created_at'),
+        supabase.from('invoices').select('customer_id, status'),
         supabase.from('customers').select('*').neq('category', 'potential').order('created_at', { ascending: false }).limit(5),
-        supabase.from('deals').select('*').order('created_at', { ascending: false }).limit(5),
       ]);
 
       const allComms = comms.data || [];
@@ -70,27 +69,49 @@ export default function Dashboard() {
       const monthlyCount = monthlyRes.count || 0;
       const clientCount = clientRes.count || 0;
 
+      // Actual lead conversion: monthly/active customers where ALL invoices are paid
+      const allInvoices = invoicesRes.data || [];
+      // Get all monthly + active customer IDs
+      const [monthlyCustomers, activeCustomers] = await Promise.all([
+        supabase.from('customers').select('id').eq('status', 'monthly'),
+        supabase.from('customers').select('id').eq('status', 'active'),
+      ]);
+      const convertedIds = new Set([
+        ...(monthlyCustomers.data || []).map((c: any) => c.id),
+        ...(activeCustomers.data || []).map((c: any) => c.id),
+      ]);
+
+      // For each converted customer, check if they have at least one invoice and all are paid
+      const invoicesByCustomer = new Map<string, boolean>();
+      for (const inv of allInvoices) {
+        const cid = inv.customer_id;
+        if (!convertedIds.has(cid)) continue;
+        if (!invoicesByCustomer.has(cid)) invoicesByCustomer.set(cid, true);
+        if (inv.status !== 'paid') invoicesByCustomer.set(cid, false);
+      }
+
+      let paidConvertedCount = 0;
+      invoicesByCustomer.forEach((allPaid) => { if (allPaid) paidConvertedCount++; });
+
       setStats({
         customers: prospectCount,
         prospectCount,
         monthlyCount,
         clientCount,
+        paidConvertedCount,
         emailsToday: allComms.filter(c => c.type === 'email' && c.created_at.startsWith(today)).length,
       });
 
       setRecentCustomers(rc.data || []);
-      setRecentDeals(rd.data || []);
       setLoading(false);
     }
     load();
   }, []);
 
-  const convertedCount = stats.monthlyCount + stats.clientCount;
-
   const metricCards = [
     { label: 'Potential Total Customers', value: stats.customers, icon: Users, color: 'text-blue-500' },
     { label: 'Potential Lead Conversion', value: `$${(stats.prospectCount * 250).toLocaleString()}`, subtitle: `${stats.prospectCount} prospects × $250`, icon: TrendingUp, color: 'text-green-500' },
-    { label: 'Actual Lead Conversion', value: `$${(convertedCount * 250).toLocaleString()}`, subtitle: `${convertedCount} clients (${stats.clientCount} new + ${stats.monthlyCount} monthly) × $250`, icon: CircleCheckBig, color: 'text-emerald-500' },
+    { label: 'Actual Lead Conversion', value: `$${(stats.paidConvertedCount * 250).toLocaleString()}`, subtitle: `${stats.paidConvertedCount} invoiced & paid clients × $250`, icon: CircleCheckBig, color: 'text-emerald-500' },
     { label: 'Monthly Clients Revenue', value: `$${(stats.monthlyCount * 250).toLocaleString()}`, subtitle: `${stats.monthlyCount} monthly clients × $250`, icon: Layers, color: 'text-emerald-500' },
     { label: 'Emails Today', value: stats.emailsToday, icon: Mail, color: 'text-rose-500' },
   ];
@@ -137,46 +158,24 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {/* Recent Customers */}
-          <div className="glass-card p-6">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Recent Customers</h2>
-            {recentCustomers.length === 0 && !loading ? (
-              <p className="text-sm text-muted-foreground">No customers yet. Add your first customer!</p>
-            ) : (
-              <div className="space-y-3">
-                {recentCustomers.map(c => (
-                  <div key={c.id} className="flex items-center justify-between py-2">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{c.full_name}</p>
-                      <p className="text-xs text-muted-foreground">{c.email || c.company || '—'}</p>
-                    </div>
-                    <StatusBadge status={c.status} />
+        {/* Recent Customers */}
+        <div className="glass-card p-6">
+          <h2 className="text-sm font-semibold text-foreground mb-4">Recent Customers</h2>
+          {recentCustomers.length === 0 && !loading ? (
+            <p className="text-sm text-muted-foreground">No customers yet. Add your first customer!</p>
+          ) : (
+            <div className="space-y-3">
+              {recentCustomers.map(c => (
+                <div key={c.id} className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{c.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{c.email || c.company || '—'}</p>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Recent Deals */}
-          <div className="glass-card p-6">
-            <h2 className="text-sm font-semibold text-foreground mb-4">Recent Deals</h2>
-            {recentDeals.length === 0 && !loading ? (
-              <p className="text-sm text-muted-foreground">No deals yet. Create your first deal!</p>
-            ) : (
-              <div className="space-y-3">
-                {recentDeals.map(d => (
-                  <div key={d.id} className="flex items-center justify-between py-2">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{d.title}</p>
-                      <p className="text-xs text-muted-foreground">${Number(d.deal_value).toLocaleString()}</p>
-                    </div>
-                    <StatusBadge status={d.stage} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <StatusBadge status={c.status} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
