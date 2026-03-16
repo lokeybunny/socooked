@@ -230,9 +230,20 @@ export default function Customers() {
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1">{editingId ? 'Save Changes' : 'Create Customer'}</Button>
                   {editingId && (
-                    <Button type="button" variant="destructive" size="icon" onClick={() => { setDialogOpen(false); setDeleteId(editingId); }}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <>
+                      <Button type="button" variant="outline" onClick={async () => {
+                        await supabase.from('customers').update({ status: 'lead' }).eq('id', editingId);
+                        toast.success('Transferred to Leads pipeline');
+                        setDialogOpen(false); setEditingId(null); setForm(emptyForm);
+                        loadAll();
+                        navigate('/leads');
+                      }}>
+                        <ArrowRight className="h-4 w-4 mr-1" />To Leads
+                      </Button>
+                      <Button type="button" variant="destructive" size="icon" onClick={() => { setDialogOpen(false); setDeleteId(editingId); }}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
                   )}
                 </div>
               </form>
