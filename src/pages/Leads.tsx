@@ -124,9 +124,11 @@ export default function Leads() {
   const [allLeads, setAllLeads] = useState<any[]>([]);
   const [allProspects, setAllProspects] = useState<any[]>([]);
   const [allClients, setAllClients] = useState<any[]>([]);
+  const [allMonthly, setAllMonthly] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [prospects, setProspects] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [monthly, setMonthly] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [filterSource, setFilterSource] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -134,6 +136,7 @@ export default function Leads() {
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
   const [clientsPage, setClientsPage] = useState(1);
+  const [monthlyPage, setMonthlyPage] = useState(1);
   const [selected, setSelected] = useState<any>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState(false);
