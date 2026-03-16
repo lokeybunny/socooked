@@ -709,7 +709,13 @@ export default function Leads() {
                        </>
                      )}
                      {selected.status === 'active' && (
-                       <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'prospect', selected.category); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="col-span-2 text-xs"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
+                       <>
+                         <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'prospect' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'prospect', selected.category); toast.success('Moved back to prospect'); setSelected(null); loadAll(); }} className="text-xs"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to Prospect</Button>
+                         <Button onClick={async () => { await supabase.from('customers').update({ status: 'monthly' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'active', 'monthly', selected.category); toast.success('Moved to monthly client'); setSelected(null); loadAll(); }} className="text-xs"><Layers className="h-3.5 w-3.5 mr-1" />Monthly Client</Button>
+                       </>
+                     )}
+                     {selected.status === 'monthly' && (
+                       <Button variant="outline" onClick={async () => { await supabase.from('customers').update({ status: 'active' }).eq('id', selected.id); await logStatusMove(selected.full_name, selected.id, 'monthly', 'active', selected.category); toast.success('Moved back to new client'); setSelected(null); loadAll(); }} className="col-span-2 text-xs"><ArrowLeft className="h-3.5 w-3.5 mr-1" />Back to New Client</Button>
                      )}
                      <Button variant="outline" size="sm" onClick={() => openEdit(selected)}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Button>
                      <Button variant="outline" size="sm" onClick={() => dismiss(selected.id)}>Dismiss</Button>
