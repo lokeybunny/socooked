@@ -547,6 +547,16 @@ export default function Leads() {
               <SelectItem value="other">Other</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={filterStage} onValueChange={setFilterStage}>
+            <SelectTrigger className="w-48"><SelectValue placeholder="All Stages" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Stages</SelectItem>
+              <SelectItem value="lead">Leads Only</SelectItem>
+              <SelectItem value="prospect">Prospects Only</SelectItem>
+              <SelectItem value="active">New Clients Only</SelectItem>
+              <SelectItem value="monthly">Monthly Clients Only</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
