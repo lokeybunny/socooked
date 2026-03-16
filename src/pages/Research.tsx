@@ -407,84 +407,152 @@ export default function Research() {
     setClHasSearched(true);
     setClResults([]);
     setClCreatedCount(0);
-    setClProgressMsg('Starting scrape...');
+    setClProgressMsg('Starting Apify actor...');
+
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const headers = {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      };
 
-      const resp = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
+      // Step 1: Start the Apify run
+      const startResp = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({ search_url: searchUrl, keywords: clKeywords.trim() || '' }),
+        headers,
+        body: JSON.stringify({ action: 'start', search_url: searchUrl, keywords: clKeywords.trim() || '' }),
         signal: controller.signal,
       });
 
-      if (!resp.ok) {
-        const errBody = await resp.text().catch(() => '');
-        throw new Error(errBody || `Request failed (${resp.status})`);
+      if (!startResp.ok) {
+        const errBody = await startResp.text().catch(() => '');
+        throw new Error(errBody || `Request failed (${startResp.status})`);
       }
 
-      if (!resp.body) throw new Error('No response body');
+      const startData = await startResp.json();
+      if (startData.error) {
+        toast.error(startData.error);
+        setClSearching(false);
+        return;
+      }
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let totalCreated = 0;
+      const runId = startData.runId;
+      if (!runId) throw new Error('No run ID returned');
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      setClProgressMsg('Apify actor running, waiting for results...');
 
-        buffer += decoder.decode(value, { stream: true });
-        const messages = buffer.split('\n\n');
-        buffer = messages.pop() || '';
+      // Step 2: Poll until complete (every 5s, up to 10 min)
+      const maxPolls = 120;
+      let pollCount = 0;
+      let succeeded = false;
 
-        for (const msg of messages) {
-          if (!msg.trim()) continue;
-          const lines = msg.split('\n');
-          let eventType = '';
-          let dataStr = '';
-          for (const line of lines) {
-            if (line.startsWith('event: ')) eventType = line.slice(7).trim();
-            else if (line.startsWith('data: ')) dataStr += line.slice(6);
-          }
-          if (!eventType || !dataStr) continue;
-          try {
-            const data = JSON.parse(dataStr);
-            if (eventType === 'progress') {
-              setClProgressMsg(data.detail || data.label || '');
-            } else if (eventType === 'post') {
-              // Show each post as it comes in
-              setClResults(prev => [...prev, data.post]);
-              setClProgressMsg(`Processing ${data.index + 1} of ${data.total}...`);
-            } else if (eventType === 'lead_created') {
-              totalCreated = data.created_count;
-              setClCreatedCount(totalCreated);
-            } else if (eventType === 'complete') {
-              setClCreatedCount(data.created_count || totalCreated);
-              setClProgressMsg('');
-              if (data.created_count > 0) {
-                toast.success(`${data.total_found} posts scraped, ${data.created_count} new leads added`);
-                load();
-              } else if (data.total_found > 0) {
-                toast.info(`${data.total_found} posts scraped (all already in CRM)`);
-              } else {
-                toast.info('No posts found');
+      while (pollCount < maxPolls) {
+        if (controller.signal.aborted) return;
+        await new Promise(r => setTimeout(r, 5000));
+        pollCount++;
+
+        if (controller.signal.aborted) return;
+
+        const pollResp = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ action: 'poll', run_id: runId }),
+          signal: controller.signal,
+        });
+
+        if (!pollResp.ok) {
+          const errBody = await pollResp.text().catch(() => '');
+          throw new Error(errBody || `Poll failed (${pollResp.status})`);
+        }
+
+        // Check content type — SSE means results are streaming
+        const contentType = pollResp.headers.get('content-type') || '';
+
+        if (contentType.includes('text/event-stream')) {
+          // Results are streaming — parse SSE
+          succeeded = true;
+          setClProgressMsg('Processing results...');
+
+          if (!pollResp.body) break;
+          const reader = pollResp.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          let totalCreated = 0;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const messages = buffer.split('\n\n');
+            buffer = messages.pop() || '';
+
+            for (const msg of messages) {
+              if (!msg.trim()) continue;
+              const lines = msg.split('\n');
+              let eventType = '';
+              let dataStr = '';
+              for (const line of lines) {
+                if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+                else if (line.startsWith('data: ')) dataStr += line.slice(6);
               }
-            } else if (eventType === 'warning') {
-              toast.warning(data.message);
-            } else if (eventType === 'error') {
-              toast.error(data.message);
+              if (!eventType || !dataStr) continue;
+              try {
+                const data = JSON.parse(dataStr);
+                if (eventType === 'progress') {
+                  setClProgressMsg(data.detail || data.label || '');
+                } else if (eventType === 'post') {
+                  setClResults(prev => [...prev, data.post]);
+                  setClProgressMsg(`Processing ${data.index + 1} of ${data.total}...`);
+                } else if (eventType === 'lead_created') {
+                  totalCreated = data.created_count;
+                  setClCreatedCount(totalCreated);
+                } else if (eventType === 'complete') {
+                  setClCreatedCount(data.created_count || totalCreated);
+                  setClProgressMsg('');
+                  if (data.created_count > 0) {
+                    toast.success(`${data.total_found} posts scraped, ${data.created_count} new leads added`);
+                    load();
+                  } else if (data.total_found > 0) {
+                    toast.info(`${data.total_found} posts scraped (all already in CRM or no phone)`);
+                  } else {
+                    toast.info('No posts found');
+                  }
+                } else if (eventType === 'warning') {
+                  toast.warning(data.message);
+                } else if (eventType === 'error') {
+                  toast.error(data.message);
+                }
+              } catch { /* skip bad JSON */ }
             }
-          } catch { /* skip bad JSON */ }
+          }
+          break;
+        }
+
+        // JSON response — still polling
+        const pollData = await pollResp.json();
+
+        if (pollData.error) {
+          toast.error(pollData.error);
+          break;
+        }
+
+        const status = pollData.status;
+        setClProgressMsg(`Apify actor: ${status} (poll ${pollCount})...`);
+
+        if (status === 'FAILED' || status === 'ABORTED' || status === 'TIMED-OUT') {
+          toast.error(`Apify run ${status}`);
+          break;
         }
       }
+
+      if (!succeeded && pollCount >= maxPolls) {
+        toast.error('Scrape timed out after 10 minutes');
+      }
     } catch (err: any) {
-      if (err.name === 'AbortError') return; // user stopped
+      if (err.name === 'AbortError') return;
       toast.error(err.message || 'Craigslist search failed');
     } finally {
       setClSearching(false);
