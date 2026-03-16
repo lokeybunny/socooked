@@ -455,6 +455,7 @@ export default function Research() {
 
       const runId = startData.runId;
       if (!runId) throw new Error('No run ID returned');
+      clRunIdRef.current = runId;
 
       setClProgressMsg('Apify actor running, waiting for results...');
 
