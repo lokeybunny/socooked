@@ -501,7 +501,7 @@ export default function Leads() {
         </div>
 
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-4">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Bot className="h-4 w-4 text-muted-foreground" />
@@ -560,6 +560,26 @@ export default function Leads() {
                 )}
               </DroppableColumn>
               <PaginationButtons current={clientsPage} total={clientsPageCount} onChange={setClientsPage} />
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-emerald-500" />
+                <h2 className="text-sm font-semibold text-emerald-500 uppercase tracking-wider">Monthly Client</h2>
+                <span className="text-xs bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full">{monthly.length}</span>
+              </div>
+              <DroppableColumn id="monthly-column">
+                {pagedMonthly.map(m => (
+                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} />
+                ))}
+                {monthly.length === 0 && !loading && (
+                  <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
+                    <Layers className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">Drag clients here for monthly</p>
+                  </div>
+                )}
+              </DroppableColumn>
+              <PaginationButtons current={monthlyPage} total={monthlyPageCount} onChange={setMonthlyPage} />
             </div>
           </div>
 
