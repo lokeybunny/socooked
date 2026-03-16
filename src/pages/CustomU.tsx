@@ -34,7 +34,9 @@ export default function CustomU() {
   const PAGE_SIZE = 25;
 
   const load = async () => {
-    let q = supabase.from('customers').select('id, full_name, category, upload_token, email, company').order('full_name');
+    let q = supabase.from('customers').select('id, full_name, category, upload_token, email, company, status')
+      .eq('status', 'prospect')
+      .order('full_name');
     if (search) q = q.ilike('full_name', `%${search}%`);
     const { data } = await q;
     setCustomers(data || []);
@@ -104,7 +106,7 @@ export default function CustomU() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Custom-U</h1>
-              <p className="text-muted-foreground mt-1">Generate custom upload links for your clients. They can upload files directly to your Google Drive.</p>
+              <p className="text-muted-foreground mt-1">Generate upload links for active prospects. Only customers with 'prospect' status in the leads pipeline are eligible.</p>
             </div>
             
           </div>
