@@ -543,7 +543,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="prospects-column">
                 {pagedProspects.map(prospect => (
-                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect />
+                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect isPaid={paidCustomerIds.has(prospect.id)} />
                 ))}
                 {prospects.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
