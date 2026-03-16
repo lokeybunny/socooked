@@ -2094,6 +2094,18 @@ export default function PhonePage() {
             When should <span className="font-semibold text-foreground">{callBackLeadName}</span> reappear in the queue?
           </p>
           <div className="space-y-4">
+            <Button
+              variant="outline"
+              className="w-full gap-2 border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+              onClick={() => {
+                const inOneHour = new Date(Date.now() + 60 * 60 * 1000);
+                setCallBackDate(inOneHour);
+                setCallBackTime(`${inOneHour.getHours().toString().padStart(2, '0')}:${inOneHour.getMinutes().toString().padStart(2, '0')}`);
+              }}
+            >
+              <Clock className="h-4 w-4" />
+              In 1 HR
+            </Button>
             <div className="flex justify-center">
               <Calendar
                 mode="single"
