@@ -127,6 +127,7 @@ export default function PhonePage() {
   const [emailBodyEdit, setEmailBodyEdit] = useState('');
 
   // Transcription upload state
+  const [coldCallVideoOpen, setColdCallVideoOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
