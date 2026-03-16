@@ -160,6 +160,7 @@ export default function Customers() {
             </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingId ? 'Edit Customer' : 'New Customer'}</DialogTitle></DialogHeader>
+              {editingId && <CustomerWebPreviews customerId={editingId} />}
               {editingId && (() => {
                 const customer = customers.find(c => c.id === editingId);
                 const meta = customer?.meta && typeof customer.meta === 'object' ? customer.meta : {};

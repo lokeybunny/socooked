@@ -594,6 +594,8 @@ export default function Leads() {
                     </div>
                   )}
 
+                  <CustomerWebPreviews customerId={selected.id} />
+
                   <Button variant="outline" size="sm" className="w-full" asChild>
                     <a href={`/customers?open=${selected.id}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />Open in Customers</a>
                   </Button>
