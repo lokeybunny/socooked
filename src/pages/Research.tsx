@@ -117,12 +117,6 @@ export default function Research() {
   const yelpProgressLog = yelpState.progressLog;
   const yelpInterval = yelpState.interval;
 
-  const gmapsLoop = useGMapsLoop();
-  const gmapsState = gmapsLoop.loopState;
-  const gmapsGenerating = gmapsState.generating;
-  const gmapsLoopActive = gmapsState.active;
-  const gmapsProgressLog = gmapsState.progressLog;
-  const gmapsInterval = gmapsState.interval;
 
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [allFindings, setAllFindings] = useState<any[]>([]);
