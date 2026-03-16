@@ -76,7 +76,7 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }
         <Maximize2 className="h-3.5 w-3.5" />
       </button>
       <div className="flex items-center gap-2 px-6">
-        <span className={cn("font-semibold truncate", isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
+        <span className={cn("font-semibold truncate", isPaid ? 'text-emerald-500' : isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           return (meta as Record<string, unknown>).callback_at ? (
