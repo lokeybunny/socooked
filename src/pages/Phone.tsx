@@ -63,6 +63,11 @@ export default function PhonePage() {
   const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
   const [transcriptionsOpen, setTranscriptionsOpen] = useState(false);
 
+  // Interested prospects panel (warren only)
+  const [interestedPanelOpen, setInterestedPanelOpen] = useState(false);
+  const [interestedProspects, setInterestedProspects] = useState<any[]>([]);
+  const [interestedDetail, setInterestedDetail] = useState<any>(null);
+
   // Promote to prospect dialog
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [promoteCustomerId, setPromoteCustomerId] = useState<string | null>(null);
@@ -170,7 +175,16 @@ export default function PhonePage() {
     const merged = [...allLeads, ...callbackProspects.filter(p => !leadIds.has(p.id))];
     setLeads(merged);
     setLoading(false);
-  }, []);
+
+    // Load interested prospects for warren
+    if (user?.email === 'warren@stu25.com') {
+      const { data: prospects } = await supabase.from('customers')
+        .select('id, full_name, phone, email, company, address, notes, tags, category, instagram_handle, meta')
+        .eq('status', 'prospect')
+        .order('updated_at', { ascending: false });
+      setInterestedProspects(prospects || []);
+    }
+  }, [user?.email]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -2055,6 +2069,166 @@ export default function PhonePage() {
                 </>
               )}
             </div>
+
+            {/* ── Interested Prospects (warren@stu25.com only) ── */}
+            {user?.email === 'warren@stu25.com' && (() => {
+              return (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => setInterestedPanelOpen(!interestedPanelOpen)}
+                    className="w-full flex items-center justify-between glass-card px-4 py-3 hover:bg-muted/50 transition-colors rounded-xl"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-amber-500" />
+                      <span className="font-semibold text-sm">Interested Prospects</span>
+                      {interestedProspects.length > 0 && (
+                        <Badge variant="secondary" className="text-[10px]">{interestedProspects.length}</Badge>
+                      )}
+                    </div>
+                    {interestedPanelOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </button>
+
+                  {interestedPanelOpen && (
+                    <>
+                      {interestedProspects.length === 0 ? (
+                        <div className="glass-card p-8 text-center">
+                          <Star className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+                          <p className="text-sm text-muted-foreground">No interested prospects yet.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {interestedProspects.map(p => {
+                            const meta = p.meta && typeof p.meta === 'object' ? p.meta : {};
+                            const clUrl = (meta as any).craigslist_url;
+                            const aiWebsite = (meta as any).ai_website;
+                            return (
+                              <div key={p.id} className="glass-card px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/30 transition-colors rounded-xl">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <div className="h-8 w-8 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0">
+                                    <Star className="h-4 w-4 text-amber-500" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium truncate">{p.full_name}</p>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      {p.phone && <span>{p.phone}</span>}
+                                      {p.category && <span className="bg-muted px-1.5 py-0.5 rounded text-[10px]">{p.category}</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {p.phone && (
+                                    <Button
+                                      variant="ghost" size="sm" className="h-7 w-7 p-0 text-primary hover:text-primary"
+                                      title="Copy phone"
+                                      onClick={() => { navigator.clipboard.writeText(p.phone); toast.success(`Copied ${p.phone}`); }}
+                                    >
+                                      <Copy className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  {clUrl && (
+                                    <a href={clUrl} target="_blank" rel="noopener noreferrer" title="Craigslist post" className="p-1.5 rounded-md text-purple-500 hover:text-purple-400 transition-colors">
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                  )}
+                                  <Button
+                                    variant="ghost" size="sm" className="h-7 w-7 p-0"
+                                    title="View details"
+                                    onClick={() => setInterestedDetail(p)}
+                                  >
+                                    <Info className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Interested Prospect Detail Popup */}
+                  <Dialog open={!!interestedDetail} onOpenChange={(open) => { if (!open) setInterestedDetail(null); }}>
+                    <DialogContent className="sm:max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Star className="h-5 w-5 text-amber-500" />
+                          {interestedDetail?.full_name}
+                        </DialogTitle>
+                      </DialogHeader>
+                      {interestedDetail && (() => {
+                        const d = interestedDetail;
+                        const meta = d.meta && typeof d.meta === 'object' ? d.meta : {};
+                        const clUrl = (meta as any).craigslist_url;
+                        const aiWebsite = (meta as any).ai_website;
+                        const callbackAt = (meta as any).callback_at;
+                        return (
+                          <div className="space-y-3">
+                            {d.phone && (
+                              <div className="flex items-center justify-between glass-card p-3 rounded-lg">
+                                <div className="flex items-center gap-2">
+                                  <Phone className="h-4 w-4 text-primary" />
+                                  <span className="font-mono text-sm">{d.phone}</span>
+                                </div>
+                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => { navigator.clipboard.writeText(d.phone); toast.success('Phone copied!'); }}>
+                                  <Copy className="h-3 w-3" /> Copy
+                                </Button>
+                              </div>
+                            )}
+                            {d.email && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Mail className="h-4 w-4 text-muted-foreground" />
+                                <span>{d.email}</span>
+                              </div>
+                            )}
+                            {d.company && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                <span>{d.company}</span>
+                              </div>
+                            )}
+                            {d.address && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <MapPin className="h-4 w-4 text-muted-foreground" />
+                                <span>{d.address}</span>
+                              </div>
+                            )}
+                            {d.category && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Tag className="h-4 w-4 text-muted-foreground" />
+                                <span>{d.category}</span>
+                              </div>
+                            )}
+                            {callbackAt && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <CalendarClock className="h-4 w-4 text-amber-500" />
+                                <span>Callback: {format(new Date(callbackAt), 'MMM d, yyyy h:mm a')}</span>
+                              </div>
+                            )}
+                            {aiWebsite && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Globe className="h-4 w-4 text-emerald-500" />
+                                <a href={aiWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{aiWebsite}</a>
+                              </div>
+                            )}
+                            {clUrl && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <ExternalLink className="h-4 w-4 text-purple-500" />
+                                <a href={clUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">Craigslist Post</a>
+                              </div>
+                            )}
+                            {d.notes && (
+                              <div className="bg-muted rounded-md p-3">
+                                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{d.notes}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
