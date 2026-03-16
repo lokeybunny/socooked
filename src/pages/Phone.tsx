@@ -176,8 +176,8 @@ export default function PhonePage() {
     setLeads(merged);
     setLoading(false);
 
-    // Load interested prospects for warren
-    if (user?.email === 'warren@stu25.com') {
+    // Load interested prospects for authenticated users
+    if (user) {
       const { data: prospects } = await supabase.from('customers')
         .select('id, full_name, phone, email, company, address, notes, tags, category, instagram_handle, meta')
         .eq('status', 'prospect')
