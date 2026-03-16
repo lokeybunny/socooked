@@ -55,7 +55,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean }) {
+function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }: { contact: any; onClick: () => void; onDelete: (id: string) => void; isProspect?: boolean; isPaid?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
 
@@ -65,7 +65,7 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { cont
       style={style}
       className={cn(
         "w-full text-left glass-card p-4 space-y-3 hover:ring-2 transition-all rounded-xl relative",
-        isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
+        isPaid ? 'hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' : isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
         isDragging && 'opacity-40 shadow-lg'
       )}
     >
@@ -76,7 +76,7 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { cont
         <Maximize2 className="h-3.5 w-3.5" />
       </button>
       <div className="flex items-center gap-2 px-6">
-        <span className={cn("font-semibold truncate", isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
+        <span className={cn("font-semibold truncate", isPaid ? 'text-emerald-500' : isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           return (meta as Record<string, unknown>).callback_at ? (
@@ -92,7 +92,7 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect }: { cont
       {/* Category badge */}
       {contact.category && (
         <div className="pl-6">
-          <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{getCategoryLabel(contact.category)}</span>
+          <span className={cn("text-[10px] px-2 py-0.5 rounded-full", isPaid ? 'bg-emerald-500/15 text-emerald-500' : 'bg-muted text-muted-foreground')}>{getCategoryLabel(contact.category)}</span>
         </div>
       )}
       {contact.email && (
@@ -133,6 +133,7 @@ export default function Leads() {
   const [filterSource, setFilterSource] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [paidCustomerIds, setPaidCustomerIds] = useState<Set<string>>(new Set());
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
   const [clientsPage, setClientsPage] = useState(1);
@@ -162,12 +163,24 @@ export default function Leads() {
 
   const loadAll = async () => {
     setLeadsPage(1); setProspectsPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, clientRes, monthlyRes] = await Promise.all([
+    const [leadRes, prospectRes, clientRes, monthlyRes, paidRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('active'),
       buildQuery('monthly'),
+      supabase.from('invoices').select('customer_id, status'),
     ]);
+    // Build set of customer IDs where ALL invoices are 'paid'
+    const invoicesByCustomer = new Map<string, boolean>();
+    (paidRes.data || []).forEach((inv: any) => {
+      const cid = inv.customer_id;
+      if (!invoicesByCustomer.has(cid)) invoicesByCustomer.set(cid, true);
+      if (inv.status !== 'paid') invoicesByCustomer.set(cid, false);
+    });
+    const paidIds = new Set<string>();
+    invoicesByCustomer.forEach((allPaid, cid) => { if (allPaid) paidIds.add(cid); });
+    setPaidCustomerIds(paidIds);
+
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
     setAllClients(clientRes.data || []);
@@ -510,7 +523,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="leads-column">
                 {pagedLeads.map(lead => (
-                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} />
+                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} isPaid={paidCustomerIds.has(lead.id)} />
                 ))}
                 {leads.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -530,7 +543,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="prospects-column">
                 {pagedProspects.map(prospect => (
-                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect />
+                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} isProspect isPaid={paidCustomerIds.has(prospect.id)} />
                 ))}
                 {prospects.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -550,7 +563,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="clients-column">
                 {pagedClients.map(client => (
-                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} isProspect />
+                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} isProspect isPaid={paidCustomerIds.has(client.id)} />
                 ))}
                 {clients.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -570,7 +583,7 @@ export default function Leads() {
               </div>
               <DroppableColumn id="monthly-column">
                 {pagedMonthly.map(m => (
-                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} />
+                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} isPaid={paidCustomerIds.has(m.id)} />
                 ))}
                 {monthly.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
