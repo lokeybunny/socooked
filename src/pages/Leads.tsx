@@ -179,7 +179,8 @@ export default function Leads() {
     setLeads(allLeads);
     setProspects(allProspects);
     setClients(allClients);
-  }, [allLeads, allProspects, allClients]);
+    setMonthly(allMonthly);
+  }, [allLeads, allProspects, allClients, allMonthly]);
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
