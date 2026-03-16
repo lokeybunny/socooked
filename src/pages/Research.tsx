@@ -475,6 +475,7 @@ export default function Research() {
       const runId = startData.runId;
       if (!runId) throw new Error('No run ID returned');
       clRunIdRef.current = runId;
+      saveClRun(runId, city.subdomain, clSelectedSection);
 
       setClProgressMsg('Apify actor running, waiting for results...');
 
