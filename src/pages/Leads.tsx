@@ -1074,6 +1074,104 @@ warren@stu25.com</p>`;
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* ── Website Email Composer Dialog ── */}
+        <Dialog open={emailComposeOpen} onOpenChange={setEmailComposeOpen}>
+          <DialogContent className="sm:max-w-[650px] max-h-[92vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-sky-400" />
+                Send Website Email — {emailTarget?.full_name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>To</Label>
+                <Input value={emailForm.to} onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })} placeholder="recipient@email.com" />
+              </div>
+              <div className="space-y-2">
+                <Label>Subject</Label>
+                <Input value={emailForm.subject} onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Body (HTML)</Label>
+                <textarea
+                  value={emailForm.body}
+                  onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
+                  className="flex min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </div>
+
+              {/* AI Website Preview */}
+              {(() => {
+                const meta = emailTarget?.meta && typeof emailTarget.meta === 'object' ? emailTarget.meta as Record<string, any> : {};
+                const aiSite = meta.ai_website;
+                if (!aiSite) return (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                    ⚠️ No AI website URL set for this contact. Add one via Edit first.
+                  </div>
+                );
+                const href = String(aiSite).startsWith('http') ? String(aiSite) : `https://${aiSite}`;
+                return (
+                  <div className="rounded-md border border-sky-500/20 bg-sky-500/5 p-3 text-xs text-muted-foreground flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-sky-400 shrink-0" />
+                    <span>Website: <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{String(aiSite)}</a></span>
+                  </div>
+                );
+              })()}
+
+              {/* Offer Options */}
+              <div className="space-y-2 border-t border-border pt-3">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Signature Options (attach to email)</Label>
+
+                <div className="flex items-center gap-2 py-1">
+                  <Checkbox id="email-offer-a" checked={emailOfferA} onCheckedChange={v => setEmailOfferA(!!v)} />
+                  <label htmlFor="email-offer-a" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                    <Gift className="h-4 w-4 text-primary" /> Option A — Own It Outright ($10.41/mo)
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2 py-1">
+                  <Checkbox id="email-offer-b" checked={emailOfferB} onCheckedChange={v => setEmailOfferB(!!v)} />
+                  <label htmlFor="email-offer-b" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                    <Gift className="h-4 w-4 text-primary" /> Option B — Warren Covers Everything (70/30 split)
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-2 py-1">
+                  <Checkbox id="email-offer-c" checked={emailOfferC} onCheckedChange={v => setEmailOfferC(!!v)} />
+                  <label htmlFor="email-offer-c" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                    <Gift className="h-4 w-4 text-primary" /> Option C — $250/mo Unlimited Updates
+                  </label>
+                </div>
+
+                {(emailOfferA || emailOfferB) && (
+                  <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground space-y-1">
+                    {emailOfferA && <p><strong>Option A:</strong> Client pays $10.41/mo (biannual) for domain & hosting — no revenue split, site is 100% theirs.</p>}
+                    {emailOfferB && <p><strong>Option B:</strong> Warren covers the $250 — 70/30 split on website payments (client 70%, Warren 30%).</p>}
+                    <p className="italic">The offer graphic will be auto-attached.</p>
+                    <img src="/images/offer-options.png" alt="Website Offer Options" className="mt-2 rounded-md border border-border max-h-32 object-contain" />
+                  </div>
+                )}
+
+                {emailOfferC && (
+                  <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground space-y-1">
+                    <p><strong>Option C:</strong> $250/month for unlimited website additions & changes — requests completed within 24 hours.</p>
+                    <p className="italic">The Option C graphic will be auto-attached.</p>
+                    <img src="/images/option-c-maintenance.png" alt="Option C Maintenance" className="mt-2 rounded-md border border-border max-h-32 object-contain" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setEmailComposeOpen(false)}>Cancel</Button>
+                <Button onClick={handleEmailSend} disabled={emailSending || !emailForm.to} className="gap-1.5">
+                  <Send className="h-4 w-4" /> {emailSending ? 'Sending...' : 'Send Email'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
