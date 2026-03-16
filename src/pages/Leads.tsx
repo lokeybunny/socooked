@@ -525,7 +525,7 @@ export default function Leads() {
 
         {selected && (
           <Dialog open onOpenChange={() => { setSelected(null); setEditing(false); setForm(emptyForm); }}>
-            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto overflow-x-hidden">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <User className="h-5 w-5 text-primary" />
