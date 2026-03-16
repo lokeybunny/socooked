@@ -101,6 +101,7 @@ export default function Dashboard() {
       setStats({
         customers: prospectCount,
         prospectCount,
+        prospectEmailedCount,
         monthlyCount,
         clientCount,
         actualTotalCustomers: convertedIds.size,
