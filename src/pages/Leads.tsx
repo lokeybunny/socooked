@@ -341,9 +341,10 @@ export default function Leads() {
   // Stage filter — hide columns not matching
   const showLeads = filterStage === 'all' || filterStage === 'lead';
   const showProspects = filterStage === 'all' || filterStage === 'prospect';
+  const showProspectEmailed = filterStage === 'all' || filterStage === 'prospect_emailed';
   const showClients = filterStage === 'all' || filterStage === 'active';
   const showMonthly = filterStage === 'all' || filterStage === 'monthly';
-  const visibleColumnCount = [showLeads, showProspects, showClients, showMonthly].filter(Boolean).length;
+  const visibleColumnCount = [showLeads, showProspects, showProspectEmailed, showClients, showMonthly].filter(Boolean).length;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
