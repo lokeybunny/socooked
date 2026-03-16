@@ -395,7 +395,7 @@ export default function Research() {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 210_000);
+      const timeoutId = setTimeout(() => controller.abort(), 330_000);
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
         method: 'POST',
