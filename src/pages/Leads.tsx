@@ -92,7 +92,7 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }
       {/* Category badge */}
       {contact.category && (
         <div className="pl-6">
-          <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full">{getCategoryLabel(contact.category)}</span>
+          <span className={cn("text-[10px] px-2 py-0.5 rounded-full", isPaid ? 'bg-emerald-500/15 text-emerald-500' : 'bg-muted text-muted-foreground')}>{getCategoryLabel(contact.category)}</span>
         </div>
       )}
       {contact.email && (
