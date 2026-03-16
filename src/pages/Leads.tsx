@@ -248,6 +248,16 @@ export default function Leads() {
     invoicesByCustomer.forEach((allPaid, cid) => { if (allPaid) paidIds.add(cid); });
     setPaidCustomerIds(paidIds);
 
+    // Build map of customer_id → most recent recording URL
+    const recMap = new Map<string, string>();
+    (recRes.data || []).forEach((rec: any) => {
+      if (rec.customer_id && !recMap.has(rec.customer_id)) {
+        const url = (rec.metadata as any)?.recording_url || rec.body;
+        if (url) recMap.set(rec.customer_id, url);
+      }
+    });
+    setRecordingMap(recMap);
+
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
     setAllClients(clientRes.data || []);
