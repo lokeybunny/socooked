@@ -17,7 +17,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
 import Leads from "./pages/Leads";
-import Projects from "./pages/Projects";
+
 import Tasks from "./pages/Tasks";
 import Content from "./pages/Content";
 import CustomerUpload from "./pages/CustomerUpload";
@@ -88,7 +88,7 @@ const App = () => (
             <Route path="/dashboard" element={<RestrictedGate><Dashboard /></RestrictedGate>} />
             <Route path="/customers" element={<RestrictedGate><Customers /></RestrictedGate>} />
             <Route path="/leads" element={<RestrictedGate><Leads /></RestrictedGate>} />
-            <Route path="/projects" element={<RestrictedGate><Projects /></RestrictedGate>} />
+            
             <Route path="/tasks" element={<RestrictedGate><Tasks /></RestrictedGate>} />
             <Route path="/content" element={<RestrictedGate><Content /></RestrictedGate>} />
             <Route path="/content/upload/:customerId" element={<RestrictedGate><CustomerUpload /></RestrictedGate>} />

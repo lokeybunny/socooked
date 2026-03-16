@@ -33,7 +33,6 @@ const navItems: NavItem[] = [
   
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
   { to: '/research', icon: Target, label: 'Finder', green: true },
-  { to: '/projects', icon: FolderKanban, label: 'Projects', highlight: true },
 ];
 
 const RESTRICTED_EMAIL = 'warren@guru.com';
