@@ -295,6 +295,7 @@ Deno.serve(async (req) => {
       if (!statusRes.ok) throw new Error(`Failed to poll run status: ${statusRes.status}`);
       const statusData = await statusRes.json();
       const runStatus = statusData?.data?.status;
+      const datasetId = statusData?.data?.defaultDatasetId;
 
       if (runStatus === "FAILED" || runStatus === "ABORTED" || runStatus === "TIMED-OUT") {
         return new Response(
@@ -303,25 +304,47 @@ Deno.serve(async (req) => {
         );
       }
 
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const sb = createClient(supabaseUrl, supabaseKey);
+
       if (runStatus !== "SUCCEEDED") {
+        if (datasetId) {
+          const partialRes = await fetch(
+            `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}&format=json`
+          );
+
+          if (partialRes.ok) {
+            const partialResults = await partialRes.json();
+            const { totalFound, createdCount } = await syncCraigslistResults({
+              results: Array.isArray(partialResults) ? partialResults : [],
+              sb,
+            });
+
+            return new Response(
+              JSON.stringify({
+                status: runStatus || "RUNNING",
+                partial_found: totalFound,
+                created_count: createdCount,
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+
         return new Response(
-          JSON.stringify({ status: runStatus || "RUNNING" }),
+          JSON.stringify({ status: runStatus || "RUNNING", partial_found: 0, created_count: 0 }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       // Run succeeded — fetch dataset and process results via SSE stream
-      const datasetId = statusData.data.defaultDatasetId;
       const dataRes = await fetch(
         `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}&format=json`
       );
       if (!dataRes.ok) throw new Error(`Failed to fetch dataset: ${dataRes.status}`);
       const results = await dataRes.json();
       console.log(`CL-Finder: dataset ${datasetId} returned ${Array.isArray(results) ? results.length : 0} items`);
-
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const sb = createClient(supabaseUrl, supabaseKey);
 
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
@@ -338,153 +361,15 @@ Deno.serve(async (req) => {
             }
 
             send("progress", { step: 0, label: "Processing", detail: `Got ${results.length} posts, processing leads...` });
+            const { totalFound, createdCount } = await syncCraigslistResults({
+              results,
+              sb,
+              send,
+              emitPosts: true,
+            });
 
-            let createdCount = 0;
-
-            for (let idx = 0; idx < results.length; idx++) {
-              const post = results[idx];
-              const postTitle = post.title || "Craigslist Post";
-              const postUrl = post.url || null;
-              const postLocation = post.location || null;
-              const postPrice = post.price || null;
-              const postDate = post.datetime || null;
-              const postBody = post.post || null;
-
-              const phoneNumbers: string[] = Array.isArray(post.phoneNumbers) ? post.phoneNumbers : [];
-              const phone = phoneNumbers.length > 0 ? phoneNumbers[0] : null;
-              const email = extractEmail(postBody);
-              const website = extractWebsite(postBody);
-              const hasWebsite = !!website;
-
-              // Stream every post to client for live display
-              send("post", {
-                index: idx,
-                total: results.length,
-                post: { ...post, phone, email, website, has_website: hasWebsite },
-              });
-
-              // Save leads even without phone — email or URL is enough contact info
-              if (!phone && !email && !website) continue;
-
-              // Deduplicate by source_url
-              if (postUrl) {
-                const { data: existing } = await sb
-                  .from("research_findings")
-                  .select("id")
-                  .eq("finding_type", "lead")
-                  .eq("source_url", postUrl)
-                  .limit(1);
-                if (existing && existing.length > 0) continue;
-              }
-
-              const customerPayload = {
-                full_name: postTitle.slice(0, 120),
-                email: email || null,
-                phone,
-                company: null,
-                status: "lead",
-                source: "craigslist",
-                category: "craigslist",
-                address: postLocation || null,
-                notes: [
-                  postPrice && `Price: ${postPrice}`,
-                  postLocation && `Location: ${postLocation}`,
-                  postDate && `Posted: ${postDate}`,
-                  phone && `Phone: ${phone}`,
-                  phoneNumbers.length > 1 && `Alt phones: ${phoneNumbers.slice(1).join(", ")}`,
-                  email && `Email: ${email}`,
-                  website && `Website: ${website}`,
-                  postBody && postBody.slice(0, 300),
-                ].filter(Boolean).join("\n") || null,
-                meta: {
-                  craigslist_url: postUrl,
-                  craigslist_id: post.id || null,
-                  price: postPrice,
-                  post_date: postDate,
-                  location: postLocation,
-                  phone,
-                  phone_numbers: phoneNumbers,
-                  email,
-                  website,
-                  has_website: hasWebsite,
-                  category: post.category || null,
-                  pics: Array.isArray(post.pics) ? post.pics.slice(0, 5) : [],
-                  source_platform: "craigslist-finder",
-                  actor: "ivanvs/craigslist-scraper",
-                },
-              };
-
-              const { data: inserted, error } = await sb
-                .from("customers")
-                .insert(customerPayload)
-                .select("id, full_name, email, company")
-                .single();
-
-              if (error) {
-                console.log(`Failed to create customer: ${error.message}`);
-                continue;
-              }
-
-              createdCount++;
-
-              send("lead_created", {
-                index: idx,
-                created_count: createdCount,
-                customer: {
-                  ...inserted,
-                  phone,
-                  email,
-                  website,
-                  has_website: hasWebsite,
-                  location: postLocation,
-                  price: postPrice,
-                },
-                post,
-              });
-
-              // Create research finding
-              await sb.from("research_findings").insert({
-                title: postTitle.slice(0, 200),
-                summary: [
-                  postPrice,
-                  postLocation,
-                  phone && `📞 ${phone}`,
-                  email && `✉️ ${email}`,
-                  website && `🌐 ${website}`,
-                  postBody?.slice(0, 200),
-                ].filter(Boolean).join(" · "),
-                source_url: postUrl,
-                finding_type: "lead",
-                category: "craigslist",
-                status: "new",
-                created_by: "craigslist-finder",
-                customer_id: inserted.id,
-                raw_data: {
-                  type: "craigslist_post",
-                  name: postTitle,
-                  symbol: "CL",
-                  deploy_window: "OUTREACH",
-                  craigslist_id: post.id,
-                  price: postPrice,
-                  location: postLocation,
-                  post_date: postDate,
-                  body: postBody?.slice(0, 500),
-                  url: postUrl,
-                  phone,
-                  phone_numbers: phoneNumbers,
-                  email,
-                  website,
-                  has_website: hasWebsite,
-                  pics: Array.isArray(post.pics) ? post.pics.slice(0, 5) : [],
-                  source_platform: "craigslist-finder",
-                  actor: "ivanvs/craigslist-scraper",
-                },
-                tags: ["craigslist-finder", postLocation].filter(Boolean),
-              });
-            }
-
-            console.log(`CL-Finder: done. ${createdCount} new leads from ${results.length} posts`);
-            send("complete", { total_found: results.length, created_count: createdCount });
+            console.log(`CL-Finder: done. ${createdCount} new leads from ${totalFound} posts`);
+            send("complete", { total_found: totalFound, created_count: createdCount });
           } catch (err: any) {
             console.error("CL-Finder stream error:", err);
             send("error", { message: err.message || "Unknown error" });
