@@ -1411,24 +1411,6 @@ export default function PhonePage() {
                     {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
                     {analyzing ? 'Auditing...' : 'Analyze & Audit'}
                   </Button>
-                  <div className="w-44">
-                    <Select value={leadsCategoryFilter} onValueChange={v => { setLeadsCategoryFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="All categories" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {SERVICE_CATEGORIES.map(cat => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            <span className="flex items-center gap-2">
-                              <cat.icon className="h-3.5 w-3.5" />
-                              {cat.label}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                   <div className="w-48">
                     <Select value={clSectionFilter} onValueChange={v => { setClSectionFilter(v); setCurrentLeadIndex(0); setAnalyzeResult(null); }}>
                       <SelectTrigger className="h-8 text-xs">
