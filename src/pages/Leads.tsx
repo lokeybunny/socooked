@@ -161,15 +161,17 @@ export default function Leads() {
   };
 
   const loadAll = async () => {
-    setLeadsPage(1); setProspectsPage(1); setClientsPage(1);
-    const [leadRes, prospectRes, clientRes] = await Promise.all([
+    setLeadsPage(1); setProspectsPage(1); setClientsPage(1); setMonthlyPage(1);
+    const [leadRes, prospectRes, clientRes, monthlyRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('active'),
+      buildQuery('monthly'),
     ]);
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
     setAllClients(clientRes.data || []);
+    setAllMonthly(monthlyRes.data || []);
     setLoading(false);
   };
 
