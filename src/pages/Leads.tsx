@@ -203,7 +203,7 @@ export default function Leads() {
       notes: form.notes || null, category: form.category || 'other',
       instagram_handle: form.instagram_handle || null,
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv' },
+      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv', ai_website: form.ai_website || null },
     }).eq('id', selected.id);
     if (error) { toast.error(error.message); return; }
     toast.success('Lead updated');
