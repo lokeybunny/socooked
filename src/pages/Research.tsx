@@ -483,19 +483,29 @@ export default function Research() {
     const saved = getSavedClRun();
     if (saved?.runId) runIdsToAbort.add(saved.runId);
 
-    // Fire abort requests for every known run in parallel
+    // Fire abort requests for every known run in parallel, with retry on failure
     if (runIdsToAbort.size > 0) {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      await Promise.allSettled(
-        [...runIdsToAbort].map(runId =>
-          fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
+      const abortRun = async (runId: string, attempt = 1): Promise<void> => {
+        try {
+          const resp = await fetch(`${supabaseUrl}/functions/v1/craigslist-finder`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` },
             body: JSON.stringify({ action: 'abort', run_id: runId }),
-          }).catch(() => {})
-        )
-      );
+          });
+          if (!resp.ok && attempt < 3) {
+            await new Promise(r => setTimeout(r, 1000 * attempt));
+            return abortRun(runId, attempt + 1);
+          }
+        } catch {
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 1000 * attempt));
+            return abortRun(runId, attempt + 1);
+          }
+        }
+      };
+      await Promise.allSettled([...runIdsToAbort].map(runId => abortRun(runId)));
     }
 
     setClSearching(false);
