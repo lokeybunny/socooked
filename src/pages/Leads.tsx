@@ -56,7 +56,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, isProspect, isPaid, recordingUrl }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string }) {
+function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, recordingUrl }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const [minimized, setMinimized] = useState(isPaid ? true : false);
