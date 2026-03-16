@@ -64,6 +64,10 @@ export default function PhonePage() {
   const [callBackDate, setCallBackDate] = useState<Date | undefined>(undefined);
   const [callBackTime, setCallBackTime] = useState('10:00');
 
+  // Callback reminder popup
+  const [callbackReminder, setCallbackReminder] = useState<any>(null);
+  const callbackReminderShown = useRef<Set<string>>(new Set());
+
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null; email?: string; phone?: string } | null>(null);
