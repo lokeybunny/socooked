@@ -482,38 +482,84 @@ Deno.serve(async (req) => {
     // ── ACTION: ABORT ──
     if (action === "abort") {
       const { run_id } = body;
-      if (!run_id) {
-        return new Response(
-          JSON.stringify({ error: "run_id is required" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+      const actorId = "ivanvs~craigslist-scraper";
 
-      console.log(`CL-Finder: force-aborting run ${run_id}`);
-      
-      // Force abort (gracefully=false) to immediately kill the run
-      const abortRes = await fetch(
-        `https://api.apify.com/v2/actor-runs/${run_id}/abort?token=${apifyToken}&gracefully=false`,
-        { method: "POST" }
+      const runsRes = await fetch(
+        `https://api.apify.com/v2/acts/${actorId}/runs?token=${apifyToken}&limit=100&desc=true`
       );
 
-      if (!abortRes.ok) {
-        const errText = await abortRes.text().catch(() => "");
-        console.error(`CL-Finder: abort failed (${abortRes.status}): ${errText}`);
-        // Return error so frontend knows abort failed
+      if (!runsRes.ok) {
+        const errText = await runsRes.text().catch(() => "");
+        console.error(`CL-Finder: failed to list runs (${runsRes.status}): ${errText}`);
         return new Response(
-          JSON.stringify({ ok: false, error: `Abort failed: ${abortRes.status}`, status: "ABORT_FAILED" }),
+          JSON.stringify({ ok: false, error: `Failed to list runs: ${runsRes.status}`, status: "ABORT_FAILED" }),
           { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      const abortData = await abortRes.json().catch(() => ({}));
-      const finalStatus = abortData?.data?.status || "ABORTED";
-      console.log(`CL-Finder: abort response status=${finalStatus}`);
+      const runsData = await runsRes.json().catch(() => ({}));
+      const allRuns = Array.isArray(runsData?.data?.items) ? runsData.data.items : [];
+      const activeStatuses = new Set(["READY", "RUNNING", "ABORTING"]);
+      const runIds = new Set<string>();
+
+      if (run_id) runIds.add(run_id);
+      for (const run of allRuns) {
+        if (run?.id && activeStatuses.has(run.status)) {
+          runIds.add(run.id);
+        }
+      }
+
+      if (runIds.size === 0) {
+        console.log("CL-Finder: no active runs found to abort");
+        return new Response(
+          JSON.stringify({ ok: true, status: "NO_ACTIVE_RUNS", aborted_runs: [], failed_runs: [] }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log(`CL-Finder: force-aborting ${runIds.size} run(s): ${[...runIds].join(", ")}`);
+
+      const abortResults = await Promise.allSettled(
+        [...runIds].map(async (id) => {
+          const abortRes = await fetch(
+            `https://api.apify.com/v2/actor-runs/${id}/abort?token=${apifyToken}&gracefully=false`,
+            { method: "POST" }
+          );
+
+          if (!abortRes.ok) {
+            const errText = await abortRes.text().catch(() => "");
+            throw new Error(`${id}:${abortRes.status}:${errText.slice(0, 200)}`);
+          }
+
+          const abortData = await abortRes.json().catch(() => ({}));
+          return {
+            id,
+            status: abortData?.data?.status || "ABORTED",
+          };
+        })
+      );
+
+      const abortedRuns = abortResults
+        .filter((result): result is PromiseFulfilledResult<{ id: string; status: string }> => result.status === "fulfilled")
+        .map((result) => result.value);
+
+      const failedRuns = abortResults
+        .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+        .map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason));
+
+      console.log(`CL-Finder: aborted ${abortedRuns.length} run(s), failed ${failedRuns.length}`);
 
       return new Response(
-        JSON.stringify({ ok: true, status: finalStatus }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          ok: failedRuns.length === 0,
+          status: failedRuns.length === 0 ? "ABORTED" : "PARTIAL_ABORT",
+          aborted_runs: abortedRuns,
+          failed_runs: failedRuns,
+        }),
+        {
+          status: failedRuns.length === 0 ? 200 : 207,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
       );
     }
 
