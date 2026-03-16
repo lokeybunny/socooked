@@ -90,6 +90,16 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, isPros
 
       <div className="flex items-center gap-2 px-6">
         <span className={cn("font-semibold truncate", isPaid ? 'text-emerald-500' : isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
+        {/* Email icon — light blue */}
+        {contact.email && onEmailClick && (
+          <button
+            className="shrink-0 text-sky-400 hover:text-sky-300 transition-colors"
+            title="Send website email"
+            onClick={(e) => { e.stopPropagation(); onEmailClick(contact); }}
+          >
+            <Mail className="h-3.5 w-3.5" />
+          </button>
+        )}
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           const clUrl = (meta as Record<string, unknown>).craigslist_url as string | undefined;
