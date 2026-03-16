@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus } from 'lucide-react';
+import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -237,6 +237,8 @@ export default function Previews() {
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [showGenerate, setShowGenerate] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
 
   useEffect(() => {
     fetchPreviews();
@@ -267,6 +269,9 @@ export default function Previews() {
   }
 
   // Group by customer
+  // Reset page on filter change
+  useEffect(() => { setPage(0); }, [search, sourceFilter]);
+
   const filtered = previews.filter(p => {
     const matchSearch = !search || 
       p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -276,7 +281,11 @@ export default function Previews() {
     return matchSearch && matchSource;
   });
 
-  const grouped = filtered.reduce<Record<string, { name: string; previews: ApiPreview[] }>>((acc, p) => {
+  const totalCount = filtered.length;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const grouped = paginated.reduce<Record<string, { name: string; previews: ApiPreview[] }>>((acc, p) => {
     const key = p.customer_id || '__uncategorized';
     if (!acc[key]) {
       acc[key] = {
@@ -389,6 +398,7 @@ export default function Previews() {
             </Button>
           </div>
         ) : (
+          <>
           <div className="space-y-2">
             {sortedGroups.map(([clientId, group]) => {
               const isExpanded = expandedClients.has(clientId);
@@ -500,6 +510,39 @@ export default function Previews() {
               );
             })}
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <p className="text-xs text-muted-foreground">
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i)
+                  .filter(i => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 1)
+                  .reduce<(number | string)[]>((acc, i, idx, arr) => {
+                    if (idx > 0 && i - (arr[idx - 1] as number) > 1) acc.push('...');
+                    acc.push(i);
+                    return acc;
+                  }, [])
+                  .map((item, idx) =>
+                    typeof item === 'string' ? (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                    ) : (
+                      <Button key={item} variant={page === item ? 'default' : 'outline'} size="icon" className="h-8 w-8 text-xs" onClick={() => setPage(item)}>
+                        {item + 1}
+                      </Button>
+                    )
+                  )}
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
 
