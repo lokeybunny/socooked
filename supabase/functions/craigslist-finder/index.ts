@@ -451,7 +451,7 @@ Deno.serve(async (req) => {
             }
 
             send("progress", { step: 0, label: "Processing", detail: `Got ${results.length} posts, processing leads...` });
-            const { totalFound, createdCount } = await syncCraigslistResults({
+            const { totalFound, createdCount, duplicateCount } = await syncCraigslistResults({
               results,
               sb,
               send,
