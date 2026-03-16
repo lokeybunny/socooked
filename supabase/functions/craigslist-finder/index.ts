@@ -60,10 +60,11 @@ async function syncCraigslistResults({
   emitPosts?: boolean;
 }) {
   if (!Array.isArray(results) || results.length === 0) {
-    return { totalFound: 0, createdCount: 0 };
+    return { totalFound: 0, createdCount: 0, duplicateCount: 0 };
   }
 
   let createdCount = 0;
+  let duplicateCount = 0;
 
   for (let idx = 0; idx < results.length; idx++) {
     const post = results[idx];
