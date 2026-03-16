@@ -269,6 +269,9 @@ export default function Previews() {
   }
 
   // Group by customer
+  // Reset page on filter change
+  useEffect(() => { setPage(0); }, [search, sourceFilter]);
+
   const filtered = previews.filter(p => {
     const matchSearch = !search || 
       p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -278,7 +281,11 @@ export default function Previews() {
     return matchSearch && matchSource;
   });
 
-  const grouped = filtered.reduce<Record<string, { name: string; previews: ApiPreview[] }>>((acc, p) => {
+  const totalCount = filtered.length;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const grouped = paginated.reduce<Record<string, { name: string; previews: ApiPreview[] }>>((acc, p) => {
     const key = p.customer_id || '__uncategorized';
     if (!acc[key]) {
       acc[key] = {
