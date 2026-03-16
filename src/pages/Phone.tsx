@@ -63,6 +63,11 @@ export default function PhonePage() {
   const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
   const [transcriptionsOpen, setTranscriptionsOpen] = useState(false);
 
+  // Interested prospects panel (warren only)
+  const [interestedPanelOpen, setInterestedPanelOpen] = useState(false);
+  const [interestedProspects, setInterestedProspects] = useState<any[]>([]);
+  const [interestedDetail, setInterestedDetail] = useState<any>(null);
+
   // Promote to prospect dialog
   const [promoteOpen, setPromoteOpen] = useState(false);
   const [promoteCustomerId, setPromoteCustomerId] = useState<string | null>(null);
