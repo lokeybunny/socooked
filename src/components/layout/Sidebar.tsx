@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
   { to: '/meetings', icon: Video, label: 'Meetings', botIcon: true },
   { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true, divider: 'Services' },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
-  { to: '/threads', icon: MessageSquare, label: 'Analyze', highlight: true, divider: ' ' },
+  
   { to: '/content', icon: FileText, label: 'Content', highlight: true },
   
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
