@@ -35,6 +35,7 @@ export default function PhonePage() {
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState<any[]>([]);
   const [leadsCategoryFilter, setLeadsCategoryFilter] = useState<string>('all');
+  const [clSectionFilter, setClSectionFilter] = useState<string>('all');
   const [areaCodeFilter, setAreaCodeFilter] = useState<string>('');
   const [currentLeadIndex, setCurrentLeadIndex] = useState(0);
   const [transcriptionsOpen, setTranscriptionsOpen] = useState(false);
