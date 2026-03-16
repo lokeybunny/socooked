@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Search, Trash2, Instagram, Layers, ArrowRight, CalendarClock, Globe, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
+import { upsertAiPreview } from '@/lib/upsertAiPreview';
 import { useNavigate } from 'react-router-dom';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
