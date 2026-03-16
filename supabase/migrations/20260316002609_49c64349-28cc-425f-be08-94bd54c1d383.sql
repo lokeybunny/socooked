@@ -1,0 +1,1 @@
+DELETE FROM research_findings WHERE customer_id IN (SELECT id FROM customers WHERE category = 'potential')
