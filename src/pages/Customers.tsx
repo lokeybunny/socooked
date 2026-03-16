@@ -352,6 +352,33 @@ export default function Customers() {
               </tbody>
             </table>
           </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+              <p className="text-xs text-muted-foreground">
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="h-7 w-7 p-0">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <Button
+                    key={i}
+                    variant={i === page ? 'default' : 'ghost'}
+                    size="sm"
+                    className="h-7 w-7 p-0 text-xs"
+                    onClick={() => setPage(i)}
+                  >
+                    {i + 1}
+                  </Button>
+                )).slice(Math.max(0, page - 2), page + 3)}
+                <Button variant="ghost" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)} className="h-7 w-7 p-0">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
