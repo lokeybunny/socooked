@@ -414,9 +414,13 @@ Deno.serve(async (req) => {
       }
 
       // Run succeeded — fetch dataset and process results via SSE stream
+      const dataController = new AbortController();
+      const dataTimeout = setTimeout(() => dataController.abort(), 15000);
       const dataRes = await fetch(
-        `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}&format=json`
+        `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}&format=json`,
+        { signal: dataController.signal }
       );
+      clearTimeout(dataTimeout);
       if (!dataRes.ok) throw new Error(`Failed to fetch dataset: ${dataRes.status}`);
       const results = await dataRes.json();
       console.log(`CL-Finder: dataset ${datasetId} returned ${Array.isArray(results) ? results.length : 0} items`);
