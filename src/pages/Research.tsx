@@ -524,14 +524,18 @@ export default function Research() {
                 } else if (eventType === 'post') {
                   setClResults(prev => [...prev, data.post]);
                   setClProgressMsg(`Processing ${data.index + 1} of ${data.total}...`);
+                } else if (eventType === 'duplicate') {
+                  setClDuplicateCount(data.duplicate_count || ((prev: number) => prev + 1));
                 } else if (eventType === 'lead_created') {
                   totalCreated = data.created_count;
                   setClCreatedCount(totalCreated);
                 } else if (eventType === 'complete') {
                   setClCreatedCount(data.created_count || totalCreated);
+                  setClDuplicateCount(prev => data.duplicate_count ?? prev);
                   setClProgressMsg('');
                   if (data.created_count > 0) {
-                    toast.success(`${data.total_found} posts scraped, ${data.created_count} new leads added`);
+                    const dupMsg = data.duplicate_count > 0 ? `, ${data.duplicate_count} duplicates skipped` : '';
+                    toast.success(`${data.total_found} posts scraped, ${data.created_count} new leads added${dupMsg}`);
                     load();
                   } else if (data.total_found > 0) {
                     toast.info(`${data.total_found} posts scraped (all already in CRM or no phone)`);
