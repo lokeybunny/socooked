@@ -234,6 +234,37 @@ export default function EmailPage() {
 <p style="margin-top:12px;font-style:italic;color:#666;">See the attached graphic for a visual breakdown of both options.</p>
 `;
 
+  const MAINTENANCE_BODY_HTML = `
+<br/><hr style="border:none;border-top:1px solid #ccc;margin:24px 0"/>
+<h3 style="margin-bottom:8px;">Option C — Unlimited Website Updates</h3>
+
+<p>For just <strong>$250/month</strong>, get unlimited additions and changes to your website. Simply email us your requests, and we'll get it done within 24 hours.</p>
+
+<ul style="margin:12px 0;padding-left:20px;">
+<li>Unlimited additions &amp; changes to your website</li>
+<li>Must be paid upfront after website is live</li>
+<li>Works with the "Own It Outright" Deal (Option A) or the Partnership Deal (Option B)</li>
+</ul>
+
+<p style="margin-top:12px;font-style:italic;color:#666;">See the attached graphic for a visual breakdown of Option C.</p>
+`;
+
+  const loadMaintenanceAttachment = async (): Promise<Attachment | null> => {
+    try {
+      const res = await fetch('/images/option-c-maintenance.png');
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      const reader = new FileReader();
+      return new Promise((resolve) => {
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ filename: 'Option-C-Maintenance.png', mimeType: 'image/png', data: base64, size: blob.size });
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch { return null; }
+  };
+
   const loadOfferAttachment = async (): Promise<Attachment | null> => {
     try {
       const res = await fetch('/images/offer-options.png');
