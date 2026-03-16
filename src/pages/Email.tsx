@@ -682,6 +682,19 @@ export default function EmailPage() {
                 <Paperclip className="h-4 w-4" /> Attach files
               </label>
             </div>
+            <div className="flex items-center gap-2 py-1">
+              <Checkbox id="offer-check" checked={offerChecked} onCheckedChange={(v) => setOfferChecked(!!v)} />
+              <label htmlFor="offer-check" className="flex items-center gap-1.5 text-sm cursor-pointer select-none">
+                <Gift className="h-4 w-4 text-primary" /> Include Website Offer (Option A / B)
+              </label>
+            </div>
+            {offerChecked && (
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground space-y-1">
+                <p><strong>Option A:</strong> Client pays $10.41/mo (biannual) for domain & hosting — no revenue split, site is 100% theirs.</p>
+                <p><strong>Option B:</strong> Warren covers the $250 — 70/30 split on website payments (client 70%, Warren 30%).</p>
+                <p className="italic">The offer graphic will be auto-attached.</p>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleSaveDraft} disabled={sending}><FileEdit className="h-4 w-4 mr-1" /> Save Draft</Button>
               <Button onClick={handleSend} disabled={sending}><Send className="h-4 w-4 mr-1" /> {sending ? 'Sending...' : 'Send'}</Button>
