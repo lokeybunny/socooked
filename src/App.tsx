@@ -17,7 +17,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
 import Leads from "./pages/Leads";
-import Projects from "./pages/Projects";
+
 import Tasks from "./pages/Tasks";
 import Content from "./pages/Content";
 import CustomerUpload from "./pages/CustomerUpload";
