@@ -60,10 +60,11 @@ async function syncCraigslistResults({
   emitPosts?: boolean;
 }) {
   if (!Array.isArray(results) || results.length === 0) {
-    return { totalFound: 0, createdCount: 0 };
+    return { totalFound: 0, createdCount: 0, duplicateCount: 0 };
   }
 
   let createdCount = 0;
+  let duplicateCount = 0;
 
   for (let idx = 0; idx < results.length; idx++) {
     const post = results[idx];
@@ -93,6 +94,20 @@ async function syncCraigslistResults({
     }
 
     if (!phone) continue;
+
+    // Duplicate detection by phone number
+    const { data: phoneExists } = await sb
+      .from("customers")
+      .select("id")
+      .eq("phone", phone)
+      .limit(1);
+    if (phoneExists && phoneExists.length > 0) {
+      duplicateCount++;
+      if (send) {
+        send("duplicate", { index: idx, phone, title: postTitle, existing_id: phoneExists[0].id, duplicate_count: duplicateCount });
+      }
+      continue;
+    }
 
     if (postUrl) {
       const { data: existing } = await sb
@@ -211,7 +226,7 @@ async function syncCraigslistResults({
     });
   }
 
-  return { totalFound: results.length, createdCount };
+  return { totalFound: results.length, createdCount, duplicateCount };
 }
 
 Deno.serve(async (req) => {
@@ -369,7 +384,7 @@ Deno.serve(async (req) => {
             });
 
             console.log(`CL-Finder: done. ${createdCount} new leads from ${totalFound} posts`);
-            send("complete", { total_found: totalFound, created_count: createdCount });
+            send("complete", { total_found: totalFound, created_count: createdCount, duplicate_count: duplicateCount });
           } catch (err: any) {
             console.error("CL-Finder stream error:", err);
             send("error", { message: err.message || "Unknown error" });

@@ -210,6 +210,7 @@ export default function Research() {
   const [clSearching, setClSearching] = useState(false);
   const [clResults, setClResults] = useState<any[]>([]);
   const [clCreatedCount, setClCreatedCount] = useState(0);
+  const [clDuplicateCount, setClDuplicateCount] = useState(0);
   const [clHasSearched, setClHasSearched] = useState(false);
   const [clProgressMsg, setClProgressMsg] = useState('');
   const clAbortRef = useRef<AbortController | null>(null);
@@ -422,6 +423,7 @@ export default function Research() {
     setClHasSearched(true);
     setClResults([]);
     setClCreatedCount(0);
+    setClDuplicateCount(0);
     setClProgressMsg('Starting Apify actor...');
 
     try {
@@ -522,14 +524,18 @@ export default function Research() {
                 } else if (eventType === 'post') {
                   setClResults(prev => [...prev, data.post]);
                   setClProgressMsg(`Processing ${data.index + 1} of ${data.total}...`);
+                } else if (eventType === 'duplicate') {
+                  setClDuplicateCount(data.duplicate_count ?? (prev => prev + 1));
                 } else if (eventType === 'lead_created') {
                   totalCreated = data.created_count;
                   setClCreatedCount(totalCreated);
                 } else if (eventType === 'complete') {
                   setClCreatedCount(data.created_count || totalCreated);
+                  setClDuplicateCount(prev => data.duplicate_count ?? prev);
                   setClProgressMsg('');
                   if (data.created_count > 0) {
-                    toast.success(`${data.total_found} posts scraped, ${data.created_count} new leads added`);
+                    const dupMsg = data.duplicate_count > 0 ? `, ${data.duplicate_count} duplicates skipped` : '';
+                    toast.success(`${data.total_found} posts scraped, ${data.created_count} new leads added${dupMsg}`);
                     load();
                   } else if (data.total_found > 0) {
                     toast.info(`${data.total_found} posts scraped (all already in CRM or no phone)`);
@@ -1361,13 +1367,14 @@ export default function Research() {
                 <div className="text-xs text-muted-foreground text-center py-1 animate-pulse">
                   {clProgressMsg}
                   {clCreatedCount > 0 && ` · ${clCreatedCount} leads added`}
+                  {clDuplicateCount > 0 && ` · ${clDuplicateCount} duplicates skipped`}
                 </div>
               )}
 
               {clHasSearched && !clSearching && (
                 <div className="text-sm text-muted-foreground text-center py-2">
                   {clResults.length > 0
-                    ? `Found ${clResults.length} service posts · ${clCreatedCount} new leads added to CRM`
+                    ? `Found ${clResults.length} service posts · ${clCreatedCount} new leads · ${clDuplicateCount} duplicates skipped`
                     : 'No service posts found in this city'}
                 </div>
               )}
