@@ -21,13 +21,6 @@ async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 3)
   throw new Error(`${label} exhausted all retries`);
 }
 
-/** Extract phone numbers from text */
-function extractPhone(text: string | null | undefined): string | null {
-  if (!text) return null;
-  const match = text.match(/(\+?1?\s*[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})/);
-  return match ? match[1].replace(/\s+/g, '').trim() : null;
-}
-
 /** Extract email from text */
 function extractEmail(text: string | null | undefined): string | null {
   if (!text) return null;
@@ -63,13 +56,14 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, supabaseKey);
 
+    // ivanvs/craigslist-scraper input format
     const input = {
-      search_url,
-      email_addr: "noreply@clawd.bot",
-      email_subj: "Craigslist Lead Alert",
+      maxConcurrency: 1,
+      proxyConfiguration: { useApifyProxy: true },
+      urls: [{ url: search_url }],
     };
 
-    console.log(`Craigslist Finder: starting with URL: ${search_url}`);
+    console.log(`Craigslist Finder (ivanvs): starting with URL: ${search_url}`);
 
     const actorId = "ivanvs~craigslist-scraper";
     const runUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyToken}`;
@@ -105,19 +99,28 @@ Deno.serve(async (req) => {
 
     const created: any[] = [];
     for (const post of results) {
-      const postTitle = post.title || post.postTitle || "Craigslist Post";
-      const postUrl = post.url || post.postUrl || post.link || null;
-      const postLocation = post.location || post.hood || post.subareaName || null;
-      const postPrice = post.price || post.postPrice || null;
-      const postDate = post.datetime || post.postDate || post.date || null;
-      const postBody = post.body || post.postBody || post.description || null;
+      // ivanvs output fields: title, url, id, datetime, location, category, price, post, phoneNumbers[], pics[], notices[]
+      const postTitle = post.title || "Craigslist Post";
+      const postUrl = post.url || null;
+      const postLocation = post.location || null;
+      const postPrice = post.price || null;
+      const postDate = post.datetime || null;
+      const postBody = post.post || null; // ivanvs uses "post" field for body text
 
-      // Extract contact info from body text
-      const allText = [postTitle, postBody, post.replyEmail, post.replyPhone].filter(Boolean).join(" ");
-      const phone = post.replyPhone || post.phone || extractPhone(allText);
-      const email = post.replyEmail || post.email || extractEmail(allText);
-      const website = post.website || post.replyUrl || extractWebsite(postBody);
+      // phoneNumbers is an array in ivanvs output
+      const phoneNumbers: string[] = Array.isArray(post.phoneNumbers) ? post.phoneNumbers : [];
+      const phone = phoneNumbers.length > 0 ? phoneNumbers[0] : null;
+
+      // Extract email and website from post body
+      const email = extractEmail(postBody);
+      const website = extractWebsite(postBody);
       const hasWebsite = !!website;
+
+      // Skip posts without phone numbers (requirement: phone is mandatory)
+      if (!phone) {
+        console.log(`Skipping post without phone: ${postTitle.slice(0, 60)}`);
+        continue;
+      }
 
       // Deduplicate by source_url
       if (postUrl) {
@@ -137,7 +140,7 @@ Deno.serve(async (req) => {
       const customerPayload = {
         full_name: postTitle.slice(0, 120),
         email: email || null,
-        phone: phone || null,
+        phone,
         company: null,
         status: "lead",
         source: "craigslist",
@@ -148,20 +151,26 @@ Deno.serve(async (req) => {
           postLocation && `Location: ${postLocation}`,
           postDate && `Posted: ${postDate}`,
           phone && `Phone: ${phone}`,
+          phoneNumbers.length > 1 && `Alt phones: ${phoneNumbers.slice(1).join(', ')}`,
           email && `Email: ${email}`,
           website && `Website: ${website}`,
           postBody && postBody.slice(0, 300),
         ].filter(Boolean).join("\n") || null,
         meta: {
           craigslist_url: postUrl,
+          craigslist_id: post.id || null,
           price: postPrice,
           post_date: postDate,
           location: postLocation,
           phone,
+          phone_numbers: phoneNumbers,
           email,
           website,
           has_website: hasWebsite,
+          category: post.category || null,
+          pics: Array.isArray(post.pics) ? post.pics.slice(0, 5) : [],
           source_platform: "craigslist-finder",
+          actor: "ivanvs/craigslist-scraper",
         },
       };
 
@@ -200,16 +209,20 @@ Deno.serve(async (req) => {
           name: postTitle,
           symbol: "CL",
           deploy_window: "OUTREACH",
+          craigslist_id: post.id,
           price: postPrice,
           location: postLocation,
           post_date: postDate,
           body: postBody?.slice(0, 500),
           url: postUrl,
           phone,
+          phone_numbers: phoneNumbers,
           email,
           website,
           has_website: hasWebsite,
+          pics: Array.isArray(post.pics) ? post.pics.slice(0, 5) : [],
           source_platform: "craigslist-finder",
+          actor: "ivanvs/craigslist-scraper",
         },
         tags: ["craigslist-finder", postLocation].filter(Boolean),
       });
