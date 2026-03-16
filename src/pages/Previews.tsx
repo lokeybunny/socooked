@@ -465,7 +465,7 @@ export default function Previews() {
                               {format(new Date(preview.created_at), 'MMM d, yyyy · h:mm a')}
                             </p>
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 flex-wrap">
                               {preview.preview_url && (
                                 <a
                                   href={preview.preview_url}
@@ -488,7 +488,13 @@ export default function Previews() {
                                   Edit
                                 </a>
                               )}
-                              {!preview.preview_url && !preview.edit_url && (
+                              {!preview.customer_id && (
+                                <AssignClientPopover previewId={preview.id} onAssigned={fetchPreviews} />
+                              )}
+                              {preview.customer_id && (
+                                <AssignClientPopover previewId={preview.id} onAssigned={fetchPreviews} />
+                              )}
+                              {!preview.preview_url && !preview.edit_url && !preview.customer_id && (
                                 <span className="text-xs text-muted-foreground italic">No links available</span>
                               )}
                             </div>
