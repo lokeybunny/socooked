@@ -89,11 +89,23 @@ function DraggableContactCard({ contact, onClick, onDelete, isProspect, isPaid }
         <span className={cn("font-semibold truncate", isPaid ? 'text-emerald-500' : isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
         {(() => {
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
-          return (meta as Record<string, unknown>).callback_at ? (
-            <span title={`Follow-up: ${format(new Date((meta as Record<string, unknown>).callback_at as string), 'MMM d, h:mm a')}`} className="shrink-0">
+          const callbackAt = (meta as Record<string, unknown>).callback_at as string | undefined;
+          if (!callbackAt) return null;
+          const cbDate = new Date(callbackAt);
+          const isPast = cbDate < new Date();
+          return isProspect ? (
+            <span className={cn(
+              "shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1",
+              isPast ? 'bg-destructive text-destructive-foreground animate-pulse' : 'bg-destructive/15 text-destructive'
+            )}>
+              <CalendarClock className="h-3 w-3" />
+              {format(cbDate, 'MMM d, h:mm a')}
+            </span>
+          ) : (
+            <span title={`Follow-up: ${format(cbDate, 'MMM d, h:mm a')}`} className="shrink-0">
               <CalendarClock className="h-3.5 w-3.5 text-blue-500" />
             </span>
-          ) : null;
+          );
         })()}
         {contact.source && (
           <span className="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase shrink-0">{contact.source}</span>
