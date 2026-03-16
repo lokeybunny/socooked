@@ -750,7 +750,7 @@ export default function Research() {
     if (!rd) return false;
     const hasName = !!(rd.name || f.title);
     if (selectedSource === 'craigslist') {
-      return hasName && rd.type === 'lead_finder';
+      return hasName && (rd.type === 'lead_finder' || rd.type === 'craigslist_post');
     }
     if (selectedSource === 'google-maps') {
       return hasName && (rd.type === 'gmaps_business' || rd.type === 'yelp_business' || rd.type === 'lead_finder');
