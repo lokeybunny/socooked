@@ -170,7 +170,8 @@ Deno.serve(async (req) => {
                 post: { ...post, phone, email, website, has_website: hasWebsite },
               });
 
-              if (!phone) continue;
+              // Save leads even without phone — email or URL is enough contact info
+              if (!phone && !email && !website) continue;
 
               // Deduplicate by source_url
               if (postUrl) {
