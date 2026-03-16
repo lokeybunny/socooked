@@ -740,6 +740,7 @@ export default function EmailPage() {
                 <p><strong>Option A:</strong> Client pays $10.41/mo (biannual) for domain & hosting — no revenue split, site is 100% theirs.</p>
                 <p><strong>Option B:</strong> Warren covers the $250 — 70/30 split on website payments (client 70%, Warren 30%).</p>
                 <p className="italic">The offer graphic will be auto-attached.</p>
+                <img src="/images/offer-options.png" alt="Website Offer Options A & B" className="mt-2 rounded-md border border-border max-h-32 object-contain" />
               </div>
             )}
             <div className="flex items-center gap-2 py-1">
