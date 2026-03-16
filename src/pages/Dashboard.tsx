@@ -162,6 +162,9 @@ export default function Dashboard() {
           ))}
         </div>
 
+        {/* Financial Reports */}
+        <FinancialReports />
+
         {/* Recent Customers */}
         <div className="glass-card p-6">
           <h2 className="text-sm font-semibold text-foreground mb-4">Recent Customers</h2>
