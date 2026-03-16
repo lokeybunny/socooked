@@ -71,6 +71,14 @@ export default function PhonePage() {
   // Interested confirmation
   const [interestedOpen, setInterestedOpen] = useState(false);
   const [interestedLead, setInterestedLead] = useState<{ id: string; name: string; category: string | null; email?: string; phone?: string } | null>(null);
+  const [pendingInterestedFromEdit, setPendingInterestedFromEdit] = useState(false);
+
+  // Interested callback scheduler
+  const [interestedCallbackOpen, setInterestedCallbackOpen] = useState(false);
+  const [interestedCallbackLead, setInterestedCallbackLead] = useState<any>(null);
+  const [interestedCallbackDate, setInterestedCallbackDate] = useState<Date | undefined>(undefined);
+  const [interestedCallbackTime, setInterestedCallbackTime] = useState('');
+
 
   // Workflow gate (post-interested)
   const [workflowGateOpen, setWorkflowGateOpen] = useState(false);
@@ -184,7 +192,21 @@ export default function PhonePage() {
     if (error) { toast.error(error.message); return; }
     toast.success('Lead updated');
     setLeadDetailOpen(false);
-    loadData();
+
+    // If this save came from the "Interested → Add Email First" flow, show callback option
+    if (pendingInterestedFromEdit && leadEditForm.email) {
+      setPendingInterestedFromEdit(false);
+      const updatedLead = { ...leadDetail, ...payload, email: leadEditForm.email };
+      setInterestedCallbackLead(updatedLead);
+      // Default to 1 hour from now
+      const inOneHour = new Date(Date.now() + 60 * 60 * 1000);
+      setInterestedCallbackDate(inOneHour);
+      setInterestedCallbackTime(`${inOneHour.getHours().toString().padStart(2, '0')}:${inOneHour.getMinutes().toString().padStart(2, '0')}`);
+      setInterestedCallbackOpen(true);
+    } else {
+      setPendingInterestedFromEdit(false);
+      loadData();
+    }
   };
 
   const sendPhoneTelegramNotify = async (message: string, name: string) => {
@@ -2190,11 +2212,16 @@ export default function PhonePage() {
               <AlertDialogAction
                 className="bg-green-600 text-white hover:bg-green-700 gap-1.5"
                 onClick={() => {
-                  if (interestedLead) {
-                    handleLeadInterested(interestedLead.id, interestedLead.name, interestedLead.category);
-                  }
                   setInterestedOpen(false);
                   setInterestedLead(null);
+                  if (interestedLead) {
+                    const leadObj = leads.find(l => l.id === interestedLead.id) || interestedLead;
+                    setInterestedCallbackLead(leadObj);
+                    const inOneHour = new Date(Date.now() + 60 * 60 * 1000);
+                    setInterestedCallbackDate(inOneHour);
+                    setInterestedCallbackTime(`${inOneHour.getHours().toString().padStart(2, '0')}:${inOneHour.getMinutes().toString().padStart(2, '0')}`);
+                    setInterestedCallbackOpen(true);
+                  }
                 }}
               >
                 <Star className="h-4 w-4" />
@@ -2206,6 +2233,7 @@ export default function PhonePage() {
                 onClick={() => {
                   setInterestedOpen(false);
                   setInterestedLead(null);
+                  setPendingInterestedFromEdit(true);
                   const lead = leads.find(l => l.id === interestedLead?.id);
                   if (lead) {
                     setLeadDetail(lead);
@@ -2222,7 +2250,106 @@ export default function PhonePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Workflow Gate Dialog */}
+      {/* Interested Callback Scheduler */}
+      <Dialog open={interestedCallbackOpen} onOpenChange={(open) => {
+        if (!open) {
+          // If closing without action, still proceed with interested flow (no callback)
+          setInterestedCallbackOpen(false);
+        }
+      }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-green-500" />
+              Schedule Follow-Up Call?
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-semibold text-foreground">{interestedCallbackLead?.full_name}</span> is interested. Would you like to schedule a follow-up callback? (Minimum 1 hour from now)
+          </p>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={interestedCallbackDate}
+                onSelect={(date) => {
+                  if (date) setInterestedCallbackDate(date);
+                }}
+                disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                className="p-3 pointer-events-auto"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Time</Label>
+              <Input
+                type="time"
+                value={interestedCallbackTime}
+                onChange={e => setInterestedCallbackTime(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            {interestedCallbackDate && interestedCallbackTime && (() => {
+              const [h, m] = interestedCallbackTime.split(':').map(Number);
+              const selected = new Date(interestedCallbackDate);
+              selected.setHours(h, m, 0, 0);
+              const minTime = new Date(Date.now() + 60 * 60 * 1000);
+              if (selected < minTime) {
+                return <p className="text-xs text-destructive flex items-center gap-1"><Clock className="h-3 w-3" /> Must be at least 1 hour from now</p>;
+              }
+              return null;
+            })()}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => {
+              setInterestedCallbackOpen(false);
+              const lead = interestedCallbackLead;
+              if (lead) {
+                handleLeadInterested(lead.id, lead.full_name, lead.category);
+                setWorkflowGateLead(lead);
+                setWorkflowOpts({ audit: true, auditEmail: true, meetingEmail: true, schedule: true });
+                setWorkflowGateOpen(true);
+              }
+              setInterestedCallbackLead(null);
+              loadData();
+            }}>
+              Skip — No Callback
+            </Button>
+            <Button
+              className="gap-1.5"
+              disabled={!interestedCallbackDate || !interestedCallbackTime || (() => {
+                if (!interestedCallbackDate || !interestedCallbackTime) return true;
+                const [h, m] = interestedCallbackTime.split(':').map(Number);
+                const selected = new Date(interestedCallbackDate);
+                selected.setHours(h, m, 0, 0);
+                return selected < new Date(Date.now() + 60 * 60 * 1000);
+              })()}
+              onClick={async () => {
+                const lead = interestedCallbackLead;
+                if (!lead || !interestedCallbackDate) return;
+                const [h, m] = interestedCallbackTime.split(':').map(Number);
+                const callbackAt = new Date(interestedCallbackDate);
+                callbackAt.setHours(h, m, 0, 0);
+                const existingMeta = typeof lead.meta === 'object' ? lead.meta : {};
+                const updatedMeta = { ...existingMeta, callback_at: callbackAt.toISOString() };
+                await supabase.from('customers').update({ meta: updatedMeta } as any).eq('id', lead.id);
+                toast.success(`Follow-up callback scheduled for ${format(callbackAt, 'MMM d, h:mm a')}`);
+                sendPhoneTelegramNotify(`⭐📅 *Interested + Callback Scheduled*\n👤 *${lead.full_name}*\n📞 ${lead.phone || 'No phone'}\n🕐 ${format(callbackAt, 'MMM d, h:mm a')}\n\n_Will proceed with Interested workflow_`, lead.full_name);
+                setInterestedCallbackOpen(false);
+                handleLeadInterested(lead.id, lead.full_name, lead.category);
+                setWorkflowGateLead(lead);
+                setWorkflowOpts({ audit: true, auditEmail: true, meetingEmail: true, schedule: true });
+                setWorkflowGateOpen(true);
+                setInterestedCallbackLead(null);
+                loadData();
+              }}
+            >
+              <CalendarClock className="h-4 w-4" />
+              Schedule & Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={workflowGateOpen} onOpenChange={(open) => { if (!open) { setWorkflowGateOpen(false); setWorkflowGateLead(null); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
