@@ -22,7 +22,7 @@ const emptyForm = { full_name: '', email: '', phone: '', address: '', company: '
 const sources = ['x', 'twitter', 'reddit', 'craigslist', 'web', 'email', 'sms', 'linkedin', 'other'];
 const PAGE_SIZE = 10;
 
-const STATUS_LABELS: Record<string, string> = { lead: 'Lead', prospect: 'Prospect', active: 'Client', inactive: 'Dismissed' };
+const STATUS_LABELS: Record<string, string> = { lead: 'Lead', prospect: 'Prospect', active: 'Client', monthly: 'Monthly Client', inactive: 'Dismissed' };
 
 const getCategoryLabel = (cat: string | null) => {
   const found = DISPLAY_CATEGORIES.find(c => c.id === cat);
