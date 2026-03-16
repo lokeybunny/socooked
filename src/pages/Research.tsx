@@ -1208,6 +1208,7 @@ export default function Research() {
                 />
               </div>
 
+              <div className="flex items-center gap-4 flex-wrap">
                 {/* Las Vegas checkbox */}
                 <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
                   <Checkbox
