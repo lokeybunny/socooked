@@ -88,7 +88,7 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, isPros
         </button>
       </div>
 
-      <div className="flex items-center gap-2 px-6">
+      <div className="flex items-center gap-2 px-6 flex-wrap min-w-0">
         <span className={cn("font-semibold truncate", isPaid ? 'text-emerald-500' : isProspect && !(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).ai_website) ? 'text-red-500' : 'text-foreground')}>{contact.full_name}</span>
         {/* Email icon — light blue */}
         {contact.email && onEmailClick && (
