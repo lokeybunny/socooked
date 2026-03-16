@@ -181,12 +181,14 @@ function AssignClientPopover({ previewId, onAssigned }: { previewId: string; onA
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (open) {
       supabase.from('customers').select('id, full_name, category').order('full_name').then(({ data }) => {
         if (data) setCustomers(data);
       });
+      setSearch('');
     }
   }, [open]);
 
@@ -200,6 +202,10 @@ function AssignClientPopover({ previewId, onAssigned }: { previewId: string; onA
     onAssigned();
   };
 
+  const filtered = search.trim()
+    ? customers.filter(c => c.full_name.toLowerCase().includes(search.toLowerCase()))
+    : customers;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -208,10 +214,19 @@ function AssignClientPopover({ previewId, onAssigned }: { previewId: string; onA
           Assign
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-2" align="start">
+      <PopoverContent className="w-64 p-2" align="start">
         <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Assign to client</p>
+        <div className="px-1 mb-2">
+          <Input
+            placeholder="Search by name…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="h-7 text-xs"
+            autoFocus
+          />
+        </div>
         <div className="max-h-48 overflow-y-auto space-y-0.5">
-          {customers.map(c => (
+          {filtered.map(c => (
             <button
               key={c.id}
               disabled={saving}
@@ -222,7 +237,7 @@ function AssignClientPopover({ previewId, onAssigned }: { previewId: string; onA
               {c.category && <span className="text-muted-foreground ml-1 text-xs">· {c.category}</span>}
             </button>
           ))}
-          {customers.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">No clients found</p>}
+          {filtered.length === 0 && <p className="text-xs text-muted-foreground px-2 py-1">No matches</p>}
         </div>
       </PopoverContent>
     </Popover>
