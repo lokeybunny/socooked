@@ -102,6 +102,7 @@ async function syncCraigslistResults({
 
   let createdCount = 0;
   let duplicateCount = 0;
+  const batchSeenPhones = new Set<string>();
 
   for (let idx = 0; idx < results.length; idx++) {
     const post = results[idx];
