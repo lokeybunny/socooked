@@ -64,7 +64,7 @@ export default function PhonePage() {
   const [transcriptionsOpen, setTranscriptionsOpen] = useState(false);
 
   // Interested prospects panel (warren only)
-  const [interestedPanelOpen, setInterestedPanelOpen] = useState(false);
+  const [interestedPanelOpen, setInterestedPanelOpen] = useState(true);
   const [interestedProspects, setInterestedProspects] = useState<any[]>([]);
   const [interestedDetail, setInterestedDetail] = useState<any>(null);
 
