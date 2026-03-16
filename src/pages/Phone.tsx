@@ -2104,6 +2104,37 @@ export default function PhonePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Callback Reminder Popup */}
+      <AlertDialog open={!!callbackReminder} onOpenChange={(open) => { if (!open) setCallbackReminder(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-primary animate-pulse" />
+              Call Back Reminder
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">It's time to call back <span className="font-semibold text-foreground">{callbackReminder?.full_name}</span></span>
+              {callbackReminder?.phone && <span className="block text-foreground font-mono">{callbackReminder.phone}</span>}
+              {callbackReminder?.company && <span className="block text-muted-foreground">Company: {callbackReminder.company}</span>}
+              {callbackReminder?.meta?.callback_at && <span className="block text-xs text-muted-foreground">Scheduled for: {format(new Date(callbackReminder.meta.callback_at), 'MMM d, h:mm a')}</span>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Dismiss</AlertDialogCancel>
+            <AlertDialogAction onClick={async () => {
+              if (!callbackReminder) return;
+              const meta = typeof callbackReminder.meta === 'object' ? { ...callbackReminder.meta } : {};
+              delete meta.callback_at;
+              await supabase.from('customers').update({ meta } as any).eq('id', callbackReminder.id);
+              setCallbackReminder(null);
+              loadLeads();
+            }}>
+              <Phone className="h-4 w-4 mr-1" />Got it, calling now
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Interested Confirmation */}
       <AlertDialog open={interestedOpen} onOpenChange={setInterestedOpen}>
         <AlertDialogContent>
