@@ -106,7 +106,7 @@ export default function CustomU() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Custom-U</h1>
-              <p className="text-muted-foreground mt-1">Generate custom upload links for your clients. They can upload files directly to your Google Drive.</p>
+              <p className="text-muted-foreground mt-1">Generate upload links for active prospects. Only customers with 'prospect' status in the leads pipeline are eligible.</p>
             </div>
             
           </div>
