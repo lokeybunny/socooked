@@ -2228,6 +2228,7 @@ export default function PhonePage() {
                 onClick={() => {
                   setInterestedOpen(false);
                   setInterestedLead(null);
+                  setPendingInterestedFromEdit(true);
                   const lead = leads.find(l => l.id === interestedLead?.id);
                   if (lead) {
                     setLeadDetail(lead);
