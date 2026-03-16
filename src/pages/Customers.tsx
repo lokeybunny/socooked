@@ -158,7 +158,7 @@ export default function Customers() {
             <DialogTrigger asChild>
               <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Add Customer</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto overflow-x-hidden">
+            <DialogContent className="max-w-4xl w-[95vw] max-h-[92vh] overflow-y-auto overflow-x-hidden">
               <DialogHeader><DialogTitle>{editingId ? 'Edit Customer' : 'New Customer'}</DialogTitle></DialogHeader>
               {editingId && <CustomerWebPreviews customerId={editingId} />}
               {editingId && (() => {
