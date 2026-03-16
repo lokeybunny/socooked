@@ -1465,7 +1465,9 @@ export default function Research() {
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium text-foreground truncate">{f.title}</span>
                               {hasWebsite ? (
-                                <span className="shrink-0 h-2 w-2 rounded-full bg-yellow-500" title="Has website" />
+                                <a href={website} target="_blank" rel="noopener noreferrer" title={website} className="shrink-0 text-yellow-500 hover:text-yellow-400 transition-colors">
+                                  <Globe className="h-4 w-4" />
+                                </a>
                               ) : (
                                 <span className="shrink-0 h-2 w-2 rounded-full bg-destructive" title="No website" />
                               )}
