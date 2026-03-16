@@ -163,7 +163,7 @@ export default function Dashboard() {
 
         {/* Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-          {metricCards.map(({ label, value, icon: Icon, color }) => (
+          {metricCards.map(({ label, value, icon: Icon, color, subtitle }) => (
             <div key={label} className="metric-card">
               <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                 <div className={`p-1.5 sm:p-2 rounded-lg bg-muted ${color}`}>
@@ -172,6 +172,7 @@ export default function Dashboard() {
               </div>
               <p className="text-lg sm:text-2xl font-bold text-foreground">{loading ? '—' : value}</p>
               <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">{label}</p>
+              {subtitle && <p className="text-[9px] sm:text-[10px] text-muted-foreground/70 mt-0.5">{subtitle}</p>}
             </div>
           ))}
         </div>
