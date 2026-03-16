@@ -1470,14 +1470,18 @@ export default function PhonePage() {
                         <div className="flex items-center gap-3">
                           <div className={cn(
                             "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-                            lead.source === 'craigslist' 
-                              ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "bg-yellow-500/15" : "bg-red-500/15")
-                              : noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
+                            lead.status === 'prospect' && typeof lead.meta === 'object' && lead.meta?.ai_website
+                              ? "bg-yellow-500/20 ring-2 ring-yellow-400/50"
+                              : lead.source === 'craigslist' 
+                                ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "bg-yellow-500/15" : "bg-red-500/15")
+                                : noteTag === 'busy' ? "bg-yellow-500/10" : noteTag === 'callback' ? "bg-blue-500/10" : "bg-muted"
                           )}>
                             <User className={cn("h-5 w-5", 
-                              lead.source === 'craigslist'
-                                ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "text-yellow-600" : "text-red-500")
-                                : noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground"
+                              lead.status === 'prospect' && typeof lead.meta === 'object' && lead.meta?.ai_website
+                                ? "text-yellow-500"
+                                : lead.source === 'craigslist'
+                                  ? (typeof lead.meta === 'object' && lead.meta?.has_website ? "text-yellow-600" : "text-red-500")
+                                  : noteTag === 'busy' ? "text-yellow-600" : noteTag === 'callback' ? "text-blue-500" : "text-muted-foreground"
                             )} />
                           </div>
                           <div className="min-w-0 flex-1">
