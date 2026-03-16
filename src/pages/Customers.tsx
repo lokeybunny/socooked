@@ -103,7 +103,7 @@ export default function Customers() {
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       category: form.category || 'other',
       instagram_handle: form.instagram_handle || null,
-      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv' },
+      meta: { ...existingMeta, portal_niche: form.portal_niche || null, mv_client: form.portal_niche === 'mv', ai_website: form.ai_website || null },
     };
     if (editingId) {
       const { error } = await supabase.from('customers').update(payload).eq('id', editingId);
