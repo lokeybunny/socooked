@@ -2490,10 +2490,14 @@ export default function PhonePage() {
             {interestedLead?.email ? (
               <AlertDialogAction
                 className="bg-green-600 text-white hover:bg-green-700 gap-1.5"
-                onClick={() => {
+                onClick={async () => {
                   setInterestedOpen(false);
-                  setInterestedLead(null);
                   if (interestedLead) {
+                    // Immediately update status to prospect
+                    await supabase.from('customers').update({ status: 'prospect' }).eq('id', interestedLead.id);
+                    setLeads(prev => prev.filter(l => l.id !== interestedLead.id));
+                    toast.success(`${interestedLead.name} moved to Prospects`);
+
                     const leadObj = leads.find(l => l.id === interestedLead.id) || interestedLead;
                     setInterestedCallbackLead(leadObj);
                     const inOneHour = new Date(Date.now() + 60 * 60 * 1000);
@@ -2501,6 +2505,7 @@ export default function PhonePage() {
                     setInterestedCallbackTime(`${inOneHour.getHours().toString().padStart(2, '0')}:${inOneHour.getMinutes().toString().padStart(2, '0')}`);
                     setInterestedCallbackOpen(true);
                   }
+                  setInterestedLead(null);
                 }}
               >
                 <Star className="h-4 w-4" />
