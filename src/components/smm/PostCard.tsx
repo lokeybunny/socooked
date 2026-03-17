@@ -313,7 +313,7 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} />
+        <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} onDelete={onDelete} />
         {/* Overdue Info Dialog */}
         <Dialog open={overdueInfoOpen} onOpenChange={setOverdueInfoOpen}>
           <DialogContent className="max-w-md">
