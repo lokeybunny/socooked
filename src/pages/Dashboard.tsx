@@ -5,6 +5,7 @@ import { Users, TrendingUp, Mail, Clock, RefreshCw, Layers, CircleCheckBig, Doll
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 import FinancialReports from '@/components/dashboard/FinancialReports';
+import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
 
 interface Stats {
   customers: number;
