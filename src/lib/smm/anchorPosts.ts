@@ -13,31 +13,30 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
   const schedulable = posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status));
   if (schedulable.length === 0) return posts;
 
-  // Group by platform
-  const byPlatform = new Map<string, ScheduledPost[]>();
+  // Group by profile + platform so each profile gets its own independent daily timeline
+  const byProfilePlatform = new Map<string, ScheduledPost[]>();
   for (const post of schedulable) {
     const platform = post.platforms[0] || 'unknown';
-    if (!byPlatform.has(platform)) byPlatform.set(platform, []);
-    byPlatform.get(platform)!.push(post);
+    const profile = post.profile_username || post.profile_id || 'unknown';
+    const bucketKey = `${profile}::${platform}`;
+    if (!byProfilePlatform.has(bucketKey)) byProfilePlatform.set(bucketKey, []);
+    byProfilePlatform.get(bucketKey)!.push(post);
   }
 
   const allAnchored: ScheduledPost[] = [];
   const anchoredIds = new Set<string>();
 
-  for (const [, platformPosts] of byPlatform) {
-    // Deduplicate by job_id within this platform
+  for (const [, scopedPosts] of byProfilePlatform) {
     const byJobId = new Map<string, ScheduledPost>();
-    for (const post of platformPosts) {
+    for (const post of scopedPosts) {
       const key = post.job_id || post.id;
       if (!byJobId.has(key)) byJobId.set(key, post);
     }
 
-    // Sort by original scheduled date, then created_at
     const sorted = Array.from(byJobId.values()).sort((a, b) =>
       (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || a.created_at.localeCompare(b.created_at)
     );
 
-    // Deduplicate by normalised title within same day
     const seenKey = new Set<string>();
     const deduped: ScheduledPost[] = [];
     for (const post of sorted) {
@@ -50,7 +49,6 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
       deduped.push(post);
     }
 
-    // Redistribute: 1 post per day for this platform, starting from campaign start
     for (let i = 0; i < deduped.length; i++) {
       const post = deduped[i];
       const targetDate = new Date(`${CAMPAIGN_START_DAY}T12:00:00`);
@@ -68,7 +66,6 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
     }
   }
 
-  // Merge: anchored posts + non-schedulable posts (completed/failed/cancelled or no date)
   const rest = posts.filter(p => !anchoredIds.has(p.id) && !schedulable.some(sp => sp.id === p.id));
   return [...allAnchored, ...rest];
 }
