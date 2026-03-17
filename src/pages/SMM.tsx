@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { anchorPostsToCampaignStart } from '@/lib/smm/anchorPosts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
