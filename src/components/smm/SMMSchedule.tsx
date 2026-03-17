@@ -2245,6 +2245,23 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             </AlertDialog>
           )}
 
+          {/* Clone to Platform Button */}
+          {currentPlan && items.length > 0 && (
+            <Select onValueChange={handleCloneToPlatform} disabled={cloning}>
+              <SelectTrigger className="h-8 w-auto gap-1.5 text-xs border-blue-500/30 text-blue-600 hover:bg-blue-500/10 px-2.5">
+                {cloning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+                Clone to…
+              </SelectTrigger>
+              <SelectContent>
+                {SCHEDULE_PLATFORMS.filter(p => p.value !== activePlatform).map(p => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           {/* Custom Brand Images Button */}
           <Button
             variant="outline"
