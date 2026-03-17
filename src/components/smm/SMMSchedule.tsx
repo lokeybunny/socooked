@@ -2227,7 +2227,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               .filter((h: string) => h.length > 1)
               .join(' ');
 
-            if (item.type === 'text' || item.media_url) {
+            if (pushLive && (item.type === 'text' || item.media_url)) {
               try {
                 const title = caption
                   ? `${caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
