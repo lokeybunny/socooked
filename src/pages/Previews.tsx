@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
-import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus, Check, ChevronsUpDown, Coins } from 'lucide-react';
+import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus, Check, ChevronsUpDown, Coins, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -141,6 +141,9 @@ function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ edit_url: string; chat_id: string } | null>(null);
+  const [phoneLookup, setPhoneLookup] = useState('');
+  const [phoneLooking, setPhoneLooking] = useState(false);
+  const [phoneMatch, setPhoneMatch] = useState<{ id: string; full_name: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -150,8 +153,33 @@ function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
       setResult(null);
       setPrompt('');
       setCustomerId('');
+      setPhoneLookup('');
+      setPhoneMatch(null);
     }
   }, [open]);
+
+  // Auto-lookup customer by phone
+  useEffect(() => {
+    const digits = phoneLookup.replace(/\D/g, '');
+    if (digits.length < 7) { setPhoneMatch(null); return; }
+    setPhoneLooking(true);
+    const timer = setTimeout(async () => {
+      // Search for phone containing these digits
+      const { data } = await supabase
+        .from('customers')
+        .select('id, full_name')
+        .or(`phone.ilike.%${digits.slice(-10)}%,phone.ilike.%${digits}%`)
+        .limit(1);
+      if (data && data.length > 0) {
+        setPhoneMatch(data[0]);
+        setCustomerId(data[0].id);
+      } else {
+        setPhoneMatch(null);
+      }
+      setPhoneLooking(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [phoneLookup]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) { toast.error('Please enter a design prompt'); return; }
@@ -209,6 +237,38 @@ function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
           </div>
         ) : (
           <div className="space-y-4 py-2">
+            {/* Phone lookup */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5" /> Quick Find by Phone
+              </Label>
+              <div className="relative">
+                <Input
+                  value={phoneLookup}
+                  onChange={e => setPhoneLookup(e.target.value)}
+                  placeholder="Enter customer phone number…"
+                  className="text-sm pr-8"
+                />
+                {phoneLooking && <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />}
+              </div>
+              {phoneMatch && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/5 border border-primary/20 text-sm">
+                  <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-foreground font-medium">{phoneMatch.full_name}</span>
+                  <span className="text-muted-foreground text-xs">auto-matched</span>
+                </div>
+              )}
+              {phoneLookup.replace(/\D/g, '').length >= 7 && !phoneLooking && !phoneMatch && (
+                <p className="text-xs text-muted-foreground">No customer found — use the dropdown below</p>
+              )}
+            </div>
+
+            <div className="relative flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">or select manually</span>
+              <div className="flex-1 h-px bg-border" />
+            </div>
+
             <div className="space-y-2">
               <Label>Client</Label>
               <ClientSearchCombobox
