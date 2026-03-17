@@ -809,26 +809,6 @@ function mapCalendarEventToScheduledPost(
   };
 }
 
-/**
- * Mirror every Instagram-only post to TikTok so TikTok views show the same content.
- * Posts that already include tiktok are left untouched.
- */
-function mirrorInstagramToTiktok(posts: ScheduledPost[]): ScheduledPost[] {
-  const result: ScheduledPost[] = [...posts];
-  for (const post of posts) {
-    if (post.platforms.includes('instagram') && !post.platforms.includes('tiktok')) {
-      result.push({
-        ...post,
-        id: `${post.id}-tt-mirror`,
-        job_id: post.job_id ? `${post.job_id}-tt` : '',
-        platforms: ['tiktok'],
-      });
-    }
-  }
-  return result;
-}
-
-
 // ─── React Hook ───
 export function useSMMStore() {
   const [profiles, setProfiles] = useState<SMMProfile[]>([]);

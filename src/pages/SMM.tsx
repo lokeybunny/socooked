@@ -39,10 +39,27 @@ const TABS = [
 
 const UNREAD_COUNTS: Record<string, number> = {};
 
+function mirrorPostToPlatform(post: ScheduledPost, platform: Platform): ScheduledPost {
+  return {
+    ...post,
+    id: `${post.id}-${platform}-view`,
+    platforms: [platform],
+    post_urls: post.post_urls.filter(url => url.platform === platform),
+  };
+}
+
 function filterPosts(posts: ScheduledPost[], profileId: string, platform: string): ScheduledPost[] {
-  return posts
-    .filter(p => !profileId || p.profile_id === profileId || p.profile_username === profileId)
-    .filter(p => platform === 'all' || p.platforms.includes(platform as Platform));
+  const profileFiltered = posts.filter(p => !profileId || p.profile_id === profileId || p.profile_username === profileId);
+
+  if (platform === 'all') return profileFiltered;
+
+  if (platform === 'tiktok') {
+    return profileFiltered
+      .filter(p => p.platforms.includes('instagram'))
+      .map(p => mirrorPostToPlatform(p, 'tiktok'));
+  }
+
+  return profileFiltered.filter(p => p.platforms.includes(platform as Platform));
 }
 
 function SMMInner() {
