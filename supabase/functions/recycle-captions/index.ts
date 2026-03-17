@@ -114,6 +114,7 @@ Respond ONLY with valid JSON array, no markdown, no code fences:
 
     variations = variations.map((v: any) => ({
       ...v,
+      caption: fixHandlePunctuation(v.caption || ''),
       hashtags: enforceMinHashtags(v.hashtags || [], v.caption || '', platform),
     }));
 
