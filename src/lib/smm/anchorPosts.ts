@@ -3,6 +3,10 @@ import type { ScheduledPost } from './types';
 const CAMPAIGN_START_DAY = '2026-03-17';
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 const PLATFORM_SLOT_PATTERN = /-(?:ig|tt|fb|li|pin|yt|x|twitter|instagram|facebook|linkedin|pinterest|youtube|tiktok)-(\d+)$/i;
+const GENERIC_CAMPAIGN_TERMS = new Set([
+  'music', 'newmusic', 'sharethevibes', 'musicdiscovery', 'musicvibes', 'sharegoodmusic',
+  'weekendvibes', 'playlistgoals', 'goodvibes', 'instamusic', 'vibes', 'week', 'day',
+]);
 
 function isRecycledCampaignPost(post: ScheduledPost): boolean {
   return /^recycle-w\d+-/i.test(post.job_id || '') || /Recycled from "([^"]+)"/i.test(post.description || '');
@@ -19,14 +23,18 @@ function normalizeCampaignKey(value: string): string {
   return normalized || '_default';
 }
 
-/**
- * Extract a stable artist/song key from recycled posts.
- *
- * Examples:
- * - recycle-w1-lamb-day3 -> lamb
- * - recycle-w2-drake-ig-4 -> drake
- * - Recycled from "Lamb.wavvv Music Week 1" -> lamb-wavvv
- */
+function extractCampaignKeyFromText(text?: string): string {
+  if (!text) return '_default';
+
+  const candidates = [
+    ...text.matchAll(/@([a-z0-9._-]+)/gi),
+    ...text.matchAll(/#([a-z0-9._-]+)/gi),
+  ].map(match => normalizeCampaignKey(match[1] || ''));
+
+  const specificCandidate = candidates.find(candidate => candidate !== '_default' && !GENERIC_CAMPAIGN_TERMS.has(candidate));
+  return specificCandidate || '_default';
+}
+
 function extractCampaignKey(post: ScheduledPost): string {
   const jobId = (post.job_id || '').toLowerCase();
   const recycleMatch = jobId.match(/^recycle-w\d+-(.+)$/i);
@@ -43,7 +51,16 @@ function extractCampaignKey(post: ScheduledPost): string {
   }
 
   const descMatch = (post.description || '').match(/Recycled from "([^"]+)"/i);
-  if (descMatch) return normalizeCampaignKey(descMatch[1]);
+  if (descMatch) {
+    const normalizedFromDescription = normalizeCampaignKey(descMatch[1]);
+    if (normalizedFromDescription !== '_default') return normalizedFromDescription;
+  }
+
+  const fromTitle = extractCampaignKeyFromText(post.title);
+  if (fromTitle !== '_default') return fromTitle;
+
+  const fromDescription = extractCampaignKeyFromText(post.description);
+  if (fromDescription !== '_default') return fromDescription;
 
   return '_default';
 }
@@ -69,6 +86,15 @@ function comparePosts(a: ScheduledPost, b: ScheduledPost): number {
   return (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || a.created_at.localeCompare(b.created_at);
 }
 
+function getPostPriority(post: ScheduledPost): number {
+  let score = 0;
+  if (/^recycle-w\d+-/i.test(post.job_id || '')) score += 4;
+  if (/Recycled from "([^"]+)"/i.test(post.description || '')) score += 3;
+  if (extractDayOffset(post) !== null) score += 2;
+  if (post.media_url) score += 1;
+  return score;
+}
+
 function withAnchoredDate(post: ScheduledPost, dayOffset: number): ScheduledPost {
   const targetDate = new Date(`${CAMPAIGN_START_DAY}T12:00:00`);
   targetDate.setDate(targetDate.getDate() + dayOffset);
@@ -84,16 +110,47 @@ function withAnchoredDate(post: ScheduledPost, dayOffset: number): ScheduledPost
   };
 }
 
-/**
- * Recycled campaigns should stack by artist/song while enforcing exactly
- * one post per campaign per calendar day.
- */
+function dedupeFinalCalendarPosts(posts: ScheduledPost[]): ScheduledPost[] {
+  const ordered = [...posts].sort((a, b) =>
+    (a.scheduled_date || '').localeCompare(b.scheduled_date || '') ||
+    getPostPriority(b) - getPostPriority(a) ||
+    a.created_at.localeCompare(b.created_at)
+  );
+
+  const seen = new Set<string>();
+  const keptIds = new Set<string>();
+
+  for (const post of ordered) {
+    if (!post.scheduled_date || TERMINAL_STATUSES.has(post.status)) {
+      keptIds.add(post.id);
+      continue;
+    }
+
+    const campaign = extractCampaignKey(post);
+    if (campaign === '_default') {
+      keptIds.add(post.id);
+      continue;
+    }
+
+    const profile = post.profile_username || post.profile_id || 'unknown';
+    const day = post.scheduled_date.slice(0, 10);
+    const dedupeKey = `${profile}::${day}::${campaign}`;
+
+    if (seen.has(dedupeKey)) continue;
+
+    seen.add(dedupeKey);
+    keptIds.add(post.id);
+  }
+
+  return posts.filter(post => keptIds.has(post.id));
+}
+
 export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPost[] {
   const schedulable = posts.filter(post => post.scheduled_date && !TERMINAL_STATUSES.has(post.status));
   if (schedulable.length === 0) return posts;
 
   const recycledPosts = schedulable.filter(isRecycledCampaignPost);
-  if (recycledPosts.length === 0) return posts;
+  if (recycledPosts.length === 0) return dedupeFinalCalendarPosts(posts);
 
   const passthroughScheduled = schedulable.filter(post => !isRecycledCampaignPost(post));
   const inactivePosts = posts.filter(post => !post.scheduled_date || TERMINAL_STATUSES.has(post.status));
@@ -140,5 +197,5 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
     }
   }
 
-  return [...allAnchored, ...passthroughScheduled, ...inactivePosts];
+  return dedupeFinalCalendarPosts([...allAnchored, ...passthroughScheduled, ...inactivePosts]);
 }
