@@ -21,10 +21,9 @@ serve(async (req) => {
 
     const GEMINI_KEY = Deno.env.get('GOOGLE_GEMINI_API_KEY');
     if (!GEMINI_KEY) {
-      // Fallback: just vary captions manually without AI
-      const fallbackResults = items.map((item: any) => ({
+      const fallbackResults = items.map((item: any, i: number) => ({
         id: item.id,
-        caption: varyCaptionFallback(item.caption, week_number),
+        caption: varyCaptionFallback(item.caption, week_number, i),
         hashtags: enforceMinHashtags(item.hashtags || [], item.caption || '', platform),
       }));
       return new Response(JSON.stringify({ variations: fallbackResults }), {
@@ -45,11 +44,24 @@ serve(async (req) => {
 ${brandInfo}
 
 Below are the original posts. For each post, generate a FRESH caption variation that:
-1. Keeps the same vibe/energy but uses different wording, emojis, and hooks
-2. Feels organic and not repetitive — as if written fresh for this week
-3. MUST include at least 2 relevant hashtags inline or at the end
-4. Keep captions concise (under 200 chars for TikTok, under 300 for others)
-5. Vary the call-to-action style (tag a friend, share, save, comment, etc.)
+1. Keeps the same core message but uses COMPLETELY DIFFERENT sentence structure, vocabulary, and opening hooks
+2. CRITICAL: Every caption MUST start differently. NEVER reuse the same opening phrase (e.g. "Kick off your", "Start your", "Get your") across multiple captions in this batch
+3. Vary tone across captions: mix conversational questions, bold statements, story snippets, one-word openers, emoji-led hooks, direct commands, and playful slang
+4. MUST include at least 2 relevant hashtags inline or at the end
+5. Keep captions concise (under 200 chars for TikTok, under 300 for others)
+6. Vary the call-to-action style across posts — use different CTAs like: rate it, share, tag, save, comment, duet, stitch, repost, follow. Do NOT repeat the same CTA in this batch.
+
+Here are examples of DIVERSE opening styles (use these as inspiration, don't copy verbatim):
+- "This one hits different 🔥"
+- "POV: you just discovered your new favorite track"
+- "Name a better remix. I'll wait. 🎧"
+- "Straight heat. No debate."
+- "Y'all sleeping on this one fr 😤"
+- "🎵 When the bass drops at 0:15..."
+- "Real ones know."
+- "Obsessed with this sound rn"
+- "Tell me this doesn't go crazy 🔊"
+- "Bet you can't listen just once"
 
 ${itemDescriptions}
 
@@ -66,7 +78,7 @@ Respond ONLY with valid JSON array, no markdown, no code fences:
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.9,
+          temperature: 1.1,
           maxOutputTokens: 2048,
         },
       }),
@@ -74,10 +86,9 @@ Respond ONLY with valid JSON array, no markdown, no code fences:
 
     if (!geminiRes.ok) {
       console.error('[recycle-captions] Gemini error:', await geminiRes.text());
-      // Fallback
-      const fallbackResults = items.map((item: any) => ({
+      const fallbackResults = items.map((item: any, i: number) => ({
         id: item.id,
-        caption: varyCaptionFallback(item.caption, week_number),
+        caption: varyCaptionFallback(item.caption, week_number, i),
         hashtags: enforceMinHashtags(item.hashtags || [], item.caption || '', platform),
       }));
       return new Response(JSON.stringify({ variations: fallbackResults }), {
@@ -88,21 +99,19 @@ Respond ONLY with valid JSON array, no markdown, no code fences:
     const geminiData = await geminiRes.json();
     const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-    // Parse JSON from response (strip markdown fences if present)
     const jsonStr = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     let variations: any[];
     try {
       variations = JSON.parse(jsonStr);
     } catch {
       console.error('[recycle-captions] Failed to parse AI response:', rawText);
-      variations = items.map((item: any) => ({
+      variations = items.map((item: any, i: number) => ({
         id: item.id,
-        caption: varyCaptionFallback(item.caption, week_number),
+        caption: varyCaptionFallback(item.caption, week_number, i),
         hashtags: enforceMinHashtags(item.hashtags || [], item.caption || '', platform),
       }));
     }
 
-    // Enforce minimum 2 hashtags on every variation
     variations = variations.map((v: any) => ({
       ...v,
       hashtags: enforceMinHashtags(v.hashtags || [], v.caption || '', platform),
@@ -121,16 +130,58 @@ Respond ONLY with valid JSON array, no markdown, no code fences:
 });
 
 // ─── Fallback caption variation (no AI) ───
-function varyCaptionFallback(caption: string, weekNum: number): string {
+// Uses both weekNum AND item index to ensure every post in the same week gets a different style
+function varyCaptionFallback(caption: string, weekNum: number, itemIndex: number): string {
   if (!caption) return caption;
-  const hooks = [
-    '🔥 ', '💯 ', '🎶 ', '✨ ', '🎧 ', '💎 ', '🔊 ', '🎵 ', '⚡ ', '🙌 ',
-    '👀 ', '🎤 ', '💫 ', '🌟 ', '🚀 ', '❤️ ', '😤 ', '🤯 ', '💪 ', '🎯 ',
+
+  // 40 diverse opener templates — {0} is the cleaned caption
+  const templates = [
+    '🔥 {0}',
+    'This one hits different 💯 {0}',
+    '🎶 {0}',
+    'POV: you just found your new favorite 🎧 {0}',
+    'No skips. {0} ✨',
+    'Y\'all sleeping on this fr 😤 {0}',
+    '🔊 When the beat drops... {0}',
+    'Real ones know. {0} 💎',
+    'Obsessed rn 🎵 {0}',
+    'Tell me this doesn\'t go crazy 🤯 {0}',
+    'Bet you can\'t listen just once 🎤 {0}',
+    'Straight heat 🔥 {0}',
+    'On repeat all day 🔁 {0}',
+    '⚡ {0}',
+    'Name a better vibe. I\'ll wait. {0}',
+    'The energy on this one 🙌 {0}',
+    'Had to share this 💫 {0}',
+    'Trust me on this one 🎯 {0}',
+    'Goosebumps every time 😳 {0}',
+    'Sound up for this 🔈 {0}',
+    'Mood: {0} 💜',
+    'Certified banger 💣 {0}',
+    'Just vibes. Nothing else. {0} ☁️',
+    'Play this LOUD 🔊 {0}',
+    'New obsession unlocked 🔓 {0}',
+    'Cannot stop replaying 🔄 {0}',
+    'Pure fire from start to finish 🔥 {0}',
+    'The one you didn\'t know you needed 💡 {0}',
+    'Headphones ON for this one 🎧 {0}',
+    'Weekend anthem right here 🎉 {0}',
+    '🚀 {0}',
+    'Feeling this on another level 📈 {0}',
+    'Add this to every playlist 📋 {0}',
+    'Late night vibes ✨ {0}',
+    'How is nobody talking about this?! 👀 {0}',
+    'The remix we all needed 🎶 {0}',
+    'Dropped and immediately on repeat ♾️ {0}',
+    'This track understood the assignment 📝 {0}',
+    'Volume warning ⚠️ {0}',
+    'Sending this to everyone I know 📲 {0}',
   ];
+
   const ctas = [
     'Share this with your crew!',
     'Tag someone who needs this 🔥',
-    'Drop a 🔥 if you feel it',
+    'Rate this below 🔥 or 💩',
     'Save this for later ✨',
     'Send to your bestie 💯',
     'Who else vibes with this? 🎶',
@@ -138,12 +189,28 @@ function varyCaptionFallback(caption: string, weekNum: number): string {
     'Comment your thoughts below 👇',
     'Repost if this hits different 🎧',
     'This one\'s for the real ones 🙌',
+    'Drop a 🔥 in the comments',
+    'Stitch this with your reaction 🎬',
+    'Follow for more heat 🔥',
+    'Bookmark this one 📌',
+    'Which part slaps hardest? 🤔',
+    'Turn this into your ringtone fr 📱',
+    'Link in bio — go stream 🎵',
+    'Put this on your story 📸',
+    'Duet this if you feel it 🎤',
+    'Who are you sending this to? 👇',
   ];
-  const hook = hooks[weekNum % hooks.length];
-  const cta = ctas[weekNum % ctas.length];
+
+  // Use a combined seed so each post in the same week gets a unique template+CTA
+  const seed = (weekNum * 7 + itemIndex * 13) % templates.length;
+  const ctaSeed = (weekNum * 11 + itemIndex * 17) % ctas.length;
+
+  const template = templates[seed];
+  const cta = ctas[ctaSeed];
+
   // Remove existing emojis from start
   const cleaned = caption.replace(/^[\p{Emoji}\s]+/u, '').trim();
-  return `${hook}${cleaned}\n\n${cta}`;
+  return `${template.replace('{0}', cleaned)}\n\n${cta}`;
 }
 
 // ─── Ensure at least 2 hashtags ───
@@ -154,7 +221,6 @@ function enforceMinHashtags(hashtags: string[], caption: string, platform: strin
 
   if (cleaned.length >= 2) return cleaned;
 
-  // Generate fallback hashtags based on platform and content
   const fallbacks: Record<string, string[]> = {
     tiktok: ['#FYP', '#ForYouPage', '#Viral', '#Music', '#Trending', '#MusicVibes'],
     instagram: ['#Explore', '#InstaMusic', '#Vibes', '#MusicLovers', '#Share'],
