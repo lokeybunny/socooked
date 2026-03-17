@@ -27,9 +27,10 @@ interface Props {
   posts: ScheduledPost[];
   allPosts: ScheduledPost[];
   profiles: SMMProfile[];
+  onRefresh?: () => void;
 }
 
-export default function SMMOverview({ posts, allPosts, profiles }: Props) {
+export default function SMMOverview({ posts, allPosts, profiles, onRefresh }: Props) {
   const { platform, navigateToTab } = useSMMContext();
   const [webhooks] = useState<WebhookEvent[]>([]);
   const [viewMode, setViewMode] = useState<'all' | 'byPlatform'>('all');
