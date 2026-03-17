@@ -56,6 +56,18 @@ export function SMMProvider({ children }: { children: ReactNode }) {
   const [dateRange, setDateRangeState] = useState<DateRange>((searchParams.get('range') as DateRange) || '7d');
   const [activeTab, setActiveTabState] = useState(searchParams.get('tab') || 'overview');
 
+  useEffect(() => {
+    const nextProfileId = searchParams.get('profile') || '';
+    const nextPlatform = searchParams.get('platform') || 'all';
+    const nextDateRange = (searchParams.get('range') as DateRange) || '7d';
+    const nextActiveTab = searchParams.get('tab') || 'overview';
+
+    setProfileIdState(prev => prev === nextProfileId ? prev : nextProfileId);
+    setPlatformState(prev => prev === nextPlatform ? prev : nextPlatform);
+    setDateRangeState(prev => prev === nextDateRange ? prev : nextDateRange);
+    setActiveTabState(prev => prev === nextActiveTab ? prev : nextActiveTab);
+  }, [searchParams]);
+
   // Sync to URL
   const syncParams = useCallback((updates: Record<string, string>) => {
     setSearchParams(prev => {
