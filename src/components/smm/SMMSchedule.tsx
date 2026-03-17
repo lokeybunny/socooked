@@ -2187,7 +2187,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         const weekVariations: Map<number, any[]> = new Map();
         for (let week = batchStart; week <= batchEnd; week++) {
           try {
-            const { data: varData } = await supabase.functions.invoke('recycle-captions', {
+            const { data: varData, error: varErr } = await supabase.functions.invoke('recycle-captions', {
               body: {
                 items: baseItems.map(item => ({
                   id: item.id,
@@ -2201,6 +2201,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                 brand_context: currentPlan.brand_context,
               },
             });
+            if (varErr) console.warn(`[recycle] AI caption error week ${week}:`, varErr);
             if (varData?.variations) {
               weekVariations.set(week, varData.variations);
             }
@@ -2264,12 +2265,18 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                 await smmApi.createPost(postPayload);
                 totalScheduled++;
               } catch (err: any) {
-                console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
+                console.warn(`[recycle] Week ${week}, item ${item.id} push-live failed:`, err);
               }
             }
 
             // Sanitize strings to remove unpaired Unicode surrogates that break Postgres JSON
-            const sanitize = (s: string) => s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+            const sanitize = (s: string) => {
+              try {
+                return s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+              } catch {
+                return s.replace(/[^\x20-\x7E\n\r\t]/g, '');
+              }
+            };
 
             calendarEvents.push({
               title: sanitize(`♻️ [${currentPlan.platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`),
@@ -2286,21 +2293,25 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             });
           }
 
+          // Insert calendar events for this week
           if (calendarEvents.length > 0) {
-            // Delete any pre-existing events with the same source_id to prevent duplicates
-            const sourceIds = calendarEvents.map((e: any) => e.source_id).filter(Boolean);
-            if (sourceIds.length > 0) {
-              await supabase.from('calendar_events').delete().in('source_id', sourceIds);
-            }
+            try {
+              // Delete any pre-existing events with the same source_id to prevent duplicates
+              const sourceIds = calendarEvents.map((e: any) => e.source_id).filter(Boolean);
+              if (sourceIds.length > 0) {
+                await supabase.from('calendar_events').delete().in('source_id', sourceIds);
+              }
 
-            const { error: calErr } = await supabase
-              .from('calendar_events')
-              .insert(calendarEvents);
-            if (calErr) {
-              console.error(`[recycle] Calendar insert failed for week ${week}:`, calErr);
-              toast.error(`Calendar week ${week + 1} failed: ${calErr.message}`);
-            } else {
-              totalCalEvents += calendarEvents.length;
+              const { error: calErr } = await supabase
+                .from('calendar_events')
+                .insert(calendarEvents);
+              if (calErr) {
+                console.error(`[recycle] Calendar insert failed for week ${week}:`, calErr);
+              } else {
+                totalCalEvents += calendarEvents.length;
+              }
+            } catch (insertErr: any) {
+              console.error(`[recycle] Calendar insert crashed week ${week}:`, insertErr);
             }
           }
         }
