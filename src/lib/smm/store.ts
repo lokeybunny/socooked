@@ -296,10 +296,7 @@ export const smmApi = {
         posts.push(calendarPost);
       }
 
-      // Mirror: duplicate Instagram posts to TikTok so TikTok views aren't empty
-      const mirrored = mirrorInstagramToTiktok(posts);
-
-      return mirrored.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return posts.sort((a, b) => b.created_at.localeCompare(a.created_at));
     } catch (e) {
       console.error('getPosts error:', e);
       return [];
