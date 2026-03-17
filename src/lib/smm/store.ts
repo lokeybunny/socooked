@@ -3,17 +3,48 @@ import type { SMMProfile, ScheduledPost, QueueSettings, AnalyticsData, IGMedia, 
 import { supabase } from '@/integrations/supabase/client';
 
 const UPLOAD_ACTIONS = new Set(['upload-video', 'upload-photos', 'upload-document', 'upload-text']);
-const UPLOAD_MIN_INTERVAL_MS = 5500;
+const UPLOAD_MIN_INTERVAL_MS = 8000;
+const UPLOAD_RETRY_BUFFER_MS = 2000;
 let lastUploadRequestAt = 0;
 let uploadCooldownUntil = 0;
 let uploadQueue: Promise<void> = Promise.resolve();
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-function parseRetryAfterMs(payload: any, attempt: number): number {
-  const seconds = Number(payload?.retry_after_seconds);
+function extractRetryAfterSeconds(source: unknown): number | null {
+  if (!source) return null;
+
+  if (typeof source === 'number' && Number.isFinite(source) && source > 0) {
+    return source;
+  }
+
+  if (typeof source === 'string') {
+    const retryMatch = source.match(/"retry_after_seconds"\s*:\s*(\d+)/i) || source.match(/retry[_\s-]?after[_\s-]?seconds\s*[:=]\s*(\d+)/i);
+    if (retryMatch) {
+      const seconds = Number(retryMatch[1]);
+      if (Number.isFinite(seconds) && seconds > 0) return seconds;
+    }
+
+    try {
+      return extractRetryAfterSeconds(JSON.parse(source));
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof source === 'object') {
+    const retryAfter = (source as { retry_after_seconds?: unknown }).retry_after_seconds;
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds) && seconds > 0) return seconds;
+  }
+
+  return null;
+}
+
+function parseRetryAfterMs(payload: any, attempt: number, errorMessage?: string): number {
+  const seconds = extractRetryAfterSeconds(payload) ?? extractRetryAfterSeconds(errorMessage);
   if (Number.isFinite(seconds) && seconds > 0) {
-    return seconds * 1000;
+    return (seconds * 1000) + UPLOAD_RETRY_BUFFER_MS;
   }
 
   const base = Math.min(30000, 1000 * Math.pow(2, attempt));
@@ -32,8 +63,11 @@ async function withUploadThrottle<T>(action: string, run: () => Promise<T>): Pro
     const intervalWaitMs = Math.max(0, UPLOAD_MIN_INTERVAL_MS - (afterCooldown - lastUploadRequestAt));
     if (intervalWaitMs > 0) await sleep(intervalWaitMs);
 
-    lastUploadRequestAt = Date.now();
-    return run();
+    try {
+      return await run();
+    } finally {
+      lastUploadRequestAt = Date.now();
+    }
   };
 
   const pending = uploadQueue.then(execute, execute);
