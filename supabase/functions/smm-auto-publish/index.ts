@@ -61,12 +61,11 @@ Deno.serve(async (req) => {
       return json({ ok: true, published: 0, message: "All already published" });
     }
 
-    console.log(`[smm-auto-publish] Found ${unpublished.length} events to publish`);
+    console.log(`[smm-auto-publish] Found ${unpublished.length} unpublished events in window`);
 
+    // CRITICAL: Only publish ONE event per invocation to avoid double-posting
+    const event = unpublished[0];
     const results: string[] = [];
-
-    for (const event of unpublished) {
-      try {
         // Extract media URL from description
         const mediaMatch = event.description?.match(/Media URL:\s*(https?:\/\/\S+)/i);
         const mediaUrl = mediaMatch?.[1]?.trim();
