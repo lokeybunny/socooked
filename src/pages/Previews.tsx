@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus } from 'lucide-react';
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
+import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus, Check, ChevronsUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -53,6 +54,56 @@ const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string }
   in_progress: { icon: Loader2, color: 'text-blue-400' },
   failed: { icon: XCircle, color: 'text-destructive' },
 };
+
+// ─── Client Search Combobox ───
+function ClientSearchCombobox({ customers, value, onSelect }: {
+  customers: Customer[];
+  value: string;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!search) return customers;
+    const q = search.toLowerCase();
+    return customers.filter(c => c.full_name.toLowerCase().includes(q));
+  }, [customers, search]);
+
+  const selected = customers.find(c => c.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal">
+          {selected ? selected.full_name : 'Search for a client…'}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput placeholder="Type a name…" value={search} onValueChange={setSearch} />
+          <CommandList>
+            <CommandEmpty>No client found.</CommandEmpty>
+            <CommandGroup>
+              {filtered.map(c => (
+                <CommandItem
+                  key={c.id}
+                  value={c.id}
+                  onSelect={() => { onSelect(c.id); setOpen(false); setSearch(''); }}
+                >
+                  <Check className={cn('mr-2 h-4 w-4', value === c.id ? 'opacity-100' : 'opacity-0')} />
+                  {c.full_name}
+                  {c.category && <span className="text-muted-foreground ml-1.5 text-xs">· {c.category}</span>}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ─── Generate Website Modal ───
 function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
@@ -135,17 +186,11 @@ function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Client</Label>
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger><SelectValue placeholder="Select a client…" /></SelectTrigger>
-                <SelectContent>
-                  {customers.map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.full_name}
-                      {c.category && <span className="text-muted-foreground ml-1.5">· {c.category}</span>}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClientSearchCombobox
+                customers={customers}
+                value={customerId}
+                onSelect={setCustomerId}
+              />
             </div>
 
             <div className="space-y-2">
