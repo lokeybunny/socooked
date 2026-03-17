@@ -934,12 +934,12 @@ function ScheduleItemModal({
 
 // ─── Platform Feed Renderers ───
 
-function InstagramFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
+function InstagramFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
   return (
     <div className="space-y-0">
       <div className="flex items-center gap-3 p-4 border-b border-border/50">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 flex items-center justify-center text-white text-xs font-bold">S</div>
-        <span className="text-sm font-semibold text-foreground">STU25</span>
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 flex items-center justify-center text-white text-xs font-bold">{profileUsername.charAt(0).toUpperCase()}</div>
+        <span className="text-sm font-semibold text-foreground">{profileUsername}</span>
         <span className="ml-auto text-xs text-muted-foreground">Click any thumbnail to preview & edit</span>
       </div>
       <div className="grid grid-cols-3 gap-1 p-1">
