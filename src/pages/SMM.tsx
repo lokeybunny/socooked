@@ -19,9 +19,11 @@ import SMMTerminal from '@/components/smm/SMMTerminal';
 import SMMSchedule from '@/components/smm/SMMSchedule';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
-  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles,
+  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import ArtistCampaignModal from '@/components/smm/ArtistCampaignModal';
+import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
 import type { Platform, ScheduledPost } from '@/lib/smm/types';
 
 const TABS = [
