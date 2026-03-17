@@ -18,7 +18,8 @@ export default function SMMHistory({ posts }: { posts: ScheduledPost[] }) {
   const filtered = useMemo(() => {
     return posts
       .filter(p => filterStatus === 'all' || p.status === filterStatus)
-      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 20);
   }, [posts, filterStatus]);
 
   // Group by day for timeline

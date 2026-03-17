@@ -104,7 +104,7 @@ function SMMInner() {
               <TabsContent value="calendar"><SMMCalendar posts={filtered} onRefresh={refresh} /></TabsContent>
               <TabsContent value="history"><SMMHistory posts={filtered} /></TabsContent>
               <TabsContent value="status"><SMMStatus /></TabsContent>
-              <TabsContent value="queue"><SMMQueue profiles={profiles} /></TabsContent>
+              <TabsContent value="queue"><SMMQueue profiles={profiles} posts={filtered} /></TabsContent>
               <TabsContent value="analytics"><SMMAnalytics profiles={profiles} /></TabsContent>
               <TabsContent value="instagram"><SMMInstagram /></TabsContent>
             </Tabs>
