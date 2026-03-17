@@ -101,6 +101,24 @@ function SMMInner() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Realtime: auto-refresh when calendar_events are updated (e.g. auto-publish marks them published)
+  useEffect(() => {
+    const channel = supabase
+      .channel('smm-calendar-sync')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'calendar_events',
+        filter: 'source=eq.smm',
+      }, () => {
+        console.log('[SMM] Realtime calendar update detected, refreshing...');
+        refresh();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [refresh]);
+
   // Auto-select first profile if none selected
   useEffect(() => {
     if (!profileId && profiles.length > 0) setProfileId(profiles[0].id);
