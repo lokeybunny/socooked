@@ -296,6 +296,9 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
             <Music className="h-5 w-5 text-primary" />
             Artist Campaign Manager
           </DialogTitle>
+          <DialogDescription>
+            Active campaigns auto-refresh while this manager is open so newly attached media appears without reopening.
+          </DialogDescription>
         </DialogHeader>
 
         {/* Add New Artist */}
