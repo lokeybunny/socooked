@@ -2251,7 +2251,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           const progress = (statusData.meta as any)?.progress;
           if (progress) setRecycleProgress(progress);
 
-          if (statusData.status === 'completed') {
+          if (statusData.status === 'done') {
             clearInterval(pollInterval);
             setRecycling(false);
             setRecycleProgress(null);

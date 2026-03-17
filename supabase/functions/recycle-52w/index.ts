@@ -286,7 +286,7 @@ serve(async (req) => {
       }
 
       return new Response(JSON.stringify({
-        status: 'completed',
+        status: 'done',
         posts_scheduled: totalScheduled,
         cal_events: totalCalEvents,
       }), {
