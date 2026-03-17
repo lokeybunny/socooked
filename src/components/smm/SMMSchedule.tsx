@@ -1061,7 +1061,11 @@ function XFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }:
               {(item.type === 'image' || item.type === 'video') && (
                 <div className="relative">
                   {item.media_url ? (
-                    <img src={item.media_url} alt="" className="w-full rounded-xl max-h-48 object-cover mt-2 border border-border/30" />
+                    item.type === 'video' && /\.(mp4|mov|webm|m3u8)/i.test(item.media_url) ? (
+                      <VideoThumbnail src={item.media_url} title={item.caption} className="w-full rounded-xl max-h-48 mt-2 border border-border/30" videoClassName="w-full rounded-xl max-h-48 object-cover" controls={false} />
+                    ) : (
+                      <img src={item.media_url} alt="" className="w-full rounded-xl max-h-48 object-cover mt-2 border border-border/30" />
+                    )
                   ) : (
                     <div className="w-full h-32 rounded-xl mt-2 overflow-hidden"><MediaPlaceholder item={item} /></div>
                   )}
