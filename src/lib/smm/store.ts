@@ -764,8 +764,14 @@ function mapCalendarEventToScheduledPost(
   planIndex: Map<string, { profile_username: string; platform: string; media_url?: string; type?: string }>
 ): ScheduledPost | null {
   const sourceId = event.source_id || event.id;
-  const baseSourceId = sourceId.replace(/^recycle-w\d+-/, '');
-  const planMeta = planIndex.get(sourceId) || planIndex.get(baseSourceId);
+  const normalizedSourceIds = [
+    sourceId,
+    sourceId.replace(/^recycle-w\d+-/, ''),
+    sourceId.replace(/^recycle-w\d+-/, 'drake-'),
+  ];
+  const planMeta = normalizedSourceIds
+    .map(candidate => planIndex.get(candidate))
+    .find(Boolean);
   const platform = inferCalendarEventPlatform(event.title || '', sourceId, planMeta?.platform);
 
   if (!platform || !event.start_time) return null;
