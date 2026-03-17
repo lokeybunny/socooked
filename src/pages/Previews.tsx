@@ -136,17 +136,11 @@ function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Client</Label>
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger><SelectValue placeholder="Select a client…" /></SelectTrigger>
-                <SelectContent>
-                  {customers.map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.full_name}
-                      {c.category && <span className="text-muted-foreground ml-1.5">· {c.category}</span>}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ClientSearchCombobox
+                customers={customers}
+                value={customerId}
+                onSelect={setCustomerId}
+              />
             </div>
 
             <div className="space-y-2">
