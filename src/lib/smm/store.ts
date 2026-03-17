@@ -651,6 +651,17 @@ export const smmApi = {
   },
 };
 
+/** Strip emoji, platform tags, punctuation → lowercase alphanumeric for dedup comparison */
+function normalizeForDedup(text: string): string {
+  return text
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    .replace(/[♻️📱🎶✨💯🔥🎤🎧🙌]/g, '')
+    .replace(/\[.*?\]/g, '')
+    .replace(/[^a-zA-Z0-9 ]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
 // ─── Helper: Map API response to our ScheduledPost type ───
 function mapApiPostToScheduledPost(p: any, defaultStatus: string): ScheduledPost {
   return {
