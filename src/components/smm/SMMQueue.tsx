@@ -55,29 +55,19 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
   };
 
   const previewSlots = useMemo(() => {
-    if (!settings) return [] as { datetime: Date; slot: QueueSlot }[];
+    if (!settings || settings.slots.length === 0) return [] as { datetime: Date; slot: QueueSlot }[];
 
-    const anchor = QUEUE_ANCHOR.getTime() > Date.now() ? QUEUE_ANCHOR : new Date();
-    const slots: { datetime: Date; slot: QueueSlot }[] = [];
+    // Sort slots by day then time for consistent ordering
+    const sortedSlots = [...settings.slots].sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
 
-    for (let d = 0; d < 21 && slots.length < 10; d++) {
-      const date = new Date(anchor.getTime() + d * 86400000);
-      const dow = date.getDay();
-      const daySlots = settings.slots
-        .filter((slot) => slot.day === dow)
-        .sort((a, b) => a.time.localeCompare(b.time));
-
-      for (const slot of daySlots) {
-        const [hours, minutes] = slot.time.split(':').map(Number);
-        const dt = new Date(date);
-        dt.setHours(hours, minutes, 0, 0);
-
-        if (dt >= anchor) slots.push({ datetime: dt, slot });
-        if (slots.length >= 10) break;
-      }
-    }
-
-    return slots;
+    // Distribute sequentially from QUEUE_ANCHOR (Mar 17), one slot per day — matching the calendar
+    const anchor = QUEUE_ANCHOR;
+    return sortedSlots.slice(0, 10).map((slot, index) => {
+      const dt = new Date(anchor.getTime() + index * 86400000);
+      const [hours, minutes] = slot.time.split(':').map(Number);
+      dt.setHours(hours, minutes, 0, 0);
+      return { datetime: dt, slot: { ...slot, day: dt.getDay() } };
+    });
   }, [settings]);
 
   const displayedNextSlot = previewSlots[0] ?? null;
