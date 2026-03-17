@@ -2228,37 +2228,58 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               .join(' ');
 
             if (pushLive && (item.type === 'text' || item.media_url)) {
+              const postTitle = caption
+                ? `${caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
+                : hashtagStr || item.type;
+
+              const isActualVideo = item.media_url && (
+                item.media_url.endsWith('.mp4') || item.media_url.endsWith('.mov') ||
+                item.media_url.endsWith('.webm') || item.media_url.includes('higgsfield')
+              );
+              let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
+              if (item.type === 'video' && isActualVideo) postType = 'video';
+              else if (item.type === 'video' || item.type === 'image' || item.type === 'carousel') postType = 'photos';
+
+              const postPayload = {
+                user: currentPlan.profile_username,
+                type: postType,
+                platforms: [apiPlatform as any],
+                title: postTitle,
+                media_url: item.media_url,
+                scheduled_date: scheduledDate,
+                timezone: tz,
+              };
+
               try {
-                const title = caption
-                  ? `${caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
-                  : hashtagStr || item.type;
-
-                const isActualVideo = item.media_url && (
-                  item.media_url.endsWith('.mp4') || item.media_url.endsWith('.mov') ||
-                  item.media_url.endsWith('.webm') || item.media_url.includes('higgsfield')
-                );
-                let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
-                if (item.type === 'video' && isActualVideo) postType = 'video';
-                else if (item.type === 'video' || item.type === 'image' || item.type === 'carousel') postType = 'photos';
-
-                await smmApi.createPost({
-                  user: currentPlan.profile_username,
-                  type: postType,
-                  platforms: [apiPlatform as any],
-                  title,
-                  media_url: item.media_url,
-                  scheduled_date: scheduledDate,
-                  timezone: tz,
-                });
+                await smmApi.createPost(postPayload);
                 totalScheduled++;
-              } catch (err) {
-                console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
+                // Rate-limit: wait 4s between uploads (API allows 20/min)
+                await new Promise(r => setTimeout(r, 4000));
+              } catch (err: any) {
+                // If rate-limited, pause 65s and retry once
+                if (err?.message?.includes('429') || err?.message?.includes('rate_limit')) {
+                  console.warn(`[recycle] Rate limited at week ${week}, item ${item.id}. Pausing 65s…`);
+                  toast.info(`⏳ Rate limited — pausing 65s before continuing…`, { duration: 5000 });
+                  await new Promise(r => setTimeout(r, 65000));
+                  try {
+                    await smmApi.createPost(postPayload);
+                    totalScheduled++;
+                    await new Promise(r => setTimeout(r, 4000));
+                  } catch (retryErr) {
+                    console.warn(`[recycle] Retry also failed for week ${week}, item ${item.id}:`, retryErr);
+                  }
+                } else {
+                  console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
+                }
               }
             }
 
+            // Sanitize strings to remove unpaired Unicode surrogates that break Postgres JSON
+            const sanitize = (s: string) => s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+
             calendarEvents.push({
-              title: `♻️ [${currentPlan.platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`,
-              description: `Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\n\n${caption || ''}`,
+              title: sanitize(`♻️ [${currentPlan.platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`),
+              description: sanitize(`Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\n\n${caption || ''}`),
               start_time: scheduledDate,
               end_time: (() => { const e = new Date(new Date(scheduledDate).getTime() + 30 * 60000); return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}T${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}:00`; })(),
               source: 'smm',
