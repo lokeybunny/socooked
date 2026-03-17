@@ -58,16 +58,15 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
       (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || a.created_at.localeCompare(b.created_at)
     );
 
-    // Dedupe within campaign: same day + same title prefix = duplicate
-    const seenKey = new Set<string>();
+    // Strict dedup: only 1 post per campaign (already scoped by campaign key).
+    // Remove any duplicate entries — keep the first occurrence only.
+    const seenJobIds = new Set<string>();
     const deduped: ScheduledPost[] = [];
     for (const post of sorted) {
       if (!post.scheduled_date) continue;
-      const day = post.scheduled_date.substring(0, 10);
-      const titleKey = post.title.slice(0, 50).toLowerCase().replace(/\s+/g, ' ');
-      const compositeKey = `${day}||${titleKey}`;
-      if (seenKey.has(compositeKey)) continue;
-      seenKey.add(compositeKey);
+      const key = post.job_id || post.id;
+      if (seenJobIds.has(key)) continue;
+      seenJobIds.add(key);
       deduped.push(post);
     }
 
