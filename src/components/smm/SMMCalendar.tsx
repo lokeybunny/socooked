@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import type { ScheduledPost, Platform } from '@/lib/smm/types';
 import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/context';
 import { smmApi } from '@/lib/smm/store';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -17,31 +16,6 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-zinc-600 text-white',
 };
 
-/** Convert a calendar_event row into a ScheduledPost so it renders in the grid */
-function calEventToPost(ev: any): ScheduledPost {
-  // Detect platform from title tag like [INSTAGRAM], [TIKTOK]
-  const platformMatch = (ev.title || '').match(/\[(INSTAGRAM|TIKTOK|TWITTER|FACEBOOK|YOUTUBE|LINKEDIN)\]/i);
-  const platform = platformMatch ? platformMatch[1].toLowerCase() : 'instagram';
-  return {
-    id: ev.id,
-    job_id: ev.source_id || ev.id,
-    request_id: '',
-    profile_id: '',
-    profile_username: '',
-    platforms: [platform as Platform],
-    title: ev.title || '',
-    caption: ev.description || '',
-    media_url: '',
-    status: 'scheduled' as const,
-    scheduled_date: ev.start_time,
-    created_at: ev.created_at,
-    type: 'video' as const,
-    post_type: 'video',
-    hashtags: [] as string[],
-    post_urls: [] as string[],
-  } as unknown as ScheduledPost;
-}
-
 export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost[]; onRefresh: () => void }) {
   const { platform } = useSMMContext();
   const [current, setCurrent] = useState(new Date());
@@ -51,23 +25,9 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const [editTime, setEditTime] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'lanes'>('calendar');
-  const [calEvents, setCalEvents] = useState<ScheduledPost[]>([]);
   const dedupRan = useRef(false);
 
-  // Fetch calendar_events (SMM source) so recycled schedule shows up
-  useEffect(() => {
-    const fetchCalEvents = async () => {
-      const { data } = await supabase
-        .from('calendar_events')
-        .select('id, title, description, start_time, created_at, source_id')
-        .eq('source', 'smm')
-        .order('start_time', { ascending: true });
-      if (data) setCalEvents(data.map(calEventToPost));
-    };
-    fetchCalEvents();
-  }, [current]);
-
-  // Auto-dedup on mount
+  // Auto-dedup on mount: remove same-day duplicate SMM calendar events
   useEffect(() => {
     if (dedupRan.current) return;
     dedupRan.current = true;
@@ -85,20 +45,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const calEnd = endOfWeek(monthEnd);
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
-  // Merge API posts + calendar events, dedup by day + normalised title
-  const scheduledPosts = useMemo(() => {
-    const apiPosts = posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status));
-    const merged = [...apiPosts, ...calEvents];
-    const seen = new Map<string, boolean>();
-    return merged.filter(p => {
-      const day = p.scheduled_date!.substring(0, 10);
-      const norm = (p.title || '').replace(/[\u{1F000}-\u{1FFFF}]/gu, '').replace(/[♻️📱🎶✨💯🔥🎤🎧🙌]/g, '').replace(/\[.*?\]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase();
-      const key = `${day}||${norm}`;
-      if (seen.has(key)) return false;
-      seen.set(key, true);
-      return true;
-    });
-  }, [posts, calEvents]);
+  const scheduledPosts = useMemo(() => posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status)), [posts]);
   const getPostsForDay = (day: Date) => scheduledPosts.filter(p => p.scheduled_date && isSameDay(new Date(p.scheduled_date), day));
 
   const openDetail = (post: ScheduledPost) => {
