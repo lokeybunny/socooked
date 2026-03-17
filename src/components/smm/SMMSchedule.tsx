@@ -1699,6 +1699,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
    const [resetting, setResetting] = useState(false);
    const [recycling, setRecycling] = useState(false);
+   const [recycleProgress, setRecycleProgress] = useState<{ current_week: number; total_weeks: number; posts_scheduled: number; cal_events: number } | null>(null);
    const [cloning, setCloning] = useState(false);
    const [retryItems, setRetryItems] = useState<any[]>([]);
    const [recycleConfirmOpen, setRecycleConfirmOpen] = useState(false);
@@ -1707,6 +1708,52 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
   const [purging, setPurging] = useState(false);
+
+  // ─── Persistent recycle job tracking ───
+  const RECYCLE_TASK_KEY = `smm-recycle-task-${profileId}`;
+
+  // On mount, check if there's an active recycle job
+  useEffect(() => {
+    const savedTaskId = localStorage.getItem(RECYCLE_TASK_KEY);
+    if (!savedTaskId) return;
+
+    // Start polling for this task
+    setRecycling(true);
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('recycle-52w', {
+          body: { action: 'status', task_id: savedTaskId },
+        });
+        if (error || !data) {
+          clearInterval(pollInterval);
+          setRecycling(false);
+          localStorage.removeItem(RECYCLE_TASK_KEY);
+          return;
+        }
+        const progress = (data.meta as any)?.progress;
+        if (progress) setRecycleProgress(progress);
+
+        if (data.status === 'completed') {
+          clearInterval(pollInterval);
+          setRecycling(false);
+          setRecycleProgress(null);
+          localStorage.removeItem(RECYCLE_TASK_KEY);
+          toast.success(`♻️ Recycle complete! ${progress?.cal_events || 0} calendar events created.`);
+          fetchPlans();
+        } else if (data.status === 'failed') {
+          clearInterval(pollInterval);
+          setRecycling(false);
+          setRecycleProgress(null);
+          localStorage.removeItem(RECYCLE_TASK_KEY);
+          toast.error('Recycle job failed. Please try again.');
+        }
+      } catch {
+        // keep polling
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [profileId]);
 
   const handleItemClick = (item: ScheduleItem) => {
     setEditingItem(item);
