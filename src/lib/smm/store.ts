@@ -3,8 +3,9 @@ import type { SMMProfile, ScheduledPost, QueueSettings, AnalyticsData, IGMedia, 
 import { supabase } from '@/integrations/supabase/client';
 
 const UPLOAD_ACTIONS = new Set(['upload-video', 'upload-photos', 'upload-document', 'upload-text']);
-const UPLOAD_MIN_INTERVAL_MS = 4000;
+const UPLOAD_MIN_INTERVAL_MS = 5500;
 let lastUploadRequestAt = 0;
+let uploadQueue: Promise<void> = Promise.resolve();
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -22,15 +23,20 @@ function parseRetryAfterMs(error: unknown): number | null {
   }
 }
 
-async function throttleUploadAction(action: string) {
-  if (!UPLOAD_ACTIONS.has(action)) return;
+async function withUploadThrottle<T>(action: string, run: () => Promise<T>): Promise<T> {
+  if (!UPLOAD_ACTIONS.has(action)) return run();
 
-  const now = Date.now();
-  const waitMs = Math.max(0, UPLOAD_MIN_INTERVAL_MS - (now - lastUploadRequestAt));
-  if (waitMs > 0) {
-    await sleep(waitMs);
-  }
-  lastUploadRequestAt = Date.now();
+  const execute = async () => {
+    const now = Date.now();
+    const waitMs = Math.max(0, UPLOAD_MIN_INTERVAL_MS - (now - lastUploadRequestAt));
+    if (waitMs > 0) await sleep(waitMs);
+    lastUploadRequestAt = Date.now();
+    return run();
+  };
+
+  const pending = uploadQueue.then(execute, execute);
+  uploadQueue = pending.then(() => undefined, () => undefined);
+  return pending;
 }
 
 
