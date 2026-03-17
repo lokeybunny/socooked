@@ -51,12 +51,18 @@ export default function SMMQueue({ profiles, posts }: { profiles: SMMProfile[]; 
     toast.success('Queue settings saved');
   };
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 20;
+
   // Queued posts: scheduled/queued posts from anchored data, sorted by date
   const queuedPosts = useMemo(() => {
     return posts
       .filter(p => p.scheduled_date && ['scheduled', 'queued', 'pending', 'in_progress'].includes(p.status))
       .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
   }, [posts]);
+
+  const totalPages = Math.max(1, Math.ceil(queuedPosts.length / PAGE_SIZE));
+  const pagedPosts = queuedPosts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const nextPost = queuedPosts[0] ?? null;
 
