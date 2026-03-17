@@ -211,8 +211,8 @@ function rotateArtistsForDay(dayPosts: ScheduledPost[], dayIndex: number): Sched
 }
 
 /**
- * Ensures all posts on the same calendar day (per profile) are spaced
- * at least MIN_GAP_HOURS apart, with artist order rotated daily.
+ * Preserves explicit same-day times and only normalizes slots when posts collide
+ * on the exact same timestamp for a profile/day.
  */
 function spacePostsOnSameDay(posts: ScheduledPost[]): ScheduledPost[] {
   const byProfileDay = new Map<string, ScheduledPost[]>();
@@ -238,12 +238,21 @@ function spacePostsOnSameDay(posts: ScheduledPost[]): ScheduledPost[] {
       continue;
     }
 
-    // Derive a day index from the date for rotation
+    const timestamps = dayPosts
+      .map(post => post.scheduled_date)
+      .filter((value): value is string => Boolean(value));
+    const hasTimestampCollision = new Set(timestamps).size !== timestamps.length;
+
+    if (!hasTimestampCollision) {
+      spaced.push(...dayPosts);
+      continue;
+    }
+
+    // Derive a day index from the date for rotation only when we need to resolve collisions.
     const dayStr = key.split('::')[1] || '';
     const dayDate = new Date(dayStr + 'T00:00:00');
     const dayIndex = Math.floor((dayDate.getTime() - new Date(CAMPAIGN_START_DAY + 'T00:00:00').getTime()) / 86400000);
 
-    // Rotate artist order for this day
     const ordered = rotateArtistsForDay(dayPosts, dayIndex);
 
     let nextHour = DAY_START_HOUR;

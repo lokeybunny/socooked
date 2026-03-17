@@ -84,11 +84,27 @@ describe('anchorPostsToCampaignStart', () => {
     expect(anchored.map(post => post.job_id)).toEqual(['opaque-lamb-1', 'opaque-oranj-1']);
   });
 
-  it('spaces multiple posts on the same day at least 3 hours apart', () => {
+  it('preserves distinct same-day times so manual reschedules are not overwritten', () => {
+    const posts = [
+      buildPost({ id: '1', job_id: 'opaque-a', title: 'Post A #Drake', scheduled_date: '2026-03-25T12:00:00.000Z', platforms: ['instagram'] }),
+      buildPost({ id: '2', job_id: 'opaque-b', title: 'Post B @lamb.wavvv', scheduled_date: '2026-03-25T12:30:00.000Z', platforms: ['instagram'] }),
+      buildPost({ id: '3', job_id: 'opaque-c', title: 'Post C @oranjgoodman', scheduled_date: '2026-03-25T15:00:00.000Z', platforms: ['tiktok'] }),
+    ];
+
+    const anchored = anchorPostsToCampaignStart(posts);
+
+    expect(anchored.map(post => post.scheduled_date)).toEqual([
+      '2026-03-25T12:00:00.000Z',
+      '2026-03-25T12:30:00.000Z',
+      '2026-03-25T15:00:00.000Z',
+    ]);
+  });
+
+  it('still resolves exact same-time collisions into spaced slots', () => {
     const posts = [
       buildPost({ id: '1', job_id: 'opaque-a', title: 'Post A #Drake', scheduled_date: '2026-03-25T12:00:00.000Z', platforms: ['instagram'] }),
       buildPost({ id: '2', job_id: 'opaque-b', title: 'Post B @lamb.wavvv', scheduled_date: '2026-03-25T12:00:00.000Z', platforms: ['instagram'] }),
-      buildPost({ id: '3', job_id: 'opaque-c', title: 'Post C @oranjgoodman', scheduled_date: '2026-03-25T12:30:00.000Z', platforms: ['tiktok'] }),
+      buildPost({ id: '3', job_id: 'opaque-c', title: 'Post C @oranjgoodman', scheduled_date: '2026-03-25T12:00:00.000Z', platforms: ['tiktok'] }),
     ];
 
     const anchored = anchorPostsToCampaignStart(posts);
@@ -100,7 +116,6 @@ describe('anchorPostsToCampaignStart', () => {
       })
       .sort((a, b) => a - b);
 
-    // Every adjacent pair must be ≥ 3 hours apart
     for (let i = 1; i < times.length; i++) {
       expect(times[i] - times[i - 1]).toBeGreaterThanOrEqual(3);
     }
