@@ -810,6 +810,10 @@ async function processWebDevCommand(
   await tgPost(tgToken, 'sendMessage', { chat_id: chatId, text: '🧠 Thinking a bit... generating website...', parse_mode: 'HTML' })
 
   try {
+    // Extract phone number from prompt if provided (e.g. "build a site for 555-123-4567")
+    const phoneMatch = prompt.match(/(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/)
+    const extractedPhone = phoneMatch ? phoneMatch[0] : null
+
     // First try prompt-machine to optimize the prompt, then v0-designer
     const res = await fetch(`${supabaseUrl}/functions/v1/clawd-bot/generate-website`, {
       method: 'POST',
@@ -817,7 +821,7 @@ async function processWebDevCommand(
         'Content-Type': 'application/json',
         'x-bot-secret': botSecret,
       },
-      body: JSON.stringify({ prompt, chat_id: String(chatId) }),
+      body: JSON.stringify({ prompt, chat_id: String(chatId), ...(extractedPhone ? { phone: extractedPhone } : {}) }),
     })
     const rawData = await res.json()
     const result = rawData?.data || rawData
