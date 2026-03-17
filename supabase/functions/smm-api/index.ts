@@ -165,18 +165,31 @@ serve(async (req) => {
           // JSON body with URL-based uploads — use URLSearchParams for reliability
           const reqBody = await req.json();
 
-          // ─── Auto-tag artist Instagram accounts based on post content ───
+          // ─── Instagram: force Reels + Feed and auto-tag artists ───
           const platforms: string[] = reqBody['platform[]'] || reqBody['platforms'] || [];
           const hasInstagram = (Array.isArray(platforms) ? platforms : [platforms])
             .some((p: string) => String(p).toLowerCase() === 'instagram');
-          if (hasInstagram && !reqBody.user_tags) {
-            const caption = `${reqBody.title || ''} ${reqBody.description || ''}`.toLowerCase();
-            const tags: string[] = [];
-            if (caption.includes('lamb')) tags.push('@lamb.wavv');
-            if (caption.includes('oranj') || caption.includes('orang')) tags.push('@oranjgoodman');
-            if (tags.length > 0) {
-              reqBody.user_tags = tags.join(', ');
-              console.log(`[smm-api] Auto-tagging Instagram user_tags: ${reqBody.user_tags}`);
+          if (hasInstagram) {
+            // Force reels + share to feed so posts appear in both places
+            if (!reqBody.ig_post_type) {
+              reqBody.ig_post_type = 'reels';
+              console.log('[smm-api] Auto-set ig_post_type=reels');
+            }
+            if (!reqBody.share_to_feed && reqBody.share_to_feed !== false) {
+              reqBody.share_to_feed = 'true';
+              console.log('[smm-api] Auto-set share_to_feed=true');
+            }
+
+            // Auto-tag artist accounts
+            if (!reqBody.user_tags) {
+              const caption = `${reqBody.title || ''} ${reqBody.description || ''}`.toLowerCase();
+              const tags: string[] = [];
+              if (caption.includes('lamb')) tags.push('@lamb.wavv');
+              if (caption.includes('oranj') || caption.includes('orang')) tags.push('@oranjgoodman');
+              if (tags.length > 0) {
+                reqBody.user_tags = tags.join(', ');
+                console.log(`[smm-api] Auto-tagging Instagram user_tags: ${reqBody.user_tags}`);
+              }
             }
           }
 
