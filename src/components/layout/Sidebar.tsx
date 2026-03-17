@@ -27,9 +27,9 @@ const navItems: NavItem[] = [
   { to: '/content', icon: FileText, label: 'Content', highlight: true },
   { to: '/ai-staff', icon: Bot, label: 'AI Staff', highlight: true },
   { to: '/research', icon: Target, label: 'Finder', green: true },
+  { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
   { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true, divider: 'Services' },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
-  { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
 ];
 
 const RESTRICTED_EMAIL = 'warren@guru.com';
