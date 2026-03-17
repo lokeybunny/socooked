@@ -19,7 +19,7 @@ import SMMTerminal from '@/components/smm/SMMTerminal';
 import SMMSchedule from '@/components/smm/SMMSchedule';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
-  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music,
+  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music, Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ArtistCampaignModal from '@/components/smm/ArtistCampaignModal';
