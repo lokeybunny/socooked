@@ -224,8 +224,10 @@ serve(async (req) => {
                 }
               };
 
+              const vibeEmojis = ['🔥','🎶','⚡','💎','🎵','🚀','✨','🎧','💫','🌊','🎤','🏆','💜','🎯','🔊','💣','🌟','🎉','👑','🫡','🪩','🎸','🎹','💿','📀'];
+              const emojiPick = vibeEmojis[(week * 7 + itemIdx) % vibeEmojis.length];
               calendarEvents.push({
-                title: sanitize(`♻️ [${platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`),
+                title: sanitize(`${emojiPick} [${platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`),
                 description: sanitize(
                   `Recycled from "${plan_name}" (Week ${week + 1}/52)\nProfile: ${profile_username}\nType: ${item.type}${item.media_url ? `\nMedia URL: ${item.media_url}` : ''}\n\n${caption || ''}`
                 ),
