@@ -610,7 +610,6 @@ export const smmApi = {
   // ─── Dedup: remove same-day calendar events with identical content ───
   async dedupCalendarEvents(): Promise<number> {
     try {
-      // Fetch all SMM calendar events
       const { data: events, error } = await supabase
         .from('calendar_events')
         .select('id, title, description, start_time, source_id, created_at')
@@ -619,15 +618,14 @@ export const smmApi = {
 
       if (error || !events || events.length === 0) return 0;
 
-      // Group by day + normalised caption to find dupes
-      const seen = new Map<string, string>(); // key -> kept id
+      const seen = new Map<string, string>();
       const dupeIds: string[] = [];
 
       for (const ev of events) {
         const day = ev.start_time ? ev.start_time.substring(0, 10) : '';
-        // Normalise: strip emojis, whitespace, case
-        const normTitle = (ev.title || '').replace(/[\u{1F000}-\u{1FFFF}]/gu, '').replace(/\[.*?\]/g, '').trim().toLowerCase();
-        const normDesc = (ev.description || '').replace(/Recycled from.*?\n/i, '').trim().toLowerCase().substring(0, 120);
+        // Aggressive normalisation: strip all emoji, platform tags, recycle prefixes, punctuation
+        const normTitle = normalizeForDedup(ev.title || '');
+        const normDesc = normalizeForDedup((ev.description || '').replace(/Recycled from.*?\n/i, '')).substring(0, 100);
         const key = `${day}||${normTitle}||${normDesc}`;
 
         if (seen.has(key)) {
@@ -639,7 +637,6 @@ export const smmApi = {
 
       if (dupeIds.length === 0) return 0;
 
-      // Delete in batches of 100
       for (let i = 0; i < dupeIds.length; i += 100) {
         const batch = dupeIds.slice(i, i + 100);
         await supabase.from('calendar_events').delete().in('id', batch);

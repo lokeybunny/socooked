@@ -45,7 +45,19 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const calEnd = endOfWeek(monthEnd);
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
-  const scheduledPosts = useMemo(() => posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status)), [posts]);
+  // Client-side dedup: keep first occurrence per day + normalised title
+  const scheduledPosts = useMemo(() => {
+    const raw = posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status));
+    const seen = new Map<string, boolean>();
+    return raw.filter(p => {
+      const day = p.scheduled_date!.substring(0, 10);
+      const norm = (p.title || '').replace(/[\u{1F000}-\u{1FFFF}]/gu, '').replace(/[♻️📱🎶✨💯🔥🎤🎧🙌]/g, '').replace(/\[.*?\]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').trim().toLowerCase();
+      const key = `${day}||${norm}`;
+      if (seen.has(key)) return false;
+      seen.set(key, true);
+      return true;
+    });
+  }, [posts]);
   const getPostsForDay = (day: Date) => scheduledPosts.filter(p => p.scheduled_date && isSameDay(new Date(p.scheduled_date), day));
 
   const openDetail = (post: ScheduledPost) => {
