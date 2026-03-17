@@ -1701,6 +1701,8 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
    const [recycling, setRecycling] = useState(false);
    const [cloning, setCloning] = useState(false);
    const [retryItems, setRetryItems] = useState<any[]>([]);
+   const [recycleConfirmOpen, setRecycleConfirmOpen] = useState(false);
+   const [recyclePushLiveOpen, setRecyclePushLiveOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
@@ -2147,11 +2149,13 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   };
 
   // ─── Recycle: clone current week across 52 weeks with AI-varied captions ───
-  const handleRecycle = async () => {
+  const handleRecycle = async (pushLive: boolean = false) => {
     if (!currentPlan || items.length === 0) {
       toast.error('No content plan to recycle');
       return;
     }
+    setRecycleConfirmOpen(false);
+    setRecyclePushLiveOpen(false);
     setRecycling(true);
     try {
       // Step 1: Enforce hashtags on existing items first
@@ -2223,7 +2227,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               .filter((h: string) => h.length > 1)
               .join(' ');
 
-            if (item.type === 'text' || item.media_url) {
+            if (pushLive && (item.type === 'text' || item.media_url)) {
               try {
                 const title = caption
                   ? `${caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
@@ -2278,7 +2282,15 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         toast.info(`♻️ Weeks ${batchStart}-${batchEnd} scheduled…`, { duration: 2000 });
       }
 
-      toast.success(`♻️ Recycled! ${totalScheduled} posts with AI-varied captions + ${totalCalEvents} calendar events across 51 weeks.`);
+      if (pushLive) {
+        toast.success(`♻️ Recycled & Pushed Live! ${totalScheduled} posts scheduled + ${totalCalEvents} calendar events across 51 weeks.`);
+        // Auto-reset plan status to draft after full push
+        await supabase.from('smm_content_plans').update({ status: 'draft', schedule_items: [] } as any).eq('id', currentPlan.id);
+        await fetchPlans();
+        toast.info('✅ Plan auto-reset — all 52 weeks are now live on the calendar.');
+      } else {
+        toast.success(`♻️ Recycled! ${totalCalEvents} calendar events created across 51 weeks. Posts saved but not pushed live.`);
+      }
     } catch (e: any) {
       toast.error(`Recycle failed: ${e.message}`);
     }
@@ -2399,30 +2411,53 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
           {/* Recycle Button — clone week across 52 weeks */}
           {currentPlan && items.length > 0 && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10" disabled={recycling}>
-                  {recycling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat2 className="h-3.5 w-3.5" />}
-                  Recycle 52w
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>♻️ Recycle Content for 52 Weeks?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will take your current {items.length} post(s) and schedule them to repeat every week for a full year (52 weeks). 
-                    That's {items.length * 51} additional posts — each week gets <strong>AI-generated fresh captions</strong> so your feed never looks repetitive.
-                    All posts will be enforced with at least 2 relevant hashtags. Calendar events will also be created.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleRecycle} className="bg-emerald-600 text-white hover:bg-emerald-700">
-                    Yes, Recycle ♻️
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <>
+              <Button variant="outline" size="sm" className="gap-1.5 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10" disabled={recycling}
+                onClick={() => setRecycleConfirmOpen(true)}>
+                {recycling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat2 className="h-3.5 w-3.5" />}
+                Recycle 52w
+              </Button>
+
+              {/* Step 1: Confirm recycle */}
+              <AlertDialog open={recycleConfirmOpen} onOpenChange={setRecycleConfirmOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>♻️ Recycle Content for 52 Weeks?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will take your current {items.length} post(s) and schedule them to repeat every week for a full year (52 weeks). 
+                      That's {items.length * 51} additional posts — each week gets <strong>AI-generated fresh captions</strong> so your feed never looks repetitive.
+                      All posts will be enforced with at least 2 relevant hashtags. Calendar events will also be created.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => { setRecycleConfirmOpen(false); setRecyclePushLiveOpen(true); }} className="bg-emerald-600 text-white hover:bg-emerald-700">
+                      Yes, Recycle ♻️
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              {/* Step 2: Ask if user wants to push live */}
+              <AlertDialog open={recyclePushLiveOpen} onOpenChange={setRecyclePushLiveOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>🚀 Schedule These Live?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Would you like to also push all {items.length * 51} recycled posts <strong>live to the SMM calendar</strong>? 
+                      This will schedule them through the Upload-Post API so they auto-publish at the scheduled times. 
+                      After completion the plan will auto-reset.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => handleRecycle(false)}>No, Calendar Only</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleRecycle(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                      Yes, Push Live 🚀
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           )}
 
           {/* Clone to Platform Button */}
