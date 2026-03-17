@@ -2149,11 +2149,13 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   };
 
   // ─── Recycle: clone current week across 52 weeks with AI-varied captions ───
-  const handleRecycle = async () => {
+  const handleRecycle = async (pushLive: boolean = false) => {
     if (!currentPlan || items.length === 0) {
       toast.error('No content plan to recycle');
       return;
     }
+    setRecycleConfirmOpen(false);
+    setRecyclePushLiveOpen(false);
     setRecycling(true);
     try {
       // Step 1: Enforce hashtags on existing items first
