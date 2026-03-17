@@ -32,13 +32,14 @@ function calEventToPost(ev: any): ScheduledPost {
     title: ev.title || '',
     caption: ev.description || '',
     media_url: '',
-    status: 'scheduled',
+    status: 'scheduled' as const,
     scheduled_date: ev.start_time,
     created_at: ev.created_at,
     post_type: 'image',
+    type: 'image',
     hashtags: [],
-    _fromCalendarEvent: true,
-  } as ScheduledPost & { _fromCalendarEvent?: boolean };
+    post_urls: [],
+  } as ScheduledPost;
 }
 
 export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost[]; onRefresh: () => void }) {
