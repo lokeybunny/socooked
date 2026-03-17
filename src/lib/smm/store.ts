@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { SMMProfile, ScheduledPost, QueueSettings, AnalyticsData, IGMedia, IGComment, IGConversation, IGMessage, WebhookEvent, PostStatus, Platform, PostType } from './types';
+import { anchorPostsToCampaignStart } from './anchorPosts';
 import { supabase } from '@/integrations/supabase/client';
 
 const UPLOAD_ACTIONS = new Set(['upload-video', 'upload-photos', 'upload-document', 'upload-text']);
