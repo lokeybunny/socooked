@@ -2277,6 +2277,12 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           }
 
           if (calendarEvents.length > 0) {
+            // Delete any pre-existing events with the same source_id to prevent duplicates
+            const sourceIds = calendarEvents.map((e: any) => e.source_id).filter(Boolean);
+            if (sourceIds.length > 0) {
+              await supabase.from('calendar_events').delete().in('source_id', sourceIds);
+            }
+
             const { error: calErr } = await supabase
               .from('calendar_events')
               .insert(calendarEvents);
