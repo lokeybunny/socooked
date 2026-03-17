@@ -669,6 +669,7 @@ export const smmApi = {
       const CAMPAIGN_START_DAY = '2026-03-17';
       const classifyArtist = (value: string) => {
         const haystack = value.toLowerCase();
+        if (haystack.includes('bryson tiller') || haystack.includes('brysontiller') || haystack.includes('bryson')) return 'bryson';
         if (haystack.includes('@oranjgoodman') || haystack.includes('oranj goodman') || haystack.includes('oranjgoodman') || haystack.includes('ojg-') || haystack.includes('oranj')) return 'oranj';
         if (haystack.includes('@lamb.wavv') || haystack.includes('@lamb.wavvv') || haystack.includes('lamb.wavv') || haystack.includes('lamb.wavvv') || haystack.includes('lambwavv') || haystack.includes('lambwavvv')) return 'lamb';
         if (haystack.includes('drake')) return 'drake';
@@ -818,6 +819,9 @@ function inferArtistProfileFromCalendarEvent(event: { title: string | null; desc
     'oranj goodman',
     'oranjgoodman',
     'ojg-',
+    'bryson tiller',
+    'brysontiller',
+    'bryson',
   ].some(marker => haystack.includes(marker));
 
   return isNysonBlackArtistPost ? 'NysonBlack' : '';
