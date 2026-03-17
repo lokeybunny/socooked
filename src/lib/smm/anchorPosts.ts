@@ -176,13 +176,45 @@ const MIN_GAP_HOURS = 3;
 const DAY_START_HOUR = 9;  // earliest post at 9 AM
 const DAY_END_HOUR = 23;   // latest post at 11 PM
 
+/** Base artist rotation order — gets shifted each day so the sequence is never the same */
+const ARTIST_ROTATION: ArtistKey[] = ['drake', 'lamb', 'oranj', 'bryson'];
+
+/**
+ * Rotate an array by n positions (non-destructive).
+ */
+function rotateArray<T>(arr: T[], n: number): T[] {
+  if (arr.length === 0) return arr;
+  const shift = ((n % arr.length) + arr.length) % arr.length;
+  return [...arr.slice(shift), ...arr.slice(0, shift)];
+}
+
+/**
+ * Given a day's posts, sort them so artists rotate and no artist appears back-to-back.
+ * The rotation offset is derived from the day number so every day has a different lead artist.
+ */
+function rotateArtistsForDay(dayPosts: ScheduledPost[], dayIndex: number): ScheduledPost[] {
+  const rotatedOrder = rotateArray(ARTIST_ROTATION, dayIndex);
+
+  // Build a priority map: lower = earlier in the day
+  const orderMap = new Map<ArtistKey | 'unknown', number>();
+  rotatedOrder.forEach((artist, i) => orderMap.set(artist, i));
+
+  return [...dayPosts].sort((a, b) => {
+    const aKey = extractArtistKey(a) || 'unknown';
+    const bKey = extractArtistKey(b) || 'unknown';
+    const aPri = orderMap.get(aKey) ?? 99;
+    const bPri = orderMap.get(bKey) ?? 99;
+    if (aPri !== bPri) return aPri - bPri;
+    // Same artist or unknown — preserve original order
+    return (a.scheduled_date || '').localeCompare(b.scheduled_date || '');
+  });
+}
+
 /**
  * Ensures all posts on the same calendar day (per profile) are spaced
- * at least MIN_GAP_HOURS apart. Posts start at DAY_START_HOUR and are
- * staggered in 3-hour increments.
+ * at least MIN_GAP_HOURS apart, with artist order rotated daily.
  */
 function spacePostsOnSameDay(posts: ScheduledPost[]): ScheduledPost[] {
-  // Group scheduled, active posts by profile + day
   const byProfileDay = new Map<string, ScheduledPost[]>();
   const passthrough: ScheduledPost[] = [];
 
@@ -200,23 +232,27 @@ function spacePostsOnSameDay(posts: ScheduledPost[]): ScheduledPost[] {
 
   const spaced: ScheduledPost[] = [];
 
-  for (const [, dayPosts] of byProfileDay) {
+  for (const [key, dayPosts] of byProfileDay) {
     if (dayPosts.length <= 1) {
       spaced.push(...dayPosts);
       continue;
     }
 
-    // Sort by existing time to preserve relative order
-    dayPosts.sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+    // Derive a day index from the date for rotation
+    const dayStr = key.split('::')[1] || '';
+    const dayDate = new Date(dayStr + 'T00:00:00');
+    const dayIndex = Math.floor((dayDate.getTime() - new Date(CAMPAIGN_START_DAY + 'T00:00:00').getTime()) / 86400000);
+
+    // Rotate artist order for this day
+    const ordered = rotateArtistsForDay(dayPosts, dayIndex);
 
     let nextHour = DAY_START_HOUR;
-    for (const post of dayPosts) {
+    for (const post of ordered) {
       const datePart = post.scheduled_date!.slice(0, 10);
       const hh = String(Math.min(nextHour, DAY_END_HOUR)).padStart(2, '0');
-      const mm = '00';
       spaced.push({
         ...post,
-        scheduled_date: `${datePart}T${hh}:${mm}:00`,
+        scheduled_date: `${datePart}T${hh}:00:00`,
       });
       nextHour += MIN_GAP_HOURS;
     }
