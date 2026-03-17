@@ -270,7 +270,7 @@ serve(async (req) => {
 
       // Mark complete
       await supabase.from('bot_tasks').update({
-        status: 'completed',
+        status: 'done',
         meta: {
           ...meta,
           progress: { current_week: 51, total_weeks: 51, posts_scheduled: totalScheduled, cal_events: totalCalEvents },
