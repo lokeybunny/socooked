@@ -89,16 +89,21 @@ function extractCampaignKey(post: ScheduledPost): string {
 
 function extractDayOffset(post: ScheduledPost): number | null {
   const jobId = post.job_id || '';
+
+  // Extract week number for multi-week recycled campaigns
+  const weekMatch = jobId.match(/^recycle-w(\d+)-/i);
+  const weekOffset = weekMatch ? (Number(weekMatch[1]) - 1) * 7 : 0;
+
   const explicitDayMatch = jobId.match(/-day(\d+)$/i);
   if (explicitDayMatch) {
     const offset = Number(explicitDayMatch[1]) - 1;
-    return offset >= 0 ? offset : null;
+    return offset >= 0 ? weekOffset + offset : null;
   }
 
   const platformSlotMatch = jobId.match(PLATFORM_SLOT_PATTERN);
   if (platformSlotMatch) {
     const offset = Number(platformSlotMatch[1]) - 1;
-    return offset >= 0 ? offset : null;
+    return offset >= 0 ? weekOffset + offset : null;
   }
 
   return null;
