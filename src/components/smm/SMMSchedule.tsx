@@ -2163,14 +2163,20 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
       const apiPlatform = currentPlan.platform === 'twitter' ? 'x' : currentPlan.platform;
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const CAMPAIGN_START = '2026-03-17';
 
-      const baseItems = items.map(item => {
-        const baseDate = parseISO(item.date);
-        return { ...item, _baseDate: baseDate };
-      });
+      const baseItems = items.map(item => ({
+        ...item,
+        _baseDate: parseISO(item.date),
+      }));
 
       let totalScheduled = 0;
       let totalCalEvents = 0;
+
+      // Global day counter: each recycled item gets the NEXT consecutive day
+      // Week 0 = original items (already on calendar), so recycle starts at week 1
+      // dayOffset starts after the original week's items
+      let dayOffset = baseItems.length; // skip original week's days
 
       // Process in batches of ~5 weeks to avoid overwhelming the AI
       const BATCH_SIZE = 5;
@@ -2203,18 +2209,22 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           }
         }
 
-        // Schedule posts for each week in this batch
+        // Schedule posts for each week in this batch — 1 post per day sequentially
         for (let week = batchStart; week <= batchEnd; week++) {
-          const offsetMs = week * 7 * 24 * 60 * 60 * 1000;
           const calendarEvents: any[] = [];
           const variations = weekVariations.get(week) || [];
 
           for (const item of baseItems) {
-            const newDate = new Date(item._baseDate.getTime() + offsetMs);
-            const newDateStr = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`;
-            const scheduledDate = item.time
-              ? `${newDateStr}T${item.time}:00`
-              : `${newDateStr}T12:00:00`;
+            // Calculate consecutive daily date from campaign start
+            const targetDate = new Date(`${CAMPAIGN_START}T12:00:00`);
+            targetDate.setDate(targetDate.getDate() + dayOffset);
+            const yyyy = targetDate.getFullYear();
+            const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(targetDate.getDate()).padStart(2, '0');
+            const timePart = item.time || '12:00';
+            const scheduledDate = `${yyyy}-${mm}-${dd}T${timePart}:00`;
+
+            dayOffset++; // next item gets the next day
 
             // Find AI-varied caption for this item
             const variation = variations.find((v: any) => v.id === item.id);
@@ -2295,7 +2305,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           }
         }
 
-        toast.info(`♻️ Weeks ${batchStart}-${batchEnd} scheduled…`, { duration: 2000 });
+        toast.info(`♻️ Days ${dayOffset - (batchEnd - batchStart + 1) * baseItems.length + 1}–${dayOffset} scheduled…`, { duration: 2000 });
       }
 
       // Auto-dedup: remove any same-day duplicate content from the calendar
