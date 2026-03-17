@@ -237,3 +237,12 @@ function enforceMinHashtags(hashtags: string[], caption: string, platform: strin
 
   return cleaned;
 }
+
+// ─── Fix handle punctuation so @tags stay clickable ───
+function fixHandlePunctuation(text: string): string {
+  // Remove period/comma immediately after known handles
+  return text
+    .replace(/@lamb\.wavvv?\./g, '@lamb.wavv ')
+    .replace(/@oranjgoodman\./g, '@oranjgoodman ')
+    .trim();
+}
