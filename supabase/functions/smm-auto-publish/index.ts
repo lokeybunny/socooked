@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
           meta: { name: `📤 Auto-published: ${event.title}`, profile: profileUsername, platforms },
         });
 
-        // ── Auto-Boost: check if enabled for this profile ──
+        // ── Auto-Boost: check if enabled for this profile (supports multiple active presets) ──
         try {
           const { data: boostConfig } = await supabase
             .from("site_configs")
@@ -142,25 +142,39 @@ Deno.serve(async (req) => {
             .eq("section", `auto-boost-${profileUsername}`)
             .single();
 
-          const config = boostConfig?.content as { enabled?: boolean; preset_id?: string } | null;
-          if (config?.enabled && config?.preset_id) {
-            const { data: preset } = await supabase
+          const config = boostConfig?.content as { enabled?: boolean; preset_ids?: string[]; preset_id?: string } | null;
+          // Collect active preset IDs (support both legacy single and new multi)
+          const activeIds: string[] = config?.enabled
+            ? (config.preset_ids && Array.isArray(config.preset_ids) ? config.preset_ids : config.preset_id ? [config.preset_id] : [])
+            : [];
+
+          if (activeIds.length > 0) {
+            const { data: activePresets } = await supabase
               .from("smm_boost_presets")
               .select("*")
-              .eq("id", config.preset_id)
-              .single();
+              .in("id", activeIds);
 
-            if (preset && Array.isArray((preset as any).services) && (preset as any).services.length > 0) {
-              // Parse upload response to get post URL
+            // Merge all services from all active presets
+            const allServices: { service_id: string; service_name: string; quantity: number }[] = [];
+            for (const preset of (activePresets || [])) {
+              const svcs = (preset as any).services;
+              if (Array.isArray(svcs)) {
+                for (const s of svcs) {
+                  allServices.push({ service_id: s.service_id, service_name: s.service_name, quantity: s.quantity });
+                }
+              }
+            }
+
+            if (allServices.length > 0) {
               let postUrl: string | null = null;
               try {
                 const uploadData = JSON.parse(uploadText);
-                // Try to find post URL from the upload response
                 postUrl = uploadData?.data?.post_url || uploadData?.data?.permalink || mediaUrl;
               } catch { postUrl = mediaUrl; }
 
               if (postUrl) {
-                console.log(`[smm-auto-publish] Triggering auto-boost with preset "${(preset as any).preset_name}" for ${postUrl}`);
+                const presetNames = (activePresets || []).map((p: any) => p.preset_name).join(', ');
+                console.log(`[smm-auto-publish] Triggering auto-boost with ${activeIds.length} presets [${presetNames}] (${allServices.length} services) for ${postUrl}`);
                 const boostUrl = `${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`;
                 await fetch(boostUrl, {
                   method: "POST",
@@ -173,11 +187,7 @@ Deno.serve(async (req) => {
                     link: postUrl,
                     profile_username: profileUsername,
                     platform: "instagram",
-                    services: (preset as any).services.map((s: any) => ({
-                      service_id: s.service_id,
-                      service_name: s.service_name,
-                      quantity: s.quantity,
-                    })),
+                    services: allServices,
                   }),
                 });
                 console.log(`[smm-auto-publish] Auto-boost triggered successfully`);
