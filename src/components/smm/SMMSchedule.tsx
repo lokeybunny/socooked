@@ -2461,7 +2461,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
       <Tabs value={activePlatform} onValueChange={setActivePlatform}>
         <TabsList className="w-full justify-start">
-          {SCHEDULE_PLATFORMS.map(p => (
+          {availablePlatforms.map(p => (
             <TabsTrigger key={p.value} value={p.value} className="gap-1.5 text-xs">
               <PlatformIcon platform={p.value} />
               {p.label}
