@@ -154,10 +154,9 @@ async function invokeSMM(action: string, params?: Record<string, string>, body?:
       const isRateLimited = error?.status === 429 || /rate_limit|too many requests|429/i.test(error?.message || '');
       if (!isRateLimited) throw error;
 
-      const waitMs = parseRetryAfterMs(error?.payload, attempt);
+      const waitMs = parseRetryAfterMs(error?.payload, attempt, error?.message);
       uploadCooldownUntil = Math.max(uploadCooldownUntil, Date.now() + waitMs);
       await sleep(waitMs + Math.floor(Math.random() * 750));
-      lastUploadRequestAt = Date.now();
       return runWithRetry(attempt + 1);
     }
   };
