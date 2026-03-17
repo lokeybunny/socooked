@@ -2390,12 +2390,14 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           )}
 
           {/* Recycle Button — clone week across 52 weeks */}
-          {currentPlan && items.length > 0 && (
+          {(currentPlan && items.length > 0) || recycling ? (
             <>
-              <Button variant="outline" size="sm" className="gap-1.5 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10" disabled={recycling}
+              <Button variant="outline" size="sm" className={`gap-1.5 ${recycling ? 'text-amber-600 border-amber-500/30 bg-amber-500/10 animate-pulse' : 'text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10'}`} disabled={recycling}
                 onClick={() => setRecycleConfirmOpen(true)}>
                 {recycling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat2 className="h-3.5 w-3.5" />}
-                Recycle 52w
+                {recycling && recycleProgress
+                  ? `♻️ ${Math.round((recycleProgress.current_week / recycleProgress.total_weeks) * 100)}% (${recycleProgress.cal_events} events)`
+                  : recycling ? '♻️ Starting…' : 'Recycle 52w'}
               </Button>
 
               {/* Step 1: Confirm recycle */}
@@ -2407,6 +2409,8 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                       This will take your current {items.length} post(s) and schedule them to repeat every week for a full year (52 weeks). 
                       That's {items.length * 51} additional posts — each week gets <strong>AI-generated fresh captions</strong> so your feed never looks repetitive.
                       All posts will be enforced with at least 2 relevant hashtags. Calendar events will also be created.
+                      <br /><br />
+                      <strong>🔄 This runs in the background</strong> — you can leave this page and it will keep processing.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -2438,7 +2442,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                 </AlertDialogContent>
               </AlertDialog>
             </>
-          )}
+          ) : null}
 
           {/* Clone to Platform Button */}
           {currentPlan && items.length > 0 && (
