@@ -1274,12 +1274,26 @@ function CustomBrandDialog({
 }
 
 // ─── Cortex Chat Panel (synced with Telegram via smm_conversations table) ───
+const NYSONBLACK_CUSTOMER_ID = '42be9e81-3b78-4d28-9a25-3b01ba466948';
+const CORTEX_ACCEPTED = 'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,audio/mpeg,audio/mp3,audio/wav';
+
+interface PendingMedia {
+  id: string;
+  name: string;
+  url: string;
+  type: 'image' | 'video' | 'audio';
+  contentAssetId?: string;
+}
+
 function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string; platform: string; onPlanCreated: () => void }) {
   const [messages, setMessages] = useState<{ id?: string; role: string; text: string; source?: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [pendingMedia, setPendingMedia] = useState<PendingMedia[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load existing conversation from shared table
   useEffect(() => {
@@ -1312,11 +1326,9 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
         const row = payload.new;
         if (row.platform !== platform) return;
         setMessages(prev => {
-          // Avoid duplicates
           if (prev.some(m => m.id === row.id)) return prev;
           return [...prev, { id: row.id, role: row.role, text: row.message, source: row.source }];
         });
-        // If a content plan was created from Telegram, refresh plans
         if (row.role === 'cortex' && row.meta?.type === 'content_plan') {
           onPlanCreated();
         }
@@ -1329,10 +1341,78 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
 
+  // ─── File upload handler ───
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploading(true);
+
+    const uploaded: PendingMedia[] = [];
+    for (const file of files) {
+      const assetType: 'image' | 'video' | 'audio' = file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : 'image';
+      try {
+        const url = await uploadToStorage(file, {
+          category: 'ai-generated',
+          customerName: 'NysonBlack',
+          source: 'cortex-strategist',
+          fileName: file.name,
+        });
+        // Save to content_assets under AI Generated for NysonBlack
+        const { data: caData } = await supabase.from('content_assets').insert({
+          title: file.name,
+          type: assetType,
+          url,
+          status: 'ready',
+          category: 'ai-generated',
+          source: 'cortex-strategist',
+          customer_id: NYSONBLACK_CUSTOMER_ID,
+          tags: ['smm', profileId],
+        }).select('id').single();
+
+        uploaded.push({
+          id: crypto.randomUUID(),
+          name: file.name,
+          url,
+          type: assetType,
+          contentAssetId: caData?.id,
+        });
+      } catch (err: any) {
+        toast.error(`Upload failed: ${file.name} — ${err.message}`);
+      }
+    }
+
+    if (uploaded.length > 0) {
+      setPendingMedia(prev => [...prev, ...uploaded]);
+      toast.success(`${uploaded.length} file${uploaded.length > 1 ? 's' : ''} uploaded & saved to content library`);
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [profileId]);
+
+  const removePending = (id: string) => setPendingMedia(prev => prev.filter(f => f.id !== id));
+
   const send = async (text?: string) => {
     const msg = text || input.trim();
-    if (!msg || loading) return;
+    const hasMedia = pendingMedia.length > 0;
+
+    if (!msg && !hasMedia) return;
+    if (loading) return;
+
+    // Build prompt — auto-schedule if only files attached
+    let prompt = msg || '';
+    if (hasMedia && !msg) {
+      prompt = `I've uploaded ${pendingMedia.length} media file${pendingMedia.length > 1 ? 's' : ''}. Schedule them across the next ${Math.max(pendingMedia.length, 7)} days as drafts for review on ${platform}. Space them evenly and organize by type.`;
+    }
+
+    // Append media context to the prompt
+    const mediaContext = hasMedia
+      ? `\n\n[ATTACHED_MEDIA: ${pendingMedia.map(f => `${f.type}:${f.url}`).join(', ')}]`
+      : '';
+
+    const displayText = msg || `📎 ${pendingMedia.length} file${pendingMedia.length > 1 ? 's' : ''} uploaded — auto-scheduling`;
     setInput('');
+    const filesToSend = [...pendingMedia];
+    setPendingMedia([]);
 
     // 1. Save user message to shared table
     const { data: inserted } = await supabase.from('smm_conversations').insert({
@@ -1340,23 +1420,32 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
       platform,
       source: 'web',
       role: 'user',
-      message: msg,
+      message: displayText,
     }).select('id').single();
 
-    const userMsg = { id: inserted?.id, role: 'user', text: msg, source: 'web' };
+    const userMsg = { id: inserted?.id, role: 'user', text: displayText, source: 'web' };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
 
     try {
-      // Build history from all messages
       const history = messages.map(m => ({
         role: m.role === 'cortex' ? 'assistant' : m.role,
         text: m.text,
       }));
-      history.push({ role: 'user', text: msg });
+      history.push({ role: 'user', text: prompt + mediaContext });
 
       const { data, error } = await supabase.functions.invoke('smm-scheduler', {
-        body: { prompt: msg, profile: profileId, history },
+        body: {
+          prompt: prompt + mediaContext,
+          profile: profileId,
+          history,
+          attached_media: filesToSend.map(f => ({
+            url: f.url,
+            type: f.type,
+            name: f.name,
+            content_asset_id: f.contentAssetId,
+          })),
+        },
       });
 
       if (error) throw error;
@@ -1391,6 +1480,11 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
     setLoading(false);
   };
 
+  const mediaIcon = (type: string) => {
+    if (type === 'video') return <Video className="h-3 w-3" />;
+    return <Image className="h-3 w-3" />;
+  };
+
   return (
     <Card className="flex flex-col h-[400px]">
       <div className="px-3 py-2 border-b border-border/50 flex items-center gap-2">
@@ -1403,7 +1497,8 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
           <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
         ) : messages.length === 0 ? (
           <div className="text-center py-8 space-y-2">
-            <p className="text-xs text-muted-foreground">👋 Tell Cortex about your brand and what you want to schedule.</p>
+            <p className="text-xs text-muted-foreground">👋 Tell Cortex about your brand, or attach media files to auto-schedule.</p>
+            <p className="text-[10px] text-muted-foreground">📎 Upload images, videos, or audio — bulk uploads supported</p>
             <p className="text-[10px] text-muted-foreground">💬 Conversations sync in real-time with Telegram</p>
             <div className="flex flex-wrap gap-1 justify-center">
               {[
@@ -1444,16 +1539,49 @@ function CortexChat({ profileId, platform, onPlanCreated }: { profileId: string;
           </div>
         )}
       </div>
-      <div className="p-2 border-t border-border/50 flex gap-2">
+
+      {/* Pending media strip */}
+      {pendingMedia.length > 0 && (
+        <div className="px-2 py-1.5 border-t border-border/30 flex flex-wrap gap-1.5">
+          {pendingMedia.map(f => (
+            <Badge key={f.id} variant="outline" className="text-[10px] gap-1 py-0.5 pr-1">
+              {mediaIcon(f.type)}
+              <span className="max-w-[80px] truncate">{f.name}</span>
+              <button onClick={() => removePending(f.id)} className="hover:text-destructive ml-0.5">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Input row with file attach */}
+      <div className="p-2 border-t border-border/50 flex gap-2 items-center">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={CORTEX_ACCEPTED}
+          multiple
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 disabled:opacity-30 transition-colors"
+          title="Attach files (images, videos, audio)"
+        >
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+        </button>
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="Tell Cortex about your brand…"
+          placeholder={pendingMedia.length > 0 ? 'Add instructions or hit enter to auto-schedule…' : 'Tell Cortex about your brand…'}
           className="text-xs h-8"
           disabled={loading}
         />
-        <Button size="sm" onClick={() => send()} disabled={loading || !input.trim()} className="h-8 px-3">
+        <Button size="sm" onClick={() => send()} disabled={loading || (!input.trim() && pendingMedia.length === 0)} className="h-8 px-3">
           <Send className="h-3 w-3" />
         </Button>
       </div>
