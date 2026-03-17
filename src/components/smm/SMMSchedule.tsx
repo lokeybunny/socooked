@@ -2282,7 +2282,15 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         toast.info(`♻️ Weeks ${batchStart}-${batchEnd} scheduled…`, { duration: 2000 });
       }
 
-      toast.success(`♻️ Recycled! ${totalScheduled} posts with AI-varied captions + ${totalCalEvents} calendar events across 51 weeks.`);
+      if (pushLive) {
+        toast.success(`♻️ Recycled & Pushed Live! ${totalScheduled} posts scheduled + ${totalCalEvents} calendar events across 51 weeks.`);
+        // Auto-reset plan status to draft after full push
+        await supabase.from('smm_content_plans').update({ status: 'draft', schedule_items: [] } as any).eq('id', currentPlan.id);
+        await loadPlans();
+        toast.info('✅ Plan auto-reset — all 52 weeks are now live on the calendar.');
+      } else {
+        toast.success(`♻️ Recycled! ${totalCalEvents} calendar events created across 51 weeks. Posts saved but not pushed live.`);
+      }
     } catch (e: any) {
       toast.error(`Recycle failed: ${e.message}`);
     }
