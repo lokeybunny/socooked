@@ -67,7 +67,9 @@ function V0CreditsBadge() {
     });
   }, []);
 
-  const remainingCredits = typeof usage?.remaining_credits === 'number' ? usage.remaining_credits : null;
+  const remainingCredits = typeof usage?.remaining_credits === 'number' && Number.isFinite(usage.remaining_credits)
+    ? usage.remaining_credits
+    : null;
 
   if (loading) return <Skeleton className="h-8 w-28" />;
   if (remainingCredits === null) return null;
