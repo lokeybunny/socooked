@@ -35,6 +35,14 @@ async function withUploadThrottle<T>(action: string, run: () => Promise<T>): Pro
   return pending;
 }
 
+
+// Helper to build the edge function URL with query params
+function buildUrl(action: string, params?: Record<string, string>) {
+  const searchParams = new URLSearchParams({ action });
+  if (params) Object.entries(params).forEach(([k, v]) => { if (v) searchParams.set(k, v); });
+  return searchParams.toString();
+}
+
 async function invokeSMMViaHttp(action: string, queryString: string, body?: any) {
   const session = await supabase.auth.getSession();
   const accessToken = session.data.session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
