@@ -69,7 +69,23 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
   }, [profileUsername]);
 
   useEffect(() => {
-    if (open) fetchCampaigns();
+    if (!open) return;
+
+    fetchCampaigns();
+
+    const interval = window.setInterval(() => {
+      fetchCampaigns();
+    }, 4000);
+
+    const handleFocus = () => fetchCampaigns();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
   }, [open, fetchCampaigns]);
 
   const uploadMedia = async (files: File[]): Promise<string[]> => {
