@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Play } from 'lucide-react';
 
 interface VideoThumbnailProps {
@@ -44,19 +44,32 @@ export default function VideoThumbnail({
 }: VideoThumbnailProps) {
   const [thumb, setThumb] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [failed, setFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setThumb(null);
     setPlaying(false);
+    setPaused(false);
     setFailed(false);
     extractFirstFrame(src)
       .then(setThumb)
       .catch(() => setFailed(true));
   }, [src]);
 
-  // Not playing: show thumbnail or poster with play overlay
+  const togglePlayback = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play();
+      setPaused(false);
+    } else {
+      v.pause();
+      setPaused(true);
+    }
+  }, []);
+
   if (!playing) {
     return (
       <div className={`relative cursor-pointer ${className}`} onClick={() => setPlaying(true)}>
@@ -81,14 +94,23 @@ export default function VideoThumbnail({
   }
 
   return (
-    <video
-      ref={videoRef}
-      src={src}
-      className={`${videoClassName} ${className}`}
-      controls={controls}
-      autoPlay={playing}
-      playsInline={playsInline}
-      preload="metadata"
-    />
+    <div className={`relative cursor-pointer ${className}`} onClick={togglePlayback}>
+      <video
+        ref={videoRef}
+        src={src}
+        className={videoClassName}
+        controls={false}
+        autoPlay
+        playsInline={playsInline}
+        preload="metadata"
+      />
+      {paused && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors">
+          <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
+            <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
