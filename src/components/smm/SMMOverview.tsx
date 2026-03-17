@@ -28,7 +28,7 @@ interface Props {
   allPosts: ScheduledPost[];
   profiles: SMMProfile[];
   onRefresh?: () => void;
-  onUpdatePostTime?: (postId: string, newScheduledDate: string) => void;
+  onUpdatePostTime?: (post: ScheduledPost, newScheduledDate: string) => void;
 }
 
 export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUpdatePostTime }: Props) {
@@ -52,13 +52,16 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
 
     const updateAndRefresh = async (eventId: string) => {
       const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', eventId);
-      if (error) { toast.error('Failed to update time'); return; }
-      // Optimistically update local state so the time changes on screen immediately
-      onUpdatePostTime?.(post.id, newStartTime);
+      if (error) {
+        toast.error('Failed to update time');
+        return;
+      }
+
+      onUpdatePostTime?.(post, newStartTime);
+      onRefresh?.();
       toast.success(`Rescheduled to ${newTime}`);
     };
 
-    // Try direct ID match first
     const { data: direct } = await supabase
       .from('calendar_events')
       .select('id')
@@ -67,7 +70,6 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
 
     if (direct) return updateAndRefresh(direct.id);
 
-    // Fallback: match by source_id = job_id
     if (post.job_id) {
       const { data: byJob } = await supabase
         .from('calendar_events')
@@ -78,7 +80,6 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
       if (byJob) return updateAndRefresh(byJob.id);
     }
 
-    // Last fallback: fuzzy title match
     const { data: events } = await supabase
       .from('calendar_events')
       .select('id, title')

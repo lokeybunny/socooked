@@ -130,8 +130,13 @@ function SMMInner() {
                 </TabsList>
               </div>
 
-              <TabsContent value="overview"><SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} onRefresh={refresh} onUpdatePostTime={(postId, newDate) => {
-                setPosts(prev => prev.map(p => p.id === postId ? { ...p, scheduled_date: newDate } : p));
+              <TabsContent value="overview"><SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} onRefresh={refresh} onUpdatePostTime={(post, newDate) => {
+                const normalizedId = post.id.replace(/-(instagram|facebook|tiktok|linkedin|pinterest|youtube|twitter)-view$/, '');
+                setPosts(prev => prev.map(p => {
+                  const sameJob = !!post.job_id && (p.job_id === post.job_id || p.id === post.job_id);
+                  const sameId = p.id === post.id || p.id === normalizedId || p.job_id === post.id || p.job_id === normalizedId;
+                  return sameJob || sameId ? { ...p, scheduled_date: newDate } : p;
+                }));
               }} /></TabsContent>
               <TabsContent value="schedule"><SMMSchedule profiles={profiles} /></TabsContent>
               <TabsContent value="profiles"><SMMProfiles profiles={profiles} onRefresh={refresh} /></TabsContent>
