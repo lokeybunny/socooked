@@ -297,7 +297,7 @@ export const smmApi = {
         posts.push(calendarPost);
       }
 
-      return posts.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return anchorPostsToCampaignStart(posts).sort((a, b) => b.created_at.localeCompare(a.created_at));
     } catch (e) {
       console.error('getPosts error:', e);
       return [];
