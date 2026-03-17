@@ -1,6 +1,37 @@
 import { useState, useCallback } from 'react';
 import type { SMMProfile, ScheduledPost, QueueSettings, AnalyticsData, IGMedia, IGComment, IGConversation, IGMessage, WebhookEvent, PostStatus, Platform, PostType } from './types';
-import { supabase } from '@/integrations/supabase/client';
+
+const UPLOAD_ACTIONS = new Set(['upload-video', 'upload-photos', 'upload-document', 'upload-text']);
+const UPLOAD_MIN_INTERVAL_MS = 4000;
+let lastUploadRequestAt = 0;
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+function parseRetryAfterMs(error: unknown): number | null {
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  const match = raw.match(/\{[\s\S]*\}$/);
+  if (!match) return null;
+
+  try {
+    const parsed = JSON.parse(match[0]);
+    const seconds = Number(parsed?.retry_after_seconds);
+    return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+async function throttleUploadAction(action: string) {
+  if (!UPLOAD_ACTIONS.has(action)) return;
+
+  const now = Date.now();
+  const waitMs = Math.max(0, UPLOAD_MIN_INTERVAL_MS - (now - lastUploadRequestAt));
+  if (waitMs > 0) {
+    await sleep(waitMs);
+  }
+  lastUploadRequestAt = Date.now();
+}
+
 
 // Helper to build the edge function URL with query params
 function buildUrl(action: string, params?: Record<string, string>) {
