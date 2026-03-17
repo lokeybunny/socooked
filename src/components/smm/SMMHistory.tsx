@@ -4,7 +4,7 @@ import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/cont
 import PostCard from './PostCard';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { List, LayoutList, ChevronDown, ChevronUp } from 'lucide-react';
+import { List, LayoutList, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ALL_STATUSES: PostStatus[] = ['pending', 'in_progress', 'completed', 'failed', 'scheduled', 'queued', 'cancelled'];
