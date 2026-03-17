@@ -97,6 +97,7 @@ function SMMInner() {
             <h1 className="text-2xl font-bold text-foreground">Social Media Manager</h1>
             <p className="text-muted-foreground mt-1">Schedule, publish, and analyze social content across all platforms.</p>
           </div>
+          <PSTClock />
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setArtistModalOpen(true)}>
               <Music className="h-3.5 w-3.5" />
