@@ -1677,13 +1677,13 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const currentProfile = profiles.find(p => p.username === profileId || p.id === profileId);
   const availablePlatforms = useMemo(() => {
     if (!currentProfile) return SCHEDULE_PLATFORMS;
-    const connectedSet = new Set(
+    const connectedSet = new Set<string>(
       currentProfile.connected_platforms
         .filter(cp => cp.connected)
         .map(cp => cp.platform === 'twitter' ? 'x' : cp.platform)
     );
     // Also include platforms that already have content plans
-    plans.forEach(p => connectedSet.add(p.platform));
+    plans.forEach(p => connectedSet.add(p.platform as string));
     // Filter SCHEDULE_PLATFORMS to only connected ones
     const filtered = SCHEDULE_PLATFORMS.filter(p => connectedSet.has(p.value));
     return filtered.length > 0 ? filtered : SCHEDULE_PLATFORMS;
