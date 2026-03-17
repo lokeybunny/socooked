@@ -188,7 +188,7 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
       <div className="glass-card p-5 space-y-3">
         <h3 className="text-sm font-semibold text-foreground">Recent Posts</h3>
         <div className="space-y-2">
-          {recent.map(p => <PostCard key={p.id} post={p} compact />)}
+          {recent.map(p => <PostCard key={p.id} post={p} compact onDelete={() => onRefresh?.()} />)}
         </div>
       </div>
     </div>
