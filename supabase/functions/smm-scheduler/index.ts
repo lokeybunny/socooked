@@ -444,15 +444,24 @@ serve(async (req) => {
         })(),
       };
 
-      const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans`, {
-        method: 'POST',
-        headers: {
-          'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
-          'Content-Type': 'application/json', 'Prefer': 'return=representation',
-        },
-        body: JSON.stringify(planPayload),
-      });
-      const insertData = await insertRes.json();
+      // ─── Split multi-platform plans into separate rows ───
+      const platformStr = planPayload.platform as string;
+      const platforms = platformStr.includes('|') ? platformStr.split('|').map((p: string) => p.trim()).filter(Boolean) : [platformStr];
+
+      const allInserted: any[] = [];
+      for (const plat of platforms) {
+        const singlePlanPayload = { ...planPayload, platform: plat };
+        const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/smm_content_plans`, {
+          method: 'POST',
+          headers: {
+            'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json', 'Prefer': 'return=representation',
+          },
+          body: JSON.stringify(singlePlanPayload),
+        });
+        const insertData = await insertRes.json();
+        allInserted.push(insertData);
+      }
 
       // Save brand prompts
       const brandPrompts = (parsed.schedule_items || [])
@@ -479,7 +488,7 @@ serve(async (req) => {
       await logActivity('smm', 'content_plan_created', {
         name: `📅 Content plan: ${planPayload.plan_name}`,
         profile: planPayload.profile_username,
-        platform: planPayload.platform,
+        platform: platforms.join(', '),
         items_count: planPayload.schedule_items.length,
         status: 'draft',
       });
@@ -490,10 +499,12 @@ serve(async (req) => {
         ? `${readyCount}/${planPayload.schedule_items.length} posts have your uploaded media attached and are ready to go.`
         : 'Media will be generated 48 hours before each post date.';
 
+      const platformLabel = platforms.length > 1 ? platforms.join(' + ') : platforms[0];
+
       return new Response(JSON.stringify({
         type: 'content_plan',
-        message: `Created draft plan "${planPayload.plan_name}" with ${planPayload.schedule_items.length} posts. ${mediaMsg} Review the schedule and hit "Schedule to LIVE" when ready.`,
-        plan: insertData,
+        message: `Created draft plan "${planPayload.plan_name}" for ${platformLabel} with ${planPayload.schedule_items.length} posts each. ${mediaMsg} Review the schedule and hit "Schedule to LIVE" when ready.`,
+        plan: allInserted,
         actions: [],
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
