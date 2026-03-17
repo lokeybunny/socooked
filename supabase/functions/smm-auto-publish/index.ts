@@ -66,116 +66,99 @@ Deno.serve(async (req) => {
     // CRITICAL: Only publish ONE event per invocation to avoid double-posting
     const event = unpublished[0];
     const results: string[] = [];
-        // Extract media URL from description
-        const mediaMatch = event.description?.match(/Media URL:\s*(https?:\/\/\S+)/i);
-        const mediaUrl = mediaMatch?.[1]?.trim();
 
-        if (!mediaUrl) {
-          console.log(`[smm-auto-publish] Skipping event ${event.id} — no media URL found`);
-          results.push(`${event.title}: SKIPPED (no media)`);
-          continue;
-        }
+    try {
+      // Extract media URL from description
+      const mediaMatch = event.description?.match(/Media URL:\s*(https?:\/\/\S+)/i);
+      const mediaUrl = mediaMatch?.[1]?.trim();
 
-        // Extract profile from description or default to NysonBlack
-        const profileMatch = event.description?.match(/Profile:\s*(\S+)/i);
-        const profileUsername = profileMatch?.[1] || "NysonBlack";
+      if (!mediaUrl) {
+        console.log(`[smm-auto-publish] Skipping event ${event.id} — no media URL found`);
+        return json({ ok: true, published: 0, message: "Skipped — no media URL", remaining: unpublished.length - 1 });
+      }
 
-        // Build caption from description — strip metadata lines
-        let caption = event.description || event.title || "";
-        // Remove metadata lines
-        caption = caption
-          .replace(/Media URL:\s*https?:\/\/\S+/gi, "")
-          .replace(/Profile:\s*\S+/gi, "")
-          .replace(/Type:\s*\S+/gi, "")
-          .replace(/Original Week.*\n?/gi, "")
-          .replace(/Recycled from.*\n?/gi, "")
-          .replace(/\[media_url:[^\]]*\]/gi, "")
-          .replace(/\n{3,}/g, "\n\n")
-          .trim();
+      // Extract profile from description or default to NysonBlack
+      const profileMatch = event.description?.match(/Profile:\s*(\S+)/i);
+      const profileUsername = profileMatch?.[1] || "NysonBlack";
 
-        // Detect if image or video
-        const isVideo = /\.(mp4|mov|webm|avi)(\?|$)/i.test(mediaUrl);
-        const uploadAction = isVideo ? "upload-video" : "upload-photos";
+      // Build caption from description — strip metadata lines
+      let caption = event.description || event.title || "";
+      caption = caption
+        .replace(/Media URL:\s*https?:\/\/\S+/gi, "")
+        .replace(/Profile:\s*\S+/gi, "")
+        .replace(/Type:\s*\S+/gi, "")
+        .replace(/Original Week.*\n?/gi, "")
+        .replace(/Recycled from.*\n?/gi, "")
+        .replace(/\[media_url:[^\]]*\]/gi, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
 
-        // Determine platforms — publish to both Instagram and TikTok
-        const platforms = ["instagram", "tiktok"];
+      // Detect if image or video
+      const isVideo = /\.(mp4|mov|webm|avi)(\?|$)/i.test(mediaUrl);
+      const uploadAction = isVideo ? "upload-video" : "upload-photos";
+      const platforms = ["instagram", "tiktok"];
 
-        console.log(`[smm-auto-publish] Publishing: "${event.title}" via ${uploadAction} to ${platforms.join(", ")}`);
+      console.log(`[smm-auto-publish] Publishing 1 of ${unpublished.length}: "${event.title?.substring(0, 60)}" via ${uploadAction}`);
 
-        // smm-api reads action from query params
-        const smmUrl = `${SUPABASE_URL}/functions/v1/smm-api?action=${uploadAction}`;
+      const smmUrl = `${SUPABASE_URL}/functions/v1/smm-api?action=${uploadAction}`;
 
-        // Call smm-api to upload
-        const uploadRes = await fetch(smmUrl, {
+      const uploadRes = await fetch(smmUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${ANON_KEY}`,
+          "apikey": ANON_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user: profileUsername,
+          "platform[]": platforms,
+          title: caption,
+          ...(isVideo ? { video: mediaUrl, ig_post_type: "reels", share_to_feed: "true" } : { "photos[]": [mediaUrl] }),
+          async_upload: true,
+        }),
+      });
+
+      const uploadText = await uploadRes.text();
+      console.log(`[smm-auto-publish] Upload response (${uploadRes.status}):`, uploadText.substring(0, 300));
+
+      if (uploadRes.ok) {
+        await supabase
+          .from("calendar_events")
+          .update({ source_id: `published-${event.source_id || event.id}` })
+          .eq("id", event.id);
+
+        await supabase.from("activity_log").insert({
+          entity_type: "smm",
+          action: "auto_published",
+          meta: { name: `📤 Auto-published: ${event.title}`, profile: profileUsername, platforms },
+        });
+
+        return json({ ok: true, published: 1, remaining: unpublished.length - 1, title: event.title });
+      } else {
+        console.error(`[smm-auto-publish] Failed for ${event.id}:`, uploadText.substring(0, 300));
+
+        await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
           method: "POST",
-          headers: {
-            "Authorization": `Bearer ${ANON_KEY}`,
-            "apikey": ANON_KEY,
-            "Content-Type": "application/json",
-          },
+          headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            user: profileUsername,
-            "platform[]": platforms,
-            title: caption,
-            ...(isVideo ? { video: mediaUrl, ig_post_type: "reels", share_to_feed: "true" } : { "photos[]": [mediaUrl] }),
-            async_upload: true,
+            record: {
+              id: crypto.randomUUID(),
+              entity_type: "smm",
+              entity_id: null,
+              action: "failed",
+              actor_id: null,
+              meta: { name: `🚨 Auto-publish FAILED: ${event.title}`, error: uploadText.substring(0, 200) },
+              created_at: new Date().toISOString(),
+            },
           }),
         });
 
-        const uploadText = await uploadRes.text();
-        console.log(`[smm-auto-publish] Upload response (${uploadRes.status}):`, uploadText.substring(0, 300));
-
-        if (uploadRes.ok) {
-          // Mark as published by updating source_id
-          await supabase
-            .from("calendar_events")
-            .update({ source_id: `published-${event.source_id || event.id}` })
-            .eq("id", event.id);
-
-          results.push(`${event.title}: PUBLISHED ✅`);
-
-          // Log activity
-          await supabase.from("activity_log").insert({
-            entity_type: "smm",
-            action: "auto_published",
-            meta: { name: `📤 Auto-published: ${event.title}`, profile: profileUsername, platforms },
-          });
-        } else {
-          results.push(`${event.title}: FAILED (${uploadRes.status})`);
-          console.error(`[smm-auto-publish] Failed for ${event.id}:`, uploadText.substring(0, 300));
-
-          // Send failure notification via telegram
-          await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
-            method: "POST",
-            headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              record: {
-                id: crypto.randomUUID(),
-                entity_type: "smm",
-                entity_id: null,
-                action: "failed",
-                actor_id: null,
-                meta: {
-                  name: `🚨 Auto-publish FAILED: ${event.title}`,
-                  error: uploadText.substring(0, 200),
-                },
-                created_at: new Date().toISOString(),
-              },
-            }),
-          });
-        }
-
-        // Throttle between uploads (8 second spacing per rate limit rules)
-        if (unpublished.indexOf(event) < unpublished.length - 1) {
-          await new Promise(r => setTimeout(r, 8000));
-        }
-      } catch (eventErr) {
-        console.error(`[smm-auto-publish] Error processing event ${event.id}:`, eventErr);
-        results.push(`${event.title}: ERROR (${(eventErr as Error).message})`);
+        return json({ ok: false, published: 0, error: uploadText.substring(0, 200) }, 500);
       }
+    } catch (eventErr) {
+      console.error(`[smm-auto-publish] Error processing event ${event.id}:`, eventErr);
+      return json({ ok: false, error: (eventErr as Error).message }, 500);
     }
-
-    return json({ ok: true, published: results.filter(r => r.includes("PUBLISHED")).length, results });
   } catch (err) {
     console.error("[smm-auto-publish] Fatal error:", err);
     return json({ error: (err as Error).message }, 500);
