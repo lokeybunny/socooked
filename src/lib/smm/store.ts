@@ -722,6 +722,11 @@ function mapApiPostToScheduledPost(p: any, defaultStatus: string): ScheduledPost
   };
 }
 
+/** Strip [INSTAGRAM], [TIKTOK] etc. labels from titles */
+function stripPlatformLabel(title: string): string {
+  return title.replace(/\s*\[(INSTAGRAM|TIKTOK|FACEBOOK|LINKEDIN|PINTEREST|YOUTUBE|X|TWITTER)\]\s*/gi, ' ').trim();
+}
+
 function inferCalendarEventPlatform(title: string, sourceId: string, fallback?: string): Platform | null {
   const fromTitle = (title.match(/\[([^\]]+)\]/)?.[1] || '').trim().toLowerCase();
   const normalizedTitlePlatform = fromTitle === 'x' ? 'twitter' : fromTitle;
@@ -743,7 +748,10 @@ function inferCalendarEventPlatform(title: string, sourceId: string, fallback?: 
   return null;
 }
 
-function inferCalendarEventType(description?: string): PostType {
+function inferCalendarEventType(description?: string, planType?: string): PostType {
+  if (planType === 'video') return 'video';
+  if (planType === 'carousel' || planType === 'image' || planType === 'photos') return 'photos';
+  if (planType === 'document') return 'document';
   const typeMatch = description?.match(/Type:\s*(video|carousel|image|text|document)/i)?.[1]?.toLowerCase();
   if (typeMatch === 'carousel' || typeMatch === 'image') return 'photos';
   if (typeMatch === 'video') return 'video';
@@ -753,7 +761,7 @@ function inferCalendarEventType(description?: string): PostType {
 
 function mapCalendarEventToScheduledPost(
   event: { id: string; title: string | null; description: string | null; start_time: string | null; source_id: string | null; created_at: string },
-  planIndex: Map<string, { profile_username: string; platform: string }>
+  planIndex: Map<string, { profile_username: string; platform: string; media_url?: string; type?: string }>
 ): ScheduledPost | null {
   const sourceId = event.source_id || event.id;
   const baseSourceId = sourceId.replace(/^recycle-w\d+-/, '');
@@ -763,6 +771,7 @@ function mapCalendarEventToScheduledPost(
   if (!platform || !event.start_time) return null;
 
   const profileUsername = planMeta?.profile_username || '';
+  const cleanTitle = stripPlatformLabel(event.title || '');
 
   return {
     id: event.id,
@@ -770,11 +779,11 @@ function mapCalendarEventToScheduledPost(
     request_id: '',
     profile_id: profileUsername,
     profile_username: profileUsername,
-    title: event.title || '',
+    title: cleanTitle,
     description: event.description || undefined,
-    type: inferCalendarEventType(event.description || undefined),
+    type: inferCalendarEventType(event.description || undefined, planMeta?.type),
     platforms: [platform],
-    media_url: undefined,
+    media_url: planMeta?.media_url,
     preview_url: undefined,
     status: 'scheduled',
     scheduled_date: event.start_time,
