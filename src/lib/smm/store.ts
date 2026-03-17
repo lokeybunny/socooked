@@ -289,13 +289,23 @@ export const smmApi = {
       }
 
       const historyItems = history?.history || history?.uploads || [];
+      // First pass: build a media lookup by job_id so sibling platform entries can share media
+      const mediaByJobId = new Map<string, string>();
       if (Array.isArray(historyItems)) {
         historyItems.forEach((p: any) => {
-          // API returns separate records per platform with the same job_id —
-          // dedupe by job_id + platform so both Instagram and TikTok entries appear
-          const platform = p.platform === 'x' ? 'twitter' : (p.platform || '');
-          const dedupKey = `${p.job_id}||${platform}`;
+          const url = p.media_url || p.video_url || p.photo_url
+            || p.prevalidation_metadata?.remote_public_url;
+          if (url && p.job_id) mediaByJobId.set(p.job_id, url);
+        });
+        historyItems.forEach((p: any) => {
+          // Dedupe by job_id + platform so both Instagram and TikTok entries appear
+          const plat = p.platform === 'x' ? 'twitter' : (p.platform || '');
+          const dedupKey = `${p.job_id}||${plat}`;
           if (!posts.find(ep => `${ep.job_id}||${ep.platforms[0] || ''}` === dedupKey)) {
+            // Inherit media from sibling if this entry is missing it
+            if (!p.media_url && !p.video_url && !p.photo_url && !p.prevalidation_metadata?.remote_public_url && p.job_id) {
+              p.media_url = mediaByJobId.get(p.job_id);
+            }
             posts.push(mapApiPostToScheduledPost(p, p.status || 'completed'));
           }
         });
