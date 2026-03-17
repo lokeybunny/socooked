@@ -1599,6 +1599,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
    const [resetting, setResetting] = useState(false);
    const [recycling, setRecycling] = useState(false);
+   const [cloning, setCloning] = useState(false);
    const [retryItems, setRetryItems] = useState<any[]>([]);
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -2104,6 +2105,59 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     setRecycling(false);
   };
 
+  // ─── Clone to another platform ───
+  const handleCloneToPlatform = async (targetPlatform: string) => {
+    if (!currentPlan || items.length === 0) return;
+    setCloning(true);
+    try {
+      // Check if target already has a plan
+      const existing = plans.find(p => p.platform === targetPlatform);
+      if (existing) {
+        // Update existing plan with cloned items
+        const clonedItems = items.map(i => ({
+          ...i,
+          id: i.id.replace(/-(ig|tt|fb|x)-/, `-${targetPlatform.substring(0, 2)}-`),
+        }));
+        const { error } = await supabase
+          .from('smm_content_plans')
+          .update({
+            schedule_items: clonedItems as any,
+            brand_context: currentPlan.brand_context as any,
+            plan_name: currentPlan.plan_name,
+            status: 'draft',
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        // Insert new plan
+        const clonedItems = items.map(i => ({
+          ...i,
+          id: i.id.replace(/-(ig|tt|fb|x)-/, `-${targetPlatform.substring(0, 2)}-`),
+        }));
+        const { error } = await supabase
+          .from('smm_content_plans')
+          .insert({
+            profile_username: profileId,
+            platform: targetPlatform,
+            plan_name: currentPlan.plan_name,
+            status: 'draft',
+            brand_context: currentPlan.brand_context as any,
+            schedule_items: clonedItems as any,
+          } as any);
+        if (error) throw error;
+      }
+      toast.success(`✅ Cloned ${items.length} posts to ${targetPlatform}`);
+      await fetchPlans();
+    } catch (e: any) {
+      toast.error(`Clone failed: ${e.message}`);
+    }
+    setCloning(false);
+  };
+
+  // Available platforms to clone TO (exclude current)
+  const cloneTargets = SCHEDULE_PLATFORMS.filter(p => p.value !== activePlatform && !plans.find(pl => pl.platform === p.value));
+
   const todayItems = items.filter(i => { try { return isToday(parseISO(i.date)); } catch { return false; } });
   const upcomingItems = items.filter(i => { try { return !isToday(parseISO(i.date)); } catch { return true; } });
 
@@ -2189,6 +2243,23 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+          )}
+
+          {/* Clone to Platform Button */}
+          {currentPlan && items.length > 0 && (
+            <Select onValueChange={handleCloneToPlatform} disabled={cloning}>
+              <SelectTrigger className="h-8 w-auto gap-1.5 text-xs border-blue-500/30 text-blue-600 hover:bg-blue-500/10 px-2.5">
+                {cloning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+                Clone to…
+              </SelectTrigger>
+              <SelectContent>
+                {SCHEDULE_PLATFORMS.filter(p => p.value !== activePlatform).map(p => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
 
           {/* Custom Brand Images Button */}
