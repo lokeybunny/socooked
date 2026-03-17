@@ -2295,8 +2295,25 @@ Deno.serve(async (req) => {
 
     // ─── V0 DESIGNER (proxy to v0-designer function) ────────
     if ((path === 'generate-website' || path === 'edit-website' || path === 'v0-designer') && req.method === 'POST') {
-      const { prompt, customer_id, category, chat_id } = body
+      const { prompt, customer_id, category, chat_id, phone } = body
       if (!prompt) return fail('prompt is required')
+
+      // Resolve customer_id from phone if not provided directly
+      let resolvedCustomerId = customer_id || null
+      if (!resolvedCustomerId && phone) {
+        const digits = (phone as string).replace(/\D/g, '')
+        if (digits.length >= 7) {
+          const { data: phoneMatch } = await supabase
+            .from('customers')
+            .select('id')
+            .or(`phone.ilike.%${digits.slice(-10)}%,phone.ilike.%${digits}%`)
+            .limit(1)
+          if (phoneMatch && phoneMatch.length > 0) {
+            resolvedCustomerId = phoneMatch[0].id
+            console.log(`[clawd-bot] Auto-resolved customer from phone ${digits}: ${resolvedCustomerId}`)
+          }
+        }
+      }
 
       const isEdit = !!chat_id
       const actionLabel = isEdit ? 'Web Design Edit' : 'Web Design'
@@ -2307,7 +2324,7 @@ Deno.serve(async (req) => {
         bot_agent: 'web-designer',
         status: 'queued',
         priority: 'high',
-        customer_id: customer_id || null,
+        customer_id: resolvedCustomerId,
         meta: { prompt, assigned_by: 'clawd-main', ...(chat_id ? { chat_id } : {}) },
       }).select('id').single()
 
