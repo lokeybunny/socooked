@@ -1011,7 +1011,7 @@ function TikTokFeedPreview({ items, onItemClick, onToggleFavorite, profileUserna
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
-        <div key={item.id} className="relative rounded-xl overflow-hidden bg-black aspect-[9/16] max-h-[400px] cursor-pointer" onClick={() => onItemClick?.(item)}>
+        <div key={item.id} className="relative rounded-xl overflow-hidden bg-black aspect-[9/16] max-h-[400px]">
           {item.media_url ? (
             item.type === 'video' && /\.(mp4|mov|webm|m3u8)/i.test(item.media_url) ? (
               <VideoThumbnail src={item.media_url} title={item.caption} className="w-full h-full" videoClassName="w-full h-full object-cover" controls={false} />
@@ -1022,6 +1022,14 @@ function TikTokFeedPreview({ items, onItemClick, onToggleFavorite, profileUserna
             <div className="w-full h-full"><MediaPlaceholder item={item} /></div>
           )}
           {item.media_url && <FavoriteCheckmark itemId={item.id} favorited={!!item.favorited} onToggle={onToggleFavorite} />}
+          {/* Edit icon — top right */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onItemClick?.(item); }}
+            className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white/80 hover:text-white transition-all"
+            title="Edit post"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
           <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
             <p className="text-white text-xs font-semibold mb-1">@{profileUsername}</p>
             <p className="text-white/90 text-[11px] line-clamp-2">{item.caption}</p>
