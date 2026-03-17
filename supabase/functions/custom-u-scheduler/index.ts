@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const { data: customers } = await supabase
       .from('customers')
       .select('id, full_name, email, company, category, upload_token, status')
-      .eq('status', 'prospect')
+      .in('status', ['prospect', 'prospect_emailed'])
       .order('full_name')
       .limit(100)
 
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `You are a Custom-U portal assistant. You manage upload links for customers — generating, revoking, regenerating, and sending portal links via email.
 
-IMPORTANT: Only customers with 'prospect' status in the leads pipeline are eligible for Custom-U portals. The customer list below only contains eligible prospects.
+IMPORTANT: Only customers with 'prospect' or 'prospect_emailed' status in the leads pipeline are eligible for Custom-U portals. The customer list below only contains eligible prospects.
 
 The Custom-U portal allows customers to upload files (photos, videos, documents) directly to our Google Drive through a personalized link at https://stu25.com/u/{token}.
 

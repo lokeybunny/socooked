@@ -35,7 +35,7 @@ export default function CustomU() {
 
   const load = async () => {
     let q = supabase.from('customers').select('id, full_name, category, upload_token, email, company, status')
-      .eq('status', 'prospect')
+      .in('status', ['prospect', 'prospect_emailed'])
       .order('full_name');
     if (search) q = q.ilike('full_name', `%${search}%`);
     const { data } = await q;
@@ -106,7 +106,7 @@ export default function CustomU() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">Custom-U</h1>
-              <p className="text-muted-foreground mt-1">Generate upload links for active prospects. Only customers with 'prospect' status in the leads pipeline are eligible.</p>
+              <p className="text-muted-foreground mt-1">Generate upload links for prospects. Includes 'prospect' and 'prospect_emailed' statuses.</p>
             </div>
             
           </div>
