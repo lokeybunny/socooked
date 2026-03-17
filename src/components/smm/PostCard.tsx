@@ -56,6 +56,7 @@ interface PostCardProps {
   onReschedule?: (post: ScheduledPost) => void;
   onTimeEdit?: (post: ScheduledPost, newTime: string) => void;
   onPush?: (post: ScheduledPost) => void;
+  onDelete?: (post: ScheduledPost) => void;
 }
 
 // ─── Post Detail Dialog ───
