@@ -232,8 +232,8 @@ export const smmApi = {
     try {
       // Get both scheduled and history
       const [scheduled, history] = await Promise.all([
-        invokeSMM('list-scheduled').catch(() => ({ scheduled_posts: [] })),
-        invokeSMM('upload-history', { limit: '50' }).catch(() => ({ history: [] })),
+        invokeSMM('list-scheduled', { limit: '500' }).catch(() => ({ scheduled_posts: [] })),
+        invokeSMM('upload-history', { limit: '500' }).catch(() => ({ history: [] })),
       ]);
 
       const posts: ScheduledPost[] = [];
