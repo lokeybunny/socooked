@@ -147,6 +147,14 @@ function SMMInner() {
 
       {/* Persistent AI Scheduler Terminal */}
       {profileId && <SMMTerminal profileUsername={profileId} />}
+
+      {/* Artist Campaign Modal */}
+      <ArtistCampaignModal
+        open={artistModalOpen}
+        onOpenChange={setArtistModalOpen}
+        profileUsername={profileId || 'NysonBlack'}
+        onRefresh={refresh}
+      />
     </AppLayout>
   );
 }
