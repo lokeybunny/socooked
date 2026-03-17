@@ -130,7 +130,9 @@ function SMMInner() {
                 </TabsList>
               </div>
 
-              <TabsContent value="overview"><SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} onRefresh={refresh} /></TabsContent>
+              <TabsContent value="overview"><SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} onRefresh={refresh} onUpdatePostTime={(postId, newDate) => {
+                setPosts(prev => prev.map(p => p.id === postId ? { ...p, scheduled_date: newDate } : p));
+              }} /></TabsContent>
               <TabsContent value="schedule"><SMMSchedule profiles={profiles} /></TabsContent>
               <TabsContent value="profiles"><SMMProfiles profiles={profiles} onRefresh={refresh} /></TabsContent>
               <TabsContent value="composer"><SMMComposer profiles={profiles} onRefresh={refresh} /></TabsContent>
