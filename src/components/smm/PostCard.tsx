@@ -231,7 +231,7 @@ function PostDetailDialog({ post, open, onOpenChange, onDelete }: { post: Schedu
   );
 }
 
-export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule, onTimeEdit, onPush }: PostCardProps) {
+export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule, onTimeEdit, onPush, onDelete }: PostCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editingTime, setEditingTime] = useState(false);
   const [overdueInfoOpen, setOverdueInfoOpen] = useState(false);
