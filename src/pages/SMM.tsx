@@ -96,6 +96,31 @@ function PSTClock() {
   );
 }
 
+function DarksideBalance() {
+  const [balance, setBalance] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.functions.invoke('darkside-smm', { body: { action: 'balance' } })
+      .then(({ data }) => {
+        const bal = data?.balance ?? data?.data?.balance;
+        if (bal !== undefined) setBalance(String(bal));
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Skeleton className="h-7 w-20" />;
+  if (balance === null) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground bg-muted/50 border border-border rounded-md px-3 py-1.5">
+      <Wallet className="h-3 w-3 text-primary" />
+      <span>${balance}</span>
+    </div>
+  );
+}
+
 function SMMInner() {
   const { profiles, posts, loading, refresh, setPosts } = useSMMStore();
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
