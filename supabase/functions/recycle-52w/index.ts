@@ -34,7 +34,7 @@ serve(async (req) => {
       const { data: task, error: taskErr } = await supabase.from('bot_tasks').insert({
         title: `♻️ Recycle 52w — ${plan_name || platform}`,
         description: `Recycling ${items.length} posts × 51 weeks for ${profile_username} on ${platform}`,
-        bot_agent: 'social-media',
+        bot_agent: 'social_media',
         priority: 'high',
         status: 'queued',
         meta: {
