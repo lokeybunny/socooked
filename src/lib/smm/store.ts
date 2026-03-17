@@ -715,6 +715,70 @@ function mapApiPostToScheduledPost(p: any, defaultStatus: string): ScheduledPost
   };
 }
 
+function inferCalendarEventPlatform(title: string, sourceId: string, fallback?: string): Platform | null {
+  const fromTitle = (title.match(/\[([^\]]+)\]/)?.[1] || '').trim().toLowerCase();
+  const normalizedTitlePlatform = fromTitle === 'x' ? 'twitter' : fromTitle;
+  const normalizedFallback = fallback === 'x' ? 'twitter' : fallback;
+
+  if (normalizedTitlePlatform && ['instagram', 'facebook', 'tiktok', 'linkedin', 'pinterest', 'youtube', 'twitter'].includes(normalizedTitlePlatform)) {
+    return normalizedTitlePlatform as Platform;
+  }
+  if (normalizedFallback && ['instagram', 'facebook', 'tiktok', 'linkedin', 'pinterest', 'youtube', 'twitter'].includes(normalizedFallback)) {
+    return normalizedFallback as Platform;
+  }
+  if (sourceId.includes('-tt-')) return 'tiktok';
+  if (sourceId.includes('-ig-')) return 'instagram';
+  if (sourceId.includes('-fb-')) return 'facebook';
+  if (sourceId.includes('-li-')) return 'linkedin';
+  if (sourceId.includes('-pin-')) return 'pinterest';
+  if (sourceId.includes('-yt-')) return 'youtube';
+  if (sourceId.includes('-x-')) return 'twitter';
+  return null;
+}
+
+function inferCalendarEventType(description?: string): PostType {
+  const typeMatch = description?.match(/Type:\s*(video|carousel|image|text|document)/i)?.[1]?.toLowerCase();
+  if (typeMatch === 'carousel' || typeMatch === 'image') return 'photos';
+  if (typeMatch === 'video') return 'video';
+  if (typeMatch === 'document') return 'document';
+  return 'text';
+}
+
+function mapCalendarEventToScheduledPost(
+  event: { id: string; title: string | null; description: string | null; start_time: string | null; source_id: string | null; created_at: string },
+  planIndex: Map<string, { profile_username: string; platform: string }>
+): ScheduledPost | null {
+  const sourceId = event.source_id || event.id;
+  const baseSourceId = sourceId.replace(/^recycle-w\d+-/, '');
+  const planMeta = planIndex.get(sourceId) || planIndex.get(baseSourceId);
+  const platform = inferCalendarEventPlatform(event.title || '', sourceId, planMeta?.platform);
+
+  if (!platform || !event.start_time) return null;
+
+  const profileUsername = planMeta?.profile_username || '';
+
+  return {
+    id: event.id,
+    job_id: sourceId,
+    request_id: '',
+    profile_id: profileUsername,
+    profile_username: profileUsername,
+    title: event.title || '',
+    description: event.description || undefined,
+    type: inferCalendarEventType(event.description || undefined),
+    platforms: [platform],
+    media_url: undefined,
+    preview_url: undefined,
+    status: 'scheduled',
+    scheduled_date: event.start_time,
+    published_at: undefined,
+    post_urls: [],
+    first_comment: undefined,
+    error: undefined,
+    created_at: event.created_at || new Date().toISOString(),
+  };
+}
+
 // ─── React Hook ───
 export function useSMMStore() {
   const [profiles, setProfiles] = useState<SMMProfile[]>([]);
