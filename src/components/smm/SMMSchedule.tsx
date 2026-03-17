@@ -934,12 +934,12 @@ function ScheduleItemModal({
 
 // ─── Platform Feed Renderers ───
 
-function InstagramFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
+function InstagramFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
   return (
     <div className="space-y-0">
       <div className="flex items-center gap-3 p-4 border-b border-border/50">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 flex items-center justify-center text-white text-xs font-bold">S</div>
-        <span className="text-sm font-semibold text-foreground">STU25</span>
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 flex items-center justify-center text-white text-xs font-bold">{profileUsername.charAt(0).toUpperCase()}</div>
+        <span className="text-sm font-semibold text-foreground">{profileUsername}</span>
         <span className="ml-auto text-xs text-muted-foreground">Click any thumbnail to preview & edit</span>
       </div>
       <div className="grid grid-cols-3 gap-1 p-1">
@@ -963,7 +963,7 @@ function InstagramFeedPreview({ items, onItemClick, onToggleFavorite }: { items:
               </div>
             </div>
             <div className="px-1 py-1.5 space-y-0.5">
-              <p className="text-[10px] leading-tight line-clamp-2"><span className="font-semibold">STU25</span> {item.caption}</p>
+              <p className="text-[10px] leading-tight line-clamp-2"><span className="font-semibold">{profileUsername}</span> {item.caption}</p>
               <p className="text-[9px] text-muted-foreground">{format(parseISO(item.date), 'MMM d')} · {item.type}</p>
             </div>
           </div>
@@ -973,15 +973,15 @@ function InstagramFeedPreview({ items, onItemClick, onToggleFavorite }: { items:
   );
 }
 
-function FacebookFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
+function FacebookFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
         <div key={item.id} className="rounded-lg border border-border/50 bg-card overflow-hidden cursor-pointer hover:border-primary/30 transition-colors" onClick={() => onItemClick?.(item)}>
           <div className="flex items-center gap-2 p-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">S</div>
+            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">{profileUsername.charAt(0).toUpperCase()}</div>
             <div>
-              <p className="text-xs font-semibold">STU25</p>
+              <p className="text-xs font-semibold">{profileUsername}</p>
               <p className="text-[10px] text-muted-foreground">{format(parseISO(item.date), 'MMM d')} · 🌐</p>
             </div>
             <MoreHorizontal className="h-4 w-4 text-muted-foreground ml-auto" />
@@ -1007,7 +1007,7 @@ function FacebookFeedPreview({ items, onItemClick, onToggleFavorite }: { items: 
   );
 }
 
-function TikTokFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
+function TikTokFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
@@ -1019,7 +1019,7 @@ function TikTokFeedPreview({ items, onItemClick, onToggleFavorite }: { items: Sc
           )}
           {item.media_url && <FavoriteCheckmark itemId={item.id} favorited={!!item.favorited} onToggle={onToggleFavorite} />}
           <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-            <p className="text-white text-xs font-semibold mb-1">@STU25</p>
+            <p className="text-white text-xs font-semibold mb-1">@{profileUsername}</p>
             <p className="text-white/90 text-[11px] line-clamp-2">{item.caption}</p>
             {item.hashtags?.length > 0 && (
               <p className="text-white/70 text-[10px] mt-1">{item.hashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}</p>
@@ -1038,17 +1038,17 @@ function TikTokFeedPreview({ items, onItemClick, onToggleFavorite }: { items: Sc
   );
 }
 
-function XFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
+function XFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
   return (
     <div className="divide-y divide-border/30">
       {items.map((item) => (
         <div key={item.id} className="p-3 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => onItemClick?.(item)}>
           <div className="flex gap-2">
-            <div className="w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold shrink-0">S</div>
+            <div className="w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold shrink-0">{profileUsername.charAt(0).toUpperCase()}</div>
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-1">
-                <span className="text-xs font-bold">STU25</span>
-                <span className="text-xs text-muted-foreground">@STU25 · {format(parseISO(item.date), 'MMM d')}</span>
+                <span className="text-xs font-bold">{profileUsername}</span>
+                <span className="text-xs text-muted-foreground">@{profileUsername} · {format(parseISO(item.date), 'MMM d')}</span>
               </div>
               <p className="text-sm">{item.caption}</p>
               {item.hashtags?.length > 0 && (
@@ -2294,7 +2294,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             <TabsTrigger key={p.value} value={p.value} className="gap-1.5 text-xs">
               <PlatformIcon platform={p.value} />
               {p.label}
-              {plans.find(pl => pl.platform === p.value) && (
+              {plans.find(pl => pl.platform === p.value || pl.platform.split('|').includes(p.value)) && (
                 <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary" />
               )}
             </TabsTrigger>
@@ -2316,10 +2316,10 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Platform Preview */}
                 <div className="lg:col-span-2 rounded-xl border border-border/50 bg-card overflow-hidden max-h-[700px] overflow-y-auto">
-                  {p.value === 'instagram' && <InstagramFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
-                  {p.value === 'facebook' && <FacebookFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
-                  {p.value === 'tiktok' && <TikTokFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
-                  {p.value === 'x' && <XFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
+                  {p.value === 'instagram' && <InstagramFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} profileUsername={profileId || 'Brand'} />}
+                  {p.value === 'facebook' && <FacebookFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} profileUsername={profileId || 'Brand'} />}
+                  {p.value === 'tiktok' && <TikTokFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} profileUsername={profileId || 'Brand'} />}
+                  {p.value === 'x' && <XFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} profileUsername={profileId || 'Brand'} />}
                 </div>
 
                 {/* Sidebar */}
