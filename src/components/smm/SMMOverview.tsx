@@ -40,6 +40,9 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
   const today = new Date().toISOString().slice(0, 10);
   const todayPosts = posts.filter(p => p.scheduled_date?.startsWith(today)).sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
   const scheduledToday = todayPosts.filter(p => p.status === 'scheduled');
+  const overduePosts = todayPosts.filter(p =>
+    p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status) && new Date(p.scheduled_date) < new Date()
+  );
   const failed24h = posts.filter(p => p.status === 'failed' && new Date(p.created_at) > new Date(Date.now() - 86400000));
   const completed7d = posts.filter(p => p.status === 'completed' && new Date(p.created_at) > new Date(Date.now() - 604800000));
   const total7d = posts.filter(p => new Date(p.created_at) > new Date(Date.now() - 604800000));
