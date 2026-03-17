@@ -296,10 +296,7 @@ export const smmApi = {
         posts.push(calendarPost);
       }
 
-      // Mirror: duplicate Instagram posts to TikTok so TikTok views aren't empty
-      const mirrored = mirrorInstagramToTiktok(posts);
-
-      return mirrored.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return posts.sort((a, b) => b.created_at.localeCompare(a.created_at));
     } catch (e) {
       console.error('getPosts error:', e);
       return [];
@@ -811,26 +808,6 @@ function mapCalendarEventToScheduledPost(
     created_at: event.created_at || new Date().toISOString(),
   };
 }
-
-/**
- * Mirror every Instagram-only post to TikTok so TikTok views show the same content.
- * Posts that already include tiktok are left untouched.
- */
-function mirrorInstagramToTiktok(posts: ScheduledPost[]): ScheduledPost[] {
-  const result: ScheduledPost[] = [...posts];
-  for (const post of posts) {
-    if (post.platforms.includes('instagram') && !post.platforms.includes('tiktok')) {
-      result.push({
-        ...post,
-        id: `${post.id}-tt-mirror`,
-        job_id: post.job_id ? `${post.job_id}-tt` : '',
-        platforms: ['tiktok'],
-      });
-    }
-  }
-  return result;
-}
-
 
 // ─── React Hook ───
 export function useSMMStore() {
