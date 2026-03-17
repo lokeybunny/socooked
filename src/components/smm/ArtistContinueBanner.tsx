@@ -39,10 +39,10 @@ export default function ArtistContinueBanner({ profileUsername, onRefresh }: { p
     setActing(id);
     try {
       const res = await supabase.functions.invoke('artist-campaign-scheduler', {
-        body: { action: 'continue', campaign_id: id, extend_days: 30 },
+        body: { action: 'continue', campaign_id: id, extend_days: 14 },
       });
       if (res.error) throw res.error;
-      toast.success('Campaign extended for 30 more days!');
+      toast.success('Campaign extended for 14 more days!');
       setCampaigns(prev => prev.filter(c => c.id !== id));
       onRefresh?.();
     } catch {
