@@ -2296,7 +2296,12 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             const { error: calErr } = await supabase
               .from('calendar_events')
               .insert(calendarEvents);
-            if (!calErr) totalCalEvents += calendarEvents.length;
+            if (calErr) {
+              console.error(`[recycle] Calendar insert failed for week ${week}:`, calErr);
+              toast.error(`Calendar week ${week + 1} failed: ${calErr.message}`);
+            } else {
+              totalCalEvents += calendarEvents.length;
+            }
           }
         }
 
