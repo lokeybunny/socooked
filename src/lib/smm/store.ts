@@ -795,9 +795,12 @@ function mapApiPostToScheduledPost(p: any, defaultStatus: string): ScheduledPost
   };
 }
 
-/** Strip [INSTAGRAM], [TIKTOK] etc. labels from titles */
+/** Strip legacy recycle emoji + [INSTAGRAM], [TIKTOK] etc. labels from titles */
 function stripPlatformLabel(title: string): string {
-  return title.replace(/\s*\[(INSTAGRAM|TIKTOK|FACEBOOK|LINKEDIN|PINTEREST|YOUTUBE|X|TWITTER)\]\s*/gi, ' ').trim();
+  return title
+    .replace(/^\s*♻️\s*/u, '')
+    .replace(/\s*\[(INSTAGRAM|TIKTOK|FACEBOOK|LINKEDIN|PINTEREST|YOUTUBE|X|TWITTER)\]\s*/gi, ' ')
+    .trim();
 }
 
 function inferCalendarEventPlatform(title: string, sourceId: string, fallback?: string): Platform | null {
