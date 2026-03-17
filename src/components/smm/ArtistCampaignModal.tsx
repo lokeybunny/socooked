@@ -57,15 +57,17 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
   const [songTitle, setSongTitle] = useState('');
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
 
-  const fetchCampaigns = useCallback(async () => {
-    setLoading(true);
+  const fetchCampaigns = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
+
     const { data } = await supabase
       .from('smm_artist_campaigns')
       .select('*')
       .eq('profile_username', profileUsername)
       .order('created_at', { ascending: false });
+
     setCampaigns((data as ArtistCampaign[]) || []);
-    setLoading(false);
+    if (!options?.silent) setLoading(false);
   }, [profileUsername]);
 
   useEffect(() => {
@@ -73,20 +75,26 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
 
     fetchCampaigns();
 
-    const interval = window.setInterval(() => {
-      fetchCampaigns();
-    }, 4000);
-
-    const handleFocus = () => fetchCampaigns();
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleFocus);
+    const channel = supabase
+      .channel(`artist-campaigns-${profileUsername}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'smm_artist_campaigns',
+          filter: `profile_username=eq.${profileUsername}`,
+        },
+        () => {
+          fetchCampaigns({ silent: true });
+        }
+      )
+      .subscribe();
 
     return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleFocus);
+      supabase.removeChannel(channel);
     };
-  }, [open, fetchCampaigns]);
+  }, [open, profileUsername, fetchCampaigns]);
 
   const uploadMedia = async (files: File[]): Promise<string[]> => {
     const urls: string[] = [];
@@ -349,7 +357,7 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
           <p className="text-xs text-muted-foreground mb-3">
             Each campaign runs on a 14-day cycle. Expand to manage media — deleting a video removes its scheduled posts; adding new media replaces older slots.
           </p>
-          {loading ? (
+          {loading && campaigns.length === 0 ? (
             <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
           ) : activeCampaigns.length === 0 ? (
             <div className="text-center py-4 text-muted-foreground text-sm">No active campaigns</div>
