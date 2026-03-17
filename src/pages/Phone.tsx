@@ -2435,7 +2435,15 @@ export default function PhonePage() {
       </Dialog>
 
       {/* Callback Reminder Popup */}
-      <AlertDialog open={!!callbackReminder} onOpenChange={(open) => { if (!open) setCallbackReminder(null); }}>
+      <AlertDialog open={!!callbackReminder} onOpenChange={(open) => {
+        if (!open && callbackReminder) {
+          // Dismiss = clear callback_at so it never pops up again
+          const meta = typeof callbackReminder.meta === 'object' ? { ...callbackReminder.meta } : {};
+          delete meta.callback_at;
+          supabase.from('customers').update({ meta } as any).eq('id', callbackReminder.id).then(() => loadData());
+          setCallbackReminder(null);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
