@@ -1013,7 +1013,11 @@ function TikTokFeedPreview({ items, onItemClick, onToggleFavorite, profileUserna
       {items.map((item) => (
         <div key={item.id} className="relative rounded-xl overflow-hidden bg-black aspect-[9/16] max-h-[400px] cursor-pointer" onClick={() => onItemClick?.(item)}>
           {item.media_url ? (
-            <img src={item.media_url} alt="" className="w-full h-full object-cover" />
+            item.type === 'video' && /\.(mp4|mov|webm|m3u8)/i.test(item.media_url) ? (
+              <VideoThumbnail src={item.media_url} title={item.caption} className="w-full h-full" videoClassName="w-full h-full object-cover" controls={false} />
+            ) : (
+              <img src={item.media_url} alt="" className="w-full h-full object-cover" />
+            )
           ) : (
             <div className="w-full h-full"><MediaPlaceholder item={item} /></div>
           )}
