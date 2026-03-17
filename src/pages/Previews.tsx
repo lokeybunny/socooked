@@ -57,24 +57,26 @@ const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string }
 
 // ─── V0 Credits Badge ───
 function V0CreditsBadge() {
-  const [usage, setUsage] = useState<{ remaining_credits: number; credit_limit: number; reset_at: number | null } | null>(null);
+  const [usage, setUsage] = useState<{ remaining_credits?: number; credit_limit?: number; reset_at?: number | null } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.functions.invoke('v0-usage').then(({ data, error }) => {
-      if (!error && data?.success) setUsage(data.data);
+      if (!error && data?.success) setUsage(data.data ?? null);
       setLoading(false);
     });
   }, []);
 
+  const remainingCredits = typeof usage?.remaining_credits === 'number' ? usage.remaining_credits : null;
+
   if (loading) return <Skeleton className="h-8 w-28" />;
-  if (!usage) return null;
+  if (remainingCredits === null) return null;
 
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/50 text-xs">
       <Coins className="h-3.5 w-3.5 text-primary" />
       <span className="text-muted-foreground">v0 credits left:</span>
-      <span className="font-semibold text-foreground">${usage.remaining_credits.toFixed(2)}</span>
+      <span className="font-semibold text-foreground">${remainingCredits.toFixed(2)}</span>
     </div>
   );
 }
