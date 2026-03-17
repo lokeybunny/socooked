@@ -648,46 +648,75 @@ export const smmApi = {
       return await invokeSMM('get-profile', { username });
     } catch { return null; }
   },
-  // ─── Dedup: remove same-day calendar events with identical content ───
+  // ─── Dedup: enforce one Drake, Lamb, and Oranj post per day from campaign start ───
   async dedupCalendarEvents(): Promise<number> {
     try {
-      // Fetch all SMM calendar events
+      const CAMPAIGN_START_DAY = '2026-03-17';
+      const classifyArtist = (value: string) => {
+        const haystack = value.toLowerCase();
+        if (haystack.includes('@oranjgoodman') || haystack.includes('oranj goodman') || haystack.includes('oranjgoodman') || haystack.includes('ojg-') || haystack.includes('oranj')) return 'oranj';
+        if (haystack.includes('@lamb.wavv') || haystack.includes('@lamb.wavvv') || haystack.includes('lamb.wavv') || haystack.includes('lamb.wavvv') || haystack.includes('lambwavv') || haystack.includes('lambwavvv')) return 'lamb';
+        if (haystack.includes('drake')) return 'drake';
+        return 'other';
+      };
+      const getPriority = (sourceId: string) => {
+        if (sourceId.startsWith('original-w0-')) return 0;
+        if (sourceId.includes('-ig-')) return 1;
+        if (sourceId.includes('-tt-')) return 2;
+        return 3;
+      };
+
       const { data: events, error } = await supabase
         .from('calendar_events')
         .select('id, title, description, start_time, source_id, created_at')
         .eq('source', 'smm')
+        .gte('start_time', `${CAMPAIGN_START_DAY}T00:00:00+00:00`)
         .order('created_at', { ascending: true });
 
       if (error || !events || events.length === 0) return 0;
 
-      // Group by day + normalised caption to find dupes
-      const seen = new Map<string, string>(); // key -> kept id
-      const dupeIds: string[] = [];
+      const ordered = [...events].sort((a, b) => {
+        const sourceA = a.source_id || '';
+        const sourceB = b.source_id || '';
+        return getPriority(sourceA) - getPriority(sourceB)
+          || (a.created_at || '').localeCompare(b.created_at || '')
+          || a.id.localeCompare(b.id);
+      });
 
-      for (const ev of events) {
-        const day = ev.start_time ? ev.start_time.substring(0, 10) : '';
-        // Normalise: strip emojis, whitespace, case
-        const normTitle = (ev.title || '').replace(/[\u{1F000}-\u{1FFFF}]/gu, '').replace(/\[.*?\]/g, '').trim().toLowerCase();
-        const normDesc = (ev.description || '').replace(/Recycled from.*?\n/i, '').trim().toLowerCase().substring(0, 120);
-        const key = `${day}||${normTitle}||${normDesc}`;
+      const kept = new Set<string>();
+      const seenArtistDay = new Set<string>();
+      const deleteIds: string[] = [];
 
-        if (seen.has(key)) {
-          dupeIds.push(ev.id);
-        } else {
-          seen.set(key, ev.id);
+      for (const ev of ordered) {
+        const sourceId = ev.source_id || '';
+        const day = ev.start_time?.slice(0, 10) || '';
+        const haystack = `${sourceId} ${ev.title || ''} ${ev.description || ''}`;
+        const artist = classifyArtist(haystack);
+
+        if (artist === 'other') {
+          deleteIds.push(ev.id);
+          continue;
         }
+
+        const artistDayKey = `${day}::${artist}`;
+        if (seenArtistDay.has(artistDayKey)) {
+          deleteIds.push(ev.id);
+          continue;
+        }
+
+        seenArtistDay.add(artistDayKey);
+        kept.add(ev.id);
       }
 
-      if (dupeIds.length === 0) return 0;
+      if (deleteIds.length === 0) return 0;
 
-      // Delete in batches of 100
-      for (let i = 0; i < dupeIds.length; i += 100) {
-        const batch = dupeIds.slice(i, i + 100);
+      for (let i = 0; i < deleteIds.length; i += 100) {
+        const batch = deleteIds.slice(i, i + 100);
         await supabase.from('calendar_events').delete().in('id', batch);
       }
 
-      console.log(`[smm dedup] Removed ${dupeIds.length} duplicate calendar events`);
-      return dupeIds.length;
+      console.log(`[smm dedup] Removed ${deleteIds.length} invalid calendar events; kept ${kept.size}`);
+      return deleteIds.length;
     } catch (e) {
       console.error('[smm dedup] error:', e);
       return 0;

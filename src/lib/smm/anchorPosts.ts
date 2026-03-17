@@ -53,6 +53,9 @@ function extractCampaignKeyFromText(text?: string): string {
 }
 
 function extractCampaignKey(post: ScheduledPost): string {
+  const artistKey = extractArtistKey(post);
+  if (artistKey) return artistKey;
+
   const jobId = (post.job_id || '').toLowerCase();
   const recycleMatch = jobId.match(/^recycle-w\d+-(.+)$/i);
 

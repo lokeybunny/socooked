@@ -73,4 +73,18 @@ describe('anchorPostsToCampaignStart', () => {
     expect(anchored).toHaveLength(2);
     expect(anchored.map(post => post.job_id)).toEqual(['opaque-1', 'opaque-3']);
   });
+
+  it('normalizes Lamb and Oranj handle variants into one artist slot per day', () => {
+    const posts = [
+      buildPost({ id: '1', job_id: 'opaque-lamb-1', title: 'Kick off with @lamb.wavvv', scheduled_date: '2026-03-25T18:00:00.000Z', platforms: ['instagram'] }),
+      buildPost({ id: '2', job_id: 'opaque-lamb-2', title: 'Kick off with @lamb.wavv', scheduled_date: '2026-03-25T19:00:00.000Z', platforms: ['tiktok'] }),
+      buildPost({ id: '3', job_id: 'opaque-oranj-1', title: 'New drop from @oranjgoodman', scheduled_date: '2026-03-25T20:00:00.000Z', platforms: ['instagram'] }),
+      buildPost({ id: '4', job_id: 'opaque-oranj-2', title: 'New drop from Oranj Goodman', scheduled_date: '2026-03-25T21:00:00.000Z', platforms: ['tiktok'] }),
+    ];
+
+    const anchored = anchorPostsToCampaignStart(posts);
+
+    expect(anchored).toHaveLength(2);
+    expect(anchored.map(post => post.job_id)).toEqual(['opaque-lamb-1', 'opaque-oranj-1']);
+  });
 });
