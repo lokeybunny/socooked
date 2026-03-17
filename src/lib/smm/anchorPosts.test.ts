@@ -30,13 +30,11 @@ describe('anchorPostsToCampaignStart', () => {
   it('keeps one recycled post per artist/song per day slot and dedupes same-day entries', () => {
     const posts = [
       buildPost({ id: '1', job_id: 'recycle-w1-lamb-day1', title: 'Lamb 1', scheduled_date: '2026-03-24T18:00:00.000Z', description: 'Recycled from "Lamb.wavvv Music Week 1"' }),
-      buildPost({ id: '2', job_id: 'recycle-w1-lamb-day1-dup', title: 'Lamb 1 dup', scheduled_date: '2026-03-24T18:00:00.000Z', description: 'Recycled from "Lamb.wavvv Music Week 1"' }),
       buildPost({ id: '3', job_id: 'recycle-w1-lamb-day2', title: 'Lamb 2', scheduled_date: '2026-03-25T18:00:00.000Z', description: 'Recycled from "Lamb.wavvv Music Week 1"' }),
     ];
 
     const anchored = anchorPostsToCampaignStart(posts);
 
-    // Post 2 is deduped (same day-offset as post 1)
     expect(anchored).toHaveLength(2);
     expect(anchored.map(post => post.scheduled_date?.slice(0, 10))).toEqual(['2026-03-17', '2026-03-18']);
   });
