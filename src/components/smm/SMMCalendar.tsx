@@ -36,10 +36,10 @@ function calEventToPost(ev: any): ScheduledPost {
     scheduled_date: ev.start_time,
     created_at: ev.created_at,
     type: 'video' as const,
+    post_type: 'video',
     hashtags: [] as string[],
-    hashtags: [],
-    post_urls: [],
-  } as ScheduledPost;
+    post_urls: [] as string[],
+  } as unknown as ScheduledPost;
 }
 
 export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost[]; onRefresh: () => void }) {
