@@ -357,7 +357,7 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
           <p className="text-xs text-muted-foreground mb-3">
             Each campaign runs on a 14-day cycle. Expand to manage media — deleting a video removes its scheduled posts; adding new media replaces older slots.
           </p>
-          {loading ? (
+          {loading && campaigns.length === 0 ? (
             <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
           ) : activeCampaigns.length === 0 ? (
             <div className="text-center py-4 text-muted-foreground text-sm">No active campaigns</div>
