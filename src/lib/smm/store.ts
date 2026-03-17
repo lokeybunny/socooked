@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 const UPLOAD_ACTIONS = new Set(['upload-video', 'upload-photos', 'upload-document', 'upload-text']);
 const UPLOAD_MIN_INTERVAL_MS = 5500;
 let lastUploadRequestAt = 0;
+let uploadCooldownUntil = 0;
 let uploadQueue: Promise<void> = Promise.resolve();
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -24,8 +25,13 @@ async function withUploadThrottle<T>(action: string, run: () => Promise<T>): Pro
 
   const execute = async () => {
     const now = Date.now();
-    const waitMs = Math.max(0, UPLOAD_MIN_INTERVAL_MS - (now - lastUploadRequestAt));
-    if (waitMs > 0) await sleep(waitMs);
+    const cooldownWaitMs = Math.max(0, uploadCooldownUntil - now);
+    if (cooldownWaitMs > 0) await sleep(cooldownWaitMs);
+
+    const afterCooldown = Date.now();
+    const intervalWaitMs = Math.max(0, UPLOAD_MIN_INTERVAL_MS - (afterCooldown - lastUploadRequestAt));
+    if (intervalWaitMs > 0) await sleep(intervalWaitMs);
+
     lastUploadRequestAt = Date.now();
     return run();
   };
