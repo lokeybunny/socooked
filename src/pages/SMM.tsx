@@ -25,6 +25,7 @@ import {
 import { Button } from '@/components/ui/button';
 import ArtistCampaignModal from '@/components/smm/ArtistCampaignModal';
 import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
+import BoostConfigModal from '@/components/smm/BoostConfigModal';
 import type { Platform, ScheduledPost } from '@/lib/smm/types';
 
 const TABS = [
