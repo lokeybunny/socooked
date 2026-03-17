@@ -230,7 +230,7 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
   if (schedulable.length === 0) return posts;
 
   const recycledPosts = schedulable.filter(isRecycledCampaignPost);
-  if (recycledPosts.length === 0) return dedupeFinalCalendarPosts(posts);
+  if (recycledPosts.length === 0) return spacePostsOnSameDay(dedupeFinalCalendarPosts(posts));
 
   const passthroughScheduled = schedulable.filter(post => !isRecycledCampaignPost(post));
   const inactivePosts = posts.filter(post => !post.scheduled_date || TERMINAL_STATUSES.has(post.status));
