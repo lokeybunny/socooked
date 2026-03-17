@@ -177,7 +177,6 @@ function SMMInner() {
             <p className="text-muted-foreground mt-1">Schedule, publish, and analyze social content across all platforms.</p>
           </div>
           <PSTClock />
-          <DarksideBalance />
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBoostModalOpen(true)}>
               <Zap className="h-3.5 w-3.5" />
@@ -204,15 +203,18 @@ function SMMInner() {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <div className="overflow-x-auto -mx-1 px-1 mb-4">
-                <TabsList className="inline-flex w-auto">
-                  {TABS.map(t => (
-                    <TabsTrigger key={t.value} value={t.value} className="gap-1.5 text-xs sm:text-sm">
-                      <t.icon className="h-3.5 w-3.5" />
-                      <span className="hidden sm:inline">{t.label}</span>
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="overflow-x-auto -mx-1 px-1 flex-1">
+                  <TabsList className="inline-flex w-auto">
+                    {TABS.map(t => (
+                      <TabsTrigger key={t.value} value={t.value} className="gap-1.5 text-xs sm:text-sm">
+                        <t.icon className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">{t.label}</span>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
+                <DarksideBalance />
               </div>
 
               <TabsContent value="overview"><SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} onRefresh={refresh} onUpdatePostTime={(post, newDate) => {
