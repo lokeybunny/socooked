@@ -73,6 +73,7 @@ function filterPosts(posts: ScheduledPost[], profileId: string, platform: string
 function SMMInner() {
   const { profiles, posts, loading, refresh } = useSMMStore();
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
+  const [artistModalOpen, setArtistModalOpen] = useState(false);
 
   useEffect(() => { refresh(); }, [refresh]);
 
