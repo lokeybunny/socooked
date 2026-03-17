@@ -101,9 +101,16 @@ function DarksideBalance() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.functions.invoke('darkside-smm', { body: { action: 'balance' } })
-      .then(({ data }) => {
-        const bal = data?.balance ?? data?.data?.balance;
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/darkside-smm?action=balance`;
+    fetch(url, {
+      headers: {
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+    })
+      .then(r => r.json())
+      .then(json => {
+        const bal = json?.data?.balance;
         if (bal !== undefined) setBalance(String(bal));
         setLoading(false);
       })
