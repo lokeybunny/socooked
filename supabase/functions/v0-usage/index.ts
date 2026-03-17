@@ -34,14 +34,32 @@ Deno.serve(async (req) => {
     }
 
     const billing = await billingRes.json()
+    const billingData = billing?.data ?? {}
+
+    const remainingRaw =
+      billing?.remaining ??
+      billingData?.remaining ??
+      billingData?.credits?.remaining ??
+      billingData?.balance ??
+      billingData?.purchasedCredits ??
+      null
+
+    const limitRaw =
+      billing?.limit ??
+      billingData?.limit ??
+      billingData?.credits?.limit ??
+      null
+
+    const resetRaw = billing?.reset ?? billingData?.reset ?? null
+    const billingTypeRaw = billing?.billingType ?? billingData?.billingType ?? null
 
     return new Response(JSON.stringify({
       success: true,
       data: {
-        remaining_credits: Number(billing.remaining || 0),
-        credit_limit: Number(billing.limit || 0),
-        reset_at: billing.reset || null,
-        billing_type: billing.billingType || null,
+        remaining_credits: remainingRaw == null ? null : Number(remainingRaw),
+        credit_limit: limitRaw == null ? null : Number(limitRaw),
+        reset_at: resetRaw,
+        billing_type: billingTypeRaw,
       },
     }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
