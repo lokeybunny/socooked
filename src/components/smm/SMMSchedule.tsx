@@ -2253,24 +2253,8 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               try {
                 await smmApi.createPost(postPayload);
                 totalScheduled++;
-                // Rate-limit: wait 4s between uploads (API allows 20/min)
-                await new Promise(r => setTimeout(r, 4000));
               } catch (err: any) {
-                // If rate-limited, pause 65s and retry once
-                if (err?.message?.includes('429') || err?.message?.includes('rate_limit')) {
-                  console.warn(`[recycle] Rate limited at week ${week}, item ${item.id}. Pausing 65s…`);
-                  toast.info(`⏳ Rate limited — pausing 65s before continuing…`, { duration: 5000 });
-                  await new Promise(r => setTimeout(r, 65000));
-                  try {
-                    await smmApi.createPost(postPayload);
-                    totalScheduled++;
-                    await new Promise(r => setTimeout(r, 4000));
-                  } catch (retryErr) {
-                    console.warn(`[recycle] Retry also failed for week ${week}, item ${item.id}:`, retryErr);
-                  }
-                } else {
-                  console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
-                }
+                console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
               }
             }
 

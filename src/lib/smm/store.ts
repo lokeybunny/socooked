@@ -2,6 +2,38 @@ import { useState, useCallback } from 'react';
 import type { SMMProfile, ScheduledPost, QueueSettings, AnalyticsData, IGMedia, IGComment, IGConversation, IGMessage, WebhookEvent, PostStatus, Platform, PostType } from './types';
 import { supabase } from '@/integrations/supabase/client';
 
+const UPLOAD_ACTIONS = new Set(['upload-video', 'upload-photos', 'upload-document', 'upload-text']);
+const UPLOAD_MIN_INTERVAL_MS = 4000;
+let lastUploadRequestAt = 0;
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+function parseRetryAfterMs(error: unknown): number | null {
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  const match = raw.match(/\{[\s\S]*\}$/);
+  if (!match) return null;
+
+  try {
+    const parsed = JSON.parse(match[0]);
+    const seconds = Number(parsed?.retry_after_seconds);
+    return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+async function throttleUploadAction(action: string) {
+  if (!UPLOAD_ACTIONS.has(action)) return;
+
+  const now = Date.now();
+  const waitMs = Math.max(0, UPLOAD_MIN_INTERVAL_MS - (now - lastUploadRequestAt));
+  if (waitMs > 0) {
+    await sleep(waitMs);
+  }
+  lastUploadRequestAt = Date.now();
+}
+
+
 // Helper to build the edge function URL with query params
 function buildUrl(action: string, params?: Record<string, string>) {
   const searchParams = new URLSearchParams({ action });
@@ -10,34 +42,49 @@ function buildUrl(action: string, params?: Record<string, string>) {
 }
 
 async function invokeSMM(action: string, params?: Record<string, string>, body?: any) {
+  await throttleUploadAction(action);
+
   const queryString = buildUrl(action, params);
-  const { data, error } = await supabase.functions.invoke(`smm-api?${queryString}`, {
-    body: body || undefined,
-  });
-  if (error) {
-    // Try to extract a meaningful message from the response
-    const msg = (data as any)?.error || error.message || 'Unknown error';
-    throw new Error(msg);
-  }
-  // Also check for API-level errors in the response body
-  if (data && typeof data === 'object' && data.success === false && data.error) {
-    // Map known platform errors to user-friendly messages
-    const rawError: string = data.error;
-    const suggestion: string = data.suggestion || '';
-    let friendlyMsg = rawError;
+  const call = async () => {
+    const { data, error } = await supabase.functions.invoke(`smm-api?${queryString}`, {
+      body: body || undefined,
+    });
 
-    // Instagram 24-hour messaging window policy
-    if (data.error_subcode === 2534022 || /fen[eê]tre autoris[eé]e|outside.*allowed.*window|messaging.*not.*available/i.test(rawError + suggestion)) {
-      friendlyMsg = 'Can\'t message this user — Instagram requires them to message you first (24-hour window policy).';
-    }
-    // DM daily limit
-    else if (data.error_code === 429 || /daily.*limit|rate.*limit|quota/i.test(rawError)) {
-      friendlyMsg = 'Daily DM limit reached. Try again tomorrow.';
+    if (error) {
+      const msg = (data as any)?.error || error.message || 'Unknown error';
+      throw new Error(msg);
     }
 
-    throw new Error(friendlyMsg);
+    if (data && typeof data === 'object' && data.success === false) {
+      const rawError = String((data as any).error || (data as any).message || 'Unknown error');
+      const suggestion: string = (data as any).suggestion || '';
+      let friendlyMsg = rawError;
+
+      if ((data as any).error_subcode === 2534022 || /fen[eê]tre autoris[eé]e|outside.*allowed.*window|messaging.*not.*available/i.test(rawError + suggestion)) {
+        friendlyMsg = 'Can\'t message this user — Instagram requires them to message you first (24-hour window policy).';
+      } else if ((data as any).error_code === 429 || /daily.*limit|rate.*limit|quota/i.test(rawError)) {
+        friendlyMsg = 'Daily DM limit reached. Try again tomorrow.';
+      }
+
+      const enrichedError = new Error(`${friendlyMsg}${UPLOAD_ACTIONS.has(action) ? `, ${JSON.stringify(data)}` : ''}`);
+      throw enrichedError;
+    }
+
+    return data;
+  };
+
+  try {
+    return await call();
+  } catch (error) {
+    if (!UPLOAD_ACTIONS.has(action)) throw error;
+
+    const retryAfterMs = parseRetryAfterMs(error);
+    if (!retryAfterMs) throw error;
+
+    await sleep(retryAfterMs + 1000);
+    lastUploadRequestAt = Date.now();
+    return await call();
   }
-  return data;
 }
 
 // ─── API Service (Real Upload-Post API via Edge Function) ───
