@@ -16,7 +16,7 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-zinc-600 text-white',
 };
 
-const DRAKE_TARGET_START_DAY = '2026-03-17';
+const CAMPAIGN_START_DAY = '2026-03-17';
 
 const shiftIsoDateStringByDays = (value: string, days: number) => {
   const [datePart, timePart = '12:00:00'] = value.split('T');
@@ -30,8 +30,6 @@ const shiftIsoDateStringByDays = (value: string, days: number) => {
 };
 
 const getDayKey = (scheduledDate: string) => scheduledDate.slice(0, 10);
-
-const isDrakePost = (post: ScheduledPost) => /\bdrake\b/i.test(`${post.title} ${post.description || ''}`);
 
 export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost[]; onRefresh: () => void }) {
   const { platform } = useSMMContext();
@@ -65,48 +63,44 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
     const basePosts = posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status));
     if (basePosts.length === 0) return [] as ScheduledPost[];
 
-    const drakePosts = basePosts.filter(post => post.scheduled_date && isDrakePost(post));
-    let shiftedPosts = basePosts;
-
-    if (drakePosts.length > 0) {
-      const earliestDrakeDay = drakePosts
-        .map(post => getDayKey(post.scheduled_date!))
-        .sort()[0];
-
-      if (earliestDrakeDay && earliestDrakeDay !== DRAKE_TARGET_START_DAY) {
-        const targetDate = new Date(`${DRAKE_TARGET_START_DAY}T00:00:00Z`);
-        const currentDate = new Date(`${earliestDrakeDay}T00:00:00Z`);
-        const dayDelta = Math.round((targetDate.getTime() - currentDate.getTime()) / 86400000);
-
-        shiftedPosts = basePosts.map(post => {
-          if (!post.scheduled_date || !isDrakePost(post)) return post;
-          return {
-            ...post,
-            scheduled_date: shiftIsoDateStringByDays(post.scheduled_date, dayDelta),
-          };
-        });
-      }
+    // Deduplicate by job_id first (remove exact API duplicates)
+    const byJobId = new Map<string, ScheduledPost>();
+    for (const post of basePosts) {
+      const key = post.job_id || post.id;
+      if (!byJobId.has(key)) byJobId.set(key, post);
     }
+    const uniquePosts = Array.from(byJobId.values());
 
-    const seenDays = new Set<string>();
-    const dedupedPosts: ScheduledPost[] = [];
-
-    const sortedPosts = [...shiftedPosts].sort((a, b) => {
-      const aDate = a.scheduled_date || '';
-      const bDate = b.scheduled_date || '';
-      if (aDate !== bDate) return aDate.localeCompare(bDate);
-      return a.created_at.localeCompare(b.created_at);
-    });
-
-    for (const post of sortedPosts) {
+    // Further deduplicate: keep only one post per (day, title_prefix) combo
+    const seenDayTitle = new Set<string>();
+    const dedupedByContent: ScheduledPost[] = [];
+    const sortedUnique = [...uniquePosts].sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || a.created_at.localeCompare(b.created_at));
+    for (const post of sortedUnique) {
       if (!post.scheduled_date) continue;
       const dayKey = getDayKey(post.scheduled_date);
-      if (seenDays.has(dayKey)) continue;
-      seenDays.add(dayKey);
-      dedupedPosts.push(post);
+      const titleKey = post.title.slice(0, 40).toLowerCase();
+      const comboKey = `${dayKey}|${titleKey}`;
+      if (seenDayTitle.has(comboKey)) continue;
+      seenDayTitle.add(comboKey);
+      dedupedByContent.push(post);
     }
 
-    return dedupedPosts;
+    // Now shift ALL posts so the earliest one starts on CAMPAIGN_START_DAY
+    const allDates = dedupedByContent.map(p => getDayKey(p.scheduled_date!)).sort();
+    const earliestDay = allDates[0];
+
+    if (earliestDay && earliestDay !== CAMPAIGN_START_DAY) {
+      const targetDate = new Date(`${CAMPAIGN_START_DAY}T00:00:00Z`);
+      const currentDate = new Date(`${earliestDay}T00:00:00Z`);
+      const dayDelta = Math.round((targetDate.getTime() - currentDate.getTime()) / 86400000);
+
+      return dedupedByContent.map(post => ({
+        ...post,
+        scheduled_date: shiftIsoDateStringByDays(post.scheduled_date!, dayDelta),
+      }));
+    }
+
+    return dedupedByContent;
   }, [posts]);
 
   const getPostsForDay = (day: Date) => scheduledPosts.filter(p => p.scheduled_date && isSameDay(new Date(p.scheduled_date), day));
