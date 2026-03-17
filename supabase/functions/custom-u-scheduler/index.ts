@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const { data: customers } = await supabase
       .from('customers')
       .select('id, full_name, email, company, category, upload_token, status')
-      .eq('status', 'prospect')
+      .in('status', ['prospect', 'prospect_emailed'])
       .order('full_name')
       .limit(100)
 
