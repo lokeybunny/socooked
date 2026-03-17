@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { SMMProfile, QueueSettings, QueueSlot, ScheduledPost } from '@/lib/smm/types';
 import { smmApi } from '@/lib/smm/store';
 import { Button } from '@/components/ui/button';
