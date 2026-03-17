@@ -20,9 +20,10 @@ import SMMTerminal from '@/components/smm/SMMTerminal';
 import SMMSchedule from '@/components/smm/SMMSchedule';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
-  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music, Clock, Zap,
+  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music, Clock, Zap, Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import ArtistCampaignModal from '@/components/smm/ArtistCampaignModal';
 import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
 import BoostConfigModal from '@/components/smm/BoostConfigModal';
@@ -95,6 +96,31 @@ function PSTClock() {
   );
 }
 
+function DarksideBalance() {
+  const [balance, setBalance] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.functions.invoke('darkside-smm', { body: { action: 'balance' } })
+      .then(({ data }) => {
+        const bal = data?.balance ?? data?.data?.balance;
+        if (bal !== undefined) setBalance(String(bal));
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Skeleton className="h-7 w-20" />;
+  if (balance === null) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground bg-muted/50 border border-border rounded-md px-3 py-1.5">
+      <Wallet className="h-3 w-3 text-primary" />
+      <span>${balance}</span>
+    </div>
+  );
+}
+
 function SMMInner() {
   const { profiles, posts, loading, refresh, setPosts } = useSMMStore();
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
@@ -151,6 +177,7 @@ function SMMInner() {
             <p className="text-muted-foreground mt-1">Schedule, publish, and analyze social content across all platforms.</p>
           </div>
           <PSTClock />
+          <DarksideBalance />
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBoostModalOpen(true)}>
               <Zap className="h-3.5 w-3.5" />
