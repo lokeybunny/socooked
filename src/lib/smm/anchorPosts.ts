@@ -3,30 +3,51 @@ import type { ScheduledPost } from './types';
 const CAMPAIGN_START_DAY = '2026-03-17';
 
 /**
+ * Extract a campaign/song identifier from a recycled post's job_id.
+ * e.g. "recycle-w11-lamb-day3" → "lamb"
+ *      "recycle-w2-drake-day1" → "drake"
+ * Falls back to '_default' for non-recycled posts.
+ */
+function extractCampaignKey(post: ScheduledPost): string {
+  const jobId = post.job_id || '';
+  // Match recycle-w{N}-{campaign}-day{N} or recycle-w{N}-{campaign}
+  const match = jobId.match(/^recycle-w\d+-(.+?)(?:-day\d+)?$/);
+  if (match) return match[1];
+
+  // Also try to extract plan name from description: 'Recycled from "Plan Name"'
+  const descMatch = (post.description || '').match(/Recycled from "([^"]+)"/);
+  if (descMatch) return descMatch[1].toLowerCase().replace(/\s+/g, '-');
+
+  return '_default';
+}
+
+/**
  * Deduplicates and redistributes scheduled posts to consecutive days
  * starting from CAMPAIGN_START_DAY (Mar 17, 2026).
- * 
- * Works PER-PLATFORM so each platform gets its own 1-per-day timeline.
- * Multiple platforms can share the same calendar day without conflict.
+ *
+ * Groups by profile + platform + CAMPAIGN so multiple songs/campaigns
+ * each get their own 7-day cycle and naturally STACK on the same days.
  */
 export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPost[] {
   const schedulable = posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status));
   if (schedulable.length === 0) return posts;
 
-  // Group by profile + platform so each profile gets its own independent daily timeline
-  const byProfilePlatform = new Map<string, ScheduledPost[]>();
+  // Group by profile + platform + campaign so each song gets independent daily slots
+  const byCampaign = new Map<string, ScheduledPost[]>();
   for (const post of schedulable) {
     const platform = post.platforms[0] || 'unknown';
     const profile = post.profile_username || post.profile_id || 'unknown';
-    const bucketKey = `${profile}::${platform}`;
-    if (!byProfilePlatform.has(bucketKey)) byProfilePlatform.set(bucketKey, []);
-    byProfilePlatform.get(bucketKey)!.push(post);
+    const campaign = extractCampaignKey(post);
+    const bucketKey = `${profile}::${platform}::${campaign}`;
+    if (!byCampaign.has(bucketKey)) byCampaign.set(bucketKey, []);
+    byCampaign.get(bucketKey)!.push(post);
   }
 
   const allAnchored: ScheduledPost[] = [];
   const anchoredIds = new Set<string>();
 
-  for (const [, scopedPosts] of byProfilePlatform) {
+  for (const [, scopedPosts] of byCampaign) {
+    // Dedupe by job_id within this campaign
     const byJobId = new Map<string, ScheduledPost>();
     for (const post of scopedPosts) {
       const key = post.job_id || post.id;
@@ -37,6 +58,7 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
       (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || a.created_at.localeCompare(b.created_at)
     );
 
+    // Dedupe within campaign: same day + same title prefix = duplicate
     const seenKey = new Set<string>();
     const deduped: ScheduledPost[] = [];
     for (const post of sorted) {
@@ -49,6 +71,7 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
       deduped.push(post);
     }
 
+    // Assign each post in this campaign to sequential days from campaign start
     for (let i = 0; i < deduped.length; i++) {
       const post = deduped[i];
       const targetDate = new Date(`${CAMPAIGN_START_DAY}T12:00:00`);
