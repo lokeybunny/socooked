@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { SMMProfile, QueueSettings, QueueSlot } from '@/lib/smm/types';
 import { smmApi } from '@/lib/smm/store';
 import { Button } from '@/components/ui/button';
@@ -10,13 +10,13 @@ import { toast } from 'sonner';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'UTC', 'Europe/London', 'Asia/Tokyo'];
+const QUEUE_ANCHOR = new Date('2026-03-17T00:00:00');
 
 export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
   const [profileUsername, setProfileUsername] = useState(profiles[0]?.username || '');
   const [settings, setSettings] = useState<QueueSettings | null>(null);
   const [loading, setLoading] = useState(false);
   const [nextSlot, setNextSlot] = useState<any>(null);
-  const [apiPreview, setApiPreview] = useState<any[]>([]);
 
   useEffect(() => {
     if (!profileUsername) return;
@@ -24,11 +24,9 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
     Promise.all([
       smmApi.getQueueSettings(profileUsername),
       smmApi.getNextQueueSlot(profileUsername),
-      smmApi.getQueuePreview(profileUsername),
-    ]).then(([s, ns, preview]) => {
+    ]).then(([s, ns]) => {
       setSettings(s || { profile_id: profileUsername, timezone: 'America/New_York', slots: [] });
       setNextSlot(ns);
-      setApiPreview(preview || []);
       setLoading(false);
     });
   }, [profileUsername]);
@@ -56,26 +54,36 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
     toast.success('Queue settings saved');
   };
 
-  // Build next 10 queue preview slots anchored to the calendar start (Mar 17, 2026)
-  const QUEUE_ANCHOR = new Date('2026-03-17T00:00:00');
-  const previewSlots = settings ? (() => {
-    // Use the later of "now" or the anchor date so preview always starts from the 17th
+  const previewSlots = useMemo(() => {
+    if (!settings) return [] as { datetime: Date; slot: QueueSlot }[];
+
     const anchor = QUEUE_ANCHOR.getTime() > Date.now() ? QUEUE_ANCHOR : new Date();
     const slots: { datetime: Date; slot: QueueSlot }[] = [];
-    for (let d = 0; d < 14 && slots.length < 10; d++) {
+
+    for (let d = 0; d < 21 && slots.length < 10; d++) {
       const date = new Date(anchor.getTime() + d * 86400000);
       const dow = date.getDay();
-      const daySlots = settings.slots.filter(s => s.day === dow).sort((a, b) => a.time.localeCompare(b.time));
-      for (const s of daySlots) {
-        const [h, m] = s.time.split(':').map(Number);
+      const daySlots = settings.slots
+        .filter((slot) => slot.day === dow)
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+      for (const slot of daySlots) {
+        const [hours, minutes] = slot.time.split(':').map(Number);
         const dt = new Date(date);
-        dt.setHours(h, m, 0, 0);
-        if (dt >= anchor) slots.push({ datetime: dt, slot: s });
+        dt.setHours(hours, minutes, 0, 0);
+
+        if (dt >= anchor) slots.push({ datetime: dt, slot });
         if (slots.length >= 10) break;
       }
     }
+
     return slots;
-  })() : [];
+  }, [settings]);
+
+  const displayedNextSlot = previewSlots[0] ?? null;
+  const fallbackNextSlotLabel = typeof nextSlot?.next_slot === 'object' && nextSlot?.next_slot
+    ? (nextSlot.next_slot.datetime_local || nextSlot.next_slot.datetime_utc || 'No upcoming slot')
+    : (nextSlot?.next_slot || nextSlot?.slot_time || 'No upcoming slot');
 
   return (
     <div className="grid lg:grid-cols-2 gap-6">
@@ -124,13 +132,16 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
       </div>
 
       <div className="space-y-4">
-        {/* Next Slot from API */}
-        {nextSlot && (
+        {(displayedNextSlot || nextSlot) && (
           <div className="glass-card p-4 flex items-center gap-3 border-primary/20 border">
             <Clock className="h-5 w-5 text-primary shrink-0" />
             <div>
               <p className="text-sm font-semibold text-foreground">Next Queue Slot</p>
-              <p className="text-xs text-muted-foreground">{typeof nextSlot.next_slot === 'object' && nextSlot.next_slot ? (nextSlot.next_slot.datetime_local || nextSlot.next_slot.datetime_utc || 'No upcoming slot') : (nextSlot.next_slot || nextSlot.slot_time || 'No upcoming slot')}</p>
+              <p className="text-xs text-muted-foreground">
+                {displayedNextSlot
+                  ? `${displayedNextSlot.datetime.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${displayedNextSlot.slot.time}`
+                  : fallbackNextSlotLabel}
+              </p>
             </div>
           </div>
         )}
@@ -138,7 +149,7 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
         <div className="glass-card p-5 space-y-4">
           <h3 className="text-sm font-semibold text-foreground">Queue Preview</h3>
           {previewSlots.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-4">No upcoming queue slots. Add slots above.</p>
+            <p className="text-xs text-muted-foreground text-center py-4">{loading ? 'Loading queue slots...' : 'No upcoming queue slots. Add slots above.'}</p>
           ) : (
             <div className="space-y-2">
               {previewSlots.map((s, i) => (
