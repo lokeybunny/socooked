@@ -409,7 +409,8 @@ export default function Previews() {
               All API-generated websites — organized by client
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <V0CreditsBadge />
             <Button onClick={() => setShowGenerate(true)} className="gap-1.5">
               <Plus className="h-4 w-4" /> Generate Website
             </Button>
