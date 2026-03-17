@@ -172,6 +172,59 @@ function dedupeFinalCalendarPosts(posts: ScheduledPost[]): ScheduledPost[] {
   return posts.filter(post => keptIds.has(post.id));
 }
 
+const MIN_GAP_HOURS = 3;
+const DAY_START_HOUR = 9;  // earliest post at 9 AM
+const DAY_END_HOUR = 23;   // latest post at 11 PM
+
+/**
+ * Ensures all posts on the same calendar day (per profile) are spaced
+ * at least MIN_GAP_HOURS apart. Posts start at DAY_START_HOUR and are
+ * staggered in 3-hour increments.
+ */
+function spacePostsOnSameDay(posts: ScheduledPost[]): ScheduledPost[] {
+  // Group scheduled, active posts by profile + day
+  const byProfileDay = new Map<string, ScheduledPost[]>();
+  const passthrough: ScheduledPost[] = [];
+
+  for (const post of posts) {
+    if (!post.scheduled_date || TERMINAL_STATUSES.has(post.status)) {
+      passthrough.push(post);
+      continue;
+    }
+    const profile = post.profile_username || post.profile_id || 'unknown';
+    const day = post.scheduled_date.slice(0, 10);
+    const key = `${profile}::${day}`;
+    if (!byProfileDay.has(key)) byProfileDay.set(key, []);
+    byProfileDay.get(key)!.push(post);
+  }
+
+  const spaced: ScheduledPost[] = [];
+
+  for (const [, dayPosts] of byProfileDay) {
+    if (dayPosts.length <= 1) {
+      spaced.push(...dayPosts);
+      continue;
+    }
+
+    // Sort by existing time to preserve relative order
+    dayPosts.sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+
+    let nextHour = DAY_START_HOUR;
+    for (const post of dayPosts) {
+      const datePart = post.scheduled_date!.slice(0, 10);
+      const hh = String(Math.min(nextHour, DAY_END_HOUR)).padStart(2, '0');
+      const mm = '00';
+      spaced.push({
+        ...post,
+        scheduled_date: `${datePart}T${hh}:${mm}:00`,
+      });
+      nextHour += MIN_GAP_HOURS;
+    }
+  }
+
+  return [...spaced, ...passthrough];
+}
+
 export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPost[] {
   const schedulable = posts.filter(post => post.scheduled_date && !TERMINAL_STATUSES.has(post.status));
   if (schedulable.length === 0) return posts;
