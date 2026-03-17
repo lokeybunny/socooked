@@ -145,7 +145,8 @@ serve(async (req) => {
 
             const calendarEvents: any[] = [];
 
-            for (const item of items) {
+            for (let itemIdx = 0; itemIdx < items.length; itemIdx++) {
+              const item = items[itemIdx];
               const targetDate = new Date(`${CAMPAIGN_START}T12:00:00`);
               targetDate.setDate(targetDate.getDate() + dayOffset);
               const yyyy = targetDate.getFullYear();
