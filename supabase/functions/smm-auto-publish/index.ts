@@ -111,11 +111,11 @@ Deno.serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            profile_username: profileUsername,
+            user: profileUsername,
             "platform[]": platforms,
             title: caption,
-            media_url: mediaUrl,
-            ...(isVideo ? { ig_post_type: "reels", share_to_feed: "true" } : {}),
+            ...(isVideo ? { video: mediaUrl, ig_post_type: "reels", share_to_feed: "true" } : { "photos[]": [mediaUrl] }),
+            async_upload: true,
           }),
         });
 
