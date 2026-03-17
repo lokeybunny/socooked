@@ -2274,9 +2274,12 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               }
             }
 
+            // Sanitize strings to remove unpaired Unicode surrogates that break Postgres JSON
+            const sanitize = (s: string) => s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+
             calendarEvents.push({
-              title: `♻️ [${currentPlan.platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`,
-              description: `Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\n\n${caption || ''}`,
+              title: sanitize(`♻️ [${currentPlan.platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`),
+              description: sanitize(`Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\n\n${caption || ''}`),
               start_time: scheduledDate,
               end_time: (() => { const e = new Date(new Date(scheduledDate).getTime() + 30 * 60000); return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}T${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}:00`; })(),
               source: 'smm',
