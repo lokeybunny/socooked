@@ -57,7 +57,7 @@ const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string }
 
 // ─── V0 Credits Badge ───
 function V0CreditsBadge() {
-  const [usage, setUsage] = useState<{ total_spent: number; message_count: number; image_count: number } | null>(null);
+  const [usage, setUsage] = useState<{ remaining_credits: number; credit_limit: number; reset_at: number | null } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -73,9 +73,8 @@ function V0CreditsBadge() {
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/50 text-xs">
       <Coins className="h-3.5 w-3.5 text-primary" />
-      <span className="text-muted-foreground">v0 this month:</span>
-      <span className="font-semibold text-foreground">${usage.total_spent.toFixed(2)}</span>
-      <span className="text-muted-foreground">· {usage.message_count} msgs</span>
+      <span className="text-muted-foreground">v0 credits left:</span>
+      <span className="font-semibold text-foreground">${usage.remaining_credits.toFixed(2)}</span>
     </div>
   );
 }
