@@ -53,8 +53,9 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
     const updateAndRefresh = async (eventId: string) => {
       const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', eventId);
       if (error) { toast.error('Failed to update time'); return; }
+      // Optimistically update local state so the time changes on screen immediately
+      onUpdatePostTime?.(post.id, newStartTime);
       toast.success(`Rescheduled to ${newTime}`);
-      onRefresh?.();
     };
 
     // Try direct ID match first
