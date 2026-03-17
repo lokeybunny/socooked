@@ -44,19 +44,32 @@ export default function VideoThumbnail({
 }: VideoThumbnailProps) {
   const [thumb, setThumb] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [failed, setFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setThumb(null);
     setPlaying(false);
+    setPaused(false);
     setFailed(false);
     extractFirstFrame(src)
       .then(setThumb)
       .catch(() => setFailed(true));
   }, [src]);
 
-  // Not playing: show thumbnail or poster with play overlay
+  const togglePlayback = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play();
+      setPaused(false);
+    } else {
+      v.pause();
+      setPaused(true);
+    }
+  }, []);
+
   if (!playing) {
     return (
       <div className={`relative cursor-pointer ${className}`} onClick={() => setPlaying(true)}>
@@ -79,20 +92,6 @@ export default function VideoThumbnail({
       </div>
     );
   }
-
-  const [paused, setPaused] = useState(false);
-
-  const togglePlayback = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (v.paused) {
-      v.play();
-      setPaused(false);
-    } else {
-      v.pause();
-      setPaused(true);
-    }
-  }, []);
 
   return (
     <div className={`relative cursor-pointer ${className}`} onClick={togglePlayback}>
