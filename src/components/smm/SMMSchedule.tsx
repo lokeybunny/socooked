@@ -973,15 +973,15 @@ function InstagramFeedPreview({ items, onItemClick, onToggleFavorite, profileUse
   );
 }
 
-function FacebookFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
+function FacebookFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
         <div key={item.id} className="rounded-lg border border-border/50 bg-card overflow-hidden cursor-pointer hover:border-primary/30 transition-colors" onClick={() => onItemClick?.(item)}>
           <div className="flex items-center gap-2 p-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">S</div>
+            <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold">{profileUsername.charAt(0).toUpperCase()}</div>
             <div>
-              <p className="text-xs font-semibold">STU25</p>
+              <p className="text-xs font-semibold">{profileUsername}</p>
               <p className="text-[10px] text-muted-foreground">{format(parseISO(item.date), 'MMM d')} · 🌐</p>
             </div>
             <MoreHorizontal className="h-4 w-4 text-muted-foreground ml-auto" />
