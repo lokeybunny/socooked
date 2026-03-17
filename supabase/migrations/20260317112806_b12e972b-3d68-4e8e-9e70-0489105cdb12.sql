@@ -1,0 +1,2 @@
+UPDATE meetings SET scheduled_at = '2026-03-17T21:30:00+00' WHERE id = 'a985a541-985d-40e4-8df9-943016bc0607';
+UPDATE meetings SET scheduled_at = '2026-03-17T21:00:00+00' WHERE id = '85eb4ace-090c-4204-8d58-cb8dfc64eec4';
