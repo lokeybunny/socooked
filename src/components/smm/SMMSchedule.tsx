@@ -1011,6 +1011,7 @@ function TikTokVideoCard({ item, onItemClick, onToggleFavorite, profileUsername 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [userClicked, setUserClicked] = useState(false);
 
   const isVideo = item.type === 'video' && item.media_url && /\.(mp4|mov|webm|m3u8)/i.test(item.media_url);
 
@@ -1023,8 +1024,10 @@ function TikTokVideoCard({ item, onItemClick, onToggleFavorite, profileUsername 
   const handleMouseLeave = () => {
     if (isVideo && videoRef.current) {
       videoRef.current.pause();
+      videoRef.current.muted = true;
       setPlaying(false);
       setPaused(false);
+      setUserClicked(false);
     }
   };
 
@@ -1032,6 +1035,8 @@ function TikTokVideoCard({ item, onItemClick, onToggleFavorite, profileUsername 
     e.stopPropagation();
     if (!isVideo || !videoRef.current) return;
     if (videoRef.current.paused) {
+      videoRef.current.muted = false;
+      setUserClicked(true);
       videoRef.current.play().then(() => { setPlaying(true); setPaused(false); }).catch(() => {});
     } else {
       videoRef.current.pause();
@@ -1058,13 +1063,7 @@ function TikTokVideoCard({ item, onItemClick, onToggleFavorite, profileUsername 
               preload="metadata"
               className="w-full h-full object-cover"
             />
-            {/* Play/Pause overlay */}
-            {!playing && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                <Play className="h-10 w-10 text-white/80 drop-shadow-lg" fill="white" />
-              </div>
-            )}
-            {paused && (
+            {(!playing || paused) && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                 <Play className="h-10 w-10 text-white/80 drop-shadow-lg" fill="white" />
               </div>
