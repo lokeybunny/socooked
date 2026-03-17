@@ -45,19 +45,51 @@ export default function SMMOverview({ posts, allPosts, profiles }: Props) {
   const recent = [...posts].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 4);
 
   const handleTimeEdit = async (post: ScheduledPost, newTime: string) => {
-    // newTime is "HH:mm", combine with today's date
     const dateStr = post.scheduled_date?.slice(0, 10) || today;
     const newStartTime = `${dateStr}T${newTime}:00`;
-    // Find matching calendar_event by title substring and date
+
+    // Try direct ID match first (calendar event posts use the event id as post id)
+    const { data: direct } = await supabase
+      .from('calendar_events')
+      .select('id')
+      .eq('id', post.id)
+      .maybeSingle();
+
+    if (direct) {
+      const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', direct.id);
+      if (error) { toast.error('Failed to update time'); return; }
+      toast.success(`Rescheduled to ${newTime}`);
+      return;
+    }
+
+    // Fallback: match by source_id = job_id
+    if (post.job_id) {
+      const { data: byJob } = await supabase
+        .from('calendar_events')
+        .select('id')
+        .eq('source', 'smm')
+        .eq('source_id', post.job_id)
+        .maybeSingle();
+      if (byJob) {
+        const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', byJob.id);
+        if (error) { toast.error('Failed to update time'); return; }
+        toast.success(`Rescheduled to ${newTime}`);
+        return;
+      }
+    }
+
+    // Last fallback: fuzzy title match on that day
     const { data: events } = await supabase
       .from('calendar_events')
-      .select('id, title, start_time')
+      .select('id, title')
       .eq('source', 'smm')
       .gte('start_time', `${dateStr}T00:00:00`)
       .lte('start_time', `${dateStr}T23:59:59`);
-    
-    // Match by closest title
-    const match = events?.find(e => post.title.includes(e.title.slice(0, 30)) || e.title.includes(post.title.slice(0, 30)));
+    const match = events?.find(e => {
+      const eClean = e.title.replace(/[^\w]/g, '').toLowerCase();
+      const pClean = post.title.replace(/[^\w]/g, '').toLowerCase();
+      return eClean.includes(pClean.slice(0, 40)) || pClean.includes(eClean.slice(0, 40));
+    });
     if (match) {
       const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', match.id);
       if (error) { toast.error('Failed to update time'); return; }
