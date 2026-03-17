@@ -1007,7 +1007,7 @@ function FacebookFeedPreview({ items, onItemClick, onToggleFavorite, profileUser
   );
 }
 
-function TikTokFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
+function TikTokFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
@@ -1019,7 +1019,7 @@ function TikTokFeedPreview({ items, onItemClick, onToggleFavorite }: { items: Sc
           )}
           {item.media_url && <FavoriteCheckmark itemId={item.id} favorited={!!item.favorited} onToggle={onToggleFavorite} />}
           <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-            <p className="text-white text-xs font-semibold mb-1">@STU25</p>
+            <p className="text-white text-xs font-semibold mb-1">@{profileUsername}</p>
             <p className="text-white/90 text-[11px] line-clamp-2">{item.caption}</p>
             {item.hashtags?.length > 0 && (
               <p className="text-white/70 text-[10px] mt-1">{item.hashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}</p>
