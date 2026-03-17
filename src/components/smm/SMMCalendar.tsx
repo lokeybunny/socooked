@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import type { ScheduledPost, Platform } from '@/lib/smm/types';
 import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/context';
 import { smmApi } from '@/lib/smm/store';
+import { serverWallClockToIso } from '@/lib/smm/timezone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -62,7 +63,10 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
 
   const handleSave = async () => {
     if (!selectedPost) return;
-    await smmApi.editPost(selectedPost.job_id, { title: editTitle, scheduled_date: new Date(`${editDate}T${editTime}`).toISOString() });
+    await smmApi.editPost(selectedPost.job_id, {
+      title: editTitle,
+      scheduled_date: serverWallClockToIso(editDate, editTime),
+    });
     toast.success('Post updated');
     setSelectedPost(null);
     onRefresh();
@@ -81,9 +85,9 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
     const post = scheduledPosts.find(p => p.id === dragId);
     if (!post?.scheduled_date || !post.job_id) return;
     const oldDate = new Date(post.scheduled_date);
-    const newDate = new Date(day);
-    newDate.setHours(oldDate.getHours(), oldDate.getMinutes());
-    await smmApi.editPost(post.job_id, { scheduled_date: newDate.toISOString() });
+    const nextDate = format(day, 'yyyy-MM-dd');
+    const nextTime = format(oldDate, 'HH:mm');
+    await smmApi.editPost(post.job_id, { scheduled_date: serverWallClockToIso(nextDate, nextTime) });
     setDragId(null);
     toast.success('Post rescheduled');
     onRefresh();

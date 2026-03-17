@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { smmApi } from '@/lib/smm/store';
 import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/context';
 import type { ScheduledPost, SMMProfile, WebhookEvent, Platform } from '@/lib/smm/types';
+import { serverWallClockToIso } from '@/lib/smm/timezone';
 import PostCard from './PostCard';
 import { CalendarDays, Clock, AlertTriangle, CheckCircle, Bell, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,7 +49,7 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
 
   const handleTimeEdit = async (post: ScheduledPost, newTime: string) => {
     const dateStr = post.scheduled_date?.slice(0, 10) || today;
-    const newStartTime = `${dateStr}T${newTime}:00`;
+    const newStartTime = serverWallClockToIso(dateStr, newTime);
 
     const updateAndRefresh = async (eventId: string) => {
       const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', eventId);
