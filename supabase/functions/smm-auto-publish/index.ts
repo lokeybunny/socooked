@@ -99,8 +99,11 @@ Deno.serve(async (req) => {
 
         console.log(`[smm-auto-publish] Publishing: "${event.title}" via ${uploadAction} to ${platforms.join(", ")}`);
 
+        // smm-api reads action from query params
+        const smmUrl = `${SUPABASE_URL}/functions/v1/smm-api?action=${uploadAction}`;
+
         // Call smm-api to upload
-        const uploadRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api`, {
+        const uploadRes = await fetch(smmUrl, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${ANON_KEY}`,
@@ -108,7 +111,6 @@ Deno.serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            action: uploadAction,
             profile_username: profileUsername,
             "platform[]": platforms,
             title: caption,
