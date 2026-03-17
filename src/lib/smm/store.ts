@@ -230,30 +230,63 @@ export const smmApi = {
   // ─── Posts / Uploads ───
   async getPosts(): Promise<ScheduledPost[]> {
     try {
-      // Get both scheduled and history
-      const [scheduled, history] = await Promise.all([
+      const [scheduled, history, calendarResult, plansResult] = await Promise.all([
         invokeSMM('list-scheduled', { limit: '100' }).catch(() => ({ scheduled_posts: [] })),
         invokeSMM('upload-history', { limit: '100' }).catch(() => ({ history: [] })),
+        supabase
+          .from('calendar_events')
+          .select('id, title, description, start_time, source_id, created_at')
+          .eq('source', 'smm')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('smm_content_plans')
+          .select('profile_username, platform, schedule_items')
+          .order('created_at', { ascending: false }),
       ]);
 
       const posts: ScheduledPost[] = [];
+      const planIndex = new Map<string, { profile_username: string; platform: string }>();
 
-      // Map scheduled posts
+      for (const plan of plansResult.data || []) {
+        const items = Array.isArray(plan.schedule_items) ? plan.schedule_items : [];
+        for (const item of items) {
+          const itemId = typeof item?.id === 'string' ? item.id : '';
+          if (!itemId || planIndex.has(itemId)) continue;
+          planIndex.set(itemId, {
+            profile_username: plan.profile_username,
+            platform: plan.platform,
+          });
+        }
+      }
+
       if (scheduled?.scheduled_posts) {
         scheduled.scheduled_posts.forEach((p: any) => {
           posts.push(mapApiPostToScheduledPost(p, 'scheduled'));
         });
       }
 
-      // Map history
       const historyItems = history?.history || history?.uploads || [];
       if (Array.isArray(historyItems)) {
         historyItems.forEach((p: any) => {
-          // Don't duplicate if already in scheduled
           if (!posts.find(ep => ep.job_id === p.job_id)) {
             posts.push(mapApiPostToScheduledPost(p, p.status || 'completed'));
           }
         });
+      }
+
+      const existingKeys = new Set(
+        posts.map(post => `${post.job_id || post.id}||${post.scheduled_date || ''}||${post.platforms.join(',')}||${post.title}`)
+      );
+
+      for (const event of calendarResult.data || []) {
+        const calendarPost = mapCalendarEventToScheduledPost(event, planIndex);
+        if (!calendarPost) continue;
+
+        const key = `${calendarPost.job_id || calendarPost.id}||${calendarPost.scheduled_date || ''}||${calendarPost.platforms.join(',')}||${calendarPost.title}`;
+        if (existingKeys.has(key)) continue;
+
+        existingKeys.add(key);
+        posts.push(calendarPost);
       }
 
       return posts.sort((a, b) => b.created_at.localeCompare(a.created_at));
