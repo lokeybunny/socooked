@@ -297,6 +297,22 @@ export const smmApi = {
         });
       }
 
+      // Build a lookup of calendar events by source_id so we can overlay updated titles/descriptions
+      const calendarBySourceId = new Map<string, { title: string; description: string | undefined }>();
+      for (const event of calendarResult.data || []) {
+        const sid = event.source_id || event.id;
+        if (sid) calendarBySourceId.set(sid, { title: stripPlatformLabel(event.title || ''), description: event.description || undefined });
+      }
+
+      // Overlay calendar titles onto API posts (calendar has updated CTAs)
+      for (const post of posts) {
+        const calData = calendarBySourceId.get(post.job_id) || calendarBySourceId.get(post.id);
+        if (calData) {
+          post.title = calData.title;
+          if (calData.description) post.description = calData.description;
+        }
+      }
+
       const existingKeys = new Set(
         posts.map(post => `${post.job_id || post.id}||${post.scheduled_date || ''}||${post.platforms.join(',')}||${stripPlatformLabel(post.title)}`)
       );
