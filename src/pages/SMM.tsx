@@ -106,18 +106,27 @@ function SMMInner() {
     const channel = supabase
       .channel('smm-calendar-sync')
       .on('postgres_changes', {
-        event: 'UPDATE',
+        event: '*',
         schema: 'public',
         table: 'calendar_events',
         filter: 'source=eq.smm',
-      }, () => {
-        console.log('[SMM] Realtime calendar update detected, refreshing...');
+      }, (payload) => {
+        console.log('[SMM] Realtime calendar change detected:', payload.eventType);
+        if (payload.eventType === 'DELETE') {
+          const deletedId = (payload.old as any)?.id;
+          if (deletedId) {
+            setPosts(prev => prev.filter(p => {
+              const normalizedId = p.id.replace(/-(instagram|facebook|tiktok|linkedin|pinterest|youtube|twitter)-view$/, '');
+              return normalizedId !== deletedId && p.id !== deletedId && p.job_id !== deletedId;
+            }));
+          }
+        }
         refresh();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [refresh]);
+  }, [refresh, setPosts]);
 
   // Auto-select first profile if none selected
   useEffect(() => {
