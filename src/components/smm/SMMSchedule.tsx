@@ -2280,7 +2280,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
             calendarEvents.push({
               title: sanitize(`♻️ [${currentPlan.platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`),
-              description: sanitize(`Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\n\n${caption || ''}`),
+              description: sanitize(`Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\nProfile: ${currentPlan.profile_username}\nType: ${item.type}${item.media_url ? `\nMedia URL: ${item.media_url}` : ''}\n\n${caption || ''}`),
               start_time: scheduledDate,
               end_time: (() => { const e = new Date(new Date(scheduledDate).getTime() + 30 * 60000); return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}T${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}:00`; })(),
               source: 'smm',
