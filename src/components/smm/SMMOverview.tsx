@@ -161,7 +161,7 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
             <h3 className="text-sm font-semibold text-foreground">Queue Preview</h3>
             {queued.length === 0 ? <p className="text-xs text-muted-foreground py-4 text-center">Queue empty</p> : (
               <div className="space-y-2">
-                {queued.slice(0, 8).map(p => <PostCard key={p.id} post={p} compact />)}
+                {queued.slice(0, 8).map(p => <PostCard key={p.id} post={p} compact onDelete={() => onRefresh?.()} />)}
               </div>
             )}
           </div>
