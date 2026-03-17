@@ -963,7 +963,7 @@ function InstagramFeedPreview({ items, onItemClick, onToggleFavorite, profileUse
               </div>
             </div>
             <div className="px-1 py-1.5 space-y-0.5">
-              <p className="text-[10px] leading-tight line-clamp-2"><span className="font-semibold">STU25</span> {item.caption}</p>
+              <p className="text-[10px] leading-tight line-clamp-2"><span className="font-semibold">{profileUsername}</span> {item.caption}</p>
               <p className="text-[9px] text-muted-foreground">{format(parseISO(item.date), 'MMM d')} · {item.type}</p>
             </div>
           </div>
