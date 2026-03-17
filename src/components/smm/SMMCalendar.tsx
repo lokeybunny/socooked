@@ -71,36 +71,35 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
     }
     const uniquePosts = Array.from(byJobId.values());
 
-    // Further deduplicate: keep only one post per (day, title_prefix) combo
-    const seenDayTitle = new Set<string>();
+    // Group posts by their ORIGINAL scheduled date (from original_scheduled_str or scheduled_date)
+    // and deduplicate: keep only one post per unique title across all days
+    const seenTitle = new Set<string>();
     const dedupedByContent: ScheduledPost[] = [];
-    const sortedUnique = [...uniquePosts].sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || a.created_at.localeCompare(b.created_at));
+    const sortedUnique = [...uniquePosts].sort((a, b) =>
+      (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || a.created_at.localeCompare(b.created_at)
+    );
     for (const post of sortedUnique) {
       if (!post.scheduled_date) continue;
-      const dayKey = getDayKey(post.scheduled_date);
-      const titleKey = post.title.slice(0, 40).toLowerCase();
-      const comboKey = `${dayKey}|${titleKey}`;
-      if (seenDayTitle.has(comboKey)) continue;
-      seenDayTitle.add(comboKey);
+      const titleKey = post.title.slice(0, 50).toLowerCase().replace(/\s+/g, ' ');
+      if (seenTitle.has(titleKey)) continue;
+      seenTitle.add(titleKey);
       dedupedByContent.push(post);
     }
 
-    // Now shift ALL posts so the earliest one starts on CAMPAIGN_START_DAY
-    const allDates = dedupedByContent.map(p => getDayKey(p.scheduled_date!)).sort();
-    const earliestDay = allDates[0];
-
-    if (earliestDay && earliestDay !== CAMPAIGN_START_DAY) {
-      const targetDate = new Date(`${CAMPAIGN_START_DAY}T00:00:00Z`);
-      const currentDate = new Date(`${earliestDay}T00:00:00Z`);
-      const dayDelta = Math.round((targetDate.getTime() - currentDate.getTime()) / 86400000);
-
-      return dedupedByContent.map(post => ({
+    // Redistribute posts to consecutive days starting from CAMPAIGN_START_DAY
+    // Each unique post gets its own day: Mar 17, Mar 18, Mar 19, etc.
+    return dedupedByContent.map((post, index) => {
+      const targetDate = new Date(`${CAMPAIGN_START_DAY}T12:00:00`);
+      targetDate.setDate(targetDate.getDate() + index);
+      const yyyy = targetDate.getFullYear();
+      const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(targetDate.getDate()).padStart(2, '0');
+      const timePart = post.scheduled_date!.split('T')[1] || '12:00:00';
+      return {
         ...post,
-        scheduled_date: shiftIsoDateStringByDays(post.scheduled_date!, dayDelta),
-      }));
-    }
-
-    return dedupedByContent;
+        scheduled_date: `${yyyy}-${mm}-${dd}T${timePart}`,
+      };
+    });
   }, [posts]);
 
   const getPostsForDay = (day: Date) => scheduledPosts.filter(p => p.scheduled_date && isSameDay(new Date(p.scheduled_date), day));
