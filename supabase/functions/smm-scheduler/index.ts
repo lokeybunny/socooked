@@ -484,9 +484,15 @@ serve(async (req) => {
         status: 'draft',
       });
 
+      const readyCount = planPayload.schedule_items.filter((i: any) => i.status === 'ready').length;
+      const hasMedia = readyCount > 0;
+      const mediaMsg = hasMedia
+        ? `${readyCount}/${planPayload.schedule_items.length} posts have your uploaded media attached and are ready to go.`
+        : 'Media will be generated 48 hours before each post date.';
+
       return new Response(JSON.stringify({
         type: 'content_plan',
-        message: `Created draft plan "${planPayload.plan_name}" with ${planPayload.schedule_items.length} posts. Review the schedule and hit "Schedule to LIVE" when ready. Media will be generated 48 hours before each post date.`,
+        message: `Created draft plan "${planPayload.plan_name}" with ${planPayload.schedule_items.length} posts. ${mediaMsg} Review the schedule and hit "Schedule to LIVE" when ready.`,
         plan: insertData,
         actions: [],
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
