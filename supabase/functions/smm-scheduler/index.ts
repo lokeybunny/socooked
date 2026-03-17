@@ -306,7 +306,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, profile, history, action: directAction } = await req.json();
+    const { prompt, profile, history, action: directAction, attached_media } = await req.json();
 
     // ─── Direct action: push-live ───
     if (directAction === 'push-live') {
