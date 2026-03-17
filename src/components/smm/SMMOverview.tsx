@@ -151,7 +151,7 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
             <h3 className="text-sm font-semibold text-foreground">Today's Schedule ({todayPosts.length})</h3>
             {todayPosts.length === 0 ? <p className="text-xs text-muted-foreground py-4 text-center">Nothing scheduled today</p> : (
               <div className="space-y-2">
-                {todayPosts.map(p => <PostCard key={p.id} post={p} compact onTimeEdit={handleTimeEdit} onDelete={() => onRefresh?.()} />)}
+                {todayPosts.map(p => <PostCard key={p.id} post={p} compact onTimeEdit={handleTimeEdit} onDelete={(deletedPost) => { onRefresh?.(); }} />)}
               </div>
             )}
           </div>
