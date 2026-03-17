@@ -758,29 +758,40 @@ export const smmApi = {
 
 // ─── Helper: Map API response to our ScheduledPost type ───
 function mapApiPostToScheduledPost(p: any, defaultStatus: string): ScheduledPost {
+  // Upload-Post API returns post_caption/post_title instead of title/description
+  const title = p.title || p.post_title || p.post_caption || p.caption || '';
+  const description = p.description || p.post_caption || undefined;
+  // Video URL can be in prevalidation_metadata.remote_public_url
+  const mediaUrl = p.media_url || p.video_url || p.photo_url
+    || p.prevalidation_metadata?.remote_public_url || undefined;
+  // post_url from API history is the published platform link
+  const platformResults = p.platform_results || p.results || [];
+  const postUrls = platformResults.length > 0
+    ? platformResults.map((r: any) => ({ platform: r.platform, url: r.url || r.post_url || '' }))
+    : (p.post_url && p.platform)
+      ? [{ platform: p.platform === 'x' ? 'twitter' : p.platform, url: p.post_url }]
+      : [];
+
   return {
     id: p.id || p.job_id || p.request_id || '',
     job_id: p.job_id || '',
     request_id: p.request_id || '',
     profile_id: p.user || p.profile || p.profile_username || '',
     profile_username: p.user || p.profile || p.profile_username || '',
-    title: p.title || p.caption || '',
-    description: p.description,
+    title,
+    description: description !== title ? description : undefined,
     type: p.type || p.media_type || 'text',
     platforms: (Array.isArray(p.platforms) ? p.platforms : (p.platform ? [p.platform] : []))
       .map((pl: string) => pl === 'x' ? 'twitter' : pl),
-    media_url: p.media_url || p.video_url || p.photo_url,
+    media_url: mediaUrl,
     preview_url: p.preview_url || p.thumbnail_url,
-    status: (p.status || defaultStatus) as PostStatus,
+    status: (p.status || (p.success === true ? 'completed' : p.success === false ? 'failed' : defaultStatus)) as PostStatus,
     scheduled_date: p.scheduled_date || p.scheduled_at || null,
-    published_at: p.published_at || p.completed_at,
-    post_urls: (p.platform_results || p.results || []).map((r: any) => ({
-      platform: r.platform,
-      url: r.url || r.post_url || '',
-    })),
+    published_at: p.published_at || p.completed_at || p.upload_timestamp,
+    post_urls: postUrls,
     first_comment: p.first_comment,
     error: p.error || p.error_message,
-    created_at: p.created_at || p.timestamp || new Date().toISOString(),
+    created_at: p.created_at || p.upload_timestamp || p.timestamp || new Date().toISOString(),
   };
 }
 
