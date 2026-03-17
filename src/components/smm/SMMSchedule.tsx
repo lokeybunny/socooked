@@ -1007,44 +1007,106 @@ function FacebookFeedPreview({ items, onItemClick, onToggleFavorite, profileUser
   );
 }
 
+function TikTokVideoCard({ item, onItemClick, onToggleFavorite, profileUsername }: { item: ScheduleItem; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [paused, setPaused] = useState(false);
+
+  const isVideo = item.type === 'video' && item.media_url && /\.(mp4|mov|webm|m3u8)/i.test(item.media_url);
+
+  const handleMouseEnter = () => {
+    if (isVideo && videoRef.current && !paused) {
+      videoRef.current.play().then(() => setPlaying(true)).catch(() => {});
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isVideo && videoRef.current) {
+      videoRef.current.pause();
+      setPlaying(false);
+      setPaused(false);
+    }
+  };
+
+  const handleVideoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isVideo || !videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play().then(() => { setPlaying(true); setPaused(false); }).catch(() => {});
+    } else {
+      videoRef.current.pause();
+      setPlaying(false);
+      setPaused(true);
+    }
+  };
+
+  return (
+    <div
+      className="relative rounded-xl overflow-hidden bg-black aspect-[9/16] max-h-[400px]"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {item.media_url ? (
+        isVideo ? (
+          <div className="w-full h-full relative cursor-pointer" onClick={handleVideoClick}>
+            <video
+              ref={videoRef}
+              src={item.media_url}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              className="w-full h-full object-cover"
+            />
+            {/* Play/Pause overlay */}
+            {!playing && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                <Play className="h-10 w-10 text-white/80 drop-shadow-lg" fill="white" />
+              </div>
+            )}
+            {paused && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                <Play className="h-10 w-10 text-white/80 drop-shadow-lg" fill="white" />
+              </div>
+            )}
+          </div>
+        ) : (
+          <img src={item.media_url} alt="" className="w-full h-full object-cover" />
+        )
+      ) : (
+        <div className="w-full h-full"><MediaPlaceholder item={item} /></div>
+      )}
+      {item.media_url && <FavoriteCheckmark itemId={item.id} favorited={!!item.favorited} onToggle={onToggleFavorite} />}
+      <button
+        onClick={(e) => { e.stopPropagation(); onItemClick?.(item); }}
+        className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white/80 hover:text-white transition-all"
+        title="Edit post"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
+        <p className="text-white text-xs font-semibold mb-1">@{profileUsername}</p>
+        <p className="text-white/90 text-[11px] line-clamp-2">{item.caption}</p>
+        {item.hashtags?.length > 0 && (
+          <p className="text-white/70 text-[10px] mt-1">{item.hashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}</p>
+        )}
+        <div className="flex items-center gap-2 mt-2">
+          <span className="text-[10px] text-white/60">{format(parseISO(item.date), 'MMM d')}</span>
+          <StatusBadge status={item.status} />
+        </div>
+      </div>
+      <div className="absolute right-2 bottom-20 flex flex-col items-center gap-4 text-white/80 pointer-events-none">
+        <Heart className="h-5 w-5" /><MessageCircle className="h-5 w-5" /><Bookmark className="h-5 w-5" /><Share2 className="h-5 w-5" />
+      </div>
+    </div>
+  );
+}
+
 function TikTokFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
   return (
     <div className="space-y-3 p-3">
       {items.map((item) => (
-        <div key={item.id} className="relative rounded-xl overflow-hidden bg-black aspect-[9/16] max-h-[400px]">
-          {item.media_url ? (
-            item.type === 'video' && /\.(mp4|mov|webm|m3u8)/i.test(item.media_url) ? (
-              <VideoThumbnail src={item.media_url} title={item.caption} className="w-full h-full" videoClassName="w-full h-full object-cover" controls={false} />
-            ) : (
-              <img src={item.media_url} alt="" className="w-full h-full object-cover" />
-            )
-          ) : (
-            <div className="w-full h-full"><MediaPlaceholder item={item} /></div>
-          )}
-          {item.media_url && <FavoriteCheckmark itemId={item.id} favorited={!!item.favorited} onToggle={onToggleFavorite} />}
-          {/* Edit icon — top right */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onItemClick?.(item); }}
-            className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white/80 hover:text-white transition-all"
-            title="Edit post"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-          <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-            <p className="text-white text-xs font-semibold mb-1">@{profileUsername}</p>
-            <p className="text-white/90 text-[11px] line-clamp-2">{item.caption}</p>
-            {item.hashtags?.length > 0 && (
-              <p className="text-white/70 text-[10px] mt-1">{item.hashtags.map(h => h.startsWith('#') ? h : `#${h}`).join(' ')}</p>
-            )}
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-[10px] text-white/60">{format(parseISO(item.date), 'MMM d')}</span>
-              <StatusBadge status={item.status} />
-            </div>
-          </div>
-          <div className="absolute right-2 bottom-20 flex flex-col items-center gap-4 text-white/80">
-            <Heart className="h-5 w-5" /><MessageCircle className="h-5 w-5" /><Bookmark className="h-5 w-5" /><Share2 className="h-5 w-5" />
-          </div>
-        </div>
+        <TikTokVideoCard key={item.id} item={item} onItemClick={onItemClick} onToggleFavorite={onToggleFavorite} profileUsername={profileUsername} />
       ))}
     </div>
   );
