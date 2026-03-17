@@ -85,6 +85,16 @@ HOW TO TRACK PROGRESS:
 - Once ALL 5 topics have been addressed (or the user says "just do it"), proceed to content planning.
 - If the user provides rich context upfront that covers multiple questions, acknowledge it and skip those.
 
+CRITICAL — PRE-UPLOADED MEDIA:
+When you see [ATTACHED_MEDIA: ...] in the user's message, the user has ALREADY uploaded their own media files. In this case:
+- Do NOT ask for assets — the files are already provided.
+- Skip discovery questions about assets entirely.
+- In each schedule_item, set "media_ref" to the filename that should be used for that item (e.g. "Drake_01.mp4").
+- The system will automatically match media_ref to the uploaded file URLs and set media_url.
+- Set "status" to "ready" for items that have a matching uploaded file.
+- The media does NOT need to be "generated" — it is already provided by the user.
+- Distribute the uploaded files across the schedule items evenly by name/order.
+
 FORMAT for asking ONE question:
 { "clarify": "Your single professional question here. Be conversational, warm, and strategic." }
 
@@ -296,7 +306,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const { prompt, profile, history, action: directAction } = await req.json();
+    const { prompt, profile, history, action: directAction, attached_media } = await req.json();
 
     // ─── Direct action: push-live ───
     if (directAction === 'push-live') {
@@ -370,16 +380,54 @@ serve(async (req) => {
         status: 'draft', // Always starts as draft — user must push to live
         brand_context: parsed.brand_context || {},
         schedule_items: (() => {
-          const items = (parsed.schedule_items || []).map((item: any) => ({
-            ...item,
-            id: item.id || crypto.randomUUID(),
-            status: 'draft',
-            media_url: null,
-          }));
+          // Build a lookup from attached_media by name for matching
+          const mediaLookup = new Map<string, { url: string; type: string; content_asset_id?: string }>();
+          if (attached_media?.length) {
+            for (const m of attached_media) {
+              mediaLookup.set(m.name, m);
+              // Also add without extension for fuzzy matching
+              const nameNoExt = m.name.replace(/\.\w+$/, '');
+              mediaLookup.set(nameNoExt, m);
+            }
+          }
+
+          const mediaQueue = attached_media?.length ? [...attached_media] : [];
+          let mediaIdx = 0;
+
+          const items = (parsed.schedule_items || []).map((item: any) => {
+            let matchedMedia = null;
+
+            // 1. Try matching by media_ref (AI should set this)
+            if (item.media_ref) {
+              matchedMedia = mediaLookup.get(item.media_ref) || mediaLookup.get(item.media_ref.replace(/\.\w+$/, ''));
+            }
+            // 2. Try matching by media_prompt if it contains a filename
+            if (!matchedMedia && item.media_prompt) {
+              for (const [key, val] of mediaLookup.entries()) {
+                if (item.media_prompt.includes(key)) {
+                  matchedMedia = val;
+                  break;
+                }
+              }
+            }
+            // 3. Round-robin from attached_media queue
+            if (!matchedMedia && mediaQueue.length > 0) {
+              matchedMedia = mediaQueue[mediaIdx % mediaQueue.length];
+              mediaIdx++;
+            }
+
+            return {
+              ...item,
+              id: item.id || crypto.randomUUID(),
+              status: matchedMedia ? 'ready' : 'draft',
+              media_url: matchedMedia?.url || null,
+              media_ref: item.media_ref || matchedMedia?.name || null,
+            };
+          });
 
           // Enforce minimum 2 videos per week
           const videoCount = items.filter((it: any) => it.type === 'video').length;
-          if (videoCount < 2) {
+          if (videoCount < 2 && !attached_media?.length) {
             const nonVideoItems = items.filter((it: any) => it.type !== 'video' && it.type !== 'text');
             let toConvert = 2 - videoCount;
             for (const it of nonVideoItems) {
@@ -436,9 +484,15 @@ serve(async (req) => {
         status: 'draft',
       });
 
+      const readyCount = planPayload.schedule_items.filter((i: any) => i.status === 'ready').length;
+      const hasMedia = readyCount > 0;
+      const mediaMsg = hasMedia
+        ? `${readyCount}/${planPayload.schedule_items.length} posts have your uploaded media attached and are ready to go.`
+        : 'Media will be generated 48 hours before each post date.';
+
       return new Response(JSON.stringify({
         type: 'content_plan',
-        message: `Created draft plan "${planPayload.plan_name}" with ${planPayload.schedule_items.length} posts. Review the schedule and hit "Schedule to LIVE" when ready. Media will be generated 48 hours before each post date.`,
+        message: `Created draft plan "${planPayload.plan_name}" with ${planPayload.schedule_items.length} posts. ${mediaMsg} Review the schedule and hit "Schedule to LIVE" when ready.`,
         plan: insertData,
         actions: [],
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
