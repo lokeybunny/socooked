@@ -380,16 +380,54 @@ serve(async (req) => {
         status: 'draft', // Always starts as draft — user must push to live
         brand_context: parsed.brand_context || {},
         schedule_items: (() => {
-          const items = (parsed.schedule_items || []).map((item: any) => ({
-            ...item,
-            id: item.id || crypto.randomUUID(),
-            status: 'draft',
-            media_url: null,
-          }));
+          // Build a lookup from attached_media by name for matching
+          const mediaLookup = new Map<string, { url: string; type: string; content_asset_id?: string }>();
+          if (attached_media?.length) {
+            for (const m of attached_media) {
+              mediaLookup.set(m.name, m);
+              // Also add without extension for fuzzy matching
+              const nameNoExt = m.name.replace(/\.\w+$/, '');
+              mediaLookup.set(nameNoExt, m);
+            }
+          }
+
+          const mediaQueue = attached_media?.length ? [...attached_media] : [];
+          let mediaIdx = 0;
+
+          const items = (parsed.schedule_items || []).map((item: any) => {
+            let matchedMedia = null;
+
+            // 1. Try matching by media_ref (AI should set this)
+            if (item.media_ref) {
+              matchedMedia = mediaLookup.get(item.media_ref) || mediaLookup.get(item.media_ref.replace(/\.\w+$/, ''));
+            }
+            // 2. Try matching by media_prompt if it contains a filename
+            if (!matchedMedia && item.media_prompt) {
+              for (const [key, val] of mediaLookup.entries()) {
+                if (item.media_prompt.includes(key)) {
+                  matchedMedia = val;
+                  break;
+                }
+              }
+            }
+            // 3. Round-robin from attached_media queue
+            if (!matchedMedia && mediaQueue.length > 0) {
+              matchedMedia = mediaQueue[mediaIdx % mediaQueue.length];
+              mediaIdx++;
+            }
+
+            return {
+              ...item,
+              id: item.id || crypto.randomUUID(),
+              status: matchedMedia ? 'ready' : 'draft',
+              media_url: matchedMedia?.url || null,
+              media_ref: item.media_ref || matchedMedia?.name || null,
+            };
+          });
 
           // Enforce minimum 2 videos per week
           const videoCount = items.filter((it: any) => it.type === 'video').length;
-          if (videoCount < 2) {
+          if (videoCount < 2 && !attached_media?.length) {
             const nonVideoItems = items.filter((it: any) => it.type !== 'video' && it.type !== 'text');
             let toConvert = 2 - videoCount;
             for (const it of nonVideoItems) {
