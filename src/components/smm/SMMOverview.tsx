@@ -6,6 +6,8 @@ import PostCard from './PostCard';
 import { CalendarDays, Clock, AlertTriangle, CheckCircle, Bell, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 function KPICard({ label, value, icon: Icon, color }: { label: string; value: string | number; icon: any; color: string }) {
   return (
