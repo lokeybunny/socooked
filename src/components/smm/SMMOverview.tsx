@@ -49,19 +49,21 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh }: Pr
     const dateStr = post.scheduled_date?.slice(0, 10) || today;
     const newStartTime = `${dateStr}T${newTime}:00`;
 
-    // Try direct ID match first (calendar event posts use the event id as post id)
+    const updateAndRefresh = async (eventId: string) => {
+      const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', eventId);
+      if (error) { toast.error('Failed to update time'); return; }
+      toast.success(`Rescheduled to ${newTime}`);
+      onRefresh?.();
+    };
+
+    // Try direct ID match first
     const { data: direct } = await supabase
       .from('calendar_events')
       .select('id')
       .eq('id', post.id)
       .maybeSingle();
 
-    if (direct) {
-      const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', direct.id);
-      if (error) { toast.error('Failed to update time'); return; }
-      toast.success(`Rescheduled to ${newTime}`);
-      return;
-    }
+    if (direct) return updateAndRefresh(direct.id);
 
     // Fallback: match by source_id = job_id
     if (post.job_id) {
@@ -71,15 +73,10 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh }: Pr
         .eq('source', 'smm')
         .eq('source_id', post.job_id)
         .maybeSingle();
-      if (byJob) {
-        const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', byJob.id);
-        if (error) { toast.error('Failed to update time'); return; }
-        toast.success(`Rescheduled to ${newTime}`);
-        return;
-      }
+      if (byJob) return updateAndRefresh(byJob.id);
     }
 
-    // Last fallback: fuzzy title match on that day
+    // Last fallback: fuzzy title match
     const { data: events } = await supabase
       .from('calendar_events')
       .select('id, title')
@@ -91,13 +88,8 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh }: Pr
       const pClean = post.title.replace(/[^\w]/g, '').toLowerCase();
       return eClean.includes(pClean.slice(0, 40)) || pClean.includes(eClean.slice(0, 40));
     });
-    if (match) {
-      const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', match.id);
-      if (error) { toast.error('Failed to update time'); return; }
-      toast.success(`Rescheduled to ${newTime}`);
-    } else {
-      toast.error('Could not find matching calendar event');
-    }
+    if (match) return updateAndRefresh(match.id);
+    toast.error('Could not find matching calendar event');
   };
 
   // By-platform view data
