@@ -1669,7 +1669,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     return () => { supabase.removeChannel(channel); };
   }, [profileId, fetchPlans]);
 
-  const currentPlan = plans.find(p => p.platform === activePlatform);
+  const currentPlan = plans.find(p => p.platform === activePlatform || p.platform.split('|').includes(activePlatform));
   const items = (currentPlan?.schedule_items || []) as ScheduleItem[];
   const isDraft = currentPlan?.status === 'draft';
   const isLive = currentPlan?.status === 'live';
