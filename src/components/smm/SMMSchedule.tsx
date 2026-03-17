@@ -1672,6 +1672,29 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const [plans, setPlans] = useState<ContentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [activePlatform, setActivePlatform] = useState('instagram');
+
+  // Derive available schedule platforms from the profile's connected accounts
+  const currentProfile = profiles.find(p => p.username === profileId || p.id === profileId);
+  const availablePlatforms = useMemo(() => {
+    if (!currentProfile) return SCHEDULE_PLATFORMS;
+    const connectedSet = new Set<string>(
+      currentProfile.connected_platforms
+        .filter(cp => cp.connected)
+        .map(cp => cp.platform === 'twitter' ? 'x' : cp.platform)
+    );
+    // Also include platforms that already have content plans
+    plans.forEach(p => connectedSet.add(p.platform as string));
+    // Filter SCHEDULE_PLATFORMS to only connected ones
+    const filtered = SCHEDULE_PLATFORMS.filter(p => connectedSet.has(p.value));
+    return filtered.length > 0 ? filtered : SCHEDULE_PLATFORMS;
+  }, [currentProfile, plans]);
+
+  // Auto-select first available platform if current one isn't available
+  useEffect(() => {
+    if (availablePlatforms.length > 0 && !availablePlatforms.find(p => p.value === activePlatform)) {
+      setActivePlatform(availablePlatforms[0].value);
+    }
+  }, [availablePlatforms, activePlatform]);
   const [pushingLive, setPushingLive] = useState(false);
 
    const [resetting, setResetting] = useState(false);
@@ -2233,7 +2256,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   };
 
   // Available platforms to clone TO (exclude current)
-  const cloneTargets = SCHEDULE_PLATFORMS.filter(p => p.value !== activePlatform && !plans.find(pl => pl.platform === p.value));
+  const cloneTargets = availablePlatforms.filter(p => p.value !== activePlatform && !plans.find(pl => pl.platform === p.value));
 
   const todayItems = items.filter(i => { try { return isToday(parseISO(i.date)); } catch { return false; } });
   const upcomingItems = items.filter(i => { try { return !isToday(parseISO(i.date)); } catch { return true; } });
@@ -2330,7 +2353,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                 Clone to…
               </SelectTrigger>
               <SelectContent>
-                {SCHEDULE_PLATFORMS.filter(p => p.value !== activePlatform).map(p => (
+                {availablePlatforms.filter(p => p.value !== activePlatform).map(p => (
                   <SelectItem key={p.value} value={p.value}>
                     {p.label}
                   </SelectItem>
@@ -2438,7 +2461,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
       <Tabs value={activePlatform} onValueChange={setActivePlatform}>
         <TabsList className="w-full justify-start">
-          {SCHEDULE_PLATFORMS.map(p => (
+          {availablePlatforms.map(p => (
             <TabsTrigger key={p.value} value={p.value} className="gap-1.5 text-xs">
               <PlatformIcon platform={p.value} />
               {p.label}
@@ -2449,7 +2472,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           ))}
         </TabsList>
 
-        {SCHEDULE_PLATFORMS.map(p => (
+        {availablePlatforms.map(p => (
           <TabsContent key={p.value} value={p.value}>
             {loading ? (
               <div className="space-y-3 p-4">
