@@ -70,6 +70,29 @@ function filterPosts(posts: ScheduledPost[], profileId: string, platform: string
   return profileFiltered.filter(p => p.platforms.includes(platform as Platform));
 }
 
+function PSTClock() {
+  const [time, setTime] = useState('');
+  useEffect(() => {
+    const tick = () => {
+      setTime(new Date().toLocaleString('en-US', {
+        timeZone: 'America/Los_Angeles',
+        weekday: 'short', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true,
+      }));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground bg-muted/50 border border-border rounded-md px-3 py-1.5">
+      <Clock className="h-3 w-3" />
+      <span>{time}</span>
+      <span className="text-[10px] opacity-60">PST</span>
+    </div>
+  );
+}
+
 function SMMInner() {
   const { profiles, posts, loading, refresh, setPosts } = useSMMStore();
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
