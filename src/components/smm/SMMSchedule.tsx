@@ -2316,10 +2316,10 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Platform Preview */}
                 <div className="lg:col-span-2 rounded-xl border border-border/50 bg-card overflow-hidden max-h-[700px] overflow-y-auto">
-                  {p.value === 'instagram' && <InstagramFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
-                  {p.value === 'facebook' && <FacebookFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
-                  {p.value === 'tiktok' && <TikTokFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
-                  {p.value === 'x' && <XFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />}
+                  {p.value === 'instagram' && <InstagramFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} profileUsername={profileId || 'Brand'} />}
+                  {p.value === 'facebook' && <FacebookFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} profileUsername={profileId || 'Brand'} />}
+                  {p.value === 'tiktok' && <TikTokFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} profileUsername={profileId || 'Brand'} />}
+                  {p.value === 'x' && <XFeedPreview items={items} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} profileUsername={profileId || 'Brand'} />}
                 </div>
 
                 {/* Sidebar */}
