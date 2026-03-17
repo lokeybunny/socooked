@@ -2115,7 +2115,38 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     setResetting(false);
   };
 
-  // ─── Recycle: clone current week across 52 weeks ───
+  // ─── Enforce min 2 hashtags on existing items ───
+  const enforceHashtagsOnExisting = async () => {
+    if (!currentPlan) return;
+    const platform = currentPlan.platform;
+    const fallbacks: Record<string, string[]> = {
+      tiktok: ['#FYP', '#ForYouPage', '#Viral', '#Music', '#Trending', '#MusicVibes'],
+      instagram: ['#Explore', '#InstaMusic', '#Vibes', '#MusicLovers', '#Share'],
+      facebook: ['#Music', '#Share', '#NewMusic', '#Vibes', '#Listen'],
+      x: ['#Music', '#NowPlaying', '#NewMusic', '#Vibes'],
+    };
+    const pool = fallbacks[platform] || fallbacks.instagram;
+    let updated = false;
+    const newItems = items.map(item => {
+      const tags = (item.hashtags || []).map((h: string) => h.startsWith('#') ? h : `#${h}`).filter((h: string) => h.length > 1);
+      if (tags.length >= 2) return item;
+      updated = true;
+      while (tags.length < 2) {
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        if (!tags.includes(pick)) tags.push(pick);
+      }
+      return { ...item, hashtags: tags };
+    });
+    if (updated) {
+      await supabase
+        .from('smm_content_plans')
+        .update({ schedule_items: newItems as any, updated_at: new Date().toISOString() } as any)
+        .eq('id', currentPlan.id);
+      await fetchPlans();
+    }
+  };
+
+  // ─── Recycle: clone current week across 52 weeks with AI-varied captions ───
   const handleRecycle = async () => {
     if (!currentPlan || items.length === 0) {
       toast.error('No content plan to recycle');
@@ -2123,6 +2154,9 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     }
     setRecycling(true);
     try {
+      // Step 1: Enforce hashtags on existing items first
+      await enforceHashtagsOnExisting();
+
       const apiPlatform = currentPlan.platform === 'twitter' ? 'x' : currentPlan.platform;
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -2134,71 +2168,117 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
       let totalScheduled = 0;
       let totalCalEvents = 0;
 
-      for (let week = 1; week <= 51; week++) {
-        const offsetMs = week * 7 * 24 * 60 * 60 * 1000;
-        const calendarEvents: any[] = [];
+      // Process in batches of ~5 weeks to avoid overwhelming the AI
+      const BATCH_SIZE = 5;
+      for (let batchStart = 1; batchStart <= 51; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, 51);
 
-        for (const item of baseItems) {
-          const newDate = new Date(item._baseDate.getTime() + offsetMs);
-          const newDateStr = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`;
-          const scheduledDate = item.time
-            ? `${newDateStr}T${item.time}:00`
-            : `${newDateStr}T12:00:00`;
-
-          if (item.type === 'text' || item.media_url) {
-            try {
-              const hashtagStr = (item.hashtags || []).map((h: string) => h.startsWith('#') ? h : `#${h}`).join(' ');
-              const title = item.caption
-                ? `${item.caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
-                : hashtagStr || item.type;
-
-              const isActualVideo = item.media_url && (
-                item.media_url.endsWith('.mp4') || item.media_url.endsWith('.mov') ||
-                item.media_url.endsWith('.webm') || item.media_url.includes('higgsfield')
-              );
-              let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
-              if (item.type === 'video' && isActualVideo) postType = 'video';
-              else if (item.type === 'video' || item.type === 'image' || item.type === 'carousel') postType = 'photos';
-
-              await smmApi.createPost({
-                user: currentPlan.profile_username,
-                type: postType,
-                platforms: [apiPlatform as any],
-                title,
-                media_url: item.media_url,
-                scheduled_date: scheduledDate,
-                timezone: tz,
-              });
-              totalScheduled++;
-            } catch (err) {
-              console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
+        // Generate AI caption variations for this batch of weeks
+        const weekVariations: Map<number, any[]> = new Map();
+        for (let week = batchStart; week <= batchEnd; week++) {
+          try {
+            const { data: varData } = await supabase.functions.invoke('recycle-captions', {
+              body: {
+                items: baseItems.map(item => ({
+                  id: item.id,
+                  caption: item.caption,
+                  hashtags: item.hashtags,
+                  type: item.type,
+                })),
+                week_number: week,
+                total_weeks: 52,
+                platform: apiPlatform,
+                brand_context: currentPlan.brand_context,
+              },
+            });
+            if (varData?.variations) {
+              weekVariations.set(week, varData.variations);
             }
+          } catch (aiErr) {
+            console.warn(`[recycle] AI caption gen failed for week ${week}:`, aiErr);
+          }
+        }
+
+        // Schedule posts for each week in this batch
+        for (let week = batchStart; week <= batchEnd; week++) {
+          const offsetMs = week * 7 * 24 * 60 * 60 * 1000;
+          const calendarEvents: any[] = [];
+          const variations = weekVariations.get(week) || [];
+
+          for (const item of baseItems) {
+            const newDate = new Date(item._baseDate.getTime() + offsetMs);
+            const newDateStr = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`;
+            const scheduledDate = item.time
+              ? `${newDateStr}T${item.time}:00`
+              : `${newDateStr}T12:00:00`;
+
+            // Find AI-varied caption for this item
+            const variation = variations.find((v: any) => v.id === item.id);
+            const caption = variation?.caption || item.caption;
+            const hashtags = variation?.hashtags || item.hashtags || [];
+
+            // Ensure min 2 hashtags
+            const hashtagStr = hashtags
+              .map((h: string) => h.startsWith('#') ? h : `#${h}`)
+              .filter((h: string) => h.length > 1)
+              .join(' ');
+
+            if (item.type === 'text' || item.media_url) {
+              try {
+                const title = caption
+                  ? `${caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
+                  : hashtagStr || item.type;
+
+                const isActualVideo = item.media_url && (
+                  item.media_url.endsWith('.mp4') || item.media_url.endsWith('.mov') ||
+                  item.media_url.endsWith('.webm') || item.media_url.includes('higgsfield')
+                );
+                let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
+                if (item.type === 'video' && isActualVideo) postType = 'video';
+                else if (item.type === 'video' || item.type === 'image' || item.type === 'carousel') postType = 'photos';
+
+                await smmApi.createPost({
+                  user: currentPlan.profile_username,
+                  type: postType,
+                  platforms: [apiPlatform as any],
+                  title,
+                  media_url: item.media_url,
+                  scheduled_date: scheduledDate,
+                  timezone: tz,
+                });
+                totalScheduled++;
+              } catch (err) {
+                console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
+              }
+            }
+
+            calendarEvents.push({
+              title: `♻️ [${currentPlan.platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`,
+              description: `Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\n\n${caption || ''}`,
+              start_time: scheduledDate,
+              end_time: (() => { const e = new Date(new Date(scheduledDate).getTime() + 30 * 60000); return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}T${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}:00`; })(),
+              source: 'smm',
+              source_id: `recycle-w${week}-${item.id}`,
+              category: 'smm',
+              color: currentPlan.platform === 'instagram' ? '#E1306C' :
+                     currentPlan.platform === 'facebook' ? '#1877F2' :
+                     currentPlan.platform === 'tiktok' ? '#010101' :
+                     currentPlan.platform === 'x' ? '#1DA1F2' : '#3b82f6',
+            });
           }
 
-          calendarEvents.push({
-            title: `♻️ [${currentPlan.platform.toUpperCase()}] ${item.caption?.substring(0, 50) || item.type}`,
-            description: `Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\n\n${item.caption || ''}`,
-            start_time: scheduledDate,
-            end_time: (() => { const e = new Date(new Date(scheduledDate).getTime() + 30 * 60000); return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}T${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}:00`; })(),
-            source: 'smm',
-            source_id: `recycle-w${week}-${item.id}`,
-            category: 'smm',
-            color: currentPlan.platform === 'instagram' ? '#E1306C' :
-                   currentPlan.platform === 'facebook' ? '#1877F2' :
-                   currentPlan.platform === 'tiktok' ? '#010101' :
-                   currentPlan.platform === 'x' ? '#1DA1F2' : '#3b82f6',
-          });
+          if (calendarEvents.length > 0) {
+            const { error: calErr } = await supabase
+              .from('calendar_events')
+              .insert(calendarEvents);
+            if (!calErr) totalCalEvents += calendarEvents.length;
+          }
         }
 
-        if (calendarEvents.length > 0) {
-          const { error: calErr } = await supabase
-            .from('calendar_events')
-            .insert(calendarEvents);
-          if (!calErr) totalCalEvents += calendarEvents.length;
-        }
+        toast.info(`♻️ Weeks ${batchStart}-${batchEnd} scheduled…`, { duration: 2000 });
       }
 
-      toast.success(`♻️ Recycled! ${totalScheduled} posts scheduled + ${totalCalEvents} calendar events across 51 weeks.`);
+      toast.success(`♻️ Recycled! ${totalScheduled} posts with AI-varied captions + ${totalCalEvents} calendar events across 51 weeks.`);
     } catch (e: any) {
       toast.error(`Recycle failed: ${e.message}`);
     }
@@ -2331,8 +2411,8 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                   <AlertDialogTitle>♻️ Recycle Content for 52 Weeks?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will take your current {items.length} post(s) and schedule them to repeat every week for a full year (52 weeks). 
-                    That's {items.length * 51} additional posts auto-scheduled with the same media, captions, and times.
-                    Calendar events will also be created for each week.
+                    That's {items.length * 51} additional posts — each week gets <strong>AI-generated fresh captions</strong> so your feed never looks repetitive.
+                    All posts will be enforced with at least 2 relevant hashtags. Calendar events will also be created.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
