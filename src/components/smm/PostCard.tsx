@@ -153,7 +153,27 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
                 return meta ? <span key={p} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.abbr}</span> : null;
               })}
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${STATUS_STYLES[post.status]}`}>{post.status}</span>
-              {scheduledLocal && <span className="text-[10px] text-muted-foreground" title={scheduledUTC || ''}>{scheduledLocal}</span>}
+              {scheduledLocal && onTimeEdit && !editingTime && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditingTime(true); setTimeout(() => timeInputRef.current?.showPicker(), 50); }}
+                  className="text-[10px] text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+                  title="Click to edit time"
+                >
+                  <Clock className="h-2.5 w-2.5" />{scheduledLocal}
+                </button>
+              )}
+              {scheduledLocal && onTimeEdit && editingTime && (
+                <input
+                  ref={timeInputRef}
+                  type="time"
+                  defaultValue={post.scheduled_date ? format(new Date(post.scheduled_date), 'HH:mm') : ''}
+                  className="text-[10px] bg-muted rounded px-1 py-0.5 w-20 border border-primary/30"
+                  autoFocus
+                  onBlur={(e) => { setEditingTime(false); if (e.target.value) onTimeEdit(post, e.target.value); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setEditingTime(false); onTimeEdit(post, (e.target as HTMLInputElement).value); } if (e.key === 'Escape') setEditingTime(false); }}
+                />
+              )}
+              {scheduledLocal && !onTimeEdit && <span className="text-[10px] text-muted-foreground" title={scheduledUTC || ''}>{scheduledLocal}</span>}
             </div>
           </div>
           <DropdownMenu>
