@@ -2204,187 +2204,77 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     setRecycleConfirmOpen(false);
     setRecyclePushLiveOpen(false);
     setRecycling(true);
+    setRecycleProgress({ current_week: 0, total_weeks: 51, posts_scheduled: 0, cal_events: 0 });
+
     try {
       // Step 1: Enforce hashtags on existing items first
       await enforceHashtagsOnExisting();
 
-      const apiPlatform = currentPlan.platform === 'twitter' ? 'x' : currentPlan.platform;
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const CAMPAIGN_START = '2026-03-17';
+      // Step 2: Enqueue the background job
+      const { data, error } = await supabase.functions.invoke('recycle-52w', {
+        body: {
+          action: 'enqueue',
+          plan_id: currentPlan.id,
+          push_live: pushLive,
+          profile_username: currentPlan.profile_username,
+          platform: currentPlan.platform,
+          plan_name: currentPlan.plan_name,
+          brand_context: currentPlan.brand_context,
+          items: items.map(item => ({
+            id: item.id,
+            caption: item.caption,
+            hashtags: item.hashtags,
+            type: item.type,
+            time: item.time,
+            media_url: item.media_url,
+          })),
+        },
+      });
 
-      const baseItems = items.map(item => ({
-        ...item,
-        _baseDate: parseISO(item.date),
-      }));
+      if (error || !data?.task_id) {
+        throw new Error(error?.message || 'Failed to enqueue recycle job');
+      }
 
-      let totalScheduled = 0;
-      let totalCalEvents = 0;
+      // Save task ID for persistence across page reloads
+      localStorage.setItem(RECYCLE_TASK_KEY, data.task_id);
 
-      // Global day counter: each recycled item gets the NEXT consecutive day
-      // Week 0 = original items (already on calendar), so recycle starts at week 1
-      // dayOffset starts after the original week's items
-      let dayOffset = baseItems.length; // skip original week's days
+      toast.success('♻️ Recycle job started! Processing 51 weeks in the background — you can leave this page.');
 
-      // Process in batches of ~5 weeks to avoid overwhelming the AI
-      const BATCH_SIZE = 5;
-      for (let batchStart = 1; batchStart <= 51; batchStart += BATCH_SIZE) {
-        const batchEnd = Math.min(batchStart + BATCH_SIZE - 1, 51);
+      // Start polling
+      const pollInterval = setInterval(async () => {
+        try {
+          const { data: statusData } = await supabase.functions.invoke('recycle-52w', {
+            body: { action: 'status', task_id: data.task_id },
+          });
+          if (!statusData) return;
 
-        // Generate AI caption variations for this batch of weeks
-        const weekVariations: Map<number, any[]> = new Map();
-        for (let week = batchStart; week <= batchEnd; week++) {
-          try {
-            const { data: varData, error: varErr } = await supabase.functions.invoke('recycle-captions', {
-              body: {
-                items: baseItems.map(item => ({
-                  id: item.id,
-                  caption: item.caption,
-                  hashtags: item.hashtags,
-                  type: item.type,
-                })),
-                week_number: week,
-                total_weeks: 52,
-                platform: apiPlatform,
-                brand_context: currentPlan.brand_context,
-              },
-            });
-            if (varErr) console.warn(`[recycle] AI caption error week ${week}:`, varErr);
-            if (varData?.variations) {
-              weekVariations.set(week, varData.variations);
-            }
-          } catch (aiErr) {
-            console.warn(`[recycle] AI caption gen failed for week ${week}:`, aiErr);
+          const progress = (statusData.meta as any)?.progress;
+          if (progress) setRecycleProgress(progress);
+
+          if (statusData.status === 'completed') {
+            clearInterval(pollInterval);
+            setRecycling(false);
+            setRecycleProgress(null);
+            localStorage.removeItem(RECYCLE_TASK_KEY);
+            toast.success(`♻️ Recycle complete! ${progress?.posts_scheduled || 0} posts scheduled, ${progress?.cal_events || 0} calendar events created.`);
+            fetchPlans();
+          } else if (statusData.status === 'failed') {
+            clearInterval(pollInterval);
+            setRecycling(false);
+            setRecycleProgress(null);
+            localStorage.removeItem(RECYCLE_TASK_KEY);
+            toast.error('Recycle job failed.');
           }
+        } catch {
+          // keep polling
         }
+      }, 5000);
 
-        // Schedule posts for each week in this batch — 1 post per day sequentially
-        for (let week = batchStart; week <= batchEnd; week++) {
-          const calendarEvents: any[] = [];
-          const variations = weekVariations.get(week) || [];
-
-          for (const item of baseItems) {
-            // Calculate consecutive daily date from campaign start
-            const targetDate = new Date(`${CAMPAIGN_START}T12:00:00`);
-            targetDate.setDate(targetDate.getDate() + dayOffset);
-            const yyyy = targetDate.getFullYear();
-            const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
-            const dd = String(targetDate.getDate()).padStart(2, '0');
-            const timePart = item.time || '12:00';
-            const scheduledDate = `${yyyy}-${mm}-${dd}T${timePart}:00`;
-
-            dayOffset++; // next item gets the next day
-
-            // Find AI-varied caption for this item
-            const variation = variations.find((v: any) => v.id === item.id);
-            const caption = variation?.caption || item.caption;
-            const hashtags = variation?.hashtags || item.hashtags || [];
-
-            // Ensure min 2 hashtags
-            const hashtagStr = hashtags
-              .map((h: string) => h.startsWith('#') ? h : `#${h}`)
-              .filter((h: string) => h.length > 1)
-              .join(' ');
-
-            if (pushLive && (item.type === 'text' || item.media_url)) {
-              const postTitle = caption
-                ? `${caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
-                : hashtagStr || item.type;
-
-              const isActualVideo = item.media_url && (
-                item.media_url.endsWith('.mp4') || item.media_url.endsWith('.mov') ||
-                item.media_url.endsWith('.webm') || item.media_url.includes('higgsfield')
-              );
-              let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
-              if (item.type === 'video' && isActualVideo) postType = 'video';
-              else if (item.type === 'video' || item.type === 'image' || item.type === 'carousel') postType = 'photos';
-
-              const postPayload = {
-                user: currentPlan.profile_username,
-                type: postType,
-                platforms: [apiPlatform as any],
-                title: postTitle,
-                media_url: item.media_url,
-                scheduled_date: scheduledDate,
-                timezone: tz,
-              };
-
-              try {
-                await smmApi.createPost(postPayload);
-                totalScheduled++;
-              } catch (err: any) {
-                console.warn(`[recycle] Week ${week}, item ${item.id} push-live failed:`, err);
-              }
-            }
-
-            // Sanitize strings to remove unpaired Unicode surrogates that break Postgres JSON
-            const sanitize = (s: string) => {
-              try {
-                return s.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
-              } catch {
-                return s.replace(/[^\x20-\x7E\n\r\t]/g, '');
-              }
-            };
-
-            calendarEvents.push({
-              title: sanitize(`♻️ [${currentPlan.platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`),
-              description: sanitize(`Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\nProfile: ${currentPlan.profile_username}\nType: ${item.type}${item.media_url ? `\nMedia URL: ${item.media_url}` : ''}\n\n${caption || ''}`),
-              start_time: scheduledDate,
-              end_time: (() => { const e = new Date(new Date(scheduledDate).getTime() + 30 * 60000); return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}T${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}:00`; })(),
-              source: 'smm',
-              source_id: `recycle-w${week}-${item.id}`,
-              category: 'smm',
-              color: currentPlan.platform === 'instagram' ? '#E1306C' :
-                     currentPlan.platform === 'facebook' ? '#1877F2' :
-                     currentPlan.platform === 'tiktok' ? '#010101' :
-                     currentPlan.platform === 'x' ? '#1DA1F2' : '#3b82f6',
-            });
-          }
-
-          // Insert calendar events for this week
-          if (calendarEvents.length > 0) {
-            try {
-              // Delete any pre-existing events with the same source_id to prevent duplicates
-              const sourceIds = calendarEvents.map((e: any) => e.source_id).filter(Boolean);
-              if (sourceIds.length > 0) {
-                await supabase.from('calendar_events').delete().in('source_id', sourceIds);
-              }
-
-              const { error: calErr } = await supabase
-                .from('calendar_events')
-                .insert(calendarEvents);
-              if (calErr) {
-                console.error(`[recycle] Calendar insert failed for week ${week}:`, calErr);
-              } else {
-                totalCalEvents += calendarEvents.length;
-              }
-            } catch (insertErr: any) {
-              console.error(`[recycle] Calendar insert crashed week ${week}:`, insertErr);
-            }
-          }
-        }
-
-        toast.info(`♻️ Days ${dayOffset - (batchEnd - batchStart + 1) * baseItems.length + 1}–${dayOffset} scheduled…`, { duration: 2000 });
-      }
-
-      // Auto-dedup: remove any same-day duplicate content from the calendar
-      const dedupRemoved = await smmApi.dedupCalendarEvents();
-      if (dedupRemoved > 0) {
-        console.log(`[recycle] Dedup cleaned ${dedupRemoved} duplicate calendar events`);
-      }
-
-      if (pushLive) {
-        toast.success(`♻️ Recycled & Pushed Live! ${totalScheduled} posts scheduled + ${totalCalEvents - dedupRemoved} calendar events across 51 weeks.`);
-        // Auto-reset plan status to draft after full push
-        await supabase.from('smm_content_plans').update({ status: 'draft', schedule_items: [] } as any).eq('id', currentPlan.id);
-        await fetchPlans();
-        toast.info('✅ Plan auto-reset — all 52 weeks are now live on the calendar.');
-      } else {
-        toast.success(`♻️ Recycled! ${totalCalEvents - dedupRemoved} calendar events created across 51 weeks.${dedupRemoved > 0 ? ` 🧹 ${dedupRemoved} duplicates auto-removed.` : ''}`);
-      }
     } catch (e: any) {
       toast.error(`Recycle failed: ${e.message}`);
+      setRecycling(false);
+      setRecycleProgress(null);
     }
-    setRecycling(false);
   };
 
   // ─── Clone to another platform ───
