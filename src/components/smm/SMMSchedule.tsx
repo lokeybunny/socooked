@@ -2163,6 +2163,34 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             </AlertDialog>
           )}
 
+          {/* Recycle Button — clone week across 52 weeks */}
+          {currentPlan && items.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10" disabled={recycling}>
+                  {recycling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Repeat2 className="h-3.5 w-3.5" />}
+                  Recycle 52w
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>♻️ Recycle Content for 52 Weeks?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will take your current {items.length} post(s) and schedule them to repeat every week for a full year (52 weeks). 
+                    That's {items.length * 51} additional posts auto-scheduled with the same media, captions, and times.
+                    Calendar events will also be created for each week.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleRecycle} className="bg-emerald-600 text-white hover:bg-emerald-700">
+                    Yes, Recycle ♻️
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
           {/* Custom Brand Images Button */}
           <Button
             variant="outline"
