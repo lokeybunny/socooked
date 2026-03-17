@@ -245,19 +245,23 @@ export const smmApi = {
       ]);
 
       const posts: ScheduledPost[] = [];
-      const planIndex = new Map<string, { profile_username: string; platform: string }>();
+
+      // Build plan index: maps schedule item id → { profile, platform, media_url, type }
+      const planIndex = new Map<string, { profile_username: string; platform: string; media_url?: string; type?: string }>();
 
       for (const plan of plansResult.data || []) {
         const items = Array.isArray(plan.schedule_items) ? plan.schedule_items : [];
         for (const item of items) {
           const itemRecord = item && typeof item === 'object' && !Array.isArray(item)
-            ? item as { id?: unknown }
+            ? item as { id?: unknown; media_url?: unknown; type?: unknown }
             : null;
           const itemId = typeof itemRecord?.id === 'string' ? itemRecord.id : '';
           if (!itemId || planIndex.has(itemId)) continue;
           planIndex.set(itemId, {
             profile_username: plan.profile_username,
             platform: plan.platform,
+            media_url: typeof itemRecord?.media_url === 'string' ? itemRecord.media_url : undefined,
+            type: typeof itemRecord?.type === 'string' ? itemRecord.type : undefined,
           });
         }
       }
@@ -278,14 +282,14 @@ export const smmApi = {
       }
 
       const existingKeys = new Set(
-        posts.map(post => `${post.job_id || post.id}||${post.scheduled_date || ''}||${post.platforms.join(',')}||${post.title}`)
+        posts.map(post => `${post.job_id || post.id}||${post.scheduled_date || ''}||${post.platforms.join(',')}||${stripPlatformLabel(post.title)}`)
       );
 
       for (const event of calendarResult.data || []) {
         const calendarPost = mapCalendarEventToScheduledPost(event, planIndex);
         if (!calendarPost) continue;
 
-        const key = `${calendarPost.job_id || calendarPost.id}||${calendarPost.scheduled_date || ''}||${calendarPost.platforms.join(',')}||${calendarPost.title}`;
+        const key = `${calendarPost.job_id || calendarPost.id}||${calendarPost.scheduled_date || ''}||${calendarPost.platforms.join(',')}||${stripPlatformLabel(calendarPost.title)}`;
         if (existingKeys.has(key)) continue;
 
         existingKeys.add(key);
