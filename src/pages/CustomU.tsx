@@ -35,7 +35,7 @@ export default function CustomU() {
 
   const load = async () => {
     let q = supabase.from('customers').select('id, full_name, category, upload_token, email, company, status')
-      .eq('status', 'prospect')
+      .in('status', ['prospect', 'prospect_emailed'])
       .order('full_name');
     if (search) q = q.ilike('full_name', `%${search}%`);
     const { data } = await q;
