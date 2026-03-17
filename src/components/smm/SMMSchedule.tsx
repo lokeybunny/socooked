@@ -1733,7 +1733,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         const progress = (data.meta as any)?.progress;
         if (progress) setRecycleProgress(progress);
 
-        if (data.status === 'completed') {
+        if (data.status === 'done') {
           clearInterval(pollInterval);
           setRecycling(false);
           setRecycleProgress(null);
