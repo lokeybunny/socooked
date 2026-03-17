@@ -132,13 +132,30 @@ export default function SMMQueue({ profiles, posts }: { profiles: SMMProfile[]; 
           {queuedPosts.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-4">{loading ? 'Loading...' : 'No posts in queue.'}</p>
           ) : (
-            <div className="space-y-2">
-              {queuedPosts.map((p, i) => (
-                <div key={p.id} className={`rounded-lg ${i === 0 ? 'ring-1 ring-primary/20' : ''}`}>
-                  <PostCard post={p} compact />
+            <>
+              <div className="space-y-2">
+                {pagedPosts.map((p, i) => (
+                  <div key={p.id} className={`rounded-lg ${page === 1 && i === 0 ? 'ring-1 ring-primary/20' : ''}`}>
+                    <PostCard post={p} compact />
+                  </div>
+                ))}
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-xs text-muted-foreground">
+                    Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, queuedPosts.length)} of {queuedPosts.length}
+                  </p>
+                  <div className="flex gap-1">
+                    <Button variant="outline" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-7 w-7" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>
