@@ -145,7 +145,7 @@ Return ONLY a JSON array of strings, each being one caption. Example:
         // Build new description from old description but swap the caption line
         const oldDesc = batch[j].description || "";
         const newDesc = oldDesc.replace(
-          /(?:♻️ \[INSTAGRAM\]|💯|🎶|🎵|🎧|🔊|🙌|👀|💎|✨|🎤).+/,
+          /(?:♻️ \[INSTAGRAM\]|🔥|💯|🎶|🎵|🎧|🔊|🙌|👀|💎|✨|🎤|⚡|💫|🌊|🏆|💜|🎯|💣|🌟|🎉|👑|🫡|🪩|🎸|🎹|💿|📀|🚀) ?\[?INSTAGRAM\]?.*/,
           newCaption
         ) || newCaption;
 
