@@ -115,10 +115,10 @@ export default function SMMOverview({ posts, allPosts, profiles }: Props) {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Today's Schedule */}
           <div className="glass-card p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">Today's Schedule</h3>
-            {scheduledToday.length === 0 ? <p className="text-xs text-muted-foreground py-4 text-center">Nothing scheduled today</p> : (
+            <h3 className="text-sm font-semibold text-foreground">Today's Schedule ({todayPosts.length})</h3>
+            {todayPosts.length === 0 ? <p className="text-xs text-muted-foreground py-4 text-center">Nothing scheduled today</p> : (
               <div className="space-y-2">
-                {scheduledToday.map(p => <PostCard key={p.id} post={p} compact />)}
+                {todayPosts.map(p => <PostCard key={p.id} post={p} compact onTimeEdit={handleTimeEdit} />)}
               </div>
             )}
           </div>
