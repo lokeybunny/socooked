@@ -2251,8 +2251,32 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                   timezone: tz,
                 });
                 totalScheduled++;
-              } catch (err) {
-                console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
+                // Rate-limit: wait 4s between uploads (API allows 20/min)
+                await new Promise(r => setTimeout(r, 4000));
+              } catch (err: any) {
+                // If rate-limited, pause and retry once
+                if (err?.message?.includes('429') || err?.message?.includes('rate_limit')) {
+                  console.warn(`[recycle] Rate limited at week ${week}, item ${item.id}. Pausing 60s…`);
+                  toast.info(`⏳ Rate limited — pausing 60s before continuing…`, { duration: 5000 });
+                  await new Promise(r => setTimeout(r, 60000));
+                  try {
+                    await smmApi.createPost({
+                      user: currentPlan.profile_username,
+                      type: postType,
+                      platforms: [apiPlatform as any],
+                      title,
+                      media_url: item.media_url,
+                      scheduled_date: scheduledDate,
+                      timezone: tz,
+                    });
+                    totalScheduled++;
+                    await new Promise(r => setTimeout(r, 4000));
+                  } catch (retryErr) {
+                    console.warn(`[recycle] Retry also failed for week ${week}, item ${item.id}:`, retryErr);
+                  }
+                } else {
+                  console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
+                }
               }
             }
 
