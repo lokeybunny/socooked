@@ -2411,8 +2411,8 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                   <AlertDialogTitle>♻️ Recycle Content for 52 Weeks?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This will take your current {items.length} post(s) and schedule them to repeat every week for a full year (52 weeks). 
-                    That's {items.length * 51} additional posts auto-scheduled with the same media, captions, and times.
-                    Calendar events will also be created for each week.
+                    That's {items.length * 51} additional posts — each week gets <strong>AI-generated fresh captions</strong> so your feed never looks repetitive.
+                    All posts will be enforced with at least 2 relevant hashtags. Calendar events will also be created.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
