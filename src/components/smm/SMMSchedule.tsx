@@ -1599,6 +1599,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
 
    const [resetting, setResetting] = useState(false);
    const [recycling, setRecycling] = useState(false);
+   const [cloning, setCloning] = useState(false);
    const [retryItems, setRetryItems] = useState<any[]>([]);
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
