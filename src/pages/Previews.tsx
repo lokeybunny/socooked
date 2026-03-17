@@ -141,6 +141,9 @@ function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<{ edit_url: string; chat_id: string } | null>(null);
+  const [phoneLookup, setPhoneLookup] = useState('');
+  const [phoneLooking, setPhoneLooking] = useState(false);
+  const [phoneMatch, setPhoneMatch] = useState<{ id: string; full_name: string } | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -150,8 +153,33 @@ function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
       setResult(null);
       setPrompt('');
       setCustomerId('');
+      setPhoneLookup('');
+      setPhoneMatch(null);
     }
   }, [open]);
+
+  // Auto-lookup customer by phone
+  useEffect(() => {
+    const digits = phoneLookup.replace(/\D/g, '');
+    if (digits.length < 7) { setPhoneMatch(null); return; }
+    setPhoneLooking(true);
+    const timer = setTimeout(async () => {
+      // Search for phone containing these digits
+      const { data } = await supabase
+        .from('customers')
+        .select('id, full_name')
+        .or(`phone.ilike.%${digits.slice(-10)}%,phone.ilike.%${digits}%`)
+        .limit(1);
+      if (data && data.length > 0) {
+        setPhoneMatch(data[0]);
+        setCustomerId(data[0].id);
+      } else {
+        setPhoneMatch(null);
+      }
+      setPhoneLooking(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [phoneLookup]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) { toast.error('Please enter a design prompt'); return; }
