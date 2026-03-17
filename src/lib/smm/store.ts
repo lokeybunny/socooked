@@ -234,11 +234,26 @@ export const smmApi = {
       const [scheduled, history, calendarResult, plansResult] = await Promise.all([
         invokeSMM('list-scheduled', { limit: '100' }).catch(() => ({ scheduled_posts: [] })),
         invokeSMM('upload-history', { limit: '100' }).catch(() => ({ history: [] })),
-        supabase
-          .from('calendar_events')
-          .select('id, title, description, start_time, source_id, created_at')
-          .eq('source', 'smm')
-          .order('created_at', { ascending: false }),
+        // Fetch ALL smm calendar events (may exceed default 1000 limit)
+        (async () => {
+          const allEvents: any[] = [];
+          const PAGE_SIZE = 1000;
+          let from = 0;
+          let done = false;
+          while (!done) {
+            const { data, error } = await supabase
+              .from('calendar_events')
+              .select('id, title, description, start_time, source_id, created_at')
+              .eq('source', 'smm')
+              .order('created_at', { ascending: false })
+              .range(from, from + PAGE_SIZE - 1);
+            if (error || !data || data.length === 0) { done = true; break; }
+            allEvents.push(...data);
+            if (data.length < PAGE_SIZE) { done = true; break; }
+            from += PAGE_SIZE;
+          }
+          return { data: allEvents, error: null };
+        })(),
         supabase
           .from('smm_content_plans')
           .select('profile_username, platform, schedule_items')
