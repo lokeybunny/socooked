@@ -1,5 +1,6 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { anchorPostsToCampaignStart } from '@/lib/smm/anchorPosts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useSMMStore } from '@/lib/smm/store';
 import { SMMProvider, useSMMContext } from '@/lib/smm/context';
@@ -55,7 +56,8 @@ function SMMInner() {
     if (!profileId && profiles.length > 0) setProfileId(profiles[0].id);
   }, [profiles, profileId, setProfileId]);
 
-  const filtered = filterPosts(posts, profileId, platform);
+  const anchoredPosts = useMemo(() => anchorPostsToCampaignStart(posts), [posts]);
+  const filtered = filterPosts(anchoredPosts, profileId, platform);
 
   // Derive set of connected platform keys from all profiles
   const connectedPlatforms = new Set<string>();
@@ -79,7 +81,7 @@ function SMMInner() {
 
         <div className="flex gap-4">
           {/* Platform Rail */}
-          <SMMPlatformRail posts={posts} unreadCounts={UNREAD_COUNTS} connectedPlatforms={connectedPlatforms} />
+          <SMMPlatformRail posts={anchoredPosts} unreadCounts={UNREAD_COUNTS} connectedPlatforms={connectedPlatforms} />
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
@@ -95,7 +97,7 @@ function SMMInner() {
                 </TabsList>
               </div>
 
-              <TabsContent value="overview"><SMMOverview posts={filtered} allPosts={posts} profiles={profiles} /></TabsContent>
+              <TabsContent value="overview"><SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} /></TabsContent>
               <TabsContent value="schedule"><SMMSchedule profiles={profiles} /></TabsContent>
               <TabsContent value="profiles"><SMMProfiles profiles={profiles} onRefresh={refresh} /></TabsContent>
               <TabsContent value="composer"><SMMComposer profiles={profiles} onRefresh={refresh} /></TabsContent>
