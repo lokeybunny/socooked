@@ -759,6 +759,14 @@ function inferCalendarEventType(description?: string, planType?: string): PostTy
   return 'text';
 }
 
+function extractCalendarEventProfile(description?: string): string {
+  return description?.match(/Profile:\s*([^\n]+)/i)?.[1]?.trim() || '';
+}
+
+function extractCalendarEventMediaUrl(description?: string): string | undefined {
+  return description?.match(/Media URL:\s*([^\n]+)/i)?.[1]?.trim() || undefined;
+}
+
 function mapCalendarEventToScheduledPost(
   event: { id: string; title: string | null; description: string | null; start_time: string | null; source_id: string | null; created_at: string },
   planIndex: Map<string, { profile_username: string; platform: string; media_url?: string; type?: string }>
@@ -776,7 +784,7 @@ function mapCalendarEventToScheduledPost(
 
   if (!platform || !event.start_time) return null;
 
-  const profileUsername = planMeta?.profile_username || '';
+  const profileUsername = planMeta?.profile_username || extractCalendarEventProfile(event.description || undefined);
   const cleanTitle = stripPlatformLabel(event.title || '');
 
   return {
@@ -789,7 +797,7 @@ function mapCalendarEventToScheduledPost(
     description: event.description || undefined,
     type: inferCalendarEventType(event.description || undefined, planMeta?.type),
     platforms: [platform],
-    media_url: planMeta?.media_url,
+    media_url: planMeta?.media_url || extractCalendarEventMediaUrl(event.description || undefined),
     preview_url: undefined,
     status: 'scheduled',
     scheduled_date: event.start_time,
