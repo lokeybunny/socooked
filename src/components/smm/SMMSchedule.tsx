@@ -1672,6 +1672,29 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const [plans, setPlans] = useState<ContentPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [activePlatform, setActivePlatform] = useState('instagram');
+
+  // Derive available schedule platforms from the profile's connected accounts
+  const currentProfile = profiles.find(p => p.username === profileId || p.id === profileId);
+  const availablePlatforms = useMemo(() => {
+    if (!currentProfile) return SCHEDULE_PLATFORMS;
+    const connectedSet = new Set(
+      currentProfile.connected_platforms
+        .filter(cp => cp.connected)
+        .map(cp => cp.platform === 'twitter' ? 'x' : cp.platform)
+    );
+    // Also include platforms that already have content plans
+    plans.forEach(p => connectedSet.add(p.platform));
+    // Filter SCHEDULE_PLATFORMS to only connected ones
+    const filtered = SCHEDULE_PLATFORMS.filter(p => connectedSet.has(p.value));
+    return filtered.length > 0 ? filtered : SCHEDULE_PLATFORMS;
+  }, [currentProfile, plans]);
+
+  // Auto-select first available platform if current one isn't available
+  useEffect(() => {
+    if (availablePlatforms.length > 0 && !availablePlatforms.find(p => p.value === activePlatform)) {
+      setActivePlatform(availablePlatforms[0].value);
+    }
+  }, [availablePlatforms, activePlatform]);
   const [pushingLive, setPushingLive] = useState(false);
 
    const [resetting, setResetting] = useState(false);
