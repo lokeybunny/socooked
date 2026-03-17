@@ -2472,7 +2472,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           ))}
         </TabsList>
 
-        {SCHEDULE_PLATFORMS.map(p => (
+        {availablePlatforms.map(p => (
           <TabsContent key={p.value} value={p.value}>
             {loading ? (
               <div className="space-y-3 p-4">
