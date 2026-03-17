@@ -18,13 +18,16 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
   try {
+    const reqBody = await req.json().catch(() => ({}));
+    const catchUp = reqBody.catch_up === true;
+    
     const now = new Date();
-    // Look for calendar events in the last 20 minutes that haven't been published yet
-    // This gives a window so the cron (every 5 min) doesn't miss posts
-    const windowStart = new Date(now.getTime() - 20 * 60 * 1000).toISOString();
-    const windowEnd = new Date(now.getTime() + 2 * 60 * 1000).toISOString(); // small future buffer
+    // Normal mode: 20-min lookback. Catch-up mode: look back 24 hours
+    const lookbackMs = catchUp ? 24 * 60 * 60 * 1000 : 20 * 60 * 1000;
+    const windowStart = new Date(now.getTime() - lookbackMs).toISOString();
+    const windowEnd = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
 
-    console.log(`[smm-auto-publish] Checking window: ${windowStart} → ${windowEnd}`);
+    console.log(`[smm-auto-publish] ${catchUp ? "CATCH-UP" : "Normal"} window: ${windowStart} → ${windowEnd}`);
 
     // Get SMM calendar events that are due
     const { data: events, error } = await supabase
