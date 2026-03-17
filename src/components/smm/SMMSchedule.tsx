@@ -2353,7 +2353,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
                 Clone to…
               </SelectTrigger>
               <SelectContent>
-                {SCHEDULE_PLATFORMS.filter(p => p.value !== activePlatform).map(p => (
+                {availablePlatforms.filter(p => p.value !== activePlatform).map(p => (
                   <SelectItem key={p.value} value={p.value}>
                     {p.label}
                   </SelectItem>
