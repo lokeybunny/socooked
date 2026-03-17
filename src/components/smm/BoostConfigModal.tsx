@@ -45,8 +45,7 @@ export default function BoostConfigModal({ open, onOpenChange, profileUsername }
   const [services, setServices] = useState<DarksideService[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingServices, setLoadingServices] = useState(false);
-  const [autoBoostEnabled, setAutoBoostEnabled] = useState(false);
-  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [activePresetIds, setActivePresetIds] = useState<Set<string>>(new Set());
   const [balance, setBalance] = useState<string | null>(null);
 
   // New preset form
@@ -68,11 +67,6 @@ export default function BoostConfigModal({ open, onOpenChange, profileUsername }
   const loadServices = useCallback(async () => {
     setLoadingServices(true);
     try {
-      const res = await supabase.functions.invoke('darkside-smm', {
-        body: {},
-        headers: { 'Content-Type': 'application/json' },
-      });
-      // The function expects action as query param, use fetch directly
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/darkside-smm?action=services`;
       const resp = await fetch(url, {
         headers: {
@@ -82,7 +76,6 @@ export default function BoostConfigModal({ open, onOpenChange, profileUsername }
       });
       const json = await resp.json();
       if (json.success && Array.isArray(json.data)) {
-        // Filter to Instagram/TikTok relevant services
         const relevant = json.data.filter((s: DarksideService) =>
           /instagram|tiktok/i.test(s.category || s.name)
         );
@@ -109,19 +102,32 @@ export default function BoostConfigModal({ open, onOpenChange, profileUsername }
     } catch { /* ignore */ }
   }, []);
 
+  // Load active preset IDs from DB config
+  const loadActiveConfig = useCallback(async () => {
+    const { data } = await supabase
+      .from('site_configs')
+      .select('content')
+      .eq('site_id', 'smm-boost')
+      .eq('section', `auto-boost-${profileUsername}`)
+      .single();
+    const config = data?.content as { enabled?: boolean; preset_ids?: string[]; preset_id?: string } | null;
+    if (config) {
+      // Support both legacy single preset_id and new multi preset_ids
+      if (config.preset_ids && Array.isArray(config.preset_ids)) {
+        setActivePresetIds(new Set(config.preset_ids));
+      } else if (config.preset_id) {
+        setActivePresetIds(new Set([config.preset_id]));
+      }
+    }
+  }, [profileUsername]);
+
   useEffect(() => {
     if (open) {
       loadPresets();
       loadBalance();
-      // Load auto-boost state from localStorage
-      const stored = localStorage.getItem(`boost-auto-${profileUsername}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setAutoBoostEnabled(parsed.enabled);
-        setActivePresetId(parsed.presetId);
-      }
+      loadActiveConfig();
     }
-  }, [open, loadPresets, loadBalance, profileUsername]);
+  }, [open, loadPresets, loadBalance, loadActiveConfig]);
 
   const handleAddService = () => {
     if (!newServiceId) return;
@@ -162,39 +168,31 @@ export default function BoostConfigModal({ open, onOpenChange, profileUsername }
 
   const handleDeletePreset = async (id: string) => {
     await supabase.from('smm_boost_presets').delete().eq('id', id);
-    if (activePresetId === id) {
-      setActivePresetId(null);
-      setAutoBoostEnabled(false);
-      localStorage.removeItem(`boost-auto-${profileUsername}`);
-    }
+    const newActive = new Set(activePresetIds);
+    newActive.delete(id);
+    setActivePresetIds(newActive);
+    saveAutoBoostConfig(newActive);
     loadPresets();
     toast.success('Preset deleted');
   };
 
-  const handleToggleAutoBoost = (enabled: boolean) => {
-    setAutoBoostEnabled(enabled);
-    if (enabled && !activePresetId && presets.length > 0) {
-      setActivePresetId(presets[0].id);
+  const handleTogglePreset = (presetId: string, enabled: boolean) => {
+    const newActive = new Set(activePresetIds);
+    if (enabled) {
+      newActive.add(presetId);
+    } else {
+      newActive.delete(presetId);
     }
-    const state = { enabled, presetId: enabled ? (activePresetId || presets[0]?.id) : null };
-    localStorage.setItem(`boost-auto-${profileUsername}`, JSON.stringify(state));
-    // Also persist to DB for the edge function to read
-    saveAutoBoostConfig(enabled, state.presetId);
+    setActivePresetIds(newActive);
+    saveAutoBoostConfig(newActive);
   };
 
-  const handleSelectPreset = (presetId: string) => {
-    setActivePresetId(presetId);
-    const state = { enabled: autoBoostEnabled, presetId };
-    localStorage.setItem(`boost-auto-${profileUsername}`, JSON.stringify(state));
-    if (autoBoostEnabled) saveAutoBoostConfig(true, presetId);
-  };
-
-  const saveAutoBoostConfig = async (enabled: boolean, presetId: string | null) => {
-    // Store the active boost config as a site_config so edge functions can read it
+  const saveAutoBoostConfig = async (ids: Set<string>) => {
+    const preset_ids = [...ids];
     await supabase.from('site_configs').upsert({
       site_id: 'smm-boost',
       section: `auto-boost-${profileUsername}`,
-      content: { enabled, preset_id: presetId } as any,
+      content: { enabled: preset_ids.length > 0, preset_ids } as any,
       is_published: true,
     }, { onConflict: 'site_id,section' });
   };
@@ -202,72 +200,72 @@ export default function BoostConfigModal({ open, onOpenChange, profileUsername }
   const totalCost = (svcs: BoostService[]) =>
     svcs.reduce((sum, s) => sum + (s.quantity / 1000) * s.rate, 0).toFixed(4);
 
+  const combinedCostPerPost = presets
+    .filter(p => activePresetIds.has(p.id))
+    .reduce((sum, p) => sum + p.services.reduce((s, svc) => s + (svc.quantity / 1000) * svc.rate, 0), 0);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
+            <Zap className="h-5 w-5 text-primary" />
             Auto-Boost Configuration
           </DialogTitle>
         </DialogHeader>
 
-        {/* Balance & Auto Toggle */}
+        {/* Balance & Summary */}
         <div className="flex items-center justify-between bg-muted/50 border border-border rounded-lg p-3">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <DollarSign className="h-4 w-4 text-green-500" />
+              <DollarSign className="h-4 w-4 text-primary" />
               <span className="text-sm font-mono">Balance: {balance ?? '...'}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Label htmlFor="auto-boost" className="text-sm">Auto-Boost</Label>
-            <Switch id="auto-boost" checked={autoBoostEnabled} onCheckedChange={handleToggleAutoBoost} />
+            {activePresetIds.size > 0 ? (
+              <Badge variant="default" className="text-[10px] font-mono">
+                {activePresetIds.size} active · ${combinedCostPerPost.toFixed(4)}/post
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-[10px]">No presets active</Badge>
+            )}
           </div>
         </div>
 
-        {/* Active Preset Selector (when auto-boost is ON) */}
-        {autoBoostEnabled && presets.length > 0 && (
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Active Preset (fires on every publish)</Label>
-            <Select value={activePresetId || ''} onValueChange={handleSelectPreset}>
-              <SelectTrigger><SelectValue placeholder="Select preset" /></SelectTrigger>
-              <SelectContent>
-                {presets.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.preset_name} — ${totalCost(p.services)}/post
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {/* Saved Presets */}
+        {/* Saved Presets with individual toggles */}
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Saved Presets</h3>
+          <h3 className="text-sm font-semibold">Boost Presets</h3>
           {presets.length === 0 && <p className="text-xs text-muted-foreground">No presets yet. Create one below.</p>}
-          {presets.map(p => (
-            <div key={p.id} className={`border rounded-lg p-3 space-y-1.5 ${activePresetId === p.id ? 'border-primary bg-primary/5' : 'border-border'}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-sm">{p.preset_name}</span>
-                  {activePresetId === p.id && autoBoostEnabled && <Badge variant="default" className="text-[10px]">ACTIVE</Badge>}
-                  <Badge variant="outline" className="text-[10px]">${totalCost(p.services)}/post</Badge>
+          {presets.map(p => {
+            const isActive = activePresetIds.has(p.id);
+            return (
+              <div key={p.id} className={`border rounded-lg p-3 space-y-1.5 transition-colors ${isActive ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={isActive}
+                      onCheckedChange={(checked) => handleTogglePreset(p.id, checked)}
+                      className="scale-90"
+                    />
+                    <span className="font-medium text-sm">{p.preset_name}</span>
+                    {isActive && <Badge variant="default" className="text-[10px]">ACTIVE</Badge>}
+                    <Badge variant="outline" className="text-[10px] font-mono">${totalCost(p.services)}/post</Badge>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeletePreset(p.id)}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeletePreset(p.id)}>
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </Button>
+                <div className="flex flex-wrap gap-1 pl-9">
+                  {p.services.map((s, i) => (
+                    <Badge key={i} variant="secondary" className="text-[10px] font-mono">
+                      {s.service_name.substring(0, 40)}… × {s.quantity}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {p.services.map((s, i) => (
-                  <Badge key={i} variant="secondary" className="text-[10px] font-mono">
-                    {s.service_name.substring(0, 40)}… × {s.quantity}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Create New Preset */}
@@ -275,7 +273,6 @@ export default function BoostConfigModal({ open, onOpenChange, profileUsername }
           <h3 className="text-sm font-semibold">Create New Preset</h3>
           <Input placeholder="Preset name (e.g. 'Standard Boost')" value={presetName} onChange={e => setPresetName(e.target.value)} />
 
-          {/* Selected services */}
           {selectedServices.map((s, i) => (
             <div key={i} className="flex items-center gap-2 text-xs bg-muted/50 rounded p-2">
               <span className="flex-1 truncate">{s.service_name}</span>
@@ -287,7 +284,6 @@ export default function BoostConfigModal({ open, onOpenChange, profileUsername }
             </div>
           ))}
 
-          {/* Add service */}
           {addingService ? (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
