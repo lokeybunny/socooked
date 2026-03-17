@@ -1038,17 +1038,17 @@ function TikTokFeedPreview({ items, onItemClick, onToggleFavorite, profileUserna
   );
 }
 
-function XFeedPreview({ items, onItemClick, onToggleFavorite }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void }) {
+function XFeedPreview({ items, onItemClick, onToggleFavorite, profileUsername }: { items: ScheduleItem[]; onItemClick?: (item: ScheduleItem) => void; onToggleFavorite: (id: string) => void; profileUsername: string }) {
   return (
     <div className="divide-y divide-border/30">
       {items.map((item) => (
         <div key={item.id} className="p-3 hover:bg-muted/20 transition-colors cursor-pointer" onClick={() => onItemClick?.(item)}>
           <div className="flex gap-2">
-            <div className="w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold shrink-0">S</div>
+            <div className="w-8 h-8 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold shrink-0">{profileUsername.charAt(0).toUpperCase()}</div>
             <div className="flex-1 min-w-0 space-y-1">
               <div className="flex items-center gap-1">
-                <span className="text-xs font-bold">STU25</span>
-                <span className="text-xs text-muted-foreground">@STU25 · {format(parseISO(item.date), 'MMM d')}</span>
+                <span className="text-xs font-bold">{profileUsername}</span>
+                <span className="text-xs text-muted-foreground">@{profileUsername} · {format(parseISO(item.date), 'MMM d')}</span>
               </div>
               <p className="text-sm">{item.caption}</p>
               {item.hashtags?.length > 0 && (
