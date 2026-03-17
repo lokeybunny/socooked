@@ -85,6 +85,16 @@ HOW TO TRACK PROGRESS:
 - Once ALL 5 topics have been addressed (or the user says "just do it"), proceed to content planning.
 - If the user provides rich context upfront that covers multiple questions, acknowledge it and skip those.
 
+CRITICAL — PRE-UPLOADED MEDIA:
+When you see [ATTACHED_MEDIA: ...] in the user's message, the user has ALREADY uploaded their own media files. In this case:
+- Do NOT ask for assets — the files are already provided.
+- Skip discovery questions about assets entirely.
+- In each schedule_item, set "media_ref" to the filename that should be used for that item (e.g. "Drake_01.mp4").
+- The system will automatically match media_ref to the uploaded file URLs and set media_url.
+- Set "status" to "ready" for items that have a matching uploaded file.
+- The media does NOT need to be "generated" — it is already provided by the user.
+- Distribute the uploaded files across the schedule items evenly by name/order.
+
 FORMAT for asking ONE question:
 { "clarify": "Your single professional question here. Be conversational, warm, and strategic." }
 
