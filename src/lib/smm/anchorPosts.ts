@@ -100,10 +100,9 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
 
   const byCampaign = new Map<string, ScheduledPost[]>();
   for (const post of recycledPosts) {
-    const platform = post.platforms[0] || 'unknown';
     const profile = post.profile_username || post.profile_id || 'unknown';
     const campaign = extractCampaignKey(post);
-    const bucketKey = `${profile}::${platform}::${campaign}`;
+    const bucketKey = `${profile}::${campaign}`;
 
     if (!byCampaign.has(bucketKey)) byCampaign.set(bucketKey, []);
     byCampaign.get(bucketKey)!.push(post);
