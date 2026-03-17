@@ -59,47 +59,9 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const calEnd = endOfWeek(monthEnd);
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
+  // Posts are already anchored from the parent — just filter active ones
   const scheduledPosts = useMemo(() => {
-    const basePosts = posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status));
-    if (basePosts.length === 0) return [] as ScheduledPost[];
-
-    // Deduplicate by job_id first (remove exact API duplicates)
-    const byJobId = new Map<string, ScheduledPost>();
-    for (const post of basePosts) {
-      const key = post.job_id || post.id;
-      if (!byJobId.has(key)) byJobId.set(key, post);
-    }
-    const uniquePosts = Array.from(byJobId.values());
-
-    // Group posts by their ORIGINAL scheduled date (from original_scheduled_str or scheduled_date)
-    // and deduplicate: keep only one post per unique title across all days
-    const seenTitle = new Set<string>();
-    const dedupedByContent: ScheduledPost[] = [];
-    const sortedUnique = [...uniquePosts].sort((a, b) =>
-      (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || a.created_at.localeCompare(b.created_at)
-    );
-    for (const post of sortedUnique) {
-      if (!post.scheduled_date) continue;
-      const titleKey = post.title.slice(0, 50).toLowerCase().replace(/\s+/g, ' ');
-      if (seenTitle.has(titleKey)) continue;
-      seenTitle.add(titleKey);
-      dedupedByContent.push(post);
-    }
-
-    // Redistribute posts to consecutive days starting from CAMPAIGN_START_DAY
-    // Each unique post gets its own day: Mar 17, Mar 18, Mar 19, etc.
-    return dedupedByContent.map((post, index) => {
-      const targetDate = new Date(`${CAMPAIGN_START_DAY}T12:00:00`);
-      targetDate.setDate(targetDate.getDate() + index);
-      const yyyy = targetDate.getFullYear();
-      const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
-      const dd = String(targetDate.getDate()).padStart(2, '0');
-      const timePart = post.scheduled_date!.split('T')[1] || '12:00:00';
-      return {
-        ...post,
-        scheduled_date: `${yyyy}-${mm}-${dd}T${timePart}`,
-      };
-    });
+    return posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status));
   }, [posts]);
 
   const getPostsForDay = (day: Date) => scheduledPosts.filter(p => p.scheduled_date && isSameDay(new Date(p.scheduled_date), day));
