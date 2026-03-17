@@ -2256,7 +2256,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   };
 
   // Available platforms to clone TO (exclude current)
-  const cloneTargets = SCHEDULE_PLATFORMS.filter(p => p.value !== activePlatform && !plans.find(pl => pl.platform === p.value));
+  const cloneTargets = availablePlatforms.filter(p => p.value !== activePlatform && !plans.find(pl => pl.platform === p.value));
 
   const todayItems = items.filter(i => { try { return isToday(parseISO(i.date)); } catch { return false; } });
   const upcomingItems = items.filter(i => { try { return !isToday(parseISO(i.date)); } catch { return true; } });
