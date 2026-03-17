@@ -421,7 +421,7 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
 
         {post.error && <p className="text-xs text-destructive border-t border-border pt-2">Error: {post.error}</p>}
       </div>
-      <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} />
+      <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} onDelete={onDelete} />
     </>
   );
 }
