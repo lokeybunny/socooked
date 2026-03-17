@@ -35,13 +35,37 @@ export default function SMMOverview({ posts, allPosts, profiles }: Props) {
   const [viewMode, setViewMode] = useState<'all' | 'byPlatform'>('all');
 
   const today = new Date().toISOString().slice(0, 10);
-  const scheduledToday = posts.filter(p => p.scheduled_date?.startsWith(today) && p.status === 'scheduled');
+  const todayPosts = posts.filter(p => p.scheduled_date?.startsWith(today)).sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+  const scheduledToday = todayPosts.filter(p => p.status === 'scheduled');
   const failed24h = posts.filter(p => p.status === 'failed' && new Date(p.created_at) > new Date(Date.now() - 86400000));
   const completed7d = posts.filter(p => p.status === 'completed' && new Date(p.created_at) > new Date(Date.now() - 604800000));
   const total7d = posts.filter(p => new Date(p.created_at) > new Date(Date.now() - 604800000));
   const successRate = total7d.length ? Math.round((completed7d.length / total7d.length) * 100) : 100;
   const queued = posts.filter(p => p.status === 'queued' || p.status === 'scheduled').sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
   const recent = [...posts].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 4);
+
+  const handleTimeEdit = async (post: ScheduledPost, newTime: string) => {
+    // newTime is "HH:mm", combine with today's date
+    const dateStr = post.scheduled_date?.slice(0, 10) || today;
+    const newStartTime = `${dateStr}T${newTime}:00`;
+    // Find matching calendar_event by title substring and date
+    const { data: events } = await supabase
+      .from('calendar_events')
+      .select('id, title, start_time')
+      .eq('source', 'smm')
+      .gte('start_time', `${dateStr}T00:00:00`)
+      .lte('start_time', `${dateStr}T23:59:59`);
+    
+    // Match by closest title
+    const match = events?.find(e => post.title.includes(e.title.slice(0, 30)) || e.title.includes(post.title.slice(0, 30)));
+    if (match) {
+      const { error } = await supabase.from('calendar_events').update({ start_time: newStartTime }).eq('id', match.id);
+      if (error) { toast.error('Failed to update time'); return; }
+      toast.success(`Rescheduled to ${newTime}`);
+    } else {
+      toast.error('Could not find matching calendar event');
+    }
+  };
 
   // By-platform view data
   const activePlatforms = EXTENDED_PLATFORMS.filter(p => p !== 'all' && allPosts.some(post => post.platforms.includes(p as Platform)));
