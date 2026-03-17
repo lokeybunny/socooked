@@ -7,6 +7,13 @@ const GENERIC_CAMPAIGN_TERMS = new Set([
   'music', 'newmusic', 'sharethevibes', 'musicdiscovery', 'musicvibes', 'sharegoodmusic',
   'weekendvibes', 'playlistgoals', 'goodvibes', 'instamusic', 'vibes', 'week', 'day',
 ]);
+const ARTIST_MARKERS = {
+  drake: ['drake'],
+  lamb: ['@lamb.wavv', '@lamb.wavvv', 'lamb.wavv', 'lamb.wavvv', 'lambwavv', 'lambwavvv'],
+  oranj: ['@oranjgoodman', 'oranj goodman', 'oranjgoodman', 'ojg-', 'oranj'],
+} as const;
+
+type ArtistKey = keyof typeof ARTIST_MARKERS;
 
 function isRecycledCampaignPost(post: ScheduledPost): boolean {
   return /^recycle-w\d+-/i.test(post.job_id || '') || /Recycled from "([^"]+)"/i.test(post.description || '');
@@ -23,6 +30,16 @@ function normalizeCampaignKey(value: string): string {
   return normalized || '_default';
 }
 
+function extractArtistKey(post: ScheduledPost): ArtistKey | null {
+  const haystack = `${post.job_id || ''} ${post.title || ''} ${post.description || ''}`.toLowerCase();
+
+  if (ARTIST_MARKERS.oranj.some(marker => haystack.includes(marker))) return 'oranj';
+  if (ARTIST_MARKERS.lamb.some(marker => haystack.includes(marker))) return 'lamb';
+  if (ARTIST_MARKERS.drake.some(marker => haystack.includes(marker))) return 'drake';
+
+  return null;
+}
+
 function extractCampaignKeyFromText(text?: string): string {
   if (!text) return '_default';
 
@@ -36,6 +53,9 @@ function extractCampaignKeyFromText(text?: string): string {
 }
 
 function extractCampaignKey(post: ScheduledPost): string {
+  const artistKey = extractArtistKey(post);
+  if (artistKey) return artistKey;
+
   const jobId = (post.job_id || '').toLowerCase();
   const recycleMatch = jobId.match(/^recycle-w\d+-(.+)$/i);
 
