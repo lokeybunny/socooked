@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { ScheduledPost } from '@/lib/smm/types';
 import { PLATFORM_META } from '@/lib/smm/context';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ interface PostCardProps {
   onDuplicate?: (post: ScheduledPost) => void;
   onCancel?: (post: ScheduledPost) => void;
   onReschedule?: (post: ScheduledPost) => void;
+  onTimeEdit?: (post: ScheduledPost, newTime: string) => void;
 }
 
 // ─── Post Detail Dialog ───
@@ -122,8 +123,10 @@ function PostDetailDialog({ post, open, onOpenChange }: { post: ScheduledPost; o
   );
 }
 
-export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule }: PostCardProps) {
+export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule, onTimeEdit }: PostCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const [editingTime, setEditingTime] = useState(false);
+  const timeInputRef = useRef<HTMLInputElement>(null);
   const scheduledLocal = post.scheduled_date ? format(new Date(post.scheduled_date), 'MMM d, h:mm a') : null;
   const scheduledUTC = post.scheduled_date ? format(new Date(post.scheduled_date), "yyyy-MM-dd'T'HH:mm:ss'Z'") : null;
 
@@ -150,7 +153,27 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
                 return meta ? <span key={p} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.abbr}</span> : null;
               })}
               <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${STATUS_STYLES[post.status]}`}>{post.status}</span>
-              {scheduledLocal && <span className="text-[10px] text-muted-foreground" title={scheduledUTC || ''}>{scheduledLocal}</span>}
+              {scheduledLocal && onTimeEdit && !editingTime && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditingTime(true); setTimeout(() => timeInputRef.current?.showPicker(), 50); }}
+                  className="text-[10px] text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+                  title="Click to edit time"
+                >
+                  <Clock className="h-2.5 w-2.5" />{scheduledLocal}
+                </button>
+              )}
+              {scheduledLocal && onTimeEdit && editingTime && (
+                <input
+                  ref={timeInputRef}
+                  type="time"
+                  defaultValue={post.scheduled_date ? format(new Date(post.scheduled_date), 'HH:mm') : ''}
+                  className="text-[10px] bg-muted rounded px-1 py-0.5 w-20 border border-primary/30"
+                  autoFocus
+                  onBlur={(e) => { setEditingTime(false); if (e.target.value) onTimeEdit(post, e.target.value); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { setEditingTime(false); onTimeEdit(post, (e.target as HTMLInputElement).value); } if (e.key === 'Escape') setEditingTime(false); }}
+                />
+              )}
+              {scheduledLocal && !onTimeEdit && <span className="text-[10px] text-muted-foreground" title={scheduledUTC || ''}>{scheduledLocal}</span>}
             </div>
           </div>
           <DropdownMenu>
