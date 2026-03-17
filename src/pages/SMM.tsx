@@ -20,9 +20,10 @@ import SMMTerminal from '@/components/smm/SMMTerminal';
 import SMMSchedule from '@/components/smm/SMMSchedule';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
-  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music, Clock, Zap,
+  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music, Clock, Zap, Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import ArtistCampaignModal from '@/components/smm/ArtistCampaignModal';
 import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
 import BoostConfigModal from '@/components/smm/BoostConfigModal';
