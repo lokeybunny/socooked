@@ -106,6 +106,13 @@ function extractDayOffset(post: ScheduledPost): number | null {
     return offset >= 0 ? weekOffset + offset : null;
   }
 
+  // Fallback: trailing number after campaign key (e.g. recycle-w1-ojg-4 → slot 4)
+  const trailingNumberMatch = jobId.match(/-(\d+)$/);
+  if (trailingNumberMatch) {
+    const offset = Number(trailingNumberMatch[1]) - 1;
+    return offset >= 0 ? weekOffset + offset : null;
+  }
+
   return null;
 }
 
