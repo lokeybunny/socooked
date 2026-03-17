@@ -16,6 +16,23 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-zinc-600 text-white',
 };
 
+const DRAKE_TARGET_START_DAY = '2026-03-17';
+
+const shiftIsoDateStringByDays = (value: string, days: number) => {
+  const [datePart, timePart = '12:00:00'] = value.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day));
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  const yyyy = shifted.getUTCFullYear();
+  const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${timePart}`;
+};
+
+const getDayKey = (scheduledDate: string) => scheduledDate.slice(0, 10);
+
+const isDrakePost = (post: ScheduledPost) => /\bdrake\b/i.test(`${post.title} ${post.description || ''}`);
+
 export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost[]; onRefresh: () => void }) {
   const { platform } = useSMMContext();
   const [current, setCurrent] = useState(new Date());
@@ -27,7 +44,6 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const [viewMode, setViewMode] = useState<'calendar' | 'lanes'>('calendar');
   const dedupRan = useRef(false);
 
-  // Auto-dedup on mount: remove same-day duplicate SMM calendar events
   useEffect(() => {
     if (dedupRan.current) return;
     dedupRan.current = true;
@@ -37,7 +53,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
         onRefresh();
       }
     });
-  }, []);
+  }, [onRefresh]);
 
   const monthStart = startOfMonth(current);
   const monthEnd = endOfMonth(current);
@@ -45,7 +61,54 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const calEnd = endOfWeek(monthEnd);
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
-  const scheduledPosts = useMemo(() => posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status)), [posts]);
+  const scheduledPosts = useMemo(() => {
+    const basePosts = posts.filter(p => p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status));
+    if (basePosts.length === 0) return [] as ScheduledPost[];
+
+    const drakePosts = basePosts.filter(post => post.scheduled_date && isDrakePost(post));
+    let shiftedPosts = basePosts;
+
+    if (drakePosts.length > 0) {
+      const earliestDrakeDay = drakePosts
+        .map(post => getDayKey(post.scheduled_date!))
+        .sort()[0];
+
+      if (earliestDrakeDay && earliestDrakeDay !== DRAKE_TARGET_START_DAY) {
+        const targetDate = new Date(`${DRAKE_TARGET_START_DAY}T00:00:00Z`);
+        const currentDate = new Date(`${earliestDrakeDay}T00:00:00Z`);
+        const dayDelta = Math.round((targetDate.getTime() - currentDate.getTime()) / 86400000);
+
+        shiftedPosts = basePosts.map(post => {
+          if (!post.scheduled_date || !isDrakePost(post)) return post;
+          return {
+            ...post,
+            scheduled_date: shiftIsoDateStringByDays(post.scheduled_date, dayDelta),
+          };
+        });
+      }
+    }
+
+    const seenDays = new Set<string>();
+    const dedupedPosts: ScheduledPost[] = [];
+
+    const sortedPosts = [...shiftedPosts].sort((a, b) => {
+      const aDate = a.scheduled_date || '';
+      const bDate = b.scheduled_date || '';
+      if (aDate !== bDate) return aDate.localeCompare(bDate);
+      return a.created_at.localeCompare(b.created_at);
+    });
+
+    for (const post of sortedPosts) {
+      if (!post.scheduled_date) continue;
+      const dayKey = getDayKey(post.scheduled_date);
+      if (seenDays.has(dayKey)) continue;
+      seenDays.add(dayKey);
+      dedupedPosts.push(post);
+    }
+
+    return dedupedPosts;
+  }, [posts]);
+
   const getPostsForDay = (day: Date) => scheduledPosts.filter(p => p.scheduled_date && isSameDay(new Date(p.scheduled_date), day));
 
   const openDetail = (post: ScheduledPost) => {
@@ -74,7 +137,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
 
   const handleDrop = async (day: Date) => {
     if (!dragId) return;
-    const post = posts.find(p => p.id === dragId);
+    const post = scheduledPosts.find(p => p.id === dragId);
     if (!post?.scheduled_date || !post.job_id) return;
     const oldDate = new Date(post.scheduled_date);
     const newDate = new Date(day);
@@ -85,7 +148,6 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
     onRefresh();
   };
 
-  // Channel lanes data
   const activePlatforms = useMemo(() => EXTENDED_PLATFORMS.filter(p => p !== 'all' && scheduledPosts.some(post => post.platforms.includes(p as Platform))), [scheduledPosts]);
   const next7Days = eachDayOfInterval({ start: new Date(), end: new Date(Date.now() + 6 * 86400000) });
 
@@ -172,7 +234,6 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
         </div>
       )}
 
-      {/* Detail Sheet */}
       <Sheet open={!!selectedPost} onOpenChange={v => !v && setSelectedPost(null)}>
         <SheetContent>
           {selectedPost && (
