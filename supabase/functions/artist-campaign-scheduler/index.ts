@@ -5,6 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -14,181 +17,188 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { action, campaign_id, extend_days } = await req.json();
+    const body = await req.json();
+    const { action, campaign_id } = body;
 
+    // ─── SCHEDULE: initial 7-14 day campaign ───
     if (action === "schedule") {
-      // Fetch the campaign
-      const { data: campaign, error: fetchErr } = await supabase
-        .from("smm_artist_campaigns")
-        .select("*")
-        .eq("id", campaign_id)
-        .single();
+      const { data: campaign } = await supabase
+        .from("smm_artist_campaigns").select("*").eq("id", campaign_id).single();
+      if (!campaign) return json({ error: "Campaign not found" }, 404);
 
-      if (fetchErr || !campaign) {
-        return new Response(JSON.stringify({ error: "Campaign not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (!campaign.media_urls || campaign.media_urls.length === 0) {
+        await supabase.from("smm_artist_campaigns").update({ status: "paused" }).eq("id", campaign_id);
+        return json({ error: "No media — campaign paused" }, 400);
       }
 
-      // Count current active campaigns for this profile
+      // Cap active campaigns at 5
       const { count: activeCount } = await supabase
-        .from("smm_artist_campaigns")
-        .select("id", { count: "exact", head: true })
-        .eq("profile_username", campaign.profile_username)
-        .eq("status", "active");
+        .from("smm_artist_campaigns").select("id", { count: "exact", head: true })
+        .eq("profile_username", campaign.profile_username).eq("status", "active");
 
-      // Allow up to 5 active slots (4 base + 1 temporary)
       if ((activeCount || 0) >= 5) {
-        // Find the oldest active campaign and expire it
         const { data: oldest } = await supabase
-          .from("smm_artist_campaigns")
-          .select("id")
-          .eq("profile_username", campaign.profile_username)
-          .eq("status", "active")
-          .order("started_at", { ascending: true })
-          .limit(1)
-          .single();
-
-        if (oldest) {
-          await supabase
-            .from("smm_artist_campaigns")
-            .update({ status: "expired" })
-            .eq("id", oldest.id);
-        }
+          .from("smm_artist_campaigns").select("id")
+          .eq("profile_username", campaign.profile_username).eq("status", "active")
+          .order("started_at", { ascending: true }).limit(1).single();
+        if (oldest) await supabase.from("smm_artist_campaigns").update({ status: "expired" }).eq("id", oldest.id);
       }
 
-      // Schedule 7 days of content via the smm-api
-      const startDate = new Date();
-      const scheduledItems: string[] = [];
+      const scheduledItems = await scheduleMediaDays(supabase, campaign, 0, campaign.days_total);
 
-      for (let day = 0; day < campaign.days_total; day++) {
-        const postDate = new Date(startDate);
-        postDate.setDate(postDate.getDate() + day);
-
-        const dateStr = postDate.toISOString().split("T")[0];
-        const caption = buildCaption(campaign, day + 1);
-        const mediaUrl = campaign.media_urls[day % campaign.media_urls.length] || "";
-
-        // Schedule via smm-api
-        const scheduleRes = await supabase.functions.invoke("smm-api", {
-          body: {
-            action: "schedule",
-            profile_username: campaign.profile_username,
-            platform: "instagram",
-            scheduled_date: `${dateStr}T12:00:00`,
-            title: `${campaign.artist_name} - ${campaign.song_title} (Day ${day + 1})`,
-            description: caption,
-            media_url: mediaUrl,
-            job_id: `artist-${campaign.id}-day${day + 1}`,
-          },
-        });
-
-        scheduledItems.push(`Day ${day + 1}: ${dateStr}`);
-
-        // Throttle to avoid rate limits
-        if (day < campaign.days_total - 1) {
-          await new Promise((r) => setTimeout(r, 2000));
-        }
-      }
-
-      // Update campaign status to active
-      const expiresAt = new Date(startDate);
+      const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + campaign.days_total);
 
-      await supabase
-        .from("smm_artist_campaigns")
-        .update({
-          status: "active",
-          started_at: startDate.toISOString(),
-          expires_at: expiresAt.toISOString(),
-        })
-        .eq("id", campaign_id);
+      await supabase.from("smm_artist_campaigns").update({
+        status: "active", started_at: new Date().toISOString(), expires_at: expiresAt.toISOString(),
+      }).eq("id", campaign_id);
 
-      return new Response(
-        JSON.stringify({ ok: true, scheduled: scheduledItems }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return json({ ok: true, scheduled: scheduledItems });
     }
 
+    // ─── CONTINUE: extend by 14 days ───
     if (action === "continue") {
-      const days = extend_days || 30;
-
+      const days = body.extend_days || 14;
       const { data: campaign } = await supabase
-        .from("smm_artist_campaigns")
-        .select("*")
-        .eq("id", campaign_id)
-        .single();
+        .from("smm_artist_campaigns").select("*").eq("id", campaign_id).single();
+      if (!campaign) return json({ error: "Not found" }, 404);
 
-      if (!campaign) {
-        return new Response(JSON.stringify({ error: "Not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Extend expiry
       const newExpiry = new Date();
       newExpiry.setDate(newExpiry.getDate() + days);
 
-      await supabase
-        .from("smm_artist_campaigns")
-        .update({
-          status: "active",
-          days_total: campaign.days_total + days,
-          continued_until: newExpiry.toISOString(),
-          expires_at: newExpiry.toISOString(),
-        })
-        .eq("id", campaign_id);
+      await supabase.from("smm_artist_campaigns").update({
+        status: "active",
+        days_total: campaign.days_total + days,
+        continued_until: newExpiry.toISOString(),
+        expires_at: newExpiry.toISOString(),
+      }).eq("id", campaign_id);
 
-      // Schedule the extended days
-      const startDate = new Date();
-      for (let day = 0; day < Math.min(days, 7); day++) {
-        const postDate = new Date(startDate);
-        postDate.setDate(postDate.getDate() + day);
-        const dateStr = postDate.toISOString().split("T")[0];
-        const caption = buildCaption(campaign, campaign.days_completed + day + 1);
-        const mediaUrl = campaign.media_urls[day % campaign.media_urls.length] || "";
+      const scheduledItems = await scheduleMediaDays(supabase, campaign, campaign.days_completed, Math.min(days, 7));
+      return json({ ok: true, extended_by: days, scheduled: scheduledItems });
+    }
 
-        await supabase.functions.invoke("smm-api", {
-          body: {
-            action: "schedule",
-            profile_username: campaign.profile_username,
-            platform: "instagram",
-            scheduled_date: `${dateStr}T12:00:00`,
-            title: `${campaign.artist_name} - ${campaign.song_title} (Day ${campaign.days_completed + day + 1})`,
-            description: caption,
-            media_url: mediaUrl,
-            job_id: `artist-${campaign.id}-day${campaign.days_completed + day + 1}`,
-          },
-        });
+    // ─── RESCHEDULE: replace existing posts with updated media list ───
+    if (action === "reschedule") {
+      const { media_urls } = body;
+      const { data: campaign } = await supabase
+        .from("smm_artist_campaigns").select("*").eq("id", campaign_id).single();
+      if (!campaign) return json({ error: "Not found" }, 404);
 
-        if (day < Math.min(days, 7) - 1) {
-          await new Promise((r) => setTimeout(r, 2000));
+      // Delete future scheduled posts for this campaign
+      await cleanupFuturePosts(supabase, campaign);
+
+      // Reschedule with new media
+      const daysLeft = Math.max(1, campaign.days_total - campaign.days_completed);
+      const updatedCampaign = { ...campaign, media_urls };
+      const scheduledItems = await scheduleMediaDays(supabase, updatedCampaign, 0, Math.min(daysLeft, 7));
+
+      return json({ ok: true, rescheduled: scheduledItems });
+    }
+
+    // ─── REMOVE-MEDIA: delete scheduled posts tied to a specific media URL ───
+    if (action === "remove-media") {
+      const { media_url, remaining_urls } = body;
+      const { data: campaign } = await supabase
+        .from("smm_artist_campaigns").select("*").eq("id", campaign_id).single();
+      if (!campaign) return json({ error: "Not found" }, 404);
+
+      // Find all scheduled calendar events for this campaign that use this media
+      const jobPrefix = `artist-${campaign_id}-`;
+      const { data: events } = await supabase
+        .from("calendar_events")
+        .select("id, description, source_id")
+        .like("source_id", `${jobPrefix}%`);
+
+      let removed = 0;
+      for (const evt of events || []) {
+        // Check if the description/metadata references this media URL
+        if (evt.description?.includes(media_url)) {
+          await supabase.from("calendar_events").delete().eq("id", evt.id);
+          removed++;
         }
       }
 
-      return new Response(
-        JSON.stringify({ ok: true, extended_by: days }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      // If no media left, pause the campaign
+      if (!remaining_urls || remaining_urls.length === 0) {
+        await supabase.from("smm_artist_campaigns").update({ status: "paused" }).eq("id", campaign_id);
+      }
+
+      return json({ ok: true, removed_events: removed });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // ─── CLEANUP: remove all scheduled posts for a campaign being deleted ───
+    if (action === "cleanup") {
+      const { data: campaign } = await supabase
+        .from("smm_artist_campaigns").select("*").eq("id", campaign_id).single();
+      if (campaign) await cleanupFuturePosts(supabase, campaign);
+      return json({ ok: true });
+    }
+
+    return json({ error: "Unknown action" }, 400);
   } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: (err as Error).message }, 500);
   }
 });
 
-function buildCaption(campaign: any, dayNumber: number): string {
+// ─── Helpers ───
+
+async function cleanupFuturePosts(supabase: any, campaign: any) {
+  const jobPrefix = `artist-${campaign.id}-`;
+  const now = new Date().toISOString();
+
+  await supabase
+    .from("calendar_events")
+    .delete()
+    .like("source_id", `${jobPrefix}%`)
+    .gte("start_time", now);
+}
+
+async function scheduleMediaDays(
+  supabase: any, campaign: any, startOffset: number, totalDays: number,
+): Promise<string[]> {
+  const scheduledItems: string[] = [];
+  const mediaCount = campaign.media_urls?.length || 0;
+  if (mediaCount === 0) return scheduledItems;
+
+  const startDate = new Date();
+
+  for (let day = 0; day < totalDays; day++) {
+    const postDate = new Date(startDate);
+    postDate.setDate(postDate.getDate() + day);
+    const dateStr = postDate.toISOString().split("T")[0];
+    const dayNumber = startOffset + day + 1;
+    const mediaUrl = campaign.media_urls[day % mediaCount];
+    const caption = buildCaption(campaign, dayNumber, mediaUrl);
+
+    await supabase.functions.invoke("smm-api", {
+      body: {
+        action: "schedule",
+        profile_username: campaign.profile_username,
+        platform: "instagram",
+        scheduled_date: `${dateStr}T12:00:00`,
+        title: `${campaign.artist_name} - ${campaign.song_title} (Day ${dayNumber})`,
+        description: caption,
+        media_url: mediaUrl,
+        job_id: `artist-${campaign.id}-day${dayNumber}`,
+      },
+    });
+
+    scheduledItems.push(`Day ${dayNumber}: ${dateStr}`);
+
+    if (day < totalDays - 1) {
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+
+  return scheduledItems;
+}
+
+function buildCaption(campaign: any, dayNumber: number, mediaUrl?: string): string {
   const handle = campaign.artist_handle;
   const song = campaign.song_title;
+
+  // Embed media URL in description for metadata persistence
+  const mediaMeta = mediaUrl ? `\n[media_url:${mediaUrl}]` : '';
 
   const templates = [
     `🎶 ${song} by ${handle} — comment "Nyson Black" for the free download 🎁`,
@@ -200,5 +210,5 @@ function buildCaption(campaign: any, dayNumber: number): string {
     `${handle} with "${song}" — the vibes are unmatched 🎵 Free download: comment "Nyson Black" 🎁`,
   ];
 
-  return templates[(dayNumber - 1) % templates.length];
+  return templates[(dayNumber - 1) % templates.length] + mediaMeta;
 }

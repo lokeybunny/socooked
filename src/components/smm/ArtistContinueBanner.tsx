@@ -39,10 +39,10 @@ export default function ArtistContinueBanner({ profileUsername, onRefresh }: { p
     setActing(id);
     try {
       const res = await supabase.functions.invoke('artist-campaign-scheduler', {
-        body: { action: 'continue', campaign_id: id, extend_days: 30 },
+        body: { action: 'continue', campaign_id: id, extend_days: 14 },
       });
       if (res.error) throw res.error;
-      toast.success('Campaign extended for 30 more days!');
+      toast.success('Campaign extended for 14 more days!');
       setCampaigns(prev => prev.filter(c => c.id !== id));
       onRefresh?.();
     } catch {
@@ -64,7 +64,7 @@ export default function ArtistContinueBanner({ profileUsername, onRefresh }: { p
           <Music className="h-4 w-4 text-amber-500 shrink-0" />
           <span className="text-sm flex-1">
             <strong>{c.artist_name}</strong> — "{c.song_title}" campaign has reached day {c.days_completed}.
-            Continue for another 30 days?
+            Continue for another 14 days?
           </span>
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant="default" className="h-7 text-xs gap-1" onClick={() => handleContinue(c.id)} disabled={acting === c.id}>
