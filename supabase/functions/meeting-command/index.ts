@@ -92,8 +92,8 @@ IMPORTANT:
 - Only use customer_id values from the customer list above. If a customer name is not found, set customer_id to null — NEVER fabricate a UUID.
 - When creating a meeting for someone, set title to "Meeting with <customer name>".
 - NEVER include host_id in the body — it references auth users (profiles table), NOT customers. Including it will cause a foreign key error.
-- For scheduled_at, use ISO 8601 format (e.g. "2026-03-10T15:00:00Z").
-- The user is in Pacific Time (America/Los_Angeles). Convert times to UTC: PST = UTC-8, PDT = UTC-7.
+- For scheduled_at, use ISO 8601 format in UTC (e.g. "2026-03-10T22:00:00Z").
+- CRITICAL TIMEZONE RULE: The user is in Pacific Time (America/Los_Angeles). You MUST convert user-provided times from Pacific to UTC before outputting scheduled_at. In March-November (PDT): add 7 hours. In November-March (PST): add 8 hours. Example: user says "2:30 PM" in March (PDT) → scheduled_at = "2026-03-17T21:30:00Z". NEVER store Pacific time directly as UTC.
 - Today is ${new Date().toISOString().split('T')[0]}.
 - If user says "create a meeting room for Eddie", find Eddie in customers and create a meeting with their name as the title and their customer_id.`
 
