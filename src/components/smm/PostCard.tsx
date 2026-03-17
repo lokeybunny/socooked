@@ -123,8 +123,10 @@ function PostDetailDialog({ post, open, onOpenChange }: { post: ScheduledPost; o
   );
 }
 
-export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule }: PostCardProps) {
+export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule, onTimeEdit }: PostCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const [editingTime, setEditingTime] = useState(false);
+  const timeInputRef = useRef<HTMLInputElement>(null);
   const scheduledLocal = post.scheduled_date ? format(new Date(post.scheduled_date), 'MMM d, h:mm a') : null;
   const scheduledUTC = post.scheduled_date ? format(new Date(post.scheduled_date), "yyyy-MM-dd'T'HH:mm:ss'Z'") : null;
 
