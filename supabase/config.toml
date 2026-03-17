@@ -122,3 +122,9 @@ verify_jwt = false
 
 [functions.darkside-smm]
 verify_jwt = false
+
+[functions.recycle-52w]
+verify_jwt = false
+
+[functions.recycle-captions]
+verify_jwt = false
