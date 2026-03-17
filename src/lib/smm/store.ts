@@ -763,6 +763,21 @@ function extractCalendarEventProfile(description?: string): string {
   return description?.match(/Profile:\s*([^\n]+)/i)?.[1]?.trim() || '';
 }
 
+function inferArtistProfileFromCalendarEvent(event: { title: string | null; description: string | null; source_id: string | null }): string {
+  const haystack = `${event.source_id || ''} ${event.title || ''} ${event.description || ''}`.toLowerCase();
+  const isNysonBlackArtistPost = [
+    'drake',
+    '@lamb.wavv',
+    'lambwavv',
+    '@oranjgoodman',
+    'oranj goodman',
+    'oranjgoodman',
+    'ojg-',
+  ].some(marker => haystack.includes(marker));
+
+  return isNysonBlackArtistPost ? 'NysonBlack' : '';
+}
+
 function extractCalendarEventMediaUrl(description?: string): string | undefined {
   return description?.match(/Media URL:\s*([^\n]+)/i)?.[1]?.trim() || undefined;
 }
@@ -784,7 +799,9 @@ function mapCalendarEventToScheduledPost(
 
   if (!platform || !event.start_time) return null;
 
-  const profileUsername = planMeta?.profile_username || extractCalendarEventProfile(event.description || undefined);
+  const profileUsername = planMeta?.profile_username
+    || extractCalendarEventProfile(event.description || undefined)
+    || inferArtistProfileFromCalendarEvent(event);
   const cleanTitle = stripPlatformLabel(event.title || '');
 
   return {
