@@ -230,30 +230,66 @@ export const smmApi = {
   // ─── Posts / Uploads ───
   async getPosts(): Promise<ScheduledPost[]> {
     try {
-      // Get both scheduled and history
-      const [scheduled, history] = await Promise.all([
+      const [scheduled, history, calendarResult, plansResult] = await Promise.all([
         invokeSMM('list-scheduled', { limit: '100' }).catch(() => ({ scheduled_posts: [] })),
         invokeSMM('upload-history', { limit: '100' }).catch(() => ({ history: [] })),
+        supabase
+          .from('calendar_events')
+          .select('id, title, description, start_time, source_id, created_at')
+          .eq('source', 'smm')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('smm_content_plans')
+          .select('profile_username, platform, schedule_items')
+          .order('created_at', { ascending: false }),
       ]);
 
       const posts: ScheduledPost[] = [];
+      const planIndex = new Map<string, { profile_username: string; platform: string }>();
 
-      // Map scheduled posts
+      for (const plan of plansResult.data || []) {
+        const items = Array.isArray(plan.schedule_items) ? plan.schedule_items : [];
+        for (const item of items) {
+          const itemRecord = item && typeof item === 'object' && !Array.isArray(item)
+            ? item as { id?: unknown }
+            : null;
+          const itemId = typeof itemRecord?.id === 'string' ? itemRecord.id : '';
+          if (!itemId || planIndex.has(itemId)) continue;
+          planIndex.set(itemId, {
+            profile_username: plan.profile_username,
+            platform: plan.platform,
+          });
+        }
+      }
+
       if (scheduled?.scheduled_posts) {
         scheduled.scheduled_posts.forEach((p: any) => {
           posts.push(mapApiPostToScheduledPost(p, 'scheduled'));
         });
       }
 
-      // Map history
       const historyItems = history?.history || history?.uploads || [];
       if (Array.isArray(historyItems)) {
         historyItems.forEach((p: any) => {
-          // Don't duplicate if already in scheduled
           if (!posts.find(ep => ep.job_id === p.job_id)) {
             posts.push(mapApiPostToScheduledPost(p, p.status || 'completed'));
           }
         });
+      }
+
+      const existingKeys = new Set(
+        posts.map(post => `${post.job_id || post.id}||${post.scheduled_date || ''}||${post.platforms.join(',')}||${post.title}`)
+      );
+
+      for (const event of calendarResult.data || []) {
+        const calendarPost = mapCalendarEventToScheduledPost(event, planIndex);
+        if (!calendarPost) continue;
+
+        const key = `${calendarPost.job_id || calendarPost.id}||${calendarPost.scheduled_date || ''}||${calendarPost.platforms.join(',')}||${calendarPost.title}`;
+        if (existingKeys.has(key)) continue;
+
+        existingKeys.add(key);
+        posts.push(calendarPost);
       }
 
       return posts.sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -679,6 +715,70 @@ function mapApiPostToScheduledPost(p: any, defaultStatus: string): ScheduledPost
     first_comment: p.first_comment,
     error: p.error || p.error_message,
     created_at: p.created_at || p.timestamp || new Date().toISOString(),
+  };
+}
+
+function inferCalendarEventPlatform(title: string, sourceId: string, fallback?: string): Platform | null {
+  const fromTitle = (title.match(/\[([^\]]+)\]/)?.[1] || '').trim().toLowerCase();
+  const normalizedTitlePlatform = fromTitle === 'x' ? 'twitter' : fromTitle;
+  const normalizedFallback = fallback === 'x' ? 'twitter' : fallback;
+
+  if (normalizedTitlePlatform && ['instagram', 'facebook', 'tiktok', 'linkedin', 'pinterest', 'youtube', 'twitter'].includes(normalizedTitlePlatform)) {
+    return normalizedTitlePlatform as Platform;
+  }
+  if (normalizedFallback && ['instagram', 'facebook', 'tiktok', 'linkedin', 'pinterest', 'youtube', 'twitter'].includes(normalizedFallback)) {
+    return normalizedFallback as Platform;
+  }
+  if (sourceId.includes('-tt-')) return 'tiktok';
+  if (sourceId.includes('-ig-')) return 'instagram';
+  if (sourceId.includes('-fb-')) return 'facebook';
+  if (sourceId.includes('-li-')) return 'linkedin';
+  if (sourceId.includes('-pin-')) return 'pinterest';
+  if (sourceId.includes('-yt-')) return 'youtube';
+  if (sourceId.includes('-x-')) return 'twitter';
+  return null;
+}
+
+function inferCalendarEventType(description?: string): PostType {
+  const typeMatch = description?.match(/Type:\s*(video|carousel|image|text|document)/i)?.[1]?.toLowerCase();
+  if (typeMatch === 'carousel' || typeMatch === 'image') return 'photos';
+  if (typeMatch === 'video') return 'video';
+  if (typeMatch === 'document') return 'document';
+  return 'text';
+}
+
+function mapCalendarEventToScheduledPost(
+  event: { id: string; title: string | null; description: string | null; start_time: string | null; source_id: string | null; created_at: string },
+  planIndex: Map<string, { profile_username: string; platform: string }>
+): ScheduledPost | null {
+  const sourceId = event.source_id || event.id;
+  const baseSourceId = sourceId.replace(/^recycle-w\d+-/, '');
+  const planMeta = planIndex.get(sourceId) || planIndex.get(baseSourceId);
+  const platform = inferCalendarEventPlatform(event.title || '', sourceId, planMeta?.platform);
+
+  if (!platform || !event.start_time) return null;
+
+  const profileUsername = planMeta?.profile_username || '';
+
+  return {
+    id: event.id,
+    job_id: sourceId,
+    request_id: '',
+    profile_id: profileUsername,
+    profile_username: profileUsername,
+    title: event.title || '',
+    description: event.description || undefined,
+    type: inferCalendarEventType(event.description || undefined),
+    platforms: [platform],
+    media_url: undefined,
+    preview_url: undefined,
+    status: 'scheduled',
+    scheduled_date: event.start_time,
+    published_at: undefined,
+    post_urls: [],
+    first_comment: undefined,
+    error: undefined,
+    created_at: event.created_at || new Date().toISOString(),
   };
 }
 
