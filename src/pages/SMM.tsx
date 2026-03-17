@@ -109,6 +109,7 @@ function SMMInner() {
           </div>
         </div>
 
+        <ArtistContinueBanner profileUsername={profileId || undefined} onRefresh={refresh} />
         <SMMContextBar profiles={profiles} />
 
         <div className="flex gap-4">
