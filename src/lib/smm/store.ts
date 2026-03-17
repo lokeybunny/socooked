@@ -818,6 +818,9 @@ function inferArtistProfileFromCalendarEvent(event: { title: string | null; desc
     'oranj goodman',
     'oranjgoodman',
     'ojg-',
+    'bryson tiller',
+    'brysontiller',
+    'bryson',
   ].some(marker => haystack.includes(marker));
 
   return isNysonBlackArtistPost ? 'NysonBlack' : '';
