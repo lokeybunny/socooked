@@ -2294,7 +2294,7 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
             <TabsTrigger key={p.value} value={p.value} className="gap-1.5 text-xs">
               <PlatformIcon platform={p.value} />
               {p.label}
-              {plans.find(pl => pl.platform === p.value) && (
+              {plans.find(pl => pl.platform === p.value || pl.platform.split('|').includes(p.value)) && (
                 <span className="ml-1 w-1.5 h-1.5 rounded-full bg-primary" />
               )}
             </TabsTrigger>
