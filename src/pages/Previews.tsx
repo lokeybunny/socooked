@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
-import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus, Check, ChevronsUpDown } from 'lucide-react';
+import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus, Check, ChevronsUpDown, Coins } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
