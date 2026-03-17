@@ -40,6 +40,9 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
   const today = new Date().toISOString().slice(0, 10);
   const todayPosts = posts.filter(p => p.scheduled_date?.startsWith(today)).sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
   const scheduledToday = todayPosts.filter(p => p.status === 'scheduled');
+  const overduePosts = todayPosts.filter(p =>
+    p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status) && new Date(p.scheduled_date) < new Date()
+  );
   const failed24h = posts.filter(p => p.status === 'failed' && new Date(p.created_at) > new Date(Date.now() - 86400000));
   const completed7d = posts.filter(p => p.status === 'completed' && new Date(p.created_at) > new Date(Date.now() - 604800000));
   const total7d = posts.filter(p => new Date(p.created_at) > new Date(Date.now() - 604800000));
@@ -101,9 +104,10 @@ export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUp
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard label="Scheduled Today" value={scheduledToday.length} icon={CalendarDays} color="bg-primary/10 text-primary" />
         <KPICard label="Queue Next Slot" value={queued.length > 0 && queued[0].scheduled_date ? format(new Date(queued[0].scheduled_date), 'h:mm a') : '—'} icon={Clock} color="bg-accent/20 text-accent-foreground" />
+        <KPICard label="Overdue" value={overduePosts.length} icon={AlertTriangle} color={overduePosts.length > 0 ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted/50 text-muted-foreground'} />
         <KPICard label="Failed (24h)" value={failed24h.length} icon={AlertTriangle} color="bg-destructive/10 text-destructive" />
         <KPICard label="Success Rate (7d)" value={`${successRate}%`} icon={CheckCircle} color="bg-emerald-500/10 text-emerald-500" />
       </div>

@@ -4,7 +4,7 @@ import { PLATFORM_META } from '@/lib/smm/context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye } from 'lucide-react';
+import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
@@ -23,6 +23,29 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-muted text-muted-foreground line-through',
 };
 
+/** Check if a scheduled post's time has already passed and it hasn't been completed/published */
+function isOverdue(post: ScheduledPost): boolean {
+  if (!post.scheduled_date) return false;
+  if (['completed', 'failed', 'cancelled'].includes(post.status)) return false;
+  return new Date(post.scheduled_date) < new Date();
+}
+
+function getOverdueReason(post: ScheduledPost): string {
+  const scheduled = post.scheduled_date ? new Date(post.scheduled_date) : null;
+  if (!scheduled) return 'Unknown issue';
+  const minutesLate = Math.round((Date.now() - scheduled.getTime()) / 60000);
+  const hoursLate = Math.round(minutesLate / 60);
+  const lateLabel = minutesLate < 60 ? `${minutesLate}m` : `${hoursLate}h ${minutesLate % 60}m`;
+
+  if (post.status === 'scheduled' || post.status === 'queued') {
+    return `⚠️ This post was scheduled for ${format(scheduled, 'h:mm a')} but hasn't been published yet (${lateLabel} overdue). The upload may have stalled or the API queue is backed up. Use PUSH to force-retry the upload now.`;
+  }
+  if (post.status === 'pending' || post.status === 'in_progress') {
+    return `⏳ This post has been processing since ${format(scheduled, 'h:mm a')} (${lateLabel} ago). It may be stuck in the upload pipeline. Use PUSH to retry.`;
+  }
+  return `This post missed its ${format(scheduled, 'h:mm a')} slot (${lateLabel} overdue).`;
+}
+
 interface PostCardProps {
   post: ScheduledPost;
   compact?: boolean;
@@ -31,6 +54,7 @@ interface PostCardProps {
   onCancel?: (post: ScheduledPost) => void;
   onReschedule?: (post: ScheduledPost) => void;
   onTimeEdit?: (post: ScheduledPost, newTime: string) => void;
+  onPush?: (post: ScheduledPost) => void;
 }
 
 // ─── Post Detail Dialog ───
@@ -123,17 +147,19 @@ function PostDetailDialog({ post, open, onOpenChange }: { post: ScheduledPost; o
   );
 }
 
-export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule, onTimeEdit }: PostCardProps) {
+export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule, onTimeEdit, onPush }: PostCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editingTime, setEditingTime] = useState(false);
+  const [overdueInfoOpen, setOverdueInfoOpen] = useState(false);
   const timeInputRef = useRef<HTMLInputElement>(null);
   const scheduledLocal = post.scheduled_date ? format(new Date(post.scheduled_date), 'MMM d, h:mm a') : null;
   const scheduledUTC = post.scheduled_date ? format(new Date(post.scheduled_date), "yyyy-MM-dd'T'HH:mm:ss'Z'") : null;
+  const overdue = isOverdue(post);
 
   if (compact) {
     return (
       <>
-        <div className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/40 hover:bg-muted/60 transition-colors group">
+        <div className={`flex items-center gap-3 p-2.5 rounded-lg transition-colors group ${overdue ? 'bg-destructive/5 border border-destructive/20' : 'bg-muted/40 hover:bg-muted/60'}`}>
           {(post.type === 'video' || isVideoUrl(post.media_url) || isVideoUrl(post.preview_url)) && (post.media_url || post.preview_url) ? (
             <div className="w-8 h-8 rounded overflow-hidden shrink-0">
               <VideoThumbnail src={getVideoSrc(post)} title={post.title} className="w-8 h-8" videoClassName="w-full h-full object-cover" controls={false} />
@@ -147,7 +173,7 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
           )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground truncate">{post.title}</p>
-            <div className="flex items-center gap-2 mt-0.5">
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               {post.platforms.map(p => {
                 const meta = PLATFORM_META[p];
                 return meta ? <span key={p} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${meta.color}`}>{meta.abbr}</span> : null;
@@ -156,7 +182,7 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
               {scheduledLocal && onTimeEdit && !editingTime && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setEditingTime(true); setTimeout(() => timeInputRef.current?.showPicker(), 50); }}
-                  className="text-[10px] text-primary hover:underline cursor-pointer flex items-center gap-0.5"
+                  className={`text-[10px] hover:underline cursor-pointer flex items-center gap-0.5 ${overdue ? 'text-destructive font-bold' : 'text-primary'}`}
                   title="Click to edit time"
                 >
                   <Clock className="h-2.5 w-2.5" />{scheduledLocal}
@@ -174,6 +200,20 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
                 />
               )}
               {scheduledLocal && !onTimeEdit && <span className="text-[10px] text-muted-foreground" title={scheduledUTC || ''}>{scheduledLocal}</span>}
+              {/* PUSH button for overdue posts */}
+              {overdue && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOverdueInfoOpen(true);
+                  }}
+                  className="text-[10px] font-black tracking-wider px-2 py-0.5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors flex items-center gap-1 animate-pulse"
+                  title="Post missed its scheduled time — click for details"
+                >
+                  <AlertTriangle className="h-2.5 w-2.5" />
+                  PUSH
+                </button>
+              )}
             </div>
           </div>
           <DropdownMenu>
@@ -190,6 +230,44 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
           </DropdownMenu>
         </div>
         <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} />
+        {/* Overdue Info Dialog */}
+        <Dialog open={overdueInfoOpen} onOpenChange={setOverdueInfoOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Missed Schedule
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-foreground leading-relaxed">{getOverdueReason(post)}</p>
+              <div className="rounded-lg bg-muted/50 p-3 space-y-1.5 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Post</span><span className="text-foreground font-medium truncate ml-2 max-w-[200px]">{post.title.slice(0, 50)}{post.title.length > 50 ? '…' : ''}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Scheduled</span><span className="text-destructive font-semibold">{scheduledLocal}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className={`font-medium ${STATUS_STYLES[post.status]} px-2 py-0.5 rounded-full`}>{post.status}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Platforms</span><span>{post.platforms.join(', ')}</span></div>
+                {post.job_id && <div className="flex justify-between"><span className="text-muted-foreground">Job ID</span><span className="font-mono text-[10px]">{post.job_id}</span></div>}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground gap-1.5"
+                  onClick={() => {
+                    setOverdueInfoOpen(false);
+                    if (onPush) {
+                      onPush(post);
+                    } else {
+                      toast.info('Force-push coming soon — use the terminal to manually re-upload this post.');
+                    }
+                  }}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Force Push Now
+                </Button>
+                <Button variant="outline" onClick={() => setOverdueInfoOpen(false)}>Dismiss</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </>
     );
   }
