@@ -4,10 +4,11 @@ import { PLATFORM_META } from '@/lib/smm/context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye, AlertTriangle } from 'lucide-react';
+import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye, AlertTriangle, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
+import { supabase } from '@/integrations/supabase/client';
 
 const isVideoUrl = (url?: string) => url && /\.(mp4|mov|webm|m3u8|avi)/i.test(url);
 const getVideoSrc = (post: ScheduledPost) => post.media_url || post.preview_url || '';
@@ -55,12 +56,79 @@ interface PostCardProps {
   onReschedule?: (post: ScheduledPost) => void;
   onTimeEdit?: (post: ScheduledPost, newTime: string) => void;
   onPush?: (post: ScheduledPost) => void;
+  onDelete?: (post: ScheduledPost) => void;
 }
 
 // ─── Post Detail Dialog ───
-function PostDetailDialog({ post, open, onOpenChange }: { post: ScheduledPost; open: boolean; onOpenChange: (v: boolean) => void }) {
+function PostDetailDialog({ post, open, onOpenChange, onDelete }: { post: ScheduledPost; open: boolean; onOpenChange: (v: boolean) => void; onDelete?: (post: ScheduledPost) => void }) {
   const hasVideo = post.type === 'video' || isVideoUrl(post.media_url) || isVideoUrl(post.preview_url);
   const hasMedia = hasVideo || post.preview_url || post.media_url;
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const normalizedId = post.id.replace(/-(instagram|facebook|tiktok|linkedin|pinterest|youtube|twitter)-view$/, '');
+
+      // Try deleting directly by ID
+      const { error: directErr, count } = await supabase
+        .from('calendar_events')
+        .delete({ count: 'exact' })
+        .eq('id', normalizedId);
+
+      if (!directErr && count && count > 0) {
+        toast.success('Post removed from schedule');
+        onOpenChange(false);
+        onDelete?.(post);
+        return;
+      }
+
+      // Try by source_id matching job_id
+      if (post.job_id) {
+        const { error: jobErr, count: jobCount } = await supabase
+          .from('calendar_events')
+          .delete({ count: 'exact' })
+          .eq('source', 'smm')
+          .eq('source_id', post.job_id);
+        if (!jobErr && jobCount && jobCount > 0) {
+          toast.success('Post removed from schedule');
+          onOpenChange(false);
+          onDelete?.(post);
+          return;
+        }
+      }
+
+      // Fuzzy match by title + date
+      if (post.scheduled_date) {
+        const dateStr = post.scheduled_date.slice(0, 10);
+        const { data: events } = await supabase
+          .from('calendar_events')
+          .select('id, title')
+          .eq('source', 'smm')
+          .gte('start_time', `${dateStr}T00:00:00`)
+          .lte('start_time', `${dateStr}T23:59:59`);
+        const match = events?.find(e => {
+          const eClean = e.title.replace(/[^\w]/g, '').toLowerCase();
+          const pClean = post.title.replace(/[^\w]/g, '').toLowerCase();
+          return eClean.includes(pClean.slice(0, 40)) || pClean.includes(eClean.slice(0, 40));
+        });
+        if (match) {
+          await supabase.from('calendar_events').delete().eq('id', match.id);
+          toast.success('Post removed from schedule');
+          onOpenChange(false);
+          onDelete?.(post);
+          return;
+        }
+      }
+
+      toast.error('Could not find matching calendar event to delete');
+    } catch (err) {
+      console.error('Delete post error:', err);
+      toast.error('Failed to delete post');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -141,13 +209,29 @@ function PostDetailDialog({ post, open, onOpenChange }: { post: ScheduledPost; o
             {post.published_at && <p>Published: {format(new Date(post.published_at), 'MMM d, yyyy h:mm a')}</p>}
             {post.job_id && <p className="font-mono">Job: {post.job_id}</p>}
           </div>
+
+          {/* Delete from schedule */}
+          {!['completed', 'failed', 'cancelled'].includes(post.status) && (
+            <div className="border-t border-border pt-3">
+              <Button
+                variant="destructive"
+                size="sm"
+                className="w-full gap-2"
+                disabled={deleting}
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {deleting ? 'Removing…' : 'Remove from Schedule'}
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
 
-export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule, onTimeEdit, onPush }: PostCardProps) {
+export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel, onReschedule, onTimeEdit, onPush, onDelete }: PostCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [editingTime, setEditingTime] = useState(false);
   const [overdueInfoOpen, setOverdueInfoOpen] = useState(false);
@@ -229,7 +313,7 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} />
+        <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} onDelete={onDelete} />
         {/* Overdue Info Dialog */}
         <Dialog open={overdueInfoOpen} onOpenChange={setOverdueInfoOpen}>
           <DialogContent className="max-w-md">
@@ -337,7 +421,7 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
 
         {post.error && <p className="text-xs text-destructive border-t border-border pt-2">Error: {post.error}</p>}
       </div>
-      <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} />
+      <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} onDelete={onDelete} />
     </>
   );
 }
