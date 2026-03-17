@@ -151,7 +151,7 @@ Return ONLY a JSON array of strings, each being one caption. Example:
 
         const { error: updateErr } = await supabase
           .from("calendar_events")
-          .update({ title: newCaption, description: newDesc, updated_at: new Date().toISOString() })
+          .update({ title: newCaption, updated_at: new Date().toISOString() })
           .eq("id", batch[j].id);
 
         if (updateErr) {
