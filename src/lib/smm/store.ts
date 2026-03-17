@@ -9,18 +9,14 @@ let uploadQueue: Promise<void> = Promise.resolve();
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-function parseRetryAfterMs(error: unknown): number | null {
-  const raw = error instanceof Error ? error.message : String(error ?? '');
-  const match = raw.match(/\{[\s\S]*\}$/);
-  if (!match) return null;
-
-  try {
-    const parsed = JSON.parse(match[0]);
-    const seconds = Number(parsed?.retry_after_seconds);
-    return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
-  } catch {
-    return null;
+function parseRetryAfterMs(payload: any, attempt: number): number {
+  const seconds = Number(payload?.retry_after_seconds);
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return seconds * 1000;
   }
+
+  const base = Math.min(30000, 1000 * Math.pow(2, attempt));
+  return base + Math.floor(Math.random() * 1000);
 }
 
 async function withUploadThrottle<T>(action: string, run: () => Promise<T>): Promise<T> {
@@ -39,26 +35,51 @@ async function withUploadThrottle<T>(action: string, run: () => Promise<T>): Pro
   return pending;
 }
 
+async function invokeSMMViaHttp(action: string, queryString: string, body?: any) {
+  const session = await supabase.auth.getSession();
+  const accessToken = session.data.session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Helper to build the edge function URL with query params
-function buildUrl(action: string, params?: Record<string, string>) {
-  const searchParams = new URLSearchParams({ action });
-  if (params) Object.entries(params).forEach(([k, v]) => { if (v) searchParams.set(k, v); });
-  return searchParams.toString();
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smm-api?${queryString}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body || {}),
+  });
+
+  const responseText = await response.text();
+  let payload: any = null;
+  try {
+    payload = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    payload = responseText;
+  }
+
+  if (!response.ok) {
+    const errorMessage = typeof payload === 'object' && payload
+      ? payload.error || payload.message || `HTTP ${response.status}`
+      : String(payload || `HTTP ${response.status}`);
+    const error = new Error(`${errorMessage}${typeof payload === 'object' && payload ? `, ${JSON.stringify(payload)}` : ''}`);
+    (error as any).status = response.status;
+    (error as any).payload = payload;
+    throw error;
+  }
+
+  return payload;
 }
 
 async function invokeSMM(action: string, params?: Record<string, string>, body?: any) {
   const queryString = buildUrl(action, params);
 
-  const call = async () => {
-    const { data, error } = await supabase.functions.invoke(`smm-api?${queryString}`, {
-      body: body || undefined,
-    });
-
-    if (error) {
-      const msg = (data as any)?.error || error.message || 'Unknown error';
-      throw new Error(msg);
-    }
+  const call = async (attempt = 0): Promise<any> => {
+    const data = UPLOAD_ACTIONS.has(action)
+      ? await invokeSMMViaHttp(action, queryString, body)
+      : await supabase.functions.invoke(`smm-api?${queryString}`, { body: body || undefined }).then(({ data, error }) => {
+          if (error) throw new Error((data as any)?.error || error.message || 'Unknown error');
+          return data;
+        });
 
     if (data && typeof data === 'object' && data.success === false) {
       const rawError = String((data as any).error || (data as any).message || 'Unknown error');
@@ -67,8 +88,6 @@ async function invokeSMM(action: string, params?: Record<string, string>, body?:
 
       if ((data as any).error_subcode === 2534022 || /fen[eê]tre autoris[eé]e|outside.*allowed.*window|messaging.*not.*available/i.test(rawError + suggestion)) {
         friendlyMsg = 'Can\'t message this user — Instagram requires them to message you first (24-hour window policy).';
-      } else if ((data as any).error_code === 429 || /daily.*limit|rate.*limit|quota/i.test(rawError)) {
-        friendlyMsg = rawError;
       }
 
       throw new Error(`${friendlyMsg}${UPLOAD_ACTIONS.has(action) ? `, ${JSON.stringify(data)}` : ''}`);
@@ -77,22 +96,24 @@ async function invokeSMM(action: string, params?: Record<string, string>, body?:
     return data;
   };
 
-  const runWithRetry = async () => {
+  const runWithRetry = async (attempt = 0): Promise<any> => {
     try {
-      return await call();
-    } catch (error) {
+      return await call(attempt);
+    } catch (error: any) {
       if (!UPLOAD_ACTIONS.has(action)) throw error;
+      if (attempt >= 2) throw error;
 
-      const retryAfterMs = parseRetryAfterMs(error);
-      if (!retryAfterMs) throw error;
+      const isRateLimited = error?.status === 429 || /rate_limit|too many requests|429/i.test(error?.message || '');
+      if (!isRateLimited) throw error;
 
-      await sleep(retryAfterMs + 1000);
+      const waitMs = parseRetryAfterMs(error?.payload, attempt);
+      await sleep(waitMs + Math.floor(Math.random() * 750));
       lastUploadRequestAt = Date.now();
-      return await call();
+      return runWithRetry(attempt + 1);
     }
   };
 
-  return withUploadThrottle(action, runWithRetry);
+  return withUploadThrottle(action, () => runWithRetry(0));
 }
 
 // ─── API Service (Real Upload-Post API via Edge Function) ───
