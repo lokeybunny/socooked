@@ -220,6 +220,11 @@ function SMMInner() {
         profileUsername={profileId || 'NysonBlack'}
         onRefresh={refresh}
       />
+      <BoostConfigModal
+        open={boostModalOpen}
+        onOpenChange={setBoostModalOpen}
+        profileUsername={profileId || 'NysonBlack'}
+      />
     </AppLayout>
   );
 }
