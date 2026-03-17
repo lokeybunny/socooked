@@ -59,4 +59,18 @@ describe('anchorPostsToCampaignStart', () => {
     expect(drake.map(post => post.scheduled_date?.slice(0, 10))).toEqual(['2026-03-17', '2026-03-18']);
     expect(manual?.scheduled_date).toBe('2026-04-01T10:00:00.000Z');
   });
+
+  it('dedupes opaque scheduled API items by day and inferred artist key', () => {
+    const posts = [
+      buildPost({ id: '1', job_id: 'opaque-1', title: '💯 Drake vibes all week #Drake #Music', scheduled_date: '2026-03-25T19:00:00.000Z', platforms: ['instagram'] }),
+      buildPost({ id: '2', job_id: 'opaque-2', title: '💯 Drake vibes all week #Drake #Music', scheduled_date: '2026-03-25T20:00:00.000Z', platforms: ['tiktok'] }),
+      buildPost({ id: '3', job_id: 'opaque-3', title: '💯 Kick off your week with @lamb.wavvv #NewMusic', scheduled_date: '2026-03-25T01:00:00.000Z', platforms: ['instagram'] }),
+      buildPost({ id: '4', job_id: 'opaque-4', title: '💯 Kick off your week with @lamb.wavvv #MusicDiscovery', scheduled_date: '2026-03-25T02:00:00.000Z', platforms: ['instagram'] }),
+    ];
+
+    const anchored = anchorPostsToCampaignStart(posts);
+
+    expect(anchored).toHaveLength(2);
+    expect(anchored.map(post => post.job_id)).toEqual(['opaque-1', 'opaque-3']);
+  });
 });
