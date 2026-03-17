@@ -35,8 +35,8 @@ function calEventToPost(ev: any): ScheduledPost {
     status: 'scheduled' as const,
     scheduled_date: ev.start_time,
     created_at: ev.created_at,
-    post_type: 'image',
-    type: 'image',
+    type: 'video' as const,
+    hashtags: [] as string[],
     hashtags: [],
     post_urls: [],
   } as ScheduledPost;
