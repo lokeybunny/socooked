@@ -607,6 +607,51 @@ export const smmApi = {
       return await invokeSMM('get-profile', { username });
     } catch { return null; }
   },
+  // ─── Dedup: remove same-day calendar events with identical content ───
+  async dedupCalendarEvents(): Promise<number> {
+    try {
+      // Fetch all SMM calendar events
+      const { data: events, error } = await supabase
+        .from('calendar_events')
+        .select('id, title, description, start_time, source_id, created_at')
+        .eq('source', 'smm')
+        .order('created_at', { ascending: true });
+
+      if (error || !events || events.length === 0) return 0;
+
+      // Group by day + normalised caption to find dupes
+      const seen = new Map<string, string>(); // key -> kept id
+      const dupeIds: string[] = [];
+
+      for (const ev of events) {
+        const day = ev.start_time ? ev.start_time.substring(0, 10) : '';
+        // Normalise: strip emojis, whitespace, case
+        const normTitle = (ev.title || '').replace(/[\u{1F000}-\u{1FFFF}]/gu, '').replace(/\[.*?\]/g, '').trim().toLowerCase();
+        const normDesc = (ev.description || '').replace(/Recycled from.*?\n/i, '').trim().toLowerCase().substring(0, 120);
+        const key = `${day}||${normTitle}||${normDesc}`;
+
+        if (seen.has(key)) {
+          dupeIds.push(ev.id);
+        } else {
+          seen.set(key, ev.id);
+        }
+      }
+
+      if (dupeIds.length === 0) return 0;
+
+      // Delete in batches of 100
+      for (let i = 0; i < dupeIds.length; i += 100) {
+        const batch = dupeIds.slice(i, i + 100);
+        await supabase.from('calendar_events').delete().in('id', batch);
+      }
+
+      console.log(`[smm dedup] Removed ${dupeIds.length} duplicate calendar events`);
+      return dupeIds.length;
+    } catch (e) {
+      console.error('[smm dedup] error:', e);
+      return 0;
+    }
+  },
 };
 
 // ─── Helper: Map API response to our ScheduledPost type ───

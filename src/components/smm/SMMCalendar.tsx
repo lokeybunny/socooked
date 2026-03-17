@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import type { ScheduledPost, Platform } from '@/lib/smm/types';
 import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/context';
 import { smmApi } from '@/lib/smm/store';
@@ -25,6 +25,19 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const [editTime, setEditTime] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'lanes'>('calendar');
+  const dedupRan = useRef(false);
+
+  // Auto-dedup on mount: remove same-day duplicate SMM calendar events
+  useEffect(() => {
+    if (dedupRan.current) return;
+    dedupRan.current = true;
+    smmApi.dedupCalendarEvents().then(removed => {
+      if (removed > 0) {
+        toast.info(`🧹 Cleaned ${removed} duplicate calendar entries`);
+        onRefresh();
+      }
+    });
+  }, []);
 
   const monthStart = startOfMonth(current);
   const monthEnd = endOfMonth(current);

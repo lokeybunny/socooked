@@ -2277,6 +2277,12 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
           }
 
           if (calendarEvents.length > 0) {
+            // Delete any pre-existing events with the same source_id to prevent duplicates
+            const sourceIds = calendarEvents.map((e: any) => e.source_id).filter(Boolean);
+            if (sourceIds.length > 0) {
+              await supabase.from('calendar_events').delete().in('source_id', sourceIds);
+            }
+
             const { error: calErr } = await supabase
               .from('calendar_events')
               .insert(calendarEvents);
@@ -2292,14 +2298,20 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
         toast.info(`♻️ Weeks ${batchStart}-${batchEnd} scheduled…`, { duration: 2000 });
       }
 
+      // Auto-dedup: remove any same-day duplicate content from the calendar
+      const dedupRemoved = await smmApi.dedupCalendarEvents();
+      if (dedupRemoved > 0) {
+        console.log(`[recycle] Dedup cleaned ${dedupRemoved} duplicate calendar events`);
+      }
+
       if (pushLive) {
-        toast.success(`♻️ Recycled & Pushed Live! ${totalScheduled} posts scheduled + ${totalCalEvents} calendar events across 51 weeks.`);
+        toast.success(`♻️ Recycled & Pushed Live! ${totalScheduled} posts scheduled + ${totalCalEvents - dedupRemoved} calendar events across 51 weeks.`);
         // Auto-reset plan status to draft after full push
         await supabase.from('smm_content_plans').update({ status: 'draft', schedule_items: [] } as any).eq('id', currentPlan.id);
         await fetchPlans();
         toast.info('✅ Plan auto-reset — all 52 weeks are now live on the calendar.');
       } else {
-        toast.success(`♻️ Recycled! ${totalCalEvents} calendar events created across 51 weeks. Posts saved but not pushed live.`);
+        toast.success(`♻️ Recycled! ${totalCalEvents - dedupRemoved} calendar events created across 51 weeks.${dedupRemoved > 0 ? ` 🧹 ${dedupRemoved} duplicates auto-removed.` : ''}`);
       }
     } catch (e: any) {
       toast.error(`Recycle failed: ${e.message}`);
