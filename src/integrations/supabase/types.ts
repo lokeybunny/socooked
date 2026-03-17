@@ -1874,6 +1874,60 @@ export type Database = {
           },
         ]
       }
+      smm_artist_campaigns: {
+        Row: {
+          artist_handle: string
+          artist_name: string
+          continued_until: string | null
+          created_at: string
+          days_completed: number
+          days_total: number
+          expires_at: string | null
+          id: string
+          media_urls: string[]
+          profile_username: string
+          slot_index: number | null
+          song_title: string
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          artist_handle: string
+          artist_name: string
+          continued_until?: string | null
+          created_at?: string
+          days_completed?: number
+          days_total?: number
+          expires_at?: string | null
+          id?: string
+          media_urls?: string[]
+          profile_username?: string
+          slot_index?: number | null
+          song_title: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          artist_handle?: string
+          artist_name?: string
+          continued_until?: string | null
+          created_at?: string
+          days_completed?: number
+          days_total?: number
+          expires_at?: string | null
+          id?: string
+          media_urls?: string[]
+          profile_username?: string
+          slot_index?: number | null
+          song_title?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       smm_boost_orders: {
         Row: {
           charge: number | null
