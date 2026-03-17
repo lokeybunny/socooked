@@ -250,7 +250,10 @@ export const smmApi = {
       for (const plan of plansResult.data || []) {
         const items = Array.isArray(plan.schedule_items) ? plan.schedule_items : [];
         for (const item of items) {
-          const itemId = typeof item?.id === 'string' ? item.id : '';
+          const itemRecord = item && typeof item === 'object' && !Array.isArray(item)
+            ? item as { id?: unknown }
+            : null;
+          const itemId = typeof itemRecord?.id === 'string' ? itemRecord.id : '';
           if (!itemId || planIndex.has(itemId)) continue;
           planIndex.set(itemId, {
             profile_username: plan.profile_username,
