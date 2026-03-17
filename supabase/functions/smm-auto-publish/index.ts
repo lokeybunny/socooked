@@ -20,12 +20,16 @@ Deno.serve(async (req) => {
   try {
     const reqBody = await req.json().catch(() => ({}));
     const catchUp = reqBody.catch_up === true;
+    const forceAllToday = reqBody.force_all_today === true;
     
     const now = new Date();
-    // Normal mode: 20-min lookback. Catch-up mode: look back 24 hours
-    const lookbackMs = catchUp ? 24 * 60 * 60 * 1000 : 20 * 60 * 1000;
+    // Normal mode: 20-min lookback. Catch-up mode: look back 24 hours. Force: entire day
+    const lookbackMs = (catchUp || forceAllToday) ? 24 * 60 * 60 * 1000 : 20 * 60 * 1000;
     const windowStart = new Date(now.getTime() - lookbackMs).toISOString();
-    const windowEnd = new Date(now.getTime() + 2 * 60 * 1000).toISOString();
+    // Force mode: extend window to end of today (UTC midnight)
+    const windowEnd = forceAllToday
+      ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59)).toISOString()
+      : new Date(now.getTime() + 2 * 60 * 1000).toISOString();
 
     console.log(`[smm-auto-publish] ${catchUp ? "CATCH-UP" : "Normal"} window: ${windowStart} → ${windowEnd}`);
 
