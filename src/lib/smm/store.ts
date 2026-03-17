@@ -48,9 +48,8 @@ function buildUrl(action: string, params?: Record<string, string>) {
 }
 
 async function invokeSMM(action: string, params?: Record<string, string>, body?: any) {
-  await throttleUploadAction(action);
-
   const queryString = buildUrl(action, params);
+
   const call = async () => {
     const { data, error } = await supabase.functions.invoke(`smm-api?${queryString}`, {
       body: body || undefined,
@@ -69,28 +68,31 @@ async function invokeSMM(action: string, params?: Record<string, string>, body?:
       if ((data as any).error_subcode === 2534022 || /fen[eê]tre autoris[eé]e|outside.*allowed.*window|messaging.*not.*available/i.test(rawError + suggestion)) {
         friendlyMsg = 'Can\'t message this user — Instagram requires them to message you first (24-hour window policy).';
       } else if ((data as any).error_code === 429 || /daily.*limit|rate.*limit|quota/i.test(rawError)) {
-        friendlyMsg = 'Daily DM limit reached. Try again tomorrow.';
+        friendlyMsg = rawError;
       }
 
-      const enrichedError = new Error(`${friendlyMsg}${UPLOAD_ACTIONS.has(action) ? `, ${JSON.stringify(data)}` : ''}`);
-      throw enrichedError;
+      throw new Error(`${friendlyMsg}${UPLOAD_ACTIONS.has(action) ? `, ${JSON.stringify(data)}` : ''}`);
     }
 
     return data;
   };
 
-  try {
-    return await call();
-  } catch (error) {
-    if (!UPLOAD_ACTIONS.has(action)) throw error;
+  const runWithRetry = async () => {
+    try {
+      return await call();
+    } catch (error) {
+      if (!UPLOAD_ACTIONS.has(action)) throw error;
 
-    const retryAfterMs = parseRetryAfterMs(error);
-    if (!retryAfterMs) throw error;
+      const retryAfterMs = parseRetryAfterMs(error);
+      if (!retryAfterMs) throw error;
 
-    await sleep(retryAfterMs + 1000);
-    lastUploadRequestAt = Date.now();
-    return await call();
-  }
+      await sleep(retryAfterMs + 1000);
+      lastUploadRequestAt = Date.now();
+      return await call();
+    }
+  };
+
+  return withUploadThrottle(action, runWithRetry);
 }
 
 // ─── API Service (Real Upload-Post API via Edge Function) ───
