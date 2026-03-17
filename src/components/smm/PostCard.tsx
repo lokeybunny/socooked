@@ -4,7 +4,7 @@ import { PLATFORM_META } from '@/lib/smm/context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye } from 'lucide-react';
+import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
@@ -23,6 +23,29 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-muted text-muted-foreground line-through',
 };
 
+/** Check if a scheduled post's time has already passed and it hasn't been completed/published */
+function isOverdue(post: ScheduledPost): boolean {
+  if (!post.scheduled_date) return false;
+  if (['completed', 'failed', 'cancelled'].includes(post.status)) return false;
+  return new Date(post.scheduled_date) < new Date();
+}
+
+function getOverdueReason(post: ScheduledPost): string {
+  const scheduled = post.scheduled_date ? new Date(post.scheduled_date) : null;
+  if (!scheduled) return 'Unknown issue';
+  const minutesLate = Math.round((Date.now() - scheduled.getTime()) / 60000);
+  const hoursLate = Math.round(minutesLate / 60);
+  const lateLabel = minutesLate < 60 ? `${minutesLate}m` : `${hoursLate}h ${minutesLate % 60}m`;
+
+  if (post.status === 'scheduled' || post.status === 'queued') {
+    return `⚠️ This post was scheduled for ${format(scheduled, 'h:mm a')} but hasn't been published yet (${lateLabel} overdue). The upload may have stalled or the API queue is backed up. Use PUSH to force-retry the upload now.`;
+  }
+  if (post.status === 'pending' || post.status === 'in_progress') {
+    return `⏳ This post has been processing since ${format(scheduled, 'h:mm a')} (${lateLabel} ago). It may be stuck in the upload pipeline. Use PUSH to retry.`;
+  }
+  return `This post missed its ${format(scheduled, 'h:mm a')} slot (${lateLabel} overdue).`;
+}
+
 interface PostCardProps {
   post: ScheduledPost;
   compact?: boolean;
@@ -31,6 +54,7 @@ interface PostCardProps {
   onCancel?: (post: ScheduledPost) => void;
   onReschedule?: (post: ScheduledPost) => void;
   onTimeEdit?: (post: ScheduledPost, newTime: string) => void;
+  onPush?: (post: ScheduledPost) => void;
 }
 
 // ─── Post Detail Dialog ───
