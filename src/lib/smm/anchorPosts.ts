@@ -277,5 +277,5 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
     }
   }
 
-  return dedupeFinalCalendarPosts([...allAnchored, ...passthroughScheduled, ...inactivePosts]);
+  return spacePostsOnSameDay(dedupeFinalCalendarPosts([...allAnchored, ...passthroughScheduled, ...inactivePosts]));
 }
