@@ -312,19 +312,26 @@ export const smmApi = {
         });
       }
 
-      // Build a lookup of calendar events by source_id so we can overlay updated titles/descriptions
-      const calendarBySourceId = new Map<string, { title: string; description: string | undefined }>();
+      // Build a lookup of calendar events by source_id so refreshed posts inherit the latest calendar edits.
+      const calendarBySourceId = new Map<string, { title: string; description: string | undefined; start_time: string | null }>();
       for (const event of calendarResult.data || []) {
         const sid = event.source_id || event.id;
-        if (sid) calendarBySourceId.set(sid, { title: stripPlatformLabel(event.title || ''), description: event.description || undefined });
+        if (sid) {
+          calendarBySourceId.set(sid, {
+            title: stripPlatformLabel(event.title || ''),
+            description: event.description || undefined,
+            start_time: event.start_time,
+          });
+        }
       }
 
-      // Overlay calendar titles onto API posts (calendar has updated CTAs)
+      // Overlay calendar edits onto API posts so UI cards and queue KPIs use the newest scheduled time.
       for (const post of posts) {
         const calData = calendarBySourceId.get(post.job_id) || calendarBySourceId.get(post.id);
         if (calData) {
           post.title = calData.title;
-          if (calData.description) post.description = calData.description;
+          post.description = calData.description;
+          post.scheduled_date = calData.start_time || post.scheduled_date;
         }
       }
 
