@@ -17,6 +17,7 @@ export default function SMMHistory({ posts }: { posts: ScheduledPost[] }) {
 
   const filtered = useMemo(() => {
     return posts
+      .filter(p => !['scheduled', 'queued', 'pending', 'in_progress'].includes(p.status))
       .filter(p => filterStatus === 'all' || p.status === filterStatus)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, 20);
