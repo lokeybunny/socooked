@@ -80,15 +80,38 @@ export default function VideoThumbnail({
     );
   }
 
+  const [paused, setPaused] = useState(false);
+
+  const togglePlayback = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play();
+      setPaused(false);
+    } else {
+      v.pause();
+      setPaused(true);
+    }
+  }, []);
+
   return (
-    <video
-      ref={videoRef}
-      src={src}
-      className={`${videoClassName} ${className}`}
-      controls={controls}
-      autoPlay={playing}
-      playsInline={playsInline}
-      preload="metadata"
-    />
+    <div className={`relative cursor-pointer ${className}`} onClick={togglePlayback}>
+      <video
+        ref={videoRef}
+        src={src}
+        className={videoClassName}
+        controls={false}
+        autoPlay
+        playsInline={playsInline}
+        preload="metadata"
+      />
+      {paused && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors">
+          <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
+            <Play className="h-5 w-5 text-primary-foreground ml-0.5" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
