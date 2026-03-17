@@ -245,6 +245,7 @@ export const smmApi = {
               .from('calendar_events')
               .select('id, title, description, start_time, source_id, created_at')
               .eq('source', 'smm')
+              .not('source_id', 'like', 'published-%')
               .order('created_at', { ascending: false })
               .range(from, from + PAGE_SIZE - 1);
             if (error || !data || data.length === 0) { done = true; break; }
