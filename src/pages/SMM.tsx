@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { anchorPostsToCampaignStart } from '@/lib/smm/anchorPosts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -99,6 +100,24 @@ function SMMInner() {
   const [artistModalOpen, setArtistModalOpen] = useState(false);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Realtime: auto-refresh when calendar_events are updated (e.g. auto-publish marks them published)
+  useEffect(() => {
+    const channel = supabase
+      .channel('smm-calendar-sync')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'calendar_events',
+        filter: 'source=eq.smm',
+      }, () => {
+        console.log('[SMM] Realtime calendar update detected, refreshing...');
+        refresh();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [refresh]);
 
   // Auto-select first profile if none selected
   useEffect(() => {
