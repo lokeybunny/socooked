@@ -1,5 +1,6 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { anchorPostsToCampaignStart } from '@/lib/smm/anchorPosts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useSMMStore } from '@/lib/smm/store';
 import { SMMProvider, useSMMContext } from '@/lib/smm/context';
