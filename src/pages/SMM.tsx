@@ -54,9 +54,15 @@ function filterPosts(posts: ScheduledPost[], profileId: string, platform: string
   if (platform === 'all') return profileFiltered;
 
   if (platform === 'tiktok') {
-    return profileFiltered
-      .filter(p => p.platforms.includes('instagram'))
+    // Include posts already tagged as tiktok (e.g. from upload history)
+    const nativeTiktok = profileFiltered.filter(p => p.platforms.includes('tiktok'));
+    // Mirror instagram posts to tiktok (scheduled/calendar posts)
+    const mirrored = profileFiltered
+      .filter(p => p.platforms.includes('instagram') && !p.platforms.includes('tiktok'))
       .map(p => mirrorPostToPlatform(p, 'tiktok'));
+    // Dedupe by job_id
+    const seen = new Set(nativeTiktok.map(p => p.job_id || p.id));
+    return [...nativeTiktok, ...mirrored.filter(p => !seen.has(p.job_id || p.id))];
   }
 
   return profileFiltered.filter(p => p.platforms.includes(platform as Platform));
