@@ -19,17 +19,19 @@ export function anchorPostsToCampaignStart(posts: ScheduledPost[]): ScheduledPos
   }
   const uniquePosts = Array.from(byJobId.values());
 
-  // Deduplicate by title prefix
-  const seenTitle = new Set<string>();
+  // Deduplicate by title + scheduled_date (same content on same day = dupe)
+  const seenKey = new Set<string>();
   const dedupedByContent: ScheduledPost[] = [];
   const sorted = [...uniquePosts].sort((a, b) =>
     (a.scheduled_date || '').localeCompare(b.scheduled_date || '') || a.created_at.localeCompare(b.created_at)
   );
   for (const post of sorted) {
     if (!post.scheduled_date) continue;
+    const day = post.scheduled_date.substring(0, 10);
     const titleKey = post.title.slice(0, 50).toLowerCase().replace(/\s+/g, ' ');
-    if (seenTitle.has(titleKey)) continue;
-    seenTitle.add(titleKey);
+    const compositeKey = `${day}||${titleKey}`;
+    if (seenKey.has(compositeKey)) continue;
+    seenKey.add(compositeKey);
     dedupedByContent.push(post);
   }
 
