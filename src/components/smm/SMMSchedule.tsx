@@ -1597,8 +1597,9 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
   const [activePlatform, setActivePlatform] = useState('instagram');
   const [pushingLive, setPushingLive] = useState(false);
 
-  const [resetting, setResetting] = useState(false);
-  const [retryItems, setRetryItems] = useState<any[]>([]);
+   const [resetting, setResetting] = useState(false);
+   const [recycling, setRecycling] = useState(false);
+   const [retryItems, setRetryItems] = useState<any[]>([]);
   const [editingItem, setEditingItem] = useState<ScheduleItem | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [customDialogOpen, setCustomDialogOpen] = useState(false);
