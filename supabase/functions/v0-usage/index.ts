@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
     const endDate = now.toISOString()
 
-    const url = `https://api.v0.dev/v1/reports/usage?startDate=${encodeURIComponent(startOfMonth)}&endDate=${encodeURIComponent(endDate)}&limit=200`
+    const url = `https://api.v0.dev/v1/reports/usage?startDate=${encodeURIComponent(startOfMonth)}&endDate=${encodeURIComponent(endDate)}&limit=150`
 
     const res = await fetch(url, {
       headers: { 'Authorization': `Bearer ${v0Key}` },
