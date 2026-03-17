@@ -81,7 +81,7 @@ function SMMInner() {
 
         <div className="flex gap-4">
           {/* Platform Rail */}
-          <SMMPlatformRail posts={posts} unreadCounts={UNREAD_COUNTS} connectedPlatforms={connectedPlatforms} />
+          <SMMPlatformRail posts={anchoredPosts} unreadCounts={UNREAD_COUNTS} connectedPlatforms={connectedPlatforms} />
 
           {/* Main Content */}
           <div className="flex-1 min-w-0">
