@@ -84,14 +84,14 @@ Rules:
 - Vary the tone: some hype, some chill, some nostalgic, some party vibes
 - Include a call-to-action (tag, share, comment, save, etc.)
 - Do NOT repeat any phrases across captions
-- Keep the ♻️ [INSTAGRAM] prefix on each
+- Start each caption with a DIFFERENT vibe emoji (🔥, 🎶, ⚡, 💎, 🎵, 🚀, ✨, 🎧, 💫, 🌊, 🎤, 🏆, 💜, 🎯, 🔊, 💣, 🌟, 🎉, 👑, 🫡, 🪩, 🎸, 🎹, 💿) followed by [INSTAGRAM] prefix — do NOT use ♻️
 - Each caption must be COMPLETELY different in wording - no two should share the same structure
 
 IMPORTANT: Do NOT use any of these existing captions (they already exist):
 ${[...allCaptions].slice(0, 50).join("\n")}
 
 Return ONLY a JSON array of strings, each being one caption. Example:
-["♻️ [INSTAGRAM] caption one here", "♻️ [INSTAGRAM] caption two here"]`;
+["🔥 [INSTAGRAM] caption one here", "🎶 [INSTAGRAM] caption two here"]`;
 
     try {
       const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
