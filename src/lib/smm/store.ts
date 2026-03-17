@@ -291,7 +291,11 @@ export const smmApi = {
       const historyItems = history?.history || history?.uploads || [];
       if (Array.isArray(historyItems)) {
         historyItems.forEach((p: any) => {
-          if (!posts.find(ep => ep.job_id === p.job_id)) {
+          // API returns separate records per platform with the same job_id —
+          // dedupe by job_id + platform so both Instagram and TikTok entries appear
+          const platform = p.platform === 'x' ? 'twitter' : (p.platform || '');
+          const dedupKey = `${p.job_id}||${platform}`;
+          if (!posts.find(ep => `${ep.job_id}||${ep.platforms[0] || ''}` === dedupKey)) {
             posts.push(mapApiPostToScheduledPost(p, p.status || 'completed'));
           }
         });
