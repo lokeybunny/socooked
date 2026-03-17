@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import type { ScheduledPost } from '@/lib/smm/types';
 import { PLATFORM_META } from '@/lib/smm/context';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ interface PostCardProps {
   onDuplicate?: (post: ScheduledPost) => void;
   onCancel?: (post: ScheduledPost) => void;
   onReschedule?: (post: ScheduledPost) => void;
+  onTimeEdit?: (post: ScheduledPost, newTime: string) => void;
 }
 
 // ─── Post Detail Dialog ───
