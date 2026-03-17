@@ -56,19 +56,21 @@ export default function SMMQueue({ profiles }: { profiles: SMMProfile[] }) {
     toast.success('Queue settings saved');
   };
 
-  // Build next 10 queue preview slots
+  // Build next 10 queue preview slots anchored to the calendar start (Mar 17, 2026)
+  const QUEUE_ANCHOR = new Date('2026-03-17T00:00:00');
   const previewSlots = settings ? (() => {
-    const now = new Date();
+    // Use the later of "now" or the anchor date so preview always starts from the 17th
+    const anchor = QUEUE_ANCHOR.getTime() > Date.now() ? QUEUE_ANCHOR : new Date();
     const slots: { datetime: Date; slot: QueueSlot }[] = [];
     for (let d = 0; d < 14 && slots.length < 10; d++) {
-      const date = new Date(now.getTime() + d * 86400000);
+      const date = new Date(anchor.getTime() + d * 86400000);
       const dow = date.getDay();
       const daySlots = settings.slots.filter(s => s.day === dow).sort((a, b) => a.time.localeCompare(b.time));
       for (const s of daySlots) {
         const [h, m] = s.time.split(':').map(Number);
         const dt = new Date(date);
         dt.setHours(h, m, 0, 0);
-        if (dt > now) slots.push({ datetime: dt, slot: s });
+        if (dt >= anchor) slots.push({ datetime: dt, slot: s });
         if (slots.length >= 10) break;
       }
     }
