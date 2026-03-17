@@ -20,11 +20,12 @@ import SMMTerminal from '@/components/smm/SMMTerminal';
 import SMMSchedule from '@/components/smm/SMMSchedule';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
-  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music, Clock,
+  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music, Clock, Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ArtistCampaignModal from '@/components/smm/ArtistCampaignModal';
 import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
+import BoostConfigModal from '@/components/smm/BoostConfigModal';
 import type { Platform, ScheduledPost } from '@/lib/smm/types';
 
 const TABS = [
@@ -98,6 +99,7 @@ function SMMInner() {
   const { profiles, posts, loading, refresh, setPosts } = useSMMStore();
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
   const [artistModalOpen, setArtistModalOpen] = useState(false);
+  const [boostModalOpen, setBoostModalOpen] = useState(false);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -150,6 +152,10 @@ function SMMInner() {
           </div>
           <PSTClock />
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBoostModalOpen(true)}>
+              <Zap className="h-3.5 w-3.5" />
+              Boost
+            </Button>
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setArtistModalOpen(true)}>
               <Music className="h-3.5 w-3.5" />
               Artist
@@ -213,6 +219,11 @@ function SMMInner() {
         onOpenChange={setArtistModalOpen}
         profileUsername={profileId || 'NysonBlack'}
         onRefresh={refresh}
+      />
+      <BoostConfigModal
+        open={boostModalOpen}
+        onOpenChange={setBoostModalOpen}
+        profileUsername={profileId || 'NysonBlack'}
       />
     </AppLayout>
   );

@@ -133,6 +133,61 @@ Deno.serve(async (req) => {
           meta: { name: `📤 Auto-published: ${event.title}`, profile: profileUsername, platforms },
         });
 
+        // ── Auto-Boost: check if enabled for this profile ──
+        try {
+          const { data: boostConfig } = await supabase
+            .from("site_configs")
+            .select("content")
+            .eq("site_id", "smm-boost")
+            .eq("section", `auto-boost-${profileUsername}`)
+            .single();
+
+          const config = boostConfig?.content as { enabled?: boolean; preset_id?: string } | null;
+          if (config?.enabled && config?.preset_id) {
+            const { data: preset } = await supabase
+              .from("smm_boost_presets")
+              .select("*")
+              .eq("id", config.preset_id)
+              .single();
+
+            if (preset && Array.isArray((preset as any).services) && (preset as any).services.length > 0) {
+              // Parse upload response to get post URL
+              let postUrl: string | null = null;
+              try {
+                const uploadData = JSON.parse(uploadText);
+                // Try to find post URL from the upload response
+                postUrl = uploadData?.data?.post_url || uploadData?.data?.permalink || mediaUrl;
+              } catch { postUrl = mediaUrl; }
+
+              if (postUrl) {
+                console.log(`[smm-auto-publish] Triggering auto-boost with preset "${(preset as any).preset_name}" for ${postUrl}`);
+                const boostUrl = `${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`;
+                await fetch(boostUrl, {
+                  method: "POST",
+                  headers: {
+                    "apikey": ANON_KEY,
+                    "Authorization": `Bearer ${ANON_KEY}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    link: postUrl,
+                    profile_username: profileUsername,
+                    platform: "instagram",
+                    services: (preset as any).services.map((s: any) => ({
+                      service_id: s.service_id,
+                      service_name: s.service_name,
+                      quantity: s.quantity,
+                    })),
+                  }),
+                });
+                console.log(`[smm-auto-publish] Auto-boost triggered successfully`);
+              }
+            }
+          }
+        } catch (boostErr) {
+          console.error("[smm-auto-publish] Auto-boost error (non-fatal):", boostErr);
+        }
+
         return json({ ok: true, published: 1, remaining: unpublished.length - 1, title: event.title });
       } else {
         console.error(`[smm-auto-publish] Failed for ${event.id}:`, uploadText.substring(0, 300));
