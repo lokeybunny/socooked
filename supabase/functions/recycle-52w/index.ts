@@ -32,7 +32,7 @@ serve(async (req) => {
       }
 
       const { data: task, error: taskErr } = await supabase.from('bot_tasks').insert({
-        title: `♻️ Recycle 52w — ${plan_name || platform}`,
+        title: `🔄 Recycle 52w — ${plan_name || platform}`,
         description: `Recycling ${items.length} posts × 51 weeks for ${profile_username} on ${platform}`,
         bot_agent: 'social_media',
         priority: 'high',
@@ -145,7 +145,8 @@ serve(async (req) => {
 
             const calendarEvents: any[] = [];
 
-            for (const item of items) {
+            for (let itemIdx = 0; itemIdx < items.length; itemIdx++) {
+              const item = items[itemIdx];
               const targetDate = new Date(`${CAMPAIGN_START}T12:00:00`);
               targetDate.setDate(targetDate.getDate() + dayOffset);
               const yyyy = targetDate.getFullYear();
@@ -224,8 +225,10 @@ serve(async (req) => {
                 }
               };
 
+              const vibeEmojis = ['🔥','🎶','⚡','💎','🎵','🚀','✨','🎧','💫','🌊','🎤','🏆','💜','🎯','🔊','💣','🌟','🎉','👑','🫡','🪩','🎸','🎹','💿','📀'];
+              const emojiPick = vibeEmojis[(week * 7 + itemIdx) % vibeEmojis.length];
               calendarEvents.push({
-                title: sanitize(`♻️ [${platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`),
+                title: sanitize(`${emojiPick} [${platform.toUpperCase()}] ${(caption || item.type).substring(0, 50)}`),
                 description: sanitize(
                   `Recycled from "${plan_name}" (Week ${week + 1}/52)\nProfile: ${profile_username}\nType: ${item.type}${item.media_url ? `\nMedia URL: ${item.media_url}` : ''}\n\n${caption || ''}`
                 ),
