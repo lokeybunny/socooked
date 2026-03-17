@@ -4,7 +4,7 @@ import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/cont
 import PostCard from './PostCard';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { List, LayoutList, ChevronDown, ChevronUp } from 'lucide-react';
+import { List, LayoutList, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ALL_STATUSES: PostStatus[] = ['pending', 'in_progress', 'completed', 'failed', 'scheduled', 'queued', 'cancelled'];
@@ -86,29 +86,77 @@ export default function SMMHistory({ posts }: { posts: ScheduledPost[] }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => (
-                <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}>
-                  <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">{format(new Date(p.created_at), 'MMM d, h:mm a')}</td>
-                  <td className="p-3 font-medium">{p.profile_username}</td>
-                  <td className="p-3 text-xs text-muted-foreground">{p.type}</td>
-                  <td className="p-3 truncate max-w-[180px]">{p.title}</td>
-                  <td className="p-3">
-                    <div className="flex gap-1">
-                      {p.platforms.map(pl => {
-                        const meta = PLATFORM_META[pl];
-                        return <span key={pl} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${meta?.color}`}>{meta?.abbr}</span>;
-                      })}
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      p.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
-                      p.status === 'failed' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
-                    }`}>{p.status}</span>
-                  </td>
-                  <td className="p-3">{expandedId === p.id ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}</td>
-                </tr>
-              ))}
+              {filtered.map(p => {
+                const isExpanded = expandedId === p.id;
+                const hasVideo = p.type === 'video' || /\.(mp4|mov|webm)/i.test(p.media_url || '') || /\.(mp4|mov|webm)/i.test(p.preview_url || '');
+                const mediaSrc = p.media_url || p.preview_url || '';
+                return (
+                  <>
+                    <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : p.id)}>
+                      <td className="p-3 text-muted-foreground text-xs whitespace-nowrap">{format(new Date(p.created_at), 'MMM d, h:mm a')}</td>
+                      <td className="p-3 font-medium">{p.profile_username}</td>
+                      <td className="p-3 text-xs text-muted-foreground">{p.type}</td>
+                      <td className="p-3 truncate max-w-[180px]">{p.title}</td>
+                      <td className="p-3">
+                        <div className="flex gap-1">
+                          {p.platforms.map(pl => {
+                            const meta = PLATFORM_META[pl];
+                            return <span key={pl} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${meta?.color}`}>{meta?.abbr}</span>;
+                          })}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          p.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500' :
+                          p.status === 'failed' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'
+                        }`}>{p.status}</span>
+                      </td>
+                      <td className="p-3">{isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}</td>
+                    </tr>
+                    {isExpanded && (
+                      <tr key={`${p.id}-detail`} className="border-b border-border/50 bg-muted/20">
+                        <td colSpan={7} className="p-4">
+                          <div className="flex gap-4">
+                            {/* Video / Image preview */}
+                            {mediaSrc && (
+                              <div className="shrink-0 w-48 rounded-lg overflow-hidden border border-border/50 bg-black">
+                                {hasVideo ? (
+                                  <video src={mediaSrc} controls className="w-full max-h-48 object-contain" preload="metadata" />
+                                ) : (
+                                  <img src={mediaSrc} alt="" className="w-full max-h-48 object-contain" />
+                                )}
+                              </div>
+                            )}
+                            {/* Content details */}
+                            <div className="flex-1 min-w-0 space-y-2">
+                              <p className="text-sm font-semibold text-foreground whitespace-pre-wrap break-words">{p.title}</p>
+                              {p.description && (
+                                <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words max-h-32 overflow-y-auto">{p.description}</p>
+                              )}
+                              {p.post_urls.length > 0 && (
+                                <div className="flex gap-2 pt-1">
+                                  {p.post_urls.map(u => (
+                                    <a key={u.platform} href={u.url} target="_blank" rel="noopener noreferrer"
+                                      className="flex items-center gap-1 text-xs text-primary hover:underline">
+                                      <ExternalLink className="h-3 w-3" />{u.platform}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
+                              {p.error && <p className="text-xs text-destructive">Error: {p.error}</p>}
+                              <div className="text-[10px] text-muted-foreground pt-1 space-y-0.5">
+                                {p.scheduled_date && <p>Scheduled: {format(new Date(p.scheduled_date), 'MMM d, yyyy h:mm a')}</p>}
+                                {p.published_at && <p>Published: {format(new Date(p.published_at), 'MMM d, yyyy h:mm a')}</p>}
+                                {p.job_id && <p className="font-mono">Job: {p.job_id}</p>}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
             </tbody>
           </table>
           {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No posts match filters</p>}
