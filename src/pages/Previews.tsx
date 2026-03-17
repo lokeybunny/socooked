@@ -55,6 +55,56 @@ const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string }
   failed: { icon: XCircle, color: 'text-destructive' },
 };
 
+// ─── Client Search Combobox ───
+function ClientSearchCombobox({ customers, value, onSelect }: {
+  customers: Customer[];
+  value: string;
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!search) return customers;
+    const q = search.toLowerCase();
+    return customers.filter(c => c.full_name.toLowerCase().includes(q));
+  }, [customers, search]);
+
+  const selected = customers.find(c => c.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal">
+          {selected ? selected.full_name : 'Search for a client…'}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput placeholder="Type a name…" value={search} onValueChange={setSearch} />
+          <CommandList>
+            <CommandEmpty>No client found.</CommandEmpty>
+            <CommandGroup>
+              {filtered.map(c => (
+                <CommandItem
+                  key={c.id}
+                  value={c.id}
+                  onSelect={() => { onSelect(c.id); setOpen(false); setSearch(''); }}
+                >
+                  <Check className={cn('mr-2 h-4 w-4', value === c.id ? 'opacity-100' : 'opacity-0')} />
+                  {c.full_name}
+                  {c.category && <span className="text-muted-foreground ml-1.5 text-xs">· {c.category}</span>}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── Generate Website Modal ───
 function GenerateWebsiteModal({ open, onOpenChange, onGenerated }: {
   open: boolean;
