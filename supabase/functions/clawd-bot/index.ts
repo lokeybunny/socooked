@@ -2340,7 +2340,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           prompt,
-          customer_id: customer_id || null,
+          customer_id: resolvedCustomerId,
           category: category || 'digital-services',
           bot_task_id: task?.id,
           ...(chat_id ? { chat_id } : {}),
