@@ -56,7 +56,8 @@ function SMMInner() {
     if (!profileId && profiles.length > 0) setProfileId(profiles[0].id);
   }, [profiles, profileId, setProfileId]);
 
-  const filtered = filterPosts(posts, profileId, platform);
+  const anchoredPosts = useMemo(() => anchorPostsToCampaignStart(posts), [posts]);
+  const filtered = filterPosts(anchoredPosts, profileId, platform);
 
   // Derive set of connected platform keys from all profiles
   const connectedPlatforms = new Set<string>();
