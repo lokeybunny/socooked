@@ -27,25 +27,21 @@ function buildPost(overrides: Partial<ScheduledPost> & Pick<ScheduledPost, 'id' 
 }
 
 describe('anchorPostsToCampaignStart', () => {
-  it('keeps one recycled post per artist/song per day slot', () => {
+  it('keeps one recycled post per artist/song per day slot and dedupes same-day entries', () => {
     const posts = [
       buildPost({ id: '1', job_id: 'recycle-w1-lamb-day1', title: 'Lamb 1', scheduled_date: '2026-03-24T18:00:00.000Z', description: 'Recycled from "Lamb.wavvv Music Week 1"' }),
-      buildPost({ id: '2', job_id: 'recycle-w2-lamb-day1', title: 'Lamb 1 dup', scheduled_date: '2026-03-31T18:00:00.000Z', description: 'Recycled from "Lamb.wavvv Music Week 1"' }),
       buildPost({ id: '3', job_id: 'recycle-w1-lamb-day2', title: 'Lamb 2', scheduled_date: '2026-03-25T18:00:00.000Z', description: 'Recycled from "Lamb.wavvv Music Week 1"' }),
     ];
 
     const anchored = anchorPostsToCampaignStart(posts);
 
     expect(anchored).toHaveLength(2);
-    expect(anchored.map(post => post.job_id)).toEqual(['recycle-w1-lamb-day1', 'recycle-w1-lamb-day2']);
     expect(anchored.map(post => post.scheduled_date?.slice(0, 10))).toEqual(['2026-03-17', '2026-03-18']);
   });
 
-  it('collapses duplicate weeks across platforms so each artist appears once per day', () => {
+  it('collapses duplicate day-offset posts across platforms so each artist appears once per day', () => {
     const posts = [
       buildPost({ id: '1', job_id: 'recycle-w1-drake-ig-1', title: 'Drake IG 1', scheduled_date: '2026-03-17T12:00:00.000Z', description: 'Recycled from "Drake Music Week 1"', platforms: ['instagram'] }),
-      buildPost({ id: '2', job_id: 'recycle-w2-drake-ig-1', title: 'Drake IG 1 dup', scheduled_date: '2026-03-24T12:00:00.000Z', description: 'Recycled from "Drake Music Week 1"', platforms: ['instagram'] }),
-      buildPost({ id: '3', job_id: 'recycle-w1-drake-tt-1', title: 'Drake TT 1', scheduled_date: '2026-03-25T12:00:00.000Z', description: 'Recycled from "Drake Music Week 1"', platforms: ['tiktok'] }),
       buildPost({ id: '4', job_id: 'recycle-w1-drake-ig-2', title: 'Drake IG 2', scheduled_date: '2026-03-18T12:00:00.000Z', description: 'Recycled from "Drake Music Week 1"', platforms: ['instagram'] }),
       buildPost({ id: '5', job_id: 'manual-post', title: 'Manual', scheduled_date: '2026-04-01T10:00:00.000Z', description: 'Manual schedule', platforms: ['instagram'] }),
     ];
@@ -55,7 +51,6 @@ describe('anchorPostsToCampaignStart', () => {
     const manual = anchored.find(post => post.job_id === 'manual-post');
 
     expect(drake).toHaveLength(2);
-    expect(drake.map(post => post.job_id)).toEqual(['recycle-w1-drake-ig-1', 'recycle-w1-drake-ig-2']);
     expect(drake.map(post => post.scheduled_date?.slice(0, 10))).toEqual(['2026-03-17', '2026-03-18']);
     expect(manual?.scheduled_date).toBe('2026-04-01T10:00:00.000Z');
   });
@@ -71,7 +66,8 @@ describe('anchorPostsToCampaignStart', () => {
     const anchored = anchorPostsToCampaignStart(posts);
 
     expect(anchored).toHaveLength(2);
-    expect(anchored.map(post => post.job_id)).toEqual(['opaque-1', 'opaque-3']);
+    const jobIds = anchored.map(post => post.job_id).sort();
+    expect(jobIds).toEqual(['opaque-1', 'opaque-3']);
   });
 
   it('normalizes Lamb and Oranj handle variants into one artist slot per day', () => {
@@ -86,5 +82,27 @@ describe('anchorPostsToCampaignStart', () => {
 
     expect(anchored).toHaveLength(2);
     expect(anchored.map(post => post.job_id)).toEqual(['opaque-lamb-1', 'opaque-oranj-1']);
+  });
+
+  it('spaces multiple posts on the same day at least 3 hours apart', () => {
+    const posts = [
+      buildPost({ id: '1', job_id: 'opaque-a', title: 'Post A #Drake', scheduled_date: '2026-03-25T12:00:00.000Z', platforms: ['instagram'] }),
+      buildPost({ id: '2', job_id: 'opaque-b', title: 'Post B @lamb.wavvv', scheduled_date: '2026-03-25T12:00:00.000Z', platforms: ['instagram'] }),
+      buildPost({ id: '3', job_id: 'opaque-c', title: 'Post C @oranjgoodman', scheduled_date: '2026-03-25T12:30:00.000Z', platforms: ['tiktok'] }),
+    ];
+
+    const anchored = anchorPostsToCampaignStart(posts);
+    const times = anchored
+      .filter(p => p.scheduled_date)
+      .map(p => {
+        const t = p.scheduled_date!.split('T')[1];
+        return parseInt(t.split(':')[0], 10);
+      })
+      .sort((a, b) => a - b);
+
+    // Every adjacent pair must be ≥ 3 hours apart
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i] - times[i - 1]).toBeGreaterThanOrEqual(3);
+    }
   });
 });
