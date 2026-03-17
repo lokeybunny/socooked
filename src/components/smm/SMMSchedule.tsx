@@ -2014,6 +2014,96 @@ export default function SMMSchedule({ profiles }: { profiles: SMMProfile[] }) {
     setResetting(false);
   };
 
+  // ─── Recycle: clone current week across 52 weeks ───
+  const handleRecycle = async () => {
+    if (!currentPlan || items.length === 0) {
+      toast.error('No content plan to recycle');
+      return;
+    }
+    setRecycling(true);
+    try {
+      const apiPlatform = currentPlan.platform === 'twitter' ? 'x' : currentPlan.platform;
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+      const baseItems = items.map(item => {
+        const baseDate = parseISO(item.date);
+        return { ...item, _baseDate: baseDate };
+      });
+
+      let totalScheduled = 0;
+      let totalCalEvents = 0;
+
+      for (let week = 1; week <= 51; week++) {
+        const offsetMs = week * 7 * 24 * 60 * 60 * 1000;
+        const calendarEvents: any[] = [];
+
+        for (const item of baseItems) {
+          const newDate = new Date(item._baseDate.getTime() + offsetMs);
+          const newDateStr = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}`;
+          const scheduledDate = item.time
+            ? `${newDateStr}T${item.time}:00`
+            : `${newDateStr}T12:00:00`;
+
+          if (item.type === 'text' || item.media_url) {
+            try {
+              const hashtagStr = (item.hashtags || []).map((h: string) => h.startsWith('#') ? h : `#${h}`).join(' ');
+              const title = item.caption
+                ? `${item.caption}${hashtagStr ? '\n\n' + hashtagStr : ''}`
+                : hashtagStr || item.type;
+
+              const isActualVideo = item.media_url && (
+                item.media_url.endsWith('.mp4') || item.media_url.endsWith('.mov') ||
+                item.media_url.endsWith('.webm') || item.media_url.includes('higgsfield')
+              );
+              let postType: 'text' | 'video' | 'photos' | 'document' = 'text';
+              if (item.type === 'video' && isActualVideo) postType = 'video';
+              else if (item.type === 'video' || item.type === 'image' || item.type === 'carousel') postType = 'photos';
+
+              await smmApi.createPost({
+                user: currentPlan.profile_username,
+                type: postType,
+                platforms: [apiPlatform as any],
+                title,
+                media_url: item.media_url,
+                scheduled_date: scheduledDate,
+                timezone: tz,
+              });
+              totalScheduled++;
+            } catch (err) {
+              console.warn(`[recycle] Week ${week}, item ${item.id} failed:`, err);
+            }
+          }
+
+          calendarEvents.push({
+            title: `♻️ [${currentPlan.platform.toUpperCase()}] ${item.caption?.substring(0, 50) || item.type}`,
+            description: `Recycled from "${currentPlan.plan_name}" (Week ${week + 1}/52)\n\n${item.caption || ''}`,
+            start_time: scheduledDate,
+            end_time: (() => { const e = new Date(new Date(scheduledDate).getTime() + 30 * 60000); return `${e.getFullYear()}-${String(e.getMonth()+1).padStart(2,'0')}-${String(e.getDate()).padStart(2,'0')}T${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}:00`; })(),
+            source: 'smm',
+            source_id: `recycle-w${week}-${item.id}`,
+            category: 'smm',
+            color: currentPlan.platform === 'instagram' ? '#E1306C' :
+                   currentPlan.platform === 'facebook' ? '#1877F2' :
+                   currentPlan.platform === 'tiktok' ? '#010101' :
+                   currentPlan.platform === 'x' ? '#1DA1F2' : '#3b82f6',
+          });
+        }
+
+        if (calendarEvents.length > 0) {
+          const { error: calErr } = await supabase
+            .from('calendar_events')
+            .insert(calendarEvents);
+          if (!calErr) totalCalEvents += calendarEvents.length;
+        }
+      }
+
+      toast.success(`♻️ Recycled! ${totalScheduled} posts scheduled + ${totalCalEvents} calendar events across 51 weeks.`);
+    } catch (e: any) {
+      toast.error(`Recycle failed: ${e.message}`);
+    }
+    setRecycling(false);
+  };
+
   const todayItems = items.filter(i => { try { return isToday(parseISO(i.date)); } catch { return false; } });
   const upcomingItems = items.filter(i => { try { return !isToday(parseISO(i.date)); } catch { return true; } });
 
