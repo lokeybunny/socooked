@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { anchorPostsToCampaignStart } from '@/lib/smm/anchorPosts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -19,9 +19,11 @@ import SMMTerminal from '@/components/smm/SMMTerminal';
 import SMMSchedule from '@/components/smm/SMMSchedule';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
-  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles,
+  Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import ArtistCampaignModal from '@/components/smm/ArtistCampaignModal';
+import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
 import type { Platform, ScheduledPost } from '@/lib/smm/types';
 
 const TABS = [
@@ -71,6 +73,7 @@ function filterPosts(posts: ScheduledPost[], profileId: string, platform: string
 function SMMInner() {
   const { profiles, posts, loading, refresh } = useSMMStore();
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
+  const [artistModalOpen, setArtistModalOpen] = useState(false);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -94,12 +97,19 @@ function SMMInner() {
             <h1 className="text-2xl font-bold text-foreground">Social Media Manager</h1>
             <p className="text-muted-foreground mt-1">Schedule, publish, and analyze social content across all platforms.</p>
           </div>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={refresh} disabled={loading}>
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setArtistModalOpen(true)}>
+              <Music className="h-3.5 w-3.5" />
+              Artist
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={refresh} disabled={loading}>
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
+        <ArtistContinueBanner profileUsername={profileId || undefined} onRefresh={refresh} />
         <SMMContextBar profiles={profiles} />
 
         <div className="flex gap-4">
@@ -137,6 +147,14 @@ function SMMInner() {
 
       {/* Persistent AI Scheduler Terminal */}
       {profileId && <SMMTerminal profileUsername={profileId} />}
+
+      {/* Artist Campaign Modal */}
+      <ArtistCampaignModal
+        open={artistModalOpen}
+        onOpenChange={setArtistModalOpen}
+        profileUsername={profileId || 'NysonBlack'}
+        onRefresh={refresh}
+      />
     </AppLayout>
   );
 }

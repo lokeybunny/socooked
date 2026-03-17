@@ -5,6 +5,7 @@ import { Users, TrendingUp, Mail, Clock, RefreshCw, Layers, CircleCheckBig, Doll
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { useAuth } from '@/hooks/useAuth';
 import FinancialReports from '@/components/dashboard/FinancialReports';
+import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
 
 interface Stats {
   customers: number;
@@ -149,6 +150,9 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Artist Campaign Continuation Prompts */}
+        <ArtistContinueBanner />
 
         {/* Metrics */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
