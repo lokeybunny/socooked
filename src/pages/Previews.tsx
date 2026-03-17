@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
-import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus, Check, ChevronsUpDown } from 'lucide-react';
+import { Search, ExternalLink, Pencil, Eye, ChevronDown, ChevronRight, ChevronLeft, Palette, Video, Sparkles, Clock, CheckCircle2, XCircle, Loader2, Plus, Globe, Rocket, UserPlus, Check, ChevronsUpDown, Coins } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -54,6 +54,31 @@ const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle2; color: string }
   in_progress: { icon: Loader2, color: 'text-blue-400' },
   failed: { icon: XCircle, color: 'text-destructive' },
 };
+
+// ─── V0 Credits Badge ───
+function V0CreditsBadge() {
+  const [usage, setUsage] = useState<{ total_spent: number; message_count: number; image_count: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.functions.invoke('v0-usage').then(({ data, error }) => {
+      if (!error && data?.success) setUsage(data.data);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) return <Skeleton className="h-8 w-28" />;
+  if (!usage) return null;
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-muted/50 text-xs">
+      <Coins className="h-3.5 w-3.5 text-primary" />
+      <span className="text-muted-foreground">v0 this month:</span>
+      <span className="font-semibold text-foreground">${usage.total_spent.toFixed(2)}</span>
+      <span className="text-muted-foreground">· {usage.message_count} msgs</span>
+    </div>
+  );
+}
 
 // ─── Client Search Combobox ───
 function ClientSearchCombobox({ customers, value, onSelect }: {
@@ -384,7 +409,8 @@ export default function Previews() {
               All API-generated websites — organized by client
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <V0CreditsBadge />
             <Button onClick={() => setShowGenerate(true)} className="gap-1.5">
               <Plus className="h-4 w-4" /> Generate Website
             </Button>
