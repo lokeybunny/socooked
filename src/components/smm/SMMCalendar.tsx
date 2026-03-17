@@ -16,20 +16,6 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-zinc-600 text-white',
 };
 
-const CAMPAIGN_START_DAY = '2026-03-17';
-
-const shiftIsoDateStringByDays = (value: string, days: number) => {
-  const [datePart, timePart = '12:00:00'] = value.split('T');
-  const [year, month, day] = datePart.split('-').map(Number);
-  const shifted = new Date(Date.UTC(year, month - 1, day));
-  shifted.setUTCDate(shifted.getUTCDate() + days);
-  const yyyy = shifted.getUTCFullYear();
-  const mm = String(shifted.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(shifted.getUTCDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}T${timePart}`;
-};
-
-const getDayKey = (scheduledDate: string) => scheduledDate.slice(0, 10);
 
 export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost[]; onRefresh: () => void }) {
   const { platform } = useSMMContext();
