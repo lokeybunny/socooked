@@ -9,7 +9,7 @@ const API_BASE = 'https://api.upload-post.com/api';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-const QUIET_FAILURE_ACTIONS = new Set(['list-scheduled']);
+const QUIET_FAILURE_ACTIONS = new Set(['list-scheduled', 'list-profiles', 'upload-history']);
 
 async function logSMMActivity(action: string, meta: Record<string, any>) {
   try {
@@ -371,6 +371,18 @@ serve(async (req) => {
       console.error(`[smm-api] Upload-Post API error [${response.status}] for action=${action}: ${responseText}`);
       if (action === 'list-scheduled') {
         return new Response(JSON.stringify({ success: false, scheduled_posts: [], error: 'Could not retrieve scheduled posts.' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (action === 'list-profiles') {
+        return new Response(JSON.stringify({ success: true, profiles: [], error: 'Provider temporarily unavailable.' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (action === 'upload-history') {
+        return new Response(JSON.stringify({ success: true, history: [], error: 'Provider temporarily unavailable.' }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
