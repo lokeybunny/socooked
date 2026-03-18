@@ -404,6 +404,13 @@ export default function Leads() {
     });
     setBookingStatusMap(bMap);
 
+    // Build set of customer IDs that received the "Your Free Custom Website is Ready" email
+    const weIds = new Set<string>();
+    (websiteEmailRes.data || []).forEach((c: any) => {
+      if (c.customer_id) weIds.add(c.customer_id);
+    });
+    setWebsiteEmailedIds(weIds);
+
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
     setAllProspectEmailed(prospectEmailedRes.data || []);
