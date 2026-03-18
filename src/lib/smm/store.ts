@@ -960,7 +960,7 @@ export function useSMMStore() {
         setProfiles(p);
         setProviderDown(false);
       }).catch((err: any) => {
-        if (err?.status === 503 || String(err?.message || '').includes('no available server')) {
+        if (err?.providerDown || err?.status === 503 || String(err?.message || '').includes('no available server')) {
           profilesFailed503 = true;
           setProviderDown(true);
         }
