@@ -929,6 +929,12 @@ function mapCalendarEventToScheduledPost(
   };
 }
 
+// ─── Module-level cache ───
+let _cachedPosts: ScheduledPost[] | null = null;
+let _cachedProfiles: SMMProfile[] | null = null;
+let _lastRefreshAt = 0;
+const MIN_REFRESH_INTERVAL_MS = 5000;
+
 // ─── Module-level health-check state ───
 let _healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 let _healthCheckSetters: { setProfiles: (p: SMMProfile[]) => void; setProviderDown: (v: boolean) => void; refresh: () => void } | null = null;
