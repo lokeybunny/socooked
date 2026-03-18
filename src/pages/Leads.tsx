@@ -333,7 +333,7 @@ export default function Leads() {
 
   const loadAll = async () => {
     setLeadsPage(1); setProspectsPage(1); setProspectEmailedPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes] = await Promise.all([
+    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes, bookingsRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('prospect_emailed'),
@@ -341,6 +341,7 @@ export default function Leads() {
       buildQuery('monthly'),
       supabase.from('invoices').select('customer_id, status'),
       supabase.from('communications').select('customer_id, body, metadata').eq('type', 'recording').eq('provider', 'ringcentral').order('created_at', { ascending: false }),
+      supabase.from('bookings').select('guest_email, guest_name, booking_date, start_time, status').neq('status', 'cancelled'),
     ]);
     // Build set of customer IDs where ALL invoices are 'paid'
     const invoicesByCustomer = new Map<string, boolean>();
@@ -362,6 +363,34 @@ export default function Leads() {
       }
     });
     setRecordingMap(recMap);
+
+    // Build booking status map: match bookings to customers by email or name
+    const allCustomers = [...(leadRes.data || []), ...(prospectRes.data || []), ...(prospectEmailedRes.data || []), ...(clientRes.data || []), ...(monthlyRes.data || [])];
+    const emailToCustomerId = new Map<string, string>();
+    const nameToCustomerId = new Map<string, string>();
+    allCustomers.forEach((c: any) => {
+      if (c.email) emailToCustomerId.set(c.email.toLowerCase(), c.id);
+      if (c.full_name) nameToCustomerId.set(c.full_name.toLowerCase(), c.id);
+    });
+
+    const now = new Date();
+    const bMap = new Map<string, 'upcoming' | 'past'>();
+    (bookingsRes.data || []).forEach((b: any) => {
+      // Match booking to customer by email first, then name
+      const customerId = (b.guest_email && emailToCustomerId.get(b.guest_email.toLowerCase()))
+        || (b.guest_name && nameToCustomerId.get(b.guest_name.toLowerCase()));
+      if (!customerId) return;
+
+      const bookingDateTime = new Date(`${b.booking_date}T${b.start_time}`);
+      const status: 'upcoming' | 'past' = bookingDateTime > now ? 'upcoming' : 'past';
+
+      // Prefer 'upcoming' over 'past' if customer has multiple bookings
+      const existing = bMap.get(customerId);
+      if (!existing || (status === 'upcoming' && existing === 'past')) {
+        bMap.set(customerId, status);
+      }
+    });
+    setBookingStatusMap(bMap);
 
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
