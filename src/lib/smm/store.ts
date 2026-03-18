@@ -232,7 +232,7 @@ export const smmApi = {
   async getPosts(): Promise<ScheduledPost[]> {
     try {
       const [scheduled, history, calendarResult, plansResult] = await Promise.all([
-        invokeSMM('list-scheduled', { limit: '100' }).catch(() => ({ scheduled_posts: [] })),
+        invokeSMM('list-scheduled', { limit: '100' }).catch(() => ({ success: false, scheduled_posts: [] })),
         invokeSMM('upload-history', { limit: '100' }).catch(() => ({ history: [] })),
         // Fetch ALL smm calendar events (may exceed default 1000 limit)
         (async () => {
