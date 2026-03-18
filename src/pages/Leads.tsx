@@ -802,7 +802,7 @@ warren@stu25.com</p>`;
     );
   };
 
-  const LeadForm = ({ onSubmit, submitLabel }: { onSubmit: (e: React.FormEvent) => void; submitLabel: string }) => (
+  const renderLeadForm = (onSubmit: (e: React.FormEvent) => void, submitLabel: string) => (
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-2"><Label>Full Name *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} required /></div>
       <div className="grid grid-cols-2 gap-4">
@@ -884,7 +884,7 @@ warren@stu25.com</p>`;
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
               <DialogContent className="max-w-4xl w-[95vw] max-h-[92vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
-                <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
+                {renderLeadForm(handleCreate, "Create Lead")}
               </DialogContent>
             </Dialog>
           </div>
@@ -1056,7 +1056,7 @@ warren@stu25.com</p>`;
                 </DialogTitle>
               </DialogHeader>
               {editing ? (
-                <LeadForm onSubmit={handleUpdate} submitLabel="Save Changes" />
+                renderLeadForm(handleUpdate, "Save Changes")
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 flex-wrap">
