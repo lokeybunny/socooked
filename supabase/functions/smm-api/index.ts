@@ -392,6 +392,12 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      if (action === 'me') {
+        return new Response(JSON.stringify({ success: true, plan: null, email: null, error: 'Provider temporarily unavailable.' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       if (!QUIET_FAILURE_ACTIONS.has(action)) {
         await notifySMMFailure(action, response.status, responseText);
       }
