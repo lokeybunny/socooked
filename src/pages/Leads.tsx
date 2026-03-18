@@ -216,7 +216,17 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
           )}
           {contact.phone && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground pl-6">
-              <Phone className="h-3.5 w-3.5 shrink-0" /><span>{contact.phone}</span>
+              <Phone className="h-3.5 w-3.5 shrink-0" />
+              <button
+                className="hover:text-foreground transition-colors cursor-pointer font-mono"
+                title="Click to copy"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(contact.phone).then(() => toast.success(`Copied ${contact.phone}`));
+                }}
+              >
+                {contact.phone}
+              </button>
             </div>
           )}
           {contact.company && (
