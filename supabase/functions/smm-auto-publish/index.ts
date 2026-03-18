@@ -18,7 +18,311 @@ const SUCCESS_STATUSES = new Set(["success", "successful", "completed", "complet
 const FAILURE_STATUSES = new Set(["failed", "failure", "error", "rejected", "cancelled", "canceled", "expired"]);
 const PENDING_STATUSES = new Set(["pending", "queued", "processing", "in_progress", "in-progress", "uploading", "accepted", "scheduled", "running"]);
 const RETRYABLE_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504, 522, 524]);
-...
+
+const asNonEmptyString = (...values: unknown[]) => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+};
+
+const normalizeStatus = (value: unknown) => String(value || "").trim().toLowerCase().replace(/\s+/g, "_");
+
+const parsePublishState = (sourceId: string | null, eventId: string) => {
+  if (!sourceId) return { state: "ready" as const, originalSourceId: eventId };
+  if (sourceId.startsWith(PUBLISHED_PREFIX)) {
+    return { state: "published" as const, originalSourceId: sourceId.slice(PUBLISHED_PREFIX.length) || eventId };
+  }
+
+  const parseStructured = (prefix: string, state: "publishing" | "failed") => {
+    if (!sourceId.startsWith(prefix)) return null;
+    const [, trackingKey = "", trackingValue = "", ...rest] = sourceId.split("|");
+    return {
+      state,
+      trackingKey: trackingKey || undefined,
+      trackingValue: trackingValue || undefined,
+      originalSourceId: rest.join("|") || eventId,
+    } as const;
+  };
+
+  return parseStructured(PUBLISHING_PREFIX, "publishing")
+    || parseStructured(FAILED_PREFIX, "failed")
+    || { state: "ready" as const, originalSourceId: sourceId };
+};
+
+const buildStructuredSourceId = (
+  prefix: typeof PUBLISHING_PREFIX | typeof FAILED_PREFIX,
+  trackingKey: string,
+  trackingValue: string,
+  originalSourceId: string,
+) => `${prefix}${trackingKey}|${trackingValue}|${originalSourceId}`;
+
+const inferPlatforms = (event: any, originalSourceId: string) => {
+  const title = String(event?.title || "").toLowerCase();
+  const description = String(event?.description || "").toLowerCase();
+  const source = String(originalSourceId || "").toLowerCase();
+  const haystack = `${title} ${description} ${source}`;
+
+  if (title.includes("[instagram]") || /(^|[-_])ig($|[-_])/.test(source)) return ["instagram"];
+  if (title.includes("[tiktok]") || /(^|[-_])tt($|[-_])/.test(source) || /(^|[-_])tk($|[-_])/.test(source)) return ["tiktok"];
+  if (haystack.includes("instagram") && !haystack.includes("tiktok")) return ["instagram"];
+  if (haystack.includes("tiktok") && !haystack.includes("instagram")) return ["tiktok"];
+  return ["instagram", "tiktok"];
+};
+
+const extractUploadOutcome = (payload: any) => {
+  const requestId = asNonEmptyString(payload?.request_id, payload?.data?.request_id);
+  const jobId = asNonEmptyString(payload?.job_id, payload?.data?.job_id);
+  const postUrl = asNonEmptyString(payload?.post_url, payload?.data?.post_url, payload?.permalink, payload?.data?.permalink);
+  const platformPostId = asNonEmptyString(payload?.platform_post_id, payload?.data?.platform_post_id);
+  const errorMessage = asNonEmptyString(
+    payload?.error_message,
+    payload?.data?.error_message,
+    payload?.message,
+    payload?.data?.message,
+    payload?.error,
+    payload?.data?.error,
+  );
+
+  const statuses = [
+    payload?.status,
+    payload?.data?.status,
+    payload?.upload_status,
+    payload?.data?.upload_status,
+    payload?.state,
+    payload?.data?.state,
+  ]
+    .map(normalizeStatus)
+    .filter(Boolean);
+
+  const hasSuccessSignal = payload?.success === true || payload?.data?.success === true || Boolean(postUrl) || Boolean(platformPostId);
+  const hasFailureSignal = payload?.success === false || statuses.some((status) => FAILURE_STATUSES.has(status));
+  const hasPendingSignal = statuses.some((status) => PENDING_STATUSES.has(status));
+  const hasSuccessStatus = statuses.some((status) => SUCCESS_STATUSES.has(status));
+
+  if (hasFailureSignal) {
+    return {
+      state: "failed" as const,
+      requestId,
+      jobId,
+      postUrl,
+      error: errorMessage || statuses[0] || "Upload failed",
+      rawStatus: statuses[0],
+    };
+  }
+
+  if (hasSuccessStatus || hasSuccessSignal) {
+    if (postUrl || platformPostId || hasSuccessStatus) {
+      return {
+        state: "success" as const,
+        requestId,
+        jobId,
+        postUrl,
+        rawStatus: statuses[0],
+      };
+    }
+  }
+
+  return {
+    state: hasPendingSignal || requestId || jobId ? "pending" as const : "unknown" as const,
+    requestId,
+    jobId,
+    postUrl,
+    error: errorMessage,
+    rawStatus: statuses[0],
+  };
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const UPLOAD_POST_API_KEY = Deno.env.get("UPLOAD_POST_API_KEY");
+
+  if (!UPLOAD_POST_API_KEY) {
+    console.error("[smm-auto-publish] UPLOAD_POST_API_KEY not set");
+    return json({ error: "UPLOAD_POST_API_KEY not configured" }, 500);
+  }
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+  const logActivity = async (action: string, meta: Record<string, unknown>) => {
+    await supabase.from("activity_log").insert({ entity_type: "smm", action, meta });
+  };
+
+  const notifyFailure = async (title: string, error: string, extra: Record<string, unknown> = {}) => {
+    await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
+      method: "POST",
+      headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        record: {
+          id: crypto.randomUUID(),
+          entity_type: "smm",
+          entity_id: null,
+          action: "failed",
+          actor_id: null,
+          meta: { name: `🚨 Auto-publish FAILED: ${title}`, error, ...extra },
+          created_at: new Date().toISOString(),
+        },
+      }),
+    });
+  };
+
+  const finalizePublishedEvent = async (
+    event: any,
+    originalSourceId: string,
+    profileUsername: string,
+    platforms: string[],
+    outcome: ReturnType<typeof extractUploadOutcome>,
+    mediaUrl: string,
+  ) => {
+    await supabase
+      .from("calendar_events")
+      .update({ source_id: `${PUBLISHED_PREFIX}${originalSourceId}` })
+      .eq("id", event.id);
+
+    await logActivity("auto_published", {
+      name: `📤 Auto-published: ${event.title}`,
+      profile: profileUsername,
+      platforms,
+      request_id: outcome.requestId,
+      job_id: outcome.jobId,
+      post_url: outcome.postUrl,
+      status: outcome.rawStatus,
+    });
+
+    try {
+      const { data: boostConfig } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-boost")
+        .eq("section", `auto-boost-${profileUsername}`)
+        .single();
+
+      const config = boostConfig?.content as { enabled?: boolean; preset_ids?: string[]; preset_id?: string } | null;
+      const activeIds: string[] = config?.enabled
+        ? (config.preset_ids && Array.isArray(config.preset_ids) ? config.preset_ids : config.preset_id ? [config.preset_id] : [])
+        : [];
+
+      if (activeIds.length > 0) {
+        const { data: activePresets } = await supabase
+          .from("smm_boost_presets")
+          .select("*")
+          .in("id", activeIds);
+
+        const allServices: { service_id: string; service_name: string; quantity: number }[] = [];
+        for (const preset of (activePresets || [])) {
+          const svcs = (preset as any).services;
+          if (Array.isArray(svcs)) {
+            for (const s of svcs) {
+              allServices.push({ service_id: s.service_id, service_name: s.service_name, quantity: s.quantity });
+            }
+          }
+        }
+
+        if (allServices.length > 0) {
+          const postUrl = outcome.postUrl || mediaUrl;
+          if (postUrl && platforms.includes("instagram")) {
+            const presetNames = (activePresets || []).map((p: any) => p.preset_name).join(", ");
+            console.log(`[smm-auto-publish] Triggering auto-boost with ${activeIds.length} presets [${presetNames}]`);
+            await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`, {
+              method: "POST",
+              headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ link: postUrl, profile_username: profileUsername, platform: "instagram", services: allServices }),
+            });
+          }
+        }
+      }
+    } catch (boostErr) {
+      console.error("[smm-auto-publish] Auto-boost error (non-fatal):", boostErr);
+    }
+
+    return json({
+      ok: true,
+      published: 1,
+      title: event.title,
+      request_id: outcome.requestId,
+      job_id: outcome.jobId,
+      post_url: outcome.postUrl,
+    });
+  };
+
+  const extractEventPayload = (event: any) => {
+    const mediaMatch = event.description?.match(/Media URL:\s*(https?:\/\/\S+)/i);
+    const mediaUrl = mediaMatch?.[1]?.trim();
+    const profileMatch = event.description?.match(/Profile:\s*(\S+)/i);
+    const profileUsername = profileMatch?.[1] || "NysonBlack";
+
+    let caption = event.description || event.title || "";
+    caption = caption
+      .replace(/Media URL:\s*https?:\/\/\S+/gi, "")
+      .replace(/Profile:\s*\S+/gi, "")
+      .replace(/Type:\s*\S+/gi, "")
+      .replace(/Original Week.*\n?/gi, "")
+      .replace(/Recycled from.*\n?/gi, "")
+      .replace(/\[media_url:[^\]]*\]/gi, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+
+    const isVideo = mediaUrl ? /\.(mp4|mov|webm|avi)(\?|$)/i.test(mediaUrl) : false;
+    const parsedState = parsePublishState(event.source_id, event.id);
+    const originalSourceId = parsedState.originalSourceId;
+    const platforms = inferPlatforms(event, originalSourceId);
+
+    return { mediaUrl, profileUsername, caption, isVideo, platforms, originalSourceId };
+  };
+
+  const queueUpload = async (event: any) => {
+    const { mediaUrl, profileUsername, caption, isVideo, platforms, originalSourceId } = extractEventPayload(event);
+
+    if (!mediaUrl) {
+      console.log(`[smm-auto-publish] Skipping event ${event.id} — no media URL found`);
+      await notifyFailure(event.title || event.id, "No media URL found in event description", { event_id: event.id });
+      await supabase.from("calendar_events").update({ source_id: buildStructuredSourceId(FAILED_PREFIX, "event", event.id, originalSourceId) }).eq("id", event.id);
+      return json({ ok: false, published: 0, error: "No media URL found" }, 400);
+    }
+
+    const params = new URLSearchParams();
+    params.append("user", profileUsername);
+    platforms.forEach((platform) => params.append("platform[]", platform));
+    params.append("title", caption);
+    params.append("async_upload", "true");
+
+    if (isVideo) {
+      params.append("video", mediaUrl);
+      if (platforms.includes("instagram")) {
+        params.append("ig_post_type", "reels");
+        params.append("share_to_feed", "true");
+        const captionLower = caption.toLowerCase();
+        const tags: string[] = [];
+        if (captionLower.includes("lamb")) tags.push("@lamb.wavv");
+        if (captionLower.includes("oranj") || captionLower.includes("orang")) tags.push("@oranjgoodman");
+        if (tags.length > 0) params.append("user_tags", tags.join(", "));
+      }
+    } else {
+      params.append("photos[]", mediaUrl);
+    }
+
+    const endpoint = isVideo ? "/upload" : "/upload_photos";
+    console.log(`[smm-auto-publish] Queueing async upload: ${endpoint} for "${event.title?.substring(0, 60)}" on ${platforms.join(",")}`);
+
+    const uploadRes = await fetch(`${API_BASE}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Apikey ${UPLOAD_POST_API_KEY}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    const uploadText = await uploadRes.text();
+    console.log(`[smm-auto-publish] Upload response (${uploadRes.status}):`, uploadText.substring(0, 500));
+
+    let uploadData: any = {};
+    try { uploadData = JSON.parse(uploadText); } catch {}
+
     if (!uploadRes.ok) {
       if (RETRYABLE_HTTP_STATUSES.has(uploadRes.status)) {
         await logActivity("auto_publish_retry_pending", {
