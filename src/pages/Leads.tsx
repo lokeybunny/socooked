@@ -265,7 +265,7 @@ export default function Leads() {
   const [filterStage, setFilterStage] = useState('all');
   const [loading, setLoading] = useState(true);
   const [paidCustomerIds, setPaidCustomerIds] = useState<Set<string>>(new Set());
-  const [recordingMap, setRecordingMap] = useState<Map<string, string>>(new Map());
+  const [bookingStatusMap, setBookingStatusMap] = useState<Map<string, 'upcoming' | 'past'>>(new Map());
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
   const [prospectEmailedPage, setProspectEmailedPage] = useState(1);
