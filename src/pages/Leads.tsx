@@ -884,7 +884,7 @@ warren@stu25.com</p>`;
               <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Add Lead</Button></DialogTrigger>
               <DialogContent className="max-w-4xl w-[95vw] max-h-[92vh] overflow-y-auto overflow-x-hidden">
                 <DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader>
-                <LeadForm onSubmit={handleCreate} submitLabel="Create Lead" />
+                {renderLeadForm(handleCreate, "Create Lead")}
               </DialogContent>
             </Dialog>
           </div>
