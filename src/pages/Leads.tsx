@@ -268,6 +268,7 @@ export default function Leads() {
   const [paidCustomerIds, setPaidCustomerIds] = useState<Set<string>>(new Set());
   const [recordingMap, setRecordingMap] = useState<Map<string, string>>(new Map());
   const [bookingStatusMap, setBookingStatusMap] = useState<Map<string, 'upcoming' | 'past'>>(new Map());
+  const [websiteEmailedIds, setWebsiteEmailedIds] = useState<Set<string>>(new Set());
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
   const [prospectEmailedPage, setProspectEmailedPage] = useState(1);
@@ -334,7 +335,7 @@ export default function Leads() {
 
   const loadAll = async () => {
     setLeadsPage(1); setProspectsPage(1); setProspectEmailedPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes, bookingsRes] = await Promise.all([
+    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes, bookingsRes, websiteEmailRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('prospect_emailed'),
@@ -343,6 +344,7 @@ export default function Leads() {
       supabase.from('invoices').select('customer_id, status'),
       supabase.from('communications').select('customer_id, body, metadata').eq('type', 'recording').eq('provider', 'ringcentral').order('created_at', { ascending: false }),
       supabase.from('bookings').select('guest_email, guest_name, guest_phone, booking_date, start_time, status').neq('status', 'cancelled'),
+      supabase.from('communications').select('customer_id, subject').eq('type', 'email').eq('direction', 'outbound').ilike('subject', '%Your Free Custom Website is Ready%'),
     ]);
     // Build set of customer IDs where ALL invoices are 'paid'
     const invoicesByCustomer = new Map<string, boolean>();
@@ -401,6 +403,13 @@ export default function Leads() {
       }
     });
     setBookingStatusMap(bMap);
+
+    // Build set of customer IDs that received the "Your Free Custom Website is Ready" email
+    const weIds = new Set<string>();
+    (websiteEmailRes.data || []).forEach((c: any) => {
+      if (c.customer_id) weIds.add(c.customer_id);
+    });
+    setWebsiteEmailedIds(weIds);
 
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
@@ -979,7 +988,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="prospect-emailed-column">
                 {pagedProspectEmailed.map(pe => (
-                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isEmailed isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} bookingStatus={bookingStatusMap.get(pe.id)} />
+                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isEmailed={websiteEmailedIds.has(pe.id)} isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} bookingStatus={bookingStatusMap.get(pe.id)} />
                 ))}
                 {prospectEmailed.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
