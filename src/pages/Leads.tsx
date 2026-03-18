@@ -425,18 +425,36 @@ export default function Leads() {
   };
 
   useEffect(() => {
-    setLeads(allLeads);
-    setProspects(allProspects);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Helper: sort newer (today) entries to top, then by created_at desc
+    const sortNewestFirst = (arr: any[]) => [...arr].sort((a, b) => {
+      const aDate = new Date(a.created_at);
+      const bDate = new Date(b.created_at);
+      const aIsToday = aDate >= today ? 1 : 0;
+      const bIsToday = bDate >= today ? 1 : 0;
+      if (aIsToday !== bIsToday) return bIsToday - aIsToday;
+      return bDate.getTime() - aDate.getTime();
+    });
+
+    setLeads(sortNewestFirst(allLeads));
+    setProspects(sortNewestFirst(allProspects));
     // Sort prospect_emailed: non-emailed (newer) prospects first, then emailed ones
     const sorted = [...allProspectEmailed].sort((a, b) => {
       const aEmailed = websiteEmailedIds.has(a.id) ? 1 : 0;
       const bEmailed = websiteEmailedIds.has(b.id) ? 1 : 0;
       if (aEmailed !== bEmailed) return aEmailed - bEmailed;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      const aDate = new Date(a.created_at);
+      const bDate = new Date(b.created_at);
+      const aIsToday = aDate >= today ? 1 : 0;
+      const bIsToday = bDate >= today ? 1 : 0;
+      if (aIsToday !== bIsToday) return bIsToday - aIsToday;
+      return bDate.getTime() - aDate.getTime();
     });
     setProspectEmailed(sorted);
-    setClients(allClients);
-    setMonthly(allMonthly);
+    setClients(sortNewestFirst(allClients));
+    setMonthly(sortNewestFirst(allMonthly));
   }, [allLeads, allProspects, allProspectEmailed, allClients, allMonthly, websiteEmailedIds]);
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
