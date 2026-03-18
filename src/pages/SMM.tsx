@@ -133,7 +133,7 @@ function DarksideBalance() {
 }
 
 function SMMInner() {
-  const { profiles, posts, loading, refresh, setPosts } = useSMMStore();
+  const { profiles, posts, loading, refresh, setPosts, providerDown } = useSMMStore();
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
   const [artistModalOpen, setArtistModalOpen] = useState(false);
   const [boostModalOpen, setBoostModalOpen] = useState(false);
