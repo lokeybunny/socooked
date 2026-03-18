@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
-import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock, ChevronUp, Play, Square, Send, Gift, FileEdit, Paperclip, X, MessageSquare } from 'lucide-react';
+import { Search, Phone, Mail, User, StickyNote, Bot, Plus, Pencil, Trash2, ArrowRight, ArrowLeft, UserCheck, Maximize2, GripVertical, UserPlus, Building2, Globe, Linkedin, ExternalLink, Instagram, Layers, Undo2, CalendarClock, ChevronUp, Play, Square, Send, Gift, FileEdit, Paperclip, X, MessageSquare, Clock } from 'lucide-react';
 import { CustomerWebPreviews } from '@/components/CustomerWebPreviews';
 import { upsertAiPreview } from '@/lib/upsertAiPreview';
 import { toast } from 'sonner';
@@ -57,12 +57,13 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, isEmailed, recordingUrl, bookingStatus }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; isEmailed?: boolean; recordingUrl?: string; bookingStatus?: 'upcoming' | 'past' }) {
+function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, isEmailed, recordingUrl, bookingStatus, onToggleBusy }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; isEmailed?: boolean; recordingUrl?: string; bookingStatus?: 'upcoming' | 'past'; onToggleBusy?: (contact: any) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const [minimized, setMinimized] = useState(isPaid ? true : false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
+  const isBusy = !!(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).is_busy);
 
   return (
     <div
@@ -72,6 +73,7 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
         "w-full text-left glass-card space-y-3 hover:ring-2 transition-all rounded-xl relative",
         bookingStatus === 'past' ? 'bg-red-500/15 hover:ring-red-500/40 border-l-2 border-l-red-500' :
         bookingStatus === 'upcoming' ? 'bg-yellow-500/10 hover:ring-yellow-500/40 border-l-2 border-l-yellow-500' :
+        isBusy ? 'bg-yellow-500/10 hover:ring-yellow-500/40 border-l-2 border-l-yellow-500' :
         isEmailed ? 'bg-emerald-500/10 hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' :
         isPaid ? 'hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' : isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
         isDragging && 'opacity-40 shadow-lg',
@@ -239,9 +241,14 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
           )}
           <div className="flex items-center justify-between pl-6">
             <span className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</span>
-            <button className="p-1 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }} title="Delete lead">
-              <Trash2 className="h-3 w-3" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button className={cn("p-1 rounded-md transition-colors", isBusy ? 'text-yellow-500 hover:text-yellow-400' : 'text-muted-foreground/40 hover:text-yellow-500')} onClick={(e) => { e.stopPropagation(); onToggleBusy?.(contact); }} title={isBusy ? 'Unmark busy' : 'Mark as busy'}>
+                <Clock className="h-3 w-3" />
+              </button>
+              <button className="p-1 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }} title="Delete lead">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -477,6 +484,17 @@ export default function Leads() {
     }
     toast.success('Lead updated');
     setEditing(false); setSelected(null); setForm(emptyForm); loadAll();
+  };
+
+  const handleToggleBusy = async (contact: any) => {
+    const existingMeta = contact.meta && typeof contact.meta === 'object' ? contact.meta as Record<string, unknown> : {};
+    const newBusy = !existingMeta.is_busy;
+    const { error } = await supabase.from('customers').update({
+      meta: { ...existingMeta, is_busy: newBusy },
+    }).eq('id', contact.id);
+    if (error) { toast.error('Failed to update'); return; }
+    toast.success(newBusy ? 'Marked as busy' : 'Unmarked busy');
+    loadAll();
   };
 
   const handleDelete = async (id: string) => {
@@ -944,7 +962,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="leads-column">
                 {pagedLeads.map(lead => (
-                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} bookingStatus={bookingStatusMap.get(lead.id)} />
+                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} bookingStatus={bookingStatusMap.get(lead.id)} onToggleBusy={handleToggleBusy} />
                 ))}
                 {leads.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -966,7 +984,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="prospects-column">
                 {pagedProspects.map(prospect => (
-                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(prospect.id)} recordingUrl={recordingMap.get(prospect.id)} bookingStatus={bookingStatusMap.get(prospect.id)} />
+                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(prospect.id)} recordingUrl={recordingMap.get(prospect.id)} bookingStatus={bookingStatusMap.get(prospect.id)} onToggleBusy={handleToggleBusy} />
                 ))}
                 {prospects.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -988,7 +1006,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="prospect-emailed-column">
                 {pagedProspectEmailed.map(pe => (
-                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isEmailed={websiteEmailedIds.has(pe.id)} isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} bookingStatus={bookingStatusMap.get(pe.id)} />
+                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isEmailed={websiteEmailedIds.has(pe.id)} isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} bookingStatus={bookingStatusMap.get(pe.id)} onToggleBusy={handleToggleBusy} />
                 ))}
                 {prospectEmailed.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -1010,7 +1028,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="clients-column">
                 {pagedClients.map(client => (
-                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(client.id)} recordingUrl={recordingMap.get(client.id)} bookingStatus={bookingStatusMap.get(client.id)} />
+                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(client.id)} recordingUrl={recordingMap.get(client.id)} bookingStatus={bookingStatusMap.get(client.id)} onToggleBusy={handleToggleBusy} />
                 ))}
                 {clients.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -1032,7 +1050,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="monthly-column">
                 {pagedMonthly.map(m => (
-                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(m.id)} recordingUrl={recordingMap.get(m.id)} bookingStatus={bookingStatusMap.get(m.id)} />
+                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(m.id)} recordingUrl={recordingMap.get(m.id)} bookingStatus={bookingStatusMap.get(m.id)} onToggleBusy={handleToggleBusy} />
                 ))}
                 {monthly.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
