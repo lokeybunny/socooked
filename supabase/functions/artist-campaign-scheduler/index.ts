@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { action, campaign_id } = body;
 
-    // ─── SCHEDULE: initial 7-14 day campaign ───
+    // ─── SCHEDULE: initial campaign ───
     if (action === "schedule") {
       const { data: campaign } = await supabase
         .from("smm_artist_campaigns").select("*").eq("id", campaign_id).single();
@@ -44,7 +44,9 @@ Deno.serve(async (req) => {
         if (oldest) await supabase.from("smm_artist_campaigns").update({ status: "expired" }).eq("id", oldest.id);
       }
 
-      const scheduledItems = await scheduleMediaDays(supabase, campaign, 0, campaign.days_total);
+      const pattern = campaign.schedule_pattern || "daily";
+      const platforms = campaign.platforms || ["instagram"];
+      const scheduledItems = await scheduleMediaDays(supabase, campaign, 0, campaign.days_total, pattern, platforms);
 
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + campaign.days_total);
@@ -56,7 +58,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, scheduled: scheduledItems });
     }
 
-    // ─── CONTINUE: extend by 14 days ───
+    // ─── CONTINUE: extend campaign ───
     if (action === "continue") {
       const days = body.extend_days || 14;
       const { data: campaign } = await supabase
@@ -73,36 +75,37 @@ Deno.serve(async (req) => {
         expires_at: newExpiry.toISOString(),
       }).eq("id", campaign_id);
 
-      const scheduledItems = await scheduleMediaDays(supabase, campaign, campaign.days_completed, Math.min(days, 7));
+      const pattern = campaign.schedule_pattern || "daily";
+      const platforms = campaign.platforms || ["instagram"];
+      const scheduledItems = await scheduleMediaDays(supabase, campaign, campaign.days_completed, Math.min(days, 7), pattern, platforms);
       return json({ ok: true, extended_by: days, scheduled: scheduledItems });
     }
 
-    // ─── RESCHEDULE: replace existing posts with updated media list ───
+    // ─── RESCHEDULE ───
     if (action === "reschedule") {
       const { media_urls } = body;
       const { data: campaign } = await supabase
         .from("smm_artist_campaigns").select("*").eq("id", campaign_id).single();
       if (!campaign) return json({ error: "Not found" }, 404);
 
-      // Delete future scheduled posts for this campaign
       await cleanupFuturePosts(supabase, campaign);
 
-      // Reschedule with new media
       const daysLeft = Math.max(1, campaign.days_total - campaign.days_completed);
       const updatedCampaign = { ...campaign, media_urls };
-      const scheduledItems = await scheduleMediaDays(supabase, updatedCampaign, 0, Math.min(daysLeft, 7));
+      const pattern = campaign.schedule_pattern || "daily";
+      const platforms = campaign.platforms || ["instagram"];
+      const scheduledItems = await scheduleMediaDays(supabase, updatedCampaign, 0, Math.min(daysLeft, 7), pattern, platforms);
 
       return json({ ok: true, rescheduled: scheduledItems });
     }
 
-    // ─── REMOVE-MEDIA: delete scheduled posts tied to a specific media URL ───
+    // ─── REMOVE-MEDIA ───
     if (action === "remove-media") {
       const { media_url, remaining_urls } = body;
       const { data: campaign } = await supabase
         .from("smm_artist_campaigns").select("*").eq("id", campaign_id).single();
       if (!campaign) return json({ error: "Not found" }, 404);
 
-      // Find all scheduled calendar events for this campaign that use this media
       const jobPrefix = `artist-${campaign_id}-`;
       const { data: events } = await supabase
         .from("calendar_events")
@@ -111,14 +114,12 @@ Deno.serve(async (req) => {
 
       let removed = 0;
       for (const evt of events || []) {
-        // Check if the description/metadata references this media URL
         if (evt.description?.includes(media_url)) {
           await supabase.from("calendar_events").delete().eq("id", evt.id);
           removed++;
         }
       }
 
-      // If no media left, pause the campaign
       if (!remaining_urls || remaining_urls.length === 0) {
         await supabase.from("smm_artist_campaigns").update({ status: "paused" }).eq("id", campaign_id);
       }
@@ -126,7 +127,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, removed_events: removed });
     }
 
-    // ─── CLEANUP: remove all scheduled posts for a campaign being deleted ───
+    // ─── CLEANUP ───
     if (action === "cleanup") {
       const { data: campaign } = await supabase
         .from("smm_artist_campaigns").select("*").eq("id", campaign_id).single();
@@ -153,41 +154,99 @@ async function cleanupFuturePosts(supabase: any, campaign: any) {
     .gte("start_time", now);
 }
 
+/**
+ * Generate dates based on schedule_pattern.
+ * - "daily": consecutive days
+ * - "biweekly-tue-fri": every other Tuesday + every other Friday
+ */
+function generateScheduleDates(
+  startDate: Date, totalSlots: number, pattern: string,
+): Date[] {
+  if (pattern === "biweekly-tue-fri") {
+    const dates: Date[] = [];
+    // Find the next Tuesday and next Friday from startDate
+    const cursor = new Date(startDate);
+
+    // Collect alternating Tuesdays (day 2) and Fridays (day 5)
+    // "every other" means skip one occurrence between each
+    let tuesdayCount = 0;
+    let fridayCount = 0;
+
+    // Scan forward up to 400 days to fill slots
+    for (let d = 0; d < 400 && dates.length < totalSlots; d++) {
+      const check = new Date(startDate);
+      check.setDate(check.getDate() + d);
+      const dow = check.getDay();
+
+      if (dow === 2) { // Tuesday
+        tuesdayCount++;
+        if (tuesdayCount % 2 === 1) { // every other (1st, 3rd, 5th...)
+          dates.push(new Date(check));
+        }
+      } else if (dow === 5) { // Friday
+        fridayCount++;
+        if (fridayCount % 2 === 1) {
+          dates.push(new Date(check));
+        }
+      }
+    }
+
+    // Sort chronologically
+    dates.sort((a, b) => a.getTime() - b.getTime());
+    return dates.slice(0, totalSlots);
+  }
+
+  // Default: daily
+  const dates: Date[] = [];
+  for (let i = 0; i < totalSlots; i++) {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    dates.push(d);
+  }
+  return dates;
+}
+
 async function scheduleMediaDays(
-  supabase: any, campaign: any, startOffset: number, totalDays: number,
+  supabase: any, campaign: any, startOffset: number, totalSlots: number,
+  pattern: string, platforms: string[],
 ): Promise<string[]> {
   const scheduledItems: string[] = [];
   const mediaCount = campaign.media_urls?.length || 0;
   if (mediaCount === 0) return scheduledItems;
 
   const startDate = new Date();
+  const dates = generateScheduleDates(startDate, totalSlots, pattern);
 
-  for (let day = 0; day < totalDays; day++) {
-    const postDate = new Date(startDate);
-    postDate.setDate(postDate.getDate() + day);
+  let postIndex = 0;
+  for (const postDate of dates) {
     const dateStr = postDate.toISOString().split("T")[0];
-    const dayNumber = startOffset + day + 1;
-    const mediaUrl = campaign.media_urls[day % mediaCount];
-    const caption = buildCaption(campaign, dayNumber, mediaUrl);
+    const postNumber = startOffset + postIndex + 1;
+    const mediaUrl = campaign.media_urls[postIndex % mediaCount];
+    const caption = buildCaption(campaign, postNumber, mediaUrl);
 
-    await supabase.functions.invoke("smm-api", {
-      body: {
-        action: "schedule",
-        profile_username: campaign.profile_username,
-        platform: "instagram",
-        scheduled_date: `${dateStr}T12:00:00`,
-        title: `${campaign.artist_name} - ${campaign.song_title} (Day ${dayNumber})`,
-        description: caption,
-        media_url: mediaUrl,
-        job_id: `artist-${campaign.id}-day${dayNumber}`,
-      },
-    });
+    for (const platform of platforms) {
+      const platformSuffix = platforms.length > 1 ? `-${platform.slice(0, 2)}` : "";
 
-    scheduledItems.push(`Day ${dayNumber}: ${dateStr}`);
+      await supabase.functions.invoke("smm-api", {
+        body: {
+          action: "schedule",
+          profile_username: campaign.profile_username,
+          platform,
+          scheduled_date: `${dateStr}T12:00:00`,
+          title: `${campaign.artist_name} - ${campaign.song_title} (Day ${postNumber})`,
+          description: caption,
+          media_url: mediaUrl,
+          job_id: `artist-${campaign.id}-day${postNumber}${platformSuffix}`,
+        },
+      });
 
-    if (day < totalDays - 1) {
+      scheduledItems.push(`Day ${postNumber}: ${dateStr} [${platform}]`);
+
+      // Rate-limit between calls
       await new Promise((r) => setTimeout(r, 2000));
     }
+
+    postIndex++;
   }
 
   return scheduledItems;
@@ -196,9 +255,7 @@ async function scheduleMediaDays(
 function buildCaption(campaign: any, dayNumber: number, mediaUrl?: string): string {
   const handle = campaign.artist_handle;
   const song = campaign.song_title;
-
-  // Embed media URL in description for metadata persistence
-  const mediaMeta = mediaUrl ? `\n[media_url:${mediaUrl}]` : '';
+  const mediaMeta = mediaUrl ? `\n[media_url:${mediaUrl}]` : "";
 
   const templates = [
     `🎶 ${song} by ${handle} — comment "Nyson Black" for the free download 🎁`,
@@ -208,6 +265,24 @@ function buildCaption(campaign: any, dayNumber: number, mediaUrl?: string): stri
     `"${song}" — ${handle} 🎵 Comment "Nyson Black" to get this track free 🎁`,
     `Check out "${song}" by ${handle} 🎶 Is it 🔥 or 💩? #ShareTheVibes`,
     `${handle} with "${song}" — the vibes are unmatched 🎵 Free download: comment "Nyson Black" 🎁`,
+    `💿 ${handle} — "${song}" is on repeat 🔁 Comment "Nyson Black" for the free DL 🎁`,
+    `⚡ Who's rocking with ${handle}? "${song}" is a vibe 🎶 🔥 or 💩?`,
+    `🎵 "${song}" by ${handle} — this one hits different 🎧 Comment "Nyson Black" for the free track!`,
+    `🚀 ${handle} ain't slowing down — "${song}" 🔥 Rate it below!`,
+    `🎤 ${handle} delivered on "${song}" 🎶 Comment "Nyson Black" = free download 🎁`,
+    `Put your headphones on for this one 🎧 "${song}" by ${handle} 🔥 or 💩?`,
+    `🔊 "${song}" — ${handle} going crazy 🎵 Drop "Nyson Black" for the free song 🎁`,
+    `Is ${handle} next up? 🤔 Listen to "${song}" and tell us 🔥 or 💩`,
+    `🎹 Vibes on vibes — "${song}" by ${handle} 🎶 Free download: comment "Nyson Black" 🎁`,
+    `${handle} snapped on "${song}" 🔥🎵 What do you think? Drop a 🔥 or 💩`,
+    `💎 Hidden gem alert: "${song}" by ${handle} 🎶 Comment "Nyson Black" for free 🎁`,
+    `🌊 Wave check — "${song}" by ${handle} 🎵 Is this 🔥 or 💩?`,
+    `This track by ${handle} is something else 🎶 "${song}" — Comment "Nyson Black" for a free copy 🎁`,
+    `🎧 Late night vibes with "${song}" by ${handle} 🎵 🔥 or 💩? Let us know!`,
+    `${handle} keeps delivering 🔥 "${song}" — Comment "Nyson Black" for the free download 🎁`,
+    `📱 Share "${song}" by ${handle} with someone who needs to hear it 🎶 #NysonBlack`,
+    `🎵 Can't stop playing "${song}" by ${handle} — Drop "Nyson Black" for the free track 🎁`,
+    `${handle} going up 📈 "${song}" is proof 🎶 Rate it: 🔥 or 💩?`,
   ];
 
   return templates[(dayNumber - 1) % templates.length] + mediaMeta;
