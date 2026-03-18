@@ -814,6 +814,7 @@ function mapApiPostToScheduledPost(p: any, defaultStatus: string): ScheduledPost
     first_comment: p.first_comment,
     error: p.error || p.error_message,
     created_at: p.created_at || p.upload_timestamp || p.timestamp || new Date().toISOString(),
+    origin: 'api',
   };
 }
 

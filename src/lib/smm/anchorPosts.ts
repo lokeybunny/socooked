@@ -21,6 +21,10 @@ function isRecycledCampaignPost(post: ScheduledPost): boolean {
   return /^recycle-w\d+-/i.test(post.job_id || '') || /Recycled from "([^"]+)"/i.test(post.description || '');
 }
 
+function shouldAnchorRecycledCampaignPost(post: ScheduledPost): boolean {
+  return isRecycledCampaignPost(post) && post.origin !== 'calendar';
+}
+
 function normalizeCampaignKey(value: string): string {
   const normalized = value
     .toLowerCase()

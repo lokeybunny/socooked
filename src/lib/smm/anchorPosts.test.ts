@@ -23,6 +23,7 @@ function buildPost(overrides: Partial<ScheduledPost> & Pick<ScheduledPost, 'id' 
     platform_overrides: overrides.platform_overrides,
     error: overrides.error,
     created_at: overrides.created_at || overrides.scheduled_date || '2026-03-17T12:00:00.000Z',
+    origin: overrides.origin,
   };
 }
 
