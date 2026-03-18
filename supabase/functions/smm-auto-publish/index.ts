@@ -56,6 +56,19 @@ const buildStructuredSourceId = (
   originalSourceId: string,
 ) => `${prefix}${trackingKey}|${trackingValue}|${originalSourceId}`;
 
+const inferPlatforms = (event: any, originalSourceId: string) => {
+  const title = String(event?.title || "").toLowerCase();
+  const description = String(event?.description || "").toLowerCase();
+  const source = String(originalSourceId || "").toLowerCase();
+  const haystack = `${title} ${description} ${source}`;
+
+  if (title.includes("[instagram]") || /(^|[-_])ig($|[-_])/.test(source)) return ["instagram"];
+  if (title.includes("[tiktok]") || /(^|[-_])tt($|[-_])/.test(source) || /(^|[-_])tk($|[-_])/.test(source)) return ["tiktok"];
+  if (haystack.includes("instagram") && !haystack.includes("tiktok")) return ["instagram"];
+  if (haystack.includes("tiktok") && !haystack.includes("instagram")) return ["tiktok"];
+  return ["instagram", "tiktok"];
+};
+
 const extractUploadOutcome = (payload: any) => {
   const requestId = asNonEmptyString(payload?.request_id, payload?.data?.request_id);
   const jobId = asNonEmptyString(payload?.job_id, payload?.data?.job_id);
@@ -187,40 +200,40 @@ Deno.serve(async (req) => {
         .eq("section", `auto-boost-${profileUsername}`)
         .single();
 
-      const config = boostConfig?.content as { enabled?: boolean; preset_ids?: string[]; preset_id?: string } | null;
-      const activeIds: string[] = config?.enabled
-        ? (config.preset_ids && Array.isArray(config.preset_ids) ? config.preset_ids : config.preset_id ? [config.preset_id] : [])
-        : [];
+        const config = boostConfig?.content as { enabled?: boolean; preset_ids?: string[]; preset_id?: string } | null;
+        const activeIds: string[] = config?.enabled
+          ? (config.preset_ids && Array.isArray(config.preset_ids) ? config.preset_ids : config.preset_id ? [config.preset_id] : [])
+          : [];
 
-      if (activeIds.length > 0) {
-        const { data: activePresets } = await supabase
-          .from("smm_boost_presets")
-          .select("*")
-          .in("id", activeIds);
+        if (activeIds.length > 0) {
+          const { data: activePresets } = await supabase
+            .from("smm_boost_presets")
+            .select("*")
+            .in("id", activeIds);
 
-        const allServices: { service_id: string; service_name: string; quantity: number }[] = [];
-        for (const preset of (activePresets || [])) {
-          const svcs = (preset as any).services;
-          if (Array.isArray(svcs)) {
-            for (const s of svcs) {
-              allServices.push({ service_id: s.service_id, service_name: s.service_name, quantity: s.quantity });
+          const allServices: { service_id: string; service_name: string; quantity: number }[] = [];
+          for (const preset of (activePresets || [])) {
+            const svcs = (preset as any).services;
+            if (Array.isArray(svcs)) {
+              for (const s of svcs) {
+                allServices.push({ service_id: s.service_id, service_name: s.service_name, quantity: s.quantity });
+              }
+            }
+          }
+
+          if (allServices.length > 0) {
+            const postUrl = outcome.postUrl || mediaUrl;
+            if (postUrl && platforms.includes("instagram")) {
+              const presetNames = (activePresets || []).map((p: any) => p.preset_name).join(", ");
+              console.log(`[smm-auto-publish] Triggering auto-boost with ${activeIds.length} presets [${presetNames}]`);
+              await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`, {
+                method: "POST",
+                headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ link: postUrl, profile_username: profileUsername, platform: "instagram", services: allServices }),
+              });
             }
           }
         }
-
-        if (allServices.length > 0) {
-          const postUrl = outcome.postUrl || mediaUrl;
-          if (postUrl) {
-            const presetNames = (activePresets || []).map((p: any) => p.preset_name).join(", ");
-            console.log(`[smm-auto-publish] Triggering auto-boost with ${activeIds.length} presets [${presetNames}]`);
-            await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`, {
-              method: "POST",
-              headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ link: postUrl, profile_username: profileUsername, platform: "instagram", services: allServices }),
-            });
-          }
-        }
-      }
     } catch (boostErr) {
       console.error("[smm-auto-publish] Auto-boost error (non-fatal):", boostErr);
     }
@@ -255,15 +268,7 @@ Deno.serve(async (req) => {
     const isVideo = mediaUrl ? /\.(mp4|mov|webm|avi)(\?|$)/i.test(mediaUrl) : false;
     const parsedState = parsePublishState(event.source_id, event.id);
     const originalSourceId = parsedState.originalSourceId;
-
-    let platforms: string[];
-    if (originalSourceId.endsWith("-ig")) {
-      platforms = ["instagram"];
-    } else if (originalSourceId.endsWith("-tt")) {
-      platforms = ["tiktok"];
-    } else {
-      platforms = ["instagram", "tiktok"];
-    }
+    const platforms = inferPlatforms(event, originalSourceId);
 
     return { mediaUrl, profileUsername, caption, isVideo, platforms, originalSourceId };
   };
@@ -300,7 +305,7 @@ Deno.serve(async (req) => {
     }
 
     const endpoint = isVideo ? "/upload" : "/upload_photos";
-    console.log(`[smm-auto-publish] Queueing async upload: ${endpoint} for "${event.title?.substring(0, 60)}"`);
+    console.log(`[smm-auto-publish] Queueing async upload: ${endpoint} for "${event.title?.substring(0, 60)}" on ${platforms.join(",")}`);
 
     const uploadRes = await fetch(`${API_BASE}${endpoint}`, {
       method: "POST",
