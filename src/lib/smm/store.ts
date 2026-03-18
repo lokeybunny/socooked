@@ -231,34 +231,25 @@ export const smmApi = {
   // ─── Posts / Uploads ───
   async getPosts(): Promise<ScheduledPost[]> {
     try {
+      // Only fetch calendar events from 14 days ago onward (covers today + future)
+      const lookbackDate = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+
       const [scheduled, history, calendarResult, plansResult] = await Promise.all([
-        invokeSMM('list-scheduled', { limit: '100' }).catch(() => ({ success: false, scheduled_posts: [] })),
-        invokeSMM('upload-history', { limit: '100' }).catch(() => ({ history: [] })),
-        // Fetch ALL smm calendar events (may exceed default 1000 limit)
-        (async () => {
-          const allEvents: any[] = [];
-          const PAGE_SIZE = 1000;
-          let from = 0;
-          let done = false;
-          while (!done) {
-            const { data, error } = await supabase
-              .from('calendar_events')
-              .select('id, title, description, start_time, source_id, created_at')
-              .eq('source', 'smm')
-              .not('source_id', 'like', 'published-%')
-              .order('created_at', { ascending: false })
-              .range(from, from + PAGE_SIZE - 1);
-            if (error || !data || data.length === 0) { done = true; break; }
-            allEvents.push(...data);
-            if (data.length < PAGE_SIZE) { done = true; break; }
-            from += PAGE_SIZE;
-          }
-          return { data: allEvents, error: null };
-        })(),
+        invokeSMM('list-scheduled', { limit: '50' }).catch(() => ({ success: false, scheduled_posts: [] })),
+        invokeSMM('upload-history', { limit: '50' }).catch(() => ({ history: [] })),
+        supabase
+          .from('calendar_events')
+          .select('id, title, description, start_time, source_id, created_at')
+          .eq('source', 'smm')
+          .not('source_id', 'like', 'published-%')
+          .gte('start_time', `${lookbackDate}T00:00:00`)
+          .order('start_time', { ascending: false })
+          .limit(500),
         supabase
           .from('smm_content_plans')
           .select('profile_username, platform, schedule_items')
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(10),
       ]);
 
       const posts: ScheduledPost[] = [];
@@ -930,28 +921,42 @@ function mapCalendarEventToScheduledPost(
 }
 
 // ─── React Hook ───
+let _cachedPosts: ScheduledPost[] | null = null;
+let _cachedProfiles: SMMProfile[] | null = null;
+let _lastRefreshAt = 0;
+const MIN_REFRESH_INTERVAL_MS = 5000; // Prevent refresh spam
+
 export function useSMMStore() {
-  const [profiles, setProfiles] = useState<SMMProfile[]>([]);
-  const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [profiles, setProfiles] = useState<SMMProfile[]>(_cachedProfiles || []);
+  const [posts, setPosts] = useState<ScheduledPost[]>(_cachedPosts || []);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
+    const now = Date.now();
+    if (now - _lastRefreshAt < MIN_REFRESH_INTERVAL_MS) {
+      console.log('[SMM] Skipping refresh — too soon');
+      return;
+    }
+    _lastRefreshAt = now;
     setLoading(true);
     try {
-      // Load profiles first (fast) so UI renders accounts immediately
       const profilesPromise = smmApi.getProfiles();
       const postsPromise = smmApi.getPosts();
 
-      // Show profiles as soon as they arrive, don't wait for posts
-      profilesPromise.then(p => setProfiles(p)).catch(() => {});
+      profilesPromise.then(p => {
+        _cachedProfiles = p;
+        setProfiles(p);
+      }).catch(() => {});
 
-      // Posts can take longer due to API calls — load in background
       const po = await postsPromise;
+      _cachedPosts = po;
       setPosts(po);
 
-      // Ensure profiles are also set if they resolved after posts
       const p = await profilesPromise.catch(() => []);
-      if (p.length) setProfiles(p);
+      if (p.length) {
+        _cachedProfiles = p;
+        setProfiles(p);
+      }
     } catch (e) {
       console.error('SMM refresh error:', e);
     }
