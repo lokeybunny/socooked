@@ -8,12 +8,20 @@ const corsHeaders = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+const API_BASE = "https://api.upload-post.com/api";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const UPLOAD_POST_API_KEY = Deno.env.get("UPLOAD_POST_API_KEY");
+
+  if (!UPLOAD_POST_API_KEY) {
+    console.error("[smm-auto-publish] UPLOAD_POST_API_KEY not set");
+    return json({ error: "UPLOAD_POST_API_KEY not configured" }, 500);
+  }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
@@ -21,19 +29,16 @@ Deno.serve(async (req) => {
     const reqBody = await req.json().catch(() => ({}));
     const catchUp = reqBody.catch_up === true;
     const forceAllToday = reqBody.force_all_today === true;
-    
+
     const now = new Date();
-    // Normal mode: 20-min lookback. Catch-up mode: look back 24 hours. Force: entire day
     const lookbackMs = (catchUp || forceAllToday) ? 24 * 60 * 60 * 1000 : 20 * 60 * 1000;
     const windowStart = new Date(now.getTime() - lookbackMs).toISOString();
-    // Force mode: extend window to end of today (UTC midnight)
     const windowEnd = forceAllToday
       ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59)).toISOString()
       : new Date(now.getTime() + 2 * 60 * 1000).toISOString();
 
     console.log(`[smm-auto-publish] ${catchUp ? "CATCH-UP" : "Normal"} window: ${windowStart} → ${windowEnd}`);
 
-    // Get SMM calendar events that are due
     const { data: events, error } = await supabase
       .from("calendar_events")
       .select("*")
@@ -52,8 +57,6 @@ Deno.serve(async (req) => {
       return json({ ok: true, published: 0, message: "No events due" });
     }
 
-    // Filter out already-published events (check if source_id has been marked)
-    // We'll use a convention: after publishing, we prepend "published-" to the source_id
     const unpublished = events.filter(e => !e.source_id?.startsWith("published-"));
 
     if (unpublished.length === 0) {
@@ -63,12 +66,10 @@ Deno.serve(async (req) => {
 
     console.log(`[smm-auto-publish] Found ${unpublished.length} unpublished events in window`);
 
-    // CRITICAL: Only publish ONE event per invocation to avoid double-posting
+    // CRITICAL: Only publish ONE event per invocation
     const event = unpublished[0];
-    const results: string[] = [];
 
     try {
-      // Extract media URL from description
       const mediaMatch = event.description?.match(/Media URL:\s*(https?:\/\/\S+)/i);
       const mediaUrl = mediaMatch?.[1]?.trim();
 
@@ -77,11 +78,10 @@ Deno.serve(async (req) => {
         return json({ ok: true, published: 0, message: "Skipped — no media URL", remaining: unpublished.length - 1 });
       }
 
-      // Extract profile from description or default to NysonBlack
       const profileMatch = event.description?.match(/Profile:\s*(\S+)/i);
       const profileUsername = profileMatch?.[1] || "NysonBlack";
 
-      // Build caption from description — strip metadata lines
+      // Build caption — strip metadata lines
       let caption = event.description || event.title || "";
       caption = caption
         .replace(/Media URL:\s*https?:\/\/\S+/gi, "")
@@ -93,11 +93,9 @@ Deno.serve(async (req) => {
         .replace(/\n{3,}/g, "\n\n")
         .trim();
 
-      // Detect if image or video
       const isVideo = /\.(mp4|mov|webm|avi)(\?|$)/i.test(mediaUrl);
-      const uploadAction = isVideo ? "upload-video" : "upload-photos";
 
-      // Respect platform suffix in source_id for multi-platform campaigns
+      // Determine platforms from source_id suffix
       const sourceId = event.source_id || "";
       let platforms: string[];
       if (sourceId.endsWith("-ig")) {
@@ -108,30 +106,69 @@ Deno.serve(async (req) => {
         platforms = ["instagram", "tiktok"];
       }
 
-      console.log(`[smm-auto-publish] Publishing 1 of ${unpublished.length}: "${event.title?.substring(0, 60)}" via ${uploadAction}`);
+      // Build Upload-Post API params directly (bypass smm-api edge function to avoid timeout chain)
+      const params = new URLSearchParams();
+      params.append("user", profileUsername);
+      platforms.forEach(p => params.append("platform[]", p));
+      params.append("title", caption);
+      params.append("async_upload", "true");
 
-      const smmUrl = `${SUPABASE_URL}/functions/v1/smm-api?action=${uploadAction}`;
+      if (isVideo) {
+        params.append("video", mediaUrl);
+        // Instagram: force Reels + Feed
+        if (platforms.includes("instagram")) {
+          params.append("ig_post_type", "reels");
+          params.append("share_to_feed", "true");
+          // Auto-tag artist accounts
+          const captionLower = caption.toLowerCase();
+          const tags: string[] = [];
+          if (captionLower.includes("lamb")) tags.push("@lamb.wavv");
+          if (captionLower.includes("oranj") || captionLower.includes("orang")) tags.push("@oranjgoodman");
+          if (tags.length > 0) params.append("user_tags", tags.join(", "));
+        }
+      } else {
+        params.append("photos[]", mediaUrl);
+      }
 
-      const uploadRes = await fetch(smmUrl, {
+      const endpoint = isVideo ? "/upload" : "/upload_photos";
+      console.log(`[smm-auto-publish] Uploading directly to Upload-Post API: ${endpoint} for "${event.title?.substring(0, 60)}"`);
+
+      const uploadRes = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${ANON_KEY}`,
-          "apikey": ANON_KEY,
-          "Content-Type": "application/json",
+          "Authorization": `Apikey ${UPLOAD_POST_API_KEY}`,
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: JSON.stringify({
-          user: profileUsername,
-          "platform[]": platforms,
-          title: caption,
-          ...(isVideo ? { video: mediaUrl, ig_post_type: "reels", share_to_feed: "true" } : { "photos[]": [mediaUrl] }),
-          async_upload: true,
-        }),
+        body: params.toString(),
       });
 
       const uploadText = await uploadRes.text();
-      console.log(`[smm-auto-publish] Upload response (${uploadRes.status}):`, uploadText.substring(0, 300));
+      console.log(`[smm-auto-publish] Upload response (${uploadRes.status}):`, uploadText.substring(0, 500));
 
       if (uploadRes.ok) {
+        let uploadData: any = {};
+        try { uploadData = JSON.parse(uploadText); } catch {}
+
+        // Only mark as published if the API actually accepted the upload
+        if (uploadData.success === false) {
+          console.error(`[smm-auto-publish] API returned success=false for ${event.id}:`, uploadText.substring(0, 300));
+
+          await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
+            method: "POST",
+            headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              record: {
+                id: crypto.randomUUID(),
+                entity_type: "smm", entity_id: null, action: "failed", actor_id: null,
+                meta: { name: `🚨 Auto-publish REJECTED: ${event.title}`, error: uploadData.message || uploadText.substring(0, 200) },
+                created_at: new Date().toISOString(),
+              },
+            }),
+          });
+
+          return json({ ok: false, published: 0, error: uploadData.message || "API rejected upload" }, 500);
+        }
+
         await supabase
           .from("calendar_events")
           .update({ source_id: `published-${event.source_id || event.id}` })
@@ -140,10 +177,10 @@ Deno.serve(async (req) => {
         await supabase.from("activity_log").insert({
           entity_type: "smm",
           action: "auto_published",
-          meta: { name: `📤 Auto-published: ${event.title}`, profile: profileUsername, platforms },
+          meta: { name: `📤 Auto-published: ${event.title}`, profile: profileUsername, platforms, request_id: uploadData.request_id },
         });
 
-        // ── Auto-Boost: check if enabled for this profile (supports multiple active presets) ──
+        // ── Auto-Boost ──
         try {
           const { data: boostConfig } = await supabase
             .from("site_configs")
@@ -153,7 +190,6 @@ Deno.serve(async (req) => {
             .single();
 
           const config = boostConfig?.content as { enabled?: boolean; preset_ids?: string[]; preset_id?: string } | null;
-          // Collect active preset IDs (support both legacy single and new multi)
           const activeIds: string[] = config?.enabled
             ? (config.preset_ids && Array.isArray(config.preset_ids) ? config.preset_ids : config.preset_id ? [config.preset_id] : [])
             : [];
@@ -164,7 +200,6 @@ Deno.serve(async (req) => {
               .select("*")
               .in("id", activeIds);
 
-            // Merge all services from all active presets
             const allServices: { service_id: string; service_name: string; quantity: number }[] = [];
             for (const preset of (activePresets || [])) {
               const svcs = (preset as any).services;
@@ -176,31 +211,15 @@ Deno.serve(async (req) => {
             }
 
             if (allServices.length > 0) {
-              let postUrl: string | null = null;
-              try {
-                const uploadData = JSON.parse(uploadText);
-                postUrl = uploadData?.data?.post_url || uploadData?.data?.permalink || mediaUrl;
-              } catch { postUrl = mediaUrl; }
-
+              const postUrl = uploadData?.data?.post_url || uploadData?.data?.permalink || mediaUrl;
               if (postUrl) {
-                const presetNames = (activePresets || []).map((p: any) => p.preset_name).join(', ');
-                console.log(`[smm-auto-publish] Triggering auto-boost with ${activeIds.length} presets [${presetNames}] (${allServices.length} services) for ${postUrl}`);
-                const boostUrl = `${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`;
-                await fetch(boostUrl, {
+                const presetNames = (activePresets || []).map((p: any) => p.preset_name).join(", ");
+                console.log(`[smm-auto-publish] Triggering auto-boost with ${activeIds.length} presets [${presetNames}]`);
+                await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`, {
                   method: "POST",
-                  headers: {
-                    "apikey": ANON_KEY,
-                    "Authorization": `Bearer ${ANON_KEY}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    link: postUrl,
-                    profile_username: profileUsername,
-                    platform: "instagram",
-                    services: allServices,
-                  }),
+                  headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ link: postUrl, profile_username: profileUsername, platform: "instagram", services: allServices }),
                 });
-                console.log(`[smm-auto-publish] Auto-boost triggered successfully`);
               }
             }
           }
@@ -208,9 +227,9 @@ Deno.serve(async (req) => {
           console.error("[smm-auto-publish] Auto-boost error (non-fatal):", boostErr);
         }
 
-        return json({ ok: true, published: 1, remaining: unpublished.length - 1, title: event.title });
+        return json({ ok: true, published: 1, remaining: unpublished.length - 1, title: event.title, request_id: uploadData.request_id });
       } else {
-        console.error(`[smm-auto-publish] Failed for ${event.id}:`, uploadText.substring(0, 300));
+        console.error(`[smm-auto-publish] Upload failed (${uploadRes.status}) for ${event.id}:`, uploadText.substring(0, 300));
 
         await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
           method: "POST",
@@ -218,10 +237,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             record: {
               id: crypto.randomUUID(),
-              entity_type: "smm",
-              entity_id: null,
-              action: "failed",
-              actor_id: null,
+              entity_type: "smm", entity_id: null, action: "failed", actor_id: null,
               meta: { name: `🚨 Auto-publish FAILED: ${event.title}`, error: uploadText.substring(0, 200) },
               created_at: new Date().toISOString(),
             },
