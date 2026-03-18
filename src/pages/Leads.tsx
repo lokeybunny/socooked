@@ -57,7 +57,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, recordingUrl }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string }) {
+function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, recordingUrl, bookingStatus }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string; bookingStatus?: 'upcoming' | 'past' }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const [minimized, setMinimized] = useState(isPaid ? true : false);
@@ -70,6 +70,8 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
       style={style}
       className={cn(
         "w-full text-left glass-card space-y-3 hover:ring-2 transition-all rounded-xl relative",
+        bookingStatus === 'past' ? 'bg-red-500/15 hover:ring-red-500/40 border-l-2 border-l-red-500' :
+        bookingStatus === 'upcoming' ? 'bg-yellow-500/10 hover:ring-yellow-500/40 border-l-2 border-l-yellow-500' :
         isPaid ? 'hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' : isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
         isDragging && 'opacity-40 shadow-lg',
         minimized ? 'p-2.5' : 'p-4'
@@ -264,6 +266,7 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
   const [paidCustomerIds, setPaidCustomerIds] = useState<Set<string>>(new Set());
   const [recordingMap, setRecordingMap] = useState<Map<string, string>>(new Map());
+  const [bookingStatusMap, setBookingStatusMap] = useState<Map<string, 'upcoming' | 'past'>>(new Map());
   const [leadsPage, setLeadsPage] = useState(1);
   const [prospectsPage, setProspectsPage] = useState(1);
   const [prospectEmailedPage, setProspectEmailedPage] = useState(1);
@@ -330,7 +333,7 @@ export default function Leads() {
 
   const loadAll = async () => {
     setLeadsPage(1); setProspectsPage(1); setProspectEmailedPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes] = await Promise.all([
+    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes, bookingsRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('prospect_emailed'),
@@ -338,6 +341,7 @@ export default function Leads() {
       buildQuery('monthly'),
       supabase.from('invoices').select('customer_id, status'),
       supabase.from('communications').select('customer_id, body, metadata').eq('type', 'recording').eq('provider', 'ringcentral').order('created_at', { ascending: false }),
+      supabase.from('bookings').select('guest_email, guest_name, booking_date, start_time, status').neq('status', 'cancelled'),
     ]);
     // Build set of customer IDs where ALL invoices are 'paid'
     const invoicesByCustomer = new Map<string, boolean>();
@@ -359,6 +363,34 @@ export default function Leads() {
       }
     });
     setRecordingMap(recMap);
+
+    // Build booking status map: match bookings to customers by email or name
+    const allCustomers = [...(leadRes.data || []), ...(prospectRes.data || []), ...(prospectEmailedRes.data || []), ...(clientRes.data || []), ...(monthlyRes.data || [])];
+    const emailToCustomerId = new Map<string, string>();
+    const nameToCustomerId = new Map<string, string>();
+    allCustomers.forEach((c: any) => {
+      if (c.email) emailToCustomerId.set(c.email.toLowerCase(), c.id);
+      if (c.full_name) nameToCustomerId.set(c.full_name.toLowerCase(), c.id);
+    });
+
+    const now = new Date();
+    const bMap = new Map<string, 'upcoming' | 'past'>();
+    (bookingsRes.data || []).forEach((b: any) => {
+      // Match booking to customer by email first, then name
+      const customerId = (b.guest_email && emailToCustomerId.get(b.guest_email.toLowerCase()))
+        || (b.guest_name && nameToCustomerId.get(b.guest_name.toLowerCase()));
+      if (!customerId) return;
+
+      const bookingDateTime = new Date(`${b.booking_date}T${b.start_time}`);
+      const status: 'upcoming' | 'past' = bookingDateTime > now ? 'upcoming' : 'past';
+
+      // Prefer 'upcoming' over 'past' if customer has multiple bookings
+      const existing = bMap.get(customerId);
+      if (!existing || (status === 'upcoming' && existing === 'past')) {
+        bMap.set(customerId, status);
+      }
+    });
+    setBookingStatusMap(bMap);
 
     setAllLeads(leadRes.data || []);
     setAllProspects(prospectRes.data || []);
@@ -893,7 +925,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="leads-column">
                 {pagedLeads.map(lead => (
-                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} />
+                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} bookingStatus={bookingStatusMap.get(lead.id)} />
                 ))}
                 {leads.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -915,7 +947,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="prospects-column">
                 {pagedProspects.map(prospect => (
-                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(prospect.id)} recordingUrl={recordingMap.get(prospect.id)} />
+                  <DraggableContactCard key={prospect.id} contact={prospect} onClick={() => { setSelected(prospect); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(prospect.id)} recordingUrl={recordingMap.get(prospect.id)} bookingStatus={bookingStatusMap.get(prospect.id)} />
                 ))}
                 {prospects.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -937,7 +969,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="prospect-emailed-column">
                 {pagedProspectEmailed.map(pe => (
-                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} />
+                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} bookingStatus={bookingStatusMap.get(pe.id)} />
                 ))}
                 {prospectEmailed.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -959,7 +991,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="clients-column">
                 {pagedClients.map(client => (
-                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(client.id)} recordingUrl={recordingMap.get(client.id)} />
+                  <DraggableContactCard key={client.id} contact={client} onClick={() => { setSelected(client); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(client.id)} recordingUrl={recordingMap.get(client.id)} bookingStatus={bookingStatusMap.get(client.id)} />
                 ))}
                 {clients.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
@@ -981,7 +1013,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="monthly-column">
                 {pagedMonthly.map(m => (
-                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(m.id)} recordingUrl={recordingMap.get(m.id)} />
+                  <DraggableContactCard key={m.id} contact={m} onClick={() => { setSelected(m); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(m.id)} recordingUrl={recordingMap.get(m.id)} bookingStatus={bookingStatusMap.get(m.id)} />
                 ))}
                 {monthly.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
