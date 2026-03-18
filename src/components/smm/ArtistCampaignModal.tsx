@@ -138,7 +138,9 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
         song_title: songTitle.trim(),
         media_urls: mediaUrls,
         status: 'pending',
-        days_total: 14,
+        days_total: schedulePattern === 'biweekly-tue-fri' ? 48 : 14,
+        schedule_pattern: schedulePattern,
+        platforms: selectedPlatforms,
       });
 
       if (error) throw error;
@@ -148,6 +150,8 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
       setArtistHandle('');
       setSongTitle('');
       setMediaFiles([]);
+      setSchedulePattern('daily');
+      setSelectedPlatforms(['instagram']);
       fetchCampaigns();
     } catch (err: any) {
       toast.error(err.message || 'Failed to add artist');
