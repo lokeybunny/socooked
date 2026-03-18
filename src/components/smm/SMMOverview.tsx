@@ -33,7 +33,7 @@ interface Props {
   onUpdatePostTime?: (post: ScheduledPost, newScheduledDate: string) => void;
 }
 
-export default function SMMOverview({ posts, allPosts, profiles, onRefresh, onUpdatePostTime }: Props) {
+export default function SMMOverview({ posts, allPosts, profiles, providerDown, onRefresh, onUpdatePostTime }: Props) {
   const { platform, navigateToTab } = useSMMContext();
   const [webhooks] = useState<WebhookEvent[]>([]);
   const [viewMode, setViewMode] = useState<'all' | 'byPlatform'>('all');
