@@ -35,6 +35,7 @@ function normalizeCampaignKey(value: string): string {
 function extractArtistKey(post: ScheduledPost): ArtistKey | null {
   const haystack = `${post.job_id || ''} ${post.title || ''} ${post.description || ''}`.toLowerCase();
 
+  if (ARTIST_MARKERS.flipfone.some(marker => haystack.includes(marker))) return 'flipfone';
   if (ARTIST_MARKERS.bryson.some(marker => haystack.includes(marker))) return 'bryson';
   if (ARTIST_MARKERS.oranj.some(marker => haystack.includes(marker))) return 'oranj';
   if (ARTIST_MARKERS.lamb.some(marker => haystack.includes(marker))) return 'lamb';

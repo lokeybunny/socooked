@@ -1885,7 +1885,9 @@ export type Database = {
           expires_at: string | null
           id: string
           media_urls: string[]
+          platforms: string[]
           profile_username: string
+          schedule_pattern: string
           slot_index: number | null
           song_title: string
           started_at: string
@@ -1902,7 +1904,9 @@ export type Database = {
           expires_at?: string | null
           id?: string
           media_urls?: string[]
+          platforms?: string[]
           profile_username?: string
+          schedule_pattern?: string
           slot_index?: number | null
           song_title: string
           started_at?: string
@@ -1919,7 +1923,9 @@ export type Database = {
           expires_at?: string | null
           id?: string
           media_urls?: string[]
+          platforms?: string[]
           profile_username?: string
+          schedule_pattern?: string
           slot_index?: number | null
           song_title?: string
           started_at?: string
