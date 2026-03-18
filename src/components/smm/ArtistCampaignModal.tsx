@@ -516,8 +516,12 @@ function CampaignCard({
               {config.label}
             </Badge>
           </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            🎵 {campaign.song_title} · Day {campaign.days_completed}/{campaign.days_total}
+           <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+              🎵 {campaign.song_title} · Day {campaign.days_completed}/{campaign.days_total}
+              {campaign.schedule_pattern === 'biweekly-tue-fri' && <Badge variant="secondary" className="text-[9px] px-1 py-0">Bi-weekly Tue/Fri</Badge>}
+              {(campaign.platforms || ['instagram']).map(p => (
+                <Badge key={p} variant="outline" className="text-[9px] px-1 py-0">{p === 'instagram' ? 'IG' : p === 'tiktok' ? 'TT' : p}</Badge>
+              ))}
             · {campaign.media_urls.length} media
           </div>
           <div className="w-full h-1 bg-muted rounded-full mt-1.5 overflow-hidden">
