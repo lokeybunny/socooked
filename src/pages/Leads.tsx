@@ -57,12 +57,13 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, isEmailed, recordingUrl, bookingStatus }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; isEmailed?: boolean; recordingUrl?: string; bookingStatus?: 'upcoming' | 'past' }) {
+function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, isEmailed, recordingUrl, bookingStatus, onToggleBusy }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; isEmailed?: boolean; recordingUrl?: string; bookingStatus?: 'upcoming' | 'past'; onToggleBusy?: (contact: any) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const [minimized, setMinimized] = useState(isPaid ? true : false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
+  const isBusy = !!(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).is_busy);
 
   return (
     <div
@@ -72,6 +73,7 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
         "w-full text-left glass-card space-y-3 hover:ring-2 transition-all rounded-xl relative",
         bookingStatus === 'past' ? 'bg-red-500/15 hover:ring-red-500/40 border-l-2 border-l-red-500' :
         bookingStatus === 'upcoming' ? 'bg-yellow-500/10 hover:ring-yellow-500/40 border-l-2 border-l-yellow-500' :
+        isBusy ? 'bg-yellow-500/10 hover:ring-yellow-500/40 border-l-2 border-l-yellow-500' :
         isEmailed ? 'bg-emerald-500/10 hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' :
         isPaid ? 'hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' : isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
         isDragging && 'opacity-40 shadow-lg',
