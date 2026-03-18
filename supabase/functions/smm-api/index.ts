@@ -28,8 +28,13 @@ async function logSMMActivity(action: string, meta: Record<string, any>) {
 
 async function notifySMMFailure(action: string, statusCode: number, errorBody: string) {
   const pstTime = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-  const problem = `${action} failed (HTTP ${statusCode})`;
-  const detail = errorBody.substring(0, 500);
+  const isProviderDown = statusCode === 503 || errorBody.includes('no available server');
+  const problem = isProviderDown
+    ? `⚠️ Upload-Post API is DOWN (${action}) — their servers are unavailable, not our fault`
+    : `${action} failed (HTTP ${statusCode})`;
+  const detail = isProviderDown
+    ? `The Upload-Post provider returned HTTP ${statusCode}. This is an external outage on their end. No action needed on our side — it will auto-recover.`
+    : errorBody.substring(0, 500);
 
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
