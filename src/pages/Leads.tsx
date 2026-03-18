@@ -60,7 +60,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
 function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, isEmailed, recordingUrl, bookingStatus, onToggleBusy }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; isEmailed?: boolean; recordingUrl?: string; bookingStatus?: 'upcoming' | 'past'; onToggleBusy?: (contact: any) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
-  const [minimized, setMinimized] = useState(isPaid ? true : false);
+  const [minimized, setMinimized] = useState(isPaid || isEmailed ? true : false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const isBusy = !!(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).is_busy);
@@ -84,7 +84,7 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
         <GripVertical className="h-3.5 w-3.5" />
       </button>
       <div className="absolute top-3 right-3 flex items-center gap-0.5">
-        {isPaid && (
+        {(isPaid || isEmailed) && (
           <button className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); setMinimized(!minimized); }} title={minimized ? 'Expand' : 'Minimize'}>
             {minimized ? <Maximize2 className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
           </button>
@@ -429,10 +429,17 @@ export default function Leads() {
   useEffect(() => {
     setLeads(allLeads);
     setProspects(allProspects);
-    setProspectEmailed(allProspectEmailed);
+    // Sort prospect_emailed: non-emailed (newer) prospects first, then emailed ones
+    const sorted = [...allProspectEmailed].sort((a, b) => {
+      const aEmailed = websiteEmailedIds.has(a.id) ? 1 : 0;
+      const bEmailed = websiteEmailedIds.has(b.id) ? 1 : 0;
+      if (aEmailed !== bEmailed) return aEmailed - bEmailed;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+    setProspectEmailed(sorted);
     setClients(allClients);
     setMonthly(allMonthly);
-  }, [allLeads, allProspects, allProspectEmailed, allClients, allMonthly]);
+  }, [allLeads, allProspects, allProspectEmailed, allClients, allMonthly, websiteEmailedIds]);
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
