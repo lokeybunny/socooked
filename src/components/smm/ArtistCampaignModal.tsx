@@ -28,6 +28,8 @@ interface ArtistCampaign {
   expires_at: string | null;
   continued_until: string | null;
   created_at: string;
+  schedule_pattern?: string;
+  platforms?: string[];
 }
 
 interface Props {
@@ -56,6 +58,8 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
   const [artistHandle, setArtistHandle] = useState('');
   const [songTitle, setSongTitle] = useState('');
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [schedulePattern, setSchedulePattern] = useState('daily');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram']);
 
   const fetchCampaigns = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);
@@ -134,7 +138,9 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
         song_title: songTitle.trim(),
         media_urls: mediaUrls,
         status: 'pending',
-        days_total: 14,
+        days_total: schedulePattern === 'biweekly-tue-fri' ? 48 : 14,
+        schedule_pattern: schedulePattern,
+        platforms: selectedPlatforms,
       });
 
       if (error) throw error;
@@ -144,6 +150,8 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
       setArtistHandle('');
       setSongTitle('');
       setMediaFiles([]);
+      setSchedulePattern('daily');
+      setSelectedPlatforms(['instagram']);
       fetchCampaigns();
     } catch (err: any) {
       toast.error(err.message || 'Failed to add artist');
@@ -328,6 +336,36 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
               <Input placeholder="e.g. Midnight Remix" value={songTitle} onChange={e => setSongTitle(e.target.value)} className="h-8 text-sm" />
             </div>
             <div className="col-span-2">
+              <Label className="text-xs">Schedule Pattern</Label>
+              <select
+                value={schedulePattern}
+                onChange={e => setSchedulePattern(e.target.value)}
+                className="w-full h-8 text-sm rounded-md border border-border bg-background px-2 text-foreground"
+              >
+                <option value="daily">Daily (consecutive days)</option>
+                <option value="biweekly-tue-fri">Every other Tuesday + Friday (~6 months)</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Platforms</Label>
+              <div className="flex gap-2 mt-1">
+                {['instagram', 'tiktok'].map(p => (
+                  <label key={p} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedPlatforms.includes(p)}
+                      onChange={e => {
+                        if (e.target.checked) setSelectedPlatforms(prev => [...prev, p]);
+                        else setSelectedPlatforms(prev => prev.filter(x => x !== p));
+                      }}
+                      className="rounded"
+                    />
+                    {p === 'instagram' ? 'Instagram' : 'TikTok'}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="col-span-2">
               <Label className="text-xs">Media Files (videos/images — up to 7)</Label>
               <div className="flex items-center gap-2 mt-1">
                 <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-xs cursor-pointer hover:bg-muted transition-colors">
@@ -478,8 +516,12 @@ function CampaignCard({
               {config.label}
             </Badge>
           </div>
-          <div className="text-xs text-muted-foreground mt-0.5">
-            🎵 {campaign.song_title} · Day {campaign.days_completed}/{campaign.days_total}
+           <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+              🎵 {campaign.song_title} · Day {campaign.days_completed}/{campaign.days_total}
+              {campaign.schedule_pattern === 'biweekly-tue-fri' && <Badge variant="secondary" className="text-[9px] px-1 py-0">Bi-weekly Tue/Fri</Badge>}
+              {(campaign.platforms || ['instagram']).map(p => (
+                <Badge key={p} variant="outline" className="text-[9px] px-1 py-0">{p === 'instagram' ? 'IG' : p === 'tiktok' ? 'TT' : p}</Badge>
+              ))}
             · {campaign.media_urls.length} media
           </div>
           <div className="w-full h-1 bg-muted rounded-full mt-1.5 overflow-hidden">
