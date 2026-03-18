@@ -12,6 +12,7 @@ const ARTIST_MARKERS = {
   lamb: ['@lamb.wavv', '@lamb.wavvv', 'lamb.wavv', 'lamb.wavvv', 'lambwavv', 'lambwavvv'],
   oranj: ['@oranjgoodman', 'oranj goodman', 'oranjgoodman', 'ojg-', 'oranj'],
   bryson: ['bryson tiller', 'brysontiller', 'bryson'],
+  flipfone: ['@flipfone', 'flip fone', 'flipfone', 'flip-fone'],
 } as const;
 
 type ArtistKey = keyof typeof ARTIST_MARKERS;
