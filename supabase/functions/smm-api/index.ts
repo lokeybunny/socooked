@@ -375,6 +375,18 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      if (action === 'list-profiles') {
+        return new Response(JSON.stringify({ success: true, profiles: [], error: 'Provider temporarily unavailable.' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (action === 'upload-history') {
+        return new Response(JSON.stringify({ success: true, history: [], error: 'Provider temporarily unavailable.' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       if (!QUIET_FAILURE_ACTIONS.has(action)) {
         await notifySMMFailure(action, response.status, responseText);
       }
