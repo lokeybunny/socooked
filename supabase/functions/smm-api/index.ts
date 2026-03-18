@@ -9,7 +9,7 @@ const API_BASE = 'https://api.upload-post.com/api';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-const QUIET_FAILURE_ACTIONS = new Set(['list-scheduled', 'list-profiles', 'upload-history']);
+const QUIET_FAILURE_ACTIONS = new Set(['list-scheduled', 'list-profiles', 'upload-history', 'me']);
 
 async function logSMMActivity(action: string, meta: Record<string, any>) {
   try {
@@ -388,6 +388,12 @@ serve(async (req) => {
       }
       if (action === 'upload-history') {
         return new Response(JSON.stringify({ success: true, history: [], error: 'Provider temporarily unavailable.' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (action === 'me') {
+        return new Response(JSON.stringify({ success: true, plan: null, email: null, error: 'Provider temporarily unavailable.' }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
