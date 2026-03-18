@@ -58,6 +58,8 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
   const [artistHandle, setArtistHandle] = useState('');
   const [songTitle, setSongTitle] = useState('');
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [schedulePattern, setSchedulePattern] = useState('daily');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram']);
 
   const fetchCampaigns = useCallback(async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);
