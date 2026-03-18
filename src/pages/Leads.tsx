@@ -1056,7 +1056,7 @@ warren@stu25.com</p>`;
                 </DialogTitle>
               </DialogHeader>
               {editing ? (
-                {renderLeadForm(handleUpdate, "Save Changes")}
+                renderLeadForm(handleUpdate, "Save Changes")
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 flex-wrap">
