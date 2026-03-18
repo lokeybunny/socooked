@@ -455,8 +455,20 @@ export default function Leads() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Helper: sort recently updated (today) entries to top, then by updated_at desc
+    // Determine if a contact would default to minimized
+    const wouldMinimize = (c: any) => {
+      const isBusy = !!(c.meta && typeof c.meta === 'object' && (c.meta as any).is_busy);
+      const isPaid = paidCustomerIds.has(c.id);
+      const isEm = websiteEmailedIds.has(c.id);
+      const bStatus = bookingStatusMap.get(c.id);
+      return isPaid || isEm || isBusy || bStatus === 'upcoming';
+    };
+
+    // Helper: maximized (expanded) cards first, then today's entries, then by updated_at desc
     const sortNewestFirst = (arr: any[]) => [...arr].sort((a, b) => {
+      const aMin = wouldMinimize(a) ? 1 : 0;
+      const bMin = wouldMinimize(b) ? 1 : 0;
+      if (aMin !== bMin) return aMin - bMin;
       const aDate = new Date(a.updated_at || a.created_at);
       const bDate = new Date(b.updated_at || b.created_at);
       const aIsToday = aDate >= today ? 1 : 0;
@@ -469,6 +481,9 @@ export default function Leads() {
     setProspects(sortNewestFirst(allProspects));
     // Sort prospect_emailed: non-emailed (newer) prospects first, then emailed ones
     const sorted = [...allProspectEmailed].sort((a, b) => {
+      const aMin = wouldMinimize(a) ? 1 : 0;
+      const bMin = wouldMinimize(b) ? 1 : 0;
+      if (aMin !== bMin) return aMin - bMin;
       const aEmailed = websiteEmailedIds.has(a.id) ? 1 : 0;
       const bEmailed = websiteEmailedIds.has(b.id) ? 1 : 0;
       if (aEmailed !== bEmailed) return aEmailed - bEmailed;
@@ -482,7 +497,7 @@ export default function Leads() {
     setProspectEmailed(sorted);
     setClients(sortNewestFirst(allClients));
     setMonthly(sortNewestFirst(allMonthly));
-  }, [allLeads, allProspects, allProspectEmailed, allClients, allMonthly, websiteEmailedIds]);
+  }, [allLeads, allProspects, allProspectEmailed, allClients, allMonthly, websiteEmailedIds, paidCustomerIds, bookingStatusMap]);
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
