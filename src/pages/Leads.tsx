@@ -84,11 +84,9 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
         <GripVertical className="h-3.5 w-3.5" />
       </button>
       <div className="absolute top-3 right-3 flex items-center gap-0.5">
-        {(isPaid || isEmailed) && (
-          <button className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); setMinimized(!minimized); }} title={minimized ? 'Expand' : 'Minimize'}>
-            {minimized ? <Maximize2 className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-          </button>
-        )}
+        <button className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); setMinimized(!minimized); }} title={minimized ? 'Expand' : 'Minimize'}>
+          {minimized ? <Maximize2 className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+        </button>
         <button className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onClick(); }} title="View details">
           <Maximize2 className="h-3.5 w-3.5" />
         </button>
