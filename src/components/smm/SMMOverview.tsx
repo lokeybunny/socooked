@@ -160,7 +160,9 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
           {/* Queue Preview */}
           <div className="glass-card p-5 space-y-3">
             <h3 className="text-sm font-semibold text-foreground">Queue Preview</h3>
-            {queued.length === 0 ? <p className="text-xs text-muted-foreground py-4 text-center">Queue empty</p> : (
+            {providerDown ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">Waiting for Upload-Post API to reconnect…</p>
+            ) : queued.length === 0 ? <p className="text-xs text-muted-foreground py-4 text-center">Queue empty</p> : (
               <div className="space-y-2">
                 {queued.slice(0, 8).map(p => <PostCard key={p.id} post={p} compact onDelete={() => onRefresh?.()} />)}
               </div>
