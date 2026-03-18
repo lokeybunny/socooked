@@ -60,10 +60,10 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
 function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, isEmailed, recordingUrl, bookingStatus, onToggleBusy }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; isEmailed?: boolean; recordingUrl?: string; bookingStatus?: 'upcoming' | 'past'; onToggleBusy?: (contact: any) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
+  const isBusy = !!(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).is_busy);
   const [minimized, setMinimized] = useState(isPaid || isEmailed || isBusy || bookingStatus === 'upcoming');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
-  const isBusy = !!(contact.meta && typeof contact.meta === 'object' && (contact.meta as any).is_busy);
 
   return (
     <div
