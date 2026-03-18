@@ -181,8 +181,35 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
           const meta = contact.meta && typeof contact.meta === 'object' ? contact.meta : {};
           const callbackAt = (meta as Record<string, unknown>).callback_at as string | undefined;
           if (!callbackAt) return null;
-          const cbDate = new Date(callbackAt);
-          const isPast = cbDate < new Date();
+          let cbDate = new Date(callbackAt);
+          const now = new Date();
+          const isPast = cbDate < now;
+
+          // If busy + past due: auto-bump 24h forward (visually), and persist silently
+          if (isBusy && isPast) {
+            // Calculate next 24h window from original callback
+            while (cbDate < now) {
+              cbDate = new Date(cbDate.getTime() + 24 * 60 * 60 * 1000);
+            }
+            // Persist the bumped callback silently (fire-and-forget)
+            const newCbIso = cbDate.toISOString();
+            if (callbackAt !== newCbIso) {
+              supabase.from('customers').update({
+                meta: { ...meta, callback_at: newCbIso },
+              }).eq('id', contact.id).then(() => {});
+            }
+            return isProspect ? (
+              <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 bg-blue-500/15 text-blue-400">
+                <CalendarClock className="h-3 w-3" />
+                {format(cbDate, 'MMM d, h:mm a')}
+              </span>
+            ) : (
+              <span title={`Auto-rescheduled: ${format(cbDate, 'MMM d, h:mm a')}`} className="shrink-0">
+                <CalendarClock className="h-3.5 w-3.5 text-blue-500" />
+              </span>
+            );
+          }
+
           return isProspect ? (
             <span className={cn(
               "shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1",
