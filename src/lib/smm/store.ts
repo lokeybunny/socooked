@@ -930,6 +930,7 @@ export function useSMMStore() {
   const [profiles, setProfiles] = useState<SMMProfile[]>(_cachedProfiles || []);
   const [posts, setPosts] = useState<ScheduledPost[]>(_cachedPosts || []);
   const [loading, setLoading] = useState(false);
+  const [providerDown, setProviderDown] = useState(false);
 
   const refresh = useCallback(async () => {
     const now = Date.now();
@@ -943,10 +944,18 @@ export function useSMMStore() {
       const profilesPromise = smmApi.getProfiles();
       const postsPromise = smmApi.getPosts();
 
+      let profilesFailed503 = false;
+
       profilesPromise.then(p => {
         _cachedProfiles = p;
         setProfiles(p);
-      }).catch(() => {});
+        setProviderDown(false);
+      }).catch((err: any) => {
+        if (err?.status === 503 || String(err?.message || '').includes('no available server')) {
+          profilesFailed503 = true;
+          setProviderDown(true);
+        }
+      });
 
       const po = await postsPromise;
       _cachedPosts = po;
@@ -956,12 +965,18 @@ export function useSMMStore() {
       if (p.length) {
         _cachedProfiles = p;
         setProfiles(p);
+        setProviderDown(false);
+      } else if (profilesFailed503) {
+        setProviderDown(true);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('SMM refresh error:', e);
+      if (e?.status === 503 || String(e?.message || '').includes('no available server')) {
+        setProviderDown(true);
+      }
     }
     setLoading(false);
   }, []);
 
-  return { profiles, posts, loading, refresh, setProfiles, setPosts };
+  return { profiles, posts, loading, refresh, setProfiles, setPosts, providerDown };
 }
