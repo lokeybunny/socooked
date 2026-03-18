@@ -335,7 +335,7 @@ export default function Leads() {
 
   const loadAll = async () => {
     setLeadsPage(1); setProspectsPage(1); setProspectEmailedPage(1); setClientsPage(1); setMonthlyPage(1);
-    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes, bookingsRes] = await Promise.all([
+    const [leadRes, prospectRes, prospectEmailedRes, clientRes, monthlyRes, paidRes, recRes, bookingsRes, websiteEmailRes] = await Promise.all([
       buildQuery('lead'),
       buildQuery('prospect'),
       buildQuery('prospect_emailed'),
@@ -344,6 +344,7 @@ export default function Leads() {
       supabase.from('invoices').select('customer_id, status'),
       supabase.from('communications').select('customer_id, body, metadata').eq('type', 'recording').eq('provider', 'ringcentral').order('created_at', { ascending: false }),
       supabase.from('bookings').select('guest_email, guest_name, guest_phone, booking_date, start_time, status').neq('status', 'cancelled'),
+      supabase.from('communications').select('customer_id, subject').eq('type', 'email').eq('direction', 'outbound').ilike('subject', '%Your Free Custom Website is Ready%'),
     ]);
     // Build set of customer IDs where ALL invoices are 'paid'
     const invoicesByCustomer = new Map<string, boolean>();
