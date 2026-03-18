@@ -929,12 +929,53 @@ function mapCalendarEventToScheduledPost(
   };
 }
 
-// ─── React Hook ───
-let _cachedPosts: ScheduledPost[] | null = null;
-let _cachedProfiles: SMMProfile[] | null = null;
-let _lastRefreshAt = 0;
-const MIN_REFRESH_INTERVAL_MS = 5000; // Prevent refresh spam
+// ─── Module-level health-check state ───
+let _healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+let _healthCheckSetters: { setProfiles: (p: SMMProfile[]) => void; setProviderDown: (v: boolean) => void; refresh: () => void } | null = null;
 
+function startHealthCheck() {
+  if (_healthCheckInterval) return; // already running
+  console.log('[SMM] Provider down — starting 5-min health-check ping');
+  _healthCheckInterval = setInterval(async () => {
+    console.log('[SMM] Health-check: pinging Upload-Post API…');
+    try {
+      const profiles = await smmApi.getProfiles();
+      if (profiles.length > 0) {
+        console.log('[SMM] Health-check: provider is BACK!');
+        _cachedProfiles = profiles;
+        _healthCheckSetters?.setProfiles(profiles);
+        _healthCheckSetters?.setProviderDown(false);
+        stopHealthCheck();
+
+        // Notify Telegram
+        supabase.functions.invoke('telegram-notify', {
+          body: {
+            entity_type: 'system',
+            action: 'provider_restored',
+            meta: {
+              message: '✅ *Upload-Post API Restored*\n\nThe Upload-Post provider is back online. SMM dashboard is fully operational again.',
+            },
+          },
+        }).catch(err => console.error('[SMM] Telegram restore notify failed:', err));
+
+        _healthCheckSetters?.refresh();
+      } else {
+        console.log('[SMM] Health-check: provider still down');
+      }
+    } catch {
+      console.log('[SMM] Health-check: provider still down (error)');
+    }
+  }, 5 * 60 * 1000);
+}
+
+function stopHealthCheck() {
+  if (_healthCheckInterval) {
+    clearInterval(_healthCheckInterval);
+    _healthCheckInterval = null;
+  }
+}
+
+// ─── React Hook ───
 export function useSMMStore() {
   const [profiles, setProfiles] = useState<SMMProfile[]>(_cachedProfiles || []);
   const [posts, setPosts] = useState<ScheduledPost[]>(_cachedPosts || []);
@@ -987,63 +1028,15 @@ export function useSMMStore() {
     setLoading(false);
   }, []);
 
-  // Background health-check: when provider is down, ping every 5 min
-  const healthIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
+  // Sync health-check setters and start/stop based on providerDown
   useEffect(() => {
+    _healthCheckSetters = { setProfiles, setProviderDown, refresh };
     if (providerDown) {
-      // Clear any existing interval before starting a new one
-      if (healthIntervalRef.current) clearInterval(healthIntervalRef.current);
-
-      console.log('[SMM] Provider down — starting 5-min health-check ping');
-      healthIntervalRef.current = setInterval(async () => {
-        console.log('[SMM] Health-check: pinging Upload-Post API…');
-        try {
-          const profiles = await smmApi.getProfiles();
-          if (profiles.length > 0) {
-            console.log('[SMM] Health-check: provider is BACK!');
-            _cachedProfiles = profiles;
-            setProfiles(profiles);
-            setProviderDown(false);
-
-            // Notify Telegram that provider is back online
-            try {
-              await supabase.functions.invoke('telegram-notify', {
-                body: {
-                  entity_type: 'system',
-                  action: 'provider_restored',
-                  meta: {
-                    message: '✅ *Upload-Post API Restored*\n\nThe Upload-Post provider is back online. SMM dashboard is fully operational again.',
-                  },
-                },
-              });
-            } catch (tgErr) {
-              console.error('[SMM] Failed to send Telegram restore notification:', tgErr);
-            }
-
-            // Trigger a full refresh now that we're back
-            refresh();
-          } else {
-            console.log('[SMM] Health-check: provider still down');
-          }
-        } catch {
-          console.log('[SMM] Health-check: provider still down (error)');
-        }
-      }, 5 * 60 * 1000); // 5 minutes
+      startHealthCheck();
     } else {
-      // Provider is up — clear any running health-check
-      if (healthIntervalRef.current) {
-        clearInterval(healthIntervalRef.current);
-        healthIntervalRef.current = null;
-      }
+      stopHealthCheck();
     }
-
-    return () => {
-      if (healthIntervalRef.current) {
-        clearInterval(healthIntervalRef.current);
-        healthIntervalRef.current = null;
-      }
-    };
+    return () => { stopHealthCheck(); };
   }, [providerDown, refresh]);
 
   return { profiles, posts, loading, refresh, setProfiles, setPosts, providerDown };
