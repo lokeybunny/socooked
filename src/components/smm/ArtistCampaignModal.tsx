@@ -336,6 +336,36 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
               <Input placeholder="e.g. Midnight Remix" value={songTitle} onChange={e => setSongTitle(e.target.value)} className="h-8 text-sm" />
             </div>
             <div className="col-span-2">
+              <Label className="text-xs">Schedule Pattern</Label>
+              <select
+                value={schedulePattern}
+                onChange={e => setSchedulePattern(e.target.value)}
+                className="w-full h-8 text-sm rounded-md border border-border bg-background px-2 text-foreground"
+              >
+                <option value="daily">Daily (consecutive days)</option>
+                <option value="biweekly-tue-fri">Every other Tuesday + Friday (~6 months)</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Platforms</Label>
+              <div className="flex gap-2 mt-1">
+                {['instagram', 'tiktok'].map(p => (
+                  <label key={p} className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedPlatforms.includes(p)}
+                      onChange={e => {
+                        if (e.target.checked) setSelectedPlatforms(prev => [...prev, p]);
+                        else setSelectedPlatforms(prev => prev.filter(x => x !== p));
+                      }}
+                      className="rounded"
+                    />
+                    {p === 'instagram' ? 'Instagram' : 'TikTok'}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="col-span-2">
               <Label className="text-xs">Media Files (videos/images — up to 7)</Label>
               <div className="flex items-center gap-2 mt-1">
                 <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-background text-xs cursor-pointer hover:bg-muted transition-colors">
