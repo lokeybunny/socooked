@@ -925,7 +925,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="leads-column">
                 {pagedLeads.map(lead => (
-                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} />
+                  <DraggableContactCard key={lead.id} contact={lead} onClick={() => { setSelected(lead); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isPaid={paidCustomerIds.has(lead.id)} recordingUrl={recordingMap.get(lead.id)} bookingStatus={bookingStatusMap.get(lead.id)} />
                 ))}
                 {leads.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
