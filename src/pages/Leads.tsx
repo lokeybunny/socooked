@@ -341,7 +341,7 @@ export default function Leads() {
       buildQuery('monthly'),
       supabase.from('invoices').select('customer_id, status'),
       supabase.from('communications').select('customer_id, body, metadata').eq('type', 'recording').eq('provider', 'ringcentral').order('created_at', { ascending: false }),
-      supabase.from('bookings').select('guest_email, guest_name, booking_date, start_time, status').neq('status', 'cancelled'),
+      supabase.from('bookings').select('guest_email, guest_name, guest_phone, booking_date, start_time, status').neq('status', 'cancelled'),
     ]);
     // Build set of customer IDs where ALL invoices are 'paid'
     const invoicesByCustomer = new Map<string, boolean>();
@@ -364,21 +364,30 @@ export default function Leads() {
     });
     setRecordingMap(recMap);
 
-    // Build booking status map: match bookings to customers by email or name
+    // Build booking status map: match bookings to customers by email, name, or phone
     const allCustomers = [...(leadRes.data || []), ...(prospectRes.data || []), ...(prospectEmailedRes.data || []), ...(clientRes.data || []), ...(monthlyRes.data || [])];
     const emailToCustomerId = new Map<string, string>();
     const nameToCustomerId = new Map<string, string>();
+    const phoneToCustomerId = new Map<string, string>();
     allCustomers.forEach((c: any) => {
       if (c.email) emailToCustomerId.set(c.email.toLowerCase(), c.id);
       if (c.full_name) nameToCustomerId.set(c.full_name.toLowerCase(), c.id);
+      if (c.phone) {
+        const digits = c.phone.replace(/\D/g, '');
+        if (digits.length >= 7) phoneToCustomerId.set(digits.slice(-10), c.id);
+      }
     });
 
     const now = new Date();
     const bMap = new Map<string, 'upcoming' | 'past'>();
     (bookingsRes.data || []).forEach((b: any) => {
-      // Match booking to customer by email first, then name
-      const customerId = (b.guest_email && emailToCustomerId.get(b.guest_email.toLowerCase()))
+      // Match booking to customer by email first, then name, then phone
+      let customerId = (b.guest_email && emailToCustomerId.get(b.guest_email.toLowerCase()))
         || (b.guest_name && nameToCustomerId.get(b.guest_name.toLowerCase()));
+      if (!customerId && b.guest_phone) {
+        const digits = b.guest_phone.replace(/\D/g, '');
+        if (digits.length >= 7) customerId = phoneToCustomerId.get(digits.slice(-10));
+      }
       if (!customerId) return;
 
       const bookingDateTime = new Date(`${b.booking_date}T${b.start_time}`);
