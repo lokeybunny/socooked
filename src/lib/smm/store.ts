@@ -172,6 +172,14 @@ export const smmApi = {
     try {
       const data = await invokeSMM('list-profiles');
       console.log('[SMM getProfiles] raw response keys:', data ? Object.keys(data) : 'null');
+
+      // Detect provider-down: API returns success with empty profiles + error message
+      if (data?.error && (!data?.profiles?.length)) {
+        const err: any = new Error(data.error);
+        err.providerDown = true;
+        throw err;
+      }
+
       // API may return { profiles: [...] } or { users: [...] } or just [...]
       const rawProfiles = data?.profiles || data?.users || (Array.isArray(data) ? data : []);
       if (!rawProfiles.length) return [];
@@ -202,8 +210,9 @@ export const smmApi = {
           created_at: p.created_at || new Date().toISOString(),
         };
       });
-    } catch (e) {
+    } catch (e: any) {
       console.error('getProfiles error:', e);
+      if (e?.providerDown) throw e;
       return [];
     }
   },
