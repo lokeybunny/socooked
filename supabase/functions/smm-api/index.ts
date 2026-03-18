@@ -9,6 +9,7 @@ const API_BASE = 'https://api.upload-post.com/api';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+const QUIET_FAILURE_ACTIONS = new Set(['list-scheduled']);
 
 async function logSMMActivity(action: string, meta: Record<string, any>) {
   try {
@@ -30,7 +31,6 @@ async function notifySMMFailure(action: string, statusCode: number, errorBody: s
   const problem = `${action} failed (HTTP ${statusCode})`;
   const detail = errorBody.substring(0, 500);
 
-  // 1) Telegram notification
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/telegram-notify`, {
       method: 'POST',
@@ -53,7 +53,6 @@ async function notifySMMFailure(action: string, statusCode: number, errorBody: s
     });
   } catch (e) { console.error('[smm-api] telegram failure notify error:', e); }
 
-  // 2) Email via gmail-api
   try {
     await fetch(`${SUPABASE_URL}/functions/v1/gmail-api`, {
       method: 'POST',
@@ -99,11 +98,9 @@ serve(async (req) => {
 
     let apiUrl: string;
     let method = 'GET';
-    let body: any = null;
-    let isFormData = false;
+    let body: BodyInit | null = null;
 
     switch (action) {
-      // ─── User/Profile Management ───
       case 'list-profiles': {
         apiUrl = `${API_BASE}/uploadposts/users`;
         break;
@@ -142,7 +139,6 @@ serve(async (req) => {
         break;
       }
 
-      // ─── Upload Content ───
       case 'upload-video':
       case 'upload-photos':
       case 'upload-text':
@@ -153,24 +149,18 @@ serve(async (req) => {
           : '/upload_document';
         apiUrl = `${API_BASE}${endpoint}`;
         method = 'POST';
-        
+
         const contentType = req.headers.get('content-type') || '';
         if (contentType.includes('multipart/form-data')) {
-          // Forward multipart form data as-is
           body = await req.arrayBuffer();
-          isFormData = true;
-          // Forward the content-type with boundary
           authHeaders['Content-Type'] = contentType;
         } else {
-          // JSON body with URL-based uploads — use URLSearchParams for reliability
           const reqBody = await req.json();
 
-          // ─── Instagram: force Reels + Feed and auto-tag artists ───
           const platforms: string[] = reqBody['platform[]'] || reqBody['platforms'] || [];
           const hasInstagram = (Array.isArray(platforms) ? platforms : [platforms])
             .some((p: string) => String(p).toLowerCase() === 'instagram');
           if (hasInstagram) {
-            // Force reels + share to feed so posts appear in both places
             if (!reqBody.ig_post_type) {
               reqBody.ig_post_type = 'reels';
               console.log('[smm-api] Auto-set ig_post_type=reels');
@@ -180,7 +170,6 @@ serve(async (req) => {
               console.log('[smm-api] Auto-set share_to_feed=true');
             }
 
-            // Auto-tag artist accounts
             if (!reqBody.user_tags) {
               const caption = `${reqBody.title || ''} ${reqBody.description || ''}`.toLowerCase();
               const tags: string[] = [];
@@ -208,7 +197,6 @@ serve(async (req) => {
         break;
       }
 
-      // ─── Upload Management ───
       case 'upload-status': {
         const requestId = url.searchParams.get('request_id');
         const jobId = url.searchParams.get('job_id');
@@ -247,7 +235,6 @@ serve(async (req) => {
         break;
       }
 
-      // ─── Queue System ───
       case 'queue-settings': {
         const profile = url.searchParams.get('profile') || url.searchParams.get('profile_username');
         apiUrl = `${API_BASE}/uploadposts/queue/settings${profile ? `?profile_username=${profile}` : ''}`;
@@ -272,7 +259,6 @@ serve(async (req) => {
         break;
       }
 
-      // ─── Analytics ───
       case 'analytics': {
         const profileUsername = url.searchParams.get('profile_username');
         const platforms = url.searchParams.get('platforms');
@@ -286,7 +272,6 @@ serve(async (req) => {
         break;
       }
 
-      // ─── Platform Resources ───
       case 'facebook-pages': {
         const profile = url.searchParams.get('profile');
         apiUrl = `${API_BASE}/uploadposts/facebook/pages${profile ? `?profile=${profile}` : ''}`;
@@ -303,7 +288,6 @@ serve(async (req) => {
         break;
       }
 
-      // ─── Instagram Interactions ───
       case 'ig-media': {
         const user = url.searchParams.get('user');
         apiUrl = `${API_BASE}/uploadposts/media?platform=instagram&user=${user}`;
@@ -341,7 +325,6 @@ serve(async (req) => {
         break;
       }
 
-      // ─── Webhooks ───
       case 'configure-notifications': {
         apiUrl = 'https://app.upload-post.com/api/uploadposts/users/notifications';
         method = 'POST';
@@ -357,7 +340,6 @@ serve(async (req) => {
         });
     }
 
-    // Debug: log what we're about to send for upload actions
     if (action.startsWith('upload-')) {
       console.log(`[smm-api] action=${action} method=${method} apiUrl=${apiUrl}`);
     }
@@ -370,39 +352,36 @@ serve(async (req) => {
     const response = await fetch(apiUrl, fetchOpts);
     const responseText = await response.text();
 
-    // Debug: log response structure for profile-related actions
     if (action === 'list-profiles' || action === 'get-profile' || action === 'me') {
       try {
         const parsed = JSON.parse(responseText);
         console.log(`[smm-api] action=${action} response keys:`, Object.keys(parsed));
         if (action === 'list-profiles') {
-          // Log first-level structure to understand the shape
           if (parsed.profiles) console.log('[smm-api] has .profiles, count:', parsed.profiles.length);
           if (parsed.users) console.log('[smm-api] has .users, count:', parsed.users.length);
           if (Array.isArray(parsed)) console.log('[smm-api] response is array, count:', parsed.length);
-          // Log first item keys for debugging
           const firstItem = parsed.profiles?.[0] || parsed.users?.[0] || (Array.isArray(parsed) ? parsed[0] : null);
           if (firstItem) console.log('[smm-api] first item keys:', Object.keys(firstItem));
         }
-      } catch { /* not json */ }
+      } catch {
+      }
     }
 
     if (!response.ok) {
       console.error(`[smm-api] Upload-Post API error [${response.status}] for action=${action}: ${responseText}`);
-      // Fire failure notifications (Telegram + Email)
-      await notifySMMFailure(action, response.status, responseText);
+      if (!QUIET_FAILURE_ACTIONS.has(action)) {
+        await notifySMMFailure(action, response.status, responseText);
+      }
       return new Response(responseText, {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Log response for upload actions so we can debug async issues
     if (action.startsWith('upload-') && action !== 'upload-status') {
       console.log(`[smm-api] ✅ action=${action} status=${response.status} response:`, responseText.substring(0, 500));
     }
 
-    // Log upload/post/schedule/DM actions to activity_log for Telegram notifications
     const LOGGABLE = ['upload-video','upload-photos','upload-text','upload-document','cancel-scheduled','edit-scheduled','ig-dm-send','ig-comment-reply','update-queue-settings'];
     if (LOGGABLE.includes(action)) {
       const label = action.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -413,7 +392,6 @@ serve(async (req) => {
       status: response.status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
   } catch (error: unknown) {
     console.error('SMM API proxy error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

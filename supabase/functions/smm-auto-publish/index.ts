@@ -17,6 +17,7 @@ const PENDING_NOT_FOUND_GRACE_MS = 30 * 60 * 1000;
 const SUCCESS_STATUSES = new Set(["success", "successful", "completed", "complete", "published", "posted", "done"]);
 const FAILURE_STATUSES = new Set(["failed", "failure", "error", "rejected", "cancelled", "canceled", "expired"]);
 const PENDING_STATUSES = new Set(["pending", "queued", "processing", "in_progress", "in-progress", "uploading", "accepted", "scheduled", "running"]);
+const RETRYABLE_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504, 522, 524]);
 
 const asNonEmptyString = (...values: unknown[]) => {
   for (const value of values) {
@@ -200,40 +201,40 @@ Deno.serve(async (req) => {
         .eq("section", `auto-boost-${profileUsername}`)
         .single();
 
-        const config = boostConfig?.content as { enabled?: boolean; preset_ids?: string[]; preset_id?: string } | null;
-        const activeIds: string[] = config?.enabled
-          ? (config.preset_ids && Array.isArray(config.preset_ids) ? config.preset_ids : config.preset_id ? [config.preset_id] : [])
-          : [];
+      const config = boostConfig?.content as { enabled?: boolean; preset_ids?: string[]; preset_id?: string } | null;
+      const activeIds: string[] = config?.enabled
+        ? (config.preset_ids && Array.isArray(config.preset_ids) ? config.preset_ids : config.preset_id ? [config.preset_id] : [])
+        : [];
 
-        if (activeIds.length > 0) {
-          const { data: activePresets } = await supabase
-            .from("smm_boost_presets")
-            .select("*")
-            .in("id", activeIds);
+      if (activeIds.length > 0) {
+        const { data: activePresets } = await supabase
+          .from("smm_boost_presets")
+          .select("*")
+          .in("id", activeIds);
 
-          const allServices: { service_id: string; service_name: string; quantity: number }[] = [];
-          for (const preset of (activePresets || [])) {
-            const svcs = (preset as any).services;
-            if (Array.isArray(svcs)) {
-              for (const s of svcs) {
-                allServices.push({ service_id: s.service_id, service_name: s.service_name, quantity: s.quantity });
-              }
-            }
-          }
-
-          if (allServices.length > 0) {
-            const postUrl = outcome.postUrl || mediaUrl;
-            if (postUrl && platforms.includes("instagram")) {
-              const presetNames = (activePresets || []).map((p: any) => p.preset_name).join(", ");
-              console.log(`[smm-auto-publish] Triggering auto-boost with ${activeIds.length} presets [${presetNames}]`);
-              await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`, {
-                method: "POST",
-                headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ link: postUrl, profile_username: profileUsername, platform: "instagram", services: allServices }),
-              });
+        const allServices: { service_id: string; service_name: string; quantity: number }[] = [];
+        for (const preset of (activePresets || [])) {
+          const svcs = (preset as any).services;
+          if (Array.isArray(svcs)) {
+            for (const s of svcs) {
+              allServices.push({ service_id: s.service_id, service_name: s.service_name, quantity: s.quantity });
             }
           }
         }
+
+        if (allServices.length > 0) {
+          const postUrl = outcome.postUrl || mediaUrl;
+          if (postUrl && platforms.includes("instagram")) {
+            const presetNames = (activePresets || []).map((p: any) => p.preset_name).join(", ");
+            console.log(`[smm-auto-publish] Triggering auto-boost with ${activeIds.length} presets [${presetNames}]`);
+            await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`, {
+              method: "POST",
+              headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ link: postUrl, profile_username: profileUsername, platform: "instagram", services: allServices }),
+            });
+          }
+        }
+      }
     } catch (boostErr) {
       console.error("[smm-auto-publish] Auto-boost error (non-fatal):", boostErr);
     }
@@ -323,6 +324,25 @@ Deno.serve(async (req) => {
     try { uploadData = JSON.parse(uploadText); } catch {}
 
     if (!uploadRes.ok) {
+      if (RETRYABLE_HTTP_STATUSES.has(uploadRes.status)) {
+        await logActivity("auto_publish_retry_pending", {
+          name: `🔁 Auto-publish retry pending: ${event.title}`,
+          event_id: event.id,
+          profile: profileUsername,
+          platforms,
+          status_code: uploadRes.status,
+          provider_response: uploadText.substring(0, 300),
+        });
+        return json({
+          ok: true,
+          published: 0,
+          pending: 1,
+          retry: true,
+          title: event.title,
+          message: `Provider temporary error (HTTP ${uploadRes.status}); will retry automatically`,
+        });
+      }
+
       await notifyFailure(event.title || event.id, uploadText.substring(0, 300), { event_id: event.id, status_code: uploadRes.status });
       await supabase.from("calendar_events").update({ source_id: buildStructuredSourceId(FAILED_PREFIX, "event", event.id, originalSourceId) }).eq("id", event.id);
       return json({ ok: false, published: 0, error: uploadText.substring(0, 200) }, 500);
