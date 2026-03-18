@@ -936,9 +936,20 @@ export function useSMMStore() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [p, po] = await Promise.all([smmApi.getProfiles(), smmApi.getPosts()]);
-      setProfiles(p);
+      // Load profiles first (fast) so UI renders accounts immediately
+      const profilesPromise = smmApi.getProfiles();
+      const postsPromise = smmApi.getPosts();
+
+      // Show profiles as soon as they arrive, don't wait for posts
+      profilesPromise.then(p => setProfiles(p)).catch(() => {});
+
+      // Posts can take longer due to API calls — load in background
+      const po = await postsPromise;
       setPosts(po);
+
+      // Ensure profiles are also set if they resolved after posts
+      const p = await profilesPromise.catch(() => []);
+      if (p.length) setProfiles(p);
     } catch (e) {
       console.error('SMM refresh error:', e);
     }
