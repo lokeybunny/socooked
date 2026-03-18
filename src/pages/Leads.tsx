@@ -486,6 +486,17 @@ export default function Leads() {
     setEditing(false); setSelected(null); setForm(emptyForm); loadAll();
   };
 
+  const handleToggleBusy = async (contact: any) => {
+    const existingMeta = contact.meta && typeof contact.meta === 'object' ? contact.meta as Record<string, unknown> : {};
+    const newBusy = !existingMeta.is_busy;
+    const { error } = await supabase.from('customers').update({
+      meta: { ...existingMeta, is_busy: newBusy },
+    }).eq('id', contact.id);
+    if (error) { toast.error('Failed to update'); return; }
+    toast.success(newBusy ? 'Marked as busy' : 'Unmarked busy');
+    loadAll();
+  };
+
   const handleDelete = async (id: string) => {
     try {
       const detachCardsPromise = supabase.from('cards').update({ customer_id: null }).eq('customer_id', id);
