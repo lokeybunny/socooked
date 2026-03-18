@@ -925,6 +925,7 @@ function mapCalendarEventToScheduledPost(
     first_comment: undefined,
     error: undefined,
     created_at: event.created_at || new Date().toISOString(),
+    origin: 'calendar',
   };
 }
 
