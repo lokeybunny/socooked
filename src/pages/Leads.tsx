@@ -428,10 +428,10 @@ export default function Leads() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Helper: sort newer (today) entries to top, then by created_at desc
+    // Helper: sort recently updated (today) entries to top, then by updated_at desc
     const sortNewestFirst = (arr: any[]) => [...arr].sort((a, b) => {
-      const aDate = new Date(a.created_at);
-      const bDate = new Date(b.created_at);
+      const aDate = new Date(a.updated_at || a.created_at);
+      const bDate = new Date(b.updated_at || b.created_at);
       const aIsToday = aDate >= today ? 1 : 0;
       const bIsToday = bDate >= today ? 1 : 0;
       if (aIsToday !== bIsToday) return bIsToday - aIsToday;
@@ -445,8 +445,8 @@ export default function Leads() {
       const aEmailed = websiteEmailedIds.has(a.id) ? 1 : 0;
       const bEmailed = websiteEmailedIds.has(b.id) ? 1 : 0;
       if (aEmailed !== bEmailed) return aEmailed - bEmailed;
-      const aDate = new Date(a.created_at);
-      const bDate = new Date(b.created_at);
+      const aDate = new Date(a.updated_at || a.created_at);
+      const bDate = new Date(b.updated_at || b.created_at);
       const aIsToday = aDate >= today ? 1 : 0;
       const bIsToday = bDate >= today ? 1 : 0;
       if (aIsToday !== bIsToday) return bIsToday - aIsToday;
