@@ -23,6 +23,7 @@ function buildPost(overrides: Partial<ScheduledPost> & Pick<ScheduledPost, 'id' 
     platform_overrides: overrides.platform_overrides,
     error: overrides.error,
     created_at: overrides.created_at || overrides.scheduled_date || '2026-03-17T12:00:00.000Z',
+    origin: overrides.origin,
   };
 }
 
@@ -119,5 +120,24 @@ describe('anchorPostsToCampaignStart', () => {
     for (let i = 1; i < times.length; i++) {
       expect(times[i] - times[i - 1]).toBeGreaterThanOrEqual(3);
     }
+  });
+
+  it('preserves real calendar schedule dates for recycled calendar events', () => {
+    const posts = [
+      buildPost({
+        id: 'calendar-1',
+        job_id: 'recycle-w2-drake-ig-4',
+        title: 'Drake scheduled today',
+        description: 'Recycled from "Drake Music Week 1"\nMedia URL: https://example.com/drake.mp4',
+        scheduled_date: '2026-03-18T12:00:00.000Z',
+        origin: 'calendar',
+        platforms: ['instagram'],
+      }),
+    ];
+
+    const anchored = anchorPostsToCampaignStart(posts);
+
+    expect(anchored).toHaveLength(1);
+    expect(anchored[0].scheduled_date).toBe('2026-03-18T12:00:00.000Z');
   });
 });

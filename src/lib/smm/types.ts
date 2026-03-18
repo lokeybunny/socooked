@@ -33,6 +33,7 @@ export interface ScheduledPost {
   platform_overrides?: Record<Platform, { title?: string; first_comment?: string }>;
   error?: string;
   created_at: string;
+  origin?: 'api' | 'calendar';
 }
 
 export interface QueueSlot {
