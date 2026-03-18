@@ -28,6 +28,8 @@ interface ArtistCampaign {
   expires_at: string | null;
   continued_until: string | null;
   created_at: string;
+  schedule_pattern?: string;
+  platforms?: string[];
 }
 
 interface Props {
