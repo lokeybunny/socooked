@@ -241,9 +241,14 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
           )}
           <div className="flex items-center justify-between pl-6">
             <span className="text-[10px] text-muted-foreground">{new Date(contact.created_at).toLocaleDateString()}</span>
-            <button className="p-1 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }} title="Delete lead">
-              <Trash2 className="h-3 w-3" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button className={cn("p-1 rounded-md transition-colors", isBusy ? 'text-yellow-500 hover:text-yellow-400' : 'text-muted-foreground/40 hover:text-yellow-500')} onClick={(e) => { e.stopPropagation(); onToggleBusy?.(contact); }} title={isBusy ? 'Unmark busy' : 'Mark as busy'}>
+                <Clock className="h-3 w-3" />
+              </button>
+              <button className="p-1 rounded-md text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(contact.id); }} title="Delete lead">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         </>
       )}
