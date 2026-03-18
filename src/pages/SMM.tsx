@@ -258,7 +258,7 @@ function SMMInner() {
               </div>
 
               <TabsContent value="overview">
-                <SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} onRefresh={refresh} onUpdatePostTime={(post, newDate) => {
+                <SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} providerDown={providerDown} onRefresh={refresh} onUpdatePostTime={(post, newDate) => {
                   const normalizedId = post.id.replace(/-(instagram|facebook|tiktok|linkedin|pinterest|youtube|twitter)-view$/, '');
                   setPosts(prev => prev.map(p => {
                     const sameJob = !!post.job_id && (p.job_id === post.job_id || p.id === post.job_id);
