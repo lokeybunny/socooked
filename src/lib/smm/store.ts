@@ -231,34 +231,25 @@ export const smmApi = {
   // ─── Posts / Uploads ───
   async getPosts(): Promise<ScheduledPost[]> {
     try {
+      // Only fetch calendar events from 14 days ago onward (covers today + future)
+      const lookbackDate = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+
       const [scheduled, history, calendarResult, plansResult] = await Promise.all([
-        invokeSMM('list-scheduled', { limit: '100' }).catch(() => ({ success: false, scheduled_posts: [] })),
-        invokeSMM('upload-history', { limit: '100' }).catch(() => ({ history: [] })),
-        // Fetch ALL smm calendar events (may exceed default 1000 limit)
-        (async () => {
-          const allEvents: any[] = [];
-          const PAGE_SIZE = 1000;
-          let from = 0;
-          let done = false;
-          while (!done) {
-            const { data, error } = await supabase
-              .from('calendar_events')
-              .select('id, title, description, start_time, source_id, created_at')
-              .eq('source', 'smm')
-              .not('source_id', 'like', 'published-%')
-              .order('created_at', { ascending: false })
-              .range(from, from + PAGE_SIZE - 1);
-            if (error || !data || data.length === 0) { done = true; break; }
-            allEvents.push(...data);
-            if (data.length < PAGE_SIZE) { done = true; break; }
-            from += PAGE_SIZE;
-          }
-          return { data: allEvents, error: null };
-        })(),
+        invokeSMM('list-scheduled', { limit: '50' }).catch(() => ({ success: false, scheduled_posts: [] })),
+        invokeSMM('upload-history', { limit: '50' }).catch(() => ({ history: [] })),
+        supabase
+          .from('calendar_events')
+          .select('id, title, description, start_time, source_id, created_at')
+          .eq('source', 'smm')
+          .not('source_id', 'like', 'published-%')
+          .gte('start_time', `${lookbackDate}T00:00:00`)
+          .order('start_time', { ascending: false })
+          .limit(500),
         supabase
           .from('smm_content_plans')
           .select('profile_username, platform, schedule_items')
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(10),
       ]);
 
       const posts: ScheduledPost[] = [];
