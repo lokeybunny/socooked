@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { anchorPostsToCampaignStart } from '@/lib/smm/anchorPosts';
@@ -8,26 +8,28 @@ import { SMMProvider, useSMMContext } from '@/lib/smm/context';
 import SMMContextBar from '@/components/smm/SMMContextBar';
 import SMMPlatformRail from '@/components/smm/SMMPlatformRail';
 import SMMOverview from '@/components/smm/SMMOverview';
-import SMMProfiles from '@/components/smm/SMMProfiles';
-import SMMComposer from '@/components/smm/SMMComposer';
-import SMMCalendar from '@/components/smm/SMMCalendar';
-import SMMHistory from '@/components/smm/SMMHistory';
-import SMMStatus from '@/components/smm/SMMStatus';
-import SMMQueue from '@/components/smm/SMMQueue';
-import SMMAnalytics from '@/components/smm/SMMAnalytics';
-import SMMInstagram from '@/components/smm/SMMInstagram';
-import SMMTerminal from '@/components/smm/SMMTerminal';
-import SMMSchedule from '@/components/smm/SMMSchedule';
 import {
   LayoutDashboard, Users, PenLine, CalendarDays, History,
   Activity, ListOrdered, BarChart3, MessageSquare, RefreshCw, Sparkles, Music, Clock, Zap, Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import ArtistCampaignModal from '@/components/smm/ArtistCampaignModal';
 import ArtistContinueBanner from '@/components/smm/ArtistContinueBanner';
-import BoostConfigModal from '@/components/smm/BoostConfigModal';
 import type { Platform, ScheduledPost } from '@/lib/smm/types';
+
+// Lazy load heavy tabs
+const SMMProfiles = lazy(() => import('@/components/smm/SMMProfiles'));
+const SMMComposer = lazy(() => import('@/components/smm/SMMComposer'));
+const SMMCalendar = lazy(() => import('@/components/smm/SMMCalendar'));
+const SMMHistory = lazy(() => import('@/components/smm/SMMHistory'));
+const SMMStatus = lazy(() => import('@/components/smm/SMMStatus'));
+const SMMQueue = lazy(() => import('@/components/smm/SMMQueue'));
+const SMMAnalytics = lazy(() => import('@/components/smm/SMMAnalytics'));
+const SMMInstagram = lazy(() => import('@/components/smm/SMMInstagram'));
+const SMMTerminal = lazy(() => import('@/components/smm/SMMTerminal'));
+const SMMSchedule = lazy(() => import('@/components/smm/SMMSchedule'));
+const ArtistCampaignModal = lazy(() => import('@/components/smm/ArtistCampaignModal'));
+const BoostConfigModal = lazy(() => import('@/components/smm/BoostConfigModal'));
 
 const TABS = [
   { value: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -44,6 +46,10 @@ const TABS = [
 
 const UNREAD_COUNTS: Record<string, number> = {};
 
+function TabFallback() {
+  return <div className="space-y-3 p-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-32 w-full" /></div>;
+}
+
 function mirrorPostToPlatform(post: ScheduledPost, platform: Platform): ScheduledPost {
   return {
     ...post,
@@ -59,13 +65,10 @@ function filterPosts(posts: ScheduledPost[], profileId: string, platform: string
   if (platform === 'all') return profileFiltered;
 
   if (platform === 'tiktok') {
-    // Include posts already tagged as tiktok (e.g. from upload history)
     const nativeTiktok = profileFiltered.filter(p => p.platforms.includes('tiktok'));
-    // Mirror instagram posts to tiktok (scheduled/calendar posts)
     const mirrored = profileFiltered
       .filter(p => p.platforms.includes('instagram') && !p.platforms.includes('tiktok'))
       .map(p => mirrorPostToPlatform(p, 'tiktok'));
-    // Dedupe by job_id
     const seen = new Set(nativeTiktok.map(p => p.job_id || p.id));
     return [...nativeTiktok, ...mirrored.filter(p => !seen.has(p.job_id || p.id))];
   }
@@ -133,10 +136,11 @@ function SMMInner() {
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
   const [artistModalOpen, setArtistModalOpen] = useState(false);
   const [boostModalOpen, setBoostModalOpen] = useState(false);
+  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Realtime: auto-refresh when calendar_events are updated (e.g. auto-publish marks them published)
+  // Realtime: debounced auto-refresh when calendar_events are updated
   useEffect(() => {
     const channel = supabase
       .channel('smm-calendar-sync')
@@ -156,11 +160,16 @@ function SMMInner() {
             }));
           }
         }
-        refresh();
+        // Debounce refresh to avoid cascading reloads
+        if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+        refreshDebounceRef.current = setTimeout(() => refresh(), 3000);
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    };
   }, [refresh, setPosts]);
 
   // Auto-select first profile if none selected
@@ -169,11 +178,14 @@ function SMMInner() {
   }, [profiles, profileId, setProfileId]);
 
   const anchoredPosts = useMemo(() => anchorPostsToCampaignStart(posts), [posts]);
-  const filtered = filterPosts(anchoredPosts, profileId, platform);
+  const filtered = useMemo(() => filterPosts(anchoredPosts, profileId, platform), [anchoredPosts, profileId, platform]);
 
   // Derive set of connected platform keys from all profiles
-  const connectedPlatforms = new Set<string>();
-  profiles.forEach(p => p.connected_platforms.filter(cp => cp.connected).forEach(cp => connectedPlatforms.add(cp.platform)));
+  const connectedPlatforms = useMemo(() => {
+    const set = new Set<string>();
+    profiles.forEach(p => p.connected_platforms.filter(cp => cp.connected).forEach(cp => set.add(cp.platform)));
+    return set;
+  }, [profiles]);
 
   return (
     <AppLayout>
@@ -204,10 +216,8 @@ function SMMInner() {
         <SMMContextBar profiles={profiles} />
 
         <div className="flex gap-4">
-          {/* Platform Rail */}
           <SMMPlatformRail posts={anchoredPosts} unreadCounts={UNREAD_COUNTS} connectedPlatforms={connectedPlatforms} />
 
-          {/* Main Content */}
           <div className="flex-1 min-w-0">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <div className="flex items-center gap-3 mb-4">
@@ -224,43 +234,55 @@ function SMMInner() {
                 <DarksideBalance />
               </div>
 
-              <TabsContent value="overview"><SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} onRefresh={refresh} onUpdatePostTime={(post, newDate) => {
-                const normalizedId = post.id.replace(/-(instagram|facebook|tiktok|linkedin|pinterest|youtube|twitter)-view$/, '');
-                setPosts(prev => prev.map(p => {
-                  const sameJob = !!post.job_id && (p.job_id === post.job_id || p.id === post.job_id);
-                  const sameId = p.id === post.id || p.id === normalizedId || p.job_id === post.id || p.job_id === normalizedId;
-                  return sameJob || sameId ? { ...p, scheduled_date: newDate } : p;
-                }));
-              }} /></TabsContent>
-              <TabsContent value="schedule"><SMMSchedule profiles={profiles} /></TabsContent>
-              <TabsContent value="profiles"><SMMProfiles profiles={profiles} onRefresh={refresh} /></TabsContent>
-              <TabsContent value="composer"><SMMComposer profiles={profiles} onRefresh={refresh} /></TabsContent>
-              <TabsContent value="calendar"><SMMCalendar posts={filtered} onRefresh={refresh} /></TabsContent>
-              <TabsContent value="history"><SMMHistory posts={filtered} /></TabsContent>
-              <TabsContent value="status"><SMMStatus /></TabsContent>
-              <TabsContent value="queue"><SMMQueue profiles={profiles} posts={filtered} /></TabsContent>
-              <TabsContent value="analytics"><SMMAnalytics profiles={profiles} /></TabsContent>
-              <TabsContent value="instagram"><SMMInstagram /></TabsContent>
+              <TabsContent value="overview">
+                <SMMOverview posts={filtered} allPosts={anchoredPosts} profiles={profiles} onRefresh={refresh} onUpdatePostTime={(post, newDate) => {
+                  const normalizedId = post.id.replace(/-(instagram|facebook|tiktok|linkedin|pinterest|youtube|twitter)-view$/, '');
+                  setPosts(prev => prev.map(p => {
+                    const sameJob = !!post.job_id && (p.job_id === post.job_id || p.id === post.job_id);
+                    const sameId = p.id === post.id || p.id === normalizedId || p.job_id === post.id || p.job_id === normalizedId;
+                    return sameJob || sameId ? { ...p, scheduled_date: newDate } : p;
+                  }));
+                }} />
+              </TabsContent>
+              <Suspense fallback={<TabFallback />}>
+                <TabsContent value="schedule"><SMMSchedule profiles={profiles} /></TabsContent>
+                <TabsContent value="profiles"><SMMProfiles profiles={profiles} onRefresh={refresh} /></TabsContent>
+                <TabsContent value="composer"><SMMComposer profiles={profiles} onRefresh={refresh} /></TabsContent>
+                <TabsContent value="calendar"><SMMCalendar posts={filtered} onRefresh={refresh} /></TabsContent>
+                <TabsContent value="history"><SMMHistory posts={filtered} /></TabsContent>
+                <TabsContent value="status"><SMMStatus /></TabsContent>
+                <TabsContent value="queue"><SMMQueue profiles={profiles} posts={filtered} /></TabsContent>
+                <TabsContent value="analytics"><SMMAnalytics profiles={profiles} /></TabsContent>
+                <TabsContent value="instagram"><SMMInstagram /></TabsContent>
+              </Suspense>
             </Tabs>
           </div>
-      </div>
+        </div>
       </div>
 
-      {/* Persistent AI Scheduler Terminal */}
-      {profileId && <SMMTerminal profileUsername={profileId} />}
+      {/* Persistent AI Scheduler Terminal - lazy */}
+      <Suspense fallback={null}>
+        {profileId && <SMMTerminal profileUsername={profileId} />}
+      </Suspense>
 
-      {/* Artist Campaign Modal */}
-      <ArtistCampaignModal
-        open={artistModalOpen}
-        onOpenChange={setArtistModalOpen}
-        profileUsername={profileId || 'NysonBlack'}
-        onRefresh={refresh}
-      />
-      <BoostConfigModal
-        open={boostModalOpen}
-        onOpenChange={setBoostModalOpen}
-        profileUsername={profileId || 'NysonBlack'}
-      />
+      {/* Modals - lazy */}
+      <Suspense fallback={null}>
+        {artistModalOpen && (
+          <ArtistCampaignModal
+            open={artistModalOpen}
+            onOpenChange={setArtistModalOpen}
+            profileUsername={profileId || 'NysonBlack'}
+            onRefresh={refresh}
+          />
+        )}
+        {boostModalOpen && (
+          <BoostConfigModal
+            open={boostModalOpen}
+            onOpenChange={setBoostModalOpen}
+            profileUsername={profileId || 'NysonBlack'}
+          />
+        )}
+      </Suspense>
     </AppLayout>
   );
 }
