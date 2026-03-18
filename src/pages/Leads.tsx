@@ -429,10 +429,17 @@ export default function Leads() {
   useEffect(() => {
     setLeads(allLeads);
     setProspects(allProspects);
-    setProspectEmailed(allProspectEmailed);
+    // Sort prospect_emailed: non-emailed (newer) prospects first, then emailed ones
+    const sorted = [...allProspectEmailed].sort((a, b) => {
+      const aEmailed = websiteEmailedIds.has(a.id) ? 1 : 0;
+      const bEmailed = websiteEmailedIds.has(b.id) ? 1 : 0;
+      if (aEmailed !== bEmailed) return aEmailed - bEmailed;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+    setProspectEmailed(sorted);
     setClients(allClients);
     setMonthly(allMonthly);
-  }, [allLeads, allProspects, allProspectEmailed, allClients, allMonthly]);
+  }, [allLeads, allProspects, allProspectEmailed, allClients, allMonthly, websiteEmailedIds]);
 
   useEffect(() => { loadAll(); }, [search, filterSource, filterCategory]);
 
