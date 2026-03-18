@@ -28,6 +28,7 @@ interface Props {
   posts: ScheduledPost[];
   allPosts: ScheduledPost[];
   profiles: SMMProfile[];
+  providerDown?: boolean;
   onRefresh?: () => void;
   onUpdatePostTime?: (post: ScheduledPost, newScheduledDate: string) => void;
 }
