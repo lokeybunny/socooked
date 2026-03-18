@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { anchorPostsToCampaignStart } from '@/lib/smm/anchorPosts';
@@ -132,7 +133,7 @@ function DarksideBalance() {
 }
 
 function SMMInner() {
-  const { profiles, posts, loading, refresh, setPosts } = useSMMStore();
+  const { profiles, posts, loading, refresh, setPosts, providerDown } = useSMMStore();
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
   const [artistModalOpen, setArtistModalOpen] = useState(false);
   const [boostModalOpen, setBoostModalOpen] = useState(false);
@@ -189,7 +190,29 @@ function SMMInner() {
 
   return (
     <AppLayout>
-      <div className="space-y-4 animate-fade-in">
+      <div className="relative space-y-4 animate-fade-in">
+        {/* Provider Down Overlay */}
+        {providerDown && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
+            <div className="glass-card p-8 max-w-md text-center space-y-4 shadow-xl">
+              <div className="mx-auto w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center">
+                <AlertTriangle className="h-7 w-7 text-destructive" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground">Upload-Post API is Down</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                The social media provider (Upload-Post) is currently experiencing an outage on their end.
+                This is <span className="font-semibold text-foreground">not</span> an issue with our system.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Please stand by — the dashboard will automatically resume when the service recovers.
+              </p>
+              <Button variant="outline" size="sm" className="gap-1.5 mt-2" onClick={refresh} disabled={loading}>
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                Retry Connection
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Social Media Manager</h1>
