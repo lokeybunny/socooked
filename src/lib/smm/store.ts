@@ -921,28 +921,42 @@ function mapCalendarEventToScheduledPost(
 }
 
 // ─── React Hook ───
+let _cachedPosts: ScheduledPost[] | null = null;
+let _cachedProfiles: SMMProfile[] | null = null;
+let _lastRefreshAt = 0;
+const MIN_REFRESH_INTERVAL_MS = 5000; // Prevent refresh spam
+
 export function useSMMStore() {
-  const [profiles, setProfiles] = useState<SMMProfile[]>([]);
-  const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [profiles, setProfiles] = useState<SMMProfile[]>(_cachedProfiles || []);
+  const [posts, setPosts] = useState<ScheduledPost[]>(_cachedPosts || []);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
+    const now = Date.now();
+    if (now - _lastRefreshAt < MIN_REFRESH_INTERVAL_MS) {
+      console.log('[SMM] Skipping refresh — too soon');
+      return;
+    }
+    _lastRefreshAt = now;
     setLoading(true);
     try {
-      // Load profiles first (fast) so UI renders accounts immediately
       const profilesPromise = smmApi.getProfiles();
       const postsPromise = smmApi.getPosts();
 
-      // Show profiles as soon as they arrive, don't wait for posts
-      profilesPromise.then(p => setProfiles(p)).catch(() => {});
+      profilesPromise.then(p => {
+        _cachedProfiles = p;
+        setProfiles(p);
+      }).catch(() => {});
 
-      // Posts can take longer due to API calls — load in background
       const po = await postsPromise;
+      _cachedPosts = po;
       setPosts(po);
 
-      // Ensure profiles are also set if they resolved after posts
       const p = await profilesPromise.catch(() => []);
-      if (p.length) setProfiles(p);
+      if (p.length) {
+        _cachedProfiles = p;
+        setProfiles(p);
+      }
     } catch (e) {
       console.error('SMM refresh error:', e);
     }
