@@ -369,6 +369,12 @@ serve(async (req) => {
 
     if (!response.ok) {
       console.error(`[smm-api] Upload-Post API error [${response.status}] for action=${action}: ${responseText}`);
+      if (action === 'list-scheduled') {
+        return new Response(JSON.stringify({ success: false, scheduled_posts: [], error: 'Could not retrieve scheduled posts.' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       if (!QUIET_FAILURE_ACTIONS.has(action)) {
         await notifySMMFailure(action, response.status, responseText);
       }
