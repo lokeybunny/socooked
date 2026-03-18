@@ -771,24 +771,85 @@ Deno.serve(async (req) => {
     const reqBody = await req.json().catch(() => ({}));
     const catchUp = reqBody.catch_up === true;
     const forceAllToday = reqBody.force_all_today === true;
+    const pushEventIds: string[] = Array.isArray(reqBody.push_event_ids) ? reqBody.push_event_ids : [];
 
-    const { data: pendingEvent, error: pendingError } = await supabase
+    // --- Manual force-push specific events (bypasses all scheduling logic) ---
+    if (pushEventIds.length > 0) {
+      const results: any[] = [];
+      for (const eventId of pushEventIds) {
+        const { data: event } = await supabase
+          .from("calendar_events")
+          .select("*")
+          .eq("id", eventId)
+          .maybeSingle();
+
+        if (!event) {
+          results.push({ event_id: eventId, error: "Event not found" });
+          continue;
+        }
+
+        // Reset to ready state if stuck in publishing/failed
+        const parsed = parsePublishState(event.source_id, event.id);
+        if (parsed.state === "publishing" || parsed.state === "failed") {
+          const resetSourceId = parsed.originalSourceId || eventId;
+          await supabase.from("calendar_events").update({ source_id: resetSourceId }).eq("id", eventId);
+          event.source_id = resetSourceId;
+          console.log(`[smm-auto-publish] Reset event ${eventId} from ${parsed.state} to ready (source_id: ${resetSourceId})`);
+        }
+
+        if (parsed.state === "published") {
+          results.push({ event_id: eventId, status: "already_published" });
+          continue;
+        }
+
+        try {
+          const uploadResult = await queueUpload(event);
+          const body = await uploadResult.clone().json().catch(() => ({}));
+          results.push({ event_id: eventId, ...body });
+        } catch (uploadErr) {
+          results.push({ event_id: eventId, error: (uploadErr as Error).message });
+        }
+      }
+
+      return json({ ok: true, manual_push: true, results });
+    }
+
+    // --- Check for stuck publishing events ---
+    const { data: pendingEvents, error: pendingError } = await supabase
       .from("calendar_events")
       .select("*")
       .eq("category", "smm")
       .like("source_id", `${PUBLISHING_PREFIX}%`)
-      .order("updated_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .order("updated_at", { ascending: true });
 
     if (pendingError) {
       console.error("[smm-auto-publish] Pending query error:", pendingError);
       return json({ error: pendingError.message }, 500);
     }
 
-    if (pendingEvent) {
-      console.log(`[smm-auto-publish] Polling pending upload for event ${pendingEvent.id}`);
-      return await pollPendingUpload(pendingEvent);
+    // Find the first non-stuck pending event, or reset stuck ones
+    let activePending: typeof pendingEvents extends (infer T)[] ? T : never | null = null;
+    for (const pe of (pendingEvents || [])) {
+      const ageMs = Date.now() - new Date(pe.updated_at || pe.created_at).getTime();
+      if (ageMs > STUCK_PUBLISHING_TIMEOUT_MS) {
+        // Reset stuck event back to ready so it doesn't block the queue
+        const parsed = parsePublishState(pe.source_id, pe.id);
+        const resetSourceId = parsed.originalSourceId || pe.id;
+        console.log(`[smm-auto-publish] Resetting stuck event ${pe.id} (age: ${Math.round(ageMs / 60000)}min) back to ready`);
+        await supabase.from("calendar_events").update({ source_id: resetSourceId }).eq("id", pe.id);
+        await logActivity("auto_publish_stuck_reset", {
+          name: `🔄 Auto-publish reset stuck event: ${pe.title}`,
+          event_id: pe.id,
+          age_minutes: Math.round(ageMs / 60000),
+        });
+        continue;
+      }
+      if (!activePending) activePending = pe;
+    }
+
+    if (activePending) {
+      console.log(`[smm-auto-publish] Polling pending upload for event ${activePending.id}`);
+      return await pollPendingUpload(activePending);
     }
 
     const now = new Date();
