@@ -57,7 +57,7 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
   );
 }
 
-function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, recordingUrl, bookingStatus }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; recordingUrl?: string; bookingStatus?: 'upcoming' | 'past' }) {
+function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsConfirm, isProspect, isPaid, isEmailed, recordingUrl, bookingStatus }: { contact: any; onClick: () => void; onDelete: (id: string) => void; onEmailClick?: (contact: any) => void; onSmsConfirm?: (contact: any) => void; isProspect?: boolean; isPaid?: boolean; isEmailed?: boolean; recordingUrl?: string; bookingStatus?: 'upcoming' | 'past' }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: contact.id, data: { status: contact.status } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined;
   const [minimized, setMinimized] = useState(isPaid ? true : false);
@@ -72,6 +72,7 @@ function DraggableContactCard({ contact, onClick, onDelete, onEmailClick, onSmsC
         "w-full text-left glass-card space-y-3 hover:ring-2 transition-all rounded-xl relative",
         bookingStatus === 'past' ? 'bg-red-500/15 hover:ring-red-500/40 border-l-2 border-l-red-500' :
         bookingStatus === 'upcoming' ? 'bg-yellow-500/10 hover:ring-yellow-500/40 border-l-2 border-l-yellow-500' :
+        isEmailed ? 'bg-emerald-500/10 hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' :
         isPaid ? 'hover:ring-emerald-500/40 border-l-2 border-l-emerald-500' : isProspect ? 'hover:ring-primary/40 border-l-2 border-l-primary' : 'hover:ring-primary/30',
         isDragging && 'opacity-40 shadow-lg',
         minimized ? 'p-2.5' : 'p-4'
@@ -978,7 +979,7 @@ warren@stu25.com</p>`;
               </div>
               <DroppableColumn id="prospect-emailed-column">
                 {pagedProspectEmailed.map(pe => (
-                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} bookingStatus={bookingStatusMap.get(pe.id)} />
+                  <DraggableContactCard key={pe.id} contact={pe} onClick={() => { setSelected(pe); setEditing(false); }} onDelete={handleDelete} onEmailClick={openEmailComposer} onSmsConfirm={openSmsConfirm} isProspect isEmailed isPaid={paidCustomerIds.has(pe.id)} recordingUrl={recordingMap.get(pe.id)} bookingStatus={bookingStatusMap.get(pe.id)} />
                 ))}
                 {prospectEmailed.length === 0 && !loading && (
                   <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl">
