@@ -96,7 +96,17 @@ Deno.serve(async (req) => {
       // Detect if image or video
       const isVideo = /\.(mp4|mov|webm|avi)(\?|$)/i.test(mediaUrl);
       const uploadAction = isVideo ? "upload-video" : "upload-photos";
-      const platforms = ["instagram", "tiktok"];
+
+      // Respect platform suffix in source_id for multi-platform campaigns
+      const sourceId = event.source_id || "";
+      let platforms: string[];
+      if (sourceId.endsWith("-ig")) {
+        platforms = ["instagram"];
+      } else if (sourceId.endsWith("-tt")) {
+        platforms = ["tiktok"];
+      } else {
+        platforms = ["instagram", "tiktok"];
+      }
 
       console.log(`[smm-auto-publish] Publishing 1 of ${unpublished.length}: "${event.title?.substring(0, 60)}" via ${uploadAction}`);
 
