@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/context';
 import type { ScheduledPost, SMMProfile, Platform } from '@/lib/smm/types';
 import { serverWallClockToIso } from '@/lib/smm/timezone';
