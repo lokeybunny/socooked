@@ -229,21 +229,16 @@ async function scheduleMediaDays(
       const platformSuffix = platforms.length > 1 ? `-${platform.slice(0, 2)}` : "";
       const sourceId = `artist-${campaign.id}-day${postNumber}${platformSuffix}`;
 
-      // Insert directly into calendar_events (the smm-api "schedule" action doesn't exist)
-      const { error } = await supabase.from("calendar_events").upsert({
-        title: `[${platform.toUpperCase()}] ${title}`,
-        description: `${caption}\nMedia URL: ${mediaUrl}\nProfile: ${campaign.profile_username}`,
-        start_time: `${dateStr}T12:00:00+00:00`,
-        source: "smm",
-        source_id: sourceId,
-        all_day: false,
-        category: "artist-campaign",
-      }, { onConflict: "source,source_id" });
+      // Check if this event already exists to avoid duplicates
+      const { data: existing } = await supabase
+        .from("calendar_events")
+        .select("id")
+        .eq("source", "smm")
+        .eq("source_id", sourceId)
+        .maybeSingle();
 
-      if (error) {
-        console.error(`[artist-scheduler] calendar insert error for ${sourceId}:`, error.message);
-        // Fallback: try insert without upsert
-        await supabase.from("calendar_events").insert({
+      if (!existing) {
+        const { error } = await supabase.from("calendar_events").insert({
           title: `[${platform.toUpperCase()}] ${title}`,
           description: `${caption}\nMedia URL: ${mediaUrl}\nProfile: ${campaign.profile_username}`,
           start_time: `${dateStr}T12:00:00+00:00`,
@@ -252,6 +247,10 @@ async function scheduleMediaDays(
           all_day: false,
           category: "artist-campaign",
         });
+
+        if (error) {
+          console.error(`[artist-scheduler] calendar insert error for ${sourceId}:`, error.message);
+        }
       }
 
       scheduledItems.push(`Day ${postNumber}: ${dateStr} [${platform}]`);
