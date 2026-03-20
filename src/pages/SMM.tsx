@@ -138,6 +138,7 @@ function SMMInner() {
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
   const [artistModalOpen, setArtistModalOpen] = useState(false);
   const [boostModalOpen, setBoostModalOpen] = useState(false);
+  const [shillModalOpen, setShillModalOpen] = useState(false);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { refresh(); }, [refresh]);
