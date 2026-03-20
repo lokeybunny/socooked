@@ -223,27 +223,41 @@ async function scheduleMediaDays(
     const postNumber = startOffset + postIndex + 1;
     const mediaUrl = campaign.media_urls[postIndex % mediaCount];
     const caption = buildCaption(campaign, postNumber, mediaUrl);
+    const title = `${campaign.artist_name} - ${campaign.song_title} (Day ${postNumber})`;
 
     for (const platform of platforms) {
       const platformSuffix = platforms.length > 1 ? `-${platform.slice(0, 2)}` : "";
+      const sourceId = `artist-${campaign.id}-day${postNumber}${platformSuffix}`;
 
-      await supabase.functions.invoke("smm-api", {
-        body: {
-          action: "schedule",
-          profile_username: campaign.profile_username,
-          platform,
-          scheduled_date: `${dateStr}T12:00:00`,
-          title: `${campaign.artist_name} - ${campaign.song_title} (Day ${postNumber})`,
-          description: caption,
-          media_url: mediaUrl,
-          job_id: `artist-${campaign.id}-day${postNumber}${platformSuffix}`,
-        },
-      });
+      // Insert directly into calendar_events (the smm-api "schedule" action doesn't exist)
+      const { error } = await supabase.from("calendar_events").upsert({
+        title: `[${platform.toUpperCase()}] ${title}`,
+        description: `${caption}\nMedia URL: ${mediaUrl}\nProfile: ${campaign.profile_username}`,
+        start_time: `${dateStr}T12:00:00+00:00`,
+        source: "smm",
+        source_id: sourceId,
+        all_day: false,
+        category: "artist-campaign",
+      }, { onConflict: "source,source_id" });
+
+      if (error) {
+        console.error(`[artist-scheduler] calendar insert error for ${sourceId}:`, error.message);
+        // Fallback: try insert without upsert
+        await supabase.from("calendar_events").insert({
+          title: `[${platform.toUpperCase()}] ${title}`,
+          description: `${caption}\nMedia URL: ${mediaUrl}\nProfile: ${campaign.profile_username}`,
+          start_time: `${dateStr}T12:00:00+00:00`,
+          source: "smm",
+          source_id: sourceId,
+          all_day: false,
+          category: "artist-campaign",
+        });
+      }
 
       scheduledItems.push(`Day ${postNumber}: ${dateStr} [${platform}]`);
 
-      // Rate-limit between calls
-      await new Promise((r) => setTimeout(r, 2000));
+      // Small delay between inserts
+      await new Promise((r) => setTimeout(r, 500));
     }
 
     postIndex++;
