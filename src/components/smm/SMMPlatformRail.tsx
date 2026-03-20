@@ -8,7 +8,17 @@ interface Props {
   connectedPlatforms: Set<string>;
 }
 
-export default function SMMPlatformRail({ posts, unreadCounts, connectedPlatforms }: Props) {
+const PROCESSING_WINDOW_MS = 5 * 60 * 1000;
+const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
+
+const isProcessingPost = (post: ScheduledPost, now: Date) => {
+  if (TERMINAL_STATUSES.has(post.status)) return false;
+  if (post.status === 'pending' || post.status === 'in_progress') return true;
+  if (!post.scheduled_date) return false;
+  return new Date(post.scheduled_date).getTime() <= now.getTime() + PROCESSING_WINDOW_MS;
+};
+
+export default function SMMPlatformRail({ posts, unreadCounts: _unreadCounts, connectedPlatforms }: Props) {
   const { platform, setPlatform } = useSMMContext();
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
@@ -16,10 +26,10 @@ export default function SMMPlatformRail({ posts, unreadCounts, connectedPlatform
   const getBadges = (p: string) => {
     if (p === 'all') return null;
     const platPosts = posts.filter(post => post.platforms.includes(p as any));
-    const scheduledToday = platPosts.filter(post => post.status === 'scheduled' && post.scheduled_date?.startsWith(today)).length;
+    const processing = platPosts.filter(post => post.scheduled_date?.startsWith(today) && isProcessingPost(post, now)).length;
+    const scheduledToday = platPosts.filter(post => post.scheduled_date?.startsWith(today) && !TERMINAL_STATUSES.has(post.status) && !isProcessingPost(post, now)).length;
     const failed24h = platPosts.filter(post => post.status === 'failed' && new Date(post.created_at) > new Date(now.getTime() - 86400000)).length;
-    const unread = unreadCounts[p] || 0;
-    return { scheduledToday, failed24h, unread };
+    return { processing, scheduledToday, failed24h };
   };
 
   return (
@@ -50,12 +60,12 @@ export default function SMMPlatformRail({ posts, unreadCounts, connectedPlatform
                     {badges.failed24h}
                   </span>
                 )}
-                {isConnected && badges && badges.unread > 0 && !badges.failed24h && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-primary text-[8px] text-primary-foreground flex items-center justify-center font-bold">
-                    {badges.unread}
+                {isConnected && badges && badges.processing > 0 && !badges.failed24h && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-primary text-[8px] text-primary-foreground flex items-center justify-center font-bold animate-pulse">
+                    {badges.processing}
                   </span>
                 )}
-                {isConnected && badges && badges.scheduledToday > 0 && !badges.failed24h && !badges.unread && (
+                {isConnected && badges && badges.scheduledToday > 0 && !badges.failed24h && !badges.processing && (
                   <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 text-[8px] text-foreground flex items-center justify-center font-bold">
                     {badges.scheduledToday}
                   </span>
@@ -68,8 +78,7 @@ export default function SMMPlatformRail({ posts, unreadCounts, connectedPlatform
                 <p className="text-muted-foreground">Not connected</p>
               ) : badges ? (
                 <p className="text-muted-foreground">
-                  {badges.scheduledToday} today · {badges.failed24h} failed
-                  {badges.unread > 0 && ` · ${badges.unread} unread`}
+                  {badges.processing} processing · {badges.scheduledToday} upcoming · {badges.failed24h} failed
                 </p>
               ) : null}
             </TooltipContent>

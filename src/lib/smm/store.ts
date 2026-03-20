@@ -900,6 +900,13 @@ function extractCalendarEventMediaUrl(description?: string): string | undefined 
   return description?.match(/Media URL:\s*([^\n]+)/i)?.[1]?.trim() || undefined;
 }
 
+function getCalendarEventStatus(sourceId: string): PostStatus {
+  if (sourceId.startsWith('publishing|')) return 'in_progress';
+  if (sourceId.startsWith('failed|')) return 'failed';
+  if (sourceId.startsWith('published-')) return 'completed';
+  return 'scheduled';
+}
+
 function mapCalendarEventToScheduledPost(
   event: { id: string; title: string | null; description: string | null; start_time: string | null; source_id: string | null; created_at: string },
   planIndex: Map<string, { profile_username: string; platform: string; media_url?: string; type?: string }>
@@ -933,9 +940,9 @@ function mapCalendarEventToScheduledPost(
     platforms: [platform],
     media_url: planMeta?.media_url || extractCalendarEventMediaUrl(event.description || undefined),
     preview_url: undefined,
-    status: 'scheduled',
+    status: getCalendarEventStatus(sourceId),
     scheduled_date: event.start_time,
-    published_at: undefined,
+    published_at: sourceId.startsWith('published-') ? event.start_time : undefined,
     post_urls: [],
     first_comment: undefined,
     error: undefined,
