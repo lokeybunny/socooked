@@ -4,6 +4,7 @@ import type { ScheduledPost, SMMProfile, Platform } from '@/lib/smm/types';
 import { serverWallClockToIso } from '@/lib/smm/timezone';
 import PostCard from './PostCard';
 import { CalendarDays, Clock, AlertTriangle, CheckCircle, RefreshCw, LayoutGrid, List } from 'lucide-react';
+import CronCountdown from './CronCountdown';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -182,7 +183,7 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
           </div>
 
           <div className="glass-card p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><RefreshCw className="h-4 w-4" /> Processing Posts ({processingPosts.length})</h3>
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin" /> Processing Posts ({processingPosts.length}) <span className="ml-auto"><CronCountdown /></span></h3>
             {processingPosts.length === 0 ? (
               <p className="text-xs text-muted-foreground py-4 text-center">Nothing is being pushed right now</p>
             ) : (
