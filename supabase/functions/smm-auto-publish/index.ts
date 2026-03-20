@@ -914,8 +914,19 @@ Deno.serve(async (req) => {
       return json({ ok: true, published: 0, message: "All already processed or pending" });
     }
 
-    console.log(`[smm-auto-publish] Found ${unpublished.length} ready events in window`);
-    return await queueUpload(unpublished[0]);
+    console.log(`[smm-auto-publish] Found ${unpublished.length} ready events in window — processing all`);
+    const results: any[] = [];
+    for (const ev of unpublished) {
+      try {
+        const res = await queueUpload(ev);
+        const body = await res.clone().json().catch(() => ({}));
+        results.push({ event_id: ev.id, ...body });
+      } catch (uploadErr) {
+        results.push({ event_id: ev.id, error: (uploadErr as Error).message });
+        await notifyFailure(ev.title || ev.id, (uploadErr as Error).message, { event_id: ev.id });
+      }
+    }
+    return json({ ok: true, batch: true, count: unpublished.length, results });
   } catch (err) {
     console.error("[smm-auto-publish] Fatal error:", err);
     return json({ error: (err as Error).message }, 500);
