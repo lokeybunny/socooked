@@ -240,8 +240,10 @@ export const smmApi = {
   // ─── Posts / Uploads ───
   async getPosts(): Promise<ScheduledPost[]> {
     try {
-      // Only fetch calendar events from 14 days ago onward (covers today + future)
+      // Focus the calendar overlay on recent + near-future posts so old long-range recycle items
+      // don't crowd out the active 7-day rotation window.
       const lookbackDate = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+      const horizonDate = new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10);
 
       const [scheduled, history, calendarResult, plansResult] = await Promise.all([
         invokeSMM('list-scheduled', { limit: '50' }).catch(() => ({ success: false, scheduled_posts: [] })),
@@ -252,7 +254,8 @@ export const smmApi = {
           .eq('source', 'smm')
           .not('source_id', 'like', 'published-%')
           .gte('start_time', `${lookbackDate}T00:00:00`)
-          .order('start_time', { ascending: false })
+          .lte('start_time', `${horizonDate}T23:59:59`)
+          .order('start_time', { ascending: true })
           .limit(500),
         supabase
           .from('smm_content_plans')

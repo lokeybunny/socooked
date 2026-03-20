@@ -140,4 +140,23 @@ describe('anchorPostsToCampaignStart', () => {
     expect(anchored).toHaveLength(1);
     expect(anchored[0].scheduled_date).toBe('2026-03-18T12:00:00.000Z');
   });
+
+  it('keeps multiple near-term calendar rotation posts on the same day for different artists', () => {
+    const posts = [
+      buildPost({ id: 'c1', job_id: 'rotation-oranj-d1-s1', title: 'Oranj Goodman', scheduled_date: '2026-03-20T09:00:00.000Z', origin: 'calendar', platforms: ['instagram'] }),
+      buildPost({ id: 'c2', job_id: 'rotation-bryson-d1-s2', title: 'Bryson Tiller', scheduled_date: '2026-03-20T11:00:00.000Z', origin: 'calendar', platforms: ['instagram'] }),
+      buildPost({ id: 'c3', job_id: 'rotation-drake-d1-s4', title: 'Drake', scheduled_date: '2026-03-20T15:00:00.000Z', origin: 'calendar', platforms: ['instagram'] }),
+      buildPost({ id: 'c4', job_id: 'rotation-lamb-d1-s5', title: 'Lamb', scheduled_date: '2026-03-20T17:00:00.000Z', origin: 'calendar', platforms: ['instagram'] }),
+    ];
+
+    const anchored = anchorPostsToCampaignStart(posts);
+
+    expect(anchored).toHaveLength(4);
+    expect(anchored.map(post => post.scheduled_date)).toEqual([
+      '2026-03-20T09:00:00.000Z',
+      '2026-03-20T11:00:00.000Z',
+      '2026-03-20T15:00:00.000Z',
+      '2026-03-20T17:00:00.000Z',
+    ]);
+  });
 });
