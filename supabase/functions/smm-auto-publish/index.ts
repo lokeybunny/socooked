@@ -864,7 +864,7 @@ Deno.serve(async (req) => {
     const { data: events, error } = await supabase
       .from("calendar_events")
       .select("*")
-      .eq("category", "smm")
+      .in("category", ["smm", "artist-campaign"])
       .gte("start_time", windowStart)
       .lte("start_time", windowEnd)
       .order("start_time", { ascending: true });
