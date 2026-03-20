@@ -313,6 +313,13 @@ function SMMInner() {
             profileUsername={profileId || 'NysonBlack'}
           />
         )}
+        {shillModalOpen && (
+          <AutoShillModal
+            open={shillModalOpen}
+            onOpenChange={setShillModalOpen}
+            profileUsername={profileId || 'NysonBlack'}
+          />
+        )}
       </Suspense>
     </AppLayout>
   );
