@@ -37,35 +37,34 @@ export default function SMMPlatformRail({ posts, unreadCounts: _unreadCounts, co
       {EXTENDED_PLATFORMS.map(p => {
         const meta = PLATFORM_META[p];
         if (!meta) return null;
+        const isConnected = p === 'all' || connectedPlatforms.has(p);
+        if (!isConnected) return null;
+
         const badges = getBadges(p);
         const isActive = platform === p;
-        const isConnected = p === 'all' || connectedPlatforms.has(p);
 
         return (
           <Tooltip key={p}>
             <TooltipTrigger asChild>
               <button
-                onClick={() => isConnected && setPlatform(p)}
-                disabled={!isConnected}
+                onClick={() => setPlatform(p)}
                 className={`relative w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
-                  !isConnected
-                    ? 'opacity-25 cursor-not-allowed'
-                    : isActive
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  isActive
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}>
                 <meta.icon className="w-5 h-5" />
-                {isConnected && badges && badges.failed24h > 0 && (
+                {badges && badges.failed24h > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-destructive text-[8px] text-destructive-foreground flex items-center justify-center font-bold">
                     {badges.failed24h}
                   </span>
                 )}
-                {isConnected && badges && badges.processing > 0 && !badges.failed24h && (
+                {badges && badges.processing > 0 && !badges.failed24h && (
                   <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-primary text-[8px] text-primary-foreground flex items-center justify-center font-bold animate-pulse">
                     {badges.processing}
                   </span>
                 )}
-                {isConnected && badges && badges.scheduledToday > 0 && !badges.failed24h && !badges.processing && (
+                {badges && badges.scheduledToday > 0 && !badges.failed24h && !badges.processing && (
                   <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 text-[8px] text-foreground flex items-center justify-center font-bold">
                     {badges.scheduledToday}
                   </span>
@@ -74,9 +73,7 @@ export default function SMMPlatformRail({ posts, unreadCounts: _unreadCounts, co
             </TooltipTrigger>
             <TooltipContent side="right" className="text-xs">
               <p className="font-medium">{meta.label}</p>
-              {!isConnected ? (
-                <p className="text-muted-foreground">Not connected</p>
-              ) : badges ? (
+              {badges ? (
                 <p className="text-muted-foreground">
                   {badges.processing} processing · {badges.scheduledToday} upcoming · {badges.failed24h} failed
                 </p>
