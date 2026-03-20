@@ -749,7 +749,9 @@ export const smmApi = {
         const haystack = `${sourceId} ${ev.title || ''} ${ev.description || ''}`;
         const artist = classifyArtist(haystack);
 
-        if (artist === 'other') {
+        // Allow rotation posts even if artist detection fails
+        const isRotation = sourceId.startsWith('rotation-');
+        if (artist === 'other' && !isRotation) {
           deleteIds.push(ev.id);
           continue;
         }
