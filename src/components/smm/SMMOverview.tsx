@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { smmApi } from '@/lib/smm/store';
 import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/context';
-import type { ScheduledPost, SMMProfile, WebhookEvent, Platform } from '@/lib/smm/types';
+import type { ScheduledPost, SMMProfile, Platform } from '@/lib/smm/types';
 import { serverWallClockToIso } from '@/lib/smm/timezone';
 import PostCard from './PostCard';
-import { CalendarDays, Clock, AlertTriangle, CheckCircle, Bell, LayoutGrid, List } from 'lucide-react';
+import { CalendarDays, Clock, AlertTriangle, CheckCircle, RefreshCw, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,23 +32,39 @@ interface Props {
   onUpdatePostTime?: (post: ScheduledPost, newScheduledDate: string) => void;
 }
 
+const PROCESSING_WINDOW_MS = 5 * 60 * 1000;
+const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
+
+const isTerminal = (post: ScheduledPost) => TERMINAL_STATUSES.has(post.status);
+
+const isProcessingPost = (post: ScheduledPost, now = new Date()) => {
+  if (isTerminal(post)) return false;
+  if (post.status === 'pending' || post.status === 'in_progress') return true;
+  if (!post.scheduled_date) return false;
+  return new Date(post.scheduled_date).getTime() <= now.getTime() + PROCESSING_WINDOW_MS;
+};
+
 export default function SMMOverview({ posts, allPosts, profiles, providerDown, onRefresh, onUpdatePostTime }: Props) {
-  const { platform, navigateToTab } = useSMMContext();
-  const [webhooks] = useState<WebhookEvent[]>([]);
+  const { navigateToTab } = useSMMContext();
   const [viewMode, setViewMode] = useState<'all' | 'byPlatform'>('all');
 
-  const today = new Date().toISOString().slice(0, 10);
-  const todayPosts = posts.filter(p => p.scheduled_date?.startsWith(today)).sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
-  const scheduledToday = todayPosts.filter(p => p.status === 'scheduled');
-  const overduePosts = todayPosts.filter(p =>
-    p.scheduled_date && !['completed', 'failed', 'cancelled'].includes(p.status) && new Date(p.scheduled_date) < new Date()
-  );
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const todayPosts = posts
+    .filter(p => p.scheduled_date?.startsWith(today))
+    .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+  const processingPosts = todayPosts.filter(p => isProcessingPost(p, now));
+  const todaySchedulePosts = todayPosts.filter(p => !isTerminal(p) && !isProcessingPost(p, now));
+  const scheduledToday = todaySchedulePosts.filter(p => p.status === 'scheduled' || p.status === 'queued');
+  const overduePosts = todaySchedulePosts.filter(p => p.scheduled_date && new Date(p.scheduled_date) < now);
   const failed24h = posts.filter(p => p.status === 'failed' && new Date(p.created_at) > new Date(Date.now() - 86400000));
   const completed7d = posts.filter(p => p.status === 'completed' && new Date(p.created_at) > new Date(Date.now() - 604800000));
   const total7d = posts.filter(p => new Date(p.created_at) > new Date(Date.now() - 604800000));
   const successRate = total7d.length ? Math.round((completed7d.length / total7d.length) * 100) : 100;
   const cutoff24h = new Date(Date.now() - 86400000).toISOString();
-  const queued = posts.filter(p => (p.status === 'queued' || p.status === 'scheduled') && (!p.scheduled_date || p.scheduled_date >= cutoff24h)).sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+  const queued = posts
+    .filter(p => (p.status === 'queued' || p.status === 'scheduled') && !isProcessingPost(p, now) && (!p.scheduled_date || p.scheduled_date >= cutoff24h))
+    .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
   const recent = [...posts].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 4);
 
   const handleTimeEdit = async (post: ScheduledPost, newTime: string) => {
@@ -101,7 +116,6 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
     toast.error('Could not find matching calendar event');
   };
 
-  // By-platform view data
   const activePlatforms = EXTENDED_PLATFORMS.filter(p => p !== 'all' && allPosts.some(post => post.platforms.includes(p as Platform)));
 
   return (
@@ -109,12 +123,11 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <KPICard label="Scheduled Today" value={scheduledToday.length} icon={CalendarDays} color="bg-primary/10 text-primary" />
         <KPICard label="Queue Next Slot" value={queued.length > 0 && queued[0].scheduled_date ? format(new Date(queued[0].scheduled_date), 'h:mm a') : '—'} icon={Clock} color="bg-accent/20 text-accent-foreground" />
-        <KPICard label="Overdue" value={overduePosts.length} icon={AlertTriangle} color={overduePosts.length > 0 ? 'bg-destructive/20 text-destructive animate-pulse' : 'bg-muted/50 text-muted-foreground'} />
+        <KPICard label="Processing" value={processingPosts.length} icon={RefreshCw} color="bg-primary/10 text-primary" />
         <KPICard label="Failed (24h)" value={failed24h.length} icon={AlertTriangle} color="bg-destructive/10 text-destructive" />
         <KPICard label="Success Rate (7d)" value={`${successRate}%`} icon={CheckCircle} color="bg-emerald-500/10 text-emerald-500" />
       </div>
 
-      {/* View Mode Toggle */}
       <div className="flex items-center gap-2">
         <Button variant={viewMode === 'all' ? 'default' : 'outline'} size="sm" className="h-7 gap-1 text-xs" onClick={() => setViewMode('all')}>
           <List className="h-3 w-3" /> All Platforms
@@ -129,7 +142,7 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
           {activePlatforms.map(p => {
             const meta = PLATFORM_META[p];
             const platPosts = allPosts.filter(post => post.platforms.includes(p as Platform));
-            const nextScheduled = platPosts.find(post => post.status === 'scheduled');
+            const nextScheduled = platPosts.find(post => !isProcessingPost(post, now) && (post.status === 'scheduled' || post.status === 'queued'));
             const lastCompleted = platPosts.find(post => post.status === 'completed');
             return (
               <div key={p} className="glass-card p-4 space-y-3">
@@ -140,7 +153,7 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between"><span className="text-muted-foreground">Next scheduled</span><span className="text-foreground">{nextScheduled?.title ? nextScheduled.title.slice(0, 20) + '…' : '—'}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Last result</span><span className={lastCompleted ? 'text-emerald-500' : 'text-muted-foreground'}>{lastCompleted ? 'Success' : '—'}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Total posts</span><span>{platPosts.length}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Processing</span><span>{platPosts.filter(post => isProcessingPost(post, now)).length}</span></div>
                 </div>
               </div>
             );
@@ -148,17 +161,15 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
         </div>
       ) : (
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Today's Schedule */}
           <div className="glass-card p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">Today's Schedule ({todayPosts.length})</h3>
-            {todayPosts.length === 0 ? <p className="text-xs text-muted-foreground py-4 text-center">Nothing scheduled today</p> : (
+            <h3 className="text-sm font-semibold text-foreground">Today's Schedule ({todaySchedulePosts.length})</h3>
+            {todaySchedulePosts.length === 0 ? <p className="text-xs text-muted-foreground py-4 text-center">Nothing waiting in today’s schedule</p> : (
               <div className="space-y-2">
-                {todayPosts.map(p => <PostCard key={p.id} post={p} compact onTimeEdit={handleTimeEdit} onDelete={(deletedPost) => { onRefresh?.(); }} />)}
+                {todaySchedulePosts.map(p => <PostCard key={p.id} post={p} compact onTimeEdit={handleTimeEdit} onDelete={() => { onRefresh?.(); }} />)}
               </div>
             )}
           </div>
 
-          {/* Queue Preview */}
           <div className="glass-card p-5 space-y-3">
             <h3 className="text-sm font-semibold text-foreground">Queue Preview</h3>
             {providerDown ? (
@@ -170,25 +181,19 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
             )}
           </div>
 
-          {/* Notifications */}
           <div className="glass-card p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Bell className="h-4 w-4" /> Notifications</h3>
-            <div className="space-y-2">
-              {webhooks.slice(0, 6).map(w => (
-                <div key={w.id} className={`flex items-start gap-2 p-2 rounded-lg text-xs ${w.read ? 'bg-muted/30' : 'bg-primary/5 border border-primary/20'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${w.type === 'upload_failed' ? 'bg-destructive' : 'bg-emerald-500'}`} />
-                  <div>
-                    <p className="text-foreground">{w.message}</p>
-                    <p className="text-muted-foreground">{format(new Date(w.timestamp), 'MMM d, h:mm a')}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><RefreshCw className="h-4 w-4" /> Processing Posts ({processingPosts.length})</h3>
+            {processingPosts.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">Nothing is being pushed right now</p>
+            ) : (
+              <div className="space-y-2">
+                {processingPosts.slice(0, 8).map(p => <PostCard key={p.id} post={p} compact onDelete={() => onRefresh?.()} />)}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Recent History (PostCard-based) */}
       <div className="glass-card p-5 space-y-3">
         <h3 className="text-sm font-semibold text-foreground">Recent Posts</h3>
         <div className="space-y-2">
