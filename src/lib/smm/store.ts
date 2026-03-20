@@ -908,7 +908,6 @@ function mapCalendarEventToScheduledPost(
   const normalizedSourceIds = [
     sourceId,
     sourceId.replace(/^recycle-w\d+-/, ''),
-    sourceId.replace(/^recycle-w\d+-/, 'drake-'),
   ];
   const planMeta = normalizedSourceIds
     .map(candidate => planIndex.get(candidate))
