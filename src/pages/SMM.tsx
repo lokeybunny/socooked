@@ -31,6 +31,7 @@ const SMMTerminal = lazy(() => import('@/components/smm/SMMTerminal'));
 const SMMSchedule = lazy(() => import('@/components/smm/SMMSchedule'));
 const ArtistCampaignModal = lazy(() => import('@/components/smm/ArtistCampaignModal'));
 const BoostConfigModal = lazy(() => import('@/components/smm/BoostConfigModal'));
+const AutoShillModal = lazy(() => import('@/components/smm/AutoShillModal'));
 
 const TABS = [
   { value: 'overview', label: 'Overview', icon: LayoutDashboard },
