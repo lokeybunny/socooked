@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.smm-post-inspector]
 verify_jwt = false
+
+[functions.smm-auto-shill]
+verify_jwt = false

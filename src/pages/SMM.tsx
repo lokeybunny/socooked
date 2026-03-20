@@ -31,6 +31,7 @@ const SMMTerminal = lazy(() => import('@/components/smm/SMMTerminal'));
 const SMMSchedule = lazy(() => import('@/components/smm/SMMSchedule'));
 const ArtistCampaignModal = lazy(() => import('@/components/smm/ArtistCampaignModal'));
 const BoostConfigModal = lazy(() => import('@/components/smm/BoostConfigModal'));
+const AutoShillModal = lazy(() => import('@/components/smm/AutoShillModal'));
 
 const TABS = [
   { value: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -137,6 +138,7 @@ function SMMInner() {
   const { profileId, platform, activeTab, setActiveTab, setProfileId } = useSMMContext();
   const [artistModalOpen, setArtistModalOpen] = useState(false);
   const [boostModalOpen, setBoostModalOpen] = useState(false);
+  const [shillModalOpen, setShillModalOpen] = useState(false);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -220,6 +222,12 @@ function SMMInner() {
           </div>
           <PSTClock />
           <div className="flex items-center gap-2">
+            {platform === 'twitter' && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShillModalOpen(true)}>
+                <MessageSquare className="h-3.5 w-3.5" />
+                Auto Shill
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBoostModalOpen(true)}>
               <Zap className="h-3.5 w-3.5" />
               Boost
@@ -302,6 +310,13 @@ function SMMInner() {
           <BoostConfigModal
             open={boostModalOpen}
             onOpenChange={setBoostModalOpen}
+            profileUsername={profileId || 'NysonBlack'}
+          />
+        )}
+        {shillModalOpen && (
+          <AutoShillModal
+            open={shillModalOpen}
+            onOpenChange={setShillModalOpen}
             profileUsername={profileId || 'NysonBlack'}
           />
         )}
