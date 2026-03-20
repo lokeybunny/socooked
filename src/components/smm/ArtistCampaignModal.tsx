@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Music, Plus, Trash2, Upload, CheckCircle, Clock, AlertCircle,
-  Loader2, ChevronDown, ChevronUp, Video, ImageIcon, X, Edit2,
+  Loader2, ChevronDown, ChevronUp, Video, ImageIcon, X, Edit2, CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
