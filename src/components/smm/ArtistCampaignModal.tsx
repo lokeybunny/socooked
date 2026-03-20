@@ -407,13 +407,40 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
 
         <Separator />
 
+        {/* Fill 7-Day Rotation */}
+        {activeCampaigns.filter(c => c.status === 'active').length >= 2 && (
+          <Card className="p-3 border border-accent/30 bg-accent/5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold flex items-center gap-1.5">
+                  <CalendarClock className="h-4 w-4 text-accent-foreground" />
+                  7-Day Rotation Engine
+                </h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Fill the next 7 days with 4-6 posts/day, rotating all active artists across time slots.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 shrink-0"
+                onClick={handleFillRotation}
+                disabled={fillingRotation}
+              >
+                {fillingRotation ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarClock className="h-3.5 w-3.5" />}
+                Fill Rotation
+              </Button>
+            </div>
+          </Card>
+        )}
+
         {/* Active / Paused Campaigns */}
         <div>
           <h3 className="text-sm font-semibold mb-2">
             Active Campaigns ({activeCampaigns.length}/5 slots)
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
-            Each campaign runs on a 14-day cycle. Expand to manage media — deleting a video removes its scheduled posts; adding new media replaces older slots.
+            Each campaign runs on a rotating daily cycle. The rotation engine distributes 4-6 posts/day across all active artists with staggered time slots.
           </p>
           {loading && campaigns.length === 0 ? (
             <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
