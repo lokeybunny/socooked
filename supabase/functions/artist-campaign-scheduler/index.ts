@@ -31,12 +31,12 @@ Deno.serve(async (req) => {
         return json({ error: "No media — campaign paused" }, 400);
       }
 
-      // Cap active campaigns at 5
+      // Cap active campaigns at 10
       const { count: activeCount } = await supabase
         .from("smm_artist_campaigns").select("id", { count: "exact", head: true })
         .eq("profile_username", campaign.profile_username).eq("status", "active");
 
-      if ((activeCount || 0) >= 5) {
+      if ((activeCount || 0) >= 10) {
         const { data: oldest } = await supabase
           .from("smm_artist_campaigns").select("id")
           .eq("profile_username", campaign.profile_username).eq("status", "active")
