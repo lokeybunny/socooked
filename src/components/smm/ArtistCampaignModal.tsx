@@ -301,6 +301,26 @@ export default function ArtistCampaignModal({ open, onOpenChange, profileUsernam
     onRefresh();
   };
 
+  const [fillingRotation, setFillingRotation] = useState(false);
+
+  const handleFillRotation = async () => {
+    setFillingRotation(true);
+    try {
+      const res = await supabase.functions.invoke('artist-campaign-scheduler', {
+        body: { action: 'fill-rotation', profile_username: profileUsername, days: 7, posts_per_day: 5 },
+      });
+      if (res.error) throw res.error;
+      const total = res.data?.total || 0;
+      toast.success(`🔄 Filled 7-day rotation — ${total} posts scheduled`);
+      fetchCampaigns();
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'Fill rotation failed');
+    } finally {
+      setFillingRotation(false);
+    }
+  };
+
   const activeCampaigns = campaigns.filter(c => c.status === 'active' || c.status === 'paused');
   const expiredCampaigns = campaigns.filter(c => c.status === 'expired');
 
