@@ -13,7 +13,7 @@ async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 3)
       return await fn();
     } catch (err: any) {
       console.log(`${label} attempt ${attempt}/${maxRetries} failed: ${err.message}`);
-      const shouldNotRetry = err?.noRetry === true || err?.status === 402 || err?.code === "APIFY_USAGE_LIMIT";
+      const shouldNotRetry = err?.noRetry === true || err?.status === 402 || err?.status === 403 || err?.code === "APIFY_USAGE_LIMIT";
       if (attempt === maxRetries || shouldNotRetry) throw err;
       const delay = Math.min(2000 * Math.pow(2, attempt - 1), 15000);
       await new Promise(r => setTimeout(r, delay));
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
-        if (res.status === 402) {
+        if (res.status === 402 || res.status === 403) {
           let apifyMessage = errText;
           try {
             const parsed = JSON.parse(errText);
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
           }
 
           const quotaError: any = new Error(`Apify usage limit reached: ${apifyMessage}`);
-          quotaError.status = 402;
+          quotaError.status = res.status;
           quotaError.code = "APIFY_USAGE_LIMIT";
           quotaError.noRetry = true;
           throw quotaError;
@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     console.error("Lead Finder error:", err);
 
-    if (err?.code === "APIFY_USAGE_LIMIT" || err?.status === 402) {
+    if (err?.code === "APIFY_USAGE_LIMIT" || err?.status === 402 || err?.status === 403) {
       return new Response(
         JSON.stringify({
           leads: [],
