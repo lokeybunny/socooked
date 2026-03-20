@@ -818,7 +818,7 @@ Deno.serve(async (req) => {
     const { data: pendingEvents, error: pendingError } = await supabase
       .from("calendar_events")
       .select("*")
-      .eq("category", "smm")
+      .in("category", ["smm", "artist-campaign"])
       .like("source_id", `${PUBLISHING_PREFIX}%`)
       .order("updated_at", { ascending: true });
 
