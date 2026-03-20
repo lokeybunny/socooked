@@ -71,9 +71,7 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [hasProcessing, onRefresh]);
-  const todayPosts = posts
-    .filter(p => p.scheduled_date?.startsWith(today))
-    .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+  const todayPosts = todayPostsAll;
   const processingPosts = todayPosts.filter(p => isProcessingPost(p, now));
   const todaySchedulePosts = todayPosts.filter(p => !isTerminal(p) && !isProcessingPost(p, now));
   const scheduledToday = todaySchedulePosts.filter(p => p.status === 'scheduled' || p.status === 'queued');
