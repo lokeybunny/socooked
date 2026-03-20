@@ -13,7 +13,7 @@ async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 3)
       return await fn();
     } catch (err: any) {
       console.log(`${label} attempt ${attempt}/${maxRetries} failed: ${err.message}`);
-      const shouldNotRetry = err?.noRetry === true || err?.status === 402 || err?.code === "APIFY_USAGE_LIMIT";
+      const shouldNotRetry = err?.noRetry === true || err?.status === 402 || err?.status === 403 || err?.code === "APIFY_USAGE_LIMIT";
       if (attempt === maxRetries || shouldNotRetry) throw err;
       const delay = Math.min(2000 * Math.pow(2, attempt - 1), 15000);
       await new Promise(r => setTimeout(r, delay));
