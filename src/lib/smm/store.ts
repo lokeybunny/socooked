@@ -707,6 +707,8 @@ export const smmApi = {
       const CAMPAIGN_START_DAY = '2026-03-17';
       const classifyArtist = (value: string) => {
         const haystack = value.toLowerCase();
+        if (haystack.includes('jack johnson') || haystack.includes('jackjohnson') || haystack.includes('@nysonblack')) return 'jackjohnson';
+        if (haystack.includes('@flipfone') || haystack.includes('flip fone') || haystack.includes('flipfone')) return 'flipfone';
         if (haystack.includes('bryson tiller') || haystack.includes('brysontiller') || haystack.includes('bryson')) return 'bryson';
         if (haystack.includes('@oranjgoodman') || haystack.includes('oranj goodman') || haystack.includes('oranjgoodman') || haystack.includes('ojg-') || haystack.includes('oranj')) return 'oranj';
         if (haystack.includes('@lamb.wavv') || haystack.includes('@lamb.wavvv') || haystack.includes('lamb.wavv') || haystack.includes('lamb.wavvv') || haystack.includes('lambwavv') || haystack.includes('lambwavvv')) return 'lamb';
@@ -747,7 +749,9 @@ export const smmApi = {
         const haystack = `${sourceId} ${ev.title || ''} ${ev.description || ''}`;
         const artist = classifyArtist(haystack);
 
-        if (artist === 'other') {
+        // Allow rotation posts even if artist detection fails
+        const isRotation = sourceId.startsWith('rotation-');
+        if (artist === 'other' && !isRotation) {
           deleteIds.push(ev.id);
           continue;
         }
