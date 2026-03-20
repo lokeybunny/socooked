@@ -875,6 +875,10 @@ function inferArtistProfileFromCalendarEvent(event: { title: string | null; desc
     'bryson tiller',
     'brysontiller',
     'bryson',
+    '@flipfone',
+    'flip fone',
+    'flipfone',
+    'artist-',
   ].some(marker => haystack.includes(marker));
 
   return isNysonBlackArtistPost ? 'NysonBlack' : '';
