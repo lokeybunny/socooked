@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/context';
 import type { ScheduledPost, SMMProfile, Platform } from '@/lib/smm/types';
 import { serverWallClockToIso } from '@/lib/smm/timezone';
@@ -51,9 +51,27 @@ export default function SMMOverview({ posts, allPosts, profiles, providerDown, o
 
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
-  const todayPosts = posts
+
+  // Derive processing posts early so we can set up polling
+  const todayPostsAll = posts
     .filter(p => p.scheduled_date?.startsWith(today))
     .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+  const hasProcessing = todayPostsAll.some(p => isProcessingPost(p, now));
+
+  // Auto-poll every 30s while posts are in processing state
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (hasProcessing && onRefresh) {
+      pollRef.current = setInterval(() => {
+        console.log('[SMM Overview] Auto-polling: processing posts detected');
+        onRefresh();
+      }, 30_000);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [hasProcessing, onRefresh]);
+  const todayPosts = todayPostsAll;
   const processingPosts = todayPosts.filter(p => isProcessingPost(p, now));
   const todaySchedulePosts = todayPosts.filter(p => !isTerminal(p) && !isProcessingPost(p, now));
   const scheduledToday = todaySchedulePosts.filter(p => p.status === 'scheduled' || p.status === 'queued');
