@@ -190,7 +190,7 @@ const DAY_START_HOUR = 9;  // earliest post at 9 AM
 const DAY_END_HOUR = 23;   // latest post at 11 PM
 
 /** Base artist rotation order — gets shifted each day so the sequence is never the same */
-const ARTIST_ROTATION: ArtistKey[] = ['drake', 'lamb', 'oranj', 'bryson'];
+const ARTIST_ROTATION: ArtistKey[] = ['drake', 'lamb', 'oranj', 'bryson', 'flipfone'];
 
 /**
  * Rotate an array by n positions (non-destructive).

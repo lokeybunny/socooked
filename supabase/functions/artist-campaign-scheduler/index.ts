@@ -135,6 +135,97 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // ─── FILL-ROTATION: ensure 4-6 posts/day for next 7 days across all active artists ───
+    if (action === "fill-rotation") {
+      const profileUsername = body.profile_username || "NysonBlack";
+      const daysAhead = body.days || 7;
+      const postsPerDay = body.posts_per_day || 5;
+
+      const { data: activeCampaigns } = await supabase
+        .from("smm_artist_campaigns")
+        .select("*")
+        .eq("profile_username", profileUsername)
+        .eq("status", "active")
+        .order("created_at", { ascending: true });
+
+      if (!activeCampaigns || activeCampaigns.length === 0) {
+        return json({ error: "No active campaigns found" }, 400);
+      }
+
+      // Time slots for posts throughout the day (spread 9am-9pm)
+      const TIME_SLOTS = ["09:00", "11:00", "13:00", "15:00", "17:00", "19:00"];
+
+      const scheduled: string[] = [];
+      const today = new Date();
+
+      for (let dayOffset = 0; dayOffset < daysAhead; dayOffset++) {
+        const postDate = new Date(today);
+        postDate.setDate(postDate.getDate() + dayOffset);
+        const dateStr = postDate.toISOString().split("T")[0];
+
+        // Rotate artist order each day so lead artist changes
+        const rotationOffset = dayOffset % activeCampaigns.length;
+        const rotatedCampaigns = [
+          ...activeCampaigns.slice(rotationOffset),
+          ...activeCampaigns.slice(0, rotationOffset),
+        ];
+
+        // Pick up to postsPerDay artists for this day
+        const dailyArtists = rotatedCampaigns.slice(0, Math.min(postsPerDay, rotatedCampaigns.length));
+
+        for (let slotIdx = 0; slotIdx < dailyArtists.length; slotIdx++) {
+          const campaign = dailyArtists[slotIdx];
+          const mediaCount = campaign.media_urls?.length || 0;
+          if (mediaCount === 0) continue;
+
+          const timeSlot = TIME_SLOTS[slotIdx % TIME_SLOTS.length];
+          const platforms = campaign.platforms || ["instagram"];
+
+          // Use a global day counter for media rotation across days
+          const globalDayIndex = campaign.days_completed + dayOffset;
+          const mediaUrl = campaign.media_urls[globalDayIndex % mediaCount];
+          const caption = buildCaption(campaign, globalDayIndex + 1, mediaUrl);
+          const title = `${campaign.artist_name} - ${campaign.song_title} (Day ${globalDayIndex + 1})`;
+
+          for (const platform of platforms) {
+            const platformSuffix = platforms.length > 1 ? `-${platform.slice(0, 2)}` : "";
+            const sourceId = `rotation-${campaign.id}-d${dayOffset + 1}-s${slotIdx + 1}${platformSuffix}`;
+
+            // Check for existing event
+            const { data: existing } = await supabase
+              .from("calendar_events")
+              .select("id")
+              .eq("source", "smm")
+              .eq("source_id", sourceId)
+              .maybeSingle();
+
+            if (!existing) {
+              const { error } = await supabase.from("calendar_events").insert({
+                title: `[${platform.toUpperCase()}] ${title}`,
+                description: `${caption}\nMedia URL: ${mediaUrl}\nProfile: ${profileUsername}`,
+                start_time: `${dateStr}T${timeSlot}:00+00:00`,
+                source: "smm",
+                source_id: sourceId,
+                all_day: false,
+                category: "artist-campaign",
+              });
+
+              if (error) {
+                console.error(`[fill-rotation] insert error for ${sourceId}:`, error.message);
+              }
+            }
+
+            scheduled.push(`${dateStr} ${timeSlot} [${platform}] ${campaign.artist_name}`);
+          }
+
+          // Small delay between inserts
+          await new Promise((r) => setTimeout(r, 300));
+        }
+      }
+
+      return json({ ok: true, scheduled, total: scheduled.length });
+    }
+
     return json({ error: "Unknown action" }, 400);
   } catch (err) {
     return json({ error: (err as Error).message }, 500);
