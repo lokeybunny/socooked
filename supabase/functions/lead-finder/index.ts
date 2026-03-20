@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
-        if (res.status === 402) {
+        if (res.status === 402 || res.status === 403) {
           let apifyMessage = errText;
           try {
             const parsed = JSON.parse(errText);
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
           }
 
           const quotaError: any = new Error(`Apify usage limit reached: ${apifyMessage}`);
-          quotaError.status = 402;
+          quotaError.status = res.status;
           quotaError.code = "APIFY_USAGE_LIMIT";
           quotaError.noRetry = true;
           throw quotaError;
