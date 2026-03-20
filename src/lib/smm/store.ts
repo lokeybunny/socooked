@@ -756,7 +756,12 @@ export const smmApi = {
           continue;
         }
 
-        const artistDayKey = `${day}::${artist}`;
+        // Extract platform from title prefix like [INSTAGRAM] or [TIKTOK]
+        const platformMatch = (ev.title || '').match(/^\[([A-Z]+)\]/);
+        const platform = platformMatch ? platformMatch[1].toLowerCase() : 'default';
+
+        // Allow one post per artist per platform per day (not just per artist per day)
+        const artistDayKey = `${day}::${artist}::${platform}`;
         if (seenArtistDay.has(artistDayKey)) {
           deleteIds.push(ev.id);
           continue;
