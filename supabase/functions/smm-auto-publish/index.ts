@@ -18,6 +18,7 @@ const HISTORY_CONFIRMATION_LOOKBACK_MS = 36 * 60 * 60 * 1000;
 const HISTORY_CONFIRMATION_EARLY_BUFFER_MS = 12 * 60 * 60 * 1000;
 const HISTORY_LIMIT = 100;
 const MIN_HISTORY_MATCH_LENGTH = 32;
+const HOURLY_PLATFORM_LIMIT = 1;
 
 const SUCCESS_STATUSES = new Set(["success", "successful", "completed", "complete", "published", "posted", "done"]);
 const FAILURE_STATUSES = new Set(["failed", "failure", "error", "rejected", "cancelled", "canceled", "expired"]);
