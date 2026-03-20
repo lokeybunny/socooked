@@ -222,6 +222,12 @@ function SMMInner() {
           </div>
           <PSTClock />
           <div className="flex items-center gap-2">
+            {platform === 'twitter' && (
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setShillModalOpen(true)}>
+                <MessageSquare className="h-3.5 w-3.5" />
+                Auto Shill
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBoostModalOpen(true)}>
               <Zap className="h-3.5 w-3.5" />
               Boost
