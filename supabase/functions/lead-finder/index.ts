@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
   } catch (err: any) {
     console.error("Lead Finder error:", err);
 
-    if (err?.code === "APIFY_USAGE_LIMIT" || err?.status === 402) {
+    if (err?.code === "APIFY_USAGE_LIMIT" || err?.status === 402 || err?.status === 403) {
       return new Response(
         JSON.stringify({
           leads: [],
