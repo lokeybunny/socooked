@@ -56,8 +56,9 @@ export default function SMMQueue({ profiles, posts }: { profiles: SMMProfile[]; 
 
   // Queued posts: scheduled/queued posts from anchored data, sorted by date
   const queuedPosts = useMemo(() => {
+    const cutoff24h = new Date(Date.now() - 86400000).toISOString();
     return posts
-      .filter(p => p.scheduled_date && ['scheduled', 'queued', 'pending', 'in_progress'].includes(p.status))
+      .filter(p => p.scheduled_date && p.scheduled_date >= cutoff24h && ['scheduled', 'queued', 'pending', 'in_progress'].includes(p.status))
       .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
   }, [posts]);
 
