@@ -862,6 +862,93 @@ Deno.serve(async (req) => {
 
     console.log(`[smm-auto-publish] ${catchUp ? "CATCH-UP" : "Normal"} window: ${windowStart} → ${windowEnd}`);
 
+    // ── Hourly rate-limit: count already published/publishing per platform this hour ──
+    const hourStart = new Date(now);
+    hourStart.setMinutes(0, 0, 0);
+    const { data: hourEvents } = await supabase
+      .from("calendar_events")
+      .select("id, title, source_id, description")
+      .in("category", ["smm", "artist-campaign"])
+      .gte("start_time", hourStart.toISOString())
+      .lte("start_time", now.toISOString());
+
+    const hourlyPlatformCount = new Map<string, number>();
+    for (const he of (hourEvents || [])) {
+      const st = parsePublishState(he.source_id, he.id);
+      if (st.state !== "published" && st.state !== "publishing") continue;
+      const platforms = inferPlatforms(he, st.originalSourceId);
+      for (const p of platforms) {
+        hourlyPlatformCount.set(p, (hourlyPlatformCount.get(p) || 0) + 1);
+      }
+    }
+    console.log(`[smm-auto-publish] Hourly platform counts:`, Object.fromEntries(hourlyPlatformCount));
+
+    // ── Global duplicate guard: collect all published titles ──
+    const { data: allPublished } = await supabase
+      .from("calendar_events")
+      .select("title")
+      .in("category", ["smm", "artist-campaign"])
+      .like("source_id", `${PUBLISHED_PREFIX}%`)
+      .order("start_time", { ascending: false })
+      .limit(1000);
+
+    const publishedTitleSet = new Set<string>();
+    for (const pe of (allPublished || [])) {
+      const norm = normalizeComparableText(pe.title);
+      if (norm) publishedTitleSet.add(norm);
+    }
+
+    /** Returns true if the event should be skipped due to rate-limit or duplicate */
+    const shouldSkipEvent = (ev: any): { skip: boolean; reason?: string } => {
+      // Duplicate check — exact title match against all previously published
+      const normTitle = normalizeComparableText(ev.title);
+      if (normTitle && publishedTitleSet.has(normTitle)) {
+        return { skip: true, reason: `duplicate title already published` };
+      }
+
+      // Hourly rate-limit per platform
+      const evPayload = extractEventPayload(ev);
+      for (const p of evPayload.platforms) {
+        const current = hourlyPlatformCount.get(p) || 0;
+        if (current >= HOURLY_PLATFORM_LIMIT) {
+          return { skip: true, reason: `hourly limit reached for ${p} (${current}/${HOURLY_PLATFORM_LIMIT})` };
+        }
+      }
+      return { skip: false };
+    };
+
+    /** Track a newly queued event in our in-memory counters */
+    const trackQueued = (ev: any) => {
+      const evPayload = extractEventPayload(ev);
+      for (const p of evPayload.platforms) {
+        hourlyPlatformCount.set(p, (hourlyPlatformCount.get(p) || 0) + 1);
+      }
+      const normTitle = normalizeComparableText(ev.title);
+      if (normTitle) publishedTitleSet.add(normTitle);
+    };
+
+    const processReadyBatch = async (readyEvents: any[], label: string) => {
+      const results: any[] = [];
+      for (const ev of readyEvents) {
+        const check = shouldSkipEvent(ev);
+        if (check.skip) {
+          console.log(`[smm-auto-publish] Skipping "${ev.title?.substring(0, 50)}" — ${check.reason}`);
+          results.push({ event_id: ev.id, skipped: true, reason: check.reason });
+          continue;
+        }
+        try {
+          trackQueued(ev);
+          const res = await queueUpload(ev);
+          const body = await res.clone().json().catch(() => ({}));
+          results.push({ event_id: ev.id, ...body });
+        } catch (uploadErr) {
+          results.push({ event_id: ev.id, error: (uploadErr as Error).message });
+          await notifyFailure(ev.title || ev.id, (uploadErr as Error).message, { event_id: ev.id });
+        }
+      }
+      return results;
+    };
+
     const { data: events, error } = await supabase
       .from("calendar_events")
       .select("*")
@@ -890,17 +977,7 @@ Deno.serve(async (req) => {
         const overdueUnpublished = (overdueEvents || []).filter((event) => parsePublishState(event.source_id, event.id).state === "ready");
         if (overdueUnpublished.length > 0) {
           console.log(`[smm-auto-publish] Found ${overdueUnpublished.length} overdue events from today — auto catch-up`);
-          const results: any[] = [];
-          for (const ev of overdueUnpublished) {
-            try {
-              const res = await queueUpload(ev);
-              const body = await res.clone().json().catch(() => ({}));
-              results.push({ event_id: ev.id, ...body });
-            } catch (uploadErr) {
-              results.push({ event_id: ev.id, error: (uploadErr as Error).message });
-              await notifyFailure(ev.title || ev.id, (uploadErr as Error).message, { event_id: ev.id });
-            }
-          }
+          const results = await processReadyBatch(overdueUnpublished, "overdue");
           return json({ ok: true, batch: true, count: overdueUnpublished.length, results });
         }
       }
@@ -915,18 +992,8 @@ Deno.serve(async (req) => {
       return json({ ok: true, published: 0, message: "All already processed or pending" });
     }
 
-    console.log(`[smm-auto-publish] Found ${unpublished.length} ready events in window — processing all`);
-    const results: any[] = [];
-    for (const ev of unpublished) {
-      try {
-        const res = await queueUpload(ev);
-        const body = await res.clone().json().catch(() => ({}));
-        results.push({ event_id: ev.id, ...body });
-      } catch (uploadErr) {
-        results.push({ event_id: ev.id, error: (uploadErr as Error).message });
-        await notifyFailure(ev.title || ev.id, (uploadErr as Error).message, { event_id: ev.id });
-      }
-    }
+    console.log(`[smm-auto-publish] Found ${unpublished.length} ready events in window — processing with rate limits`);
+    const results = await processReadyBatch(unpublished, "window");
     return json({ ok: true, batch: true, count: unpublished.length, results });
   } catch (err) {
     console.error("[smm-auto-publish] Fatal error:", err);
