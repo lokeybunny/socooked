@@ -818,7 +818,7 @@ Deno.serve(async (req) => {
     const { data: pendingEvents, error: pendingError } = await supabase
       .from("calendar_events")
       .select("*")
-      .eq("category", "smm")
+      .in("category", ["smm", "artist-campaign"])
       .like("source_id", `${PUBLISHING_PREFIX}%`)
       .order("updated_at", { ascending: true });
 
@@ -864,7 +864,7 @@ Deno.serve(async (req) => {
     const { data: events, error } = await supabase
       .from("calendar_events")
       .select("*")
-      .eq("category", "smm")
+      .in("category", ["smm", "artist-campaign"])
       .gte("start_time", windowStart)
       .lte("start_time", windowEnd)
       .order("start_time", { ascending: true });
@@ -875,6 +875,23 @@ Deno.serve(async (req) => {
     }
 
     if (!events || events.length === 0) {
+      // If normal window found nothing, check for any overdue unpublished events from today
+      if (!catchUp && !forceAllToday) {
+        const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+        const { data: overdueEvents } = await supabase
+          .from("calendar_events")
+          .select("*")
+          .in("category", ["smm", "artist-campaign"])
+          .gte("start_time", todayStart)
+          .lte("start_time", now.toISOString())
+          .order("start_time", { ascending: true });
+
+        const overdueUnpublished = (overdueEvents || []).filter((event) => parsePublishState(event.source_id, event.id).state === "ready");
+        if (overdueUnpublished.length > 0) {
+          console.log(`[smm-auto-publish] Found ${overdueUnpublished.length} overdue events from today — auto catch-up`);
+          return await queueUpload(overdueUnpublished[0]);
+        }
+      }
       console.log("[smm-auto-publish] No events due in window");
       return json({ ok: true, published: 0, message: "No events due" });
     }
