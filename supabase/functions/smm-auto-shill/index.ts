@@ -368,7 +368,7 @@ async function processAutoShill(
   // Post reply via Upload-Post API
   const params = new URLSearchParams();
   params.append("user", profileUsername);
-  params.append("platform[]", "twitter");
+  params.append("platform[]", "x");
   params.append("title", fullReply);
   params.append("comment_url", tweetUrl);
   params.append("async_upload", "true");
