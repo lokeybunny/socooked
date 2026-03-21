@@ -330,7 +330,7 @@ serve(async (req) => {
 // ─── Core: AI rage-bait reply + campaign link + ticker + hashtags ───
 async function processAutoShill(
   supabase: any, tweetUrl: string, profileUsername: string,
-  UPLOAD_POST_API_KEY: string, LOVABLE_API_KEY: string, sendTelegram: (text: string) => Promise<void>
+  UPLOAD_POST_API_KEY: string, LOVABLE_API_KEY: string, sendTelegram: (text: string) => Promise<void>, isBot: boolean = false
 ) {
   console.log(`[auto-shill] Processing: ${tweetUrl} for ${profileUsername}`);
 
