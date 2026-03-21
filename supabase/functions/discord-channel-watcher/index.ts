@@ -124,7 +124,30 @@ serve(async (req) => {
         if (existing?.length) continue;
 
         for (const tweetUrl of matches) {
-          // Forward to ALL enabled profiles (not just the channel owner)
+          // 1) Forward to Reply Engine for human-reviewed replies
+          try {
+            const replyEngineUrl = `${SUPABASE_URL}/functions/v1/reply-engine?action=ingest`;
+            const replyRes = await fetch(replyEngineUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-bot-secret": BOT_SECRET,
+              },
+              body: JSON.stringify({
+                tweet_url: tweetUrl,
+                discord_msg_id: msg.id,
+                discord_author: msg.author?.username || "unknown",
+              }),
+            });
+            const replyData = await replyRes.json().catch(() => ({}));
+            console.log(
+              `[discord-watcher] Reply Engine ingest ${tweetUrl}: ${JSON.stringify(replyData)}`
+            );
+          } catch (e) {
+            console.error(`[discord-watcher] Reply Engine ingest error for ${tweetUrl}:`, e);
+          }
+
+          // 2) Forward to ALL enabled profiles for auto-shill (existing flow)
           for (const targetProfile of enabledProfiles) {
             const ingestUrl = `${SUPABASE_URL}/functions/v1/smm-auto-shill?action=ingest`;
             const ingestRes = await fetch(ingestUrl, {
