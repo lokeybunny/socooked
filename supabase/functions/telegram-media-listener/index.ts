@@ -2338,6 +2338,38 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── SHILL NOW copy callback ───
+      if (cbData === 'shill_copy') {
+        const { data: shillConfigs } = await supabase
+          .from('site_configs')
+          .select('content, section')
+          .eq('site_id', 'smm-auto-shill')
+
+        const enabledCfg = shillConfigs?.find((r: any) => (r.content as any)?.enabled)
+        const shillContent = enabledCfg?.content as any
+        const campaignUrl = shillContent?.campaign_url || ''
+        const ticker = shillContent?.ticker || ''
+
+        if (!ticker) {
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: '⚠️ No ticker configured in Auto Shill settings.',
+          })
+          return new Response('ok')
+        }
+
+        const tickerClean = ticker.replace(/^\$/, '')
+        const copyText = `${ticker} #${tickerClean} #crypto` +
+          (campaignUrl ? `\n${campaignUrl}` : '')
+
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: cbChatId,
+          text: `📋 <b>Shill Copy — tap to copy:</b>\n\n<code>${copyText}</code>`,
+          parse_mode: 'HTML',
+        })
+        return new Response('ok')
+      }
+
       // ─── Media save/skip callbacks ───
       if (cbData.startsWith('save_') || cbData.startsWith('skip_')) {
         const action = cbData.startsWith('save_') ? 'save' : 'skip'
