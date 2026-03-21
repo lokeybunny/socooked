@@ -74,25 +74,31 @@ function makeSendTelegram(token: string, chatId: string) {
 }
 
 // ─── AI contextual reply generator ───
-async function generateRageBaitReply(
-  tweetUrl: string, campaignUrl: string, ticker: string, LOVABLE_API_KEY: string
+async function generateInterruptorHook(
+  LOVABLE_API_KEY: string
 ): Promise<string> {
-  const systemPrompt = `You are a sharp, opinionated crypto personality on X (Twitter). Your job is to read a tweet and write a genuine, contextual reply that engages with the actual content of the post.
+  const systemPrompt = `You are a sharp, edgy crypto personality on X (Twitter). Your job is to write a single punchy "interruptor" hook — a bold, attention-grabbing opening line that makes people stop scrolling.
 
 Rules:
-- Actually READ and RESPOND to what the tweet is about — add your take, opinion, counter-point, or insight
-- Keep it under 200 characters (excluding the signature link/hashtags appended later)
-- Be witty, insightful, or provocatively contrarian — NOT generic spam
-- Use a casual internet/crypto-native tone
-- Do NOT advertise, shill, or mention any ticker in your reply — the signature handles promotion
-- Do NOT include any links or hashtags — those are added separately
-- Do NOT use quotes around your reply
-- Write ONLY the reply text, nothing else
-- If the tweet is about a market move, give a hot take. If it's news, react to it. If it's an opinion, challenge or amplify it.`;
+- Write ONLY the hook line, nothing else
+- Keep it under 100 characters
+- Use a provocative, confident tone — like you know something others don't
+- Do NOT mention any ticker, coin name, link, or hashtag — those are added separately
+- Do NOT use quotes around your output
+- Do NOT repeat the same hook twice — be creative and varied
+- Style: mysterious, bold, contrarian, urgent — like a whisper that demands attention
 
-  const userPrompt = `Read this tweet and write a genuine, contextual reply that engages with its content: ${tweetUrl}
-
-Remember: respond to what the post actually says. Your signature with the ticker and link will be appended automatically — do NOT include any promotion in the reply itself.`;
+Examples of the STYLE (do not copy these exactly, create new ones):
+- "Nobody's gonna say it… so I will."
+- "I've been watching this for weeks. Finally."
+- "They don't want you to see this."
+- "Call me crazy but this changes everything."
+- "Everyone's sleeping on this. Not me."
+- "Deleted my last tweet about this. But f*ck it."
+- "The chart doesn't lie."
+- "I wasn't gonna post this but here we go."
+- "This is the one they'll talk about later."
+- "If you know, you know. If you don't… read this."`;
 
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -105,22 +111,25 @@ Remember: respond to what the post actually says. Your signature with the ticker
         model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: "user", content: "Write a fresh interruptor hook for a crypto tweet. Just the hook line, nothing else." },
         ],
+        temperature: 1.2,
       }),
     });
 
     if (!res.ok) {
       console.error("[auto-shill] AI gateway error:", res.status, await res.text());
-      return `${ticker} is about to blow 🔥 don't sleep on this`;
+      return "Nobody's gonna say it… so I will.";
     }
 
     const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content?.trim() || "";
-    return reply || `${ticker} is about to blow 🔥 don't sleep on this`;
+    let reply = data.choices?.[0]?.message?.content?.trim() || "";
+    // Strip wrapping quotes if AI added them
+    reply = reply.replace(/^["']|["']$/g, "").trim();
+    return reply || "Nobody's gonna say it… so I will.";
   } catch (e) {
     console.error("[auto-shill] AI generation error:", e);
-    return `${ticker} is about to blow 🔥 don't sleep on this`;
+    return "Nobody's gonna say it… so I will.";
   }
 }
 
