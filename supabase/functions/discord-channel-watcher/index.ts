@@ -274,7 +274,7 @@ serve(async (req) => {
           {
             type: 1, // ActionRow
             components: [
-              { type: 2, style: 5, label: "🚀 SHILL NOW", url: tweetUrl },
+              { type: 2, style: 1, label: "🚀 SHILL NOW", custom_id: `shill_now_${msg.id}` },
               { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${msg.id}` },
             ],
           },
