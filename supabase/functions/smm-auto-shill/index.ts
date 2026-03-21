@@ -602,6 +602,10 @@ serve(async (req) => {
       {
         name: "clean", description: "Delete all bot shill messages from this channel", type: 1,
       },
+      {
+        name: "authorize", description: "Link your Discord account to an X account for shilling", type: 1,
+        options: [{ name: "account", description: "The X account username (e.g. NysonBlack)", type: 3, required: true }],
+      },
     ];
 
     const results = [];
