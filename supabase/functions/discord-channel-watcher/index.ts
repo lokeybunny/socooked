@@ -80,23 +80,30 @@ serve(async (req) => {
 
     if (!configs?.length) return json({ ok: true, skipped: true, reason: "No configs", expired: expiredCount });
 
-    // Collect unique discord channel IDs from any config that has one
-    const channelConfigs: { channelId: string; section: string; cfg: any }[] = [];
+    // Collect discord channel configs — supports separate listen & reply channels
+    const channelConfigs: { listenChannelId: string; replyChannelId: string; section: string; cfg: any }[] = [];
     for (const row of configs) {
       const cfg = row.content as any;
-      if (cfg?.enabled && cfg?.discord_channel_id) {
-        channelConfigs.push({ channelId: String(cfg.discord_channel_id), section: row.section, cfg });
+      // discord_channel_id = listen channel, discord_reply_channel_id = where bot posts (falls back to listen channel)
+      const listenId = cfg?.discord_listen_channel_id || cfg?.discord_channel_id;
+      if (cfg?.enabled && listenId) {
+        channelConfigs.push({
+          listenChannelId: String(listenId),
+          replyChannelId: String(cfg?.discord_reply_channel_id || cfg?.discord_channel_id || listenId),
+          section: row.section,
+          cfg,
+        });
       }
     }
 
     if (channelConfigs.length === 0) return json({ ok: true, skipped: true, reason: "No channels configured", expired: expiredCount });
 
-    // Deduplicate channels
+    // Deduplicate by listen channel
     const seenChannels = new Set<string>();
-    const uniqueChannels: { channelId: string; section: string; cfg: any }[] = [];
+    const uniqueChannels: { listenChannelId: string; replyChannelId: string; section: string; cfg: any }[] = [];
     for (const cc of channelConfigs) {
-      if (!seenChannels.has(cc.channelId)) {
-        seenChannels.add(cc.channelId);
+      if (!seenChannels.has(cc.listenChannelId)) {
+        seenChannels.add(cc.listenChannelId);
         uniqueChannels.push(cc);
       }
     }
@@ -108,22 +115,21 @@ serve(async (req) => {
 
     let totalForwarded = 0;
 
-    for (const { channelId, section: ownerSection, cfg } of uniqueChannels) {
+    for (const { listenChannelId, replyChannelId, section: ownerSection, cfg } of uniqueChannels) {
       const lastMessageId = cfg.last_message_id || null;
 
-      // Fetch recent messages from Discord channel
-      let url = `${DISCORD_API}/channels/${channelId}/messages?limit=50`;
+      // Fetch recent messages from the LISTEN channel
+      let url = `${DISCORD_API}/channels/${listenChannelId}/messages?limit=50`;
       if (lastMessageId) url += `&after=${lastMessageId}`;
 
       let discordRes = await fetch(url, {
         headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
       });
 
-      // If fetch fails or returns empty with a lastMessageId, the ID may be stale
-      // (e.g. channel was changed). Retry without the after param to bootstrap.
+      // If fetch fails with a lastMessageId, it may be stale. Retry without it.
       if (lastMessageId && (!discordRes.ok || discordRes.status === 404)) {
-        console.warn(`[discord-watcher] Stale last_message_id for channel ${channelId}, resetting`);
-        url = `${DISCORD_API}/channels/${channelId}/messages?limit=10`;
+        console.warn(`[discord-watcher] Stale last_message_id for channel ${listenChannelId}, resetting`);
+        url = `${DISCORD_API}/channels/${listenChannelId}/messages?limit=10`;
         discordRes = await fetch(url, {
           headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
         });
@@ -132,7 +138,7 @@ serve(async (req) => {
       if (!discordRes.ok) {
         const errText = await discordRes.text();
         console.error(
-          `[discord-watcher] Failed to fetch channel ${channelId}: ${discordRes.status} ${errText}`
+          `[discord-watcher] Failed to fetch channel ${listenChannelId}: ${discordRes.status} ${errText}`
         );
         continue;
       }
@@ -237,7 +243,7 @@ serve(async (req) => {
           ];
 
           try {
-            const botReplyRes = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+            const botReplyRes = await fetch(`${DISCORD_API}/channels/${replyChannelId}/messages`, {
               method: "POST",
               headers: {
                 Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
@@ -257,7 +263,7 @@ serve(async (req) => {
                 action: "pending",
                 meta: {
                   bot_message_id: botMsg.id,
-                  channel_id: channelId,
+                  channel_id: replyChannelId,
                   discord_msg_id: msg.id,
                   tweet_url: tweetUrl,
                   expires_at: new Date(expiresAt * 1000).toISOString(),
