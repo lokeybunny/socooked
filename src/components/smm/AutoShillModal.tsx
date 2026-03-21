@@ -201,6 +201,13 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
             Team ({config.team_accounts?.length || 0})
           </button>
           <button
+            className={`flex-1 text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 ${tab === 'cooldown' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
+            onClick={() => setTab('cooldown')}
+          >
+            <Clock className="h-3 w-3" />
+            Cooldown{activeCooldowns.length > 0 ? ` (${activeCooldowns.length})` : ''}
+          </button>
+          <button
             className={`flex-1 text-xs py-1.5 rounded transition-colors ${tab === 'feed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
             onClick={() => setTab('feed')}
           >
