@@ -2058,7 +2058,11 @@ export type Database = {
           discord_user_id: string
           discord_username: string
           id: string
+          receipt_tweet_url: string | null
+          source_tweet_url: string | null
+          status: string
           tweet_url: string | null
+          verified_at: string | null
         }
         Insert: {
           created_at?: string
@@ -2066,7 +2070,11 @@ export type Database = {
           discord_user_id: string
           discord_username: string
           id?: string
+          receipt_tweet_url?: string | null
+          source_tweet_url?: string | null
+          status?: string
           tweet_url?: string | null
+          verified_at?: string | null
         }
         Update: {
           created_at?: string
@@ -2074,7 +2082,11 @@ export type Database = {
           discord_user_id?: string
           discord_username?: string
           id?: string
+          receipt_tweet_url?: string | null
+          source_tweet_url?: string | null
+          status?: string
           tweet_url?: string | null
+          verified_at?: string | null
         }
         Relationships: []
       }
