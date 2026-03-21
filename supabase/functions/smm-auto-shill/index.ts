@@ -296,11 +296,13 @@ serve(async (req) => {
       const body = await req.json();
       const tweetUrl = body.tweet_url || body.url || body.content || "";
       const profileUsername = body.profile_username || body.profile || "NysonBlack";
+      const discordMsgId = body.discord_msg_id || null;
+      const discordAuthor = body.discord_author || null;
 
       if (!tweetUrl || (!tweetUrl.includes("x.com/") && !tweetUrl.includes("twitter.com/"))) {
         await supabase.from("activity_log").insert({
           entity_type: "auto-shill", action: "skipped",
-          meta: { name: `⏭️ Non-X URL skipped`, url: tweetUrl, profile: profileUsername },
+          meta: { name: `⏭️ Non-X URL skipped`, url: tweetUrl, profile: profileUsername, discord_msg_id: discordMsgId },
         });
         return json({ ok: true, skipped: true, reason: "Not an X/Twitter URL" });
       }
@@ -308,9 +310,9 @@ serve(async (req) => {
       // Log as received + notify Telegram immediately
       await supabase.from("activity_log").insert({
         entity_type: "auto-shill", action: "received",
-        meta: { name: `📥 Received: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername },
+        meta: { name: `📥 Received: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername, discord_msg_id: discordMsgId, discord_author: discordAuthor },
       });
-      await sendTelegram(`📥 *Discord → Auto-Shill*\n🔗 ${tweetUrl}\n👤 ${profileUsername}\n⏳ Processing reply...`);
+      await sendTelegram(`📥 *Discord → Auto-Shill*\n🔗 ${tweetUrl}\n👤 ${profileUsername}${discordAuthor ? `\n🎮 Discord: ${discordAuthor}` : ''}\n⏳ Processing reply...`);
 
       const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram);
       return json(result, result.ok ? 200 : 500);
