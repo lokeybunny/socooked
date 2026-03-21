@@ -2,13 +2,12 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Copy, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
+import { CheckCircle2, AlertCircle, MessageSquare, Zap, ExternalLink, ArrowDownCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface AutoShillModalProps {
@@ -19,12 +18,13 @@ interface AutoShillModalProps {
 
 interface ShillConfig {
   enabled: boolean;
-  reply_template: string;
+  campaign_url: string;
+  ticker: string;
   discord_app_id: string;
   discord_public_key: string;
 }
 
-interface ShillLogEntry {
+interface FeedEntry {
   id: string;
   action: string;
   meta: any;
@@ -39,26 +39,21 @@ const headers = {
 };
 
 export default function AutoShillModal({ open, onOpenChange, profileUsername }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, reply_template: '', discord_app_id: '', discord_public_key: '' });
-  const [log, setLog] = useState<ShillLogEntry[]>([]);
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '' });
+  const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<'config' | 'log'>('config');
-  const [copied, setCopied] = useState(false);
-
-  const interactionsUrl = `${FUNC_URL}?action=discord-interact`;
-  const webhookUrl = `${FUNC_URL}?action=ingest`;
+  const [tab, setTab] = useState<'campaign' | 'feed'>('campaign');
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-
     Promise.all([
       fetch(`${FUNC_URL}?action=get-config&profile=${profileUsername}`, { headers }).then(r => r.json()),
-      fetch(`${FUNC_URL}?action=log&profile=${profileUsername}`, { headers }).then(r => r.json()),
-    ]).then(([configRes, logRes]) => {
+      fetch(`${FUNC_URL}?action=feed&profile=${profileUsername}`, { headers }).then(r => r.json()),
+    ]).then(([configRes, feedRes]) => {
       if (configRes?.config) setConfig(configRes.config);
-      if (logRes?.log) setLog(logRes.log);
+      if (feedRes?.feed) setFeed(feedRes.feed);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [open, profileUsername]);
@@ -67,23 +62,19 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
     setSaving(true);
     try {
       await fetch(`${FUNC_URL}?action=save-config`, {
-        method: 'POST',
-        headers,
+        method: 'POST', headers,
         body: JSON.stringify({ profile_username: profileUsername, ...config }),
       });
-      toast.success('Auto-shill config saved');
+      toast.success('Campaign config saved');
     } catch {
-      toast.error('Failed to save config');
+      toast.error('Failed to save');
     }
     setSaving(false);
   };
 
-  const copyUrl = (url: string) => {
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    toast.success('URL copied');
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const receivedCount = feed.filter(e => e.action === 'received').length;
+  const repliedCount = feed.filter(e => e.action === 'replied').length;
+  const failedCount = feed.filter(e => e.action === 'failed').length;
 
   if (loading) {
     return (
@@ -105,7 +96,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" />
+            <Zap className="h-5 w-5 text-primary" />
             Auto Shill — {profileUsername}
           </DialogTitle>
         </DialogHeader>
@@ -113,20 +104,20 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
         {/* Tab toggle */}
         <div className="flex gap-1 bg-muted rounded-md p-0.5">
           <button
-            className={`flex-1 text-xs py-1.5 rounded transition-colors ${tab === 'config' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
-            onClick={() => setTab('config')}
+            className={`flex-1 text-xs py-1.5 rounded transition-colors ${tab === 'campaign' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
+            onClick={() => setTab('campaign')}
           >
-            Config
+            Campaign
           </button>
           <button
-            className={`flex-1 text-xs py-1.5 rounded transition-colors ${tab === 'log' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
-            onClick={() => setTab('log')}
+            className={`flex-1 text-xs py-1.5 rounded transition-colors ${tab === 'feed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
+            onClick={() => setTab('feed')}
           >
-            Log ({log.length})
+            Feed ({feed.length})
           </button>
         </div>
 
-        {tab === 'config' ? (
+        {tab === 'campaign' ? (
           <ScrollArea className="max-h-[400px]">
             <div className="space-y-4 pr-2">
               {/* Enable toggle */}
@@ -135,110 +126,125 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
                 <Switch checked={config.enabled} onCheckedChange={(v) => setConfig(prev => ({ ...prev, enabled: v }))} />
               </div>
 
-              {/* Discord Bot Config */}
-              <div className="space-y-2 rounded-md border border-border p-3 bg-muted/30">
-                <Label className="text-xs font-semibold text-primary">Discord Bot</Label>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Application ID</Label>
-                  <Input
-                    value={config.discord_app_id}
-                    onChange={(e) => setConfig(prev => ({ ...prev, discord_app_id: e.target.value }))}
-                    placeholder="e.g. 1234567890123456789"
-                    className="h-8 text-xs font-mono"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Public Key</Label>
-                  <Input
-                    value={config.discord_public_key}
-                    onChange={(e) => setConfig(prev => ({ ...prev, discord_public_key: e.target.value }))}
-                    placeholder="e.g. a1b2c3d4e5f6..."
-                    className="h-8 text-xs font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Webhook URL (for other bots to call) */}
+              {/* Ticker */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Webhook URL (for your other bot)</Label>
-                <div className="flex gap-2">
-                  <code className="flex-1 text-[10px] bg-muted rounded px-2 py-1.5 break-all text-muted-foreground border border-border">
-                    {webhookUrl}
-                  </code>
-                  <Button variant="outline" size="sm" onClick={() => copyUrl(webhookUrl)} className="shrink-0">
-                    {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Your other bot should POST here with: <code className="text-primary">{'{"tweet_url": "https://x.com/...", "profile": "NysonBlack"}'}</code>
-                  <br />Headers: <code className="text-primary">x-bot-secret</code> or <code className="text-primary">apikey</code>
-                </p>
-              </div>
-
-              {/* Interactions Endpoint URL */}
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Discord Interactions URL</Label>
-                <div className="flex gap-2">
-                  <code className="flex-1 text-[10px] bg-muted rounded px-2 py-1.5 break-all text-muted-foreground border border-border">
-                    {interactionsUrl}
-                  </code>
-                  <Button variant="outline" size="sm" onClick={() => copyUrl(interactionsUrl)} className="shrink-0">
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  Paste into Discord app's <strong>Interactions Endpoint URL</strong> field.
-                </p>
-              </div>
-
-              {/* Reply template */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Reply Template</Label>
-                <Textarea
-                  value={config.reply_template}
-                  onChange={(e) => setConfig(prev => ({ ...prev, reply_template: e.target.value }))}
-                  placeholder="Type your reply here... Use {tweet_url} to insert the tweet link."
-                  className="min-h-[80px] text-sm font-mono"
+                <Label className="text-xs font-semibold">Ticker</Label>
+                <Input
+                  value={config.ticker}
+                  onChange={(e) => setConfig(prev => ({ ...prev, ticker: e.target.value }))}
+                  placeholder="e.g. $whitehouse"
+                  className="h-8 text-sm font-mono"
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Variables: <code className="text-primary">{'{tweet_url}'}</code>, <code className="text-primary">{'{timestamp}'}</code>
+                  The ticker symbol to include in every auto-reply (e.g. $whitehouse)
                 </p>
               </div>
+
+              {/* Campaign URL */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Campaign URL</Label>
+                <Input
+                  value={config.campaign_url}
+                  onChange={(e) => setConfig(prev => ({ ...prev, campaign_url: e.target.value }))}
+                  placeholder="https://x.com/community/post/..."
+                  className="h-8 text-sm font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  The X post or link you want to advertise. This gets appended to every AI-generated reply.
+                </p>
+              </div>
+
+              {/* Stats summary */}
+              {feed.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 rounded-md border border-border p-3 bg-muted/30">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-foreground">{receivedCount}</p>
+                    <p className="text-[10px] text-muted-foreground">Received</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-green-500">{repliedCount}</p>
+                    <p className="text-[10px] text-muted-foreground">Replied</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-destructive">{failedCount}</p>
+                    <p className="text-[10px] text-muted-foreground">Failed</p>
+                  </div>
+                </div>
+              )}
+
+              {/* How it works */}
+              <div className="rounded-md border border-border p-3 bg-muted/30 space-y-1">
+                <p className="text-xs font-semibold text-foreground">How it works</p>
+                <ul className="text-[10px] text-muted-foreground space-y-0.5 list-disc pl-3">
+                  <li>Your Discord bot POSTs X/Twitter URLs to the webhook</li>
+                  <li>AI generates a rage-bait reply for each incoming tweet</li>
+                  <li>Your campaign URL + ticker + hashtags are appended</li>
+                  <li>Reply is auto-posted via your X account</li>
+                </ul>
+              </div>
+
+              {/* Discord config (collapsed) */}
+              <details className="rounded-md border border-border p-3 bg-muted/30">
+                <summary className="text-xs font-semibold text-primary cursor-pointer">Discord Bot Settings</summary>
+                <div className="space-y-2 mt-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Application ID</Label>
+                    <Input value={config.discord_app_id} onChange={(e) => setConfig(prev => ({ ...prev, discord_app_id: e.target.value }))} placeholder="e.g. 1234567890123456789" className="h-7 text-xs font-mono" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Public Key</Label>
+                    <Input value={config.discord_public_key} onChange={(e) => setConfig(prev => ({ ...prev, discord_public_key: e.target.value }))} placeholder="e.g. a1b2c3d4e5f6..." className="h-7 text-xs font-mono" />
+                  </div>
+                </div>
+              </details>
             </div>
           </ScrollArea>
         ) : (
-          <ScrollArea className="h-[300px]">
-            {log.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No shill activity yet.</p>
+          <ScrollArea className="h-[350px]">
+            {feed.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No incoming tweets yet.</p>
             ) : (
-              <div className="space-y-2">
-                {log.map(entry => (
-                  <div key={entry.id} className="flex items-start gap-2 p-2 rounded border border-border bg-muted/30 text-xs">
-                    {entry.action === 'replied' || entry.action === 'shilled' ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
-                    ) : (
-                      <AlertCircle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-mono truncate text-foreground">{entry.meta?.tweet_url || 'Unknown'}</p>
-                      <p className="text-muted-foreground">
-                        {format(new Date(entry.created_at), 'MMM d, h:mm a')} · {entry.meta?.profile || ''}
-                      </p>
-                      {entry.action === 'failed' && (
-                        <p className="text-destructive mt-0.5">{entry.meta?.error?.substring(0, 100)}</p>
-                      )}
+              <div className="space-y-1.5">
+                {feed.map(entry => {
+                  const tweetUrl = entry.meta?.tweet_url || entry.meta?.url || '';
+                  const replyText = entry.meta?.reply_text || '';
+                  const icon = entry.action === 'replied' ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    : entry.action === 'received' ? <ArrowDownCircle className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                    : entry.action === 'skipped' ? <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    : <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />;
+
+                  return (
+                    <div key={entry.id} className="flex items-start gap-2 p-2 rounded border border-border bg-muted/30 text-xs">
+                      <div className="mt-0.5">{icon}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground uppercase">{entry.action}</span>
+                          <span className="text-[10px] text-muted-foreground">{format(new Date(entry.created_at), 'MMM d, h:mm a')}</span>
+                        </div>
+                        {tweetUrl && (
+                          <a href={tweetUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block mt-0.5 text-[11px]">
+                            {tweetUrl} <ExternalLink className="inline h-2.5 w-2.5" />
+                          </a>
+                        )}
+                        {replyText && (
+                          <p className="text-muted-foreground mt-0.5 line-clamp-2">{replyText}</p>
+                        )}
+                        {entry.action === 'failed' && entry.meta?.error && (
+                          <p className="text-destructive mt-0.5">{entry.meta.error.substring(0, 120)}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </ScrollArea>
         )}
 
         <DialogFooter>
-          {tab === 'config' && (
+          {tab === 'campaign' && (
             <Button onClick={handleSave} disabled={saving} className="gap-1.5">
-              {saving ? 'Saving...' : 'Save Config'}
+              {saving ? 'Saving...' : 'Save Campaign'}
             </Button>
           )}
         </DialogFooter>
