@@ -856,9 +856,9 @@ async function processAutoShill(
       campaign_url: campaignUrl,
       request_id: requestId,
       job_id: jobId,
-      provider_status: providerStatus,
-      reply_post_id: confirmedPostId,
-      reply_url: confirmedReplyUrl,
+      provider_status: finalProviderStatus,
+      reply_post_id: finalConfirmedPostId,
+      reply_url: finalConfirmedReplyUrl,
       reply_type: replyType,
     },
   });
