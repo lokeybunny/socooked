@@ -63,7 +63,7 @@ const headers = {
 type TabValue = 'campaign' | 'team' | 'cooldown' | 'feed' | 'assignments' | 'auth-log';
 
 export default function AutoShillModal({ open, onOpenChange, profileUsername, profiles = [] }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', team_accounts: [], retweet_accounts: [], account_hashtags: {}, discord_assignments: {} });
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', discord_listen_channel_id: '', discord_reply_channel_id: '', team_accounts: [], retweet_accounts: [], account_hashtags: {}, discord_assignments: {} });
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [authLog, setAuthLog] = useState<AuthLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
