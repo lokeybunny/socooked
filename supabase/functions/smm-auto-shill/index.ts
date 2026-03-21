@@ -822,7 +822,7 @@ serve(async (req) => {
             : "";
         }
 
-        const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#crypto`];
+        const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
         if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, userHashtag);
@@ -1288,11 +1288,11 @@ async function processAutoShill(
   try {
     const hook = await generateInterruptorHook(LOVABLE_API_KEY);
     const tickerClean = ticker.replace(/^\$/, "");
-    replyText = `${hook}\n\n${ticker} #${tickerClean} #crypto${campaignUrl ? `\n${campaignUrl}` : ""}`;
+    replyText = `${hook}\n\n${ticker} #${tickerClean} #repost${campaignUrl ? `\n${campaignUrl}` : ""}`;
   } catch (e) {
     console.error("[auto-shill] Failed to generate reply:", e);
     const tickerClean = ticker.replace(/^\$/, "");
-    replyText = `Nobody's gonna say it… so I will.\n\n${ticker} #${tickerClean} #crypto${campaignUrl ? `\n${campaignUrl}` : ""}`;
+    replyText = `Nobody's gonna say it… so I will.\n\n${ticker} #${tickerClean} #repost${campaignUrl ? `\n${campaignUrl}` : ""}`;
   }
 
   const tweetId = extractTweetId(tweetUrl);
