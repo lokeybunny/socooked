@@ -1015,6 +1015,68 @@ serve(async (req) => {
       return json({ type: 4, data: { content: "❓ Unknown action.", flags: 64 } });
     }
 
+    // ─── Modal submit (type 5) — raider secret code entry ───
+    if (interaction.type === 5) {
+      const customId = interaction.data?.custom_id || "";
+      const discordUser = interaction.member?.user || interaction.user || {};
+      const discordUserId = discordUser.id || "unknown";
+      const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+      if (customId.startsWith("raider_code_submit_")) {
+        // Extract the entered code from modal components
+        const components = interaction.data?.components || [];
+        let enteredCode = "";
+        for (const row of components) {
+          for (const comp of row.components || []) {
+            if (comp.custom_id === "secret_code_input") {
+              enteredCode = (comp.value || "").trim().replace(/^#/, "");
+            }
+          }
+        }
+
+        if (!enteredCode) {
+          return json({ type: 4, data: { content: "❌ No code entered. Try again.", flags: 64 } });
+        }
+
+        // Validate: check if this code exists in any raider record (admin pre-generated it)
+        // Or check site_configs for generated codes
+        // For now, accept any non-empty code and assign it to the raider
+        // Upsert raider with the secret code
+        const { error: upsertErr } = await supabase.from("raiders").upsert({
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+          secret_code: enteredCode,
+        }, { onConflict: "discord_user_id" });
+
+        if (upsertErr) {
+          console.error("[auto-shill] Raider code upsert error:", upsertErr.message);
+          return json({ type: 4, data: { content: "❌ Failed to save your code. Try again later.", flags: 64 } });
+        }
+
+        // Log registration
+        await supabase.from("activity_log").insert({
+          entity_type: "raider-registration",
+          action: "code-submitted",
+          meta: {
+            name: `⚔️ ${discordUsername} registered with code #${enteredCode}`,
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            secret_code: enteredCode,
+          },
+        });
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Welcome aboard, ${discordUsername}!**\n\n🔑 Your raider code: \`#${enteredCode}\`\n⚔️ You're now ready to raid! Click the buttons on any alert to get started.\n💰 $0.02 per verified raid`,
+            flags: 64,
+          },
+        });
+      }
+
+      return json({ type: 4, data: { content: "❓ Unknown modal.", flags: 64 } });
+    }
+
     return json({ type: 1 });
   }
 
