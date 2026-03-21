@@ -388,31 +388,69 @@ async function processAutoShill(
   let uploadData: any = {};
   try { uploadData = JSON.parse(uploadText); } catch {}
 
-  if (!uploadRes.ok) {
-    const errorMsg = `Upload failed (${uploadRes.status}): ${uploadText.substring(0, 200)}`;
-    await sendTelegram(`🚨 *Auto-Shill FAILED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
-    await supabase.from("activity_log").insert({
-      entity_type: "auto-shill", action: "failed",
-      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername, reply_text: fullReply.substring(0, 200) },
-    });
-    return { ok: false, error: errorMsg };
-  }
-
   const requestId = uploadData?.request_id || uploadData?.data?.request_id || null;
   const jobId = uploadData?.job_id || uploadData?.data?.job_id || null;
+  const providerStatus = String(uploadData?.status || uploadData?.results?.x?.status || "").toLowerCase();
+  const xResult = uploadData?.results?.x;
+  const confirmedReplyUrl = xResult?.url || null;
+  const confirmedPostId = xResult?.post_id || null;
+  const isProviderConfirmed = Boolean(
+    uploadRes.ok &&
+    uploadData?.success === true &&
+    xResult?.success === true &&
+    providerStatus === "completed" &&
+    confirmedPostId &&
+    confirmedReplyUrl
+  );
+
+  if (!isProviderConfirmed) {
+    const errorMsg = `Upload not confirmed (${uploadRes.status}): ${uploadText.substring(0, 300)}`;
+    await sendTelegram(`🚨 *Auto-Shill NOT CONFIRMED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill", action: "failed",
+      meta: {
+        name: `❌ Reply not confirmed: ${tweetUrl}`,
+        tweet_url: tweetUrl,
+        error: errorMsg,
+        profile: profileUsername,
+        reply_text: fullReply.substring(0, 200),
+        ticker,
+        campaign_url: campaignUrl,
+        request_id: requestId,
+        job_id: jobId,
+        provider_status: providerStatus,
+        provider_result: xResult || null,
+      },
+    });
+    return { ok: false, error: errorMsg, request_id: requestId, job_id: jobId, provider_status: providerStatus };
+  }
 
   await supabase.from("activity_log").insert({
     entity_type: "auto-shill", action: "replied",
     meta: {
       name: `🗣️ Auto-replied: ${tweetUrl}`,
-      tweet_url: tweetUrl, profile: profileUsername,
+      tweet_url: tweetUrl,
+      profile: profileUsername,
       reply_text: fullReply.substring(0, 300),
-      ticker, campaign_url: campaignUrl,
-      request_id: requestId, job_id: jobId,
+      ticker,
+      campaign_url: campaignUrl,
+      request_id: requestId,
+      job_id: jobId,
+      provider_status: providerStatus,
+      reply_post_id: confirmedPostId,
+      reply_url: confirmedReplyUrl,
     },
   });
 
-  await sendTelegram(`🗣️ *Auto-Shill Sent*\n🔗 ${tweetUrl}\n💰 ${ticker}\n💬 ${rageBait.substring(0, 100)}`);
+  await sendTelegram(`🗣️ *Auto-Shill Confirmed*\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
 
-  return { ok: true, replied: true, tweet_url: tweetUrl, request_id: requestId, job_id: jobId };
+  return {
+    ok: true,
+    replied: true,
+    tweet_url: tweetUrl,
+    request_id: requestId,
+    job_id: jobId,
+    reply_post_id: confirmedPostId,
+    reply_url: confirmedReplyUrl,
+  };
 }
