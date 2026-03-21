@@ -60,6 +60,34 @@ export default function Raiders() {
   const [loading, setLoading] = useState(true);
   const [editRaider, setEditRaider] = useState<Raider | null>(null);
   const [secretCodeInput, setSecretCodeInput] = useState("");
+  const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const handleGenerateCodes = (count: number) => {
+    const existing = new Set([
+      ...raiders.map((r) => r.secret_code).filter(Boolean),
+      ...generatedCodes,
+    ]);
+    const codes: string[] = [];
+    let attempts = 0;
+    while (codes.length < count && attempts < 200) {
+      const code = generateSecretCode();
+      if (!existing.has(code)) {
+        codes.push(code);
+        existing.add(code);
+      }
+      attempts++;
+    }
+    setGeneratedCodes((prev) => [...codes, ...prev]);
+    toast.success(`Generated ${codes.length} secret codes`);
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(`#${code}`);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+    toast.success(`Copied #${code}`);
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
