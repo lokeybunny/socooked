@@ -115,7 +115,7 @@ serve(async (req) => {
 
     let totalForwarded = 0;
 
-    for (const { channelId, section: ownerSection, cfg } of uniqueChannels) {
+    for (const { listenChannelId, replyChannelId, section: ownerSection, cfg } of uniqueChannels) {
       const lastMessageId = cfg.last_message_id || null;
 
       // Fetch recent messages from Discord channel
