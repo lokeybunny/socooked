@@ -117,17 +117,48 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const failedCount = feed.filter(e => e.action === 'failed').length;
   const cooldownCount = feed.filter(e => e.action === 'cooldown').length;
 
-  // Derive which accounts are currently in cooldown from recent feed
-  const cooldownAccounts = new Set<string>();
-  const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+  const COOLDOWN_MS = 5 * 60 * 1000;
+  const now = Date.now();
+
+  // Build per-account cooldown info from recent feed entries
+  interface AccountCooldown {
+    account: string;
+    lastActivityAt: Date;
+    remainingMs: number;
+    trigger: string; // what caused the cooldown
+    action: string;
+  }
+
+  const accountCooldownMap = new Map<string, AccountCooldown>();
   feed.forEach(e => {
-    if (e.action === 'cooldown' && new Date(e.created_at).getTime() > fiveMinAgo) {
-      cooldownAccounts.add(e.meta?.used_account || e.meta?.profile || '');
-    }
-    if ((e.action === 'replied' || e.action === 'failed') && new Date(e.created_at).getTime() > fiveMinAgo) {
-      cooldownAccounts.add(e.meta?.used_account || e.meta?.profile || '');
+    if ((e.action === 'replied' || e.action === 'failed') && e.meta?.used_account) {
+      const account = e.meta.used_account;
+      if (!accountCooldownMap.has(account)) {
+        const activityAt = new Date(e.created_at);
+        const remaining = COOLDOWN_MS - (now - activityAt.getTime());
+        if (remaining > 0) {
+          accountCooldownMap.set(account, {
+            account,
+            lastActivityAt: activityAt,
+            remainingMs: remaining,
+            trigger: e.action === 'failed' ? (e.meta?.error?.substring(0, 80) || 'Post failed') : 'Reply posted',
+            action: e.action,
+          });
+        }
+      }
     }
   });
+
+  const cooldownAccounts = new Set(accountCooldownMap.keys());
+  const activeCooldowns = Array.from(accountCooldownMap.values()).sort((a, b) => a.remainingMs - b.remainingMs);
+
+  // Live countdown tick
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!open || tab !== 'cooldown' || activeCooldowns.length === 0) return;
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [open, tab, activeCooldowns.length]);
 
   if (loading) {
     return (
