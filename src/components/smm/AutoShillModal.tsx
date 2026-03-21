@@ -5,12 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Zap, Copy, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
+import { Copy, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface AutoShillModalProps {
@@ -22,15 +20,8 @@ interface AutoShillModalProps {
 interface ShillConfig {
   enabled: boolean;
   reply_template: string;
-  boost_preset_ids: string[];
   discord_app_id: string;
   discord_public_key: string;
-}
-
-interface BoostPreset {
-  id: string;
-  preset_name: string;
-  services: any[];
 }
 
 interface ShillLogEntry {
@@ -48,8 +39,7 @@ const headers = {
 };
 
 export default function AutoShillModal({ open, onOpenChange, profileUsername }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, reply_template: '', boost_preset_ids: [], discord_app_id: '', discord_public_key: '' });
-  const [presets, setPresets] = useState<BoostPreset[]>([]);
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, reply_template: '', discord_app_id: '', discord_public_key: '' });
   const [log, setLog] = useState<ShillLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,6 +47,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
   const [copied, setCopied] = useState(false);
 
   const interactionsUrl = `${FUNC_URL}?action=discord-interact`;
+  const webhookUrl = `${FUNC_URL}?action=ingest`;
 
   useEffect(() => {
     if (!open) return;
@@ -64,11 +55,9 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
 
     Promise.all([
       fetch(`${FUNC_URL}?action=get-config&profile=${profileUsername}`, { headers }).then(r => r.json()),
-      supabase.from('smm_boost_presets').select('*').eq('profile_username', profileUsername),
       fetch(`${FUNC_URL}?action=log&profile=${profileUsername}`, { headers }).then(r => r.json()),
-    ]).then(([configRes, presetsRes, logRes]) => {
+    ]).then(([configRes, logRes]) => {
       if (configRes?.config) setConfig(configRes.config);
-      if (presetsRes.data) setPresets(presetsRes.data as any);
       if (logRes?.log) setLog(logRes.log);
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -89,19 +78,10 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
     setSaving(false);
   };
 
-  const togglePreset = (id: string) => {
-    setConfig(prev => ({
-      ...prev,
-      boost_preset_ids: prev.boost_preset_ids.includes(id)
-        ? prev.boost_preset_ids.filter(p => p !== id)
-        : [...prev.boost_preset_ids, id],
-    }));
-  };
-
-  const copyUrl = () => {
-    navigator.clipboard.writeText(interactionsUrl);
+  const copyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
     setCopied(true);
-    toast.success('Interactions URL copied');
+    toast.success('URL copied');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -178,19 +158,36 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
                 </div>
               </div>
 
-              {/* Interactions Endpoint URL */}
+              {/* Webhook URL (for other bots to call) */}
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Interactions Endpoint URL</Label>
+                <Label className="text-xs text-muted-foreground">Webhook URL (for your other bot)</Label>
                 <div className="flex gap-2">
                   <code className="flex-1 text-[10px] bg-muted rounded px-2 py-1.5 break-all text-muted-foreground border border-border">
-                    {interactionsUrl}
+                    {webhookUrl}
                   </code>
-                  <Button variant="outline" size="sm" onClick={copyUrl} className="shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => copyUrl(webhookUrl)} className="shrink-0">
                     {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                   </Button>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Paste this into your Discord app's <strong>Interactions Endpoint URL</strong> field. Discord will verify it using your Public Key.
+                  Your other bot should POST here with: <code className="text-primary">{'{"tweet_url": "https://x.com/...", "profile": "NysonBlack"}'}</code>
+                  <br />Headers: <code className="text-primary">x-bot-secret</code> or <code className="text-primary">apikey</code>
+                </p>
+              </div>
+
+              {/* Interactions Endpoint URL */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Discord Interactions URL</Label>
+                <div className="flex gap-2">
+                  <code className="flex-1 text-[10px] bg-muted rounded px-2 py-1.5 break-all text-muted-foreground border border-border">
+                    {interactionsUrl}
+                  </code>
+                  <Button variant="outline" size="sm" onClick={() => copyUrl(interactionsUrl)} className="shrink-0">
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Paste into Discord app's <strong>Interactions Endpoint URL</strong> field.
                 </p>
               </div>
 
@@ -200,34 +197,12 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
                 <Textarea
                   value={config.reply_template}
                   onChange={(e) => setConfig(prev => ({ ...prev, reply_template: e.target.value }))}
-                  placeholder="Type your shill reply here... Use {tweet_url} to insert the tweet link."
+                  placeholder="Type your reply here... Use {tweet_url} to insert the tweet link."
                   className="min-h-[80px] text-sm font-mono"
                 />
                 <p className="text-[10px] text-muted-foreground">
                   Variables: <code className="text-primary">{'{tweet_url}'}</code>, <code className="text-primary">{'{timestamp}'}</code>
                 </p>
-              </div>
-
-              {/* Boost presets */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Auto-Boost Presets</Label>
-                {presets.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No boost presets configured for this profile.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {presets.map(p => (
-                      <Badge
-                        key={p.id}
-                        variant={config.boost_preset_ids.includes(p.id) ? 'default' : 'outline'}
-                        className="cursor-pointer text-xs"
-                        onClick={() => togglePreset(p.id)}
-                      >
-                        <Zap className="h-3 w-3 mr-1" />
-                        {p.preset_name}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </ScrollArea>
@@ -239,7 +214,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
               <div className="space-y-2">
                 {log.map(entry => (
                   <div key={entry.id} className="flex items-start gap-2 p-2 rounded border border-border bg-muted/30 text-xs">
-                    {entry.action === 'shilled' ? (
+                    {entry.action === 'replied' || entry.action === 'shilled' ? (
                       <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
                     ) : (
                       <AlertCircle className="h-3.5 w-3.5 text-destructive mt-0.5 shrink-0" />
