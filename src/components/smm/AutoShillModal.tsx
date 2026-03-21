@@ -22,6 +22,7 @@ interface ShillConfig {
   ticker: string;
   discord_app_id: string;
   discord_public_key: string;
+  discord_channel_id: string;
 }
 
 interface FeedEntry {
