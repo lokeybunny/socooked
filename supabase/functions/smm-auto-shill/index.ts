@@ -938,8 +938,8 @@ async function processAutoShill(
     used_account: selectedAccount,
     request_id: requestId,
     job_id: jobId,
-    reply_post_id: confirmedPostId,
-    reply_url: confirmedReplyUrl,
+    reply_post_id: finalConfirmedPostId,
+    reply_url: finalConfirmedReplyUrl,
     retweet_accounts: retweetAccounts,
   };
 }
