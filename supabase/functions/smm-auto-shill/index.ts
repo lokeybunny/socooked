@@ -557,21 +557,16 @@ async function processAutoShill(
     if (existing?.length) return { ok: false, skipped: true, reason: "Already replied in last 24h (bot dedup)" };
   }
 
-  // Generate AI rage-bait reply
-  const rageBait = await generateRageBaitReply(tweetUrl, campaignUrl, ticker, LOVABLE_API_KEY);
+  // Generate AI interruptor hook
+  const hook = await generateInterruptorHook(LOVABLE_API_KEY);
 
-  // Build full reply: rage bait + optional external campaign link + ticker + hashtags
+  // Build full reply: interruptor hook + campaign URL (ALWAYS) + ticker + hashtags
   const tickerClean = ticker.replace(/^\$/, "");
   const hashtags = `#${tickerClean} #crypto`;
   const normalizedCampaignUrl = typeof campaignUrl === "string" ? campaignUrl.trim() : "";
-  const campaignUrlIsXStatus = /^https?:\/\/(www\.)?(x\.com|twitter\.com)\/[^/\s]+\/status\/\d+/i.test(normalizedCampaignUrl);
-  let fullReply = rageBait;
-  if (normalizedCampaignUrl && !campaignUrlIsXStatus) fullReply += `\n\n${normalizedCampaignUrl}`;
+  let fullReply = hook;
+  if (normalizedCampaignUrl) fullReply += `\n\n${normalizedCampaignUrl}`;
   fullReply += `\n\n${ticker} ${hashtags}`;
-
-  if (campaignUrlIsXStatus) {
-    console.log(`[auto-shill] Skipping campaign_url in reply body because X status links create quote tweets instead of replies: ${normalizedCampaignUrl}`);
-  }
 
   const targetTweetId = extractTweetId(tweetUrl);
   if (!targetTweetId) {
