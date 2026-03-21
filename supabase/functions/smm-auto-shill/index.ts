@@ -423,6 +423,29 @@ async function processAutoShill(
   const ticker = config.ticker || "";
   if (!ticker) return { ok: false, error: "No ticker configured" };
 
+  // ─── Global cooldown: minimum 5 minutes between ANY replies to prevent X anti-spam flags ───
+  const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+  const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
+  const { data: recentReplies } = await supabase
+    .from("activity_log").select("id, created_at")
+    .eq("entity_type", "auto-shill")
+    .in("action", ["replied", "failed"])
+    .gte("created_at", cooldownCutoff)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (recentReplies?.length) {
+    const lastReplyAt = new Date(recentReplies[0].created_at);
+    const waitMs = COOLDOWN_MS - (Date.now() - lastReplyAt.getTime());
+    const waitMin = Math.ceil(waitMs / 60000);
+    console.log(`[auto-shill] Cooldown active — last reply ${Math.round((Date.now() - lastReplyAt.getTime()) / 1000)}s ago, need ${Math.round(COOLDOWN_MS / 1000)}s gap`);
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill", action: "cooldown",
+      meta: { name: `⏳ Cooldown: wait ${waitMin}m`, tweet_url: tweetUrl, profile: profileUsername, wait_seconds: Math.round(waitMs / 1000) },
+    });
+    return { ok: false, skipped: true, reason: `Cooldown active — wait ${waitMin} more minute(s) between replies to avoid X anti-spam flags` };
+  }
+
   // Dedup check (24h) — only for bot sources; human users always get a fresh reply
   if (isBot) {
     const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
