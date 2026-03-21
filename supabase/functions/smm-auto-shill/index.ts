@@ -659,7 +659,30 @@ serve(async (req) => {
       : `https://discord.com/api/v10/applications/${appId}/commands`;
 
     // Build autocomplete choices from all connected X accounts
-    const allXAccounts: string[] = cfg?.all_x_accounts || cfg?.team_accounts || [];
+    let allXAccounts: string[] = cfg?.all_x_accounts || [];
+
+    // Fallback: fetch from Upload-Post API if not saved yet
+    if (allXAccounts.length === 0) {
+      try {
+        const API_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
+        const profilesRes = await fetch("https://app.upload-post.com/api/profiles", {
+          headers: { "Authorization": `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+        });
+        if (profilesRes.ok) {
+          const profilesData = await profilesRes.json();
+          const profiles = profilesData?.data || profilesData || [];
+          allXAccounts = profiles.flatMap((p: any) =>
+            (p.connected_platforms || [])
+              .filter((cp: any) => cp.platform === "twitter" && cp.connected)
+              .map((cp: any) => cp.display_name)
+          );
+        }
+      } catch (e) {
+        console.error("[auto-shill] Fallback profile fetch error:", e);
+      }
+    }
+
+    if (allXAccounts.length === 0) allXAccounts = cfg?.team_accounts || [];
     const accountChoices = allXAccounts.slice(0, 25).map((a: string) => ({ name: `@${a}`, value: a }));
 
     const commands = [
