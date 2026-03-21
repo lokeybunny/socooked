@@ -274,6 +274,30 @@ serve(async (req) => {
       const customId = interaction.data?.custom_id || "";
 
       if (customId.startsWith("shill_copy")) {
+        // Extract discord_msg_id from custom_id (shill_copy_<msg_id>)
+        const discordMsgId = customId.replace("shill_copy_", "") || null;
+
+        // Log the click
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUserId = discordUser.id || "unknown";
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        // Extract tweet URL from the original message's embed
+        let tweetUrl = "";
+        const embeds = interaction.message?.embeds || [];
+        if (embeds.length > 0) {
+          const desc = embeds[0].description || "";
+          const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
+          if (urlMatch) tweetUrl = urlMatch[0].replace(/\)$/, "");
+        }
+
+        await supabase.from("shill_clicks").insert({
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+          tweet_url: tweetUrl || null,
+          discord_msg_id: discordMsgId,
+        });
+
         // Load campaign config
         const { data: shillConfigs } = await supabase
           .from("site_configs").select("content")
@@ -296,7 +320,7 @@ serve(async (req) => {
           type: 4,
           data: {
             content: `📋 **Shill Copy — paste this as your reply:**\n\`\`\`\n${copyText}\n\`\`\``,
-            flags: 64, // ephemeral — only visible to the clicker
+            flags: 64,
           },
         });
       }
