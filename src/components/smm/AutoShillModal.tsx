@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { CheckCircle2, AlertCircle, MessageSquare, Zap, ExternalLink, ArrowDownCircle, Users, Clock, ShieldAlert, Repeat2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, MessageSquare, Zap, ExternalLink, ArrowDownCircle, Users, Clock, ShieldAlert, Repeat2, Hash } from 'lucide-react';
 import { format } from 'date-fns';
 import type { SMMProfile } from '@/lib/smm/types';
 
