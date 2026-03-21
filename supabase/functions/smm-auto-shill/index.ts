@@ -835,8 +835,8 @@ async function processAutoShill(
         error: errorMsg,
         request_id: requestId,
         job_id: jobId,
-        reply_post_id: confirmedPostId,
-        reply_url: confirmedReplyUrl,
+        reply_post_id: finalConfirmedPostId,
+        reply_url: finalConfirmedReplyUrl,
       };
     }
   }
