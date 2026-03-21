@@ -362,16 +362,26 @@ serve(async (req) => {
       ? `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
       : `https://discord.com/api/v10/applications/${appId}/commands`;
 
-    const res = await fetch(registerUrl, {
-      method: "POST",
-      headers: { "Authorization": `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const commands = [
+      {
         name: "shill", description: "Auto-reply to a tweet via X", type: 1,
         options: [{ name: "url", description: "The X/Twitter tweet URL", type: 3, required: true }],
-      }),
-    });
-    const data = await res.json();
-    return json({ ok: true, status: res.status, data });
+      },
+      {
+        name: "clean", description: "Delete all bot shill messages from this channel", type: 1,
+      },
+    ];
+
+    const results = [];
+    for (const cmd of commands) {
+      const res = await fetch(registerUrl, {
+        method: "POST",
+        headers: { "Authorization": `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify(cmd),
+      });
+      results.push({ command: cmd.name, status: res.status, data: await res.json() });
+    }
+    return json({ ok: true, results });
   }
 
   // ─── Auth: bot secret, anon/publishable key, or service role ───
