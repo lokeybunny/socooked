@@ -143,6 +143,7 @@ serve(async (req) => {
   const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
   const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
   const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID")!;
+  const TWITTER_BEARER_TOKEN = Deno.env.get("TWITTER_BEARER_TOKEN");
 
   if (!DISCORD_BOT_TOKEN)
     return json({ error: "DISCORD_BOT_TOKEN not configured" }, 500);
