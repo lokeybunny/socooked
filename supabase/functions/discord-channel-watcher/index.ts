@@ -213,7 +213,7 @@ serve(async (req) => {
         // Cleanup runs every minute, so align the displayed countdown to the next
         // scheduler tick after the 5-minute mark to avoid showing "expired" before
         // the watcher can actually delete the message.
-        const expiresAtMs = Math.ceil((Date.now() + EXPIRY_MS) / 60000) * 60000;
+        const expiresAtMs = Date.now() + EXPIRY_MS;
         const expiresAt = Math.floor(expiresAtMs / 1000);
 
         // ── 1) Log to activity_log FIRST (before sending) to prevent race condition dupes ──
