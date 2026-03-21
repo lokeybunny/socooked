@@ -451,14 +451,32 @@ async function processAutoShill(
     console.log(`[auto-shill] Skipping campaign_url in reply body because X status links create quote tweets instead of replies: ${normalizedCampaignUrl}`);
   }
 
+  const targetTweetId = extractTweetId(tweetUrl);
+  if (!targetTweetId) {
+    const errorMsg = `Could not parse target tweet id from URL: ${tweetUrl}`;
+    await sendTelegram(`🚨 *Auto-Shill FAILED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill",
+      action: "failed",
+      meta: {
+        name: `❌ Reply failed: ${tweetUrl}`,
+        tweet_url: tweetUrl,
+        error: errorMsg,
+        profile: profileUsername,
+        reply_text: fullReply.substring(0, 200),
+      },
+    });
+    return { ok: false, error: errorMsg };
+  }
+
   // Post reply via Upload-Post API — use synchronous mode for immediate feedback
   const params = new URLSearchParams();
   params.append("user", profileUsername);
   params.append("platform[]", "x");
   params.append("title", fullReply);
-  params.append("comment_url", tweetUrl);
+  params.append("reply_to_id", targetTweetId);
 
-  console.log(`[auto-shill] Upload-Post payload: user=${profileUsername}, platform=x, comment_url=${tweetUrl}, title_len=${fullReply.length}`);
+  console.log(`[auto-shill] Upload-Post payload: user=${profileUsername}, platform=x, reply_to_id=${targetTweetId}, title_len=${fullReply.length}`);
 
   const uploadRes = await fetch(`${API_BASE}/upload_text`, {
     method: "POST",
