@@ -215,7 +215,11 @@ export default function TeamAuditor() {
                         <div className="space-y-1">
                           {member.recentTweets.slice(0, 5).map((t, idx) => (
                             <div key={idx} className="flex items-center gap-2 text-xs">
-                              <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                              {t.status === "verified" ? (
+                                <CheckCircle className="h-3 w-3 text-primary shrink-0" />
+                              ) : (
+                                <XCircle className="h-3 w-3 text-yellow-500 shrink-0" />
+                              )}
                               {t.url ? (
                                 <a href={t.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                                   {t.url} <ExternalLink className="inline h-2.5 w-2.5" />
