@@ -116,6 +116,7 @@ serve(async (req) => {
               profile_username: profileUsername,
               discord_msg_id: msg.id,
               discord_author: msg.author?.username || "unknown",
+              is_bot: msg.author?.bot === true,
             }),
           });
 
