@@ -555,6 +555,13 @@ async function processAutoShill(
   }
 
   // Post reply via Upload-Post API — use the SELECTED team account
+  // First attempt: direct reply. If 403 (reply-restricted), fallback to quote tweet.
+  let uploadRes: Response;
+  let uploadText: string;
+  let uploadData: any = {};
+  let usedQuoteFallback = false;
+
+  // --- Attempt 1: Direct reply ---
   const params = new URLSearchParams();
   params.append("user", selectedAccount);
   params.append("platform[]", "x");
@@ -563,16 +570,46 @@ async function processAutoShill(
 
   console.log(`[auto-shill] Upload-Post payload: user=${selectedAccount} (primary=${profileUsername}), platform=x, reply_to_id=${targetTweetId}, title_len=${fullReply.length}`);
 
-  const uploadRes = await fetch(`${API_BASE}/upload_text`, {
+  uploadRes = await fetch(`${API_BASE}/upload_text`, {
     method: "POST",
     headers: { "Authorization": `Apikey ${UPLOAD_POST_API_KEY}`, "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
   });
 
-  const uploadText = await uploadRes.text();
+  uploadText = await uploadRes.text();
   console.log(`[auto-shill] Upload-Post response (${uploadRes.status}): ${uploadText.substring(0, 500)}`);
-  let uploadData: any = {};
   try { uploadData = JSON.parse(uploadText); } catch {}
+
+  // Check if reply was blocked due to reply restrictions (403)
+  const xResult1 = uploadData?.results?.x;
+  const replyBlocked = (
+    uploadData?.success === true &&
+    xResult1?.success === false &&
+    (String(xResult1?.error || "").includes("not allowed") || String(xResult1?.error || "").includes("403"))
+  );
+
+  if (replyBlocked) {
+    // --- Attempt 2: Quote tweet fallback ---
+    console.log(`[auto-shill] Reply restricted — falling back to quote tweet for ${tweetUrl}`);
+    usedQuoteFallback = true;
+
+    const quoteText = `${fullReply}\n\n${tweetUrl}`;
+    const quoteParams = new URLSearchParams();
+    quoteParams.append("user", selectedAccount);
+    quoteParams.append("platform[]", "x");
+    quoteParams.append("title", quoteText);
+
+    uploadRes = await fetch(`${API_BASE}/upload_text`, {
+      method: "POST",
+      headers: { "Authorization": `Apikey ${UPLOAD_POST_API_KEY}`, "Content-Type": "application/x-www-form-urlencoded" },
+      body: quoteParams.toString(),
+    });
+
+    uploadText = await uploadRes.text();
+    console.log(`[auto-shill] Quote-tweet fallback response (${uploadRes.status}): ${uploadText.substring(0, 500)}`);
+    uploadData = {};
+    try { uploadData = JSON.parse(uploadText); } catch {}
+  }
 
   if (!uploadRes.ok) {
     const errorMsg = `Upload failed (${uploadRes.status}): ${uploadText.substring(0, 200)}`;
