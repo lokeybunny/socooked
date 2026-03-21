@@ -115,9 +115,19 @@ serve(async (req) => {
       let url = `${DISCORD_API}/channels/${channelId}/messages?limit=50`;
       if (lastMessageId) url += `&after=${lastMessageId}`;
 
-      const discordRes = await fetch(url, {
+      let discordRes = await fetch(url, {
         headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
       });
+
+      // If fetch fails or returns empty with a lastMessageId, the ID may be stale
+      // (e.g. channel was changed). Retry without the after param to bootstrap.
+      if (lastMessageId && (!discordRes.ok || discordRes.status === 404)) {
+        console.warn(`[discord-watcher] Stale last_message_id for channel ${channelId}, resetting`);
+        url = `${DISCORD_API}/channels/${channelId}/messages?limit=10`;
+        discordRes = await fetch(url, {
+          headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+        });
+      }
 
       if (!discordRes.ok) {
         const errText = await discordRes.text();
