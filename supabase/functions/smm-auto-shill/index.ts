@@ -298,6 +298,16 @@ serve(async (req) => {
           discord_msg_id: discordMsgId,
         });
 
+        // Mark bot message as interacted so it won't be auto-deleted
+        if (discordMsgId) {
+          await supabase
+            .from("activity_log")
+            .update({ action: "interacted" })
+            .eq("entity_type", "shill-bot-msg")
+            .eq("action", "pending")
+            .like("meta->>discord_msg_id", discordMsgId);
+        }
+
         // Load campaign config
         const { data: shillConfigs } = await supabase
           .from("site_configs").select("content")

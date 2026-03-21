@@ -8,12 +8,50 @@ const corsHeaders = {
 };
 
 const DISCORD_API = "https://discord.com/api/v10";
+const EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+
+/** Delete expired bot messages that weren't interacted with */
+async function cleanupExpiredMessages(supabase: any, botToken: string) {
+  const cutoff = new Date(Date.now() - EXPIRY_MS).toISOString();
+
+  const { data: expired } = await supabase
+    .from("activity_log")
+    .select("id, meta")
+    .eq("entity_type", "shill-bot-msg")
+    .eq("action", "pending")
+    .lt("created_at", cutoff)
+    .limit(50);
+
+  if (!expired?.length) return 0;
+
+  let deleted = 0;
+  for (const row of expired) {
+    const { channel_id, bot_message_id } = row.meta as any;
+    if (channel_id && bot_message_id) {
+      try {
+        const res = await fetch(
+          `${DISCORD_API}/channels/${channel_id}/messages/${bot_message_id}`,
+          { method: "DELETE", headers: { Authorization: `Bot ${botToken}` } }
+        );
+        if (res.ok || res.status === 404) deleted++;
+      } catch (e) {
+        console.error("[discord-watcher] Delete error:", e);
+      }
+    }
+    // Mark as expired regardless
+    await supabase
+      .from("activity_log")
+      .update({ action: "expired" })
+      .eq("id", row.id);
+  }
+  return deleted;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS")
@@ -31,13 +69,16 @@ serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
   try {
+    // ── Step 0: Cleanup expired bot messages ──
+    const expiredCount = await cleanupExpiredMessages(supabase, DISCORD_BOT_TOKEN);
+
     // Load all auto-shill configs
     const { data: configs } = await supabase
       .from("site_configs")
       .select("content, section")
       .eq("site_id", "smm-auto-shill");
 
-    if (!configs?.length) return json({ ok: true, skipped: true, reason: "No configs" });
+    if (!configs?.length) return json({ ok: true, skipped: true, reason: "No configs", expired: expiredCount });
 
     // Collect unique discord channel IDs from any config that has one
     const channelConfigs: { channelId: string; section: string; cfg: any }[] = [];
@@ -48,7 +89,7 @@ serve(async (req) => {
       }
     }
 
-    if (channelConfigs.length === 0) return json({ ok: true, skipped: true, reason: "No channels configured" });
+    if (channelConfigs.length === 0) return json({ ok: true, skipped: true, reason: "No channels configured", expired: expiredCount });
 
     // Deduplicate channels
     const seenChannels = new Set<string>();
@@ -122,6 +163,9 @@ serve(async (req) => {
         for (const tweetUrl of matches) {
           const discordAuthor = msg.author?.username || "unknown";
 
+          // Calculate expiry timestamp (5 minutes from now)
+          const expiresAt = Math.floor((Date.now() + EXPIRY_MS) / 1000);
+
           // ── 1) Send Telegram notification ──
           const tgText = `🔍 *New Tweet from Discord*\n\n` +
             `👤 Posted by: \`${discordAuthor}\`\n` +
@@ -153,15 +197,23 @@ serve(async (req) => {
             console.error("[discord-watcher] Telegram send error:", e);
           }
 
-          // ── 2) Send Discord reply in same channel with buttons ──
+          // ── 2) Send Discord reply with countdown timer ──
           const tickerClean = ticker.replace(/^\$/, "");
-          const copyText = `${ticker} #${tickerClean} #crypto` +
-            (campaignUrl ? `\n${campaignUrl}` : "");
 
           const discordEmbed = {
             title: "🔍 New Tweet Detected",
             description: `**Posted by:** ${discordAuthor}\n[Open Tweet](${tweetUrl})`,
             color: 0x1DA1F2,
+            footer: {
+              text: "⏱️ This message will self-destruct if no one interacts",
+            },
+            fields: [
+              {
+                name: "⏰ Expires",
+                value: `<t:${expiresAt}:R>`,
+                inline: true,
+              },
+            ],
           };
 
           const discordComponents = [
@@ -175,7 +227,7 @@ serve(async (req) => {
           ];
 
           try {
-            await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+            const botReplyRes = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
               method: "POST",
               headers: {
                 Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
@@ -186,12 +238,27 @@ serve(async (req) => {
                 components: discordComponents,
               }),
             });
+
+            // Track the bot message for auto-deletion
+            if (botReplyRes.ok) {
+              const botMsg = await botReplyRes.json();
+              await supabase.from("activity_log").insert({
+                entity_type: "shill-bot-msg",
+                action: "pending",
+                meta: {
+                  bot_message_id: botMsg.id,
+                  channel_id: channelId,
+                  discord_msg_id: msg.id,
+                  tweet_url: tweetUrl,
+                  expires_at: new Date(expiresAt * 1000).toISOString(),
+                },
+              });
+            }
           } catch (e) {
             console.error("[discord-watcher] Discord reply error:", e);
           }
 
           totalForwarded++;
-
 
           // Log to activity_log for dedup
           await supabase.from("activity_log").insert({
@@ -218,7 +285,7 @@ serve(async (req) => {
       }
     }
 
-    return json({ ok: true, forwarded: totalForwarded });
+    return json({ ok: true, forwarded: totalForwarded, expired: expiredCount });
   } catch (err) {
     console.error("[discord-watcher] Fatal error:", err);
     return json({ error: String(err) }, 500);
