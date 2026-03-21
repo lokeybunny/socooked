@@ -178,7 +178,7 @@ serve(async (req) => {
         return json({ type: 4, data: { content: "❌ No tweet URL found.", flags: 64 } });
       }
 
-      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram);
+      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram, false);
       processPromise.catch(e => console.error("[auto-shill] Async process error:", e));
 
       return json({ type: 4, data: { content: `🗣️ Auto-shill queued: ${tweetUrl}\n👤 ${profileUsername}` } });
