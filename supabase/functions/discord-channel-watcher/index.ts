@@ -225,8 +225,22 @@ serve(async (req) => {
           continue; // Already processed this message
         }
 
-        // Process only the first URL per message to avoid spamming
-        const tweetUrl = uniqueUrls[0];
+        // For RT (retweet) messages in the raid channel, use the quoted tweet
+        // URL which is typically the 3rd-to-last link (the actual target tweet).
+        let tweetUrl: string;
+        const isRtInRaidChannel = listenChannelId === "1484843473352921138" &&
+          (msg.content?.includes("RT") || msg.embeds?.some((e: any) =>
+            [e.title, e.description].some((s: string | undefined) => s?.includes("RT"))
+          ));
+
+        if (isRtInRaidChannel && uniqueUrls.length >= 3) {
+          tweetUrl = uniqueUrls[uniqueUrls.length - 3];
+        } else if (isRtInRaidChannel && uniqueUrls.length >= 2) {
+          // Fallback: pick the last URL (most likely the quoted tweet)
+          tweetUrl = uniqueUrls[uniqueUrls.length - 1];
+        } else {
+          tweetUrl = uniqueUrls[0];
+        }
         const discordAuthor = msg.author?.username || "unknown";
 
         // Cleanup runs every minute, so align the displayed countdown to the next
