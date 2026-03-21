@@ -1288,7 +1288,7 @@ async function processAutoShill(
   try {
     const hook = await generateInterruptorHook(LOVABLE_API_KEY);
     const tickerClean = ticker.replace(/^\$/, "");
-    replyText = `${hook}\n\n${ticker} #${tickerClean} #crypto${campaignUrl ? `\n${campaignUrl}` : ""}`;
+    replyText = `${hook}\n\n${ticker} #${tickerClean} #repost${campaignUrl ? `\n${campaignUrl}` : ""}`;
   } catch (e) {
     console.error("[auto-shill] Failed to generate reply:", e);
     const tickerClean = ticker.replace(/^\$/, "");
