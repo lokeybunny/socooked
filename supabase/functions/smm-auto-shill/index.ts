@@ -406,14 +406,31 @@ serve(async (req) => {
   }
 });
 
-// ─── Find an available team account (not in cooldown) ───
+// ─── Find an available team account (not in cooldown or 24h reply ban) ───
 async function findAvailableAccount(
   supabase: any, teamAccounts: string[], primaryAccount: string, COOLDOWN_MS: number
 ): Promise<{ account: string; allInCooldown: boolean; cooldownInfo: string }> {
   const accounts = teamAccounts.length > 0 ? teamAccounts : [primaryAccount];
+  const BAN_MS = 24 * 60 * 60 * 1000; // 24 hours
+  const banCutoff = new Date(Date.now() - BAN_MS).toISOString();
   const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
 
-  // Fetch recent activity for all team accounts
+  // Fetch 24h reply bans
+  const { data: banEntries } = await supabase
+    .from("activity_log").select("meta, created_at")
+    .eq("entity_type", "auto-shill")
+    .eq("action", "reply_banned")
+    .gte("created_at", banCutoff)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const bannedAccounts = new Set<string>();
+  for (const entry of banEntries || []) {
+    const account = entry.meta?.used_account || "";
+    if (account) bannedAccounts.add(account);
+  }
+
+  // Fetch recent cooldown activity
   const { data: recentActivity } = await supabase
     .from("activity_log").select("meta, created_at")
     .eq("entity_type", "auto-shill")
@@ -422,7 +439,6 @@ async function findAvailableAccount(
     .order("created_at", { ascending: false })
     .limit(100);
 
-  // Build a map of last activity per account
   const lastActivityMap = new Map<string, Date>();
   for (const entry of recentActivity || []) {
     const usedAccount = entry.meta?.used_account || entry.meta?.profile || "";
@@ -431,8 +447,12 @@ async function findAvailableAccount(
     }
   }
 
-  // Find first account NOT in cooldown
+  // Find first account NOT banned and NOT in cooldown
   for (const account of accounts) {
+    if (bannedAccounts.has(account)) {
+      console.log(`[auto-shill] Account @${account} is reply-banned (24h)`);
+      continue;
+    }
     const lastAt = lastActivityMap.get(account);
     if (!lastAt) {
       console.log(`[auto-shill] Account @${account} is available (no recent activity)`);
@@ -445,10 +465,16 @@ async function findAvailableAccount(
     }
   }
 
-  // All accounts in cooldown — find the one that will be free soonest
-  let soonestAccount = accounts[0];
+  // All accounts unavailable — find soonest available (excluding banned)
+  const unbanned = accounts.filter(a => !bannedAccounts.has(a));
+  if (unbanned.length === 0) {
+    const cooldownInfo = `All ${accounts.length} account(s) are reply-banned (24h). No accounts available.`;
+    return { account: accounts[0], allInCooldown: true, cooldownInfo };
+  }
+
+  let soonestAccount = unbanned[0];
   let soonestWaitMs = COOLDOWN_MS;
-  for (const account of accounts) {
+  for (const account of unbanned) {
     const lastAt = lastActivityMap.get(account);
     if (lastAt) {
       const wait = COOLDOWN_MS - (Date.now() - lastAt.getTime());
@@ -460,7 +486,7 @@ async function findAvailableAccount(
   }
 
   const waitMin = Math.ceil(soonestWaitMs / 60000);
-  const cooldownInfo = `All ${accounts.length} team account(s) in cooldown. @${soonestAccount} available in ~${waitMin}m`;
+  const cooldownInfo = `All ${unbanned.length} available account(s) in cooldown. @${soonestAccount} available in ~${waitMin}m`;
   return { account: soonestAccount, allInCooldown: true, cooldownInfo };
 }
 
@@ -585,11 +611,30 @@ async function processAutoShill(
 
   // Check if reply was blocked due to reply restrictions (403)
   const xResult1 = uploadData?.results?.x;
+  const xError1 = String(xResult1?.error || "");
+  const is403Reply = xError1.includes("403") || xError1.toLowerCase().includes("reply") && xError1.toLowerCase().includes("failed");
   const replyBlocked = (
     uploadData?.success === true &&
     xResult1?.success === false &&
-    (String(xResult1?.error || "").includes("not allowed") || String(xResult1?.error || "").includes("403"))
+    (xError1.includes("not allowed") || is403Reply)
   );
+
+  // If this is a 403 reply ban, log a 24h ban for this account
+  if (is403Reply) {
+    console.log(`[auto-shill] 🚫 Account @${selectedAccount} hit 403 reply ban — entering 24h cooldown`);
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill", action: "reply_banned",
+      meta: {
+        name: `🚫 Reply banned (24h): @${selectedAccount}`,
+        tweet_url: tweetUrl,
+        profile: profileUsername,
+        used_account: selectedAccount,
+        error: xError1.substring(0, 300),
+        ban_duration_hours: 24,
+      },
+    });
+    await sendTelegram(`🚫 *Reply Ban Detected* (@${selectedAccount})\n🔗 ${tweetUrl}\n⏰ 24h cooldown activated\n❌ ${xError1.substring(0, 200)}`);
+  }
 
   if (replyBlocked) {
     // --- Attempt 2: Quote tweet fallback ---
@@ -641,6 +686,24 @@ async function processAutoShill(
 
   if (!isProviderConfirmed) {
     const errorMsg = `Upload not confirmed (${uploadRes.status}): ${uploadText.substring(0, 300)}`;
+    // Check if this is a 403 reply ban in the not-confirmed path
+    const xErr = String(xResult?.error || "");
+    const is403Ban = xErr.includes("403") || (xErr.toLowerCase().includes("reply") && xErr.toLowerCase().includes("failed"));
+    if (is403Ban) {
+      console.log(`[auto-shill] 🚫 Account @${selectedAccount} hit 403 reply ban (not-confirmed path) — 24h cooldown`);
+      await supabase.from("activity_log").insert({
+        entity_type: "auto-shill", action: "reply_banned",
+        meta: {
+          name: `🚫 Reply banned (24h): @${selectedAccount}`,
+          tweet_url: tweetUrl,
+          profile: profileUsername,
+          used_account: selectedAccount,
+          error: xErr.substring(0, 300),
+          ban_duration_hours: 24,
+        },
+      });
+      await sendTelegram(`🚫 *Reply Ban Detected* (@${selectedAccount})\n🔗 ${tweetUrl}\n⏰ 24h cooldown activated\n❌ ${xErr.substring(0, 200)}`);
+    }
     await sendTelegram(`🚨 *Auto-Shill NOT CONFIRMED* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "failed",
