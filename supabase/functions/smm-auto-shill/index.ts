@@ -369,11 +369,14 @@ serve(async (req) => {
             .like("meta->>discord_msg_id", discordMsgId);
         }
 
+        // type 7 = UPDATE_MESSAGE — replaces the original embed so it gets
+        // auto-deleted along with the bot message (no orphan ephemeral)
         return json({
-          type: 4,
+          type: 7,
           data: {
             content: `🚀 **Go shill this tweet now!**\n${tweetUrl}\n\n✅ Click recorded for \`${discordUsername}\``,
-            flags: 64,
+            embeds: [],
+            components: [],
           },
         });
       }
@@ -415,10 +418,11 @@ serve(async (req) => {
           (campaignUrl ? `\n${campaignUrl}` : "");
 
         return json({
-          type: 4,
+          type: 7,
           data: {
             content: `📋 **Shill Copy — paste this as your reply:**\n\`\`\`\n${copyText}\n\`\`\``,
-            flags: 64,
+            embeds: [],
+            components: [],
           },
         });
       }
