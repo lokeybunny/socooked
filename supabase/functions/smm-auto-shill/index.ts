@@ -822,7 +822,7 @@ serve(async (req) => {
             : "";
         }
 
-        const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#crypto`];
+        const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
         if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, userHashtag);
