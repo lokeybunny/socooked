@@ -58,6 +58,27 @@ function dedupeHandles(values: unknown[]): string[] {
   return output;
 }
 
+function normalizeXLabel(value: unknown, fallback: string): string {
+  const label = String(value || "").trim();
+  return label || fallback;
+}
+
+function dedupeAccountChoices(accounts: Array<{ handle: string; label: string }>): Array<{ handle: string; label: string }> {
+  const seen = new Set<string>();
+  const output: Array<{ handle: string; label: string }> = [];
+
+  for (const account of accounts) {
+    const handle = normalizeXHandle(account.handle);
+    if (!handle) continue;
+    const key = handle.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push({ handle, label: normalizeXLabel(account.label, handle) });
+  }
+
+  return output;
+}
+
 function extractXHandlesFromProfiles(profiles: any[]): string[] {
   return dedupeHandles(
     profiles.flatMap((profile: any) => {
@@ -81,6 +102,32 @@ function extractXHandlesFromProfiles(profiles: any[]): string[] {
         : [];
 
       return [...handlesFromPlatforms, ...handlesFromSocial];
+    }),
+  );
+}
+
+function extractXAccountChoicesFromProfiles(profiles: any[]): Array<{ handle: string; label: string }> {
+  return dedupeAccountChoices(
+    profiles.flatMap((profile: any) => {
+      const connectedPlatforms = Array.isArray(profile?.connected_platforms) ? profile.connected_platforms : [];
+      const socialAccounts = profile?.social_accounts || {};
+      const twitterSocial = socialAccounts.twitter || socialAccounts.x || null;
+
+      const platformChoices = connectedPlatforms
+        .filter((cp: any) => (cp?.platform === "twitter" || cp?.platform === "x") && cp?.connected)
+        .map((cp: any) => ({
+          handle: cp?.handle || cp?.username || cp?.account_username || cp?.screen_name || cp?.display_name,
+          label: cp?.display_name || cp?.name || cp?.handle || cp?.username,
+        }));
+
+      const socialChoice = twitterSocial
+        ? [{
+            handle: twitterSocial?.handle || twitterSocial?.username || twitterSocial?.account_username || twitterSocial?.screen_name || twitterSocial?.display_name,
+            label: twitterSocial?.display_name || twitterSocial?.name || twitterSocial?.handle || twitterSocial?.username,
+          }]
+        : [];
+
+      return [...platformChoices, ...socialChoice];
     }),
   );
 }
@@ -737,27 +784,35 @@ serve(async (req) => {
     );
 
     // Build autocomplete choices from all connected X accounts
-    let allXAccounts: string[] = dedupeHandles(cfg?.all_x_accounts || []);
+    let allXAccounts: string[] = dedupeHandles([...(cfg?.all_x_accounts || []), ...(cfg?.team_accounts || [])]);
+    let accountChoiceRecords: Array<{ handle: string; label: string }> = dedupeAccountChoices(
+      allXAccounts.map((handle) => ({ handle, label: handle })),
+    );
 
-    // Fallback: fetch from Upload-Post API if not saved yet
-    if (allXAccounts.length === 0) {
-      try {
-        const API_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
-        const profilesRes = await fetch("https://app.upload-post.com/api/profiles", {
-          headers: { "Authorization": `Bearer ${API_KEY}`, "Content-Type": "application/json" },
-        });
-        if (profilesRes.ok) {
-          const profilesData = await profilesRes.json();
-          const profiles = profilesData?.data || profilesData || [];
-          allXAccounts = extractXHandlesFromProfiles(profiles);
-        }
-      } catch (e) {
-        console.error("[auto-shill] Fallback profile fetch error:", e);
+    // Always merge with live provider data so stale saved config can't hide accounts
+    try {
+      const API_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
+      const profilesRes = await fetch("https://api.upload-post.com/api/uploadposts/users", {
+        headers: { "Authorization": `Apikey ${API_KEY}` },
+      });
+      if (profilesRes.ok) {
+        const profilesData = await profilesRes.json();
+        const profiles = profilesData?.profiles || profilesData?.users || profilesData?.data || (Array.isArray(profilesData) ? profilesData : []);
+        const liveChoices = extractXAccountChoicesFromProfiles(profiles);
+        accountChoiceRecords = dedupeAccountChoices([...accountChoiceRecords, ...liveChoices]);
+        allXAccounts = dedupeHandles([...allXAccounts, ...extractXHandlesFromProfiles(profiles)]);
+      } else {
+        console.error("[auto-shill] Live profile fetch failed:", profilesRes.status, await profilesRes.text());
       }
+    } catch (e) {
+      console.error("[auto-shill] Live profile fetch error:", e);
     }
 
     if (allXAccounts.length === 0) allXAccounts = dedupeHandles(cfg?.team_accounts || []);
-    const accountChoices = allXAccounts.slice(0, 25).map((a: string) => ({ name: `@${a}`, value: a }));
+    if (accountChoiceRecords.length === 0) {
+      accountChoiceRecords = dedupeAccountChoices(allXAccounts.map((handle) => ({ handle, label: handle })));
+    }
+    const accountChoices = accountChoiceRecords.slice(0, 25).map(({ handle, label }) => ({ name: `@${label}`, value: handle }));
 
     const commands = [
       {
