@@ -24,7 +24,7 @@ async function cleanupExpiredMessages(supabase: any, botToken: string) {
     .from("activity_log")
     .select("id, meta")
     .eq("entity_type", "shill-bot-msg")
-    .eq("action", "pending")
+    .in("action", ["pending", "interacted"])
     .lt("created_at", cutoff)
     .limit(50);
 
