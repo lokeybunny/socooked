@@ -118,19 +118,18 @@ serve(async (req) => {
     for (const { listenChannelId, replyChannelId, section: ownerSection, cfg } of uniqueChannels) {
       const lastMessageId = cfg.last_message_id || null;
 
-      // Fetch recent messages from Discord channel
-      let url = `${DISCORD_API}/channels/${channelId}/messages?limit=50`;
+      // Fetch recent messages from the LISTEN channel
+      let url = `${DISCORD_API}/channels/${listenChannelId}/messages?limit=50`;
       if (lastMessageId) url += `&after=${lastMessageId}`;
 
       let discordRes = await fetch(url, {
         headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
       });
 
-      // If fetch fails or returns empty with a lastMessageId, the ID may be stale
-      // (e.g. channel was changed). Retry without the after param to bootstrap.
+      // If fetch fails with a lastMessageId, it may be stale. Retry without it.
       if (lastMessageId && (!discordRes.ok || discordRes.status === 404)) {
-        console.warn(`[discord-watcher] Stale last_message_id for channel ${channelId}, resetting`);
-        url = `${DISCORD_API}/channels/${channelId}/messages?limit=10`;
+        console.warn(`[discord-watcher] Stale last_message_id for channel ${listenChannelId}, resetting`);
+        url = `${DISCORD_API}/channels/${listenChannelId}/messages?limit=10`;
         discordRes = await fetch(url, {
           headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
         });
@@ -139,7 +138,7 @@ serve(async (req) => {
       if (!discordRes.ok) {
         const errText = await discordRes.text();
         console.error(
-          `[discord-watcher] Failed to fetch channel ${channelId}: ${discordRes.status} ${errText}`
+          `[discord-watcher] Failed to fetch channel ${listenChannelId}: ${discordRes.status} ${errText}`
         );
         continue;
       }
