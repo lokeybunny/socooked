@@ -49,7 +49,8 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<'campaign' | 'team' | 'cooldown' | 'feed'>('campaign');
+  const [tab, setTab] = useState<'campaign' | 'team' | 'cooldown' | 'feed' | 'activity'>('campaign');
+  const [shillClicks, setShillClicks] = useState<any[]>([]);
 
   // Derive X-connected profile usernames from profiles prop
   const xProfiles = profiles
