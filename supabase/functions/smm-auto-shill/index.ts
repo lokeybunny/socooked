@@ -485,13 +485,28 @@ serve(async (req) => {
         const cfg = enabledCfg?.content as any;
         const campaignUrl = cfg?.campaign_url || "";
         const shillTicker = cfg?.ticker || "";
+        const accountHashtags: Record<string, string> = cfg?.account_hashtags || {};
 
         if (!shillTicker) {
           return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
         }
 
         const tickerClean = shillTicker.replace(/^\$/, "");
-        const copyText = `${shillTicker} #${tickerClean} #crypto` +
+
+        // Pick a random hashtag from connected accounts that have one set
+        const availableHashtags = Object.values(accountHashtags).filter(Boolean);
+        const randomHashtag = availableHashtags.length > 0
+          ? `#${availableHashtags[Math.floor(Math.random() * availableHashtags.length)].replace(/^#/, "")}`
+          : "";
+
+        // Build copy parts and insert hashtag at random position
+        const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#crypto`];
+        if (randomHashtag) {
+          const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
+          copyParts.splice(insertIdx, 0, randomHashtag);
+        }
+
+        const copyText = copyParts.join(" ") +
           (campaignUrl ? `\n${campaignUrl}` : "");
 
         return json({
