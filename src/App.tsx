@@ -49,6 +49,7 @@ import ThankYou from "./pages/ThankYou";
 import WarrenLanding from "./pages/WarrenLanding";
 import BundlerDocs from "./pages/BundlerDocs";
 import Vanities from "./pages/Vanities";
+import ReplyEngine from "./pages/ReplyEngine";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
@@ -120,6 +121,7 @@ const App = () => (
             <Route path="/bundler-docs" element={<BundlerDocs />} />
             <Route path="/bundler-docs/:slug" element={<BundlerDocs />} />
             <Route path="/vanities" element={<Vanities />} />
+            <Route path="/reply-engine" element={<RestrictedGate><ReplyEngine /></RestrictedGate>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
