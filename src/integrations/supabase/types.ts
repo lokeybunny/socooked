@@ -1774,6 +1774,45 @@ export type Database = {
           },
         ]
       }
+      raiders: {
+        Row: {
+          created_at: string
+          discord_user_id: string
+          discord_username: string
+          id: string
+          rate_per_click: number
+          secret_code: string | null
+          status: string
+          total_clicks: number
+          total_earned: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discord_user_id: string
+          discord_username: string
+          id?: string
+          rate_per_click?: number
+          secret_code?: string | null
+          status?: string
+          total_clicks?: number
+          total_earned?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discord_user_id?: string
+          discord_username?: string
+          id?: string
+          rate_per_click?: number
+          secret_code?: string | null
+          status?: string
+          total_clicks?: number
+          total_earned?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reply_engine_audit_logs: {
         Row: {
           action: string
@@ -2053,11 +2092,14 @@ export type Database = {
       }
       shill_clicks: {
         Row: {
+          click_type: string
           created_at: string
           discord_msg_id: string | null
           discord_user_id: string
           discord_username: string
           id: string
+          raider_secret_code: string | null
+          rate: number
           receipt_tweet_url: string | null
           source_tweet_url: string | null
           status: string
@@ -2065,11 +2107,14 @@ export type Database = {
           verified_at: string | null
         }
         Insert: {
+          click_type?: string
           created_at?: string
           discord_msg_id?: string | null
           discord_user_id: string
           discord_username: string
           id?: string
+          raider_secret_code?: string | null
+          rate?: number
           receipt_tweet_url?: string | null
           source_tweet_url?: string | null
           status?: string
@@ -2077,11 +2122,14 @@ export type Database = {
           verified_at?: string | null
         }
         Update: {
+          click_type?: string
           created_at?: string
           discord_msg_id?: string | null
           discord_user_id?: string
           discord_username?: string
           id?: string
+          raider_secret_code?: string | null
+          rate?: number
           receipt_tweet_url?: string | null
           source_tweet_url?: string | null
           status?: string

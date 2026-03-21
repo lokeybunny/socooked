@@ -706,6 +706,7 @@ serve(async (req) => {
       const discordUser = interaction.member?.user || interaction.user || {};
       const discordUserId = discordUser.id || "unknown";
       const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+      const interactionChannelId = interaction.channel_id || interaction.channel?.id || "";
 
       // Extract tweet URL from the original message's embed
       let tweetUrl = "";
@@ -716,7 +717,154 @@ serve(async (req) => {
         if (urlMatch) tweetUrl = urlMatch[0].replace(/\)$/, "");
       }
 
-      // ── Load config to check assignments ──
+      // ── RAID CHANNEL BYPASS — channel 1485010551196090448 ──
+      const RAID_CHANNEL_ID = "1485010551196090448";
+      const isRaidChannel = interactionChannelId === RAID_CHANNEL_ID;
+
+      if (isRaidChannel) {
+        // Upsert raider record (auto-register on first click)
+        await supabase.from("raiders").upsert({
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+        }, { onConflict: "discord_user_id" });
+
+        // Check if raider has a secret code assigned
+        const { data: raider } = await supabase
+          .from("raiders")
+          .select("secret_code, status")
+          .eq("discord_user_id", discordUserId)
+          .maybeSingle();
+
+        if (!raider?.secret_code) {
+          return json({
+            type: 4,
+            data: {
+              content: `⚔️ **Welcome, Raider!**\n\nYou've been registered as \`${discordUsername}\`.\n\n⏳ An admin needs to assign you a **secret code** before you can start raiding.\nCheck back soon!`,
+              flags: 64,
+            },
+          });
+        }
+
+        if (raider.status !== "active") {
+          return json({
+            type: 4,
+            data: {
+              content: `🚫 Your raider account is currently **${raider.status}**. Contact an admin.`,
+              flags: 64,
+            },
+          });
+        }
+
+        const raiderSecretCode = raider.secret_code;
+
+        // ─── RAID NOW button ───
+        if (customId.startsWith("shill_now_")) {
+          const discordMsgId = customId.replace("shill_now_", "") || null;
+
+          const trackedMessage = await getTrackedBotMessage(supabase, discordMsgId);
+          if (isBotMessageExpired(trackedMessage)) {
+            await expireTrackedBotMessage(supabase, trackedMessage, DISCORD_BOT_TOKEN);
+            return json({ type: 4, data: { content: "⏰ This raid alert has expired — find a new post.", flags: 64 } });
+          }
+
+          const cleanTweetUrl = (tweetUrl || "").replace(/[)\]}>]+$/, "");
+          await supabase.from("shill_clicks").insert({
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            tweet_url: cleanTweetUrl || null,
+            discord_msg_id: discordMsgId,
+            source_tweet_url: cleanTweetUrl || null,
+            status: "clicked",
+            click_type: "raid",
+            rate: 0.02,
+            raider_secret_code: raiderSecretCode,
+          });
+
+          // Update raider stats
+          await supabase.rpc("", {}).catch(() => {});
+          await supabase.from("raiders")
+            .update({
+              total_clicks: (raider as any).total_clicks ? (raider as any).total_clicks + 1 : 1,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("discord_user_id", discordUserId);
+
+          if (discordMsgId) {
+            await supabase.from("activity_log")
+              .update({ action: "interacted" })
+              .eq("entity_type", "shill-bot-msg")
+              .eq("action", "pending")
+              .like("meta->>discord_msg_id", discordMsgId);
+          }
+
+          return json({
+            type: 4,
+            data: {
+              content: `⚔️ **RAID THIS TWEET NOW!**\n${tweetUrl}\n\n✅ Raid logged for \`${discordUsername}\`\n💰 **$0.02 pending** — post your reply with \`#${raiderSecretCode}\` to confirm payment`,
+              flags: 64,
+            },
+          });
+        }
+
+        // ─── Get Raid Copy button ───
+        if (customId.startsWith("shill_copy")) {
+          const discordMsgId = customId.replace("shill_copy_", "") || null;
+
+          const cleanTweetUrl2 = (tweetUrl || "").replace(/[)\]}>]+$/, "");
+          await supabase.from("shill_clicks").insert({
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            tweet_url: cleanTweetUrl2 || null,
+            discord_msg_id: discordMsgId,
+            source_tweet_url: cleanTweetUrl2 || null,
+            status: "clicked",
+            click_type: "raid",
+            rate: 0.02,
+            raider_secret_code: raiderSecretCode,
+          });
+
+          if (discordMsgId) {
+            await supabase.from("activity_log")
+              .update({ action: "interacted" })
+              .eq("entity_type", "shill-bot-msg")
+              .eq("action", "pending")
+              .like("meta->>discord_msg_id", discordMsgId);
+          }
+
+          // Load shill config for copy text
+          const raidProfileUsername = matchedProfile || "NysonBlack";
+          const { content: raidCfg } = await loadShillConfig(supabase, raidProfileUsername);
+          const campaignUrl = raidCfg?.campaign_url || "";
+          const shillTicker = raidCfg?.ticker || "";
+
+          if (!shillTicker) {
+            return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
+          }
+
+          const tickerClean = shillTicker.replace(/^\$/, "");
+          // Raider's secret code is their unique hashtag
+          const raidHashtag = `#${raiderSecretCode}`;
+
+          const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
+          // Insert raider's secret code hashtag at random position
+          const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
+          copyParts.splice(insertIdx, 0, raidHashtag);
+
+          const copyText = copyParts.join(" ") + (campaignUrl ? `\n${campaignUrl}` : "");
+
+          return json({
+            type: 4,
+            data: {
+              content: `📋 **Raid Copy — paste this as your reply:**\n\`\`\`\n${copyText}\n\`\`\`\n🔑 Your secret code: \`#${raiderSecretCode}\`\n💰 $0.02 per verified raid`,
+              flags: 64,
+            },
+          });
+        }
+
+        return json({ type: 4, data: { content: "❓ Unknown action.", flags: 64 } });
+      }
+
+      // ── Load config to check assignments (non-raid channels) ──
       const profileUsername = matchedProfile || "NysonBlack";
       const { content: shillCfg } = await loadShillConfig(supabase, profileUsername);
       const discordAssignments: Record<string, string> = shillCfg.discord_assignments || {};
