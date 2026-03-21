@@ -138,6 +138,10 @@ export default function ReplyEngine() {
           <TabsList className="bg-muted/50">
             <TabsTrigger value="activity">Activity Feed</TabsTrigger>
             <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+            <TabsTrigger value="auditor" className="gap-1.5">
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              Team Auditor
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="activity" className="mt-4">
