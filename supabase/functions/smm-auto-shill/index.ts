@@ -68,6 +68,37 @@ async function loadShillConfig(supabase: any, profileUsername: string) {
   return { row: cfgRow, content: (cfgRow?.content as any) || {} };
 }
 
+async function resolveDiscordGuildId(
+  discordBotToken: string,
+  cfg: any,
+  explicitGuildId?: string,
+): Promise<string> {
+  const providedGuildId = explicitGuildId?.trim() || cfg?.discord_guild_id?.trim() || "";
+  if (providedGuildId) return providedGuildId;
+
+  const candidateChannelId = String(
+    cfg?.discord_reply_channel_id || cfg?.discord_listen_channel_id || cfg?.discord_channel_id || "",
+  ).trim();
+  if (!candidateChannelId) return "";
+
+  try {
+    const channelRes = await fetch(`https://discord.com/api/v10/channels/${candidateChannelId}`, {
+      headers: { Authorization: `Bot ${discordBotToken}` },
+    });
+
+    if (!channelRes.ok) {
+      console.error("[auto-shill] Failed to resolve guild from channel:", channelRes.status, await channelRes.text());
+      return "";
+    }
+
+    const channelData = await channelRes.json();
+    return String(channelData?.guild_id || "").trim();
+  } catch (error) {
+    console.error("[auto-shill] Guild resolution error:", error);
+    return "";
+  }
+}
+
 // ─── Telegram helper ───
 function makeSendTelegram(token: string, chatId: string) {
   return async (text: string) => {
@@ -642,21 +673,18 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const profileUsername = body.profile || urlObj.searchParams.get("profile") || "NysonBlack";
 
-    const { data: cfgRow } = await supabase
-      .from("site_configs").select("content")
-      .eq("site_id", "smm-auto-shill").eq("section", profileUsername).single();
-
-    const cfg = cfgRow?.content as any;
+    const { row: cfgRow, content: cfg } = await loadShillConfig(supabase, profileUsername);
     const appId = cfg?.discord_app_id;
     if (!appId) return json({ error: "No discord_app_id configured" }, 400);
 
     const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
     if (!DISCORD_BOT_TOKEN_ENV) return json({ error: "DISCORD_BOT_TOKEN not set" }, 500);
 
-    const guildId = body.guild_id || urlObj.searchParams.get("guild_id") || "";
-    const registerUrl = guildId
-      ? `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
-      : `https://discord.com/api/v10/applications/${appId}/commands`;
+    const guildId = await resolveDiscordGuildId(
+      DISCORD_BOT_TOKEN_ENV,
+      cfg,
+      body.guild_id || urlObj.searchParams.get("guild_id") || "",
+    );
 
     // Build autocomplete choices from all connected X accounts
     let allXAccounts: string[] = cfg?.all_x_accounts || [];
@@ -705,15 +733,46 @@ serve(async (req) => {
       },
     ];
 
+    const registerTargets = [
+      {
+        scope: "global",
+        url: `https://discord.com/api/v10/applications/${appId}/commands`,
+      },
+      ...(guildId ? [{
+        scope: "guild",
+        url: `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`,
+      }] : []),
+    ];
+
     const results = [];
-    for (const cmd of commands) {
-      const res = await fetch(registerUrl, {
-        method: "POST",
+    for (const target of registerTargets) {
+      const res = await fetch(target.url, {
+        method: "PUT",
         headers: { "Authorization": `Bot ${DISCORD_BOT_TOKEN_ENV}`, "Content-Type": "application/json" },
-        body: JSON.stringify(cmd),
+        body: JSON.stringify(commands),
       });
-      results.push({ command: cmd.name, status: res.status, data: await res.json() });
+
+      const responseText = await res.text();
+      let data: unknown = responseText;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        data = responseText;
+      }
+
+      results.push({ scope: target.scope, status: res.status, data });
     }
+
+    if (guildId && cfgRow?.id) {
+      await supabase.from("site_configs").update({
+        content: {
+          ...cfg,
+          discord_guild_id: guildId,
+          all_x_accounts: allXAccounts,
+        },
+      }).eq("id", cfgRow.id);
+    }
+
     return json({ ok: true, results });
   }
 
@@ -842,7 +901,7 @@ serve(async (req) => {
     // ─── SAVE campaign config ───
     if (action === "save-config") {
       const body = await req.json();
-      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id, discord_listen_channel_id, discord_reply_channel_id, team_accounts, retweet_accounts, account_hashtags, all_x_accounts } = body;
+      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id, discord_listen_channel_id, discord_reply_channel_id, discord_guild_id, team_accounts, retweet_accounts, account_hashtags, all_x_accounts } = body;
       const section = profile_username || "NysonBlack";
 
       // Preserve fields that aren't sent from the save
@@ -863,6 +922,7 @@ serve(async (req) => {
           discord_channel_id: discord_channel_id || "",
           discord_listen_channel_id: discord_listen_channel_id || existingContent?.discord_listen_channel_id || "",
           discord_reply_channel_id: discord_reply_channel_id || existingContent?.discord_reply_channel_id || "",
+          discord_guild_id: discord_guild_id || existingContent?.discord_guild_id || "",
           team_accounts: Array.isArray(team_accounts) ? team_accounts : [],
           retweet_accounts: Array.isArray(retweet_accounts) ? retweet_accounts : [],
           account_hashtags: account_hashtags || existingContent?.account_hashtags || {},
