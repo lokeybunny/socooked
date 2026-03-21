@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-bot-secret",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -45,6 +45,84 @@ serve(async (req) => {
   }
 
   try {
+    // ─── INGEST POST (from Discord / external source) ───
+    if (action === "ingest" && req.method === "POST") {
+      const BOT_SECRET = Deno.env.get("BOT_SECRET") || "";
+      const incomingSecret = req.headers.get("x-bot-secret") || "";
+      if (!BOT_SECRET || incomingSecret !== BOT_SECRET) {
+        return json({ error: "Unauthorized" }, 401);
+      }
+
+      const body = await req.json();
+      const tweetUrl: string = body.tweet_url || "";
+      const discordMsgId: string = body.discord_msg_id || "";
+      const discordAuthor: string = body.discord_author || "unknown";
+
+      if (!tweetUrl) return json({ error: "tweet_url required" }, 400);
+
+      // Extract external post ID from URL: https://x.com/user/status/123456
+      const statusMatch = tweetUrl.match(/\/status\/(\d+)/);
+      const externalPostId = statusMatch?.[1] || null;
+
+      // Extract author handle from URL: https://x.com/SomeUser/status/...
+      const handleMatch = tweetUrl.match(/(?:x\.com|twitter\.com)\/([^\/\?]+)\/status/i);
+      const authorHandle = handleMatch?.[1] || null;
+
+      // Dedup: skip if this external_post_id already exists
+      if (externalPostId) {
+        const { data: existing } = await supabase
+          .from("reply_engine_posts")
+          .select("id")
+          .eq("external_post_id", externalPostId)
+          .limit(1);
+        if (existing?.length) {
+          return json({ ok: true, skipped: true, reason: "already_ingested", post_id: existing[0].id });
+        }
+      }
+
+      // Fetch tweet text via X API if bearer token available
+      let textContent = "";
+      const TWITTER_BEARER = Deno.env.get("TWITTER_BEARER_TOKEN");
+      if (externalPostId && TWITTER_BEARER) {
+        try {
+          const tRes = await fetch(
+            `https://api.x.com/2/tweets/${externalPostId}?tweet.fields=text,author_id`,
+            { headers: { Authorization: `Bearer ${TWITTER_BEARER}` } }
+          );
+          if (tRes.ok) {
+            const tData = await tRes.json();
+            textContent = tData?.data?.text || "";
+          }
+        } catch (e) {
+          console.error("[reply-engine] X API fetch failed:", e);
+        }
+      }
+
+      const { data: post, error: insertErr } = await supabase.from("reply_engine_posts").insert({
+        platform: "x",
+        external_post_id: externalPostId,
+        post_url: tweetUrl,
+        author_handle: authorHandle,
+        text_content: textContent,
+        category: "discord-ingested",
+        status: "pending",
+      }).select().single();
+
+      if (insertErr) {
+        console.error("[reply-engine] Insert error:", insertErr);
+        return json({ error: insertErr.message }, 500);
+      }
+
+      await audit("post_ingested", "post", post.id, {
+        source: "discord",
+        discord_msg_id: discordMsgId,
+        discord_author: discordAuthor,
+        tweet_url: tweetUrl,
+      });
+
+      return json({ ok: true, post_id: post.id });
+    }
+
     // ─── GENERATE REPLIES ───
     if (action === "generate" && req.method === "POST") {
       const { post_id } = await req.json();
