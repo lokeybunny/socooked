@@ -34,7 +34,7 @@ serve(async (req) => {
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
   const BOT_SECRET = Deno.env.get("BOT_SECRET")!;
   const UPLOAD_POST_API_KEY = Deno.env.get("UPLOAD_POST_API_KEY")!;
   const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
@@ -128,8 +128,9 @@ serve(async (req) => {
   // ─── Auth: bot secret or anon key ───
   const botSecret = req.headers.get("x-bot-secret");
   const authHeader = req.headers.get("authorization") || "";
+  const apikeyHeader = req.headers.get("apikey") || "";
   const isBot = botSecret === BOT_SECRET;
-  const isAnon = authHeader.includes(ANON_KEY);
+  const isAnon = (ANON_KEY && (authHeader.includes(ANON_KEY) || apikeyHeader === ANON_KEY));
   if (!isBot && !isAnon) return json({ error: "Unauthorized" }, 401);
 
   // ─── Telegram notify helper ───
