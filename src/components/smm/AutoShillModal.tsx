@@ -48,7 +48,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<'campaign' | 'team' | 'feed'>('campaign');
+  const [tab, setTab] = useState<'campaign' | 'team' | 'cooldown' | 'feed'>('campaign');
 
   // Derive X-connected profile usernames from profiles prop
   const xProfiles = profiles
@@ -78,9 +78,9 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
     loadData(true);
   }, [open, profileUsername]);
 
-  // Auto-poll feed every 5s when on feed tab
+  // Auto-poll feed every 5s when on feed or cooldown tab
   useEffect(() => {
-    if (!open || tab !== 'feed') return;
+    if (!open || (tab !== 'feed' && tab !== 'cooldown')) return;
     const interval = setInterval(() => loadData(false), 5000);
     return () => clearInterval(interval);
   }, [open, tab, profileUsername]);
@@ -117,17 +117,48 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const failedCount = feed.filter(e => e.action === 'failed').length;
   const cooldownCount = feed.filter(e => e.action === 'cooldown').length;
 
-  // Derive which accounts are currently in cooldown from recent feed
-  const cooldownAccounts = new Set<string>();
-  const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+  const COOLDOWN_MS = 5 * 60 * 1000;
+  const now = Date.now();
+
+  // Build per-account cooldown info from recent feed entries
+  interface AccountCooldown {
+    account: string;
+    lastActivityAt: Date;
+    remainingMs: number;
+    trigger: string; // what caused the cooldown
+    action: string;
+  }
+
+  const accountCooldownMap = new Map<string, AccountCooldown>();
   feed.forEach(e => {
-    if (e.action === 'cooldown' && new Date(e.created_at).getTime() > fiveMinAgo) {
-      cooldownAccounts.add(e.meta?.used_account || e.meta?.profile || '');
-    }
-    if ((e.action === 'replied' || e.action === 'failed') && new Date(e.created_at).getTime() > fiveMinAgo) {
-      cooldownAccounts.add(e.meta?.used_account || e.meta?.profile || '');
+    if ((e.action === 'replied' || e.action === 'failed') && e.meta?.used_account) {
+      const account = e.meta.used_account;
+      if (!accountCooldownMap.has(account)) {
+        const activityAt = new Date(e.created_at);
+        const remaining = COOLDOWN_MS - (now - activityAt.getTime());
+        if (remaining > 0) {
+          accountCooldownMap.set(account, {
+            account,
+            lastActivityAt: activityAt,
+            remainingMs: remaining,
+            trigger: e.action === 'failed' ? (e.meta?.error?.substring(0, 80) || 'Post failed') : 'Reply posted',
+            action: e.action,
+          });
+        }
+      }
     }
   });
+
+  const cooldownAccounts = new Set(accountCooldownMap.keys());
+  const activeCooldowns = Array.from(accountCooldownMap.values()).sort((a, b) => a.remainingMs - b.remainingMs);
+
+  // Live countdown tick
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!open || tab !== 'cooldown' || activeCooldowns.length === 0) return;
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [open, tab, activeCooldowns.length]);
 
   if (loading) {
     return (
@@ -150,7 +181,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary" />
-            Auto Shill — {profileUsername}
+            Auto Shill
           </DialogTitle>
         </DialogHeader>
 
@@ -168,6 +199,13 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
           >
             <Users className="h-3 w-3" />
             Team ({config.team_accounts?.length || 0})
+          </button>
+          <button
+            className={`flex-1 text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 ${tab === 'cooldown' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
+            onClick={() => setTab('cooldown')}
+          >
+            <Clock className="h-3 w-3" />
+            Cooldown{activeCooldowns.length > 0 ? ` (${activeCooldowns.length})` : ''}
           </button>
           <button
             className={`flex-1 text-xs py-1.5 rounded transition-colors ${tab === 'feed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
@@ -371,6 +409,79 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                     {config.team_accounts.length >= 3 && ' With 3+ accounts, you can sustain continuous shilling without gaps.'}
                   </p>
                 </div>
+              )}
+            </div>
+          </ScrollArea>
+        ) : tab === 'cooldown' ? (
+          <ScrollArea className="max-h-[400px]">
+            <div className="space-y-3 pr-2">
+              {activeCooldowns.length === 0 ? (
+                <div className="text-center py-8 space-y-2">
+                  <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto" />
+                  <p className="text-sm font-medium text-foreground">All Accounts Ready</p>
+                  <p className="text-[10px] text-muted-foreground">No accounts are currently in cooldown. All team members are available for the next shill.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-md border border-border p-3 bg-destructive/5 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
+                      <p className="text-xs font-semibold text-foreground">{activeCooldowns.length} Account{activeCooldowns.length > 1 ? 's' : ''} in Cooldown</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Accounts enter a 5-minute cooldown after each reply or failure to prevent X anti-spam flags.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {activeCooldowns.map(cd => {
+                      const liveRemaining = Math.max(0, cd.remainingMs - (tick * 1000));
+                      const mins = Math.floor(liveRemaining / 60000);
+                      const secs = Math.floor((liveRemaining % 60000) / 1000);
+                      const progressPct = Math.max(0, Math.min(100, ((COOLDOWN_MS - liveRemaining) / COOLDOWN_MS) * 100));
+                      const isReady = liveRemaining <= 0;
+
+                      return (
+                        <div key={cd.account} className={`rounded-md border p-3 space-y-2 ${isReady ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-muted/30'}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-mono font-medium text-foreground">@{cd.account}</span>
+                              {cd.action === 'failed' && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-semibold">FLAGGED</span>
+                              )}
+                            </div>
+                            {isReady ? (
+                              <span className="flex items-center gap-1 text-xs text-green-500 font-semibold">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Ready
+                              </span>
+                            ) : (
+                              <span className="text-sm font-mono font-bold text-foreground tabular-nums">
+                                {mins}:{secs.toString().padStart(2, '0')}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Progress bar */}
+                          {!isReady && (
+                            <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all duration-1000"
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Trigger reason */}
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span>Triggered: {cd.trigger}</span>
+                            <span>{format(cd.lastActivityAt, 'h:mm:ss a')}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           </ScrollArea>
