@@ -243,7 +243,7 @@ serve(async (req) => {
           ];
 
           try {
-            const botReplyRes = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+            const botReplyRes = await fetch(`${DISCORD_API}/channels/${replyChannelId}/messages`, {
               method: "POST",
               headers: {
                 Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
@@ -263,7 +263,7 @@ serve(async (req) => {
                 action: "pending",
                 meta: {
                   bot_message_id: botMsg.id,
-                  channel_id: channelId,
+                  channel_id: replyChannelId,
                   discord_msg_id: msg.id,
                   tweet_url: tweetUrl,
                   expires_at: new Date(expiresAt * 1000).toISOString(),
