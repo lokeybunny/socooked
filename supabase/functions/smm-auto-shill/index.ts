@@ -77,7 +77,7 @@ serve(async (req) => {
       return json({ error: "No Discord public key configured" }, 401);
     }
 
-    const isValid = await verifyDiscordSignature(publicKey, sig, timestamp, rawBody);
+    const isValid = verifyDiscordSignature(publicKey, sig, timestamp, rawBody);
     if (!isValid) {
       return json({ error: "Invalid request signature" }, 401);
     }
