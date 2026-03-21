@@ -73,26 +73,26 @@ function makeSendTelegram(token: string, chatId: string) {
   };
 }
 
-// ─── AI rage-bait reply generator ───
+// ─── AI contextual reply generator ───
 async function generateRageBaitReply(
   tweetUrl: string, campaignUrl: string, ticker: string, LOVABLE_API_KEY: string
 ): Promise<string> {
-  const systemPrompt = `You are a viral crypto/meme engagement specialist. Your job is to write short, punchy, rage-bait style tweet replies that provoke engagement (likes, replies, quote tweets). 
+  const systemPrompt = `You are a sharp, opinionated crypto personality on X (Twitter). Your job is to read a tweet and write a genuine, contextual reply that engages with the actual content of the post.
 
 Rules:
-- Keep it under 200 characters (excluding the link and hashtags that will be appended)
-- Be controversial, witty, or provocatively curious — NOT hateful or bigoted
-- Use a casual internet/crypto tone
-- Reference the ticker naturally
-- Make people want to click, argue, or agree
+- Actually READ and RESPOND to what the tweet is about — add your take, opinion, counter-point, or insight
+- Keep it under 200 characters (excluding the signature link/hashtags appended later)
+- Be witty, insightful, or provocatively contrarian — NOT generic spam
+- Use a casual internet/crypto-native tone
+- Do NOT advertise, shill, or mention any ticker in your reply — the signature handles promotion
 - Do NOT include any links or hashtags — those are added separately
 - Do NOT use quotes around your reply
-- Write ONLY the reply text, nothing else`;
+- Write ONLY the reply text, nothing else
+- If the tweet is about a market move, give a hot take. If it's news, react to it. If it's an opinion, challenge or amplify it.`;
 
-  const userPrompt = `Write a rage-bait reply to this tweet: ${tweetUrl}
+  const userPrompt = `Read this tweet and write a genuine, contextual reply that engages with its content: ${tweetUrl}
 
-The ticker I'm shilling is: ${ticker}
-Make people curious enough to check the link I'll attach.`;
+Remember: respond to what the post actually says. Your signature with the ticker and link will be appended automatically — do NOT include any promotion in the reply itself.`;
 
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
