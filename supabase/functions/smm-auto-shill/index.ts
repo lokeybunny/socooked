@@ -128,8 +128,9 @@ serve(async (req) => {
   // ─── Auth: bot secret or anon key ───
   const botSecret = req.headers.get("x-bot-secret");
   const authHeader = req.headers.get("authorization") || "";
+  const apikeyHeader = req.headers.get("apikey") || "";
   const isBot = botSecret === BOT_SECRET;
-  const isAnon = authHeader.includes(ANON_KEY);
+  const isAnon = (ANON_KEY && (authHeader.includes(ANON_KEY) || apikeyHeader === ANON_KEY));
   if (!isBot && !isAnon) return json({ error: "Unauthorized" }, 401);
 
   // ─── Telegram notify helper ───
