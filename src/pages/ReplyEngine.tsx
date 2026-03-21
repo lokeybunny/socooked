@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { RefreshCw, Users, ExternalLink, Trophy, MousePointerClick, Radio, MessageSquare, ClipboardCheck, DoorOpen } from "lucide-react";
 import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import TeamAuditor from "@/components/reply-engine/TeamAuditor";
+import TopPostsSection from "@/components/shillers/TopPostsSection";
 
 interface ShillEntry {
   id: string;
