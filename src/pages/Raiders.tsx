@@ -22,9 +22,23 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, RefreshCw, Shield, DollarSign, Hash, Users } from "lucide-react";
+import { ArrowLeft, RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+
+/** Generate a random secret code like "storm42", "bolt7x", etc. */
+function generateSecretCode(): string {
+  const words = [
+    "alpha", "bolt", "storm", "viper", "blaze", "frost", "nova", "shadow",
+    "raven", "titan", "cobra", "surge", "flash", "ghost", "iron", "onyx",
+    "pulse", "apex", "claw", "drift", "eagle", "fang", "grit", "hawk",
+    "jade", "kite", "lynx", "mars", "nuke", "orion", "pike", "raid",
+  ];
+  const word = words[Math.floor(Math.random() * words.length)];
+  const suffix = Math.floor(Math.random() * 99) + 1;
+  const extra = Math.random() > 0.5 ? "x" : "";
+  return `${word}${suffix}${extra}`;
+}
 
 interface Raider {
   id: string;
