@@ -5,8 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, Users, ExternalLink, Trophy, MousePointerClick, Radio, MessageSquare } from "lucide-react";
+import { RefreshCw, Users, ExternalLink, Trophy, MousePointerClick, Radio, MessageSquare, ClipboardCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import TeamAuditor from "@/components/reply-engine/TeamAuditor";
 
 interface ShillEntry {
   id: string;
@@ -137,6 +138,10 @@ export default function ReplyEngine() {
           <TabsList className="bg-muted/50">
             <TabsTrigger value="activity">Activity Feed</TabsTrigger>
             <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+            <TabsTrigger value="auditor" className="gap-1.5">
+              <ClipboardCheck className="h-3.5 w-3.5" />
+              Team Auditor
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="activity" className="mt-4">
@@ -202,6 +207,10 @@ export default function ReplyEngine() {
                 <div className="text-center py-12 text-muted-foreground text-sm">No click data yet.</div>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="auditor" className="mt-4">
+            <TeamAuditor />
           </TabsContent>
         </Tabs>
       </div>
