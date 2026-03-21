@@ -787,12 +787,13 @@ serve(async (req) => {
       if (customId.startsWith("shill_copy")) {
         const discordMsgId = customId.replace("shill_copy_", "") || null;
 
+        const cleanTweetUrl2 = (tweetUrl || "").replace(/[)\]}>]+$/, "");
         await supabase.from("shill_clicks").insert({
           discord_user_id: discordUserId,
           discord_username: discordUsername,
-          tweet_url: tweetUrl || null,
+          tweet_url: cleanTweetUrl2 || null,
           discord_msg_id: discordMsgId,
-          source_tweet_url: tweetUrl || null,
+          source_tweet_url: cleanTweetUrl2 || null,
           status: "clicked",
         });
 
