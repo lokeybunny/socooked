@@ -796,6 +796,7 @@ async function processAutoShill(
         rtParams.append("user", rtAccount);
         rtParams.append("platform[]", "x");
         rtParams.append("retweet_id", targetTweetId);
+        rtParams.append("title", "RT");
 
         const rtRes = await fetch(`${API_BASE}/upload_text`, {
           method: "POST",

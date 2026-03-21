@@ -32,7 +32,7 @@ serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
   try {
-    // Load all auto-shill configs that have a discord_channel_id
+    // Load all auto-shill configs
     const { data: configs } = await supabase
       .from("site_configs")
       .select("content, section")
@@ -40,14 +40,35 @@ serve(async (req) => {
 
     if (!configs?.length) return json({ ok: true, skipped: true, reason: "No configs" });
 
-    let totalForwarded = 0;
+    // Collect all enabled profiles (these will each receive forwarded tweets)
+    const enabledProfiles = configs
+      .filter((row: any) => (row.content as any)?.enabled)
+      .map((row: any) => row.section);
 
+    // Collect unique discord channel IDs from any config that has one
+    const channelConfigs: { channelId: string; section: string; cfg: any }[] = [];
     for (const row of configs) {
       const cfg = row.content as any;
-      if (!cfg?.enabled || !cfg?.discord_channel_id) continue;
+      if (cfg?.enabled && cfg?.discord_channel_id) {
+        channelConfigs.push({ channelId: String(cfg.discord_channel_id), section: row.section, cfg });
+      }
+    }
 
-      const channelId = String(cfg.discord_channel_id);
-      const profileUsername = row.section || "NysonBlack";
+    if (channelConfigs.length === 0) return json({ ok: true, skipped: true, reason: "No channels configured" });
+
+    // Deduplicate channels (multiple profiles might share a channel)
+    const seenChannels = new Set<string>();
+    const uniqueChannels: { channelId: string; section: string; cfg: any }[] = [];
+    for (const cc of channelConfigs) {
+      if (!seenChannels.has(cc.channelId)) {
+        seenChannels.add(cc.channelId);
+        uniqueChannels.push(cc);
+      }
+    }
+
+    let totalForwarded = 0;
+
+    for (const { channelId, section: ownerSection, cfg } of uniqueChannels) {
       const lastMessageId = cfg.last_message_id || null;
 
       // Fetch recent messages from Discord channel
@@ -103,28 +124,30 @@ serve(async (req) => {
         if (existing?.length) continue;
 
         for (const tweetUrl of matches) {
-          // Forward to auto-shill ingest
-          const ingestUrl = `${SUPABASE_URL}/functions/v1/smm-auto-shill?action=ingest`;
-          const ingestRes = await fetch(ingestUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-bot-secret": BOT_SECRET,
-            },
-            body: JSON.stringify({
-              tweet_url: tweetUrl,
-              profile_username: profileUsername,
-              discord_msg_id: msg.id,
-              discord_author: msg.author?.username || "unknown",
-              is_bot: msg.author?.bot === true,
-            }),
-          });
+          // Forward to ALL enabled profiles (not just the channel owner)
+          for (const targetProfile of enabledProfiles) {
+            const ingestUrl = `${SUPABASE_URL}/functions/v1/smm-auto-shill?action=ingest`;
+            const ingestRes = await fetch(ingestUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-bot-secret": BOT_SECRET,
+              },
+              body: JSON.stringify({
+                tweet_url: tweetUrl,
+                profile_username: targetProfile,
+                discord_msg_id: msg.id,
+                discord_author: msg.author?.username || "unknown",
+                is_bot: msg.author?.bot === true,
+              }),
+            });
 
-          const ingestData = await ingestRes.json().catch(() => ({}));
-          console.log(
-            `[discord-watcher] Forwarded ${tweetUrl} for ${profileUsername}: ${JSON.stringify(ingestData)}`
-          );
-          totalForwarded++;
+            const ingestData = await ingestRes.json().catch(() => ({}));
+            console.log(
+              `[discord-watcher] Forwarded ${tweetUrl} for ${targetProfile}: ${JSON.stringify(ingestData)}`
+            );
+            totalForwarded++;
+          }
         }
       }
 
@@ -136,7 +159,7 @@ serve(async (req) => {
             content: { ...cfg, last_message_id: newestId },
           })
           .eq("site_id", "smm-auto-shill")
-          .eq("section", profileUsername);
+          .eq("section", ownerSection);
       }
     }
 
@@ -150,7 +173,7 @@ serve(async (req) => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               chat_id: TELEGRAM_CHAT_ID,
-              text: `🔍 *Discord Watcher*\n📥 Forwarded ${totalForwarded} X link(s) to Auto-Shill`,
+              text: `🔍 *Discord Watcher*\n📥 Forwarded ${totalForwarded} X link(s) to ${enabledProfiles.length} profile(s)`,
               parse_mode: "Markdown",
             }),
           }
@@ -160,7 +183,7 @@ serve(async (req) => {
       }
     }
 
-    return json({ ok: true, forwarded: totalForwarded });
+    return json({ ok: true, forwarded: totalForwarded, profiles: enabledProfiles.length });
   } catch (err) {
     console.error("[discord-watcher] Fatal error:", err);
     return json({ error: String(err) }, 500);
