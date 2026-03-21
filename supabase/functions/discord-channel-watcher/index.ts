@@ -191,9 +191,7 @@ serve(async (req) => {
           }
 
           totalForwarded++;
-          } catch (e) {
-            console.error("[discord-watcher] Telegram send error:", e);
-          }
+
 
           // Log to activity_log for dedup
           await supabase.from("activity_log").insert({
