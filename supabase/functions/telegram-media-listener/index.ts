@@ -2359,7 +2359,7 @@ Deno.serve(async (req) => {
         }
 
         const tickerClean = ticker.replace(/^\$/, '')
-        const copyText = `${ticker} #${tickerClean} #crypto` +
+        const copyText = `${ticker} #${tickerClean} #repost` +
           (campaignUrl ? `\n${campaignUrl}` : '')
 
         await tgPost(TG_TOKEN, 'sendMessage', {

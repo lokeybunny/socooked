@@ -1292,7 +1292,7 @@ async function processAutoShill(
   } catch (e) {
     console.error("[auto-shill] Failed to generate reply:", e);
     const tickerClean = ticker.replace(/^\$/, "");
-    replyText = `Nobody's gonna say it… so I will.\n\n${ticker} #${tickerClean} #crypto${campaignUrl ? `\n${campaignUrl}` : ""}`;
+    replyText = `Nobody's gonna say it… so I will.\n\n${ticker} #${tickerClean} #repost${campaignUrl ? `\n${campaignUrl}` : ""}`;
   }
 
   const tweetId = extractTweetId(tweetUrl);
