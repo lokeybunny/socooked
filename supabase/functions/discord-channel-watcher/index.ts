@@ -80,23 +80,30 @@ serve(async (req) => {
 
     if (!configs?.length) return json({ ok: true, skipped: true, reason: "No configs", expired: expiredCount });
 
-    // Collect unique discord channel IDs from any config that has one
-    const channelConfigs: { channelId: string; section: string; cfg: any }[] = [];
+    // Collect discord channel configs — supports separate listen & reply channels
+    const channelConfigs: { listenChannelId: string; replyChannelId: string; section: string; cfg: any }[] = [];
     for (const row of configs) {
       const cfg = row.content as any;
-      if (cfg?.enabled && cfg?.discord_channel_id) {
-        channelConfigs.push({ channelId: String(cfg.discord_channel_id), section: row.section, cfg });
+      // discord_channel_id = listen channel, discord_reply_channel_id = where bot posts (falls back to listen channel)
+      const listenId = cfg?.discord_listen_channel_id || cfg?.discord_channel_id;
+      if (cfg?.enabled && listenId) {
+        channelConfigs.push({
+          listenChannelId: String(listenId),
+          replyChannelId: String(cfg?.discord_reply_channel_id || cfg?.discord_channel_id || listenId),
+          section: row.section,
+          cfg,
+        });
       }
     }
 
     if (channelConfigs.length === 0) return json({ ok: true, skipped: true, reason: "No channels configured", expired: expiredCount });
 
-    // Deduplicate channels
+    // Deduplicate by listen channel
     const seenChannels = new Set<string>();
-    const uniqueChannels: { channelId: string; section: string; cfg: any }[] = [];
+    const uniqueChannels: { listenChannelId: string; replyChannelId: string; section: string; cfg: any }[] = [];
     for (const cc of channelConfigs) {
-      if (!seenChannels.has(cc.channelId)) {
-        seenChannels.add(cc.channelId);
+      if (!seenChannels.has(cc.listenChannelId)) {
+        seenChannels.add(cc.listenChannelId);
         uniqueChannels.push(cc);
       }
     }
