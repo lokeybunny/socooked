@@ -120,8 +120,9 @@ serve(async (req) => {
         if (existing?.length) continue;
 
         for (const tweetUrl of matches) {
-          // Send Telegram notification with SHILL NOW button
           const discordAuthor = msg.author?.username || "unknown";
+
+          // ── 1) Send Telegram notification ──
           const tgText = `🔍 *New Tweet from Discord*\n\n` +
             `👤 Posted by: \`${discordAuthor}\`\n` +
             `🔗 ${tweetUrl}\n\n` +
@@ -148,10 +149,49 @@ serve(async (req) => {
                 }),
               }
             );
-            totalForwarded++;
           } catch (e) {
             console.error("[discord-watcher] Telegram send error:", e);
           }
+
+          // ── 2) Send Discord reply in same channel with buttons ──
+          const tickerClean = ticker.replace(/^\$/, "");
+          const copyText = `${ticker} #${tickerClean} #crypto` +
+            (campaignUrl ? `\n${campaignUrl}` : "");
+
+          const discordEmbed = {
+            title: "🔍 New Tweet Detected",
+            description: `**Posted by:** ${discordAuthor}\n[Open Tweet](${tweetUrl})`,
+            color: 0x1DA1F2,
+          };
+
+          const discordComponents = [
+            {
+              type: 1, // ActionRow
+              components: [
+                { type: 2, style: 5, label: "🚀 SHILL NOW", url: tweetUrl }, // Link button
+                { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${msg.id}` }, // Secondary button
+              ],
+            },
+          ];
+
+          try {
+            await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                embeds: [discordEmbed],
+                components: discordComponents,
+              }),
+            });
+          } catch (e) {
+            console.error("[discord-watcher] Discord reply error:", e);
+          }
+
+          totalForwarded++;
+
 
           // Log to activity_log for dedup
           await supabase.from("activity_log").insert({
