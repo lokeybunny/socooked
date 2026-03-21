@@ -228,6 +228,7 @@ serve(async (req) => {
   const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
   const isAnon = Boolean(ANON_KEY) && (apikeyHeader === ANON_KEY || bearerToken === ANON_KEY);
   const isService = Boolean(SERVICE_KEY) && (bearerToken === SERVICE_KEY || apikeyHeader === SERVICE_KEY);
+  console.log("[auto-shill] Auth debug:", { isBot, isAnon, isService, anonKeyLen: ANON_KEY?.length, bearerLen: bearerToken?.length, apikeyLen: apikeyHeader?.length, anonKeyStart: ANON_KEY?.substring(0, 10), bearerStart: bearerToken?.substring(0, 10) });
   if (!isBot && !isAnon && !isService) return json({ error: "Unauthorized" }, 401);
 
   try {
