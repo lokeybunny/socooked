@@ -45,18 +45,30 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<'campaign' | 'feed'>('campaign');
 
-  useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    Promise.all([
-      fetch(`${FUNC_URL}?action=get-config&profile=${profileUsername}`, { headers }).then(r => r.json()),
-      fetch(`${FUNC_URL}?action=feed&profile=${profileUsername}`, { headers }).then(r => r.json()),
-    ]).then(([configRes, feedRes]) => {
+  const loadData = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    try {
+      const [configRes, feedRes] = await Promise.all([
+        fetch(`${FUNC_URL}?action=get-config&profile=${profileUsername}`, { headers }).then(r => r.json()),
+        fetch(`${FUNC_URL}?action=feed&profile=${profileUsername}`, { headers }).then(r => r.json()),
+      ]);
       if (configRes?.config) setConfig(configRes.config);
       if (feedRes?.feed) setFeed(feedRes.feed);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    } catch {}
+    if (showLoading) setLoading(false);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    loadData(true);
   }, [open, profileUsername]);
+
+  // Auto-poll feed every 5s when on feed tab
+  useEffect(() => {
+    if (!open || tab !== 'feed') return;
+    const interval = setInterval(() => loadData(false), 5000);
+    return () => clearInterval(interval);
+  }, [open, tab, profileUsername]);
 
   const handleSave = async () => {
     setSaving(true);
