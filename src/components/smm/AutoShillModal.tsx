@@ -31,6 +31,8 @@ interface ShillConfig {
   discord_app_id: string;
   discord_public_key: string;
   discord_channel_id: string;
+  discord_listen_channel_id: string;
+  discord_reply_channel_id: string;
   team_accounts: string[];
   retweet_accounts: string[];
   account_hashtags: Record<string, string>;
