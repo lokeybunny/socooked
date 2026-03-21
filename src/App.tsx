@@ -121,7 +121,8 @@ const App = () => (
             <Route path="/bundler-docs" element={<BundlerDocs />} />
             <Route path="/bundler-docs/:slug" element={<BundlerDocs />} />
             <Route path="/vanities" element={<Vanities />} />
-            <Route path="/reply-engine" element={<RestrictedGate><ReplyEngine /></RestrictedGate>} />
+            <Route path="/shillers" element={<ReplyEngine />} />
+            <Route path="/reply-engine" element={<Navigate to="/shillers" replace />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
