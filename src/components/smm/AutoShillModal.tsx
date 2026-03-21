@@ -134,6 +134,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const retweetedCount = feed.filter(e => e.action === 'retweeted').length;
 
   const COOLDOWN_MS = 5 * 60 * 1000;
+  const BAN_MS = 24 * 60 * 60 * 1000;
   const now = Date.now();
 
   // Build per-account cooldown info from recent feed entries
@@ -143,9 +144,33 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
     remainingMs: number;
     trigger: string;
     action: string;
+    isBan: boolean;
   }
 
   const accountCooldownMap = new Map<string, AccountCooldown>();
+
+  // Check for 24h reply bans first (higher priority)
+  feed.forEach(e => {
+    if (e.action === 'reply_banned' && e.meta?.used_account) {
+      const account = e.meta.used_account;
+      if (!accountCooldownMap.has(account)) {
+        const activityAt = new Date(e.created_at);
+        const remaining = BAN_MS - (now - activityAt.getTime());
+        if (remaining > 0) {
+          accountCooldownMap.set(account, {
+            account,
+            lastActivityAt: activityAt,
+            remainingMs: remaining,
+            trigger: '403 Reply ban — X anti-spam',
+            action: 'reply_banned',
+            isBan: true,
+          });
+        }
+      }
+    }
+  });
+
+  // Then check standard 5-min cooldowns
   feed.forEach(e => {
     if ((e.action === 'replied' || e.action === 'failed') && e.meta?.used_account) {
       const account = e.meta.used_account;
@@ -159,6 +184,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
             remainingMs: remaining,
             trigger: e.action === 'failed' ? (e.meta?.error?.substring(0, 80) || 'Post failed') : 'Reply posted',
             action: e.action,
+            isBan: false,
           });
         }
       }
