@@ -220,16 +220,15 @@ serve(async (req) => {
     return json({ ok: true, status: res.status, data });
   }
 
-  // ─── Auth: bot secret, anon key, or service role ───
+  // ─── Auth: bot secret, anon/publishable key, or service role ───
   const botSecret = req.headers.get("x-bot-secret");
   const authHeader = req.headers.get("authorization") || "";
   const apikeyHeader = req.headers.get("apikey") || "";
   const isBot = botSecret === BOT_SECRET;
   const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
-  const isAnon = Boolean(ANON_KEY) && (apikeyHeader === ANON_KEY || bearerToken === ANON_KEY);
-  const isService = Boolean(SERVICE_KEY) && (bearerToken === SERVICE_KEY || apikeyHeader === SERVICE_KEY);
-  console.log("[auto-shill] Auth debug:", { isBot, isAnon, isService, anonKeyLen: ANON_KEY?.length, bearerLen: bearerToken?.length, apikeyLen: apikeyHeader?.length, anonKeyStart: ANON_KEY?.substring(0, 10), bearerStart: bearerToken?.substring(0, 10) });
-  if (!isBot && !isAnon && !isService) return json({ error: "Unauthorized" }, 401);
+  const validKeys = [ANON_KEY, FALLBACK_ANON_KEY, SERVICE_KEY].filter(Boolean);
+  const isAuthed = validKeys.some(k => apikeyHeader === k || bearerToken === k);
+  if (!isBot && !isAuthed) return json({ error: "Unauthorized" }, 401);
 
   try {
     // ─── GET campaign config ───
