@@ -70,8 +70,10 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const [shillClicks, setShillClicks] = useState<any[]>([]);
 
   const xProfiles = profiles
-    .filter(p => p.connected_platforms.some(cp => cp.platform === 'twitter' && cp.connected))
-    .map(p => p.username);
+    .flatMap(p => p.connected_platforms
+      .filter(cp => cp.platform === 'twitter' && cp.connected)
+      .map(cp => cp.display_name)
+    );
 
   const loadData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
