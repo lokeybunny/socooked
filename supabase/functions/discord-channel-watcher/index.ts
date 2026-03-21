@@ -250,6 +250,7 @@ serve(async (req) => {
           const normalizeXUrl = (u: string): string =>
             u.replace(/https?:\/\/(x\.com|twitter\.com)/, "x.com")
              .split("?")[0]
+             .replace(/[)\]}>]+$/, "")
              .replace(/\/+$/, "")
              .toLowerCase();
 
