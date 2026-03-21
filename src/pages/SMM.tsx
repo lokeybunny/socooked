@@ -318,6 +318,7 @@ function SMMInner() {
             open={shillModalOpen}
             onOpenChange={setShillModalOpen}
             profileUsername={profileId || 'NysonBlack'}
+            profiles={profiles}
           />
         )}
       </Suspense>

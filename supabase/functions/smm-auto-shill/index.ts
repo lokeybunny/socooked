@@ -328,7 +328,7 @@ serve(async (req) => {
     // ─── SAVE campaign config ───
     if (action === "save-config") {
       const body = await req.json();
-      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id } = body;
+      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id, team_accounts } = body;
       const section = profile_username || "NysonBlack";
 
       // Preserve last_message_id if it exists
@@ -347,6 +347,7 @@ serve(async (req) => {
           discord_app_id: discord_app_id || "",
           discord_public_key: discord_public_key || "",
           discord_channel_id: discord_channel_id || "",
+          team_accounts: Array.isArray(team_accounts) ? team_accounts : [],
           last_message_id: existingContent?.last_message_id || null,
         },
         is_published: true,
@@ -403,6 +404,64 @@ serve(async (req) => {
   }
 });
 
+// ─── Find an available team account (not in cooldown) ───
+async function findAvailableAccount(
+  supabase: any, teamAccounts: string[], primaryAccount: string, COOLDOWN_MS: number
+): Promise<{ account: string; allInCooldown: boolean; cooldownInfo: string }> {
+  const accounts = teamAccounts.length > 0 ? teamAccounts : [primaryAccount];
+  const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
+
+  // Fetch recent activity for all team accounts
+  const { data: recentActivity } = await supabase
+    .from("activity_log").select("meta, created_at")
+    .eq("entity_type", "auto-shill")
+    .in("action", ["replied", "failed"])
+    .gte("created_at", cooldownCutoff)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  // Build a map of last activity per account
+  const lastActivityMap = new Map<string, Date>();
+  for (const entry of recentActivity || []) {
+    const usedAccount = entry.meta?.used_account || entry.meta?.profile || "";
+    if (usedAccount && !lastActivityMap.has(usedAccount)) {
+      lastActivityMap.set(usedAccount, new Date(entry.created_at));
+    }
+  }
+
+  // Find first account NOT in cooldown
+  for (const account of accounts) {
+    const lastAt = lastActivityMap.get(account);
+    if (!lastAt) {
+      console.log(`[auto-shill] Account @${account} is available (no recent activity)`);
+      return { account, allInCooldown: false, cooldownInfo: "" };
+    }
+    const elapsed = Date.now() - lastAt.getTime();
+    if (elapsed >= COOLDOWN_MS) {
+      console.log(`[auto-shill] Account @${account} is available (last activity ${Math.round(elapsed / 1000)}s ago)`);
+      return { account, allInCooldown: false, cooldownInfo: "" };
+    }
+  }
+
+  // All accounts in cooldown — find the one that will be free soonest
+  let soonestAccount = accounts[0];
+  let soonestWaitMs = COOLDOWN_MS;
+  for (const account of accounts) {
+    const lastAt = lastActivityMap.get(account);
+    if (lastAt) {
+      const wait = COOLDOWN_MS - (Date.now() - lastAt.getTime());
+      if (wait < soonestWaitMs) {
+        soonestWaitMs = wait;
+        soonestAccount = account;
+      }
+    }
+  }
+
+  const waitMin = Math.ceil(soonestWaitMs / 60000);
+  const cooldownInfo = `All ${accounts.length} team account(s) in cooldown. @${soonestAccount} available in ~${waitMin}m`;
+  return { account: soonestAccount, allInCooldown: true, cooldownInfo };
+}
+
 // ─── Core: AI rage-bait reply + campaign link + ticker + hashtags ───
 async function processAutoShill(
   supabase: any, tweetUrl: string, profileUsername: string,
@@ -423,28 +482,30 @@ async function processAutoShill(
   const ticker = config.ticker || "";
   if (!ticker) return { ok: false, error: "No ticker configured" };
 
-  // ─── Global cooldown: minimum 5 minutes between ANY replies to prevent X anti-spam flags ───
-  const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
-  const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
-  const { data: recentReplies } = await supabase
-    .from("activity_log").select("id, created_at")
-    .eq("entity_type", "auto-shill")
-    .in("action", ["replied", "failed"])
-    .gte("created_at", cooldownCutoff)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const teamAccounts: string[] = Array.isArray(config.team_accounts) ? config.team_accounts : [];
 
-  if (recentReplies?.length) {
-    const lastReplyAt = new Date(recentReplies[0].created_at);
-    const waitMs = COOLDOWN_MS - (Date.now() - lastReplyAt.getTime());
-    const waitMin = Math.ceil(waitMs / 60000);
-    console.log(`[auto-shill] Cooldown active — last reply ${Math.round((Date.now() - lastReplyAt.getTime()) / 1000)}s ago, need ${Math.round(COOLDOWN_MS / 1000)}s gap`);
+  // ─── Per-account cooldown with team rotation ───
+  const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+  const { account: selectedAccount, allInCooldown, cooldownInfo } = await findAvailableAccount(
+    supabase, teamAccounts, profileUsername, COOLDOWN_MS
+  );
+
+  if (allInCooldown) {
+    console.log(`[auto-shill] ${cooldownInfo}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "cooldown",
-      meta: { name: `⏳ Cooldown: wait ${waitMin}m`, tweet_url: tweetUrl, profile: profileUsername, wait_seconds: Math.round(waitMs / 1000) },
+      meta: {
+        name: `⏳ ${cooldownInfo}`,
+        tweet_url: tweetUrl,
+        profile: profileUsername,
+        used_account: selectedAccount,
+        team_size: teamAccounts.length || 1,
+      },
     });
-    return { ok: false, skipped: true, reason: `Cooldown active — wait ${waitMin} more minute(s) between replies to avoid X anti-spam flags` };
+    return { ok: false, skipped: true, reason: cooldownInfo };
   }
+
+  console.log(`[auto-shill] Selected account: @${selectedAccount} (team of ${teamAccounts.length || 1})`);
 
   // Dedup check (24h) — only for bot sources; human users always get a fresh reply
   if (isBot) {
@@ -486,20 +547,21 @@ async function processAutoShill(
         tweet_url: tweetUrl,
         error: errorMsg,
         profile: profileUsername,
+        used_account: selectedAccount,
         reply_text: fullReply.substring(0, 200),
       },
     });
     return { ok: false, error: errorMsg };
   }
 
-  // Post reply via Upload-Post API — use synchronous mode for immediate feedback
+  // Post reply via Upload-Post API — use the SELECTED team account
   const params = new URLSearchParams();
-  params.append("user", profileUsername);
+  params.append("user", selectedAccount);
   params.append("platform[]", "x");
   params.append("title", fullReply);
   params.append("reply_to_id", targetTweetId);
 
-  console.log(`[auto-shill] Upload-Post payload: user=${profileUsername}, platform=x, reply_to_id=${targetTweetId}, title_len=${fullReply.length}`);
+  console.log(`[auto-shill] Upload-Post payload: user=${selectedAccount} (primary=${profileUsername}), platform=x, reply_to_id=${targetTweetId}, title_len=${fullReply.length}`);
 
   const uploadRes = await fetch(`${API_BASE}/upload_text`, {
     method: "POST",
@@ -514,10 +576,10 @@ async function processAutoShill(
 
   if (!uploadRes.ok) {
     const errorMsg = `Upload failed (${uploadRes.status}): ${uploadText.substring(0, 200)}`;
-    await sendTelegram(`🚨 *Auto-Shill FAILED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await sendTelegram(`🚨 *Auto-Shill FAILED* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "failed",
-      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername, reply_text: fullReply.substring(0, 200) },
+      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername, used_account: selectedAccount, reply_text: fullReply.substring(0, 200) },
     });
     return { ok: false, error: errorMsg };
   }
@@ -539,7 +601,7 @@ async function processAutoShill(
 
   if (!isProviderConfirmed) {
     const errorMsg = `Upload not confirmed (${uploadRes.status}): ${uploadText.substring(0, 300)}`;
-    await sendTelegram(`🚨 *Auto-Shill NOT CONFIRMED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await sendTelegram(`🚨 *Auto-Shill NOT CONFIRMED* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "failed",
       meta: {
@@ -547,6 +609,7 @@ async function processAutoShill(
         tweet_url: tweetUrl,
         error: errorMsg,
         profile: profileUsername,
+        used_account: selectedAccount,
         reply_text: fullReply.substring(0, 200),
         ticker,
         campaign_url: campaignUrl,
@@ -562,7 +625,7 @@ async function processAutoShill(
   const xVerification = await verifyReplyOnX(String(confirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
   if (!xVerification.verified) {
     const errorMsg = `Upload completed but X reply was not verified: ${xVerification.reason}`;
-    await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill",
       action: "failed",
@@ -571,6 +634,7 @@ async function processAutoShill(
         tweet_url: tweetUrl,
         error: errorMsg,
         profile: profileUsername,
+        used_account: selectedAccount,
         reply_text: fullReply.substring(0, 200),
         ticker,
         campaign_url: campaignUrl,
@@ -597,6 +661,7 @@ async function processAutoShill(
       name: `🗣️ Auto-replied: ${tweetUrl}`,
       tweet_url: tweetUrl,
       profile: profileUsername,
+      used_account: selectedAccount,
       reply_text: fullReply.substring(0, 300),
       ticker,
       campaign_url: campaignUrl,
@@ -608,12 +673,13 @@ async function processAutoShill(
     },
   });
 
-  await sendTelegram(`🗣️ *Auto-Shill Confirmed on X*\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
+  await sendTelegram(`🗣️ *Auto-Shill Confirmed on X* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
 
   return {
     ok: true,
     replied: true,
     tweet_url: tweetUrl,
+    used_account: selectedAccount,
     request_id: requestId,
     job_id: jobId,
     reply_post_id: confirmedPostId,
