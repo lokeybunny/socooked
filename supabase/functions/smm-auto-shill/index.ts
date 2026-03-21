@@ -799,7 +799,7 @@ serve(async (req) => {
           });
 
           // Update raider stats
-          await supabase.rpc("", {}).catch(() => {});
+          // Update raider click count
           await supabase.from("raiders")
             .update({
               total_clicks: (raider as any).total_clicks ? (raider as any).total_clicks + 1 : 1,
