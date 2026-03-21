@@ -18,21 +18,28 @@ const json = (body: unknown, status = 200) =>
 
 /** Delete expired bot messages from Discord and mark them in DB */
 async function cleanupExpiredMessages(supabase: any, botToken: string) {
-  const cutoff = new Date(Date.now() - EXPIRY_MS).toISOString();
-
-  const { data: expired, error: fetchErr } = await supabase
+  const { data: candidates, error: fetchErr } = await supabase
     .from("activity_log")
-    .select("id, meta")
+    .select("id, meta, created_at")
     .eq("entity_type", "shill-bot-msg")
     .in("action", ["pending", "interacted"])
-    .lt("created_at", cutoff)
-    .limit(50);
+    .limit(100);
 
   if (fetchErr) {
     console.error("[discord-watcher] Cleanup fetch error:", fetchErr.message);
     return 0;
   }
-  if (!expired?.length) return 0;
+  if (!candidates?.length) return 0;
+
+  const nowMs = Date.now();
+  const expired = candidates.filter((row: any) => {
+    const meta = row.meta as any;
+    const expiryIso = meta?.expires_at;
+    const expiresAtMs = expiryIso ? Date.parse(expiryIso) : Date.parse(row.created_at) + EXPIRY_MS;
+    return Number.isFinite(expiresAtMs) && expiresAtMs <= nowMs;
+  });
+
+  if (!expired.length) return 0;
 
   console.log(`[discord-watcher] Found ${expired.length} expired bot messages to clean up`);
 
@@ -203,8 +210,11 @@ serve(async (req) => {
         const tweetUrl = uniqueUrls[0];
         const discordAuthor = msg.author?.username || "unknown";
 
-        // Calculate expiry timestamp (5 minutes from now)
-        const expiresAt = Math.floor((Date.now() + EXPIRY_MS) / 1000);
+        // Cleanup runs every minute, so align the displayed countdown to the next
+        // scheduler tick after the 5-minute mark to avoid showing "expired" before
+        // the watcher can actually delete the message.
+        const expiresAtMs = Math.ceil((Date.now() + EXPIRY_MS) / 60000) * 60000;
+        const expiresAt = Math.floor(expiresAtMs / 1000);
 
         // ── 1) Log to activity_log FIRST (before sending) to prevent race condition dupes ──
         const { error: logErr } = await supabase.from("activity_log").insert({
@@ -305,7 +315,7 @@ serve(async (req) => {
                 channel_id: replyChannelId,
                 discord_msg_id: msg.id,
                 tweet_url: tweetUrl,
-                expires_at: new Date(expiresAt * 1000).toISOString(),
+                expires_at: new Date(expiresAtMs).toISOString(),
               },
             });
           } else {
