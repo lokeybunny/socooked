@@ -5,8 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, Users, ExternalLink, Trophy, MousePointerClick, Radio, MessageSquare } from "lucide-react";
+import { RefreshCw, Users, ExternalLink, Trophy, MousePointerClick, Radio, MessageSquare, ClipboardCheck } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import TeamAuditor from "@/components/reply-engine/TeamAuditor";
 
 interface ShillEntry {
   id: string;
