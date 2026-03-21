@@ -161,22 +161,27 @@ serve(async (req) => {
           newestId = msg.id;
         }
 
+        // Skip bot messages
+        if (msg.author?.bot) continue;
+
         // Extract X/Twitter URLs from message content
-        const matches = msg.content?.match(xUrlRegex);
-        if (!matches?.length) continue;
+        const rawMatches = msg.content?.match(xUrlRegex);
+        if (!rawMatches?.length) continue;
+
+        // Deduplicate URLs within the same message
+        const uniqueUrls = [...new Set(rawMatches)];
 
         // Deduplicate: check if we already forwarded this exact message
-        const { data: existing } = await supabase
+        const { count } = await supabase
           .from("activity_log")
-          .select("id")
+          .select("id", { count: "exact", head: true })
           .eq("entity_type", "auto-shill")
           .eq("action", "telegram-notified")
-          .like("meta->>discord_msg_id", msg.id)
-          .limit(1);
+          .filter("meta->>discord_msg_id", "eq", msg.id);
 
-        if (existing?.length) continue;
+        if ((count ?? 0) > 0) continue;
 
-        for (const tweetUrl of matches) {
+        for (const tweetUrl of uniqueUrls) {
           const discordAuthor = msg.author?.username || "unknown";
 
           // Calculate expiry timestamp (5 minutes from now)
@@ -213,9 +218,7 @@ serve(async (req) => {
             console.error("[discord-watcher] Telegram send error:", e);
           }
 
-          // ── 2) Send Discord reply with countdown timer ──
-          const tickerClean = ticker.replace(/^\$/, "");
-
+          // ── 2) Send Discord reply to the REPLY channel ──
           const discordEmbed = {
             title: "🔍 New Tweet Detected",
             description: `**Posted by:** ${discordAuthor}\n[Open Tweet](${tweetUrl})`,
@@ -236,13 +239,14 @@ serve(async (req) => {
             {
               type: 1, // ActionRow
               components: [
-                { type: 2, style: 5, label: "🚀 SHILL NOW", url: tweetUrl }, // Link button
-                { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${msg.id}` }, // Secondary button
+                { type: 2, style: 5, label: "🚀 SHILL NOW", url: tweetUrl },
+                { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${msg.id}` },
               ],
             },
           ];
 
           try {
+            console.log(`[discord-watcher] Sending bot reply to REPLY channel ${replyChannelId}`);
             const botReplyRes = await fetch(`${DISCORD_API}/channels/${replyChannelId}/messages`, {
               method: "POST",
               headers: {
@@ -255,7 +259,6 @@ serve(async (req) => {
               }),
             });
 
-            // Track the bot message for auto-deletion
             if (botReplyRes.ok) {
               const botMsg = await botReplyRes.json();
               await supabase.from("activity_log").insert({
@@ -269,6 +272,9 @@ serve(async (req) => {
                   expires_at: new Date(expiresAt * 1000).toISOString(),
                 },
               });
+            } else {
+              const errText = await botReplyRes.text();
+              console.error(`[discord-watcher] Bot reply failed ${botReplyRes.status}: ${errText}`);
             }
           } catch (e) {
             console.error("[discord-watcher] Discord reply error:", e);
