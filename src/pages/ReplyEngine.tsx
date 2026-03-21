@@ -21,6 +21,7 @@ interface ShillEntry {
 }
 
 export default function ReplyEngine() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("activity");
   const [entries, setEntries] = useState<ShillEntry[]>([]);
   const [clicks, setClicks] = useState<any[]>([]);
