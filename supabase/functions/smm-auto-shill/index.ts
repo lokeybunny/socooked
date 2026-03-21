@@ -547,20 +547,21 @@ async function processAutoShill(
         tweet_url: tweetUrl,
         error: errorMsg,
         profile: profileUsername,
+        used_account: selectedAccount,
         reply_text: fullReply.substring(0, 200),
       },
     });
     return { ok: false, error: errorMsg };
   }
 
-  // Post reply via Upload-Post API — use synchronous mode for immediate feedback
+  // Post reply via Upload-Post API — use the SELECTED team account
   const params = new URLSearchParams();
-  params.append("user", profileUsername);
+  params.append("user", selectedAccount);
   params.append("platform[]", "x");
   params.append("title", fullReply);
   params.append("reply_to_id", targetTweetId);
 
-  console.log(`[auto-shill] Upload-Post payload: user=${profileUsername}, platform=x, reply_to_id=${targetTweetId}, title_len=${fullReply.length}`);
+  console.log(`[auto-shill] Upload-Post payload: user=${selectedAccount} (primary=${profileUsername}), platform=x, reply_to_id=${targetTweetId}, title_len=${fullReply.length}`);
 
   const uploadRes = await fetch(`${API_BASE}/upload_text`, {
     method: "POST",
@@ -575,10 +576,10 @@ async function processAutoShill(
 
   if (!uploadRes.ok) {
     const errorMsg = `Upload failed (${uploadRes.status}): ${uploadText.substring(0, 200)}`;
-    await sendTelegram(`🚨 *Auto-Shill FAILED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await sendTelegram(`🚨 *Auto-Shill FAILED* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "failed",
-      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername, reply_text: fullReply.substring(0, 200) },
+      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername, used_account: selectedAccount, reply_text: fullReply.substring(0, 200) },
     });
     return { ok: false, error: errorMsg };
   }
@@ -600,7 +601,7 @@ async function processAutoShill(
 
   if (!isProviderConfirmed) {
     const errorMsg = `Upload not confirmed (${uploadRes.status}): ${uploadText.substring(0, 300)}`;
-    await sendTelegram(`🚨 *Auto-Shill NOT CONFIRMED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await sendTelegram(`🚨 *Auto-Shill NOT CONFIRMED* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "failed",
       meta: {
@@ -608,6 +609,7 @@ async function processAutoShill(
         tweet_url: tweetUrl,
         error: errorMsg,
         profile: profileUsername,
+        used_account: selectedAccount,
         reply_text: fullReply.substring(0, 200),
         ticker,
         campaign_url: campaignUrl,
@@ -623,7 +625,7 @@ async function processAutoShill(
   const xVerification = await verifyReplyOnX(String(confirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
   if (!xVerification.verified) {
     const errorMsg = `Upload completed but X reply was not verified: ${xVerification.reason}`;
-    await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill",
       action: "failed",
@@ -632,6 +634,7 @@ async function processAutoShill(
         tweet_url: tweetUrl,
         error: errorMsg,
         profile: profileUsername,
+        used_account: selectedAccount,
         reply_text: fullReply.substring(0, 200),
         ticker,
         campaign_url: campaignUrl,
@@ -658,6 +661,7 @@ async function processAutoShill(
       name: `🗣️ Auto-replied: ${tweetUrl}`,
       tweet_url: tweetUrl,
       profile: profileUsername,
+      used_account: selectedAccount,
       reply_text: fullReply.substring(0, 300),
       ticker,
       campaign_url: campaignUrl,
@@ -669,12 +673,13 @@ async function processAutoShill(
     },
   });
 
-  await sendTelegram(`🗣️ *Auto-Shill Confirmed on X*\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
+  await sendTelegram(`🗣️ *Auto-Shill Confirmed on X* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
 
   return {
     ok: true,
     replied: true,
     tweet_url: tweetUrl,
+    used_account: selectedAccount,
     request_id: requestId,
     job_id: jobId,
     reply_post_id: confirmedPostId,
