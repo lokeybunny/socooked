@@ -314,6 +314,19 @@ serve(async (req) => {
           continue;
         }
 
+        // ── Post-insert race-condition guard: if another invocation also inserted, skip ──
+        const { data: dupeCheck } = await supabase
+          .from("activity_log")
+          .select("id")
+          .eq("entity_type", "auto-shill")
+          .eq("action", "telegram-notified")
+          .contains("meta", { discord_msg_id: msg.id });
+
+        if (dupeCheck && dupeCheck.length > 1) {
+          console.log(`[discord-watcher] Race dupe detected for msg ${msg.id}, skipping sends`);
+          continue;
+        }
+
         // ── 2) Send Telegram notification ──
         const tgText = `🔍 *New Tweet from Discord*\n\n` +
           `👤 Posted by: \`${discordAuthor}\`\n` +
