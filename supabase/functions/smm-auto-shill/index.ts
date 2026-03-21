@@ -328,7 +328,7 @@ serve(async (req) => {
     // ─── SAVE campaign config ───
     if (action === "save-config") {
       const body = await req.json();
-      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id } = body;
+      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id, team_accounts } = body;
       const section = profile_username || "NysonBlack";
 
       // Preserve last_message_id if it exists
@@ -347,6 +347,7 @@ serve(async (req) => {
           discord_app_id: discord_app_id || "",
           discord_public_key: discord_public_key || "",
           discord_channel_id: discord_channel_id || "",
+          team_accounts: Array.isArray(team_accounts) ? team_accounts : [],
           last_message_id: existingContent?.last_message_id || null,
         },
         is_published: true,
