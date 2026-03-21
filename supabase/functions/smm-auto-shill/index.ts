@@ -298,6 +298,7 @@ serve(async (req) => {
       const profileUsername = body.profile_username || body.profile || "NysonBlack";
       const discordMsgId = body.discord_msg_id || null;
       const discordAuthor = body.discord_author || null;
+      const isBot = body.is_bot === true;
 
       if (!tweetUrl || (!tweetUrl.includes("x.com/") && !tweetUrl.includes("twitter.com/"))) {
         await supabase.from("activity_log").insert({
