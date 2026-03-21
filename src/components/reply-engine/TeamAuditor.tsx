@@ -126,9 +126,12 @@ export default function TeamAuditor() {
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">All-Time Clicks</p>
         </div>
         <div className="rounded-lg border border-border p-4 text-center">
-          <DollarSign className="h-4 w-4 mx-auto mb-1 text-green-500" />
-          <p className="text-2xl font-bold text-green-500">${totals.totalEarnings.toFixed(2)}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Owed</p>
+          <DollarSign className="h-4 w-4 mx-auto mb-1 text-primary" />
+          <p className="text-2xl font-bold text-primary">${totals.totalEarnings.toFixed(2)}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Verified Owed</p>
+          {totals.pendingEarnings > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">${totals.pendingEarnings.toFixed(2)} pending</p>
+          )}
         </div>
       </div>
 
