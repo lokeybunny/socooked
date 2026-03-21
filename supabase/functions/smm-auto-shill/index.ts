@@ -372,6 +372,47 @@ serve(async (req) => {
         return json({ type: 4, data: { content: "🧹 Cleaning up bot messages… hang tight." } });
       }
 
+      // ─── /authorize command — link Discord user to X account ───
+      if (commandName === "authorize") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUserId = discordUser.id || "unknown";
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+        const xAccountOption = interaction.data?.options?.find((o: any) => o.name === "account");
+        const xAccount = xAccountOption?.value?.replace(/^@/, "")?.trim();
+
+        if (!xAccount) {
+          return json({ type: 4, data: { content: "❌ Please provide an X account name. Usage: `/authorize account:NysonBlack`", flags: 64 } });
+        }
+
+        const profileUsername = matchedProfile || "NysonBlack";
+
+        // Load current config
+        const { data: cfgRow } = await supabase
+          .from("site_configs").select("id, content")
+          .eq("site_id", "smm-auto-shill").eq("section", profileUsername).maybeSingle();
+
+        const currentContent = (cfgRow?.content as any) || {};
+        const assignments: Record<string, string> = currentContent.discord_assignments || {};
+
+        // Set the mapping: discord_user_id → x_account
+        assignments[discordUserId] = xAccount;
+
+        await supabase.from("site_configs").upsert({
+          id: cfgRow?.id || undefined,
+          site_id: "smm-auto-shill",
+          section: profileUsername,
+          content: { ...currentContent, discord_assignments: assignments },
+        }, { onConflict: "id" });
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Authorized!** Discord user \`${discordUsername}\` is now linked to X account \`@${xAccount}\`.\n\nWhen you click 📋 Get Shill Copy, you'll get the hashtag assigned to \`@${xAccount}\`.`,
+            flags: 64,
+          },
+        });
+      }
+
       // ─── /shill command ───
       let tweetUrl = "";
       const profileUsername = matchedProfile || "NysonBlack";
