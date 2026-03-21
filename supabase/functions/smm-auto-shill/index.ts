@@ -196,25 +196,81 @@ async function resolveDiscordGuildId(
   }
 }
 
-async function loadCrmXAccounts(supabase: any): Promise<Array<{ handle: string; label: string }>> {
-  const { data, error } = await supabase
+// ─── Load ALL X accounts from Upload Post API (all brand profiles) ───
+async function loadAllXAccountsFromProvider(): Promise<Array<{ handle: string; label: string }>> {
+  const API_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || Deno.env.get("DARKSIDE_SMM_API_KEY") || "";
+  if (!API_KEY) {
+    console.error("[auto-shill] No Upload Post API key available");
+    return [];
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/uploadposts/users`, {
+      headers: { Authorization: `Apikey ${API_KEY}` },
+    });
+    if (!res.ok) {
+      console.error("[auto-shill] Upload Post users fetch failed:", res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    const profiles = data?.profiles || data?.users || data || [];
+    if (!Array.isArray(profiles)) return [];
+
+    return extractXAccountChoicesFromProfiles(profiles);
+  } catch (e) {
+    console.error("[auto-shill] Error fetching Upload Post users:", e);
+    return [];
+  }
+}
+
+// ─── Sync provider accounts into outbound_accounts CRM table ───
+async function syncProviderAccountsToCrm(supabase: any, providerAccounts: Array<{ handle: string; label: string }>) {
+  for (const account of providerAccounts) {
+    const handle = normalizeXHandle(account.handle);
+    if (!handle) continue;
+
+    const { data: existing } = await supabase
+      .from("outbound_accounts")
+      .select("id")
+      .eq("platform", "x")
+      .eq("account_identifier", handle)
+      .maybeSingle();
+
+    if (!existing) {
+      await supabase.from("outbound_accounts").insert({
+        platform: "x",
+        provider: "upload-post",
+        account_identifier: handle,
+        account_label: account.label || handle,
+        is_authorized: true,
+      });
+      console.log(`[auto-shill] Synced new X account to CRM: @${handle}`);
+    }
+  }
+}
+
+// ─── Load X accounts: provider-first, CRM as backup ───
+async function loadAllXAccounts(supabase: any): Promise<Array<{ handle: string; label: string }>> {
+  const providerAccounts = await loadAllXAccountsFromProvider();
+
+  if (providerAccounts.length > 0) {
+    await syncProviderAccountsToCrm(supabase, providerAccounts);
+  }
+
+  const { data: crmRows } = await supabase
     .from("outbound_accounts")
     .select("account_identifier, account_label")
     .eq("platform", "x")
     .eq("is_authorized", true)
     .order("created_at", { ascending: true });
 
-  if (error) {
-    console.error("[auto-shill] Failed to load CRM X accounts:", error.message);
-    return [];
-  }
+  const crmAccounts = (crmRows || []).map((row: any) => ({
+    handle: row?.account_identifier,
+    label: row?.account_label || row?.account_identifier,
+  }));
 
-  return dedupeAccountChoices(
-    (data || []).map((row: any) => ({
-      handle: row?.account_identifier,
-      label: row?.account_label || row?.account_identifier,
-    })),
-  );
+  return dedupeAccountChoices([...providerAccounts, ...crmAccounts]);
 }
 
 // ─── Telegram helper ───
@@ -555,7 +611,7 @@ serve(async (req) => {
         const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
 
         const assignments: Record<string, string> = currentContent.discord_assignments || {};
-        const crmAccounts = await loadCrmXAccounts(supabase);
+        const crmAccounts = await loadAllXAccounts(supabase);
         const allXAccounts: string[] = crmAccounts.map((account) => account.handle);
 
         // ── Guard: check if the X account is in the connected accounts list ──
@@ -666,7 +722,7 @@ serve(async (req) => {
       // ── Guard: only assigned users can interact ──
       if (!isUserAssigned(discordAssignments, discordUserId)) {
         // Show available accounts they can claim
-        const crmAccounts = await loadCrmXAccounts(supabase);
+        const crmAccounts = await loadAllXAccounts(supabase);
         const allXAccounts: string[] = crmAccounts.map((account) => account.handle);
         const available = getAvailableAccounts(allXAccounts, discordAssignments);
         const availText = available.length > 0
@@ -807,7 +863,7 @@ serve(async (req) => {
     );
 
     // Build autocomplete choices from all connected X accounts
-    const crmAccounts = await loadCrmXAccounts(supabase);
+    const crmAccounts = await loadAllXAccounts(supabase);
     let accountChoiceRecords: Array<{ handle: string; label: string }> = crmAccounts;
     let allXAccounts: string[] = crmAccounts.map((account) => account.handle);
 
