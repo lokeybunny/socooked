@@ -659,43 +659,49 @@ async function processAutoShill(
     return { ok: false, error: errorMsg, request_id: requestId, job_id: jobId, provider_status: providerStatus };
   }
 
-  const xVerification = await verifyReplyOnX(String(confirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
-  if (!xVerification.verified) {
-    const errorMsg = `Upload completed but X reply was not verified: ${xVerification.reason}`;
-    await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
-    await supabase.from("activity_log").insert({
-      entity_type: "auto-shill",
-      action: "failed",
-      meta: {
-        name: `❌ Reply not verified on X: ${tweetUrl}`,
-        tweet_url: tweetUrl,
+  // Skip X reply-chain verification for quote tweets (they're standalone posts, not replies)
+  if (!usedQuoteFallback) {
+    const xVerification = await verifyReplyOnX(String(confirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
+    if (!xVerification.verified) {
+      const errorMsg = `Upload completed but X reply was not verified: ${xVerification.reason}`;
+      await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+      await supabase.from("activity_log").insert({
+        entity_type: "auto-shill",
+        action: "failed",
+        meta: {
+          name: `❌ Reply not verified on X: ${tweetUrl}`,
+          tweet_url: tweetUrl,
+          error: errorMsg,
+          profile: profileUsername,
+          used_account: selectedAccount,
+          reply_text: fullReply.substring(0, 200),
+          ticker,
+          campaign_url: campaignUrl,
+          request_id: requestId,
+          job_id: jobId,
+          provider_status: providerStatus,
+          reply_post_id: confirmedPostId,
+          reply_url: confirmedReplyUrl,
+        },
+      });
+      return {
+        ok: false,
         error: errorMsg,
-        profile: profileUsername,
-        used_account: selectedAccount,
-        reply_text: fullReply.substring(0, 200),
-        ticker,
-        campaign_url: campaignUrl,
         request_id: requestId,
         job_id: jobId,
-        provider_status: providerStatus,
         reply_post_id: confirmedPostId,
         reply_url: confirmedReplyUrl,
-      },
-    });
-    return {
-      ok: false,
-      error: errorMsg,
-      request_id: requestId,
-      job_id: jobId,
-      reply_post_id: confirmedPostId,
-      reply_url: confirmedReplyUrl,
-    };
+      };
+    }
   }
+
+  const replyType = usedQuoteFallback ? "quote" : "reply";
+  const replyEmoji = usedQuoteFallback ? "💬" : "🗣️";
 
   await supabase.from("activity_log").insert({
     entity_type: "auto-shill", action: "replied",
     meta: {
-      name: `🗣️ Auto-replied: ${tweetUrl}`,
+      name: `${replyEmoji} Auto-${replyType}: ${tweetUrl}`,
       tweet_url: tweetUrl,
       profile: profileUsername,
       used_account: selectedAccount,
@@ -707,10 +713,11 @@ async function processAutoShill(
       provider_status: providerStatus,
       reply_post_id: confirmedPostId,
       reply_url: confirmedReplyUrl,
+      reply_type: replyType,
     },
   });
 
-  await sendTelegram(`🗣️ *Auto-Shill Confirmed on X* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
+  await sendTelegram(`${replyEmoji} *Auto-Shill ${usedQuoteFallback ? "Quote Tweet" : "Reply Confirmed"}* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
 
   return {
     ok: true,
