@@ -761,6 +761,8 @@ serve(async (req) => {
           discord_username: discordUsername,
           tweet_url: tweetUrl || null,
           discord_msg_id: discordMsgId,
+          source_tweet_url: tweetUrl || null,
+          status: "clicked",
         });
 
         if (discordMsgId) {
