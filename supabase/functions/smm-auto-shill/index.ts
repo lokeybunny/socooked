@@ -807,7 +807,7 @@ async function processAutoShill(
 
   // Skip X reply-chain verification for quote tweets (they're standalone posts, not replies)
   if (!usedQuoteFallback) {
-    const xVerification = await verifyReplyOnX(String(confirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
+    const xVerification = await verifyReplyOnX(String(finalConfirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
     if (!xVerification.verified) {
       const errorMsg = `Upload completed but X reply was not verified: ${xVerification.reason}`;
       await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
