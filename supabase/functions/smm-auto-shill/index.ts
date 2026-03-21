@@ -369,14 +369,13 @@ serve(async (req) => {
             .like("meta->>discord_msg_id", discordMsgId);
         }
 
-        // type 7 = UPDATE_MESSAGE — replaces the original embed so it gets
-        // auto-deleted along with the bot message (no orphan ephemeral)
+        // type 4 + flags 64 = ephemeral reply visible only to the clicker
+        // keeps the original embed alive for other users until auto-expiry
         return json({
-          type: 7,
+          type: 4,
           data: {
             content: `🚀 **Go shill this tweet now!**\n${tweetUrl}\n\n✅ Click recorded for \`${discordUsername}\``,
-            embeds: [],
-            components: [],
+            flags: 64,
           },
         });
       }
