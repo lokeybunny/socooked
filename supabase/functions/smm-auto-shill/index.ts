@@ -527,6 +527,7 @@ serve(async (req) => {
         const campaignUrl = cfg?.campaign_url || "";
         const shillTicker = cfg?.ticker || "";
         const accountHashtags: Record<string, string> = cfg?.account_hashtags || {};
+        const discordAssignments: Record<string, string> = cfg?.discord_assignments || {};
 
         if (!shillTicker) {
           return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
@@ -534,17 +535,24 @@ serve(async (req) => {
 
         const tickerClean = shillTicker.replace(/^\$/, "");
 
-        // Pick a random hashtag from connected accounts that have one set
-        const availableHashtags = Object.values(accountHashtags).filter(Boolean);
-        const randomHashtag = availableHashtags.length > 0
-          ? `#${availableHashtags[Math.floor(Math.random() * availableHashtags.length)].replace(/^#/, "")}`
-          : "";
+        // Look up the assigned X account for this Discord user, then get its hashtag
+        const assignedXAccount = discordAssignments[discordUserId] || "";
+        let userHashtag = "";
+        if (assignedXAccount && accountHashtags[assignedXAccount]) {
+          userHashtag = `#${accountHashtags[assignedXAccount].replace(/^#/, "")}`;
+        } else {
+          // Fallback: pick a random hashtag from any account
+          const availableHashtags = Object.values(accountHashtags).filter(Boolean);
+          userHashtag = availableHashtags.length > 0
+            ? `#${availableHashtags[Math.floor(Math.random() * availableHashtags.length)].replace(/^#/, "")}`
+            : "";
+        }
 
         // Build copy parts and insert hashtag at random position
         const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#crypto`];
-        if (randomHashtag) {
+        if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
-          copyParts.splice(insertIdx, 0, randomHashtag);
+          copyParts.splice(insertIdx, 0, userHashtag);
         }
 
         const copyText = copyParts.join(" ") +
