@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import nacl from "https://esm.sh/tweetnacl@1.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,17 +13,20 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 // ─── Ed25519 signature verification for Discord Interactions ───
-async function verifyDiscordSignature(publicKeyHex: string, signature: string, timestamp: string, body: string): Promise<boolean> {
+function hexToUint8Array(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+function verifyDiscordSignature(publicKeyHex: string, signature: string, timestamp: string, body: string): boolean {
   try {
-    const publicKeyBytes = new Uint8Array(publicKeyHex.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
-    const signatureBytes = new Uint8Array(signature.match(/.{1,2}/g)!.map(b => parseInt(b, 16)));
+    const publicKey = hexToUint8Array(publicKeyHex);
+    const sig = hexToUint8Array(signature);
     const message = new TextEncoder().encode(timestamp + body);
-
-    const cryptoKey = await crypto.subtle.importKey(
-      "raw", publicKeyBytes, { name: "Ed25519", namedCurve: "Ed25519" } as any, false, ["verify"]
-    );
-
-    return await crypto.subtle.verify("Ed25519", cryptoKey, signatureBytes, message);
+    return nacl.sign.detached.verify(message, sig, publicKey);
   } catch (e) {
     console.error("[auto-shill] Signature verification error:", e);
     return false;
@@ -73,7 +77,7 @@ serve(async (req) => {
       return json({ error: "No Discord public key configured" }, 401);
     }
 
-    const isValid = await verifyDiscordSignature(publicKey, sig, timestamp, rawBody);
+    const isValid = verifyDiscordSignature(publicKey, sig, timestamp, rawBody);
     if (!isValid) {
       return json({ error: "Invalid request signature" }, 401);
     }
