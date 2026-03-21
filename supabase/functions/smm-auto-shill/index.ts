@@ -485,6 +485,7 @@ async function processAutoShill(
   if (!ticker) return { ok: false, error: "No ticker configured" };
 
   const teamAccounts: string[] = Array.isArray(config.team_accounts) ? config.team_accounts : [];
+  const retweetAccounts: string[] = Array.isArray(config.retweet_accounts) ? config.retweet_accounts : [];
 
   // ─── Per-account cooldown with team rotation ───
   const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
