@@ -178,7 +178,7 @@ serve(async (req) => {
         return json({ type: 4, data: { content: "❌ No tweet URL found.", flags: 64 } });
       }
 
-      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram);
+      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram, false);
       processPromise.catch(e => console.error("[auto-shill] Async process error:", e));
 
       return json({ type: 4, data: { content: `🗣️ Auto-shill queued: ${tweetUrl}\n👤 ${profileUsername}` } });
@@ -298,6 +298,7 @@ serve(async (req) => {
       const profileUsername = body.profile_username || body.profile || "NysonBlack";
       const discordMsgId = body.discord_msg_id || null;
       const discordAuthor = body.discord_author || null;
+      const isBot = body.is_bot === true;
 
       if (!tweetUrl || (!tweetUrl.includes("x.com/") && !tweetUrl.includes("twitter.com/"))) {
         await supabase.from("activity_log").insert({
@@ -314,7 +315,7 @@ serve(async (req) => {
       });
       await sendTelegram(`📥 *Discord → Auto-Shill*\n🔗 ${tweetUrl}\n👤 ${profileUsername}${discordAuthor ? `\n🎮 Discord: ${discordAuthor}` : ''}\n⏳ Processing reply...`);
 
-      const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram);
+      const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram, isBot);
       return json(result, result.ok ? 200 : 500);
     }
 
@@ -329,7 +330,7 @@ serve(async (req) => {
 // ─── Core: AI rage-bait reply + campaign link + ticker + hashtags ───
 async function processAutoShill(
   supabase: any, tweetUrl: string, profileUsername: string,
-  UPLOAD_POST_API_KEY: string, LOVABLE_API_KEY: string, sendTelegram: (text: string) => Promise<void>
+  UPLOAD_POST_API_KEY: string, LOVABLE_API_KEY: string, sendTelegram: (text: string) => Promise<void>, isBot: boolean = false
 ) {
   console.log(`[auto-shill] Processing: ${tweetUrl} for ${profileUsername}`);
 
@@ -345,15 +346,17 @@ async function processAutoShill(
   const ticker = config.ticker || "";
   if (!ticker) return { ok: false, error: "No ticker configured" };
 
-  // Dedup check (24h)
-  const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
-  const { data: existing } = await supabase
-    .from("activity_log").select("id")
-    .eq("entity_type", "auto-shill").eq("action", "replied")
-    .gte("created_at", oneDayAgo)
-    .like("meta->>tweet_url", tweetUrl).limit(1);
+  // Dedup check (24h) — only for bot sources; human users always get a fresh reply
+  if (isBot) {
+    const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+    const { data: existing } = await supabase
+      .from("activity_log").select("id")
+      .eq("entity_type", "auto-shill").eq("action", "replied")
+      .gte("created_at", oneDayAgo)
+      .like("meta->>tweet_url", tweetUrl).limit(1);
 
-  if (existing?.length) return { ok: false, skipped: true, reason: "Already replied in last 24h" };
+    if (existing?.length) return { ok: false, skipped: true, reason: "Already replied in last 24h (bot dedup)" };
+  }
 
   // Generate AI rage-bait reply
   const rageBait = await generateRageBaitReply(tweetUrl, campaignUrl, ticker, LOVABLE_API_KEY);
