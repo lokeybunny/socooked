@@ -289,7 +289,6 @@ serve(async (req) => {
       const profileUsername = body.profile_username || body.profile || "NysonBlack";
 
       if (!tweetUrl || (!tweetUrl.includes("x.com/") && !tweetUrl.includes("twitter.com/"))) {
-        // Log non-X URLs as "received" for visibility but don't process
         await supabase.from("activity_log").insert({
           entity_type: "auto-shill", action: "skipped",
           meta: { name: `⏭️ Non-X URL skipped`, url: tweetUrl, profile: profileUsername },
@@ -297,11 +296,12 @@ serve(async (req) => {
         return json({ ok: true, skipped: true, reason: "Not an X/Twitter URL" });
       }
 
-      // Log as received immediately
+      // Log as received + notify Telegram immediately
       await supabase.from("activity_log").insert({
         entity_type: "auto-shill", action: "received",
         meta: { name: `📥 Received: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername },
       });
+      await sendTelegram(`📥 *Discord → Auto-Shill*\n🔗 ${tweetUrl}\n👤 ${profileUsername}\n⏳ Processing reply...`);
 
       const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram);
       return json(result, result.ok ? 200 : 500);
