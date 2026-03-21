@@ -12,13 +12,15 @@ interface TeamMember {
   discord_user_id: string;
   username: string;
   totalClicks: number;
+  verifiedClicks: number;
   todayClicks: number;
   weekClicks: number;
   earnings: number;
+  pendingEarnings: number;
   todayEarnings: number;
   weekEarnings: number;
   lastActive: string;
-  recentTweets: { url: string; created_at: string }[];
+  recentTweets: { url: string; created_at: string; status: string }[];
 }
 
 export default function TeamAuditor() {
@@ -49,9 +51,11 @@ export default function TeamAuditor() {
           discord_user_id: uid,
           username: c.discord_username,
           totalClicks: 0,
+          verifiedClicks: 0,
           todayClicks: 0,
           weekClicks: 0,
           earnings: 0,
+          pendingEarnings: 0,
           todayEarnings: 0,
           weekEarnings: 0,
           lastActive: c.created_at,
@@ -60,8 +64,11 @@ export default function TeamAuditor() {
       }
 
       const m = userMap[uid];
+      const isVerified = (c as any).status === "verified";
       m.totalClicks++;
-      m.earnings = m.totalClicks * RATE_PER_CLICK;
+      if (isVerified) m.verifiedClicks++;
+      m.earnings = m.verifiedClicks * RATE_PER_CLICK;
+      m.pendingEarnings = (m.totalClicks - m.verifiedClicks) * RATE_PER_CLICK;
 
       const clickDate = new Date(c.created_at);
       if (clickDate >= todayStart) {
@@ -78,7 +85,7 @@ export default function TeamAuditor() {
       }
 
       if (m.recentTweets.length < 10) {
-        m.recentTweets.push({ url: c.tweet_url || "", created_at: c.created_at });
+        m.recentTweets.push({ url: c.tweet_url || "", created_at: c.created_at, status: (c as any).status || "clicked" });
       }
     }
 
@@ -91,10 +98,12 @@ export default function TeamAuditor() {
 
   const totals = useMemo(() => {
     const totalClicks = members.reduce((s, m) => s + m.totalClicks, 0);
-    const totalEarnings = totalClicks * RATE_PER_CLICK;
+    const verifiedClicks = members.reduce((s, m) => s + m.verifiedClicks, 0);
+    const totalEarnings = verifiedClicks * RATE_PER_CLICK;
+    const pendingEarnings = (totalClicks - verifiedClicks) * RATE_PER_CLICK;
     const todayClicks = members.reduce((s, m) => s + m.todayClicks, 0);
     const weekClicks = members.reduce((s, m) => s + m.weekClicks, 0);
-    return { totalClicks, totalEarnings, todayClicks, weekClicks };
+    return { totalClicks, verifiedClicks, totalEarnings, pendingEarnings, todayClicks, weekClicks };
   }, [members]);
 
   return (
@@ -117,9 +126,12 @@ export default function TeamAuditor() {
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">All-Time Clicks</p>
         </div>
         <div className="rounded-lg border border-border p-4 text-center">
-          <DollarSign className="h-4 w-4 mx-auto mb-1 text-green-500" />
-          <p className="text-2xl font-bold text-green-500">${totals.totalEarnings.toFixed(2)}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Owed</p>
+          <DollarSign className="h-4 w-4 mx-auto mb-1 text-primary" />
+          <p className="text-2xl font-bold text-primary">${totals.totalEarnings.toFixed(2)}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Verified Owed</p>
+          {totals.pendingEarnings > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">${totals.pendingEarnings.toFixed(2)} pending</p>
+          )}
         </div>
       </div>
 
@@ -168,8 +180,11 @@ export default function TeamAuditor() {
                     </p>
                   </div>
                   <div className="text-right shrink-0 space-y-0.5">
-                    <p className="text-lg font-bold text-green-500">${member.earnings.toFixed(2)}</p>
-                    <p className="text-[10px] text-muted-foreground">{member.totalClicks} clicks</p>
+                    <p className="text-lg font-bold text-primary">${member.earnings.toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground">{member.verifiedClicks}/{member.totalClicks} verified</p>
+                    {member.pendingEarnings > 0 && (
+                      <p className="text-[10px] text-yellow-500">${member.pendingEarnings.toFixed(2)} pending</p>
+                    )}
                   </div>
                 </button>
 
@@ -200,7 +215,11 @@ export default function TeamAuditor() {
                         <div className="space-y-1">
                           {member.recentTweets.slice(0, 5).map((t, idx) => (
                             <div key={idx} className="flex items-center gap-2 text-xs">
-                              <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                              {t.status === "verified" ? (
+                                <CheckCircle className="h-3 w-3 text-primary shrink-0" />
+                              ) : (
+                                <XCircle className="h-3 w-3 text-yellow-500 shrink-0" />
+                              )}
                               {t.url ? (
                                 <a href={t.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
                                   {t.url} <ExternalLink className="inline h-2.5 w-2.5" />

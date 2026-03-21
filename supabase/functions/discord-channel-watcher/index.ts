@@ -241,6 +241,55 @@ serve(async (req) => {
         } else {
           tweetUrl = uniqueUrls[0];
         }
+
+        // ── Payment verification for RT receipts in the raid channel ──
+        // When a user posts their reply receipt via TweetShift, we match any
+        // extracted URL against pending shill_clicks to confirm payment.
+        if (isRtInRaidChannel) {
+          // Normalize URLs for comparison (strip query params, unify domain)
+          const normalizeXUrl = (u: string): string =>
+            u.replace(/https?:\/\/(x\.com|twitter\.com)/, "x.com")
+             .split("?")[0]
+             .replace(/\/+$/, "")
+             .toLowerCase();
+
+          const normalizedAll = uniqueUrls.map(normalizeXUrl);
+
+          // Look for pending shill_clicks that match ANY of these URLs
+          const { data: pendingClicks } = await supabase
+            .from("shill_clicks")
+            .select("id, tweet_url, source_tweet_url")
+            .eq("status", "clicked")
+            .limit(200);
+
+          if (pendingClicks?.length) {
+            for (const click of pendingClicks) {
+              const clickUrl = normalizeXUrl(click.source_tweet_url || click.tweet_url || "");
+              if (!clickUrl) continue;
+
+              // Check if the original shill tweet URL appears in the RT receipt
+              if (normalizedAll.includes(clickUrl)) {
+                // Find the reply URL (a URL in the receipt that ISN'T the original)
+                const replyUrl = uniqueUrls.find(u => normalizeXUrl(u) !== clickUrl) || tweetUrl;
+
+                const { error: verifyErr } = await supabase
+                  .from("shill_clicks")
+                  .update({
+                    status: "verified",
+                    verified_at: new Date().toISOString(),
+                    receipt_tweet_url: replyUrl,
+                  })
+                  .eq("id", click.id);
+
+                if (verifyErr) {
+                  console.error(`[discord-watcher] Failed to verify click ${click.id}:`, verifyErr.message);
+                } else {
+                  console.log(`[discord-watcher] ✅ Verified payment for click ${click.id} — matched ${clickUrl}`);
+                }
+              }
+            }
+          }
+        }
         const discordAuthor = msg.author?.username || "unknown";
 
         // Cleanup runs every minute, so align the displayed countdown to the next
