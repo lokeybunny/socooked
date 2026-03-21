@@ -29,6 +29,7 @@ interface ShillConfig {
   team_accounts: string[];
   retweet_accounts: string[];
   account_hashtags: Record<string, string>;
+  discord_assignments: Record<string, string>;
 }
 
 interface FeedEntry {
