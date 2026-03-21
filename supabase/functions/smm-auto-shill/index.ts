@@ -865,9 +865,9 @@ async function processAutoShill(
 
   await sendTelegram(`${replyEmoji} *Auto-Shill ${usedQuoteFallback ? "Quote Tweet" : "Reply Confirmed"}* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${finalConfirmedReplyUrl}\n💰 ${ticker}`);
 
-  // ─── Retweet with selected retweet accounts ───
-  if (retweetAccounts.length > 0 && targetTweetId) {
-    console.log(`[auto-shill] Retweeting with ${retweetAccounts.length} account(s): ${retweetAccounts.join(', ')}`);
+  // ─── Repost (quote-post the tweet URL) with selected repost accounts ───
+  if (retweetAccounts.length > 0 && tweetUrl) {
+    console.log(`[auto-shill] Reposting with ${retweetAccounts.length} account(s): ${retweetAccounts.join(', ')}`);
     const retweetResults: { account: string; success: boolean; error?: string }[] = [];
 
     for (const rtAccount of retweetAccounts) {
@@ -875,8 +875,7 @@ async function processAutoShill(
         const rtParams = new URLSearchParams();
         rtParams.append("user", rtAccount);
         rtParams.append("platform[]", "x");
-        rtParams.append("retweet_id", targetTweetId);
-        rtParams.append("title", "RT");
+        rtParams.append("title", tweetUrl);
 
         const rtRes = await fetch(`${API_BASE}/upload_text`, {
           method: "POST",
@@ -885,7 +884,7 @@ async function processAutoShill(
         });
 
         const rtText = await rtRes.text();
-        console.log(`[auto-shill] Retweet @${rtAccount} response (${rtRes.status}): ${rtText.substring(0, 300)}`);
+        console.log(`[auto-shill] Repost @${rtAccount} response (${rtRes.status}): ${rtText.substring(0, 300)}`);
 
         let rtData: any = {};
         try { rtData = JSON.parse(rtText); } catch {}
@@ -893,7 +892,7 @@ async function processAutoShill(
         const rtSuccess = rtRes.ok && rtData?.success === true;
         retweetResults.push({ account: rtAccount, success: rtSuccess, error: rtSuccess ? undefined : rtText.substring(0, 200) });
       } catch (e) {
-        console.error(`[auto-shill] Retweet error for @${rtAccount}:`, e);
+        console.error(`[auto-shill] Repost error for @${rtAccount}:`, e);
         retweetResults.push({ account: rtAccount, success: false, error: String(e).substring(0, 200) });
       }
     }
