@@ -22,7 +22,6 @@ serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
-  const BOT_SECRET = Deno.env.get("BOT_SECRET")!;
   const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
   const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID")!;
 
@@ -40,11 +39,6 @@ serve(async (req) => {
 
     if (!configs?.length) return json({ ok: true, skipped: true, reason: "No configs" });
 
-    // Collect all enabled profiles (these will each receive forwarded tweets)
-    const enabledProfiles = configs
-      .filter((row: any) => (row.content as any)?.enabled)
-      .map((row: any) => row.section);
-
     // Collect unique discord channel IDs from any config that has one
     const channelConfigs: { channelId: string; section: string; cfg: any }[] = [];
     for (const row of configs) {
@@ -56,7 +50,7 @@ serve(async (req) => {
 
     if (channelConfigs.length === 0) return json({ ok: true, skipped: true, reason: "No channels configured" });
 
-    // Deduplicate channels (multiple profiles might share a channel)
+    // Deduplicate channels
     const seenChannels = new Set<string>();
     const uniqueChannels: { channelId: string; section: string; cfg: any }[] = [];
     for (const cc of channelConfigs) {
@@ -65,6 +59,11 @@ serve(async (req) => {
         uniqueChannels.push(cc);
       }
     }
+
+    // Collect campaign info from first enabled config (for the copy text)
+    const firstEnabled = configs.find((r: any) => (r.content as any)?.enabled);
+    const campaignUrl = (firstEnabled?.content as any)?.campaign_url || "";
+    const ticker = (firstEnabled?.content as any)?.ticker || "";
 
     let totalForwarded = 0;
 
@@ -101,10 +100,7 @@ serve(async (req) => {
 
       for (const msg of messages) {
         // Track newest message ID regardless
-        if (
-          !newestId ||
-          BigInt(msg.id) > BigInt(newestId)
-        ) {
+        if (!newestId || BigInt(msg.id) > BigInt(newestId)) {
           newestId = msg.id;
         }
 
@@ -117,60 +113,56 @@ serve(async (req) => {
           .from("activity_log")
           .select("id")
           .eq("entity_type", "auto-shill")
-          .eq("action", "received")
+          .eq("action", "telegram-notified")
           .like("meta->>discord_msg_id", msg.id)
           .limit(1);
 
         if (existing?.length) continue;
 
         for (const tweetUrl of matches) {
-          // 1) Forward to Reply Engine for human-reviewed replies
+          // Send Telegram notification with SHILL NOW button
+          const discordAuthor = msg.author?.username || "unknown";
+          const tgText = `🔍 *New Tweet from Discord*\n\n` +
+            `👤 Posted by: \`${discordAuthor}\`\n` +
+            `🔗 ${tweetUrl}\n\n` +
+            `Tap below to open the tweet and get your shill copy.`;
+
+          const inlineKeyboard = {
+            inline_keyboard: [
+              [{ text: "🚀 SHILL NOW", url: tweetUrl }],
+              [{ text: "📋 Get Shill Copy", callback_data: `shill_copy` }],
+            ],
+          };
+
           try {
-            const replyEngineUrl = `${SUPABASE_URL}/functions/v1/reply-engine?action=ingest`;
-            const replyRes = await fetch(replyEngineUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-bot-secret": BOT_SECRET,
-              },
-              body: JSON.stringify({
-                tweet_url: tweetUrl,
-                discord_msg_id: msg.id,
-                discord_author: msg.author?.username || "unknown",
-              }),
-            });
-            const replyData = await replyRes.json().catch(() => ({}));
-            console.log(
-              `[discord-watcher] Reply Engine ingest ${tweetUrl}: ${JSON.stringify(replyData)}`
-            );
-          } catch (e) {
-            console.error(`[discord-watcher] Reply Engine ingest error for ${tweetUrl}:`, e);
-          }
-
-          // 2) Forward to ALL enabled profiles for auto-shill (existing flow)
-          for (const targetProfile of enabledProfiles) {
-            const ingestUrl = `${SUPABASE_URL}/functions/v1/smm-auto-shill?action=ingest`;
-            const ingestRes = await fetch(ingestUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-bot-secret": BOT_SECRET,
-              },
-              body: JSON.stringify({
-                tweet_url: tweetUrl,
-                profile_username: targetProfile,
-                discord_msg_id: msg.id,
-                discord_author: msg.author?.username || "unknown",
-                is_bot: msg.author?.bot === true,
-              }),
-            });
-
-            const ingestData = await ingestRes.json().catch(() => ({}));
-            console.log(
-              `[discord-watcher] Forwarded ${tweetUrl} for ${targetProfile}: ${JSON.stringify(ingestData)}`
+            await fetch(
+              `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  chat_id: TELEGRAM_CHAT_ID,
+                  text: tgText,
+                  parse_mode: "Markdown",
+                  reply_markup: inlineKeyboard,
+                }),
+              }
             );
             totalForwarded++;
+          } catch (e) {
+            console.error("[discord-watcher] Telegram send error:", e);
           }
+
+          // Log to activity_log for dedup
+          await supabase.from("activity_log").insert({
+            entity_type: "auto-shill",
+            action: "telegram-notified",
+            meta: {
+              discord_msg_id: msg.id,
+              discord_author: discordAuthor,
+              tweet_url: tweetUrl,
+            },
+          });
         }
       }
 
@@ -186,27 +178,7 @@ serve(async (req) => {
       }
     }
 
-    // Notify Telegram if we forwarded anything
-    if (totalForwarded > 0) {
-      try {
-        await fetch(
-          `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: TELEGRAM_CHAT_ID,
-              text: `🔍 *Discord Watcher*\n📥 Forwarded ${totalForwarded} X link(s) to ${enabledProfiles.length} profile(s)`,
-              parse_mode: "Markdown",
-            }),
-          }
-        );
-      } catch (e) {
-        console.error("[discord-watcher] Telegram notify error:", e);
-      }
-    }
-
-    return json({ ok: true, forwarded: totalForwarded, profiles: enabledProfiles.length });
+    return json({ ok: true, forwarded: totalForwarded });
   } catch (err) {
     console.error("[discord-watcher] Fatal error:", err);
     return json({ error: String(err) }, 500);
