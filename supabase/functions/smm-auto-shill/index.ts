@@ -242,7 +242,7 @@ serve(async (req) => {
     const interaction = JSON.parse(rawBody);
     if (interaction.type === 1) return json({ type: 1 });
 
-    if (interaction.type === 2 || interaction.type === 3) {
+    if (interaction.type === 2) {
       let tweetUrl = "";
       const profileUsername = matchedProfile || "NysonBlack";
 
@@ -267,6 +267,41 @@ serve(async (req) => {
       processPromise.catch(e => console.error("[auto-shill] Async process error:", e));
 
       return json({ type: 4, data: { content: `🗣️ Auto-shill queued: ${tweetUrl}\n👤 ${profileUsername}` } });
+    }
+
+    // ─── Component interaction (button clicks) ───
+    if (interaction.type === 3) {
+      const customId = interaction.data?.custom_id || "";
+
+      if (customId.startsWith("shill_copy")) {
+        // Load campaign config
+        const { data: shillConfigs } = await supabase
+          .from("site_configs").select("content")
+          .eq("site_id", "smm-auto-shill");
+
+        const enabledCfg = shillConfigs?.find((r: any) => (r.content as any)?.enabled);
+        const cfg = enabledCfg?.content as any;
+        const campaignUrl = cfg?.campaign_url || "";
+        const shillTicker = cfg?.ticker || "";
+
+        if (!shillTicker) {
+          return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
+        }
+
+        const tickerClean = shillTicker.replace(/^\$/, "");
+        const copyText = `${shillTicker} #${tickerClean} #crypto` +
+          (campaignUrl ? `\n${campaignUrl}` : "");
+
+        return json({
+          type: 4,
+          data: {
+            content: `📋 **Shill Copy — paste this as your reply:**\n\`\`\`\n${copyText}\n\`\`\``,
+            flags: 64, // ephemeral — only visible to the clicker
+          },
+        });
+      }
+
+      return json({ type: 4, data: { content: "❓ Unknown action.", flags: 64 } });
     }
 
     return json({ type: 1 });
