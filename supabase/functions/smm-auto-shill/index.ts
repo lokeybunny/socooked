@@ -841,6 +841,7 @@ serve(async (req) => {
           team_accounts: Array.isArray(team_accounts) ? team_accounts : [],
           retweet_accounts: Array.isArray(retweet_accounts) ? retweet_accounts : [],
           account_hashtags: account_hashtags || existingContent?.account_hashtags || {},
+          all_x_accounts: Array.isArray(all_x_accounts) ? all_x_accounts : existingContent?.all_x_accounts || [],
           discord_assignments: existingContent?.discord_assignments || {},
           last_message_id: existingContent?.last_message_id || null,
         },
