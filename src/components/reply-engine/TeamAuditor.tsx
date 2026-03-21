@@ -98,10 +98,12 @@ export default function TeamAuditor() {
 
   const totals = useMemo(() => {
     const totalClicks = members.reduce((s, m) => s + m.totalClicks, 0);
-    const totalEarnings = totalClicks * RATE_PER_CLICK;
+    const verifiedClicks = members.reduce((s, m) => s + m.verifiedClicks, 0);
+    const totalEarnings = verifiedClicks * RATE_PER_CLICK;
+    const pendingEarnings = (totalClicks - verifiedClicks) * RATE_PER_CLICK;
     const todayClicks = members.reduce((s, m) => s + m.todayClicks, 0);
     const weekClicks = members.reduce((s, m) => s + m.weekClicks, 0);
-    return { totalClicks, totalEarnings, todayClicks, weekClicks };
+    return { totalClicks, verifiedClicks, totalEarnings, pendingEarnings, todayClicks, weekClicks };
   }, [members]);
 
   return (
