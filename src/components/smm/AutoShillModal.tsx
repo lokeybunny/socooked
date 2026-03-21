@@ -196,9 +196,24 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
                 </ul>
               </div>
 
+              {/* Discord Channel Watcher */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Discord Channel ID</Label>
+                <Input
+                  value={config.discord_channel_id}
+                  onChange={(e) => setConfig(prev => ({ ...prev, discord_channel_id: e.target.value }))}
+                  placeholder="e.g. 1234567890123456789"
+                  className="h-8 text-sm font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Paste X/Twitter links in this Discord channel — they'll be auto-forwarded to Auto Shill every 60s.
+                  Right-click the channel → Copy Channel ID (enable Developer Mode in Discord settings).
+                </p>
+              </div>
+
               {/* Discord config (collapsed) */}
               <details className="rounded-md border border-border p-3 bg-muted/30">
-                <summary className="text-xs font-semibold text-primary cursor-pointer">Discord Bot Settings</summary>
+                <summary className="text-xs font-semibold text-primary cursor-pointer">Discord Bot Settings (Advanced)</summary>
                 <div className="space-y-2 mt-2">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">Application ID</Label>
