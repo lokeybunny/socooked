@@ -346,15 +346,17 @@ async function processAutoShill(
   const ticker = config.ticker || "";
   if (!ticker) return { ok: false, error: "No ticker configured" };
 
-  // Dedup check (24h)
-  const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
-  const { data: existing } = await supabase
-    .from("activity_log").select("id")
-    .eq("entity_type", "auto-shill").eq("action", "replied")
-    .gte("created_at", oneDayAgo)
-    .like("meta->>tweet_url", tweetUrl).limit(1);
+  // Dedup check (24h) — only for bot sources; human users always get a fresh reply
+  if (isBot) {
+    const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+    const { data: existing } = await supabase
+      .from("activity_log").select("id")
+      .eq("entity_type", "auto-shill").eq("action", "replied")
+      .gte("created_at", oneDayAgo)
+      .like("meta->>tweet_url", tweetUrl).limit(1);
 
-  if (existing?.length) return { ok: false, skipped: true, reason: "Already replied in last 24h" };
+    if (existing?.length) return { ok: false, skipped: true, reason: "Already replied in last 24h (bot dedup)" };
+  }
 
   // Generate AI rage-bait reply
   const rageBait = await generateRageBaitReply(tweetUrl, campaignUrl, ticker, LOVABLE_API_KEY);
