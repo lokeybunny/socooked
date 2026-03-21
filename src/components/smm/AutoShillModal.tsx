@@ -94,6 +94,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
           retweet_accounts: configRes.config.retweet_accounts || [],
           account_hashtags: configRes.config.account_hashtags || {},
           discord_assignments: configRes.config.discord_assignments || {},
+          discord_usernames: configRes.config.discord_usernames || {},
         });
       }
       if (feedRes?.feed) setFeed(feedRes.feed);
