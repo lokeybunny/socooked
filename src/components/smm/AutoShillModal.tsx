@@ -259,6 +259,13 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
           >
             Feed ({feed.length})
           </button>
+          <button
+            className={`flex-1 text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 ${tab === 'activity' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
+            onClick={() => setTab('activity')}
+          >
+            <Users className="h-3 w-3" />
+            Activity ({shillClicks.length})
+          </button>
         </div>
 
         {tab === 'campaign' ? (
