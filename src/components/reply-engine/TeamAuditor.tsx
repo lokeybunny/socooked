@@ -180,8 +180,11 @@ export default function TeamAuditor() {
                     </p>
                   </div>
                   <div className="text-right shrink-0 space-y-0.5">
-                    <p className="text-lg font-bold text-green-500">${member.earnings.toFixed(2)}</p>
-                    <p className="text-[10px] text-muted-foreground">{member.totalClicks} clicks</p>
+                    <p className="text-lg font-bold text-primary">${member.earnings.toFixed(2)}</p>
+                    <p className="text-[10px] text-muted-foreground">{member.verifiedClicks}/{member.totalClicks} verified</p>
+                    {member.pendingEarnings > 0 && (
+                      <p className="text-[10px] text-yellow-500">${member.pendingEarnings.toFixed(2)} pending</p>
+                    )}
                   </div>
                 </button>
 
