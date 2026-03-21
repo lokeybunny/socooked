@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -9,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Zap, Copy, CheckCircle2, AlertCircle, MessageSquare, History } from 'lucide-react';
+import { Zap, Copy, CheckCircle2, AlertCircle, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface AutoShillModalProps {
@@ -22,6 +23,8 @@ interface ShillConfig {
   enabled: boolean;
   reply_template: string;
   boost_preset_ids: string[];
+  discord_app_id: string;
+  discord_public_key: string;
 }
 
 interface BoostPreset {
@@ -45,7 +48,7 @@ const headers = {
 };
 
 export default function AutoShillModal({ open, onOpenChange, profileUsername }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, reply_template: '', boost_preset_ids: [] });
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, reply_template: '', boost_preset_ids: [], discord_app_id: '', discord_public_key: '' });
   const [presets, setPresets] = useState<BoostPreset[]>([]);
   const [log, setLog] = useState<ShillLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +56,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
   const [tab, setTab] = useState<'config' | 'log'>('config');
   const [copied, setCopied] = useState(false);
 
-  const webhookUrl = `${FUNC_URL}?action=ingest`;
+  const interactionsUrl = `${FUNC_URL}?action=discord-interact`;
 
   useEffect(() => {
     if (!open) return;
@@ -95,10 +98,10 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
     }));
   };
 
-  const copyWebhook = () => {
-    navigator.clipboard.writeText(webhookUrl);
+  const copyUrl = () => {
+    navigator.clipboard.writeText(interactionsUrl);
     setCopied(true);
-    toast.success('Webhook URL copied');
+    toast.success('Interactions URL copied');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -144,66 +147,90 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
         </div>
 
         {tab === 'config' ? (
-          <div className="space-y-4">
-            {/* Enable toggle */}
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Enable Auto Shill</Label>
-              <Switch checked={config.enabled} onCheckedChange={(v) => setConfig(prev => ({ ...prev, enabled: v }))} />
-            </div>
-
-            {/* Webhook URL */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Discord Bot Webhook URL</Label>
-              <div className="flex gap-2">
-                <code className="flex-1 text-[10px] bg-muted rounded px-2 py-1.5 break-all text-muted-foreground border border-border">
-                  {webhookUrl}
-                </code>
-                <Button variant="outline" size="sm" onClick={copyWebhook} className="shrink-0">
-                  {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                </Button>
+          <ScrollArea className="max-h-[400px]">
+            <div className="space-y-4 pr-2">
+              {/* Enable toggle */}
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Enable Auto Shill</Label>
+                <Switch checked={config.enabled} onCheckedChange={(v) => setConfig(prev => ({ ...prev, enabled: v }))} />
               </div>
-              <p className="text-[10px] text-muted-foreground">
-                POST <code className="text-primary">{'{"tweet_url":"https://x.com/...", "profile_username":"' + profileUsername + '"}'}</code>
-                {' '}with header <code className="text-primary">x-bot-secret</code>
-              </p>
-            </div>
 
-            {/* Reply template */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Reply Template</Label>
-              <Textarea
-                value={config.reply_template}
-                onChange={(e) => setConfig(prev => ({ ...prev, reply_template: e.target.value }))}
-                placeholder="Type your shill reply here... Use {tweet_url} to insert the tweet link."
-                className="min-h-[80px] text-sm font-mono"
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Variables: <code className="text-primary">{'{tweet_url}'}</code>, <code className="text-primary">{'{timestamp}'}</code>
-              </p>
-            </div>
-
-            {/* Boost presets */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Auto-Boost Presets</Label>
-              {presets.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No boost presets configured for this profile.</p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {presets.map(p => (
-                    <Badge
-                      key={p.id}
-                      variant={config.boost_preset_ids.includes(p.id) ? 'default' : 'outline'}
-                      className="cursor-pointer text-xs"
-                      onClick={() => togglePreset(p.id)}
-                    >
-                      <Zap className="h-3 w-3 mr-1" />
-                      {p.preset_name}
-                    </Badge>
-                  ))}
+              {/* Discord Bot Config */}
+              <div className="space-y-2 rounded-md border border-border p-3 bg-muted/30">
+                <Label className="text-xs font-semibold text-primary">Discord Bot</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Application ID</Label>
+                  <Input
+                    value={config.discord_app_id}
+                    onChange={(e) => setConfig(prev => ({ ...prev, discord_app_id: e.target.value }))}
+                    placeholder="e.g. 1234567890123456789"
+                    className="h-8 text-xs font-mono"
+                  />
                 </div>
-              )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Public Key</Label>
+                  <Input
+                    value={config.discord_public_key}
+                    onChange={(e) => setConfig(prev => ({ ...prev, discord_public_key: e.target.value }))}
+                    placeholder="e.g. a1b2c3d4e5f6..."
+                    className="h-8 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Interactions Endpoint URL */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Interactions Endpoint URL</Label>
+                <div className="flex gap-2">
+                  <code className="flex-1 text-[10px] bg-muted rounded px-2 py-1.5 break-all text-muted-foreground border border-border">
+                    {interactionsUrl}
+                  </code>
+                  <Button variant="outline" size="sm" onClick={copyUrl} className="shrink-0">
+                    {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Paste this into your Discord app's <strong>Interactions Endpoint URL</strong> field. Discord will verify it using your Public Key.
+                </p>
+              </div>
+
+              {/* Reply template */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Reply Template</Label>
+                <Textarea
+                  value={config.reply_template}
+                  onChange={(e) => setConfig(prev => ({ ...prev, reply_template: e.target.value }))}
+                  placeholder="Type your shill reply here... Use {tweet_url} to insert the tweet link."
+                  className="min-h-[80px] text-sm font-mono"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Variables: <code className="text-primary">{'{tweet_url}'}</code>, <code className="text-primary">{'{timestamp}'}</code>
+                </p>
+              </div>
+
+              {/* Boost presets */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Auto-Boost Presets</Label>
+                {presets.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No boost presets configured for this profile.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {presets.map(p => (
+                      <Badge
+                        key={p.id}
+                        variant={config.boost_preset_ids.includes(p.id) ? 'default' : 'outline'}
+                        className="cursor-pointer text-xs"
+                        onClick={() => togglePreset(p.id)}
+                      >
+                        <Zap className="h-3 w-3 mr-1" />
+                        {p.preset_name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </ScrollArea>
         ) : (
           <ScrollArea className="h-[300px]">
             {log.length === 0 ? (
