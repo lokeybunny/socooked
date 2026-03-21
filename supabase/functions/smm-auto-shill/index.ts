@@ -252,8 +252,14 @@ serve(async (req) => {
     // ─── SAVE campaign config ───
     if (action === "save-config") {
       const body = await req.json();
-      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key } = body;
+      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id } = body;
       const section = profile_username || "NysonBlack";
+
+      // Preserve last_message_id if it exists
+      const { data: existingRow } = await supabase
+        .from("site_configs").select("content")
+        .eq("site_id", "smm-auto-shill").eq("section", section).maybeSingle();
+      const existingContent = existingRow?.content as any;
 
       await supabase.from("site_configs").upsert({
         site_id: "smm-auto-shill",
@@ -264,6 +270,8 @@ serve(async (req) => {
           ticker: ticker || "",
           discord_app_id: discord_app_id || "",
           discord_public_key: discord_public_key || "",
+          discord_channel_id: discord_channel_id || "",
+          last_message_id: existingContent?.last_message_id || null,
         },
         is_published: true,
       }, { onConflict: "site_id,section" });
@@ -288,11 +296,13 @@ serve(async (req) => {
       const body = await req.json();
       const tweetUrl = body.tweet_url || body.url || body.content || "";
       const profileUsername = body.profile_username || body.profile || "NysonBlack";
+      const discordMsgId = body.discord_msg_id || null;
+      const discordAuthor = body.discord_author || null;
 
       if (!tweetUrl || (!tweetUrl.includes("x.com/") && !tweetUrl.includes("twitter.com/"))) {
         await supabase.from("activity_log").insert({
           entity_type: "auto-shill", action: "skipped",
-          meta: { name: `⏭️ Non-X URL skipped`, url: tweetUrl, profile: profileUsername },
+          meta: { name: `⏭️ Non-X URL skipped`, url: tweetUrl, profile: profileUsername, discord_msg_id: discordMsgId },
         });
         return json({ ok: true, skipped: true, reason: "Not an X/Twitter URL" });
       }
@@ -300,9 +310,9 @@ serve(async (req) => {
       // Log as received + notify Telegram immediately
       await supabase.from("activity_log").insert({
         entity_type: "auto-shill", action: "received",
-        meta: { name: `📥 Received: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername },
+        meta: { name: `📥 Received: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername, discord_msg_id: discordMsgId, discord_author: discordAuthor },
       });
-      await sendTelegram(`📥 *Discord → Auto-Shill*\n🔗 ${tweetUrl}\n👤 ${profileUsername}\n⏳ Processing reply...`);
+      await sendTelegram(`📥 *Discord → Auto-Shill*\n🔗 ${tweetUrl}\n👤 ${profileUsername}${discordAuthor ? `\n🎮 Discord: ${discordAuthor}` : ''}\n⏳ Processing reply...`);
 
       const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram);
       return json(result, result.ok ? 200 : 500);
