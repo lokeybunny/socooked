@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
@@ -21,9 +22,23 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, RefreshCw, Shield, DollarSign, Hash, Users } from "lucide-react";
+import { ArrowLeft, RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+
+/** Generate a random secret code like "storm42", "bolt7x", etc. */
+function generateSecretCode(): string {
+  const words = [
+    "alpha", "bolt", "storm", "viper", "blaze", "frost", "nova", "shadow",
+    "raven", "titan", "cobra", "surge", "flash", "ghost", "iron", "onyx",
+    "pulse", "apex", "claw", "drift", "eagle", "fang", "grit", "hawk",
+    "jade", "kite", "lynx", "mars", "nuke", "orion", "pike", "raid",
+  ];
+  const word = words[Math.floor(Math.random() * words.length)];
+  const suffix = Math.floor(Math.random() * 99) + 1;
+  const extra = Math.random() > 0.5 ? "x" : "";
+  return `${word}${suffix}${extra}`;
+}
 
 interface Raider {
   id: string;
@@ -45,6 +60,34 @@ export default function Raiders() {
   const [loading, setLoading] = useState(true);
   const [editRaider, setEditRaider] = useState<Raider | null>(null);
   const [secretCodeInput, setSecretCodeInput] = useState("");
+  const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const handleGenerateCodes = (count: number) => {
+    const existing = new Set([
+      ...raiders.map((r) => r.secret_code).filter(Boolean),
+      ...generatedCodes,
+    ]);
+    const codes: string[] = [];
+    let attempts = 0;
+    while (codes.length < count && attempts < 200) {
+      const code = generateSecretCode();
+      if (!existing.has(code)) {
+        codes.push(code);
+        existing.add(code);
+      }
+      attempts++;
+    }
+    setGeneratedCodes((prev) => [...codes, ...prev]);
+    toast.success(`Generated ${codes.length} secret codes`);
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(`#${code}`);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2000);
+    toast.success(`Copied #${code}`);
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -157,6 +200,53 @@ export default function Raiders() {
             <p className="text-3xl font-bold text-foreground">${totalOwed.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending Owed</p>
           </div>
+        </div>
+
+        {/* Secret Code Generator */}
+        <div className="rounded-lg border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Wand2 className="h-4 w-4 text-primary" />
+                Secret Code Generator
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Generate unique hashtag codes to assign to raiders
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => handleGenerateCodes(1)}>
+                Generate 1
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleGenerateCodes(5)}>
+                Generate 5
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleGenerateCodes(10)}>
+                Generate 10
+              </Button>
+            </div>
+          </div>
+          {generatedCodes.length > 0 && (
+            <>
+              <Separator />
+              <div className="flex flex-wrap gap-2">
+                {generatedCodes.map((code) => (
+                  <button
+                    key={code}
+                    onClick={() => handleCopyCode(code)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-muted/30 hover:bg-muted/60 transition-colors font-mono text-sm text-foreground"
+                  >
+                    #{code}
+                    {copiedCode === code ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3 text-muted-foreground" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Raiders Table */}

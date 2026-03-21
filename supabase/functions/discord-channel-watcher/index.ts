@@ -231,24 +231,38 @@ serve(async (req) => {
       const xUrlRegex = /https?:\/\/(x\.com|twitter\.com)\/\S+/gi;
       let newestId = lastMessageId;
 
-      /** Extract X/Twitter URLs from a Discord message (content + embeds) */
+      /** Extract X/Twitter URLs from a Discord message (content + embeds + forwarded/referenced) */
       const extractXUrls = (m: any): string[] => {
         const found: string[] = [];
-        if (m.content) {
-          const hits = m.content.match(xUrlRegex);
-          if (hits) found.push(...hits);
-        }
-        if (Array.isArray(m.embeds)) {
-          for (const embed of m.embeds) {
-            for (const prop of [embed.url, embed.description, embed.title]) {
-              if (prop) { const h = prop.match(xUrlRegex); if (h) found.push(...h); }
-            }
-            if (Array.isArray(embed.fields)) {
-              for (const f of embed.fields) {
-                const h = (f.value || '').match(xUrlRegex);
-                if (h) found.push(...h);
+        const scanMessage = (msg: any) => {
+          if (msg.content) {
+            const hits = msg.content.match(xUrlRegex);
+            if (hits) found.push(...hits);
+          }
+          if (Array.isArray(msg.embeds)) {
+            for (const embed of msg.embeds) {
+              for (const prop of [embed.url, embed.description, embed.title]) {
+                if (prop) { const h = prop.match(xUrlRegex); if (h) found.push(...h); }
+              }
+              if (Array.isArray(embed.fields)) {
+                for (const f of embed.fields) {
+                  const h = (f.value || '').match(xUrlRegex);
+                  if (h) found.push(...h);
+                }
               }
             }
+          }
+        };
+        // Scan the main message
+        scanMessage(m);
+        // Scan forwarded / referenced message (Discord forwards include this)
+        if (m.referenced_message) {
+          scanMessage(m.referenced_message);
+        }
+        // Some forwarded messages use message_snapshots (newer Discord forward feature)
+        if (Array.isArray(m.message_snapshots)) {
+          for (const snap of m.message_snapshots) {
+            if (snap.message) scanMessage(snap.message);
           }
         }
         return [...new Set(found)];
