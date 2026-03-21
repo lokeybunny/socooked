@@ -243,6 +243,71 @@ serve(async (req) => {
     if (interaction.type === 1) return json({ type: 1 });
 
     if (interaction.type === 2) {
+      const commandName = interaction.data?.name || "";
+
+      // ─── /clean command — bulk delete bot messages from channel ───
+      if (commandName === "clean") {
+        const channelId = interaction.channel_id;
+        const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+
+        if (!DISCORD_BOT_TOKEN_ENV) {
+          return json({ type: 4, data: { content: "❌ Bot token not configured.", flags: 64 } });
+        }
+
+        // Respond immediately — cleanup runs async
+        const cleanupPromise = (async () => {
+          try {
+            // 1) Delete tracked bot messages from DB for this channel
+            const { data: tracked } = await supabase
+              .from("activity_log")
+              .select("id, meta")
+              .eq("entity_type", "shill-bot-msg")
+              .in("action", ["pending", "interacted"])
+              .limit(200);
+
+            let deleted = 0;
+            const toDelete = (tracked || []).filter((r: any) => {
+              const meta = r.meta as any;
+              return meta?.channel_id === channelId || !channelId;
+            });
+
+            for (const row of toDelete) {
+              const meta = row.meta as any;
+              const msgId = meta?.bot_message_id;
+              const chId = meta?.channel_id;
+              if (msgId && chId) {
+                try {
+                  const res = await fetch(
+                    `https://discord.com/api/v10/channels/${chId}/messages/${msgId}`,
+                    { method: "DELETE", headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` } }
+                  );
+                  if (res.ok || res.status === 404) deleted++;
+                } catch (e) {
+                  console.error("[auto-shill] Clean delete error:", e);
+                }
+              }
+              await supabase.from("activity_log").update({ action: "cleaned" }).eq("id", row.id);
+            }
+
+            // 2) Follow-up message in channel with result
+            await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ content: `🧹 Cleanup complete — removed **${deleted}** bot messages.` }),
+            });
+          } catch (e) {
+            console.error("[auto-shill] /clean error:", e);
+          }
+        })();
+        cleanupPromise.catch(e => console.error("[auto-shill] /clean async error:", e));
+
+        return json({ type: 4, data: { content: "🧹 Cleaning up bot messages… hang tight." } });
+      }
+
+      // ─── /shill command ───
       let tweetUrl = "";
       const profileUsername = matchedProfile || "NysonBlack";
 
