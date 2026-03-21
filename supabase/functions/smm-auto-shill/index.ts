@@ -658,9 +658,9 @@ serve(async (req) => {
       ? `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
       : `https://discord.com/api/v10/applications/${appId}/commands`;
 
-    // Build autocomplete choices from team accounts
-    const teamAccounts: string[] = cfg?.team_accounts || [];
-    const accountChoices = teamAccounts.slice(0, 25).map((a: string) => ({ name: `@${a}`, value: a }));
+    // Build autocomplete choices from all connected X accounts
+    const allXAccounts: string[] = cfg?.all_x_accounts || cfg?.team_accounts || [];
+    const accountChoices = allXAccounts.slice(0, 25).map((a: string) => ({ name: `@${a}`, value: a }));
 
     const commands = [
       {

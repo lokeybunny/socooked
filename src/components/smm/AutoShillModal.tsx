@@ -130,7 +130,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
     try {
       await fetch(`${FUNC_URL}?action=save-config`, {
         method: 'POST', headers,
-        body: JSON.stringify({ profile_username: profileUsername, ...config }),
+        body: JSON.stringify({ profile_username: profileUsername, ...config, all_x_accounts: xProfiles }),
       });
       toast.success('Campaign config saved');
     } catch {
