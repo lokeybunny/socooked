@@ -6,14 +6,17 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { CheckCircle2, AlertCircle, MessageSquare, Zap, ExternalLink, ArrowDownCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, MessageSquare, Zap, ExternalLink, ArrowDownCircle, Users, Clock, ShieldAlert } from 'lucide-react';
 import { format } from 'date-fns';
+import type { SMMProfile } from '@/lib/smm/types';
 
 interface AutoShillModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   profileUsername: string;
+  profiles?: SMMProfile[];
 }
 
 interface ShillConfig {
@@ -23,6 +26,7 @@ interface ShillConfig {
   discord_app_id: string;
   discord_public_key: string;
   discord_channel_id: string;
+  team_accounts: string[];
 }
 
 interface FeedEntry {
@@ -39,12 +43,17 @@ const headers = {
   'Content-Type': 'application/json',
 };
 
-export default function AutoShillModal({ open, onOpenChange, profileUsername }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '' });
+export default function AutoShillModal({ open, onOpenChange, profileUsername, profiles = [] }: AutoShillModalProps) {
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', team_accounts: [] });
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<'campaign' | 'feed'>('campaign');
+  const [tab, setTab] = useState<'campaign' | 'team' | 'feed'>('campaign');
+
+  // Derive X-connected profile usernames from profiles prop
+  const xProfiles = profiles
+    .filter(p => p.connected_platforms.some(cp => cp.platform === 'twitter' && cp.connected))
+    .map(p => p.username);
 
   const loadData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -53,7 +62,12 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
         fetch(`${FUNC_URL}?action=get-config&profile=${profileUsername}`, { headers }).then(r => r.json()),
         fetch(`${FUNC_URL}?action=feed&profile=${profileUsername}`, { headers }).then(r => r.json()),
       ]);
-      if (configRes?.config) setConfig(configRes.config);
+      if (configRes?.config) {
+        setConfig({
+          ...configRes.config,
+          team_accounts: configRes.config.team_accounts || [],
+        });
+      }
       if (feedRes?.feed) setFeed(feedRes.feed);
     } catch {}
     if (showLoading) setLoading(false);
@@ -85,9 +99,35 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
     setSaving(false);
   };
 
+  const toggleTeamAccount = (username: string) => {
+    setConfig(prev => {
+      const current = prev.team_accounts || [];
+      const isSelected = current.includes(username);
+      return {
+        ...prev,
+        team_accounts: isSelected
+          ? current.filter(u => u !== username)
+          : [...current, username],
+      };
+    });
+  };
+
   const receivedCount = feed.filter(e => e.action === 'received').length;
   const repliedCount = feed.filter(e => e.action === 'replied').length;
   const failedCount = feed.filter(e => e.action === 'failed').length;
+  const cooldownCount = feed.filter(e => e.action === 'cooldown').length;
+
+  // Derive which accounts are currently in cooldown from recent feed
+  const cooldownAccounts = new Set<string>();
+  const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+  feed.forEach(e => {
+    if (e.action === 'cooldown' && new Date(e.created_at).getTime() > fiveMinAgo) {
+      cooldownAccounts.add(e.meta?.used_account || e.meta?.profile || '');
+    }
+    if ((e.action === 'replied' || e.action === 'failed') && new Date(e.created_at).getTime() > fiveMinAgo) {
+      cooldownAccounts.add(e.meta?.used_account || e.meta?.profile || '');
+    }
+  });
 
   if (loading) {
     return (
@@ -121,6 +161,13 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
             onClick={() => setTab('campaign')}
           >
             Campaign
+          </button>
+          <button
+            className={`flex-1 text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 ${tab === 'team' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
+            onClick={() => setTab('team')}
+          >
+            <Users className="h-3 w-3" />
+            Team ({config.team_accounts?.length || 0})
           </button>
           <button
             className={`flex-1 text-xs py-1.5 rounded transition-colors ${tab === 'feed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
@@ -167,9 +214,22 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
                 </p>
               </div>
 
+              {/* Team accounts summary */}
+              {(config.team_accounts?.length || 0) > 0 && (
+                <div className="rounded-md border border-border p-3 bg-muted/30 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-primary" />
+                    <p className="text-xs font-semibold text-foreground">Team Rotation Active</p>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {config.team_accounts.length} account{config.team_accounts.length > 1 ? 's' : ''} in rotation: {config.team_accounts.map(a => `@${a}`).join(', ')}
+                  </p>
+                </div>
+              )}
+
               {/* Stats summary */}
               {feed.length > 0 && (
-                <div className="grid grid-cols-3 gap-2 rounded-md border border-border p-3 bg-muted/30">
+                <div className="grid grid-cols-4 gap-2 rounded-md border border-border p-3 bg-muted/30">
                   <div className="text-center">
                     <p className="text-lg font-bold text-foreground">{receivedCount}</p>
                     <p className="text-[10px] text-muted-foreground">Received</p>
@@ -182,6 +242,10 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
                     <p className="text-lg font-bold text-destructive">{failedCount}</p>
                     <p className="text-[10px] text-muted-foreground">Failed</p>
                   </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-yellow-500">{cooldownCount}</p>
+                    <p className="text-[10px] text-muted-foreground">Cooldown</p>
+                  </div>
                 </div>
               )}
 
@@ -190,9 +254,10 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
                 <p className="text-xs font-semibold text-foreground">How it works</p>
                 <ul className="text-[10px] text-muted-foreground space-y-0.5 list-disc pl-3">
                   <li>Your Discord bot POSTs X/Twitter URLs to the webhook</li>
-                  <li>AI generates a rage-bait reply for each incoming tweet</li>
+                  <li>AI generates a <strong>unique</strong> rage-bait reply per account</li>
                   <li>Your campaign URL + ticker + hashtags are appended</li>
-                  <li>Reply is auto-posted via your X account</li>
+                  <li>If an account is in cooldown, the next team member posts instead</li>
+                  <li>Each account gets its own 5-min cooldown to avoid anti-spam flags</li>
                 </ul>
               </div>
 
@@ -227,6 +292,88 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
               </details>
             </div>
           </ScrollArea>
+        ) : tab === 'team' ? (
+          <ScrollArea className="max-h-[400px]">
+            <div className="space-y-3 pr-2">
+              {/* Info banner */}
+              <div className="rounded-md border border-border p-3 bg-muted/30 space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <ShieldAlert className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-xs font-semibold text-foreground">Anti-Spam Team Rotation</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  Select X accounts to work as a team. When one account hits a cooldown or gets flagged,
+                  the system automatically rotates to the next available account. Each account generates its
+                  own <strong>unique AI reply</strong> — no duplicate messages across the team.
+                </p>
+              </div>
+
+              {/* Account list */}
+              {xProfiles.length === 0 ? (
+                <div className="text-center py-6 space-y-2">
+                  <Users className="h-8 w-8 text-muted-foreground mx-auto" />
+                  <p className="text-sm text-muted-foreground">No X accounts connected</p>
+                  <p className="text-[10px] text-muted-foreground">Connect X accounts in the Accounts tab to add them to the team.</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {xProfiles.map(username => {
+                    const isSelected = (config.team_accounts || []).includes(username);
+                    const isPrimary = username === profileUsername;
+                    const isInCooldown = cooldownAccounts.has(username);
+
+                    return (
+                      <label
+                        key={username}
+                        className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'border-primary/50 bg-primary/5'
+                            : 'border-border bg-muted/20 hover:bg-muted/40'
+                        }`}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleTeamAccount(username)}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-mono font-medium text-foreground">@{username}</span>
+                            {isPrimary && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">PRIMARY</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {isInCooldown ? (
+                            <span className="flex items-center gap-1 text-[10px] text-yellow-500">
+                              <Clock className="h-3 w-3" />
+                              Cooldown
+                            </span>
+                          ) : isSelected ? (
+                            <span className="flex items-center gap-1 text-[10px] text-green-500">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Ready
+                            </span>
+                          ) : null}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Selected summary */}
+              {(config.team_accounts?.length || 0) > 0 && (
+                <div className="rounded-md border border-border p-3 bg-muted/30">
+                  <p className="text-[10px] text-muted-foreground">
+                    <strong>{config.team_accounts.length}</strong> account{config.team_accounts.length > 1 ? 's' : ''} selected.
+                    The system will rotate through them with a 5-minute cooldown per account.
+                    {config.team_accounts.length >= 3 && ' With 3+ accounts, you can sustain continuous shilling without gaps.'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
         ) : (
           <ScrollArea className="h-[350px]">
             {feed.length === 0 ? (
@@ -236,8 +383,10 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
                 {feed.map(entry => {
                   const tweetUrl = entry.meta?.tweet_url || entry.meta?.url || '';
                   const replyText = entry.meta?.reply_text || '';
+                  const usedAccount = entry.meta?.used_account || entry.meta?.profile || '';
                   const icon = entry.action === 'replied' ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
                     : entry.action === 'received' ? <ArrowDownCircle className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                    : entry.action === 'cooldown' ? <Clock className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
                     : entry.action === 'skipped' ? <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     : <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />;
 
@@ -247,6 +396,9 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <span className="font-mono text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground uppercase">{entry.action}</span>
+                          {usedAccount && (
+                            <span className="font-mono text-[10px] px-1 py-0.5 rounded bg-primary/10 text-primary">@{usedAccount}</span>
+                          )}
                           <span className="text-[10px] text-muted-foreground">{format(new Date(entry.created_at), 'MMM d, h:mm a')}</span>
                         </div>
                         {tweetUrl && (
@@ -270,7 +422,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername }: 
         )}
 
         <DialogFooter>
-          {tab === 'campaign' && (
+          {(tab === 'campaign' || tab === 'team') && (
             <Button onClick={handleSave} disabled={saving} className="gap-1.5">
               {saving ? 'Saving...' : 'Save Campaign'}
             </Button>
