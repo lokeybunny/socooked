@@ -2090,6 +2090,60 @@ export type Database = {
         }
         Relationships: []
       }
+      shill_post_analytics: {
+        Row: {
+          author_handle: string | null
+          author_name: string | null
+          created_at: string
+          detected_at: string
+          discord_msg_id: string | null
+          id: string
+          likes: number
+          posted_at: string | null
+          replies: number
+          retweets: number
+          text_content: string | null
+          tweet_id: string | null
+          tweet_url: string
+          updated_at: string
+          views: number
+        }
+        Insert: {
+          author_handle?: string | null
+          author_name?: string | null
+          created_at?: string
+          detected_at?: string
+          discord_msg_id?: string | null
+          id?: string
+          likes?: number
+          posted_at?: string | null
+          replies?: number
+          retweets?: number
+          text_content?: string | null
+          tweet_id?: string | null
+          tweet_url: string
+          updated_at?: string
+          views?: number
+        }
+        Update: {
+          author_handle?: string | null
+          author_name?: string | null
+          created_at?: string
+          detected_at?: string
+          discord_msg_id?: string | null
+          id?: string
+          likes?: number
+          posted_at?: string | null
+          replies?: number
+          retweets?: number
+          text_content?: string | null
+          tweet_id?: string | null
+          tweet_url?: string
+          updated_at?: string
+          views?: number
+        }
+        Relationships: []
+      }
       signatures: {
         Row: {
           category: string | null

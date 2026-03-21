@@ -8,7 +8,58 @@ const corsHeaders = {
 };
 
 const DISCORD_API = "https://discord.com/api/v10";
+const X_API = "https://api.x.com/2";
 const EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+/** Extract tweet ID from an X/Twitter URL */
+function extractTweetId(url: string): string | null {
+  const m = url.match(/(?:x\.com|twitter\.com)\/\w+\/status\/(\d+)/);
+  return m ? m[1] : null;
+}
+
+/** Fetch tweet metrics from X API and store in shill_post_analytics */
+async function enrichTweet(supabase: any, tweetUrl: string, discordMsgId: string, bearerToken: string) {
+  const tweetId = extractTweetId(tweetUrl);
+  if (!tweetId) return;
+
+  try {
+    const res = await fetch(
+      `${X_API}/tweets/${tweetId}?tweet.fields=public_metrics,created_at,author_id&expansions=author_id&user.fields=username,name`,
+      { headers: { Authorization: `Bearer ${bearerToken}` } }
+    );
+    if (!res.ok) {
+      console.error(`[discord-watcher] X API ${res.status}: ${await res.text()}`);
+      return;
+    }
+
+    const json = await res.json();
+    const tweet = json.data;
+    if (!tweet) return;
+
+    const metrics = tweet.public_metrics || {};
+    const author = json.includes?.users?.[0];
+
+    const { error } = await supabase.from("shill_post_analytics").upsert({
+      tweet_id: tweetId,
+      tweet_url: tweetUrl,
+      author_handle: author?.username || null,
+      author_name: author?.name || null,
+      text_content: tweet.text || null,
+      likes: metrics.like_count || 0,
+      retweets: metrics.retweet_count || 0,
+      replies: metrics.reply_count || 0,
+      views: metrics.impression_count || 0,
+      posted_at: tweet.created_at || null,
+      discord_msg_id: discordMsgId,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "tweet_id" });
+
+    if (error) console.error(`[discord-watcher] Failed to upsert analytics:`, error.message);
+    else console.log(`[discord-watcher] ✅ Enriched tweet ${tweetId} — ${metrics.like_count}❤️ ${metrics.retweet_count}🔁`);
+  } catch (e) {
+    console.error("[discord-watcher] Tweet enrich error:", e);
+  }
+}
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -92,6 +143,7 @@ serve(async (req) => {
   const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
   const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
   const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID")!;
+  const TWITTER_BEARER_TOKEN = Deno.env.get("TWITTER_BEARER_TOKEN");
 
   if (!DISCORD_BOT_TOKEN)
     return json({ error: "DISCORD_BOT_TOKEN not configured" }, 500);
@@ -423,6 +475,12 @@ serve(async (req) => {
         }
 
         totalForwarded++;
+        // ── 4) Auto-enrich tweet with X API analytics ──
+        if (TWITTER_BEARER_TOKEN) {
+          enrichTweet(supabase, tweetUrl, msg.id, TWITTER_BEARER_TOKEN).catch(e =>
+            console.error("[discord-watcher] Enrich error:", e)
+          );
+        }
       }
 
       // Update last_message_id in config so we don't re-process
