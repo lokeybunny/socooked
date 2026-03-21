@@ -272,7 +272,7 @@ serve(async (req) => {
           description: `**Posted by:** ${discordAuthor}\n[Open Tweet](${tweetUrl})`,
           color: 0x1DA1F2,
           footer: {
-            text: "⏱️ This message will self-destruct if no one interacts",
+            text: "⏱️ Auto-deletes in 5 minutes",
           },
           fields: [
             {
