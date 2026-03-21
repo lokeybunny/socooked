@@ -372,6 +372,47 @@ serve(async (req) => {
         return json({ type: 4, data: { content: "🧹 Cleaning up bot messages… hang tight." } });
       }
 
+      // ─── /authorize command — link Discord user to X account ───
+      if (commandName === "authorize") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUserId = discordUser.id || "unknown";
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+        const xAccountOption = interaction.data?.options?.find((o: any) => o.name === "account");
+        const xAccount = xAccountOption?.value?.replace(/^@/, "")?.trim();
+
+        if (!xAccount) {
+          return json({ type: 4, data: { content: "❌ Please provide an X account name. Usage: `/authorize account:NysonBlack`", flags: 64 } });
+        }
+
+        const profileUsername = matchedProfile || "NysonBlack";
+
+        // Load current config
+        const { data: cfgRow } = await supabase
+          .from("site_configs").select("id, content")
+          .eq("site_id", "smm-auto-shill").eq("section", profileUsername).maybeSingle();
+
+        const currentContent = (cfgRow?.content as any) || {};
+        const assignments: Record<string, string> = currentContent.discord_assignments || {};
+
+        // Set the mapping: discord_user_id → x_account
+        assignments[discordUserId] = xAccount;
+
+        await supabase.from("site_configs").upsert({
+          id: cfgRow?.id || undefined,
+          site_id: "smm-auto-shill",
+          section: profileUsername,
+          content: { ...currentContent, discord_assignments: assignments },
+        }, { onConflict: "id" });
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Authorized!** Discord user \`${discordUsername}\` is now linked to X account \`@${xAccount}\`.\n\nWhen you click 📋 Get Shill Copy, you'll get the hashtag assigned to \`@${xAccount}\`.`,
+            flags: 64,
+          },
+        });
+      }
+
       // ─── /shill command ───
       let tweetUrl = "";
       const profileUsername = matchedProfile || "NysonBlack";
@@ -486,6 +527,7 @@ serve(async (req) => {
         const campaignUrl = cfg?.campaign_url || "";
         const shillTicker = cfg?.ticker || "";
         const accountHashtags: Record<string, string> = cfg?.account_hashtags || {};
+        const discordAssignments: Record<string, string> = cfg?.discord_assignments || {};
 
         if (!shillTicker) {
           return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
@@ -493,17 +535,24 @@ serve(async (req) => {
 
         const tickerClean = shillTicker.replace(/^\$/, "");
 
-        // Pick a random hashtag from connected accounts that have one set
-        const availableHashtags = Object.values(accountHashtags).filter(Boolean);
-        const randomHashtag = availableHashtags.length > 0
-          ? `#${availableHashtags[Math.floor(Math.random() * availableHashtags.length)].replace(/^#/, "")}`
-          : "";
+        // Look up the assigned X account for this Discord user, then get its hashtag
+        const assignedXAccount = discordAssignments[discordUserId] || "";
+        let userHashtag = "";
+        if (assignedXAccount && accountHashtags[assignedXAccount]) {
+          userHashtag = `#${accountHashtags[assignedXAccount].replace(/^#/, "")}`;
+        } else {
+          // Fallback: pick a random hashtag from any account
+          const availableHashtags = Object.values(accountHashtags).filter(Boolean);
+          userHashtag = availableHashtags.length > 0
+            ? `#${availableHashtags[Math.floor(Math.random() * availableHashtags.length)].replace(/^#/, "")}`
+            : "";
+        }
 
         // Build copy parts and insert hashtag at random position
         const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#crypto`];
-        if (randomHashtag) {
+        if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
-          copyParts.splice(insertIdx, 0, randomHashtag);
+          copyParts.splice(insertIdx, 0, userHashtag);
         }
 
         const copyText = copyParts.join(" ") +
@@ -552,6 +601,10 @@ serve(async (req) => {
       },
       {
         name: "clean", description: "Delete all bot shill messages from this channel", type: 1,
+      },
+      {
+        name: "authorize", description: "Link your Discord account to an X account for shilling", type: 1,
+        options: [{ name: "account", description: "The X account username (e.g. NysonBlack)", type: 3, required: true }],
       },
     ];
 

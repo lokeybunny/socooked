@@ -29,6 +29,7 @@ interface ShillConfig {
   team_accounts: string[];
   retweet_accounts: string[];
   account_hashtags: Record<string, string>;
+  discord_assignments: Record<string, string>;
 }
 
 interface FeedEntry {
@@ -46,7 +47,7 @@ const headers = {
 };
 
 export default function AutoShillModal({ open, onOpenChange, profileUsername, profiles = [] }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', team_accounts: [], retweet_accounts: [], account_hashtags: {} });
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', team_accounts: [], retweet_accounts: [], account_hashtags: {}, discord_assignments: {} });
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -73,6 +74,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
           team_accounts: configRes.config.team_accounts || [],
           retweet_accounts: configRes.config.retweet_accounts || [],
           account_hashtags: configRes.config.account_hashtags || {},
+          discord_assignments: configRes.config.discord_assignments || {},
         });
       }
       if (feedRes?.feed) setFeed(feedRes.feed);
@@ -529,6 +531,30 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                       <strong>{config.retweet_accounts.length}</strong> retweet account{config.retweet_accounts.length > 1 ? 's' : ''} — all retweet simultaneously.
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Discord → X Assignments */}
+              {Object.keys(config.discord_assignments || {}).length > 0 && (
+                <div className="rounded-md border border-border p-3 bg-muted/30 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="h-3.5 w-3.5 text-primary" />
+                    <p className="text-xs font-semibold text-foreground">Discord → X Assignments</p>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Workers use <code className="bg-muted px-1 py-0.5 rounded text-[9px]">/authorize account:username</code> in Discord to link themselves.
+                  </p>
+                  <div className="space-y-1">
+                    {Object.entries(config.discord_assignments).map(([discordId, xAccount]) => (
+                      <div key={discordId} className="flex items-center justify-between text-[10px] px-2 py-1 rounded bg-background border border-border">
+                        <span className="text-muted-foreground font-mono">{discordId.substring(0, 8)}…</span>
+                        <span className="text-foreground font-medium">→ @{xAccount}</span>
+                        {config.account_hashtags?.[xAccount] && (
+                          <span className="text-primary font-mono">#{config.account_hashtags[xAccount]}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
