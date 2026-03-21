@@ -220,14 +220,15 @@ serve(async (req) => {
     return json({ ok: true, status: res.status, data });
   }
 
-  // ─── Auth: bot secret or anon key ───
+  // ─── Auth: bot secret, anon key, or service role ───
   const botSecret = req.headers.get("x-bot-secret");
   const authHeader = req.headers.get("authorization") || "";
   const apikeyHeader = req.headers.get("apikey") || "";
   const isBot = botSecret === BOT_SECRET;
   const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
-  const isAnon = Boolean(ANON_KEY) && (apikeyHeader === ANON_KEY || bearerToken === ANON_KEY || authHeader.includes(ANON_KEY));
-  if (!isBot && !isAnon) return json({ error: "Unauthorized" }, 401);
+  const isAnon = Boolean(ANON_KEY) && (apikeyHeader === ANON_KEY || bearerToken === ANON_KEY);
+  const isService = Boolean(SERVICE_KEY) && (bearerToken === SERVICE_KEY || apikeyHeader === SERVICE_KEY);
+  if (!isBot && !isAnon && !isService) return json({ error: "Unauthorized" }, 401);
 
   try {
     // ─── GET campaign config ───
