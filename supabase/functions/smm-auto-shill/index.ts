@@ -406,14 +406,31 @@ serve(async (req) => {
   }
 });
 
-// ─── Find an available team account (not in cooldown) ───
+// ─── Find an available team account (not in cooldown or 24h reply ban) ───
 async function findAvailableAccount(
   supabase: any, teamAccounts: string[], primaryAccount: string, COOLDOWN_MS: number
 ): Promise<{ account: string; allInCooldown: boolean; cooldownInfo: string }> {
   const accounts = teamAccounts.length > 0 ? teamAccounts : [primaryAccount];
+  const BAN_MS = 24 * 60 * 60 * 1000; // 24 hours
+  const banCutoff = new Date(Date.now() - BAN_MS).toISOString();
   const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
 
-  // Fetch recent activity for all team accounts
+  // Fetch 24h reply bans
+  const { data: banEntries } = await supabase
+    .from("activity_log").select("meta, created_at")
+    .eq("entity_type", "auto-shill")
+    .eq("action", "reply_banned")
+    .gte("created_at", banCutoff)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const bannedAccounts = new Set<string>();
+  for (const entry of banEntries || []) {
+    const account = entry.meta?.used_account || "";
+    if (account) bannedAccounts.add(account);
+  }
+
+  // Fetch recent cooldown activity
   const { data: recentActivity } = await supabase
     .from("activity_log").select("meta, created_at")
     .eq("entity_type", "auto-shill")
@@ -422,7 +439,6 @@ async function findAvailableAccount(
     .order("created_at", { ascending: false })
     .limit(100);
 
-  // Build a map of last activity per account
   const lastActivityMap = new Map<string, Date>();
   for (const entry of recentActivity || []) {
     const usedAccount = entry.meta?.used_account || entry.meta?.profile || "";
@@ -431,8 +447,12 @@ async function findAvailableAccount(
     }
   }
 
-  // Find first account NOT in cooldown
+  // Find first account NOT banned and NOT in cooldown
   for (const account of accounts) {
+    if (bannedAccounts.has(account)) {
+      console.log(`[auto-shill] Account @${account} is reply-banned (24h)`);
+      continue;
+    }
     const lastAt = lastActivityMap.get(account);
     if (!lastAt) {
       console.log(`[auto-shill] Account @${account} is available (no recent activity)`);
@@ -445,10 +465,16 @@ async function findAvailableAccount(
     }
   }
 
-  // All accounts in cooldown — find the one that will be free soonest
-  let soonestAccount = accounts[0];
+  // All accounts unavailable — find soonest available (excluding banned)
+  const unbanned = accounts.filter(a => !bannedAccounts.has(a));
+  if (unbanned.length === 0) {
+    const cooldownInfo = `All ${accounts.length} account(s) are reply-banned (24h). No accounts available.`;
+    return { account: accounts[0], allInCooldown: true, cooldownInfo };
+  }
+
+  let soonestAccount = unbanned[0];
   let soonestWaitMs = COOLDOWN_MS;
-  for (const account of accounts) {
+  for (const account of unbanned) {
     const lastAt = lastActivityMap.get(account);
     if (lastAt) {
       const wait = COOLDOWN_MS - (Date.now() - lastAt.getTime());
@@ -460,7 +486,7 @@ async function findAvailableAccount(
   }
 
   const waitMin = Math.ceil(soonestWaitMs / 60000);
-  const cooldownInfo = `All ${accounts.length} team account(s) in cooldown. @${soonestAccount} available in ~${waitMin}m`;
+  const cooldownInfo = `All ${unbanned.length} available account(s) in cooldown. @${soonestAccount} available in ~${waitMin}m`;
   return { account: soonestAccount, allInCooldown: true, cooldownInfo };
 }
 
