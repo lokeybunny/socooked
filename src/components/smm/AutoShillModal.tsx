@@ -37,6 +37,7 @@ interface ShillConfig {
   retweet_accounts: string[];
   account_hashtags: Record<string, string>;
   discord_assignments: Record<string, string>;
+  discord_usernames: Record<string, string>;
 }
 
 interface FeedEntry {
@@ -63,7 +64,7 @@ const headers = {
 type TabValue = 'campaign' | 'team' | 'cooldown' | 'feed' | 'assignments' | 'auth-log';
 
 export default function AutoShillModal({ open, onOpenChange, profileUsername, profiles = [] }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', discord_listen_channel_id: '', discord_reply_channel_id: '', team_accounts: [], retweet_accounts: [], account_hashtags: {}, discord_assignments: {} });
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', discord_listen_channel_id: '', discord_reply_channel_id: '', team_accounts: [], retweet_accounts: [], account_hashtags: {}, discord_assignments: {}, discord_usernames: {} });
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [authLog, setAuthLog] = useState<AuthLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +94,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
           retweet_accounts: configRes.config.retweet_accounts || [],
           account_hashtags: configRes.config.account_hashtags || {},
           discord_assignments: configRes.config.discord_assignments || {},
+          discord_usernames: configRes.config.discord_usernames || {},
         });
       }
       if (feedRes?.feed) setFeed(feedRes.feed);
@@ -508,6 +510,9 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                       <div key={discordId} className="flex items-center gap-3 p-3 rounded-md border border-border bg-muted/20">
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-mono text-foreground">{discordId}</span>
+                          {config.discord_usernames?.[discordId] && (
+                            <span className="ml-2 text-xs text-muted-foreground">@{config.discord_usernames[discordId]}</span>
+                          )}
                         </div>
                         <span className="w-32 text-sm font-mono text-primary">@{xAccount}</span>
                         <span className="w-24 text-xs font-mono text-muted-foreground">
