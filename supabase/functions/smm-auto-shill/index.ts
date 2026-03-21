@@ -75,6 +75,19 @@ async function resolveDiscordConfig(supabase: any, requestedProfile?: string | n
   };
 }
 
+// ─── Telegram helper ───
+function makeSendTelegram(token: string, chatId: string) {
+  return async (text: string) => {
+    try {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
+      });
+    } catch (e) { console.error("[auto-shill] Telegram error:", e); }
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -87,6 +100,7 @@ serve(async (req) => {
   const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID")!;
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+  const sendTelegram = makeSendTelegram(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
 
   const url = new URL(req.url);
   const action = url.searchParams.get("action") || "ingest";
@@ -107,14 +121,13 @@ serve(async (req) => {
 
     const interaction = JSON.parse(rawBody);
 
-    // PING → PONG (required for Discord endpoint verification)
+    // PING → PONG
     if (interaction.type === 1) {
       return json({ type: 1 });
     }
 
     // APPLICATION_COMMAND or MESSAGE_COMPONENT
     if (interaction.type === 2 || interaction.type === 3) {
-      // Extract tweet URL from command options or message content
       let tweetUrl = "";
       const profileUsername = matchedProfile || "NysonBlack";
 
@@ -123,7 +136,6 @@ serve(async (req) => {
         if (urlOption) tweetUrl = urlOption.value;
       }
 
-      // Also check resolved messages
       if (!tweetUrl && interaction.data?.resolved?.messages) {
         const msgs = Object.values(interaction.data.resolved.messages) as any[];
         for (const msg of msgs) {
@@ -139,13 +151,12 @@ serve(async (req) => {
         });
       }
 
-      // Acknowledge immediately, process async
-      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, SUPABASE_URL, ANON_KEY, UPLOAD_POST_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
+      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, sendTelegram);
       processPromise.catch(e => console.error("[auto-shill] Async process error:", e));
 
       return json({
         type: 4,
-        data: { content: `🗣️ Auto-shilling tweet: ${tweetUrl}\n👤 Profile: ${profileUsername}` }
+        data: { content: `🗣️ Auto-replying to: ${tweetUrl}\n👤 Profile: ${profileUsername}` }
       });
     }
 
@@ -173,10 +184,10 @@ serve(async (req) => {
     const commands = [
       {
         name: "shill",
-        description: "Auto-shill a tweet with reply + boost",
+        description: "Auto-reply to a tweet via X",
         type: 1,
         options: [
-          { name: "url", description: "The X/Twitter tweet URL to shill", type: 3, required: true },
+          { name: "url", description: "The X/Twitter tweet URL to reply to", type: 3, required: true },
         ],
       },
     ];
@@ -208,17 +219,6 @@ serve(async (req) => {
   const isAnon = Boolean(ANON_KEY) && (apikeyHeader === ANON_KEY || bearerToken === ANON_KEY || authHeader.includes(ANON_KEY));
   if (!isBot && !isAnon) return json({ error: "Unauthorized" }, 401);
 
-  // ─── Telegram notify helper ───
-  const sendTelegram = async (text: string) => {
-    try {
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: "Markdown" }),
-      });
-    } catch (e) { console.error("[auto-shill] Telegram error:", e); }
-  };
-
   try {
     // ─── GET config ───
     if (action === "get-config") {
@@ -230,19 +230,19 @@ serve(async (req) => {
         .eq("section", profileUsername)
         .single();
 
-      return json({ config: data?.content || { enabled: false, reply_template: "", boost_preset_ids: [], discord_app_id: "", discord_public_key: "" } });
+      return json({ config: data?.content || { enabled: false, reply_template: "", discord_app_id: "", discord_public_key: "" } });
     }
 
     // ─── SAVE config ───
     if (action === "save-config") {
       const body = await req.json();
-      const { profile_username, enabled, reply_template, boost_preset_ids, discord_app_id, discord_public_key } = body;
+      const { profile_username, enabled, reply_template, discord_app_id, discord_public_key } = body;
       const section = profile_username || "NysonBlack";
 
       await supabase.from("site_configs").upsert({
         site_id: "smm-auto-shill",
         section,
-        content: { enabled, reply_template, boost_preset_ids: boost_preset_ids || [], discord_app_id: discord_app_id || "", discord_public_key: discord_public_key || "" },
+        content: { enabled, reply_template, discord_app_id: discord_app_id || "", discord_public_key: discord_public_key || "" },
         is_published: true,
       }, { onConflict: "site_id,section" });
 
@@ -261,20 +261,19 @@ serve(async (req) => {
       return json({ log: data || [] });
     }
 
-    // ─── INGEST: bot sends tweet URL (webhook fallback) ───
+    // ─── INGEST: other bot sends tweet URL via webhook ───
     if (action === "ingest" && req.method === "POST") {
       const body = await req.json();
       const tweetUrl = body.tweet_url || body.url || body.content || "";
       const profileUsername = body.profile_username || body.profile || "NysonBlack";
 
-      if (!tweetUrl || !tweetUrl.includes("x.com/") && !tweetUrl.includes("twitter.com/")) {
+      if (!tweetUrl || (!tweetUrl.includes("x.com/") && !tweetUrl.includes("twitter.com/"))) {
         return json({ error: "Invalid or missing tweet URL" }, 400);
       }
 
-      const result = await processAutoShill(supabase, tweetUrl, profileUsername, SUPABASE_URL, ANON_KEY, UPLOAD_POST_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
+      const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, sendTelegram);
       return json(result, result.ok ? 200 : 500);
     }
-
 
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (err) {
@@ -284,22 +283,11 @@ serve(async (req) => {
   }
 });
 
-// ─── Shared processing logic ───
+// ─── Process: reply to tweet via Upload-Post API ───
 async function processAutoShill(
   supabase: any, tweetUrl: string, profileUsername: string,
-  SUPABASE_URL: string, ANON_KEY: string, UPLOAD_POST_API_KEY: string,
-  TELEGRAM_BOT_TOKEN: string, TELEGRAM_CHAT_ID: string
+  UPLOAD_POST_API_KEY: string, sendTelegram: (text: string) => Promise<void>
 ) {
-  const sendTelegram = async (text: string) => {
-    try {
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: "Markdown" }),
-      });
-    } catch (e) { console.error("[auto-shill] Telegram error:", e); }
-  };
-
   console.log(`[auto-shill] Processing: ${tweetUrl} for ${profileUsername}`);
 
   const { data: configRow } = await supabase
@@ -312,20 +300,21 @@ async function processAutoShill(
   const replyTemplate = config.reply_template || "";
   if (!replyTemplate.trim()) return { ok: false, error: "No reply template configured" };
 
-  // Dedup check
+  // Dedup check (24h)
   const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
   const { data: existing } = await supabase
     .from("activity_log").select("id")
     .eq("entity_type", "auto-shill").gte("created_at", oneDayAgo)
     .like("meta->>tweet_url", tweetUrl).limit(1);
 
-  if (existing?.length) return { ok: false, skipped: true, reason: "Already shilled" };
+  if (existing?.length) return { ok: false, skipped: true, reason: "Already replied" };
 
-  // Post reply
+  // Build reply text
   const replyText = replyTemplate
     .replace(/\{tweet_url\}/gi, tweetUrl)
     .replace(/\{timestamp\}/gi, new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
 
+  // Post reply via Upload-Post API
   const params = new URLSearchParams();
   params.append("user", profileUsername);
   params.append("platform[]", "twitter");
@@ -348,7 +337,7 @@ async function processAutoShill(
     await sendTelegram(`🚨 *Auto-Shill FAILED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "failed",
-      meta: { name: `❌ Auto-shill failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername },
+      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername },
     });
     return { ok: false, error: errorMsg };
   }
@@ -356,41 +345,13 @@ async function processAutoShill(
   const requestId = uploadData?.request_id || uploadData?.data?.request_id || null;
   const jobId = uploadData?.job_id || uploadData?.data?.job_id || null;
 
-  // Auto-boost
-  const boostPresetIds = config.boost_preset_ids || [];
-  let boostResult: any = null;
-
-  if (boostPresetIds.length > 0) {
-    try {
-      const { data: presets } = await supabase.from("smm_boost_presets").select("*").in("id", boostPresetIds);
-      const allServices: any[] = [];
-      for (const p of (presets || [])) {
-        if (Array.isArray(p.services)) {
-          for (const s of p.services) allServices.push({ service_id: s.service_id, service_name: s.service_name, quantity: s.quantity });
-        }
-      }
-      if (allServices.length > 0) {
-        const boostRes = await fetch(`${SUPABASE_URL}/functions/v1/darkside-smm?action=auto-boost`, {
-          method: "POST",
-          headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ link: tweetUrl, profile_username: profileUsername, platform: "twitter", services: allServices }),
-        });
-        boostResult = await boostRes.json().catch(() => null);
-      }
-    } catch (e) {
-      console.error("[auto-shill] Boost error:", e);
-      await sendTelegram(`⚠️ *Boost failed* (non-fatal)\n🔗 ${tweetUrl}\n❌ ${String(e)}`);
-    }
-  }
-
   // Log success
   await supabase.from("activity_log").insert({
-    entity_type: "auto-shill", action: "shilled",
-    meta: { name: `🗣️ Auto-shilled: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername, reply_text: replyText.substring(0, 200), request_id: requestId, job_id: jobId, boost_result: boostResult },
+    entity_type: "auto-shill", action: "replied",
+    meta: { name: `🗣️ Auto-replied: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername, reply_text: replyText.substring(0, 200), request_id: requestId, job_id: jobId },
   });
 
-  const boostLabel = boostPresetIds.length > 0 ? "✅ Boosted" : "⏭️ No boost";
-  await sendTelegram(`🗣️ *Auto-Shill Fired*\n🔗 ${tweetUrl}\n👤 ${profileUsername}\n💬 ${replyText.substring(0, 100)}${replyText.length > 100 ? "..." : ""}\n${boostLabel}`);
+  await sendTelegram(`🗣️ *Auto-Reply Sent*\n🔗 ${tweetUrl}\n👤 ${profileUsername}\n💬 ${replyText.substring(0, 100)}${replyText.length > 100 ? "..." : ""}`);
 
-  return { ok: true, shilled: true, tweet_url: tweetUrl, request_id: requestId, job_id: jobId, boost: boostResult };
+  return { ok: true, replied: true, tweet_url: tweetUrl, request_id: requestId, job_id: jobId };
 }
