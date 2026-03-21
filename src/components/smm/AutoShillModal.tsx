@@ -74,6 +74,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
           team_accounts: configRes.config.team_accounts || [],
           retweet_accounts: configRes.config.retweet_accounts || [],
           account_hashtags: configRes.config.account_hashtags || {},
+          discord_assignments: configRes.config.discord_assignments || {},
         });
       }
       if (feedRes?.feed) setFeed(feedRes.feed);
