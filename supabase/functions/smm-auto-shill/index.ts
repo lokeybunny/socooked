@@ -438,12 +438,18 @@ async function processAutoShill(
   // Generate AI rage-bait reply
   const rageBait = await generateRageBaitReply(tweetUrl, campaignUrl, ticker, LOVABLE_API_KEY);
 
-  // Build full reply: rage bait + campaign link + ticker + 2 hashtags
+  // Build full reply: rage bait + optional external campaign link + ticker + hashtags
   const tickerClean = ticker.replace(/^\$/, "");
   const hashtags = `#${tickerClean} #crypto`;
+  const normalizedCampaignUrl = typeof campaignUrl === "string" ? campaignUrl.trim() : "";
+  const campaignUrlIsXStatus = /^https?:\/\/(www\.)?(x\.com|twitter\.com)\/[^/\s]+\/status\/\d+/i.test(normalizedCampaignUrl);
   let fullReply = rageBait;
-  if (campaignUrl) fullReply += `\n\n${campaignUrl}`;
+  if (normalizedCampaignUrl && !campaignUrlIsXStatus) fullReply += `\n\n${normalizedCampaignUrl}`;
   fullReply += `\n\n${ticker} ${hashtags}`;
+
+  if (campaignUrlIsXStatus) {
+    console.log(`[auto-shill] Skipping campaign_url in reply body because X status links create quote tweets instead of replies: ${normalizedCampaignUrl}`);
+  }
 
   // Post reply via Upload-Post API — use synchronous mode for immediate feedback
   const params = new URLSearchParams();
