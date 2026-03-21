@@ -475,6 +475,12 @@ serve(async (req) => {
         }
 
         totalForwarded++;
+        // ── 4) Auto-enrich tweet with X API analytics ──
+        if (TWITTER_BEARER_TOKEN) {
+          enrichTweet(supabase, tweetUrl, msg.id, TWITTER_BEARER_TOKEN).catch(e =>
+            console.error("[discord-watcher] Enrich error:", e)
+          );
+        }
       }
 
       // Update last_message_id in config so we don't re-process
