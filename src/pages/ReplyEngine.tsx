@@ -208,6 +208,10 @@ export default function ReplyEngine() {
               )}
             </div>
           </TabsContent>
+
+          <TabsContent value="auditor" className="mt-4">
+            <TeamAuditor />
+          </TabsContent>
         </Tabs>
       </div>
     </AppLayout>
