@@ -74,7 +74,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const xProfiles = profiles
     .flatMap(p => p.connected_platforms
       .filter(cp => cp.platform === 'twitter' && cp.connected)
-      .map(cp => cp.display_name)
+      .map(cp => (cp.handle || cp.display_name || '').replace(/^@/, '').trim())
     );
 
   const loadData = useCallback(async (showLoading = true) => {

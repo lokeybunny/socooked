@@ -197,7 +197,8 @@ export const smmApi = {
               platform: platform === 'x' ? 'twitter' : platform,
               connected: true,
               reauth_required: isString ? false : (info.reauth_required || false),
-              display_name: isString ? info : (info.display_name || info.handle || info.username || info.name || platform),
+              display_name: isString ? info : (info.display_name || info.name || info.handle || info.username || platform),
+              handle: isString ? info.replace(/^@/, '') : (info.handle || info.username || info.account_username || info.screen_name || undefined),
             };
           })
           .filter(Boolean) as SMMProfile['connected_platforms'];

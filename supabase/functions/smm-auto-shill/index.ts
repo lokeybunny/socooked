@@ -35,6 +35,56 @@ function verifyDiscordSignature(publicKeyHex: string, signature: string, timesta
   }
 }
 
+function normalizeXHandle(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .replace(/^@+/, "")
+    .replace(/\s+/g, " ");
+}
+
+function dedupeHandles(values: unknown[]): string[] {
+  const seen = new Set<string>();
+  const output: string[] = [];
+
+  for (const value of values) {
+    const normalized = normalizeXHandle(value);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(normalized);
+  }
+
+  return output;
+}
+
+function extractXHandlesFromProfiles(profiles: any[]): string[] {
+  return dedupeHandles(
+    profiles.flatMap((profile: any) => {
+      const connectedPlatforms = Array.isArray(profile?.connected_platforms) ? profile.connected_platforms : [];
+      const socialAccounts = profile?.social_accounts || {};
+      const twitterSocial = socialAccounts.twitter || socialAccounts.x || null;
+
+      const handlesFromPlatforms = connectedPlatforms
+        .filter((cp: any) => (cp?.platform === "twitter" || cp?.platform === "x") && cp?.connected)
+        .flatMap((cp: any) => [cp?.handle, cp?.username, cp?.account_username, cp?.screen_name, cp?.display_name, cp?.name]);
+
+      const handlesFromSocial = twitterSocial
+        ? [
+            twitterSocial?.handle,
+            twitterSocial?.username,
+            twitterSocial?.account_username,
+            twitterSocial?.screen_name,
+            twitterSocial?.display_name,
+            twitterSocial?.name,
+          ]
+        : [];
+
+      return [...handlesFromPlatforms, ...handlesFromSocial];
+    }),
+  );
+}
+
 async function resolveDiscordConfig(supabase: any, requestedProfile?: string | null) {
   const normalizedProfile = requestedProfile?.trim() || "NysonBlack";
   const { data: exactRow } = await supabase
@@ -687,7 +737,7 @@ serve(async (req) => {
     );
 
     // Build autocomplete choices from all connected X accounts
-    let allXAccounts: string[] = cfg?.all_x_accounts || [];
+    let allXAccounts: string[] = dedupeHandles(cfg?.all_x_accounts || []);
 
     // Fallback: fetch from Upload-Post API if not saved yet
     if (allXAccounts.length === 0) {
@@ -699,18 +749,14 @@ serve(async (req) => {
         if (profilesRes.ok) {
           const profilesData = await profilesRes.json();
           const profiles = profilesData?.data || profilesData || [];
-          allXAccounts = profiles.flatMap((p: any) =>
-            (p.connected_platforms || [])
-              .filter((cp: any) => cp.platform === "twitter" && cp.connected)
-              .map((cp: any) => cp.display_name)
-          );
+          allXAccounts = extractXHandlesFromProfiles(profiles);
         }
       } catch (e) {
         console.error("[auto-shill] Fallback profile fetch error:", e);
       }
     }
 
-    if (allXAccounts.length === 0) allXAccounts = cfg?.team_accounts || [];
+    if (allXAccounts.length === 0) allXAccounts = dedupeHandles(cfg?.team_accounts || []);
     const accountChoices = allXAccounts.slice(0, 25).map((a: string) => ({ name: `@${a}`, value: a }));
 
     const commands = [
