@@ -78,9 +78,9 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
     loadData(true);
   }, [open, profileUsername]);
 
-  // Auto-poll feed every 5s when on feed tab
+  // Auto-poll feed every 5s when on feed or cooldown tab
   useEffect(() => {
-    if (!open || tab !== 'feed') return;
+    if (!open || (tab !== 'feed' && tab !== 'cooldown')) return;
     const interval = setInterval(() => loadData(false), 5000);
     return () => clearInterval(interval);
   }, [open, tab, profileUsername]);
