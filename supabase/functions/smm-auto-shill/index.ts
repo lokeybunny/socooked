@@ -124,6 +124,81 @@ Make people curious enough to check the link I'll attach.`;
   }
 }
 
+function extractTweetId(tweetUrl: string): string | null {
+  try {
+    const url = new URL(tweetUrl);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const statusIndex = parts.findIndex((part) => part === "status");
+    if (statusIndex >= 0 && parts[statusIndex + 1]) {
+      return parts[statusIndex + 1];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function verifyReplyOnX(replyPostId: string, targetTweetUrl: string, twitterBearerToken?: string | null) {
+  const targetTweetId = extractTweetId(targetTweetUrl);
+  if (!targetTweetId) {
+    return { verified: false, reason: "Could not parse target tweet id" };
+  }
+
+  if (!twitterBearerToken) {
+    return { verified: false, reason: "TWITTER_BEARER_TOKEN not configured" };
+  }
+
+  let lastFailure = "Unknown X verification failure";
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const verifyRes = await fetch(
+        `https://api.x.com/2/tweets/${replyPostId}?tweet.fields=referenced_tweets,conversation_id,author_id`,
+        {
+          headers: {
+            "Authorization": `Bearer ${twitterBearerToken}`,
+          },
+        }
+      );
+
+      const verifyText = await verifyRes.text();
+      console.log(`[auto-shill] X verify attempt ${attempt} (${verifyRes.status}): ${verifyText.substring(0, 500)}`);
+
+      if (!verifyRes.ok) {
+        lastFailure = `X verify failed (${verifyRes.status}): ${verifyText.substring(0, 300)}`;
+      } else {
+        const verifyData = JSON.parse(verifyText);
+        const referencedTweets = Array.isArray(verifyData?.data?.referenced_tweets)
+          ? verifyData.data.referenced_tweets
+          : [];
+
+        const isReplyToTarget = referencedTweets.some(
+          (ref: any) => ref?.type === "replied_to" && String(ref?.id || "") === targetTweetId
+        );
+
+        if (isReplyToTarget) {
+          return {
+            verified: true,
+            reason: "Verified on X",
+            data: verifyData?.data || null,
+          };
+        }
+
+        lastFailure = `Posted tweet ${replyPostId} is not a reply to target ${targetTweetId}`;
+      }
+    } catch (error) {
+      lastFailure = `X verify exception: ${String(error)}`;
+      console.error("[auto-shill] X verify error:", error);
+    }
+
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  }
+
+  return { verified: false, reason: lastFailure };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -135,6 +210,7 @@ serve(async (req) => {
   const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
   const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID")!;
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+  const TWITTER_BEARER_TOKEN = Deno.env.get("TWITTER_BEARER_TOKEN");
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   const sendTelegram = makeSendTelegram(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
@@ -178,7 +254,7 @@ serve(async (req) => {
         return json({ type: 4, data: { content: "❌ No tweet URL found.", flags: 64 } });
       }
 
-      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram, false);
+      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, TWITTER_BEARER_TOKEN, sendTelegram, false);
       processPromise.catch(e => console.error("[auto-shill] Async process error:", e));
 
       return json({ type: 4, data: { content: `🗣️ Auto-shill queued: ${tweetUrl}\n👤 ${profileUsername}` } });
@@ -315,7 +391,7 @@ serve(async (req) => {
       });
       await sendTelegram(`📥 *Discord → Auto-Shill*\n🔗 ${tweetUrl}\n👤 ${profileUsername}${discordAuthor ? `\n🎮 Discord: ${discordAuthor}` : ''}\n⏳ Processing reply...`);
 
-      const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram, isBot);
+      const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, TWITTER_BEARER_TOKEN, sendTelegram, isBot);
       return json(result, result.ok ? 200 : 500);
     }
 
@@ -330,7 +406,8 @@ serve(async (req) => {
 // ─── Core: AI rage-bait reply + campaign link + ticker + hashtags ───
 async function processAutoShill(
   supabase: any, tweetUrl: string, profileUsername: string,
-  UPLOAD_POST_API_KEY: string, LOVABLE_API_KEY: string, sendTelegram: (text: string) => Promise<void>, isBot: boolean = false
+  UPLOAD_POST_API_KEY: string, LOVABLE_API_KEY: string, TWITTER_BEARER_TOKEN: string | null | undefined,
+  sendTelegram: (text: string) => Promise<void>, isBot: boolean = false
 ) {
   console.log(`[auto-shill] Processing: ${tweetUrl} for ${profileUsername}`);
 
@@ -388,6 +465,16 @@ async function processAutoShill(
   let uploadData: any = {};
   try { uploadData = JSON.parse(uploadText); } catch {}
 
+  if (!uploadRes.ok) {
+    const errorMsg = `Upload failed (${uploadRes.status}): ${uploadText.substring(0, 200)}`;
+    await sendTelegram(`🚨 *Auto-Shill FAILED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill", action: "failed",
+      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername, reply_text: fullReply.substring(0, 200) },
+    });
+    return { ok: false, error: errorMsg };
+  }
+
   const requestId = uploadData?.request_id || uploadData?.data?.request_id || null;
   const jobId = uploadData?.job_id || uploadData?.data?.job_id || null;
   const providerStatus = String(uploadData?.status || uploadData?.results?.x?.status || "").toLowerCase();
@@ -424,6 +511,68 @@ async function processAutoShill(
     });
     return { ok: false, error: errorMsg, request_id: requestId, job_id: jobId, provider_status: providerStatus };
   }
+
+  const xVerification = await verifyReplyOnX(String(confirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
+  if (!xVerification.verified) {
+    const errorMsg = `Upload completed but X reply was not verified: ${xVerification.reason}`;
+    await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill",
+      action: "failed",
+      meta: {
+        name: `❌ Reply not verified on X: ${tweetUrl}`,
+        tweet_url: tweetUrl,
+        error: errorMsg,
+        profile: profileUsername,
+        reply_text: fullReply.substring(0, 200),
+        ticker,
+        campaign_url: campaignUrl,
+        request_id: requestId,
+        job_id: jobId,
+        provider_status: providerStatus,
+        reply_post_id: confirmedPostId,
+        reply_url: confirmedReplyUrl,
+      },
+    });
+    return {
+      ok: false,
+      error: errorMsg,
+      request_id: requestId,
+      job_id: jobId,
+      reply_post_id: confirmedPostId,
+      reply_url: confirmedReplyUrl,
+    };
+  }
+
+  await supabase.from("activity_log").insert({
+    entity_type: "auto-shill", action: "replied",
+    meta: {
+      name: `🗣️ Auto-replied: ${tweetUrl}`,
+      tweet_url: tweetUrl,
+      profile: profileUsername,
+      reply_text: fullReply.substring(0, 300),
+      ticker,
+      campaign_url: campaignUrl,
+      request_id: requestId,
+      job_id: jobId,
+      provider_status: providerStatus,
+      reply_post_id: confirmedPostId,
+      reply_url: confirmedReplyUrl,
+    },
+  });
+
+  await sendTelegram(`🗣️ *Auto-Shill Confirmed on X*\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
+
+  return {
+    ok: true,
+    replied: true,
+    tweet_url: tweetUrl,
+    request_id: requestId,
+    job_id: jobId,
+    reply_post_id: confirmedPostId,
+    reply_url: confirmedReplyUrl,
+  };
+}
 
   await supabase.from("activity_log").insert({
     entity_type: "auto-shill", action: "replied",
