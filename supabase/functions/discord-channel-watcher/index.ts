@@ -8,7 +8,58 @@ const corsHeaders = {
 };
 
 const DISCORD_API = "https://discord.com/api/v10";
+const X_API = "https://api.x.com/2";
 const EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+/** Extract tweet ID from an X/Twitter URL */
+function extractTweetId(url: string): string | null {
+  const m = url.match(/(?:x\.com|twitter\.com)\/\w+\/status\/(\d+)/);
+  return m ? m[1] : null;
+}
+
+/** Fetch tweet metrics from X API and store in shill_post_analytics */
+async function enrichTweet(supabase: any, tweetUrl: string, discordMsgId: string, bearerToken: string) {
+  const tweetId = extractTweetId(tweetUrl);
+  if (!tweetId) return;
+
+  try {
+    const res = await fetch(
+      `${X_API}/tweets/${tweetId}?tweet.fields=public_metrics,created_at,author_id&expansions=author_id&user.fields=username,name`,
+      { headers: { Authorization: `Bearer ${bearerToken}` } }
+    );
+    if (!res.ok) {
+      console.error(`[discord-watcher] X API ${res.status}: ${await res.text()}`);
+      return;
+    }
+
+    const json = await res.json();
+    const tweet = json.data;
+    if (!tweet) return;
+
+    const metrics = tweet.public_metrics || {};
+    const author = json.includes?.users?.[0];
+
+    const { error } = await supabase.from("shill_post_analytics").upsert({
+      tweet_id: tweetId,
+      tweet_url: tweetUrl,
+      author_handle: author?.username || null,
+      author_name: author?.name || null,
+      text_content: tweet.text || null,
+      likes: metrics.like_count || 0,
+      retweets: metrics.retweet_count || 0,
+      replies: metrics.reply_count || 0,
+      views: metrics.impression_count || 0,
+      posted_at: tweet.created_at || null,
+      discord_msg_id: discordMsgId,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "tweet_id" });
+
+    if (error) console.error(`[discord-watcher] Failed to upsert analytics:`, error.message);
+    else console.log(`[discord-watcher] ✅ Enriched tweet ${tweetId} — ${metrics.like_count}❤️ ${metrics.retweet_count}🔁`);
+  } catch (e) {
+    console.error("[discord-watcher] Tweet enrich error:", e);
+  }
+}
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
