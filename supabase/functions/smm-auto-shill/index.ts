@@ -337,24 +337,22 @@ serve(async (req) => {
     // ─── Component interaction (button clicks) ───
     if (interaction.type === 3) {
       const customId = interaction.data?.custom_id || "";
+      const discordUser = interaction.member?.user || interaction.user || {};
+      const discordUserId = discordUser.id || "unknown";
+      const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-      if (customId.startsWith("shill_copy")) {
-        // Extract discord_msg_id from custom_id (shill_copy_<msg_id>)
-        const discordMsgId = customId.replace("shill_copy_", "") || null;
+      // Extract tweet URL from the original message's embed
+      let tweetUrl = "";
+      const embeds = interaction.message?.embeds || [];
+      if (embeds.length > 0) {
+        const desc = embeds[0].description || "";
+        const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
+        if (urlMatch) tweetUrl = urlMatch[0].replace(/\)$/, "");
+      }
 
-        // Log the click
-        const discordUser = interaction.member?.user || interaction.user || {};
-        const discordUserId = discordUser.id || "unknown";
-        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
-
-        // Extract tweet URL from the original message's embed
-        let tweetUrl = "";
-        const embeds = interaction.message?.embeds || [];
-        if (embeds.length > 0) {
-          const desc = embeds[0].description || "";
-          const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
-          if (urlMatch) tweetUrl = urlMatch[0].replace(/\)$/, "");
-        }
+      // ─── SHILL NOW button — record click + give URL ───
+      if (customId.startsWith("shill_now_")) {
+        const discordMsgId = customId.replace("shill_now_", "") || null;
 
         await supabase.from("shill_clicks").insert({
           discord_user_id: discordUserId,
@@ -363,17 +361,42 @@ serve(async (req) => {
           discord_msg_id: discordMsgId,
         });
 
-        // Mark bot message as interacted so it won't be auto-deleted
         if (discordMsgId) {
-          await supabase
-            .from("activity_log")
+          await supabase.from("activity_log")
             .update({ action: "interacted" })
             .eq("entity_type", "shill-bot-msg")
             .eq("action", "pending")
             .like("meta->>discord_msg_id", discordMsgId);
         }
 
-        // Load campaign config
+        return json({
+          type: 4,
+          data: {
+            content: `🚀 **Go shill this tweet now!**\n${tweetUrl}\n\n✅ Click recorded for \`${discordUsername}\``,
+            flags: 64,
+          },
+        });
+      }
+
+      // ─── Get Shill Copy button ───
+      if (customId.startsWith("shill_copy")) {
+        const discordMsgId = customId.replace("shill_copy_", "") || null;
+
+        await supabase.from("shill_clicks").insert({
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+          tweet_url: tweetUrl || null,
+          discord_msg_id: discordMsgId,
+        });
+
+        if (discordMsgId) {
+          await supabase.from("activity_log")
+            .update({ action: "interacted" })
+            .eq("entity_type", "shill-bot-msg")
+            .eq("action", "pending")
+            .like("meta->>discord_msg_id", discordMsgId);
+        }
+
         const { data: shillConfigs } = await supabase
           .from("site_configs").select("content")
           .eq("site_id", "smm-auto-shill");
