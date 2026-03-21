@@ -641,12 +641,14 @@ serve(async (req) => {
 
         // Assign
         assignments[discordUserId] = xAccount;
+        const discordUsernames: Record<string, string> = currentContent.discord_usernames || {};
+        discordUsernames[discordUserId] = discordUsername;
 
         await supabase.from("site_configs").upsert({
           id: cfgRow?.id || undefined,
           site_id: "smm-auto-shill",
           section: profileUsername,
-          content: { ...currentContent, discord_assignments: assignments },
+          content: { ...currentContent, discord_assignments: assignments, discord_usernames: discordUsernames },
         }, { onConflict: "id" });
 
         // Log authorization for audit
