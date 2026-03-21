@@ -510,6 +510,9 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                       <div key={discordId} className="flex items-center gap-3 p-3 rounded-md border border-border bg-muted/20">
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-mono text-foreground">{discordId}</span>
+                          {config.discord_usernames?.[discordId] && (
+                            <span className="ml-2 text-xs text-muted-foreground">@{config.discord_usernames[discordId]}</span>
+                          )}
                         </div>
                         <span className="w-32 text-sm font-mono text-primary">@{xAccount}</span>
                         <span className="w-24 text-xs font-mono text-muted-foreground">
