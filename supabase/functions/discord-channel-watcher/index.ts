@@ -48,6 +48,7 @@ async function cleanupExpiredMessages(supabase: any, botToken: string) {
     const meta = row.meta as any;
     const channelId = meta?.channel_id;
     const botMsgId = meta?.bot_message_id;
+    let deleteSucceeded = false;
 
     if (channelId && botMsgId) {
       try {
@@ -57,6 +58,7 @@ async function cleanupExpiredMessages(supabase: any, botToken: string) {
         );
         if (res.ok || res.status === 404) {
           deleted++;
+          deleteSucceeded = true;
           console.log(`[discord-watcher] Deleted bot msg ${botMsgId} from channel ${channelId}`);
         } else {
           const errText = await res.text();
@@ -67,14 +69,15 @@ async function cleanupExpiredMessages(supabase: any, botToken: string) {
       }
     }
 
-    // Mark as expired regardless so we don't retry forever
-    const { error: updateErr } = await supabase
-      .from("activity_log")
-      .update({ action: "expired" })
-      .eq("id", row.id);
+    if (!channelId || !botMsgId || deleteSucceeded) {
+      const { error: updateErr } = await supabase
+        .from("activity_log")
+        .update({ action: "expired" })
+        .eq("id", row.id);
 
-    if (updateErr) {
-      console.error(`[discord-watcher] Failed to mark ${row.id} as expired:`, updateErr.message);
+      if (updateErr) {
+        console.error(`[discord-watcher] Failed to mark ${row.id} as expired:`, updateErr.message);
+      }
     }
   }
   return deleted;

@@ -147,6 +147,70 @@ function extractTweetId(tweetUrl: string): string | null {
   }
 }
 
+async function getTrackedBotMessage(supabase: any, discordMsgId: string | null) {
+  if (!discordMsgId) return null;
+
+  const { data, error } = await supabase
+    .from("activity_log")
+    .select("id, action, meta, created_at")
+    .eq("entity_type", "shill-bot-msg")
+    .contains("meta", { discord_msg_id: discordMsgId })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[auto-shill] Failed to load tracked bot message:", error.message);
+    return null;
+  }
+
+  return data;
+}
+
+function isBotMessageExpired(trackedMessage: any) {
+  if (!trackedMessage) return false;
+
+  if (["expired", "cleaned"].includes(String(trackedMessage.action || ""))) {
+    return true;
+  }
+
+  const meta = trackedMessage.meta as Record<string, unknown> | null;
+  const expiresAt = typeof meta?.expires_at === "string"
+    ? Date.parse(meta.expires_at)
+    : Number.NaN;
+
+  return Number.isFinite(expiresAt) && expiresAt <= Date.now();
+}
+
+async function expireTrackedBotMessage(supabase: any, trackedMessage: any, discordBotToken?: string | null) {
+  if (!trackedMessage) return;
+
+  const meta = trackedMessage.meta as Record<string, unknown> | null;
+  const channelId = typeof meta?.channel_id === "string" ? meta.channel_id : null;
+  const botMessageId = typeof meta?.bot_message_id === "string" ? meta.bot_message_id : null;
+
+  if (channelId && botMessageId && discordBotToken) {
+    try {
+      const deleteRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${botMessageId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bot ${discordBotToken}` },
+      });
+
+      if (!deleteRes.ok && deleteRes.status !== 404) {
+        console.error("[auto-shill] Failed to delete expired bot message:", deleteRes.status, await deleteRes.text());
+      }
+    } catch (error) {
+      console.error("[auto-shill] Error deleting expired bot message:", error);
+    }
+  }
+
+  const nextAction = channelId && botMessageId ? "cleaned" : "expired";
+  await supabase
+    .from("activity_log")
+    .update({ action: nextAction })
+    .eq("id", trackedMessage.id);
+}
+
 async function verifyReplyOnX(replyPostId: string, targetTweetUrl: string, twitterBearerToken?: string | null) {
   const targetTweetId = extractTweetId(targetTweetUrl);
   if (!targetTweetId) {
@@ -220,6 +284,7 @@ serve(async (req) => {
   const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID")!;
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
   const TWITTER_BEARER_TOKEN = Deno.env.get("TWITTER_BEARER_TOKEN");
+  const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   const sendTelegram = makeSendTelegram(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
@@ -353,6 +418,19 @@ serve(async (req) => {
       // ─── SHILL NOW button — record click + give URL ───
       if (customId.startsWith("shill_now_")) {
         const discordMsgId = customId.replace("shill_now_", "") || null;
+
+        const trackedMessage = await getTrackedBotMessage(supabase, discordMsgId);
+        if (isBotMessageExpired(trackedMessage)) {
+          await expireTrackedBotMessage(supabase, trackedMessage, DISCORD_BOT_TOKEN);
+
+          return json({
+            type: 4,
+            data: {
+              content: "⏰ This shill alert has expired — find a new post.",
+              flags: 64,
+            },
+          });
+        }
 
         await supabase.from("shill_clicks").insert({
           discord_user_id: discordUserId,
