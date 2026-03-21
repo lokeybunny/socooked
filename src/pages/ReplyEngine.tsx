@@ -83,6 +83,20 @@ export default function ReplyEngine() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Real-time: auto-refresh when new shill_clicks arrive
+  useEffect(() => {
+    const channel = supabase
+      .channel('shill-clicks-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'shill_clicks' },
+        () => { fetchData(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchData]);
+
   const totalDetected = entries.filter(e => e.type === "detected").length;
   const totalClicked = clicks.length;
   const uniqueUsers = new Set(entries.map(e => e.discord_author)).size;
