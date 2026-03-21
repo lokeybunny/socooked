@@ -863,7 +863,7 @@ async function processAutoShill(
     },
   });
 
-  await sendTelegram(`${replyEmoji} *Auto-Shill ${usedQuoteFallback ? "Quote Tweet" : "Reply Confirmed"}* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
+  await sendTelegram(`${replyEmoji} *Auto-Shill ${usedQuoteFallback ? "Quote Tweet" : "Reply Confirmed"}* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${finalConfirmedReplyUrl}\n💰 ${ticker}`);
 
   // ─── Retweet with selected retweet accounts ───
   if (retweetAccounts.length > 0 && targetTweetId) {
