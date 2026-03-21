@@ -573,33 +573,3 @@ async function processAutoShill(
     reply_url: confirmedReplyUrl,
   };
 }
-
-  await supabase.from("activity_log").insert({
-    entity_type: "auto-shill", action: "replied",
-    meta: {
-      name: `🗣️ Auto-replied: ${tweetUrl}`,
-      tweet_url: tweetUrl,
-      profile: profileUsername,
-      reply_text: fullReply.substring(0, 300),
-      ticker,
-      campaign_url: campaignUrl,
-      request_id: requestId,
-      job_id: jobId,
-      provider_status: providerStatus,
-      reply_post_id: confirmedPostId,
-      reply_url: confirmedReplyUrl,
-    },
-  });
-
-  await sendTelegram(`🗣️ *Auto-Shill Confirmed*\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
-
-  return {
-    ok: true,
-    replied: true,
-    tweet_url: tweetUrl,
-    request_id: requestId,
-    job_id: jobId,
-    reply_post_id: confirmedPostId,
-    reply_url: confirmedReplyUrl,
-  };
-}
