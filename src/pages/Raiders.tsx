@@ -149,7 +149,8 @@ export default function Raiders() {
 
   const totalPending = raidClicks.filter((c) => c.status === "clicked").length;
   const totalVerified = raidClicks.filter((c) => c.status === "verified").length;
-  const totalOwed = raidClicks.filter((c) => c.status === "clicked").length * 0.02;
+  const totalOwed = totalPending * 0.02;
+  const totalVerifiedPaid = totalVerified * 0.02;
 
   return (
     <div className="min-h-screen bg-background">
@@ -179,7 +180,7 @@ export default function Raiders() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-5 gap-4">
           <div className="rounded-lg border border-border p-4 text-center">
             <Users className="h-5 w-5 mx-auto mb-1 text-primary" />
             <p className="text-3xl font-bold text-foreground">{raiders.length}</p>
@@ -199,6 +200,11 @@ export default function Raiders() {
             <DollarSign className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
             <p className="text-3xl font-bold text-foreground">${totalOwed.toFixed(2)}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending Owed</p>
+          </div>
+          <div className="rounded-lg border border-border p-4 text-center">
+            <DollarSign className="h-5 w-5 mx-auto mb-1 text-green-500" />
+            <p className="text-3xl font-bold text-foreground text-green-500">${totalVerifiedPaid.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">Verified Paid</p>
           </div>
         </div>
 

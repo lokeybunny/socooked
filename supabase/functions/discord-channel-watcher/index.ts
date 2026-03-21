@@ -294,10 +294,95 @@ serve(async (req) => {
         // For RT (retweet) messages in the raid channel, use the quoted tweet
         // URL which is typically the 3rd-to-last link (the actual target tweet).
         let tweetUrl: string;
-        const isRtInRaidChannel = listenChannelId === "1484843473352921138" &&
+        const RAID_LISTEN_CHANNEL = "1484843473352921138";
+        const RAID_VERIFY_CHANNEL = "1485050868838564030";
+        const isRtInRaidChannel = listenChannelId === RAID_LISTEN_CHANNEL &&
           (msg.content?.includes("RT") || msg.embeds?.some((e: any) =>
             [e.title, e.description].some((s: string | undefined) => s?.includes("RT"))
           ));
+
+        // ── Secret-code RT verification on the verification channel ──
+        // Raiders RT their #secret_code on X. A forwarding bot posts these
+        // RTs into channel 1485050868838564030. We extract the #code from the
+        // message text and match it against raiders to verify their clicks.
+        const isVerifyChannel = listenChannelId === RAID_VERIFY_CHANNEL;
+        if (isVerifyChannel) {
+          // Collect all text from message content + embeds
+          const allText = [
+            msg.content || "",
+            ...(msg.embeds || []).flatMap((e: any) => [e.title || "", e.description || ""]),
+            ...(msg.referenced_message ? [msg.referenced_message.content || ""] : []),
+            ...(msg.message_snapshots || []).map((s: any) => s.message?.content || ""),
+          ].join(" ");
+
+          // Extract hashtags like #storm42x, #bolt7
+          const hashtagRegex = /#([a-zA-Z]+\d+x?)\b/gi;
+          const hashtags: string[] = [];
+          let hm: RegExpExecArray | null;
+          while ((hm = hashtagRegex.exec(allText)) !== null) {
+            hashtags.push(hm[1].toLowerCase());
+          }
+
+          if (hashtags.length > 0) {
+            // Find raiders whose secret_code matches any extracted hashtag
+            const { data: matchingRaiders } = await supabase
+              .from("raiders")
+              .select("id, secret_code, discord_user_id, discord_username")
+              .in("secret_code", hashtags)
+              .eq("status", "active");
+
+            if (matchingRaiders?.length) {
+              for (const raider of matchingRaiders) {
+                // Find pending clicks for this raider
+                const { data: pendingClicks } = await supabase
+                  .from("shill_clicks")
+                  .select("id")
+                  .eq("discord_user_id", raider.discord_user_id)
+                  .eq("status", "clicked")
+                  .eq("click_type", "raid")
+                  .order("created_at", { ascending: true })
+                  .limit(1);
+
+                if (pendingClicks?.length) {
+                  const receiptUrl = uniqueUrls[0] || null;
+                  const { error: verifyErr } = await supabase
+                    .from("shill_clicks")
+                    .update({
+                      status: "verified",
+                      verified_at: new Date().toISOString(),
+                      receipt_tweet_url: receiptUrl,
+                    })
+                    .eq("id", pendingClicks[0].id);
+
+                  if (verifyErr) {
+                    console.error(`[discord-watcher] Failed to verify raid click for ${raider.discord_username}:`, verifyErr.message);
+                  } else {
+                    console.log(`[discord-watcher] ✅ Verified raid payment for ${raider.discord_username} via #${raider.secret_code}`);
+
+                    // Update raider total_earned
+                    await supabase.rpc("", {}).catch(() => {});
+                    // Increment via direct update
+                    const { data: currentRaider } = await supabase
+                      .from("raiders")
+                      .select("total_earned")
+                      .eq("id", raider.id)
+                      .single();
+
+                    if (currentRaider) {
+                      await supabase
+                        .from("raiders")
+                        .update({
+                          total_earned: Number(currentRaider.total_earned) + 0.02,
+                          updated_at: new Date().toISOString(),
+                        })
+                        .eq("id", raider.id);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
 
         if (isRtInRaidChannel && uniqueUrls.length >= 3) {
           tweetUrl = uniqueUrls[uniqueUrls.length - 3];
