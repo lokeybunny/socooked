@@ -123,6 +123,7 @@ const App = () => (
             <Route path="/bundler-docs/:slug" element={<BundlerDocs />} />
             <Route path="/vanities" element={<Vanities />} />
             <Route path="/shillers" element={<ReplyEngine />} />
+            <Route path="/shillers/raiders" element={<Raiders />} />
             <Route path="/reply-engine" element={<Navigate to="/shillers" replace />} />
             
             <Route path="*" element={<NotFound />} />
