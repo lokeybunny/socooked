@@ -49,7 +49,8 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [tab, setTab] = useState<'campaign' | 'team' | 'cooldown' | 'feed'>('campaign');
+  const [tab, setTab] = useState<'campaign' | 'team' | 'cooldown' | 'feed' | 'activity'>('campaign');
+  const [shillClicks, setShillClicks] = useState<any[]>([]);
 
   // Derive X-connected profile usernames from profiles prop
   const xProfiles = profiles
@@ -59,9 +60,11 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const loadData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const [configRes, feedRes] = await Promise.all([
+      const { default: supabaseClient } = await import('@/integrations/supabase/client').then(m => ({ default: m.supabase }));
+      const [configRes, feedRes, clicksRes] = await Promise.all([
         fetch(`${FUNC_URL}?action=get-config&profile=${profileUsername}`, { headers }).then(r => r.json()),
         fetch(`${FUNC_URL}?action=feed&profile=${profileUsername}`, { headers }).then(r => r.json()),
+        supabaseClient.from('shill_clicks').select('*').order('created_at', { ascending: false }).limit(200),
       ]);
       if (configRes?.config) {
         setConfig({
@@ -71,6 +74,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
         });
       }
       if (feedRes?.feed) setFeed(feedRes.feed);
+      if (clicksRes.data) setShillClicks(clicksRes.data);
     } catch {}
     if (showLoading) setLoading(false);
   };
@@ -254,6 +258,13 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
             onClick={() => setTab('feed')}
           >
             Feed ({feed.length})
+          </button>
+          <button
+            className={`flex-1 text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 ${tab === 'activity' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
+            onClick={() => setTab('activity')}
+          >
+            <Users className="h-3 w-3" />
+            Activity ({shillClicks.length})
           </button>
         </div>
 
@@ -646,6 +657,72 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
           </ScrollArea>
         )}
 
+        {tab === 'activity' && (
+          <ScrollArea className="max-h-[400px] pr-2">
+            {shillClicks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No shill activity yet. Clicks will appear here when team members tap "Get Shill Copy" in Discord.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-md border border-border p-3 text-center">
+                    <p className="text-2xl font-bold text-foreground">{shillClicks.length}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Clicks</p>
+                  </div>
+                  <div className="rounded-md border border-border p-3 text-center">
+                    <p className="text-2xl font-bold text-foreground">
+                      {new Set(shillClicks.map((c: any) => c.discord_user_id)).size}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Unique Shillers</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Leaderboard</p>
+                  {(() => {
+                    const counts: Record<string, { username: string; count: number }> = {};
+                    shillClicks.forEach((c: any) => {
+                      if (!counts[c.discord_user_id]) counts[c.discord_user_id] = { username: c.discord_username, count: 0 };
+                      counts[c.discord_user_id].count++;
+                    });
+                    return Object.values(counts)
+                      .sort((a, b) => b.count - a.count)
+                      .map((entry, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 rounded border border-border bg-muted/30 text-xs mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-muted-foreground w-5">{i + 1}.</span>
+                            <span className="font-medium text-foreground">{entry.username}</span>
+                          </div>
+                          <span className="font-mono text-primary">{entry.count} clicks</span>
+                        </div>
+                      ));
+                  })()}
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Recent Activity</p>
+                  <div className="space-y-1">
+                    {shillClicks.slice(0, 50).map((click: any) => (
+                      <div key={click.id} className="flex items-start gap-2 p-2 rounded border border-border bg-muted/30 text-xs">
+                        <Users className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-foreground">{click.discord_username}</span>
+                            <span className="text-[10px] text-muted-foreground">{format(new Date(click.created_at), 'MMM d, h:mm a')}</span>
+                          </div>
+                          {click.tweet_url && (
+                            <a href={click.tweet_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block mt-0.5 text-[11px]">
+                              {click.tweet_url} <ExternalLink className="inline h-2.5 w-2.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+        )}
         <DialogFooter>
           {(tab === 'campaign' || tab === 'team') && (
             <Button onClick={handleSave} disabled={saving} className="gap-1.5">

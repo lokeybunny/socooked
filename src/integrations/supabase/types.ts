@@ -2051,6 +2051,33 @@ export type Database = {
         }
         Relationships: []
       }
+      shill_clicks: {
+        Row: {
+          created_at: string
+          discord_msg_id: string | null
+          discord_user_id: string
+          discord_username: string
+          id: string
+          tweet_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          discord_msg_id?: string | null
+          discord_user_id: string
+          discord_username: string
+          id?: string
+          tweet_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          discord_msg_id?: string | null
+          discord_user_id?: string
+          discord_username?: string
+          id?: string
+          tweet_url?: string | null
+        }
+        Relationships: []
+      }
       signatures: {
         Row: {
           category: string | null
