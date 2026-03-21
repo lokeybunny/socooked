@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { CheckCircle2, AlertCircle, MessageSquare, Zap, ExternalLink, ArrowDownCircle, Users, Clock, ShieldAlert } from 'lucide-react';
+import { CheckCircle2, AlertCircle, MessageSquare, Zap, ExternalLink, ArrowDownCircle, Users, Clock, ShieldAlert, Repeat2 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { SMMProfile } from '@/lib/smm/types';
 
@@ -27,6 +27,7 @@ interface ShillConfig {
   discord_public_key: string;
   discord_channel_id: string;
   team_accounts: string[];
+  retweet_accounts: string[];
 }
 
 interface FeedEntry {
@@ -44,7 +45,7 @@ const headers = {
 };
 
 export default function AutoShillModal({ open, onOpenChange, profileUsername, profiles = [] }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', team_accounts: [] });
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', team_accounts: [], retweet_accounts: [] });
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -66,6 +67,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
         setConfig({
           ...configRes.config,
           team_accounts: configRes.config.team_accounts || [],
+          retweet_accounts: configRes.config.retweet_accounts || [],
         });
       }
       if (feedRes?.feed) setFeed(feedRes.feed);
@@ -112,10 +114,24 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
     });
   };
 
+  const toggleRetweetAccount = (username: string) => {
+    setConfig(prev => {
+      const current = prev.retweet_accounts || [];
+      const isSelected = current.includes(username);
+      return {
+        ...prev,
+        retweet_accounts: isSelected
+          ? current.filter(u => u !== username)
+          : [...current, username],
+      };
+    });
+  };
+
   const receivedCount = feed.filter(e => e.action === 'received').length;
   const repliedCount = feed.filter(e => e.action === 'replied').length;
   const failedCount = feed.filter(e => e.action === 'failed').length;
   const cooldownCount = feed.filter(e => e.action === 'cooldown').length;
+  const retweetedCount = feed.filter(e => e.action === 'retweeted').length;
 
   const COOLDOWN_MS = 5 * 60 * 1000;
   const now = Date.now();
@@ -125,7 +141,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
     account: string;
     lastActivityAt: Date;
     remainingMs: number;
-    trigger: string; // what caused the cooldown
+    trigger: string;
     action: string;
   }
 
@@ -198,7 +214,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
             onClick={() => setTab('team')}
           >
             <Users className="h-3 w-3" />
-            Team ({config.team_accounts?.length || 0})
+            Team ({(config.team_accounts?.length || 0) + (config.retweet_accounts?.length || 0)})
           </button>
           <button
             className={`flex-1 text-xs py-1.5 rounded transition-colors flex items-center justify-center gap-1 ${tab === 'cooldown' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'}`}
@@ -253,21 +269,30 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
               </div>
 
               {/* Team accounts summary */}
-              {(config.team_accounts?.length || 0) > 0 && (
-                <div className="rounded-md border border-border p-3 bg-muted/30 space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <Users className="h-3.5 w-3.5 text-primary" />
-                    <p className="text-xs font-semibold text-foreground">Team Rotation Active</p>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    {config.team_accounts.length} account{config.team_accounts.length > 1 ? 's' : ''} in rotation: {config.team_accounts.map(a => `@${a}`).join(', ')}
-                  </p>
+              {((config.team_accounts?.length || 0) > 0 || (config.retweet_accounts?.length || 0) > 0) && (
+                <div className="rounded-md border border-border p-3 bg-muted/30 space-y-2">
+                  {(config.team_accounts?.length || 0) > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5 text-primary" />
+                      <p className="text-[10px] text-muted-foreground">
+                        <strong>Reply:</strong> {config.team_accounts.map(a => `@${a}`).join(', ')}
+                      </p>
+                    </div>
+                  )}
+                  {(config.retweet_accounts?.length || 0) > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <Repeat2 className="h-3.5 w-3.5 text-green-500" />
+                      <p className="text-[10px] text-muted-foreground">
+                        <strong>Retweet:</strong> {config.retweet_accounts.map(a => `@${a}`).join(', ')}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Stats summary */}
               {feed.length > 0 && (
-                <div className="grid grid-cols-4 gap-2 rounded-md border border-border p-3 bg-muted/30">
+                <div className="grid grid-cols-5 gap-2 rounded-md border border-border p-3 bg-muted/30">
                   <div className="text-center">
                     <p className="text-lg font-bold text-foreground">{receivedCount}</p>
                     <p className="text-[10px] text-muted-foreground">Received</p>
@@ -275,6 +300,10 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                   <div className="text-center">
                     <p className="text-lg font-bold text-green-500">{repliedCount}</p>
                     <p className="text-[10px] text-muted-foreground">Replied</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-blue-500">{retweetedCount}</p>
+                    <p className="text-[10px] text-muted-foreground">Retweeted</p>
                   </div>
                   <div className="text-center">
                     <p className="text-lg font-bold text-destructive">{failedCount}</p>
@@ -292,8 +321,8 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                 <p className="text-xs font-semibold text-foreground">How it works</p>
                 <ul className="text-[10px] text-muted-foreground space-y-0.5 list-disc pl-3">
                   <li>Your Discord bot POSTs X/Twitter URLs to the webhook</li>
-                  <li>AI generates a <strong>unique</strong> rage-bait reply per account</li>
-                  <li>Your campaign URL + ticker + hashtags are appended</li>
+                  <li>AI reads the tweet and generates a <strong>contextual reply</strong> with your ticker signature</li>
+                  <li>Selected <strong>retweet accounts</strong> will also retweet the original post</li>
                   <li>If an account is in cooldown, the next team member posts instead</li>
                   <li>Each account gets its own 5-min cooldown to avoid anti-spam flags</li>
                 </ul>
@@ -337,12 +366,11 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
               <div className="rounded-md border border-border p-3 bg-muted/30 space-y-1">
                 <div className="flex items-center gap-1.5">
                   <ShieldAlert className="h-3.5 w-3.5 text-primary" />
-                  <p className="text-xs font-semibold text-foreground">Anti-Spam Team Rotation</p>
+                  <p className="text-xs font-semibold text-foreground">Team Accounts</p>
                 </div>
                 <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  Select X accounts to work as a team. When one account hits a cooldown or gets flagged,
-                  the system automatically rotates to the next available account. Each account generates its
-                  own <strong>unique AI reply</strong> — no duplicate messages across the team.
+                  Assign each X account a role: <strong>Reply</strong> (AI contextual reply + signature) and/or <strong>Retweet</strong> (retweet the original post).
+                  An account can do both. Reply accounts rotate with cooldowns; retweet accounts all fire simultaneously.
                 </p>
               </div>
 
@@ -355,24 +383,34 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                 </div>
               ) : (
                 <div className="space-y-1">
+                  {/* Header row */}
+                  <div className="flex items-center gap-3 px-3 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <span className="flex-1">Account</span>
+                    <span className="w-16 text-center flex items-center justify-center gap-1">
+                      <MessageSquare className="h-3 w-3" /> Reply
+                    </span>
+                    <span className="w-16 text-center flex items-center justify-center gap-1">
+                      <Repeat2 className="h-3 w-3" /> Retweet
+                    </span>
+                    <span className="w-16 text-center">Status</span>
+                  </div>
+
                   {xProfiles.map(username => {
-                    const isSelected = (config.team_accounts || []).includes(username);
+                    const isReplySelected = (config.team_accounts || []).includes(username);
+                    const isRetweetSelected = (config.retweet_accounts || []).includes(username);
                     const isPrimary = username === profileUsername;
                     const isInCooldown = cooldownAccounts.has(username);
+                    const isActive = isReplySelected || isRetweetSelected;
 
                     return (
-                      <label
+                      <div
                         key={username}
-                        className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-colors ${
-                          isSelected
+                        className={`flex items-center gap-3 p-3 rounded-md border transition-colors ${
+                          isActive
                             ? 'border-primary/50 bg-primary/5'
-                            : 'border-border bg-muted/20 hover:bg-muted/40'
+                            : 'border-border bg-muted/20'
                         }`}
                       >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleTeamAccount(username)}
-                        />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-mono font-medium text-foreground">@{username}</span>
@@ -381,33 +419,61 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
+
+                        {/* Reply checkbox */}
+                        <div className="w-16 flex justify-center">
+                          <Checkbox
+                            checked={isReplySelected}
+                            onCheckedChange={() => toggleTeamAccount(username)}
+                          />
+                        </div>
+
+                        {/* Retweet checkbox */}
+                        <div className="w-16 flex justify-center">
+                          <Checkbox
+                            checked={isRetweetSelected}
+                            onCheckedChange={() => toggleRetweetAccount(username)}
+                          />
+                        </div>
+
+                        {/* Status */}
+                        <div className="w-16 flex justify-center">
                           {isInCooldown ? (
                             <span className="flex items-center gap-1 text-[10px] text-yellow-500">
                               <Clock className="h-3 w-3" />
-                              Cooldown
+                              CD
                             </span>
-                          ) : isSelected ? (
+                          ) : isActive ? (
                             <span className="flex items-center gap-1 text-[10px] text-green-500">
                               <CheckCircle2 className="h-3 w-3" />
                               Ready
                             </span>
-                          ) : null}
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">—</span>
+                          )}
                         </div>
-                      </label>
+                      </div>
                     );
                   })}
                 </div>
               )}
 
               {/* Selected summary */}
-              {(config.team_accounts?.length || 0) > 0 && (
-                <div className="rounded-md border border-border p-3 bg-muted/30">
-                  <p className="text-[10px] text-muted-foreground">
-                    <strong>{config.team_accounts.length}</strong> account{config.team_accounts.length > 1 ? 's' : ''} selected.
-                    The system will rotate through them with a 5-minute cooldown per account.
-                    {config.team_accounts.length >= 3 && ' With 3+ accounts, you can sustain continuous shilling without gaps.'}
-                  </p>
+              {((config.team_accounts?.length || 0) > 0 || (config.retweet_accounts?.length || 0) > 0) && (
+                <div className="rounded-md border border-border p-3 bg-muted/30 space-y-1">
+                  {(config.team_accounts?.length || 0) > 0 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      <MessageSquare className="inline h-3 w-3 mr-1" />
+                      <strong>{config.team_accounts.length}</strong> reply account{config.team_accounts.length > 1 ? 's' : ''} — rotating with 5-min cooldowns.
+                      {config.team_accounts.length >= 3 && ' Continuous coverage enabled.'}
+                    </p>
+                  )}
+                  {(config.retweet_accounts?.length || 0) > 0 && (
+                    <p className="text-[10px] text-muted-foreground">
+                      <Repeat2 className="inline h-3 w-3 mr-1" />
+                      <strong>{config.retweet_accounts.length}</strong> retweet account{config.retweet_accounts.length > 1 ? 's' : ''} — all retweet simultaneously.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -496,6 +562,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                   const replyText = entry.meta?.reply_text || '';
                   const usedAccount = entry.meta?.used_account || entry.meta?.profile || '';
                   const icon = entry.action === 'replied' ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                    : entry.action === 'retweeted' ? <Repeat2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                     : entry.action === 'received' ? <ArrowDownCircle className="h-3.5 w-3.5 text-blue-400 shrink-0" />
                     : entry.action === 'cooldown' ? <Clock className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
                     : entry.action === 'skipped' ? <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -519,6 +586,11 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                         )}
                         {replyText && (
                           <p className="text-muted-foreground mt-0.5 line-clamp-2">{replyText}</p>
+                        )}
+                        {entry.action === 'retweeted' && entry.meta?.retweet_accounts && (
+                          <p className="text-muted-foreground mt-0.5">
+                            Retweeted by: {(entry.meta.retweet_accounts as string[]).map(a => `@${a}`).join(', ')}
+                          </p>
                         )}
                         {entry.action === 'failed' && entry.meta?.error && (
                           <p className="text-destructive mt-0.5">{entry.meta.error.substring(0, 120)}</p>

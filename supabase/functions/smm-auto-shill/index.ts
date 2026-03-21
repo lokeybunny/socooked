@@ -337,6 +337,7 @@ serve(async (req) => {
         .eq("site_id", "smm-auto-shill").eq("section", section).maybeSingle();
       const existingContent = existingRow?.content as any;
 
+      const { retweet_accounts } = body;
       await supabase.from("site_configs").upsert({
         site_id: "smm-auto-shill",
         section,
@@ -348,6 +349,7 @@ serve(async (req) => {
           discord_public_key: discord_public_key || "",
           discord_channel_id: discord_channel_id || "",
           team_accounts: Array.isArray(team_accounts) ? team_accounts : [],
+          retweet_accounts: Array.isArray(retweet_accounts) ? retweet_accounts : [],
           last_message_id: existingContent?.last_message_id || null,
         },
         is_published: true,
@@ -483,6 +485,7 @@ async function processAutoShill(
   if (!ticker) return { ok: false, error: "No ticker configured" };
 
   const teamAccounts: string[] = Array.isArray(config.team_accounts) ? config.team_accounts : [];
+  const retweetAccounts: string[] = Array.isArray(config.retweet_accounts) ? config.retweet_accounts : [];
 
   // ─── Per-account cooldown with team rotation ───
   const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
@@ -719,6 +722,71 @@ async function processAutoShill(
 
   await sendTelegram(`${replyEmoji} *Auto-Shill ${usedQuoteFallback ? "Quote Tweet" : "Reply Confirmed"}* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
 
+  // ─── Retweet with selected retweet accounts ───
+  if (retweetAccounts.length > 0 && targetTweetId) {
+    console.log(`[auto-shill] Retweeting with ${retweetAccounts.length} account(s): ${retweetAccounts.join(', ')}`);
+    const retweetResults: { account: string; success: boolean; error?: string }[] = [];
+
+    for (const rtAccount of retweetAccounts) {
+      try {
+        const rtParams = new URLSearchParams();
+        rtParams.append("user", rtAccount);
+        rtParams.append("platform[]", "x");
+        rtParams.append("retweet_id", targetTweetId);
+
+        const rtRes = await fetch(`${API_BASE}/upload_text`, {
+          method: "POST",
+          headers: { "Authorization": `Apikey ${UPLOAD_POST_API_KEY}`, "Content-Type": "application/x-www-form-urlencoded" },
+          body: rtParams.toString(),
+        });
+
+        const rtText = await rtRes.text();
+        console.log(`[auto-shill] Retweet @${rtAccount} response (${rtRes.status}): ${rtText.substring(0, 300)}`);
+
+        let rtData: any = {};
+        try { rtData = JSON.parse(rtText); } catch {}
+
+        const rtSuccess = rtRes.ok && rtData?.success === true;
+        retweetResults.push({ account: rtAccount, success: rtSuccess, error: rtSuccess ? undefined : rtText.substring(0, 200) });
+      } catch (e) {
+        console.error(`[auto-shill] Retweet error for @${rtAccount}:`, e);
+        retweetResults.push({ account: rtAccount, success: false, error: String(e).substring(0, 200) });
+      }
+    }
+
+    const successRTs = retweetResults.filter(r => r.success).map(r => r.account);
+    const failedRTs = retweetResults.filter(r => !r.success);
+
+    if (successRTs.length > 0) {
+      await supabase.from("activity_log").insert({
+        entity_type: "auto-shill", action: "retweeted",
+        meta: {
+          name: `🔁 Retweeted: ${tweetUrl}`,
+          tweet_url: tweetUrl,
+          profile: profileUsername,
+          retweet_accounts: successRTs,
+          retweet_count: successRTs.length,
+        },
+      });
+      await sendTelegram(`🔁 *Retweet* (${successRTs.length} account${successRTs.length > 1 ? 's' : ''})\n🔗 ${tweetUrl}\n👤 ${successRTs.map(a => `@${a}`).join(', ')}`);
+    }
+
+    if (failedRTs.length > 0) {
+      for (const fail of failedRTs) {
+        await supabase.from("activity_log").insert({
+          entity_type: "auto-shill", action: "failed",
+          meta: {
+            name: `❌ Retweet failed: @${fail.account}`,
+            tweet_url: tweetUrl,
+            profile: profileUsername,
+            used_account: fail.account,
+            error: `Retweet failed: ${fail.error}`,
+          },
+        });
+      }
+    }
+  }
+
   return {
     ok: true,
     replied: true,
@@ -728,5 +796,6 @@ async function processAutoShill(
     job_id: jobId,
     reply_post_id: confirmedPostId,
     reply_url: confirmedReplyUrl,
+    retweet_accounts: retweetAccounts,
   };
 }
