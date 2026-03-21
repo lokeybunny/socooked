@@ -686,6 +686,24 @@ async function processAutoShill(
 
   if (!isProviderConfirmed) {
     const errorMsg = `Upload not confirmed (${uploadRes.status}): ${uploadText.substring(0, 300)}`;
+    // Check if this is a 403 reply ban in the not-confirmed path
+    const xErr = String(xResult?.error || "");
+    const is403Ban = xErr.includes("403") || (xErr.toLowerCase().includes("reply") && xErr.toLowerCase().includes("failed"));
+    if (is403Ban) {
+      console.log(`[auto-shill] 🚫 Account @${selectedAccount} hit 403 reply ban (not-confirmed path) — 24h cooldown`);
+      await supabase.from("activity_log").insert({
+        entity_type: "auto-shill", action: "reply_banned",
+        meta: {
+          name: `🚫 Reply banned (24h): @${selectedAccount}`,
+          tweet_url: tweetUrl,
+          profile: profileUsername,
+          used_account: selectedAccount,
+          error: xErr.substring(0, 300),
+          ban_duration_hours: 24,
+        },
+      });
+      await sendTelegram(`🚫 *Reply Ban Detected* (@${selectedAccount})\n🔗 ${tweetUrl}\n⏰ 24h cooldown activated\n❌ ${xErr.substring(0, 200)}`);
+    }
     await sendTelegram(`🚨 *Auto-Shill NOT CONFIRMED* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "failed",
