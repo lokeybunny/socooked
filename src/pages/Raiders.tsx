@@ -149,7 +149,8 @@ export default function Raiders() {
 
   const totalPending = raidClicks.filter((c) => c.status === "clicked").length;
   const totalVerified = raidClicks.filter((c) => c.status === "verified").length;
-  const totalOwed = raidClicks.filter((c) => c.status === "clicked").length * 0.02;
+  const totalOwed = totalPending * 0.02;
+  const totalVerifiedPaid = totalVerified * 0.02;
 
   return (
     <div className="min-h-screen bg-background">
