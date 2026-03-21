@@ -684,10 +684,90 @@ async function processAutoShill(
     confirmedReplyUrl
   );
 
-  if (!isProviderConfirmed) {
+  // ─── Async polling: if API handed off to background worker, poll for result ───
+  const isAsyncHandoff = Boolean(
+    uploadRes.ok &&
+    uploadData?.success === true &&
+    !xResult && // no platform results yet
+    (requestId || jobId) &&
+    String(uploadData?.message || "").toLowerCase().includes("background")
+  );
+
+  let finalUploadData = uploadData;
+  let finalXResult = xResult;
+  let finalConfirmedReplyUrl = confirmedReplyUrl;
+  let finalConfirmedPostId = confirmedPostId;
+  let finalProviderStatus = providerStatus;
+  let polledSuccessfully = false;
+
+  if (isAsyncHandoff && requestId) {
+    console.log(`[auto-shill] Async handoff detected — polling status for request_id=${requestId}`);
+    await sendTelegram(`⏳ *Async handoff* (@${selectedAccount})\n🔗 ${tweetUrl}\n🔄 Polling request_id: ${requestId}`);
+
+    // Poll up to 6 times over ~60 seconds
+    for (let attempt = 1; attempt <= 6; attempt++) {
+      await new Promise(r => setTimeout(r, 10000)); // wait 10s between polls
+      try {
+        const statusRes = await fetch(
+          `${API_BASE}/uploadposts/status?request_id=${requestId}`,
+          { headers: { "Authorization": `Apikey ${UPLOAD_POST_API_KEY}` } }
+        );
+        const statusText = await statusRes.text();
+        console.log(`[auto-shill] Poll attempt ${attempt} (${statusRes.status}): ${statusText.substring(0, 500)}`);
+
+        let statusData: any = {};
+        try { statusData = JSON.parse(statusText); } catch {}
+
+        const pollResult = statusData?.results?.x || statusData?.data?.results?.x;
+        const pollStatus = String(statusData?.status || pollResult?.status || "").toLowerCase();
+
+        // Check for 403 reply ban in polled result
+        const pollError = String(pollResult?.error || statusData?.error || "");
+        const isPoll403 = pollError.includes("403") || (pollError.toLowerCase().includes("reply") && pollError.toLowerCase().includes("failed"));
+
+        if (isPoll403) {
+          console.log(`[auto-shill] 🚫 Poll revealed 403 reply ban for @${selectedAccount}`);
+          await supabase.from("activity_log").insert({
+            entity_type: "auto-shill", action: "reply_banned",
+            meta: {
+              name: `🚫 Reply banned (24h): @${selectedAccount}`,
+              tweet_url: tweetUrl, profile: profileUsername, used_account: selectedAccount,
+              error: pollError.substring(0, 300), ban_duration_hours: 24,
+            },
+          });
+          await sendTelegram(`🚫 *Reply Ban Detected* (@${selectedAccount})\n🔗 ${tweetUrl}\n⏰ 24h cooldown activated`);
+          // Fall through to quote-tweet fallback below
+          break;
+        }
+
+        if (pollStatus === "completed" && pollResult?.success === true && pollResult?.post_id) {
+          finalXResult = pollResult;
+          finalConfirmedPostId = pollResult.post_id;
+          finalConfirmedReplyUrl = pollResult.url || `https://x.com/${selectedAccount}/status/${pollResult.post_id}`;
+          finalProviderStatus = "completed";
+          polledSuccessfully = true;
+          console.log(`[auto-shill] ✅ Async poll confirmed: post_id=${finalConfirmedPostId}`);
+          await sendTelegram(`✅ *Async confirmed* (@${selectedAccount})\n🔗 ${finalConfirmedReplyUrl}`);
+          break;
+        }
+
+        if (pollStatus === "failed") {
+          console.log(`[auto-shill] ❌ Async poll returned failed: ${pollError.substring(0, 200)}`);
+          break;
+        }
+        // Otherwise still pending, continue polling
+      } catch (e) {
+        console.error(`[auto-shill] Poll error attempt ${attempt}:`, e);
+      }
+    }
+  }
+
+  const isNowConfirmed = polledSuccessfully || isProviderConfirmed;
+
+  if (!isNowConfirmed) {
     const errorMsg = `Upload not confirmed (${uploadRes.status}): ${uploadText.substring(0, 300)}`;
     // Check if this is a 403 reply ban in the not-confirmed path
-    const xErr = String(xResult?.error || "");
+    const xErr = String(finalXResult?.error || xResult?.error || "");
     const is403Ban = xErr.includes("403") || (xErr.toLowerCase().includes("reply") && xErr.toLowerCase().includes("failed"));
     if (is403Ban) {
       console.log(`[auto-shill] 🚫 Account @${selectedAccount} hit 403 reply ban (not-confirmed path) — 24h cooldown`);
@@ -718,16 +798,16 @@ async function processAutoShill(
         campaign_url: campaignUrl,
         request_id: requestId,
         job_id: jobId,
-        provider_status: providerStatus,
-        provider_result: xResult || null,
+        provider_status: finalProviderStatus,
+        provider_result: finalXResult || xResult || null,
       },
     });
-    return { ok: false, error: errorMsg, request_id: requestId, job_id: jobId, provider_status: providerStatus };
+    return { ok: false, error: errorMsg, request_id: requestId, job_id: jobId, provider_status: finalProviderStatus };
   }
 
   // Skip X reply-chain verification for quote tweets (they're standalone posts, not replies)
   if (!usedQuoteFallback) {
-    const xVerification = await verifyReplyOnX(String(confirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
+    const xVerification = await verifyReplyOnX(String(finalConfirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
     if (!xVerification.verified) {
       const errorMsg = `Upload completed but X reply was not verified: ${xVerification.reason}`;
       await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
@@ -745,9 +825,9 @@ async function processAutoShill(
           campaign_url: campaignUrl,
           request_id: requestId,
           job_id: jobId,
-          provider_status: providerStatus,
-          reply_post_id: confirmedPostId,
-          reply_url: confirmedReplyUrl,
+          provider_status: finalProviderStatus,
+          reply_post_id: finalConfirmedPostId,
+          reply_url: finalConfirmedReplyUrl,
         },
       });
       return {
@@ -755,8 +835,8 @@ async function processAutoShill(
         error: errorMsg,
         request_id: requestId,
         job_id: jobId,
-        reply_post_id: confirmedPostId,
-        reply_url: confirmedReplyUrl,
+        reply_post_id: finalConfirmedPostId,
+        reply_url: finalConfirmedReplyUrl,
       };
     }
   }
@@ -776,14 +856,14 @@ async function processAutoShill(
       campaign_url: campaignUrl,
       request_id: requestId,
       job_id: jobId,
-      provider_status: providerStatus,
-      reply_post_id: confirmedPostId,
-      reply_url: confirmedReplyUrl,
+      provider_status: finalProviderStatus,
+      reply_post_id: finalConfirmedPostId,
+      reply_url: finalConfirmedReplyUrl,
       reply_type: replyType,
     },
   });
 
-  await sendTelegram(`${replyEmoji} *Auto-Shill ${usedQuoteFallback ? "Quote Tweet" : "Reply Confirmed"}* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${confirmedReplyUrl}\n💰 ${ticker}`);
+  await sendTelegram(`${replyEmoji} *Auto-Shill ${usedQuoteFallback ? "Quote Tweet" : "Reply Confirmed"}* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${finalConfirmedReplyUrl}\n💰 ${ticker}`);
 
   // ─── Retweet with selected retweet accounts ───
   if (retweetAccounts.length > 0 && targetTweetId) {
@@ -858,8 +938,8 @@ async function processAutoShill(
     used_account: selectedAccount,
     request_id: requestId,
     job_id: jobId,
-    reply_post_id: confirmedPostId,
-    reply_url: confirmedReplyUrl,
+    reply_post_id: finalConfirmedPostId,
+    reply_url: finalConfirmedReplyUrl,
     retweet_accounts: retweetAccounts,
   };
 }
