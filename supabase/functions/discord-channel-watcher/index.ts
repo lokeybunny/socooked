@@ -179,21 +179,37 @@ serve(async (req) => {
       const xUrlRegex = /https?:\/\/(x\.com|twitter\.com)\/\S+/gi;
       let newestId = lastMessageId;
 
+      /** Extract X/Twitter URLs from a Discord message (content + embeds) */
+      const extractXUrls = (m: any): string[] => {
+        const found: string[] = [];
+        if (m.content) {
+          const hits = m.content.match(xUrlRegex);
+          if (hits) found.push(...hits);
+        }
+        if (Array.isArray(m.embeds)) {
+          for (const embed of m.embeds) {
+            for (const prop of [embed.url, embed.description, embed.title]) {
+              if (prop) { const h = prop.match(xUrlRegex); if (h) found.push(...h); }
+            }
+            if (Array.isArray(embed.fields)) {
+              for (const f of embed.fields) {
+                const h = (f.value || '').match(xUrlRegex);
+                if (h) found.push(...h);
+              }
+            }
+          }
+        }
+        return [...new Set(found)];
+      };
+
       for (const msg of messages) {
-        // Track newest message ID regardless
         if (!newestId || BigInt(msg.id) > BigInt(newestId)) {
           newestId = msg.id;
         }
 
-        // Skip bot messages
-        if (msg.author?.bot) continue;
-
-        // Extract X/Twitter URLs from message content
-        const rawMatches = msg.content?.match(xUrlRegex);
-        if (!rawMatches?.length) continue;
-
-        // Deduplicate URLs within the same message
-        const uniqueUrls = [...new Set(rawMatches as string[])];
+        // Extract X/Twitter URLs from content AND embeds (works for bot posts too)
+        const uniqueUrls = extractXUrls(msg);
+        if (!uniqueUrls.length) continue;
 
         // ── DEDUP: check if we already processed this discord message ──
         // Use jsonb containment operator which works reliably on JSONB
