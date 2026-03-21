@@ -60,9 +60,11 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const loadData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     try {
-      const [configRes, feedRes] = await Promise.all([
+      const { default: supabaseClient } = await import('@/integrations/supabase/client').then(m => ({ default: m.supabase }));
+      const [configRes, feedRes, clicksRes] = await Promise.all([
         fetch(`${FUNC_URL}?action=get-config&profile=${profileUsername}`, { headers }).then(r => r.json()),
         fetch(`${FUNC_URL}?action=feed&profile=${profileUsername}`, { headers }).then(r => r.json()),
+        supabaseClient.from('shill_clicks').select('*').order('created_at', { ascending: false }).limit(200),
       ]);
       if (configRes?.config) {
         setConfig({
@@ -72,6 +74,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
         });
       }
       if (feedRes?.feed) setFeed(feedRes.feed);
+      if (clicksRes.data) setShillClicks(clicksRes.data);
     } catch {}
     if (showLoading) setLoading(false);
   };
