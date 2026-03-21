@@ -412,6 +412,79 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
               )}
             </div>
           </ScrollArea>
+        ) : tab === 'cooldown' ? (
+          <ScrollArea className="max-h-[400px]">
+            <div className="space-y-3 pr-2">
+              {activeCooldowns.length === 0 ? (
+                <div className="text-center py-8 space-y-2">
+                  <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto" />
+                  <p className="text-sm font-medium text-foreground">All Accounts Ready</p>
+                  <p className="text-[10px] text-muted-foreground">No accounts are currently in cooldown. All team members are available for the next shill.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-md border border-border p-3 bg-destructive/5 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
+                      <p className="text-xs font-semibold text-foreground">{activeCooldowns.length} Account{activeCooldowns.length > 1 ? 's' : ''} in Cooldown</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Accounts enter a 5-minute cooldown after each reply or failure to prevent X anti-spam flags.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {activeCooldowns.map(cd => {
+                      const liveRemaining = Math.max(0, cd.remainingMs - (tick * 1000));
+                      const mins = Math.floor(liveRemaining / 60000);
+                      const secs = Math.floor((liveRemaining % 60000) / 1000);
+                      const progressPct = Math.max(0, Math.min(100, ((COOLDOWN_MS - liveRemaining) / COOLDOWN_MS) * 100));
+                      const isReady = liveRemaining <= 0;
+
+                      return (
+                        <div key={cd.account} className={`rounded-md border p-3 space-y-2 ${isReady ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-muted/30'}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-mono font-medium text-foreground">@{cd.account}</span>
+                              {cd.action === 'failed' && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-semibold">FLAGGED</span>
+                              )}
+                            </div>
+                            {isReady ? (
+                              <span className="flex items-center gap-1 text-xs text-green-500 font-semibold">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Ready
+                              </span>
+                            ) : (
+                              <span className="text-sm font-mono font-bold text-foreground tabular-nums">
+                                {mins}:{secs.toString().padStart(2, '0')}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Progress bar */}
+                          {!isReady && (
+                            <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all duration-1000"
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Trigger reason */}
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                            <span>Triggered: {cd.trigger}</span>
+                            <span>{format(cd.lastActivityAt, 'h:mm:ss a')}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          </ScrollArea>
         ) : (
           <ScrollArea className="h-[350px]">
             {feed.length === 0 ? (
