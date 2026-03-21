@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
-  Target, Reply,
+  Target, HardHat,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -29,7 +29,7 @@ const navItems: NavItem[] = [
   { to: '/research', icon: Target, label: 'Finder', green: true },
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
   { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true, divider: 'Services' },
-  { to: '/reply-engine', icon: Reply, label: 'Discord Log', botIcon: true },
+  { to: '/reply-engine', icon: HardHat, label: 'Shillers', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
 ];
 

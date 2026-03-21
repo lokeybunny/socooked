@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { CheckCircle2, AlertCircle, MessageSquare, Zap, ExternalLink, ArrowDownCircle, Users, Clock, ShieldAlert, Repeat2 } from 'lucide-react';
+import { CheckCircle2, AlertCircle, MessageSquare, Zap, ExternalLink, ArrowDownCircle, Users, Clock, ShieldAlert, Repeat2, Hash } from 'lucide-react';
 import { format } from 'date-fns';
 import type { SMMProfile } from '@/lib/smm/types';
 
@@ -28,6 +28,7 @@ interface ShillConfig {
   discord_channel_id: string;
   team_accounts: string[];
   retweet_accounts: string[];
+  account_hashtags: Record<string, string>;
 }
 
 interface FeedEntry {
@@ -45,7 +46,7 @@ const headers = {
 };
 
 export default function AutoShillModal({ open, onOpenChange, profileUsername, profiles = [] }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', team_accounts: [], retweet_accounts: [] });
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', team_accounts: [], retweet_accounts: [], account_hashtags: {} });
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -71,6 +72,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
           ...configRes.config,
           team_accounts: configRes.config.team_accounts || [],
           retweet_accounts: configRes.config.retweet_accounts || [],
+          account_hashtags: configRes.config.account_hashtags || {},
         });
       }
       if (feedRes?.feed) setFeed(feedRes.feed);
@@ -457,8 +459,24 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                           </div>
                         </div>
 
+                        {/* Hashtag input */}
+                        <div className="w-24">
+                          <Input
+                            value={config.account_hashtags?.[username] || ''}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/^#/, '').replace(/\s/g, '');
+                              setConfig(prev => ({
+                                ...prev,
+                                account_hashtags: { ...prev.account_hashtags, [username]: val },
+                              }));
+                            }}
+                            placeholder="#tag"
+                            className="h-6 text-[10px] font-mono px-1.5"
+                          />
+                        </div>
+
                         {/* Reply checkbox */}
-                        <div className="w-16 flex justify-center">
+                        <div className="w-14 flex justify-center">
                           <Checkbox
                             checked={isReplySelected}
                             onCheckedChange={() => toggleTeamAccount(username)}
@@ -466,7 +484,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                         </div>
 
                         {/* Retweet checkbox */}
-                        <div className="w-16 flex justify-center">
+                        <div className="w-14 flex justify-center">
                           <Checkbox
                             checked={isRetweetSelected}
                             onCheckedChange={() => toggleRetweetAccount(username)}
@@ -474,7 +492,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                         </div>
 
                         {/* Status */}
-                        <div className="w-16 flex justify-center">
+                        <div className="w-14 flex justify-center">
                           {isInCooldown ? (
                             <span className="flex items-center gap-1 text-[10px] text-yellow-500">
                               <Clock className="h-3 w-3" />
