@@ -16,11 +16,11 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-/** Delete expired bot messages that weren't interacted with */
+/** Delete expired bot messages from Discord and mark them in DB */
 async function cleanupExpiredMessages(supabase: any, botToken: string) {
   const cutoff = new Date(Date.now() - EXPIRY_MS).toISOString();
 
-  const { data: expired } = await supabase
+  const { data: expired, error: fetchErr } = await supabase
     .from("activity_log")
     .select("id, meta")
     .eq("entity_type", "shill-bot-msg")
@@ -28,27 +28,47 @@ async function cleanupExpiredMessages(supabase: any, botToken: string) {
     .lt("created_at", cutoff)
     .limit(50);
 
+  if (fetchErr) {
+    console.error("[discord-watcher] Cleanup fetch error:", fetchErr.message);
+    return 0;
+  }
   if (!expired?.length) return 0;
+
+  console.log(`[discord-watcher] Found ${expired.length} expired bot messages to clean up`);
 
   let deleted = 0;
   for (const row of expired) {
-    const { channel_id, bot_message_id } = row.meta as any;
-    if (channel_id && bot_message_id) {
+    const meta = row.meta as any;
+    const channelId = meta?.channel_id;
+    const botMsgId = meta?.bot_message_id;
+
+    if (channelId && botMsgId) {
       try {
         const res = await fetch(
-          `${DISCORD_API}/channels/${channel_id}/messages/${bot_message_id}`,
+          `${DISCORD_API}/channels/${channelId}/messages/${botMsgId}`,
           { method: "DELETE", headers: { Authorization: `Bot ${botToken}` } }
         );
-        if (res.ok || res.status === 404) deleted++;
+        if (res.ok || res.status === 404) {
+          deleted++;
+          console.log(`[discord-watcher] Deleted bot msg ${botMsgId} from channel ${channelId}`);
+        } else {
+          const errText = await res.text();
+          console.error(`[discord-watcher] Failed to delete msg ${botMsgId}: ${res.status} ${errText}`);
+        }
       } catch (e) {
-        console.error("[discord-watcher] Delete error:", e);
+        console.error("[discord-watcher] Delete HTTP error:", e);
       }
     }
-    // Mark as expired regardless
-    await supabase
+
+    // Mark as expired regardless so we don't retry forever
+    const { error: updateErr } = await supabase
       .from("activity_log")
       .update({ action: "expired" })
       .eq("id", row.id);
+
+    if (updateErr) {
+      console.error(`[discord-watcher] Failed to mark ${row.id} as expired:`, updateErr.message);
+    }
   }
   return deleted;
 }
@@ -71,6 +91,9 @@ serve(async (req) => {
   try {
     // ── Step 0: Cleanup expired bot messages ──
     const expiredCount = await cleanupExpiredMessages(supabase, DISCORD_BOT_TOKEN);
+    if (expiredCount > 0) {
+      console.log(`[discord-watcher] Cleaned up ${expiredCount} expired messages`);
+    }
 
     // Load all auto-shill configs
     const { data: configs } = await supabase
@@ -84,7 +107,6 @@ serve(async (req) => {
     const channelConfigs: { listenChannelId: string; replyChannelId: string; section: string; cfg: any }[] = [];
     for (const row of configs) {
       const cfg = row.content as any;
-      // discord_channel_id = listen channel, discord_reply_channel_id = where bot posts (falls back to listen channel)
       const listenId = cfg?.discord_listen_channel_id || cfg?.discord_channel_id;
       if (cfg?.enabled && listenId) {
         channelConfigs.push({
@@ -100,18 +122,13 @@ serve(async (req) => {
 
     // Deduplicate by listen channel
     const seenChannels = new Set<string>();
-    const uniqueChannels: { listenChannelId: string; replyChannelId: string; section: string; cfg: any }[] = [];
+    const uniqueChannels: typeof channelConfigs = [];
     for (const cc of channelConfigs) {
       if (!seenChannels.has(cc.listenChannelId)) {
         seenChannels.add(cc.listenChannelId);
         uniqueChannels.push(cc);
       }
     }
-
-    // Collect campaign info from first enabled config (for the copy text)
-    const firstEnabled = configs.find((r: any) => (r.content as any)?.enabled);
-    const campaignUrl = (firstEnabled?.content as any)?.campaign_url || "";
-    const ticker = (firstEnabled?.content as any)?.ticker || "";
 
     let totalForwarded = 0;
 
@@ -137,9 +154,7 @@ serve(async (req) => {
 
       if (!discordRes.ok) {
         const errText = await discordRes.text();
-        console.error(
-          `[discord-watcher] Failed to fetch channel ${listenChannelId}: ${discordRes.status} ${errText}`
-        );
+        console.error(`[discord-watcher] Failed to fetch channel ${listenChannelId}: ${discordRes.status} ${errText}`);
         continue;
       }
 
@@ -148,8 +163,7 @@ serve(async (req) => {
 
       // Sort oldest-first so we process in order
       messages.sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
 
       const xUrlRegex = /https?:\/\/(x\.com|twitter\.com)\/\S+/gi;
@@ -169,130 +183,140 @@ serve(async (req) => {
         if (!rawMatches?.length) continue;
 
         // Deduplicate URLs within the same message
-        const uniqueUrls = [...new Set(rawMatches)];
+        const uniqueUrls = [...new Set(rawMatches as string[])];
 
-        // Deduplicate: check if we already forwarded this exact message
-        const { count } = await supabase
+        // ── DEDUP: check if we already processed this discord message ──
+        // Use jsonb containment operator which works reliably on JSONB
+        const { data: existing } = await supabase
           .from("activity_log")
-          .select("id", { count: "exact", head: true })
+          .select("id")
           .eq("entity_type", "auto-shill")
           .eq("action", "telegram-notified")
-          .filter("meta->>discord_msg_id", "eq", msg.id);
+          .contains("meta", { discord_msg_id: msg.id })
+          .limit(1);
 
-        if ((count ?? 0) > 0) continue;
-
-        for (const tweetUrl of uniqueUrls) {
-          const discordAuthor = msg.author?.username || "unknown";
-
-          // Calculate expiry timestamp (5 minutes from now)
-          const expiresAt = Math.floor((Date.now() + EXPIRY_MS) / 1000);
-
-          // ── 1) Send Telegram notification ──
-          const tgText = `🔍 *New Tweet from Discord*\n\n` +
-            `👤 Posted by: \`${discordAuthor}\`\n` +
-            `🔗 ${tweetUrl}\n\n` +
-            `Tap below to open the tweet and get your shill copy.`;
-
-          const inlineKeyboard = {
-            inline_keyboard: [
-              [{ text: "🚀 SHILL NOW", url: tweetUrl }],
-              [{ text: "📋 Get Shill Copy", callback_data: `shill_copy` }],
-            ],
-          };
-
-          try {
-            await fetch(
-              `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  chat_id: TELEGRAM_CHAT_ID,
-                  text: tgText,
-                  parse_mode: "Markdown",
-                  reply_markup: inlineKeyboard,
-                }),
-              }
-            );
-          } catch (e) {
-            console.error("[discord-watcher] Telegram send error:", e);
-          }
-
-          // ── 2) Send Discord reply to the REPLY channel ──
-          const discordEmbed = {
-            title: "🔍 New Tweet Detected",
-            description: `**Posted by:** ${discordAuthor}\n[Open Tweet](${tweetUrl})`,
-            color: 0x1DA1F2,
-            footer: {
-              text: "⏱️ This message will self-destruct if no one interacts",
-            },
-            fields: [
-              {
-                name: "⏰ Expires",
-                value: `<t:${expiresAt}:R>`,
-                inline: true,
-              },
-            ],
-          };
-
-          const discordComponents = [
-            {
-              type: 1, // ActionRow
-              components: [
-                { type: 2, style: 5, label: "🚀 SHILL NOW", url: tweetUrl },
-                { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${msg.id}` },
-              ],
-            },
-          ];
-
-          try {
-            console.log(`[discord-watcher] Sending bot reply to REPLY channel ${replyChannelId}`);
-            const botReplyRes = await fetch(`${DISCORD_API}/channels/${replyChannelId}/messages`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                embeds: [discordEmbed],
-                components: discordComponents,
-              }),
-            });
-
-            if (botReplyRes.ok) {
-              const botMsg = await botReplyRes.json();
-              await supabase.from("activity_log").insert({
-                entity_type: "shill-bot-msg",
-                action: "pending",
-                meta: {
-                  bot_message_id: botMsg.id,
-                  channel_id: replyChannelId,
-                  discord_msg_id: msg.id,
-                  tweet_url: tweetUrl,
-                  expires_at: new Date(expiresAt * 1000).toISOString(),
-                },
-              });
-            } else {
-              const errText = await botReplyRes.text();
-              console.error(`[discord-watcher] Bot reply failed ${botReplyRes.status}: ${errText}`);
-            }
-          } catch (e) {
-            console.error("[discord-watcher] Discord reply error:", e);
-          }
-
-          totalForwarded++;
-
-          // Log to activity_log for dedup
-          await supabase.from("activity_log").insert({
-            entity_type: "auto-shill",
-            action: "telegram-notified",
-            meta: {
-              discord_msg_id: msg.id,
-              discord_author: discordAuthor,
-              tweet_url: tweetUrl,
-            },
-          });
+        if (existing && existing.length > 0) {
+          continue; // Already processed this message
         }
+
+        // Process only the first URL per message to avoid spamming
+        const tweetUrl = uniqueUrls[0];
+        const discordAuthor = msg.author?.username || "unknown";
+
+        // Calculate expiry timestamp (5 minutes from now)
+        const expiresAt = Math.floor((Date.now() + EXPIRY_MS) / 1000);
+
+        // ── 1) Log to activity_log FIRST (before sending) to prevent race condition dupes ──
+        const { error: logErr } = await supabase.from("activity_log").insert({
+          entity_type: "auto-shill",
+          action: "telegram-notified",
+          meta: {
+            discord_msg_id: msg.id,
+            discord_author: discordAuthor,
+            tweet_url: tweetUrl,
+          },
+        });
+
+        if (logErr) {
+          console.error(`[discord-watcher] Failed to log activity: ${logErr.message}`);
+          continue;
+        }
+
+        // ── 2) Send Telegram notification ──
+        const tgText = `🔍 *New Tweet from Discord*\n\n` +
+          `👤 Posted by: \`${discordAuthor}\`\n` +
+          `🔗 ${tweetUrl}\n\n` +
+          `Tap below to open the tweet and get your shill copy.`;
+
+        const inlineKeyboard = {
+          inline_keyboard: [
+            [{ text: "🚀 SHILL NOW", url: tweetUrl }],
+            [{ text: "📋 Get Shill Copy", callback_data: `shill_copy` }],
+          ],
+        };
+
+        try {
+          await fetch(
+            `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: TELEGRAM_CHAT_ID,
+                text: tgText,
+                parse_mode: "Markdown",
+                reply_markup: inlineKeyboard,
+              }),
+            }
+          );
+        } catch (e) {
+          console.error("[discord-watcher] Telegram send error:", e);
+        }
+
+        // ── 3) Send Discord reply to the REPLY channel ──
+        const discordEmbed = {
+          title: "🔍 New Tweet Detected",
+          description: `**Posted by:** ${discordAuthor}\n[Open Tweet](${tweetUrl})`,
+          color: 0x1DA1F2,
+          footer: {
+            text: "⏱️ This message will self-destruct if no one interacts",
+          },
+          fields: [
+            {
+              name: "⏰ Expires",
+              value: `<t:${expiresAt}:R>`,
+              inline: true,
+            },
+          ],
+        };
+
+        const discordComponents = [
+          {
+            type: 1, // ActionRow
+            components: [
+              { type: 2, style: 5, label: "🚀 SHILL NOW", url: tweetUrl },
+              { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${msg.id}` },
+            ],
+          },
+        ];
+
+        try {
+          console.log(`[discord-watcher] Sending bot reply to REPLY channel ${replyChannelId}`);
+          const botReplyRes = await fetch(`${DISCORD_API}/channels/${replyChannelId}/messages`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              embeds: [discordEmbed],
+              components: discordComponents,
+            }),
+          });
+
+          if (botReplyRes.ok) {
+            const botMsg = await botReplyRes.json();
+            // Track bot message for auto-cleanup
+            await supabase.from("activity_log").insert({
+              entity_type: "shill-bot-msg",
+              action: "pending",
+              meta: {
+                bot_message_id: botMsg.id,
+                channel_id: replyChannelId,
+                discord_msg_id: msg.id,
+                tweet_url: tweetUrl,
+                expires_at: new Date(expiresAt * 1000).toISOString(),
+              },
+            });
+          } else {
+            const errText = await botReplyRes.text();
+            console.error(`[discord-watcher] Bot reply failed ${botReplyRes.status}: ${errText}`);
+          }
+        } catch (e) {
+          console.error("[discord-watcher] Discord reply error:", e);
+        }
+
+        totalForwarded++;
       }
 
       // Update last_message_id in config so we don't re-process
