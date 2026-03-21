@@ -8,6 +8,8 @@ const corsHeaders = {
 };
 
 const API_BASE = "https://api.upload-post.com/api";
+const FALLBACK_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aXV4c2Z4ZXZqbm1kd25ycWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjgzMzQsImV4cCI6MjA4Njc0NDMzNH0.APi_x5YBKa8bOKpjLGiJUBB5qxi3rKKxWiApQAlf78c";
+const FALLBACK_DISCORD_PUBLIC_KEY = "3d6e57e2ae6bcf70b70dc1fbf0caacb5fe2ed07a9c9a325bdc34734a952ca42d";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -33,12 +35,52 @@ function verifyDiscordSignature(publicKeyHex: string, signature: string, timesta
   }
 }
 
+async function resolveDiscordConfig(supabase: any, requestedProfile?: string | null) {
+  const normalizedProfile = requestedProfile?.trim() || "NysonBlack";
+
+  const { data: exactRow } = await supabase
+    .from("site_configs")
+    .select("content, section")
+    .eq("site_id", "smm-auto-shill")
+    .eq("section", normalizedProfile)
+    .maybeSingle();
+
+  const exactContent = exactRow?.content as any;
+  if (exactContent?.discord_public_key) {
+    return {
+      profileUsername: exactRow?.section || normalizedProfile,
+      publicKey: String(exactContent.discord_public_key),
+    };
+  }
+
+  const { data: allConfigs } = await supabase
+    .from("site_configs")
+    .select("content, section")
+    .eq("site_id", "smm-auto-shill")
+    .order("section", { ascending: true });
+
+  for (const row of allConfigs || []) {
+    const content = row.content as any;
+    if (content?.discord_public_key) {
+      return {
+        profileUsername: row.section || normalizedProfile,
+        publicKey: String(content.discord_public_key),
+      };
+    }
+  }
+
+  return {
+    profileUsername: normalizedProfile,
+    publicKey: FALLBACK_DISCORD_PUBLIC_KEY,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || FALLBACK_ANON_KEY;
   const BOT_SECRET = Deno.env.get("BOT_SECRET")!;
   const UPLOAD_POST_API_KEY = Deno.env.get("UPLOAD_POST_API_KEY")!;
   const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
@@ -55,27 +97,8 @@ serve(async (req) => {
     const timestamp = req.headers.get("x-signature-timestamp") || "";
     const rawBody = await req.text();
 
-    // Look up public key from config
-    const { data: allConfigs } = await supabase
-      .from("site_configs")
-      .select("content, section")
-      .eq("site_id", "smm-auto-shill");
-
-    let publicKey = "";
-    let matchedProfile = "";
-    for (const row of (allConfigs || [])) {
-      const c = row.content as any;
-      if (c?.discord_public_key) {
-        publicKey = c.discord_public_key;
-        matchedProfile = row.section;
-        break;
-      }
-    }
-
-    if (!publicKey) {
-      console.error("[auto-shill] No Discord public key configured");
-      return json({ error: "No Discord public key configured" }, 401);
-    }
+    const requestedProfile = url.searchParams.get("profile") || url.searchParams.get("section");
+    const { publicKey, profileUsername: matchedProfile } = await resolveDiscordConfig(supabase, requestedProfile);
 
     const isValid = verifyDiscordSignature(publicKey, sig, timestamp, rawBody);
     if (!isValid) {
@@ -134,7 +157,8 @@ serve(async (req) => {
   const authHeader = req.headers.get("authorization") || "";
   const apikeyHeader = req.headers.get("apikey") || "";
   const isBot = botSecret === BOT_SECRET;
-  const isAnon = (ANON_KEY && (authHeader.includes(ANON_KEY) || apikeyHeader === ANON_KEY));
+  const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const isAnon = Boolean(ANON_KEY) && (apikeyHeader === ANON_KEY || bearerToken === ANON_KEY || authHeader.includes(ANON_KEY));
   if (!isBot && !isAnon) return json({ error: "Unauthorized" }, 401);
 
   // ─── Telegram notify helper ───
