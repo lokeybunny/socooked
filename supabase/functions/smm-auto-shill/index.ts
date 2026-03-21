@@ -516,8 +516,8 @@ serve(async (req) => {
       // ── Guard: only assigned users can interact ──
       if (!isUserAssigned(discordAssignments, discordUserId)) {
         // Show available accounts they can claim
-        const teamAccounts: string[] = shillCfg.team_accounts || [];
-        const available = getAvailableAccounts(teamAccounts, discordAssignments);
+        const allXAccounts: string[] = shillCfg.all_x_accounts || shillCfg.team_accounts || [];
+        const available = getAvailableAccounts(allXAccounts, discordAssignments);
         const availText = available.length > 0
           ? `\n\n📋 Available accounts:\n${available.map(a => `• \`@${a}\``).join("\n")}\n\nUse \`/authorize account:<name>\` to claim one.`
           : "\n\n⚠️ No accounts available right now. Ask an admin.";
