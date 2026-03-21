@@ -406,15 +406,15 @@ serve(async (req) => {
         const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
 
         const assignments: Record<string, string> = currentContent.discord_assignments || {};
-        const teamAccounts: string[] = currentContent.team_accounts || [];
+        const allXAccounts: string[] = currentContent.all_x_accounts || currentContent.team_accounts || [];
 
-        // ── Guard: check if the X account is in the team list ──
-        if (!teamAccounts.includes(xAccount)) {
-          const availableList = getAvailableAccounts(teamAccounts, assignments);
+        // ── Guard: check if the X account is in the connected accounts list ──
+        if (!allXAccounts.includes(xAccount)) {
+          const availableList = getAvailableAccounts(allXAccounts, assignments);
           const availableText = availableList.length > 0
             ? `\n\n📋 **Available accounts:**\n${availableList.map(a => `• \`@${a}\``).join("\n")}`
             : "\n\n⚠️ No accounts are currently available.";
-          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is not a configured team account.${availableText}`, flags: 64 } });
+          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is not a connected X account.${availableText}`, flags: 64 } });
         }
 
         // ── Guard: 1 user per 1 X account — check if already claimed ──
