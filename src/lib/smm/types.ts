@@ -5,7 +5,7 @@ export type Platform = 'facebook' | 'instagram' | 'twitter' | 'linkedin' | 'pint
 export interface SMMProfile {
   id: string;
   username: string;
-  connected_platforms: { platform: Platform; connected: boolean; reauth_required: boolean; display_name: string }[];
+  connected_platforms: { platform: Platform; connected: boolean; reauth_required: boolean; display_name: string; handle?: string }[];
   last_activity: string;
   created_at: string;
 }
