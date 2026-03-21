@@ -70,28 +70,6 @@ export default function Raiders() {
   }, [fetchData]);
 
   if (!user) return <Navigate to="/auth" replace />;
-    setLoading(true);
-    const [{ data: raiderData }, { data: clickData }] = await Promise.all([
-      supabase
-        .from("raiders")
-        .select("*")
-        .order("total_clicks", { ascending: false }),
-      supabase
-        .from("shill_clicks")
-        .select("*")
-        .eq("click_type", "raid")
-        .order("created_at", { ascending: false })
-        .limit(200),
-    ]);
-    setRaiders((raiderData as any[]) || []);
-    setRaidClicks(clickData || []);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
   const handleAssignCode = async () => {
     if (!editRaider || !secretCodeInput.trim()) return;
 
