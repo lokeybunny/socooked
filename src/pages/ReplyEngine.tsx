@@ -241,6 +241,6 @@ export default function ReplyEngine() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppLayout>
+    </div>
   );
 }
