@@ -228,6 +228,53 @@ serve(async (req) => {
       return json(result, result.ok ? 200 : 500);
     }
 
+    // ─── REGISTER slash command ───
+    if (action === "register-commands") {
+      const body = await req.json().catch(() => ({}));
+      const profileUsername = body.profile || url.searchParams.get("profile") || "NysonBlack";
+
+      const { data: cfgRow } = await supabase
+        .from("site_configs").select("content")
+        .eq("site_id", "smm-auto-shill").eq("section", profileUsername).single();
+
+      const cfg = cfgRow?.content as any;
+      const appId = cfg?.discord_app_id;
+      if (!appId) return json({ error: "No discord_app_id configured for this profile" }, 400);
+
+      const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
+      if (!DISCORD_BOT_TOKEN) return json({ error: "DISCORD_BOT_TOKEN secret not set" }, 500);
+
+      const guildId = body.guild_id || url.searchParams.get("guild_id") || "";
+
+      const commands = [
+        {
+          name: "shill",
+          description: "Auto-shill a tweet with reply + boost",
+          type: 1,
+          options: [
+            { name: "url", description: "The X/Twitter tweet URL to shill", type: 3, required: true },
+          ],
+        },
+      ];
+
+      const registerUrl = guildId
+        ? `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
+        : `https://discord.com/api/v10/applications/${appId}/commands`;
+
+      const results = [];
+      for (const cmd of commands) {
+        const res = await fetch(registerUrl, {
+          method: "POST",
+          headers: { "Authorization": `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+          body: JSON.stringify(cmd),
+        });
+        const data = await res.json();
+        results.push({ command: cmd.name, status: res.status, data });
+      }
+
+      return json({ ok: true, results });
+    }
+
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (err) {
     console.error("[auto-shill] Fatal error:", err);
