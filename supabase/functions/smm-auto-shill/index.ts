@@ -611,11 +611,30 @@ async function processAutoShill(
 
   // Check if reply was blocked due to reply restrictions (403)
   const xResult1 = uploadData?.results?.x;
+  const xError1 = String(xResult1?.error || "");
+  const is403Reply = xError1.includes("403") || xError1.toLowerCase().includes("reply") && xError1.toLowerCase().includes("failed");
   const replyBlocked = (
     uploadData?.success === true &&
     xResult1?.success === false &&
-    (String(xResult1?.error || "").includes("not allowed") || String(xResult1?.error || "").includes("403"))
+    (xError1.includes("not allowed") || is403Reply)
   );
+
+  // If this is a 403 reply ban, log a 24h ban for this account
+  if (is403Reply) {
+    console.log(`[auto-shill] 🚫 Account @${selectedAccount} hit 403 reply ban — entering 24h cooldown`);
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill", action: "reply_banned",
+      meta: {
+        name: `🚫 Reply banned (24h): @${selectedAccount}`,
+        tweet_url: tweetUrl,
+        profile: profileUsername,
+        used_account: selectedAccount,
+        error: xError1.substring(0, 300),
+        ban_duration_hours: 24,
+      },
+    });
+    await sendTelegram(`🚫 *Reply Ban Detected* (@${selectedAccount})\n🔗 ${tweetUrl}\n⏰ 24h cooldown activated\n❌ ${xError1.substring(0, 200)}`);
+  }
 
   if (replyBlocked) {
     // --- Attempt 2: Quote tweet fallback ---
