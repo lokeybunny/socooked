@@ -121,6 +121,7 @@ const App = () => (
             <Route path="/bundler-docs" element={<BundlerDocs />} />
             <Route path="/bundler-docs/:slug" element={<BundlerDocs />} />
             <Route path="/vanities" element={<Vanities />} />
+            <Route path="/reply-engine" element={<RestrictedGate><ReplyEngine /></RestrictedGate>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

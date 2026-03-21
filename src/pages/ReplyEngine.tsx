@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import AppLayout from "@/components/layout/AppLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import ReplyQueue from "@/components/reply-engine/ReplyQueue";
 import SentReplies from "@/components/reply-engine/SentReplies";
 import ReplySettings from "@/components/reply-engine/ReplySettings";
