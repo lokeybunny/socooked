@@ -611,7 +611,7 @@ serve(async (req) => {
         const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
 
         const assignments: Record<string, string> = currentContent.discord_assignments || {};
-        const crmAccounts = await loadCrmXAccounts(supabase);
+        const crmAccounts = await loadAllXAccounts(supabase);
         const allXAccounts: string[] = crmAccounts.map((account) => account.handle);
 
         // ── Guard: check if the X account is in the connected accounts list ──
@@ -722,7 +722,7 @@ serve(async (req) => {
       // ── Guard: only assigned users can interact ──
       if (!isUserAssigned(discordAssignments, discordUserId)) {
         // Show available accounts they can claim
-        const crmAccounts = await loadCrmXAccounts(supabase);
+        const crmAccounts = await loadAllXAccounts(supabase);
         const allXAccounts: string[] = crmAccounts.map((account) => account.handle);
         const available = getAvailableAccounts(allXAccounts, discordAssignments);
         const availText = available.length > 0
@@ -863,7 +863,7 @@ serve(async (req) => {
     );
 
     // Build autocomplete choices from all connected X accounts
-    const crmAccounts = await loadCrmXAccounts(supabase);
+    const crmAccounts = await loadAllXAccounts(supabase);
     let accountChoiceRecords: Array<{ handle: string; label: string }> = crmAccounts;
     let allXAccounts: string[] = crmAccounts.map((account) => account.handle);
 
