@@ -196,6 +196,27 @@ async function resolveDiscordGuildId(
   }
 }
 
+async function loadCrmXAccounts(supabase: any): Promise<Array<{ handle: string; label: string }>> {
+  const { data, error } = await supabase
+    .from("outbound_accounts")
+    .select("account_identifier, account_label")
+    .eq("platform", "x")
+    .eq("is_authorized", true)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("[auto-shill] Failed to load CRM X accounts:", error.message);
+    return [];
+  }
+
+  return dedupeAccountChoices(
+    (data || []).map((row: any) => ({
+      handle: row?.account_identifier,
+      label: row?.account_label || row?.account_identifier,
+    })),
+  );
+}
+
 // ─── Telegram helper ───
 function makeSendTelegram(token: string, chatId: string) {
   return async (text: string) => {
@@ -534,7 +555,8 @@ serve(async (req) => {
         const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
 
         const assignments: Record<string, string> = currentContent.discord_assignments || {};
-        const allXAccounts: string[] = currentContent.all_x_accounts || currentContent.team_accounts || [];
+        const crmAccounts = await loadCrmXAccounts(supabase);
+        const allXAccounts: string[] = crmAccounts.map((account) => account.handle);
 
         // ── Guard: check if the X account is in the connected accounts list ──
         if (!allXAccounts.includes(xAccount)) {
@@ -644,7 +666,8 @@ serve(async (req) => {
       // ── Guard: only assigned users can interact ──
       if (!isUserAssigned(discordAssignments, discordUserId)) {
         // Show available accounts they can claim
-        const allXAccounts: string[] = shillCfg.all_x_accounts || shillCfg.team_accounts || [];
+        const crmAccounts = await loadCrmXAccounts(supabase);
+        const allXAccounts: string[] = crmAccounts.map((account) => account.handle);
         const available = getAvailableAccounts(allXAccounts, discordAssignments);
         const availText = available.length > 0
           ? `\n\n📋 Available accounts:\n${available.map(a => `• \`@${a}\``).join("\n")}\n\nUse \`/authorize account:<name>\` to claim one.`
@@ -784,34 +807,15 @@ serve(async (req) => {
     );
 
     // Build autocomplete choices from all connected X accounts
-    let allXAccounts: string[] = dedupeHandles([...(cfg?.all_x_accounts || []), ...(cfg?.team_accounts || [])]);
-    let accountChoiceRecords: Array<{ handle: string; label: string }> = dedupeAccountChoices(
-      allXAccounts.map((handle) => ({ handle, label: handle })),
-    );
+    const crmAccounts = await loadCrmXAccounts(supabase);
+    let accountChoiceRecords: Array<{ handle: string; label: string }> = crmAccounts;
+    let allXAccounts: string[] = crmAccounts.map((account) => account.handle);
 
-    // Always merge with live provider data so stale saved config can't hide accounts
-    try {
-      const API_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
-      const profilesRes = await fetch("https://api.upload-post.com/api/uploadposts/users", {
-        headers: { "Authorization": `Apikey ${API_KEY}` },
-      });
-      if (profilesRes.ok) {
-        const profilesData = await profilesRes.json();
-        const profiles = profilesData?.profiles || profilesData?.users || profilesData?.data || (Array.isArray(profilesData) ? profilesData : []);
-        const liveChoices = extractXAccountChoicesFromProfiles(profiles);
-        accountChoiceRecords = dedupeAccountChoices([...accountChoiceRecords, ...liveChoices]);
-        allXAccounts = dedupeHandles([...allXAccounts, ...extractXHandlesFromProfiles(profiles)]);
-      } else {
-        console.error("[auto-shill] Live profile fetch failed:", profilesRes.status, await profilesRes.text());
-      }
-    } catch (e) {
-      console.error("[auto-shill] Live profile fetch error:", e);
-    }
-
-    if (allXAccounts.length === 0) allXAccounts = dedupeHandles(cfg?.team_accounts || []);
     if (accountChoiceRecords.length === 0) {
+      allXAccounts = dedupeHandles([...(cfg?.all_x_accounts || []), ...(cfg?.team_accounts || [])]);
       accountChoiceRecords = dedupeAccountChoices(allXAccounts.map((handle) => ({ handle, label: handle })));
     }
+
     const accountChoices = accountChoiceRecords.slice(0, 25).map(({ handle, label }) => ({ name: `@${label}`, value: handle }));
 
     const commands = [
