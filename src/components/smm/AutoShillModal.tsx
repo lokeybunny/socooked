@@ -130,7 +130,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
     try {
       await fetch(`${FUNC_URL}?action=save-config`, {
         method: 'POST', headers,
-        body: JSON.stringify({ profile_username: profileUsername, ...config }),
+        body: JSON.stringify({ profile_username: profileUsername, ...config, all_x_accounts: xProfiles }),
       });
       toast.success('Campaign config saved');
     } catch {
@@ -231,7 +231,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const assignments = config.discord_assignments || {};
   const assignmentEntries = Object.entries(assignments);
   const claimedAccounts = new Set(Object.values(assignments));
-  const availableAccounts = (config.team_accounts || []).filter(a => !claimedAccounts.has(a));
+  const availableAccounts = xProfiles.filter(a => !claimedAccounts.has(a));
 
   if (loading) {
     return (

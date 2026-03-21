@@ -406,15 +406,15 @@ serve(async (req) => {
         const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
 
         const assignments: Record<string, string> = currentContent.discord_assignments || {};
-        const teamAccounts: string[] = currentContent.team_accounts || [];
+        const allXAccounts: string[] = currentContent.all_x_accounts || currentContent.team_accounts || [];
 
-        // ── Guard: check if the X account is in the team list ──
-        if (!teamAccounts.includes(xAccount)) {
-          const availableList = getAvailableAccounts(teamAccounts, assignments);
+        // ── Guard: check if the X account is in the connected accounts list ──
+        if (!allXAccounts.includes(xAccount)) {
+          const availableList = getAvailableAccounts(allXAccounts, assignments);
           const availableText = availableList.length > 0
             ? `\n\n📋 **Available accounts:**\n${availableList.map(a => `• \`@${a}\``).join("\n")}`
             : "\n\n⚠️ No accounts are currently available.";
-          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is not a configured team account.${availableText}`, flags: 64 } });
+          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is not a connected X account.${availableText}`, flags: 64 } });
         }
 
         // ── Guard: 1 user per 1 X account — check if already claimed ──
@@ -516,8 +516,8 @@ serve(async (req) => {
       // ── Guard: only assigned users can interact ──
       if (!isUserAssigned(discordAssignments, discordUserId)) {
         // Show available accounts they can claim
-        const teamAccounts: string[] = shillCfg.team_accounts || [];
-        const available = getAvailableAccounts(teamAccounts, discordAssignments);
+        const allXAccounts: string[] = shillCfg.all_x_accounts || shillCfg.team_accounts || [];
+        const available = getAvailableAccounts(allXAccounts, discordAssignments);
         const availText = available.length > 0
           ? `\n\n📋 Available accounts:\n${available.map(a => `• \`@${a}\``).join("\n")}\n\nUse \`/authorize account:<name>\` to claim one.`
           : "\n\n⚠️ No accounts available right now. Ask an admin.";
@@ -658,9 +658,9 @@ serve(async (req) => {
       ? `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
       : `https://discord.com/api/v10/applications/${appId}/commands`;
 
-    // Build autocomplete choices from team accounts
-    const teamAccounts: string[] = cfg?.team_accounts || [];
-    const accountChoices = teamAccounts.slice(0, 25).map((a: string) => ({ name: `@${a}`, value: a }));
+    // Build autocomplete choices from all connected X accounts
+    const allXAccounts: string[] = cfg?.all_x_accounts || cfg?.team_accounts || [];
+    const accountChoices = allXAccounts.slice(0, 25).map((a: string) => ({ name: `@${a}`, value: a }));
 
     const commands = [
       {
