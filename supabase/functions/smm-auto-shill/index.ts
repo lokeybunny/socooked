@@ -460,6 +460,49 @@ serve(async (req) => {
   if (!isBot && !isAuthed) return json({ error: "Unauthorized" }, 401);
 
   try {
+    // ─── Force clean: delete ALL bot messages from a channel via Discord API ───
+    if (action === "force-clean-channel") {
+      const body = await req.json().catch(() => ({}));
+      const channelId = body.channel_id;
+      const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+      if (!channelId || !DISCORD_BOT_TOKEN_ENV) return json({ error: "Missing channel_id or bot token" }, 400);
+
+      // Get the bot's own user ID
+      const meRes = await fetch("https://discord.com/api/v10/users/@me", {
+        headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` },
+      });
+      const me = await meRes.json();
+      const botUserId = me.id;
+
+      // Fetch last 100 messages and delete any from our bot
+      let deleted = 0;
+      let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
+      const msgRes = await fetch(url, { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` } });
+      if (!msgRes.ok) return json({ error: `Discord fetch failed: ${msgRes.status}` }, 500);
+      const msgs: any[] = await msgRes.json();
+
+      for (const m of msgs) {
+        if (m.author?.id === botUserId) {
+          const delRes = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${m.id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` },
+          });
+          if (delRes.ok || delRes.status === 404) deleted++;
+          // Rate limit: small delay between deletes
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+
+      // Also clean expired DB records
+      await supabase.from("activity_log")
+        .update({ action: "cleaned" })
+        .eq("entity_type", "shill-bot-msg")
+        .eq("action", "expired");
+
+      return json({ ok: true, deleted, total_checked: msgs.length });
+    }
+
+
     // ─── GET campaign config ───
     if (action === "get-config") {
       const profileUsername = urlObj.searchParams.get("profile") || "NysonBlack";
