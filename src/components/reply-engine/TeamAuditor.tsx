@@ -12,13 +12,15 @@ interface TeamMember {
   discord_user_id: string;
   username: string;
   totalClicks: number;
+  verifiedClicks: number;
   todayClicks: number;
   weekClicks: number;
   earnings: number;
+  pendingEarnings: number;
   todayEarnings: number;
   weekEarnings: number;
   lastActive: string;
-  recentTweets: { url: string; created_at: string }[];
+  recentTweets: { url: string; created_at: string; status: string }[];
 }
 
 export default function TeamAuditor() {
