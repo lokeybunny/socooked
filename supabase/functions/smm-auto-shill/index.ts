@@ -1035,16 +1035,43 @@ serve(async (req) => {
     if (action === "get-config") {
       const profileUsername = urlObj.searchParams.get("profile") || "NysonBlack";
       const { data } = await supabase
-        .from("site_configs").select("content")
+        .from("site_configs").select("id, content")
         .eq("site_id", "smm-auto-shill").eq("section", profileUsername).single();
 
+      const content = (data?.content as any) || {};
+      const assignments: Record<string, string> = content.discord_assignments || {};
+      const usernames: Record<string, string> = content.discord_usernames || {};
+
+      // Auto-backfill missing usernames from activity_log
+      const missingIds = Object.keys(assignments).filter(id => !usernames[id]);
+      if (missingIds.length > 0) {
+        const { data: logs } = await supabase
+          .from("activity_log")
+          .select("meta")
+          .eq("entity_type", "shill-authorization")
+          .eq("action", "authorized")
+          .order("created_at", { ascending: false })
+          .limit(500);
+
+        for (const log of logs || []) {
+          const meta = log.meta as any;
+          if (meta?.discord_user_id && meta?.discord_username && !usernames[meta.discord_user_id]) {
+            usernames[meta.discord_user_id] = meta.discord_username;
+          }
+        }
+
+        // Persist backfilled usernames
+        if (data?.id) {
+          await supabase.from("site_configs").update({
+            content: { ...content, discord_usernames: usernames },
+          }).eq("id", data.id);
+        }
+      }
+
       return json({
-        config: data?.content || {
-          enabled: false,
-          campaign_url: "",
-          ticker: "",
-          discord_app_id: "",
-          discord_public_key: "",
+        config: {
+          ...content,
+          discord_usernames: usernames,
         }
       });
     }
