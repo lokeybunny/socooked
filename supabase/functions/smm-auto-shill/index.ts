@@ -736,11 +736,29 @@ serve(async (req) => {
           .maybeSingle();
 
         if (!raider?.secret_code) {
+          // Show a modal asking for their secret code (type 9 = Modal response)
           return json({
-            type: 4,
+            type: 9,
             data: {
-              content: `⚔️ **Welcome, Raider!**\n\nYou've been registered as \`${discordUsername}\`.\n\n⏳ An admin needs to assign you a **secret code** before you can start raiding.\nCheck back soon!`,
-              flags: 64,
+              custom_id: `raider_code_submit_${discordUserId}`,
+              title: "⚔️ Enter Your Raider Code",
+              components: [
+                {
+                  type: 1, // ActionRow
+                  components: [
+                    {
+                      type: 4, // TextInput
+                      custom_id: "secret_code_input",
+                      label: "Secret Code (given by admin)",
+                      style: 1, // Short
+                      placeholder: "e.g. storm42x",
+                      required: true,
+                      min_length: 3,
+                      max_length: 30,
+                    },
+                  ],
+                },
+              ],
             },
           });
         }
