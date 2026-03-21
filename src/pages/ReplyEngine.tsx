@@ -162,6 +162,8 @@ export default function ReplyEngine() {
           </div>
         </div>
 
+        {user && <TopPostsSection />}
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-muted/50">
             <TabsTrigger value="activity">Activity Feed</TabsTrigger>
