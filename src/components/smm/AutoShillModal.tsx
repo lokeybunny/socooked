@@ -336,9 +336,15 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                 )}
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Discord Channel ID</Label>
-                  <Input value={config.discord_channel_id} onChange={(e) => setConfig(prev => ({ ...prev, discord_channel_id: e.target.value }))} placeholder="e.g. 1234567890123456789" className="h-8 text-sm font-mono" />
-                  <p className="text-[10px] text-muted-foreground">Paste X links in this channel — auto-forwarded every 60s.</p>
+                  <Label className="text-xs font-semibold">Listen Channel ID</Label>
+                  <Input value={config.discord_listen_channel_id || config.discord_channel_id} onChange={(e) => setConfig(prev => ({ ...prev, discord_listen_channel_id: e.target.value }))} placeholder="e.g. 1234567890123456789" className="h-8 text-sm font-mono" />
+                  <p className="text-[10px] text-muted-foreground">Channel where users paste X links — watcher monitors this.</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Reply Channel ID</Label>
+                  <Input value={config.discord_reply_channel_id || config.discord_channel_id} onChange={(e) => setConfig(prev => ({ ...prev, discord_reply_channel_id: e.target.value }))} placeholder="e.g. 1234567890123456789" className="h-8 text-sm font-mono" />
+                  <p className="text-[10px] text-muted-foreground">Channel where SHILL NOW alerts are posted.</p>
                 </div>
 
                 <details className="rounded-md border border-border p-3 bg-muted/30">
