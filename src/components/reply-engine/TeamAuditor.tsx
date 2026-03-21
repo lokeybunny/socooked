@@ -51,9 +51,11 @@ export default function TeamAuditor() {
           discord_user_id: uid,
           username: c.discord_username,
           totalClicks: 0,
+          verifiedClicks: 0,
           todayClicks: 0,
           weekClicks: 0,
           earnings: 0,
+          pendingEarnings: 0,
           todayEarnings: 0,
           weekEarnings: 0,
           lastActive: c.created_at,
@@ -62,8 +64,11 @@ export default function TeamAuditor() {
       }
 
       const m = userMap[uid];
+      const isVerified = (c as any).status === "verified";
       m.totalClicks++;
-      m.earnings = m.totalClicks * RATE_PER_CLICK;
+      if (isVerified) m.verifiedClicks++;
+      m.earnings = m.verifiedClicks * RATE_PER_CLICK;
+      m.pendingEarnings = (m.totalClicks - m.verifiedClicks) * RATE_PER_CLICK;
 
       const clickDate = new Date(c.created_at);
       if (clickDate >= todayStart) {
@@ -80,7 +85,7 @@ export default function TeamAuditor() {
       }
 
       if (m.recentTweets.length < 10) {
-        m.recentTweets.push({ url: c.tweet_url || "", created_at: c.created_at });
+        m.recentTweets.push({ url: c.tweet_url || "", created_at: c.created_at, status: (c as any).status || "clicked" });
       }
     }
 
