@@ -1603,6 +1603,93 @@ export type Database = {
         }
         Relationships: []
       }
+      outbound_accounts: {
+        Row: {
+          account_identifier: string
+          account_label: string
+          auto_send_enabled: boolean
+          created_at: string
+          daily_limit: number
+          id: string
+          is_authorized: boolean
+          platform: string
+          provider: string
+        }
+        Insert: {
+          account_identifier: string
+          account_label: string
+          auto_send_enabled?: boolean
+          created_at?: string
+          daily_limit?: number
+          id?: string
+          is_authorized?: boolean
+          platform?: string
+          provider?: string
+        }
+        Update: {
+          account_identifier?: string
+          account_label?: string
+          auto_send_enabled?: boolean
+          created_at?: string
+          daily_limit?: number
+          id?: string
+          is_authorized?: boolean
+          platform?: string
+          provider?: string
+        }
+        Relationships: []
+      }
+      outbound_attempts: {
+        Row: {
+          attempted_at: string
+          error_message: string | null
+          id: string
+          outbound_account_id: string
+          provider_message_id: string | null
+          reply_review_id: string
+          request_payload: Json | null
+          response_payload: Json | null
+          status: string
+        }
+        Insert: {
+          attempted_at?: string
+          error_message?: string | null
+          id?: string
+          outbound_account_id: string
+          provider_message_id?: string | null
+          reply_review_id: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+        }
+        Update: {
+          attempted_at?: string
+          error_message?: string | null
+          id?: string
+          outbound_account_id?: string
+          provider_message_id?: string | null
+          reply_review_id?: string
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_attempts_outbound_account_id_fkey"
+            columns: ["outbound_account_id"]
+            isOneToOne: false
+            referencedRelation: "outbound_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outbound_attempts_reply_review_id_fkey"
+            columns: ["reply_review_id"]
+            isOneToOne: false
+            referencedRelation: "reply_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1683,6 +1770,197 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reply_engine_audit_logs: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      reply_engine_posts: {
+        Row: {
+          author_display_name: string | null
+          author_handle: string | null
+          category: string | null
+          created_at: string
+          external_post_id: string | null
+          id: string
+          media_urls: Json | null
+          niche: string | null
+          platform: string
+          post_url: string | null
+          score: number | null
+          status: string
+          text_content: string | null
+        }
+        Insert: {
+          author_display_name?: string | null
+          author_handle?: string | null
+          category?: string | null
+          created_at?: string
+          external_post_id?: string | null
+          id?: string
+          media_urls?: Json | null
+          niche?: string | null
+          platform?: string
+          post_url?: string | null
+          score?: number | null
+          status?: string
+          text_content?: string | null
+        }
+        Update: {
+          author_display_name?: string | null
+          author_handle?: string | null
+          category?: string | null
+          created_at?: string
+          external_post_id?: string | null
+          id?: string
+          media_urls?: Json | null
+          niche?: string | null
+          platform?: string
+          post_url?: string | null
+          score?: number | null
+          status?: string
+          text_content?: string | null
+        }
+        Relationships: []
+      }
+      reply_engine_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      reply_reviews: {
+        Row: {
+          created_at: string
+          edited_reply: string | null
+          id: string
+          post_id: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewer_user_id: string | null
+          selected_reply_suggestion_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          edited_reply?: string | null
+          id?: string
+          post_id: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewer_user_id?: string | null
+          selected_reply_suggestion_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          edited_reply?: string | null
+          id?: string
+          post_id?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewer_user_id?: string | null
+          selected_reply_suggestion_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reply_reviews_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "reply_engine_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reply_reviews_selected_reply_suggestion_id_fkey"
+            columns: ["selected_reply_suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "reply_suggestions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reply_suggestions: {
+        Row: {
+          created_at: string
+          generation_status: string
+          id: string
+          model_name: string | null
+          post_id: string
+          suggested_reply: string
+          tone: string | null
+          variant_name: string
+        }
+        Insert: {
+          created_at?: string
+          generation_status?: string
+          id?: string
+          model_name?: string | null
+          post_id: string
+          suggested_reply: string
+          tone?: string | null
+          variant_name: string
+        }
+        Update: {
+          created_at?: string
+          generation_status?: string
+          id?: string
+          model_name?: string | null
+          post_id?: string
+          suggested_reply?: string
+          tone?: string | null
+          variant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reply_suggestions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "reply_engine_posts"
             referencedColumns: ["id"]
           },
         ]
