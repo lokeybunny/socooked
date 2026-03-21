@@ -418,11 +418,10 @@ serve(async (req) => {
           (campaignUrl ? `\n${campaignUrl}` : "");
 
         return json({
-          type: 7,
+          type: 4,
           data: {
             content: `📋 **Shill Copy — paste this as your reply:**\n\`\`\`\n${copyText}\n\`\`\``,
-            embeds: [],
-            components: [],
+            flags: 64,
           },
         });
       }
