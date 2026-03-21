@@ -657,6 +657,72 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
           </ScrollArea>
         )}
 
+        {tab === 'activity' && (
+          <ScrollArea className="max-h-[400px] pr-2">
+            {shillClicks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No shill activity yet. Clicks will appear here when team members tap "Get Shill Copy" in Discord.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-md border border-border p-3 text-center">
+                    <p className="text-2xl font-bold text-foreground">{shillClicks.length}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Clicks</p>
+                  </div>
+                  <div className="rounded-md border border-border p-3 text-center">
+                    <p className="text-2xl font-bold text-foreground">
+                      {new Set(shillClicks.map((c: any) => c.discord_user_id)).size}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Unique Shillers</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Leaderboard</p>
+                  {(() => {
+                    const counts: Record<string, { username: string; count: number }> = {};
+                    shillClicks.forEach((c: any) => {
+                      if (!counts[c.discord_user_id]) counts[c.discord_user_id] = { username: c.discord_username, count: 0 };
+                      counts[c.discord_user_id].count++;
+                    });
+                    return Object.values(counts)
+                      .sort((a, b) => b.count - a.count)
+                      .map((entry, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 rounded border border-border bg-muted/30 text-xs mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-muted-foreground w-5">{i + 1}.</span>
+                            <span className="font-medium text-foreground">{entry.username}</span>
+                          </div>
+                          <span className="font-mono text-primary">{entry.count} clicks</span>
+                        </div>
+                      ));
+                  })()}
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Recent Activity</p>
+                  <div className="space-y-1">
+                    {shillClicks.slice(0, 50).map((click: any) => (
+                      <div key={click.id} className="flex items-start gap-2 p-2 rounded border border-border bg-muted/30 text-xs">
+                        <Users className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-medium text-foreground">{click.discord_username}</span>
+                            <span className="text-[10px] text-muted-foreground">{format(new Date(click.created_at), 'MMM d, h:mm a')}</span>
+                          </div>
+                          {click.tweet_url && (
+                            <a href={click.tweet_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block mt-0.5 text-[11px]">
+                              {click.tweet_url} <ExternalLink className="inline h-2.5 w-2.5" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+        )}
         <DialogFooter>
           {(tab === 'campaign' || tab === 'team') && (
             <Button onClick={handleSave} disabled={saving} className="gap-1.5">
