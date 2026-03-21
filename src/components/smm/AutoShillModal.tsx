@@ -515,32 +515,48 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                 </div>
               ) : (
                 <>
-                  <div className="rounded-md border border-border p-3 bg-destructive/5 space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
-                      <p className="text-xs font-semibold text-foreground">{activeCooldowns.length} Account{activeCooldowns.length > 1 ? 's' : ''} in Cooldown</p>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      Accounts enter a 5-minute cooldown after each reply or failure to prevent X anti-spam flags.
-                    </p>
-                  </div>
+                  {(() => {
+                    const bannedCount = activeCooldowns.filter(cd => cd.isBan).length;
+                    const cdCount = activeCooldowns.filter(cd => !cd.isBan).length;
+                    return (
+                      <div className="rounded-md border border-border p-3 bg-destructive/5 space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
+                          <p className="text-xs font-semibold text-foreground">
+                            {bannedCount > 0 && `${bannedCount} Banned (24h)`}
+                            {bannedCount > 0 && cdCount > 0 && ' · '}
+                            {cdCount > 0 && `${cdCount} in Cooldown (5m)`}
+                          </p>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {bannedCount > 0
+                            ? 'Accounts with 403 reply errors are banned from replying for 24 hours. They can still retweet.'
+                            : 'Accounts enter a 5-minute cooldown after each reply to prevent X anti-spam flags.'}
+                        </p>
+                      </div>
+                    );
+                  })()}
 
                   <div className="space-y-1.5">
                     {activeCooldowns.map(cd => {
+                      const totalMs = cd.isBan ? BAN_MS : COOLDOWN_MS;
                       const liveRemaining = Math.max(0, cd.remainingMs - (tick * 1000));
-                      const mins = Math.floor(liveRemaining / 60000);
+                      const hours = Math.floor(liveRemaining / 3600000);
+                      const mins = Math.floor((liveRemaining % 3600000) / 60000);
                       const secs = Math.floor((liveRemaining % 60000) / 1000);
-                      const progressPct = Math.max(0, Math.min(100, ((COOLDOWN_MS - liveRemaining) / COOLDOWN_MS) * 100));
+                      const progressPct = Math.max(0, Math.min(100, ((totalMs - liveRemaining) / totalMs) * 100));
                       const isReady = liveRemaining <= 0;
 
                       return (
-                        <div key={cd.account} className={`rounded-md border p-3 space-y-2 ${isReady ? 'border-green-500/30 bg-green-500/5' : 'border-border bg-muted/30'}`}>
+                        <div key={cd.account} className={`rounded-md border p-3 space-y-2 ${isReady ? 'border-green-500/30 bg-green-500/5' : cd.isBan ? 'border-destructive/30 bg-destructive/5' : 'border-border bg-muted/30'}`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-mono font-medium text-foreground">@{cd.account}</span>
-                              {cd.action === 'failed' && (
+                              {cd.isBan ? (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-semibold">BANNED 24H</span>
+                              ) : cd.action === 'failed' ? (
                                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive font-semibold">FLAGGED</span>
-                              )}
+                              ) : null}
                             </div>
                             {isReady ? (
                               <span className="flex items-center gap-1 text-xs text-green-500 font-semibold">
@@ -549,7 +565,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                               </span>
                             ) : (
                               <span className="text-sm font-mono font-bold text-foreground tabular-nums">
-                                {mins}:{secs.toString().padStart(2, '0')}
+                                {cd.isBan ? `${hours}h ${mins}m` : `${mins}:${secs.toString().padStart(2, '0')}`}
                               </span>
                             )}
                           </div>
@@ -558,7 +574,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                           {!isReady && (
                             <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
                               <div
-                                className="h-full rounded-full bg-primary transition-all duration-1000"
+                                className={`h-full rounded-full transition-all duration-1000 ${cd.isBan ? 'bg-destructive' : 'bg-primary'}`}
                                 style={{ width: `${progressPct}%` }}
                               />
                             </div>
@@ -567,7 +583,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                           {/* Trigger reason */}
                           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                             <span>Triggered: {cd.trigger}</span>
-                            <span>{format(cd.lastActivityAt, 'h:mm:ss a')}</span>
+                            <span>{format(cd.lastActivityAt, cd.isBan ? 'MMM d, h:mm a' : 'h:mm:ss a')}</span>
                           </div>
                         </div>
                       );
