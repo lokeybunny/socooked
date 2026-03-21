@@ -164,6 +164,13 @@ export default function ReplyEngine() {
 
         {user && <TopPostsSection />}
 
+        {user && (
+          <Link to="/shillers/raiders" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors text-sm font-medium text-foreground">
+            <Shield className="h-4 w-4 text-primary" />
+            Manage Raiders
+          </Link>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-muted/50">
             <TabsTrigger value="activity">Activity Feed</TabsTrigger>
