@@ -118,9 +118,9 @@ export default function ReplyEngine() {
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Discord Log</h1>
+            <h1 className="text-2xl font-bold text-foreground">Shillers</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Track tweet detection &amp; shill activity from Discord
+              Track tweet detection &amp; shill activity
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>

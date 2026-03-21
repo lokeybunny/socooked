@@ -459,8 +459,24 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                           </div>
                         </div>
 
+                        {/* Hashtag input */}
+                        <div className="w-24">
+                          <Input
+                            value={config.account_hashtags?.[username] || ''}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/^#/, '').replace(/\s/g, '');
+                              setConfig(prev => ({
+                                ...prev,
+                                account_hashtags: { ...prev.account_hashtags, [username]: val },
+                              }));
+                            }}
+                            placeholder="#tag"
+                            className="h-6 text-[10px] font-mono px-1.5"
+                          />
+                        </div>
+
                         {/* Reply checkbox */}
-                        <div className="w-16 flex justify-center">
+                        <div className="w-14 flex justify-center">
                           <Checkbox
                             checked={isReplySelected}
                             onCheckedChange={() => toggleTeamAccount(username)}
@@ -468,7 +484,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                         </div>
 
                         {/* Retweet checkbox */}
-                        <div className="w-16 flex justify-center">
+                        <div className="w-14 flex justify-center">
                           <Checkbox
                             checked={isRetweetSelected}
                             onCheckedChange={() => toggleRetweetAccount(username)}
@@ -476,7 +492,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
                         </div>
 
                         {/* Status */}
-                        <div className="w-16 flex justify-center">
+                        <div className="w-14 flex justify-center">
                           {isInCooldown ? (
                             <span className="flex items-center gap-1 text-[10px] text-yellow-500">
                               <Clock className="h-3 w-3" />
