@@ -231,7 +231,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const assignments = config.discord_assignments || {};
   const assignmentEntries = Object.entries(assignments);
   const claimedAccounts = new Set(Object.values(assignments));
-  const availableAccounts = (config.team_accounts || []).filter(a => !claimedAccounts.has(a));
+  const availableAccounts = xProfiles.filter(a => !claimedAccounts.has(a));
 
   if (loading) {
     return (
