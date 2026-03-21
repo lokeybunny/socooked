@@ -776,7 +776,7 @@ serve(async (req) => {
         return json({
           type: 4,
           data: {
-            content: `🚀 **Go shill this tweet now!**\n${tweetUrl}\n\n✅ Click recorded for \`${discordUsername}\` (→ @${discordAssignments[discordUserId]})`,
+            content: `🚀 **Go shill this tweet now!**\n${tweetUrl}\n\n✅ Job started for \`${discordUsername}\` (→ @${discordAssignments[discordUserId]})\n💰 Payment pending — post your RT receipt to confirm $0.05`,
             flags: 64,
           },
         });
