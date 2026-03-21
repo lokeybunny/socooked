@@ -368,13 +368,14 @@ async function processAutoShill(
   if (campaignUrl) fullReply += `\n\n${campaignUrl}`;
   fullReply += `\n\n${ticker} ${hashtags}`;
 
-  // Post reply via Upload-Post API
+  // Post reply via Upload-Post API — use synchronous mode for immediate feedback
   const params = new URLSearchParams();
   params.append("user", profileUsername);
   params.append("platform[]", "x");
   params.append("title", fullReply);
   params.append("comment_url", tweetUrl);
-  params.append("async_upload", "true");
+
+  console.log(`[auto-shill] Upload-Post payload: user=${profileUsername}, platform=x, comment_url=${tweetUrl}, title_len=${fullReply.length}`);
 
   const uploadRes = await fetch(`${API_BASE}/upload_text`, {
     method: "POST",
@@ -383,6 +384,7 @@ async function processAutoShill(
   });
 
   const uploadText = await uploadRes.text();
+  console.log(`[auto-shill] Upload-Post response (${uploadRes.status}): ${uploadText.substring(0, 500)}`);
   let uploadData: any = {};
   try { uploadData = JSON.parse(uploadText); } catch {}
 
