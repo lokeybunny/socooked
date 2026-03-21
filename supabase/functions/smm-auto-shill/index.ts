@@ -60,6 +60,14 @@ async function resolveDiscordConfig(supabase: any, requestedProfile?: string | n
   return { profileUsername: normalizedProfile, publicKey: FALLBACK_DISCORD_PUBLIC_KEY };
 }
 
+// ─── Load full shill config for a profile ───
+async function loadShillConfig(supabase: any, profileUsername: string) {
+  const { data: cfgRow } = await supabase
+    .from("site_configs").select("id, content")
+    .eq("site_id", "smm-auto-shill").eq("section", profileUsername).maybeSingle();
+  return { row: cfgRow, content: (cfgRow?.content as any) || {} };
+}
+
 // ─── Telegram helper ───
 function makeSendTelegram(token: string, chatId: string) {
   return async (text: string) => {
@@ -124,7 +132,6 @@ Examples of the STYLE (do not copy these exactly, create new ones):
 
     const data = await res.json();
     let reply = data.choices?.[0]?.message?.content?.trim() || "";
-    // Strip wrapping quotes if AI added them
     reply = reply.replace(/^["']|["']$/g, "").trim();
     return reply || "Nobody's gonna say it… so I will.";
   } catch (e) {
@@ -272,6 +279,20 @@ async function verifyReplyOnX(replyPostId: string, targetTweetUrl: string, twitt
   return { verified: false, reason: lastFailure };
 }
 
+// ─── Helper: check if discord user is assigned by admin ───
+function isUserAssigned(discordAssignments: Record<string, string>, discordUserId: string): boolean {
+  return !!discordAssignments[discordUserId];
+}
+
+// ─── Helper: get available X accounts (not yet claimed) ───
+function getAvailableAccounts(
+  teamAccounts: string[],
+  discordAssignments: Record<string, string>,
+): string[] {
+  const claimedAccounts = new Set(Object.values(discordAssignments));
+  return teamAccounts.filter(a => !claimedAccounts.has(a));
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -319,10 +340,8 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "❌ Bot token not configured.", flags: 64 } });
         }
 
-        // Respond immediately — cleanup runs async
         const cleanupPromise = (async () => {
           try {
-            // 1) Delete tracked bot messages from DB for this channel
             const { data: tracked } = await supabase
               .from("activity_log")
               .select("id, meta")
@@ -354,7 +373,6 @@ serve(async (req) => {
               await supabase.from("activity_log").update({ action: "cleaned" }).eq("id", row.id);
             }
 
-            // 2) Follow-up message in channel with result
             await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
               method: "POST",
               headers: {
@@ -385,16 +403,37 @@ serve(async (req) => {
         }
 
         const profileUsername = matchedProfile || "NysonBlack";
+        const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
 
-        // Load current config
-        const { data: cfgRow } = await supabase
-          .from("site_configs").select("id, content")
-          .eq("site_id", "smm-auto-shill").eq("section", profileUsername).maybeSingle();
-
-        const currentContent = (cfgRow?.content as any) || {};
         const assignments: Record<string, string> = currentContent.discord_assignments || {};
+        const teamAccounts: string[] = currentContent.team_accounts || [];
 
-        // Set the mapping: discord_user_id → x_account
+        // ── Guard: check if the X account is in the team list ──
+        if (!teamAccounts.includes(xAccount)) {
+          const availableList = getAvailableAccounts(teamAccounts, assignments);
+          const availableText = availableList.length > 0
+            ? `\n\n📋 **Available accounts:**\n${availableList.map(a => `• \`@${a}\``).join("\n")}`
+            : "\n\n⚠️ No accounts are currently available.";
+          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is not a configured team account.${availableText}`, flags: 64 } });
+        }
+
+        // ── Guard: 1 user per 1 X account — check if already claimed ──
+        const existingClaimant = Object.entries(assignments).find(([, acc]) => acc === xAccount);
+        if (existingClaimant && existingClaimant[0] !== discordUserId) {
+          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is already assigned to another team member. Pick a different account.`, flags: 64 } });
+        }
+
+        // ── Guard: user already assigned to a different account ──
+        if (assignments[discordUserId] && assignments[discordUserId] !== xAccount) {
+          return json({ type: 4, data: { content: `❌ You are already assigned to \`@${assignments[discordUserId]}\`. Only an admin can change your assignment.`, flags: 64 } });
+        }
+
+        // ── Guard: user already assigned to this account ──
+        if (assignments[discordUserId] === xAccount) {
+          return json({ type: 4, data: { content: `ℹ️ You are already authorized for \`@${xAccount}\`.`, flags: 64 } });
+        }
+
+        // Assign
         assignments[discordUserId] = xAccount;
 
         await supabase.from("site_configs").upsert({
@@ -404,10 +443,23 @@ serve(async (req) => {
           content: { ...currentContent, discord_assignments: assignments },
         }, { onConflict: "id" });
 
+        // Log authorization for audit
+        await supabase.from("activity_log").insert({
+          entity_type: "shill-authorization",
+          action: "authorized",
+          meta: {
+            name: `🔑 ${discordUsername} → @${xAccount}`,
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            x_account: xAccount,
+            profile: profileUsername,
+          },
+        });
+
         return json({
           type: 4,
           data: {
-            content: `✅ **Authorized!** Discord user \`${discordUsername}\` is now linked to X account \`@${xAccount}\`.\n\nWhen you click 📋 Get Shill Copy, you'll get the hashtag assigned to \`@${xAccount}\`.`,
+            content: `✅ **Authorized!** \`${discordUsername}\` → \`@${xAccount}\`\n\nYou'll get the hashtag assigned to this account when you click 📋 Get Shill Copy.`,
             flags: 64,
           },
         });
@@ -456,6 +508,28 @@ serve(async (req) => {
         if (urlMatch) tweetUrl = urlMatch[0].replace(/\)$/, "");
       }
 
+      // ── Load config to check assignments ──
+      const profileUsername = matchedProfile || "NysonBlack";
+      const { content: shillCfg } = await loadShillConfig(supabase, profileUsername);
+      const discordAssignments: Record<string, string> = shillCfg.discord_assignments || {};
+
+      // ── Guard: only assigned users can interact ──
+      if (!isUserAssigned(discordAssignments, discordUserId)) {
+        // Show available accounts they can claim
+        const teamAccounts: string[] = shillCfg.team_accounts || [];
+        const available = getAvailableAccounts(teamAccounts, discordAssignments);
+        const availText = available.length > 0
+          ? `\n\n📋 Available accounts:\n${available.map(a => `• \`@${a}\``).join("\n")}\n\nUse \`/authorize account:<name>\` to claim one.`
+          : "\n\n⚠️ No accounts available right now. Ask an admin.";
+        return json({
+          type: 4,
+          data: {
+            content: `🚫 You're not assigned to any X account yet.${availText}`,
+            flags: 64,
+          },
+        });
+      }
+
       // ─── SHILL NOW button — record click + give URL ───
       if (customId.startsWith("shill_now_")) {
         const discordMsgId = customId.replace("shill_now_", "") || null;
@@ -488,12 +562,10 @@ serve(async (req) => {
             .like("meta->>discord_msg_id", discordMsgId);
         }
 
-        // type 4 + flags 64 = ephemeral reply visible only to the clicker
-        // keeps the original embed alive for other users until auto-expiry
         return json({
           type: 4,
           data: {
-            content: `🚀 **Go shill this tweet now!**\n${tweetUrl}\n\n✅ Click recorded for \`${discordUsername}\``,
+            content: `🚀 **Go shill this tweet now!**\n${tweetUrl}\n\n✅ Click recorded for \`${discordUsername}\` (→ @${discordAssignments[discordUserId]})`,
             flags: 64,
           },
         });
@@ -518,16 +590,10 @@ serve(async (req) => {
             .like("meta->>discord_msg_id", discordMsgId);
         }
 
-        const { data: shillConfigs } = await supabase
-          .from("site_configs").select("content")
-          .eq("site_id", "smm-auto-shill");
-
-        const enabledCfg = shillConfigs?.find((r: any) => (r.content as any)?.enabled);
-        const cfg = enabledCfg?.content as any;
+        const cfg = shillCfg;
         const campaignUrl = cfg?.campaign_url || "";
         const shillTicker = cfg?.ticker || "";
         const accountHashtags: Record<string, string> = cfg?.account_hashtags || {};
-        const discordAssignments: Record<string, string> = cfg?.discord_assignments || {};
 
         if (!shillTicker) {
           return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
@@ -535,20 +601,18 @@ serve(async (req) => {
 
         const tickerClean = shillTicker.replace(/^\$/, "");
 
-        // Look up the assigned X account for this Discord user, then get its hashtag
+        // Get this user's assigned account hashtag
         const assignedXAccount = discordAssignments[discordUserId] || "";
         let userHashtag = "";
         if (assignedXAccount && accountHashtags[assignedXAccount]) {
           userHashtag = `#${accountHashtags[assignedXAccount].replace(/^#/, "")}`;
         } else {
-          // Fallback: pick a random hashtag from any account
           const availableHashtags = Object.values(accountHashtags).filter(Boolean);
           userHashtag = availableHashtags.length > 0
             ? `#${availableHashtags[Math.floor(Math.random() * availableHashtags.length)].replace(/^#/, "")}`
             : "";
         }
 
-        // Build copy parts and insert hashtag at random position
         const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#crypto`];
         if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
@@ -561,7 +625,7 @@ serve(async (req) => {
         return json({
           type: 4,
           data: {
-            content: `📋 **Shill Copy — paste this as your reply:**\n\`\`\`\n${copyText}\n\`\`\``,
+            content: `📋 **Shill Copy — paste this as your reply:**\n\`\`\`\n${copyText}\n\`\`\`\n🔑 Posting as \`@${assignedXAccount}\``,
             flags: 64,
           },
         });
@@ -586,13 +650,17 @@ serve(async (req) => {
     const appId = cfg?.discord_app_id;
     if (!appId) return json({ error: "No discord_app_id configured" }, 400);
 
-    const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
-    if (!DISCORD_BOT_TOKEN) return json({ error: "DISCORD_BOT_TOKEN not set" }, 500);
+    const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+    if (!DISCORD_BOT_TOKEN_ENV) return json({ error: "DISCORD_BOT_TOKEN not set" }, 500);
 
     const guildId = body.guild_id || urlObj.searchParams.get("guild_id") || "";
     const registerUrl = guildId
       ? `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
       : `https://discord.com/api/v10/applications/${appId}/commands`;
+
+    // Build autocomplete choices from team accounts
+    const teamAccounts: string[] = cfg?.team_accounts || [];
+    const accountChoices = teamAccounts.slice(0, 25).map((a: string) => ({ name: `@${a}`, value: a }));
 
     const commands = [
       {
@@ -604,7 +672,13 @@ serve(async (req) => {
       },
       {
         name: "authorize", description: "Link your Discord account to an X account for shilling", type: 1,
-        options: [{ name: "account", description: "The X account username (e.g. NysonBlack)", type: 3, required: true }],
+        options: [{
+          name: "account",
+          description: "The X account to claim",
+          type: 3,
+          required: true,
+          choices: accountChoices.length > 0 ? accountChoices : undefined,
+        }],
       },
     ];
 
@@ -612,12 +686,54 @@ serve(async (req) => {
     for (const cmd of commands) {
       const res = await fetch(registerUrl, {
         method: "POST",
-        headers: { "Authorization": `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+        headers: { "Authorization": `Bot ${DISCORD_BOT_TOKEN_ENV}`, "Content-Type": "application/json" },
         body: JSON.stringify(cmd),
       });
       results.push({ command: cmd.name, status: res.status, data: await res.json() });
     }
     return json({ ok: true, results });
+  }
+
+  // ─── Admin unassign endpoint ───
+  if (action === "admin-unassign" && req.method === "POST") {
+    const botSecret = req.headers.get("x-bot-secret");
+    const authHeader = req.headers.get("authorization") || "";
+    const apikeyHeader = req.headers.get("apikey") || "";
+    const bearerToken = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const validKeys = [ANON_KEY, FALLBACK_ANON_KEY, SERVICE_KEY].filter(Boolean);
+    const isAuthed = validKeys.some(k => apikeyHeader === k || bearerToken === k) || botSecret === BOT_SECRET;
+    if (!isAuthed) return json({ error: "Unauthorized" }, 401);
+
+    const body = await req.json();
+    const { profile_username, discord_user_id } = body;
+    const section = profile_username || "NysonBlack";
+
+    const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, section);
+    const assignments: Record<string, string> = { ...(currentContent.discord_assignments || {}) };
+    const removedAccount = assignments[discord_user_id] || "unknown";
+
+    delete assignments[discord_user_id];
+
+    await supabase.from("site_configs").upsert({
+      id: cfgRow?.id || undefined,
+      site_id: "smm-auto-shill",
+      section,
+      content: { ...currentContent, discord_assignments: assignments },
+    }, { onConflict: "id" });
+
+    // Audit log
+    await supabase.from("activity_log").insert({
+      entity_type: "shill-authorization",
+      action: "unassigned",
+      meta: {
+        name: `🔓 Admin removed ${discord_user_id} from @${removedAccount}`,
+        discord_user_id,
+        x_account: removedAccount,
+        profile: section,
+      },
+    });
+
+    return json({ ok: true, removed: discord_user_id, account: removedAccount });
   }
 
   // ─── Auth: bot secret, anon/publishable key, or service role ───
@@ -638,14 +754,12 @@ serve(async (req) => {
       const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
       if (!channelId || !DISCORD_BOT_TOKEN_ENV) return json({ error: "Missing channel_id or bot token" }, 400);
 
-      // Get the bot's own user ID
       const meRes = await fetch("https://discord.com/api/v10/users/@me", {
         headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` },
       });
       const me = await meRes.json();
       const botUserId = me.id;
 
-      // Fetch last 100 messages and delete any from our bot
       let deleted = 0;
       let url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=100`;
       const msgRes = await fetch(url, { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` } });
@@ -659,12 +773,10 @@ serve(async (req) => {
             headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` },
           });
           if (delRes.ok || delRes.status === 404) deleted++;
-          // Rate limit: small delay between deletes
           await new Promise(r => setTimeout(r, 500));
         }
       }
 
-      // Also clean expired DB records
       await supabase.from("activity_log")
         .update({ action: "cleaned" })
         .eq("entity_type", "shill-bot-msg")
@@ -692,19 +804,30 @@ serve(async (req) => {
       });
     }
 
+    // ─── GET authorization audit log ───
+    if (action === "auth-log") {
+      const { data } = await supabase
+        .from("activity_log")
+        .select("id, action, meta, created_at")
+        .eq("entity_type", "shill-authorization")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      return json({ log: data || [] });
+    }
+
     // ─── SAVE campaign config ───
     if (action === "save-config") {
       const body = await req.json();
-      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id, team_accounts } = body;
+      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id, team_accounts, retweet_accounts, account_hashtags } = body;
       const section = profile_username || "NysonBlack";
 
-      // Preserve last_message_id if it exists
+      // Preserve fields that aren't sent from the save
       const { data: existingRow } = await supabase
         .from("site_configs").select("content")
         .eq("site_id", "smm-auto-shill").eq("section", section).maybeSingle();
       const existingContent = existingRow?.content as any;
 
-      const { retweet_accounts } = body;
       await supabase.from("site_configs").upsert({
         site_id: "smm-auto-shill",
         section,
@@ -717,6 +840,8 @@ serve(async (req) => {
           discord_channel_id: discord_channel_id || "",
           team_accounts: Array.isArray(team_accounts) ? team_accounts : [],
           retweet_accounts: Array.isArray(retweet_accounts) ? retweet_accounts : [],
+          account_hashtags: account_hashtags || existingContent?.account_hashtags || {},
+          discord_assignments: existingContent?.discord_assignments || {},
           last_message_id: existingContent?.last_message_id || null,
         },
         is_published: true,
@@ -754,7 +879,6 @@ serve(async (req) => {
         return json({ ok: true, skipped: true, reason: "Not an X/Twitter URL" });
       }
 
-      // Log as received + notify Telegram immediately
       await supabase.from("activity_log").insert({
         entity_type: "auto-shill", action: "received",
         meta: { name: `📥 Received: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername, discord_msg_id: discordMsgId, discord_author: discordAuthor },
@@ -778,529 +902,279 @@ async function findAvailableAccount(
   supabase: any, teamAccounts: string[], primaryAccount: string, COOLDOWN_MS: number
 ): Promise<{ account: string; allInCooldown: boolean; cooldownInfo: string }> {
   const accounts = teamAccounts.length > 0 ? teamAccounts : [primaryAccount];
-  const BAN_MS = 24 * 60 * 60 * 1000; // 24 hours
-  const banCutoff = new Date(Date.now() - BAN_MS).toISOString();
-  const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
+  const BAN_MS = 24 * 60 * 60 * 1000;
+  const now = Date.now();
 
-  // Fetch 24h reply bans
-  const { data: banEntries } = await supabase
-    .from("activity_log").select("meta, created_at")
-    .eq("entity_type", "auto-shill")
-    .eq("action", "reply_banned")
-    .gte("created_at", banCutoff)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  const bannedAccounts = new Set<string>();
-  for (const entry of banEntries || []) {
-    const account = entry.meta?.used_account || "";
-    if (account) bannedAccounts.add(account);
-  }
-
-  // Fetch recent cooldown activity
   const { data: recentActivity } = await supabase
-    .from("activity_log").select("meta, created_at")
+    .from("activity_log")
+    .select("*")
     .eq("entity_type", "auto-shill")
-    .in("action", ["replied", "failed"])
-    .gte("created_at", cooldownCutoff)
+    .in("action", ["replied", "failed", "reply_banned"])
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(200);
 
-  const lastActivityMap = new Map<string, Date>();
+  const cooldownMap: Record<string, { until: number; reason: string }> = {};
+
   for (const entry of recentActivity || []) {
-    const usedAccount = entry.meta?.used_account || entry.meta?.profile || "";
-    if (usedAccount && !lastActivityMap.has(usedAccount)) {
-      lastActivityMap.set(usedAccount, new Date(entry.created_at));
-    }
-  }
+    const account = (entry.meta as any)?.used_account;
+    if (!account || !accounts.includes(account)) continue;
+    if (cooldownMap[account]) continue;
 
-  // Find first account NOT banned and NOT in cooldown
-  for (const account of accounts) {
-    if (bannedAccounts.has(account)) {
-      console.log(`[auto-shill] Account @${account} is reply-banned (24h)`);
-      continue;
-    }
-    const lastAt = lastActivityMap.get(account);
-    if (!lastAt) {
-      console.log(`[auto-shill] Account @${account} is available (no recent activity)`);
-      return { account, allInCooldown: false, cooldownInfo: "" };
-    }
-    const elapsed = Date.now() - lastAt.getTime();
-    if (elapsed >= COOLDOWN_MS) {
-      console.log(`[auto-shill] Account @${account} is available (last activity ${Math.round(elapsed / 1000)}s ago)`);
-      return { account, allInCooldown: false, cooldownInfo: "" };
-    }
-  }
+    const activityTime = new Date(entry.created_at).getTime();
 
-  // All accounts unavailable — find soonest available (excluding banned)
-  const unbanned = accounts.filter(a => !bannedAccounts.has(a));
-  if (unbanned.length === 0) {
-    const cooldownInfo = `All ${accounts.length} account(s) are reply-banned (24h). No accounts available.`;
-    return { account: accounts[0], allInCooldown: true, cooldownInfo };
-  }
+    if (entry.action === "reply_banned") {
+      const banEnd = activityTime + BAN_MS;
+      if (banEnd > now) {
+        cooldownMap[account] = { until: banEnd, reason: "Reply banned (24h)" };
+        continue;
+      }
+    }
 
-  let soonestAccount = unbanned[0];
-  let soonestWaitMs = COOLDOWN_MS;
-  for (const account of unbanned) {
-    const lastAt = lastActivityMap.get(account);
-    if (lastAt) {
-      const wait = COOLDOWN_MS - (Date.now() - lastAt.getTime());
-      if (wait < soonestWaitMs) {
-        soonestWaitMs = wait;
-        soonestAccount = account;
+    if (entry.action === "replied" || entry.action === "failed") {
+      const cdEnd = activityTime + COOLDOWN_MS;
+      if (cdEnd > now) {
+        cooldownMap[account] = { until: cdEnd, reason: "Cooldown (5m)" };
       }
     }
   }
 
-  const waitMin = Math.ceil(soonestWaitMs / 60000);
-  const cooldownInfo = `All ${unbanned.length} available account(s) in cooldown. @${soonestAccount} available in ~${waitMin}m`;
-  return { account: soonestAccount, allInCooldown: true, cooldownInfo };
+  for (const account of accounts) {
+    if (!cooldownMap[account]) {
+      return { account, allInCooldown: false, cooldownInfo: "" };
+    }
+  }
+
+  const soonest = accounts.reduce((best, acc) => {
+    const cd = cooldownMap[acc];
+    if (!cd) return acc;
+    if (!best) return acc;
+    return (cd.until < (cooldownMap[best]?.until || Infinity)) ? acc : best;
+  }, accounts[0]);
+
+  const remaining = cooldownMap[soonest]
+    ? Math.ceil((cooldownMap[soonest].until - now) / 1000)
+    : 0;
+
+  return {
+    account: soonest,
+    allInCooldown: true,
+    cooldownInfo: `${soonest}: ${cooldownMap[soonest]?.reason} (${remaining}s remaining)`,
+  };
 }
 
-// ─── Core: AI rage-bait reply + campaign link + ticker + hashtags ───
 async function processAutoShill(
-  supabase: any, tweetUrl: string, profileUsername: string,
-  UPLOAD_POST_API_KEY: string, LOVABLE_API_KEY: string, TWITTER_BEARER_TOKEN: string | null | undefined,
-  sendTelegram: (text: string) => Promise<void>, isBot: boolean = false
+  supabase: any,
+  tweetUrl: string,
+  profileUsername: string,
+  UPLOAD_POST_API_KEY: string,
+  LOVABLE_API_KEY: string,
+  TWITTER_BEARER_TOKEN: string | undefined,
+  sendTelegram: (text: string) => Promise<void>,
+  isBot: boolean,
 ) {
-  console.log(`[auto-shill] Processing: ${tweetUrl} for ${profileUsername}`);
+  const COOLDOWN_MS = 5 * 60 * 1000;
 
-  // Load campaign config
-  const { data: configRow } = await supabase
-    .from("site_configs").select("content")
-    .eq("site_id", "smm-auto-shill").eq("section", profileUsername).single();
+  const { data: shillConfigs } = await supabase
+    .from("site_configs").select("content, section")
+    .eq("site_id", "smm-auto-shill");
 
-  const config = configRow?.content as any;
-  if (!config?.enabled) return { ok: false, skipped: true, reason: "Auto-shill disabled" };
+  const matchedConfig = shillConfigs?.find((r: any) => r.section === profileUsername);
+  const fallbackConfig = shillConfigs?.find((r: any) => (r.content as any)?.enabled);
+  const cfg = (matchedConfig?.content || fallbackConfig?.content) as any;
 
-  const campaignUrl = config.campaign_url || "";
-  const ticker = config.ticker || "";
-  if (!ticker) return { ok: false, error: "No ticker configured" };
+  if (!cfg || !cfg.enabled) {
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill", action: "skipped",
+      meta: { name: `⏭️ Auto-shill disabled`, tweet_url: tweetUrl, profile: profileUsername },
+    });
+    return { ok: true, skipped: true, reason: "Auto-shill disabled for this profile" };
+  }
 
-  const teamAccounts: string[] = Array.isArray(config.team_accounts) ? config.team_accounts : [];
-  const retweetAccounts: string[] = Array.isArray(config.retweet_accounts) ? config.retweet_accounts : [];
+  const ticker = cfg.ticker || "";
+  const campaignUrl = cfg.campaign_url || "";
+  const teamAccounts: string[] = cfg.team_accounts || [];
+  const retweetAccounts: string[] = cfg.retweet_accounts || [];
 
-  // ─── Per-account cooldown with team rotation ───
-  const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
-  const { account: selectedAccount, allInCooldown, cooldownInfo } = await findAvailableAccount(
+  const { account, allInCooldown, cooldownInfo } = await findAvailableAccount(
     supabase, teamAccounts, profileUsername, COOLDOWN_MS
   );
 
   if (allInCooldown) {
-    console.log(`[auto-shill] ${cooldownInfo}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "cooldown",
-      meta: {
-        name: `⏳ ${cooldownInfo}`,
-        tweet_url: tweetUrl,
-        profile: profileUsername,
-        used_account: selectedAccount,
-        team_size: teamAccounts.length || 1,
-      },
+      meta: { name: `⏳ All accounts in cooldown`, tweet_url: tweetUrl, profile: profileUsername, cooldownInfo },
     });
-    return { ok: false, skipped: true, reason: cooldownInfo };
+    await sendTelegram(`⏳ *All accounts in cooldown*\n🔗 ${tweetUrl}\n⏱ ${cooldownInfo}`);
+    return { ok: true, skipped: true, reason: `All accounts in cooldown: ${cooldownInfo}` };
   }
 
-  console.log(`[auto-shill] Selected account: @${selectedAccount} (team of ${teamAccounts.length || 1})`);
-
-  // Dedup check (24h) — only for bot sources; human users always get a fresh reply
-  if (isBot) {
-    const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
-    const { data: existing } = await supabase
-      .from("activity_log").select("id")
-      .eq("entity_type", "auto-shill").eq("action", "replied")
-      .gte("created_at", oneDayAgo)
-      .like("meta->>tweet_url", tweetUrl).limit(1);
-
-    if (existing?.length) return { ok: false, skipped: true, reason: "Already replied in last 24h (bot dedup)" };
+  let replyText = "";
+  try {
+    const hook = await generateInterruptorHook(LOVABLE_API_KEY);
+    const tickerClean = ticker.replace(/^\$/, "");
+    replyText = `${hook}\n\n${ticker} #${tickerClean} #crypto${campaignUrl ? `\n${campaignUrl}` : ""}`;
+  } catch (e) {
+    console.error("[auto-shill] Failed to generate reply:", e);
+    const tickerClean = ticker.replace(/^\$/, "");
+    replyText = `Nobody's gonna say it… so I will.\n\n${ticker} #${tickerClean} #crypto${campaignUrl ? `\n${campaignUrl}` : ""}`;
   }
 
-  // Generate AI interruptor hook
-  const hook = await generateInterruptorHook(LOVABLE_API_KEY);
-
-  // Build full reply: interruptor hook + campaign URL (ALWAYS) + ticker + hashtags
-  const tickerClean = ticker.replace(/^\$/, "");
-  const hashtags = `#${tickerClean} #crypto`;
-  const normalizedCampaignUrl = typeof campaignUrl === "string" ? campaignUrl.trim() : "";
-  let fullReply = hook;
-  if (normalizedCampaignUrl) fullReply += `\n\n${normalizedCampaignUrl}`;
-  fullReply += `\n\n${ticker} ${hashtags}`;
-
-  const targetTweetId = extractTweetId(tweetUrl);
-  if (!targetTweetId) {
-    const errorMsg = `Could not parse target tweet id from URL: ${tweetUrl}`;
-    await sendTelegram(`🚨 *Auto-Shill FAILED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
+  const tweetId = extractTweetId(tweetUrl);
+  if (!tweetId) {
     await supabase.from("activity_log").insert({
-      entity_type: "auto-shill",
-      action: "failed",
-      meta: {
-        name: `❌ Reply failed: ${tweetUrl}`,
-        tweet_url: tweetUrl,
-        error: errorMsg,
-        profile: profileUsername,
-        used_account: selectedAccount,
-        reply_text: fullReply.substring(0, 200),
-      },
+      entity_type: "auto-shill", action: "failed",
+      meta: { name: `❌ Invalid tweet URL`, tweet_url: tweetUrl, profile: profileUsername, error: "Could not extract tweet ID" },
     });
-    return { ok: false, error: errorMsg };
+    return { ok: false, error: "Could not extract tweet ID from URL" };
   }
 
-  // Post reply via Upload-Post API — use the SELECTED team account
-  // First attempt: direct reply. If 403 (reply-restricted), fallback to quote tweet.
-  let uploadRes: Response;
-  let uploadText: string;
-  let uploadData: any = {};
-  let usedQuoteFallback = false;
+  console.log(`[auto-shill] Replying to ${tweetUrl} with account @${account}`);
 
-  // --- Attempt 1: Direct reply ---
-  const params = new URLSearchParams();
-  params.append("user", selectedAccount);
-  params.append("platform[]", "x");
-  params.append("title", fullReply);
-  params.append("reply_to_id", targetTweetId);
-
-  console.log(`[auto-shill] Upload-Post payload: user=${selectedAccount} (primary=${profileUsername}), platform=x, reply_to_id=${targetTweetId}, title_len=${fullReply.length}`);
-
-  uploadRes = await fetch(`${API_BASE}/upload_text`, {
-    method: "POST",
-    headers: { "Authorization": `Apikey ${UPLOAD_POST_API_KEY}`, "Content-Type": "application/x-www-form-urlencoded" },
-    body: params.toString(),
-  });
-
-  uploadText = await uploadRes.text();
-  console.log(`[auto-shill] Upload-Post response (${uploadRes.status}): ${uploadText.substring(0, 500)}`);
-  try { uploadData = JSON.parse(uploadText); } catch {}
-
-  // Check if reply was blocked due to reply restrictions (403)
-  const xResult1 = uploadData?.results?.x;
-  const xError1 = String(xResult1?.error || "");
-  const is403Reply = xError1.includes("403") || xError1.toLowerCase().includes("reply") && xError1.toLowerCase().includes("failed");
-  const replyBlocked = (
-    uploadData?.success === true &&
-    xResult1?.success === false &&
-    (xError1.includes("not allowed") || is403Reply)
-  );
-
-  // If this is a 403 reply ban, log a 24h ban for this account
-  if (is403Reply) {
-    console.log(`[auto-shill] 🚫 Account @${selectedAccount} hit 403 reply ban — entering 24h cooldown`);
-    await supabase.from("activity_log").insert({
-      entity_type: "auto-shill", action: "reply_banned",
-      meta: {
-        name: `🚫 Reply banned (24h): @${selectedAccount}`,
-        tweet_url: tweetUrl,
-        profile: profileUsername,
-        used_account: selectedAccount,
-        error: xError1.substring(0, 300),
-        ban_duration_hours: 24,
+  try {
+    const apiPayload = {
+      socialMediaPlatform: "twitter",
+      type: "text",
+      text: replyText,
+      username: account,
+      options: {
+        replyTweetId: tweetId,
       },
-    });
-    await sendTelegram(`🚫 *Reply Ban Detected* (@${selectedAccount})\n🔗 ${tweetUrl}\n⏰ 24h cooldown activated\n❌ ${xError1.substring(0, 200)}`);
-  }
+    };
 
-  if (replyBlocked) {
-    // --- Attempt 2: Quote tweet fallback ---
-    console.log(`[auto-shill] Reply restricted — falling back to quote tweet for ${tweetUrl}`);
-    usedQuoteFallback = true;
-
-    const quoteText = `${fullReply}\n\n${tweetUrl}`;
-    const quoteParams = new URLSearchParams();
-    quoteParams.append("user", selectedAccount);
-    quoteParams.append("platform[]", "x");
-    quoteParams.append("title", quoteText);
-
-    uploadRes = await fetch(`${API_BASE}/upload_text`, {
+    const postRes = await fetch(`${API_BASE}/post`, {
       method: "POST",
-      headers: { "Authorization": `Apikey ${UPLOAD_POST_API_KEY}`, "Content-Type": "application/x-www-form-urlencoded" },
-      body: quoteParams.toString(),
-    });
-
-    uploadText = await uploadRes.text();
-    console.log(`[auto-shill] Quote-tweet fallback response (${uploadRes.status}): ${uploadText.substring(0, 500)}`);
-    uploadData = {};
-    try { uploadData = JSON.parse(uploadText); } catch {}
-  }
-
-  if (!uploadRes.ok) {
-    const errorMsg = `Upload failed (${uploadRes.status}): ${uploadText.substring(0, 200)}`;
-    await sendTelegram(`🚨 *Auto-Shill FAILED* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
-    await supabase.from("activity_log").insert({
-      entity_type: "auto-shill", action: "failed",
-      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername, used_account: selectedAccount, reply_text: fullReply.substring(0, 200) },
-    });
-    return { ok: false, error: errorMsg };
-  }
-
-  const requestId = uploadData?.request_id || uploadData?.data?.request_id || null;
-  const jobId = uploadData?.job_id || uploadData?.data?.job_id || null;
-  const providerStatus = String(uploadData?.status || uploadData?.results?.x?.status || "").toLowerCase();
-  const xResult = uploadData?.results?.x;
-  const confirmedReplyUrl = xResult?.url || null;
-  const confirmedPostId = xResult?.post_id || null;
-  const isProviderConfirmed = Boolean(
-    uploadRes.ok &&
-    uploadData?.success === true &&
-    xResult?.success === true &&
-    providerStatus === "completed" &&
-    confirmedPostId &&
-    confirmedReplyUrl
-  );
-
-  // ─── Async polling: if API handed off to background worker, poll for result ───
-  const isAsyncHandoff = Boolean(
-    uploadRes.ok &&
-    uploadData?.success === true &&
-    !xResult && // no platform results yet
-    (requestId || jobId) &&
-    String(uploadData?.message || "").toLowerCase().includes("background")
-  );
-
-  let finalUploadData = uploadData;
-  let finalXResult = xResult;
-  let finalConfirmedReplyUrl = confirmedReplyUrl;
-  let finalConfirmedPostId = confirmedPostId;
-  let finalProviderStatus = providerStatus;
-  let polledSuccessfully = false;
-
-  if (isAsyncHandoff && requestId) {
-    console.log(`[auto-shill] Async handoff detected — polling status for request_id=${requestId}`);
-    await sendTelegram(`⏳ *Async handoff* (@${selectedAccount})\n🔗 ${tweetUrl}\n🔄 Polling request_id: ${requestId}`);
-
-    // Poll up to 6 times over ~60 seconds
-    for (let attempt = 1; attempt <= 6; attempt++) {
-      await new Promise(r => setTimeout(r, 10000)); // wait 10s between polls
-      try {
-        const statusRes = await fetch(
-          `${API_BASE}/uploadposts/status?request_id=${requestId}`,
-          { headers: { "Authorization": `Apikey ${UPLOAD_POST_API_KEY}` } }
-        );
-        const statusText = await statusRes.text();
-        console.log(`[auto-shill] Poll attempt ${attempt} (${statusRes.status}): ${statusText.substring(0, 500)}`);
-
-        let statusData: any = {};
-        try { statusData = JSON.parse(statusText); } catch {}
-
-        const pollResult = statusData?.results?.x || statusData?.data?.results?.x;
-        const pollStatus = String(statusData?.status || pollResult?.status || "").toLowerCase();
-
-        // Check for 403 reply ban in polled result
-        const pollError = String(pollResult?.error || statusData?.error || "");
-        const isPoll403 = pollError.includes("403") || (pollError.toLowerCase().includes("reply") && pollError.toLowerCase().includes("failed"));
-
-        if (isPoll403) {
-          console.log(`[auto-shill] 🚫 Poll revealed 403 reply ban for @${selectedAccount}`);
-          await supabase.from("activity_log").insert({
-            entity_type: "auto-shill", action: "reply_banned",
-            meta: {
-              name: `🚫 Reply banned (24h): @${selectedAccount}`,
-              tweet_url: tweetUrl, profile: profileUsername, used_account: selectedAccount,
-              error: pollError.substring(0, 300), ban_duration_hours: 24,
-            },
-          });
-          await sendTelegram(`🚫 *Reply Ban Detected* (@${selectedAccount})\n🔗 ${tweetUrl}\n⏰ 24h cooldown activated`);
-          // Fall through to quote-tweet fallback below
-          break;
-        }
-
-        if (pollStatus === "completed" && pollResult?.success === true && pollResult?.post_id) {
-          finalXResult = pollResult;
-          finalConfirmedPostId = pollResult.post_id;
-          finalConfirmedReplyUrl = pollResult.url || `https://x.com/${selectedAccount}/status/${pollResult.post_id}`;
-          finalProviderStatus = "completed";
-          polledSuccessfully = true;
-          console.log(`[auto-shill] ✅ Async poll confirmed: post_id=${finalConfirmedPostId}`);
-          await sendTelegram(`✅ *Async confirmed* (@${selectedAccount})\n🔗 ${finalConfirmedReplyUrl}`);
-          break;
-        }
-
-        if (pollStatus === "failed") {
-          console.log(`[auto-shill] ❌ Async poll returned failed: ${pollError.substring(0, 200)}`);
-          break;
-        }
-        // Otherwise still pending, continue polling
-      } catch (e) {
-        console.error(`[auto-shill] Poll error attempt ${attempt}:`, e);
-      }
-    }
-  }
-
-  const isNowConfirmed = polledSuccessfully || isProviderConfirmed;
-
-  if (!isNowConfirmed) {
-    const errorMsg = `Upload not confirmed (${uploadRes.status}): ${uploadText.substring(0, 300)}`;
-    // Check if this is a 403 reply ban in the not-confirmed path
-    const xErr = String(finalXResult?.error || xResult?.error || "");
-    const is403Ban = xErr.includes("403") || (xErr.toLowerCase().includes("reply") && xErr.toLowerCase().includes("failed"));
-    if (is403Ban) {
-      console.log(`[auto-shill] 🚫 Account @${selectedAccount} hit 403 reply ban (not-confirmed path) — 24h cooldown`);
-      await supabase.from("activity_log").insert({
-        entity_type: "auto-shill", action: "reply_banned",
-        meta: {
-          name: `🚫 Reply banned (24h): @${selectedAccount}`,
-          tweet_url: tweetUrl,
-          profile: profileUsername,
-          used_account: selectedAccount,
-          error: xErr.substring(0, 300),
-          ban_duration_hours: 24,
-        },
-      });
-      await sendTelegram(`🚫 *Reply Ban Detected* (@${selectedAccount})\n🔗 ${tweetUrl}\n⏰ 24h cooldown activated\n❌ ${xErr.substring(0, 200)}`);
-    }
-    await sendTelegram(`🚨 *Auto-Shill NOT CONFIRMED* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
-    await supabase.from("activity_log").insert({
-      entity_type: "auto-shill", action: "failed",
-      meta: {
-        name: `❌ Reply not confirmed: ${tweetUrl}`,
-        tweet_url: tweetUrl,
-        error: errorMsg,
-        profile: profileUsername,
-        used_account: selectedAccount,
-        reply_text: fullReply.substring(0, 200),
-        ticker,
-        campaign_url: campaignUrl,
-        request_id: requestId,
-        job_id: jobId,
-        provider_status: finalProviderStatus,
-        provider_result: finalXResult || xResult || null,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${UPLOAD_POST_API_KEY}`,
       },
+      body: JSON.stringify(apiPayload),
     });
-    return { ok: false, error: errorMsg, request_id: requestId, job_id: jobId, provider_status: finalProviderStatus };
-  }
 
-  // Skip X reply-chain verification for quote tweets (they're standalone posts, not replies)
-  if (!usedQuoteFallback) {
-    const xVerification = await verifyReplyOnX(String(finalConfirmedPostId), tweetUrl, TWITTER_BEARER_TOKEN);
-    if (!xVerification.verified) {
-      const errorMsg = `Upload completed but X reply was not verified: ${xVerification.reason}`;
-      await sendTelegram(`🚨 *Auto-Shill NOT VERIFIED ON X* (@${selectedAccount})\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
-      await supabase.from("activity_log").insert({
-        entity_type: "auto-shill",
-        action: "failed",
-        meta: {
-          name: `❌ Reply not verified on X: ${tweetUrl}`,
-          tweet_url: tweetUrl,
-          error: errorMsg,
-          profile: profileUsername,
-          used_account: selectedAccount,
-          reply_text: fullReply.substring(0, 200),
-          ticker,
-          campaign_url: campaignUrl,
-          request_id: requestId,
-          job_id: jobId,
-          provider_status: finalProviderStatus,
-          reply_post_id: finalConfirmedPostId,
-          reply_url: finalConfirmedReplyUrl,
-        },
-      });
-      return {
-        ok: false,
-        error: errorMsg,
-        request_id: requestId,
-        job_id: jobId,
-        reply_post_id: finalConfirmedPostId,
-        reply_url: finalConfirmedReplyUrl,
-      };
-    }
-  }
+    const postText = await postRes.text();
+    console.log(`[auto-shill] Upload-Post response (${postRes.status}): ${postText.substring(0, 500)}`);
 
-  const replyType = usedQuoteFallback ? "quote" : "reply";
-  const replyEmoji = usedQuoteFallback ? "💬" : "🗣️";
+    let postData: any;
+    try { postData = JSON.parse(postText); } catch { postData = { raw: postText }; }
 
-  await supabase.from("activity_log").insert({
-    entity_type: "auto-shill", action: "replied",
-    meta: {
-      name: `${replyEmoji} Auto-${replyType}: ${tweetUrl}`,
-      tweet_url: tweetUrl,
-      profile: profileUsername,
-      used_account: selectedAccount,
-      reply_text: fullReply.substring(0, 300),
-      ticker,
-      campaign_url: campaignUrl,
-      request_id: requestId,
-      job_id: jobId,
-      provider_status: finalProviderStatus,
-      reply_post_id: finalConfirmedPostId,
-      reply_url: finalConfirmedReplyUrl,
-      reply_type: replyType,
-    },
-  });
+    if (!postRes.ok) {
+      const is403 = postRes.status === 403 || postText.includes("403");
+      const isReplyBan = is403 || postText.toLowerCase().includes("reply") || postText.toLowerCase().includes("spam");
 
-  await sendTelegram(`${replyEmoji} *Auto-Shill ${usedQuoteFallback ? "Quote Tweet" : "Reply Confirmed"}* (@${selectedAccount})\n🔗 ${tweetUrl}\n✅ ${finalConfirmedReplyUrl}\n💰 ${ticker}`);
-
-  // ─── Repost (quote-post the tweet URL) with selected repost accounts ───
-  if (retweetAccounts.length > 0 && tweetUrl) {
-    console.log(`[auto-shill] Reposting with ${retweetAccounts.length} account(s): ${retweetAccounts.join(', ')}`);
-    const retweetResults: { account: string; success: boolean; error?: string }[] = [];
-
-    for (const rtAccount of retweetAccounts) {
-      try {
-        const rtParams = new URLSearchParams();
-        rtParams.append("user", rtAccount);
-        rtParams.append("platform[]", "x");
-        rtParams.append("title", tweetUrl);
-
-        const rtRes = await fetch(`${API_BASE}/upload_text`, {
-          method: "POST",
-          headers: { "Authorization": `Apikey ${UPLOAD_POST_API_KEY}`, "Content-Type": "application/x-www-form-urlencoded" },
-          body: rtParams.toString(),
+      if (isReplyBan) {
+        await supabase.from("activity_log").insert({
+          entity_type: "auto-shill", action: "reply_banned",
+          meta: {
+            name: `🚫 @${account} — Reply banned (403)`,
+            tweet_url: tweetUrl, profile: profileUsername,
+            used_account: account, error: postText.substring(0, 300),
+          },
         });
-
-        const rtText = await rtRes.text();
-        console.log(`[auto-shill] Repost @${rtAccount} response (${rtRes.status}): ${rtText.substring(0, 300)}`);
-
-        let rtData: any = {};
-        try { rtData = JSON.parse(rtText); } catch {}
-
-        const rtSuccess = rtRes.ok && rtData?.success === true;
-        retweetResults.push({ account: rtAccount, success: rtSuccess, error: rtSuccess ? undefined : rtText.substring(0, 200) });
-      } catch (e) {
-        console.error(`[auto-shill] Repost error for @${rtAccount}:`, e);
-        retweetResults.push({ account: rtAccount, success: false, error: String(e).substring(0, 200) });
-      }
-    }
-
-    const successRTs = retweetResults.filter(r => r.success).map(r => r.account);
-    const failedRTs = retweetResults.filter(r => !r.success);
-
-    if (successRTs.length > 0) {
-      await supabase.from("activity_log").insert({
-        entity_type: "auto-shill", action: "retweeted",
-        meta: {
-          name: `🔁 Retweeted: ${tweetUrl}`,
-          tweet_url: tweetUrl,
-          profile: profileUsername,
-          retweet_accounts: successRTs,
-          retweet_count: successRTs.length,
-        },
-      });
-      await sendTelegram(`🔁 *Retweet* (${successRTs.length} account${successRTs.length > 1 ? 's' : ''})\n🔗 ${tweetUrl}\n👤 ${successRTs.map(a => `@${a}`).join(', ')}`);
-    }
-
-    if (failedRTs.length > 0) {
-      for (const fail of failedRTs) {
+        await sendTelegram(`🚫 *Reply Ban Detected*\n👤 @${account}\n🔗 ${tweetUrl}\n❌ ${postText.substring(0, 200)}\n⏱ 24h cooldown applied`);
+      } else {
         await supabase.from("activity_log").insert({
           entity_type: "auto-shill", action: "failed",
           meta: {
-            name: `❌ Retweet failed: @${fail.account}`,
-            tweet_url: tweetUrl,
-            profile: profileUsername,
-            used_account: fail.account,
-            error: `Retweet failed: ${fail.error}`,
+            name: `❌ Reply failed (${postRes.status})`,
+            tweet_url: tweetUrl, profile: profileUsername,
+            used_account: account, error: postText.substring(0, 300),
           },
         });
+        await sendTelegram(`❌ *Reply Failed*\n👤 @${account}\n🔗 ${tweetUrl}\n⚠️ ${postText.substring(0, 200)}`);
       }
+      return { ok: false, error: postText.substring(0, 200) };
     }
-  }
 
-  return {
-    ok: true,
-    replied: true,
-    tweet_url: tweetUrl,
-    used_account: selectedAccount,
-    request_id: requestId,
-    job_id: jobId,
-    reply_post_id: finalConfirmedPostId,
-    reply_url: finalConfirmedReplyUrl,
-    retweet_accounts: retweetAccounts,
-  };
+    const postedPostId = postData?.data?.id || postData?.postId || postData?.id;
+    let verificationResult = null;
+
+    if (postedPostId && TWITTER_BEARER_TOKEN) {
+      await new Promise(r => setTimeout(r, 3000));
+      verificationResult = await verifyReplyOnX(postedPostId, tweetUrl, TWITTER_BEARER_TOKEN);
+      console.log(`[auto-shill] X verification:`, JSON.stringify(verificationResult));
+    }
+
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill", action: "replied",
+      meta: {
+        name: `✅ Replied via @${account}`,
+        tweet_url: tweetUrl, profile: profileUsername,
+        used_account: account, reply_text: replyText.substring(0, 300),
+        post_id: postedPostId || null,
+        verified: verificationResult?.verified || false,
+        verify_reason: verificationResult?.reason || null,
+      },
+    });
+
+    const verifyEmoji = verificationResult?.verified ? "✅" : verificationResult ? "⚠️" : "❓";
+    const verifyNote = verificationResult?.verified
+      ? "Verified on X ✅"
+      : verificationResult?.reason
+        ? `Unverified: ${verificationResult.reason}`
+        : "Verification skipped";
+
+    await sendTelegram(
+      `✅ *Auto-Shill Reply Sent!*\n👤 @${account}\n🔗 ${tweetUrl}\n💬 ${replyText.substring(0, 150)}\n${verifyEmoji} ${verifyNote}`
+    );
+
+    // Retweet with designated accounts (async, don't block)
+    if (retweetAccounts.length > 0) {
+      const retweetPromise = (async () => {
+        const retweetedWith: string[] = [];
+        for (const rtAccount of retweetAccounts) {
+          try {
+            const rtRes = await fetch(`${API_BASE}/post`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${UPLOAD_POST_API_KEY}`,
+              },
+              body: JSON.stringify({
+                socialMediaPlatform: "twitter",
+                type: "retweet",
+                username: rtAccount,
+                options: { retweetTweetId: tweetId },
+              }),
+            });
+
+            if (rtRes.ok) {
+              retweetedWith.push(rtAccount);
+            } else {
+              console.error(`[auto-shill] Retweet failed for @${rtAccount}:`, await rtRes.text());
+            }
+          } catch (e) {
+            console.error(`[auto-shill] Retweet error for @${rtAccount}:`, e);
+          }
+        }
+
+        if (retweetedWith.length > 0) {
+          await supabase.from("activity_log").insert({
+            entity_type: "auto-shill", action: "retweeted",
+            meta: {
+              name: `🔁 Retweeted by ${retweetedWith.map(a => `@${a}`).join(", ")}`,
+              tweet_url: tweetUrl, profile: profileUsername,
+              retweet_accounts: retweetedWith,
+            },
+          });
+          await sendTelegram(`🔁 *Retweeted*\n${retweetedWith.map(a => `@${a}`).join(", ")}\n🔗 ${tweetUrl}`);
+        }
+      })();
+      retweetPromise.catch(e => console.error("[auto-shill] Retweet batch error:", e));
+    }
+
+    return {
+      ok: true,
+      account,
+      reply_text: replyText,
+      post_id: postedPostId,
+      verified: verificationResult?.verified || false,
+    };
+  } catch (err) {
+    console.error("[auto-shill] Process error:", err);
+    await supabase.from("activity_log").insert({
+      entity_type: "auto-shill", action: "failed",
+      meta: { name: `❌ Exception: ${String(err)}`, tweet_url: tweetUrl, profile: profileUsername, used_account: account, error: String(err) },
+    });
+    await sendTelegram(`❌ *Auto-Shill Error*\n👤 @${account}\n🔗 ${tweetUrl}\n⚠️ ${String(err)}`);
+    return { ok: false, error: String(err) };
+  }
 }
