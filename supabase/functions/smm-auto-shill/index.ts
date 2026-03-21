@@ -337,6 +337,7 @@ serve(async (req) => {
         .eq("site_id", "smm-auto-shill").eq("section", section).maybeSingle();
       const existingContent = existingRow?.content as any;
 
+      const { retweet_accounts } = body;
       await supabase.from("site_configs").upsert({
         site_id: "smm-auto-shill",
         section,
@@ -348,6 +349,7 @@ serve(async (req) => {
           discord_public_key: discord_public_key || "",
           discord_channel_id: discord_channel_id || "",
           team_accounts: Array.isArray(team_accounts) ? team_accounts : [],
+          retweet_accounts: Array.isArray(retweet_accounts) ? retweet_accounts : [],
           last_message_id: existingContent?.last_message_id || null,
         },
         is_published: true,
