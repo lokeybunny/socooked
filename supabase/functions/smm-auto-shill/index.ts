@@ -37,42 +37,27 @@ function verifyDiscordSignature(publicKeyHex: string, signature: string, timesta
 
 async function resolveDiscordConfig(supabase: any, requestedProfile?: string | null) {
   const normalizedProfile = requestedProfile?.trim() || "NysonBlack";
-
   const { data: exactRow } = await supabase
-    .from("site_configs")
-    .select("content, section")
-    .eq("site_id", "smm-auto-shill")
-    .eq("section", normalizedProfile)
-    .maybeSingle();
+    .from("site_configs").select("content, section")
+    .eq("site_id", "smm-auto-shill").eq("section", normalizedProfile).maybeSingle();
 
   const exactContent = exactRow?.content as any;
   if (exactContent?.discord_public_key) {
-    return {
-      profileUsername: exactRow?.section || normalizedProfile,
-      publicKey: String(exactContent.discord_public_key),
-    };
+    return { profileUsername: exactRow?.section || normalizedProfile, publicKey: String(exactContent.discord_public_key) };
   }
 
   const { data: allConfigs } = await supabase
-    .from("site_configs")
-    .select("content, section")
-    .eq("site_id", "smm-auto-shill")
-    .order("section", { ascending: true });
+    .from("site_configs").select("content, section")
+    .eq("site_id", "smm-auto-shill").order("section", { ascending: true });
 
   for (const row of allConfigs || []) {
     const content = row.content as any;
     if (content?.discord_public_key) {
-      return {
-        profileUsername: row.section || normalizedProfile,
-        publicKey: String(content.discord_public_key),
-      };
+      return { profileUsername: row.section || normalizedProfile, publicKey: String(content.discord_public_key) };
     }
   }
 
-  return {
-    profileUsername: normalizedProfile,
-    publicKey: FALLBACK_DISCORD_PUBLIC_KEY,
-  };
+  return { profileUsername: normalizedProfile, publicKey: FALLBACK_DISCORD_PUBLIC_KEY };
 }
 
 // ─── Telegram helper ───
@@ -88,6 +73,57 @@ function makeSendTelegram(token: string, chatId: string) {
   };
 }
 
+// ─── AI rage-bait reply generator ───
+async function generateRageBaitReply(
+  tweetUrl: string, campaignUrl: string, ticker: string, LOVABLE_API_KEY: string
+): Promise<string> {
+  const systemPrompt = `You are a viral crypto/meme engagement specialist. Your job is to write short, punchy, rage-bait style tweet replies that provoke engagement (likes, replies, quote tweets). 
+
+Rules:
+- Keep it under 200 characters (excluding the link and hashtags that will be appended)
+- Be controversial, witty, or provocatively curious — NOT hateful or bigoted
+- Use a casual internet/crypto tone
+- Reference the ticker naturally
+- Make people want to click, argue, or agree
+- Do NOT include any links or hashtags — those are added separately
+- Do NOT use quotes around your reply
+- Write ONLY the reply text, nothing else`;
+
+  const userPrompt = `Write a rage-bait reply to this tweet: ${tweetUrl}
+
+The ticker I'm shilling is: ${ticker}
+Make people curious enough to check the link I'll attach.`;
+
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("[auto-shill] AI gateway error:", res.status, await res.text());
+      return `${ticker} is about to blow 🔥 don't sleep on this`;
+    }
+
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content?.trim() || "";
+    return reply || `${ticker} is about to blow 🔥 don't sleep on this`;
+  } catch (e) {
+    console.error("[auto-shill] AI generation error:", e);
+    return `${ticker} is about to blow 🔥 don't sleep on this`;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -98,12 +134,13 @@ serve(async (req) => {
   const UPLOAD_POST_API_KEY = Deno.env.get("UPLOAD_POST_API_KEY")!;
   const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
   const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID")!;
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   const sendTelegram = makeSendTelegram(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
 
-  const url = new URL(req.url);
-  const action = url.searchParams.get("action") || "ingest";
+  const urlObj = new URL(req.url);
+  const action = urlObj.searchParams.get("action") || "ingest";
 
   // ─── Discord Interactions endpoint ───
   if (action === "discord-interact" && req.method === "POST") {
@@ -111,22 +148,15 @@ serve(async (req) => {
     const timestamp = req.headers.get("x-signature-timestamp") || "";
     const rawBody = await req.text();
 
-    const requestedProfile = url.searchParams.get("profile") || url.searchParams.get("section");
+    const requestedProfile = urlObj.searchParams.get("profile") || urlObj.searchParams.get("section");
     const { publicKey, profileUsername: matchedProfile } = await resolveDiscordConfig(supabase, requestedProfile);
 
     const isValid = verifyDiscordSignature(publicKey, sig, timestamp, rawBody);
-    if (!isValid) {
-      return json({ error: "Invalid request signature" }, 401);
-    }
+    if (!isValid) return json({ error: "Invalid request signature" }, 401);
 
     const interaction = JSON.parse(rawBody);
+    if (interaction.type === 1) return json({ type: 1 });
 
-    // PING → PONG
-    if (interaction.type === 1) {
-      return json({ type: 1 });
-    }
-
-    // APPLICATION_COMMAND or MESSAGE_COMPONENT
     if (interaction.type === 2 || interaction.type === 3) {
       let tweetUrl = "";
       const profileUsername = matchedProfile || "NysonBlack";
@@ -145,28 +175,22 @@ serve(async (req) => {
       }
 
       if (!tweetUrl) {
-        return json({
-          type: 4,
-          data: { content: "❌ No tweet URL found. Provide a valid X/Twitter link.", flags: 64 }
-        });
+        return json({ type: 4, data: { content: "❌ No tweet URL found.", flags: 64 } });
       }
 
-      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, sendTelegram);
+      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram);
       processPromise.catch(e => console.error("[auto-shill] Async process error:", e));
 
-      return json({
-        type: 4,
-        data: { content: `🗣️ Auto-replying to: ${tweetUrl}\n👤 Profile: ${profileUsername}` }
-      });
+      return json({ type: 4, data: { content: `🗣️ Auto-shill queued: ${tweetUrl}\n👤 ${profileUsername}` } });
     }
 
     return json({ type: 1 });
   }
 
-  // ─── REGISTER slash commands (no auth needed — uses Discord Bot Token) ───
+  // ─── REGISTER slash commands ───
   if (action === "register-commands" && req.method === "POST") {
     const body = await req.json().catch(() => ({}));
-    const profileUsername = body.profile || url.searchParams.get("profile") || "NysonBlack";
+    const profileUsername = body.profile || urlObj.searchParams.get("profile") || "NysonBlack";
 
     const { data: cfgRow } = await supabase
       .from("site_configs").select("content")
@@ -174,40 +198,26 @@ serve(async (req) => {
 
     const cfg = cfgRow?.content as any;
     const appId = cfg?.discord_app_id;
-    if (!appId) return json({ error: "No discord_app_id configured for this profile" }, 400);
+    if (!appId) return json({ error: "No discord_app_id configured" }, 400);
 
     const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
-    if (!DISCORD_BOT_TOKEN) return json({ error: "DISCORD_BOT_TOKEN secret not set" }, 500);
+    if (!DISCORD_BOT_TOKEN) return json({ error: "DISCORD_BOT_TOKEN not set" }, 500);
 
-    const guildId = body.guild_id || url.searchParams.get("guild_id") || "";
-
-    const commands = [
-      {
-        name: "shill",
-        description: "Auto-reply to a tweet via X",
-        type: 1,
-        options: [
-          { name: "url", description: "The X/Twitter tweet URL to reply to", type: 3, required: true },
-        ],
-      },
-    ];
-
+    const guildId = body.guild_id || urlObj.searchParams.get("guild_id") || "";
     const registerUrl = guildId
       ? `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`
       : `https://discord.com/api/v10/applications/${appId}/commands`;
 
-    const results = [];
-    for (const cmd of commands) {
-      const res = await fetch(registerUrl, {
-        method: "POST",
-        headers: { "Authorization": `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
-        body: JSON.stringify(cmd),
-      });
-      const data = await res.json();
-      results.push({ command: cmd.name, status: res.status, data });
-    }
-
-    return json({ ok: true, results });
+    const res = await fetch(registerUrl, {
+      method: "POST",
+      headers: { "Authorization": `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "shill", description: "Auto-reply to a tweet via X", type: 1,
+        options: [{ name: "url", description: "The X/Twitter tweet URL", type: 3, required: true }],
+      }),
+    });
+    const data = await res.json();
+    return json({ ok: true, status: res.status, data });
   }
 
   // ─── Auth: bot secret or anon key ───
@@ -220,45 +230,56 @@ serve(async (req) => {
   if (!isBot && !isAnon) return json({ error: "Unauthorized" }, 401);
 
   try {
-    // ─── GET config ───
+    // ─── GET campaign config ───
     if (action === "get-config") {
-      const profileUsername = url.searchParams.get("profile") || "NysonBlack";
+      const profileUsername = urlObj.searchParams.get("profile") || "NysonBlack";
       const { data } = await supabase
-        .from("site_configs")
-        .select("content")
-        .eq("site_id", "smm-auto-shill")
-        .eq("section", profileUsername)
-        .single();
+        .from("site_configs").select("content")
+        .eq("site_id", "smm-auto-shill").eq("section", profileUsername).single();
 
-      return json({ config: data?.content || { enabled: false, reply_template: "", discord_app_id: "", discord_public_key: "" } });
+      return json({
+        config: data?.content || {
+          enabled: false,
+          campaign_url: "",
+          ticker: "",
+          discord_app_id: "",
+          discord_public_key: "",
+        }
+      });
     }
 
-    // ─── SAVE config ───
+    // ─── SAVE campaign config ───
     if (action === "save-config") {
       const body = await req.json();
-      const { profile_username, enabled, reply_template, discord_app_id, discord_public_key } = body;
+      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key } = body;
       const section = profile_username || "NysonBlack";
 
       await supabase.from("site_configs").upsert({
         site_id: "smm-auto-shill",
         section,
-        content: { enabled, reply_template, discord_app_id: discord_app_id || "", discord_public_key: discord_public_key || "" },
+        content: {
+          enabled,
+          campaign_url: campaign_url || "",
+          ticker: ticker || "",
+          discord_app_id: discord_app_id || "",
+          discord_public_key: discord_public_key || "",
+        },
         is_published: true,
       }, { onConflict: "site_id,section" });
 
       return json({ ok: true });
     }
 
-    // ─── GET shill log ───
-    if (action === "log") {
+    // ─── GET feed (incoming URLs + replies) ───
+    if (action === "feed") {
       const { data } = await supabase
         .from("activity_log")
         .select("*")
         .eq("entity_type", "auto-shill")
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
 
-      return json({ log: data || [] });
+      return json({ feed: data || [] });
     }
 
     // ─── INGEST: other bot sends tweet URL via webhook ───
@@ -268,10 +289,21 @@ serve(async (req) => {
       const profileUsername = body.profile_username || body.profile || "NysonBlack";
 
       if (!tweetUrl || (!tweetUrl.includes("x.com/") && !tweetUrl.includes("twitter.com/"))) {
-        return json({ error: "Invalid or missing tweet URL" }, 400);
+        // Log non-X URLs as "received" for visibility but don't process
+        await supabase.from("activity_log").insert({
+          entity_type: "auto-shill", action: "skipped",
+          meta: { name: `⏭️ Non-X URL skipped`, url: tweetUrl, profile: profileUsername },
+        });
+        return json({ ok: true, skipped: true, reason: "Not an X/Twitter URL" });
       }
 
-      const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, sendTelegram);
+      // Log as received immediately
+      await supabase.from("activity_log").insert({
+        entity_type: "auto-shill", action: "received",
+        meta: { name: `📥 Received: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername },
+      });
+
+      const result = await processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, sendTelegram);
       return json(result, result.ok ? 200 : 500);
     }
 
@@ -283,13 +315,14 @@ serve(async (req) => {
   }
 });
 
-// ─── Process: reply to tweet via Upload-Post API ───
+// ─── Core: AI rage-bait reply + campaign link + ticker + hashtags ───
 async function processAutoShill(
   supabase: any, tweetUrl: string, profileUsername: string,
-  UPLOAD_POST_API_KEY: string, sendTelegram: (text: string) => Promise<void>
+  UPLOAD_POST_API_KEY: string, LOVABLE_API_KEY: string, sendTelegram: (text: string) => Promise<void>
 ) {
   console.log(`[auto-shill] Processing: ${tweetUrl} for ${profileUsername}`);
 
+  // Load campaign config
   const { data: configRow } = await supabase
     .from("site_configs").select("content")
     .eq("site_id", "smm-auto-shill").eq("section", profileUsername).single();
@@ -297,28 +330,35 @@ async function processAutoShill(
   const config = configRow?.content as any;
   if (!config?.enabled) return { ok: false, skipped: true, reason: "Auto-shill disabled" };
 
-  const replyTemplate = config.reply_template || "";
-  if (!replyTemplate.trim()) return { ok: false, error: "No reply template configured" };
+  const campaignUrl = config.campaign_url || "";
+  const ticker = config.ticker || "";
+  if (!ticker) return { ok: false, error: "No ticker configured" };
 
   // Dedup check (24h)
   const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
   const { data: existing } = await supabase
     .from("activity_log").select("id")
-    .eq("entity_type", "auto-shill").gte("created_at", oneDayAgo)
+    .eq("entity_type", "auto-shill").eq("action", "replied")
+    .gte("created_at", oneDayAgo)
     .like("meta->>tweet_url", tweetUrl).limit(1);
 
-  if (existing?.length) return { ok: false, skipped: true, reason: "Already replied" };
+  if (existing?.length) return { ok: false, skipped: true, reason: "Already replied in last 24h" };
 
-  // Build reply text
-  const replyText = replyTemplate
-    .replace(/\{tweet_url\}/gi, tweetUrl)
-    .replace(/\{timestamp\}/gi, new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+  // Generate AI rage-bait reply
+  const rageBait = await generateRageBaitReply(tweetUrl, campaignUrl, ticker, LOVABLE_API_KEY);
+
+  // Build full reply: rage bait + campaign link + ticker + 2 hashtags
+  const tickerClean = ticker.replace(/^\$/, "");
+  const hashtags = `#${tickerClean} #crypto`;
+  let fullReply = rageBait;
+  if (campaignUrl) fullReply += `\n\n${campaignUrl}`;
+  fullReply += `\n\n${ticker} ${hashtags}`;
 
   // Post reply via Upload-Post API
   const params = new URLSearchParams();
   params.append("user", profileUsername);
   params.append("platform[]", "twitter");
-  params.append("title", replyText);
+  params.append("title", fullReply);
   params.append("comment_url", tweetUrl);
   params.append("async_upload", "true");
 
@@ -337,7 +377,7 @@ async function processAutoShill(
     await sendTelegram(`🚨 *Auto-Shill FAILED*\n🔗 ${tweetUrl}\n❌ ${errorMsg}`);
     await supabase.from("activity_log").insert({
       entity_type: "auto-shill", action: "failed",
-      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername },
+      meta: { name: `❌ Reply failed: ${tweetUrl}`, tweet_url: tweetUrl, error: errorMsg, profile: profileUsername, reply_text: fullReply.substring(0, 200) },
     });
     return { ok: false, error: errorMsg };
   }
@@ -345,13 +385,18 @@ async function processAutoShill(
   const requestId = uploadData?.request_id || uploadData?.data?.request_id || null;
   const jobId = uploadData?.job_id || uploadData?.data?.job_id || null;
 
-  // Log success
   await supabase.from("activity_log").insert({
     entity_type: "auto-shill", action: "replied",
-    meta: { name: `🗣️ Auto-replied: ${tweetUrl}`, tweet_url: tweetUrl, profile: profileUsername, reply_text: replyText.substring(0, 200), request_id: requestId, job_id: jobId },
+    meta: {
+      name: `🗣️ Auto-replied: ${tweetUrl}`,
+      tweet_url: tweetUrl, profile: profileUsername,
+      reply_text: fullReply.substring(0, 300),
+      ticker, campaign_url: campaignUrl,
+      request_id: requestId, job_id: jobId,
+    },
   });
 
-  await sendTelegram(`🗣️ *Auto-Reply Sent*\n🔗 ${tweetUrl}\n👤 ${profileUsername}\n💬 ${replyText.substring(0, 100)}${replyText.length > 100 ? "..." : ""}`);
+  await sendTelegram(`🗣️ *Auto-Shill Sent*\n🔗 ${tweetUrl}\n💰 ${ticker}\n💬 ${rageBait.substring(0, 100)}`);
 
   return { ok: true, replied: true, tweet_url: tweetUrl, request_id: requestId, job_id: jobId };
 }
