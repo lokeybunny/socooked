@@ -22,6 +22,7 @@ import {
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import TopPostsSection from "@/components/shillers/TopPostsSection";
+import ViralityTab from "@/components/shillers/ViralityTab";
 
 /* ─── Types ─── */
 interface Raider {
