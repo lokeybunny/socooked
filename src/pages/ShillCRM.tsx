@@ -621,7 +621,19 @@ function ShillersTab() {
                   {formatDistanceToNow(new Date(s.last_active), { addSuffix: true })}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                  <div className="flex justify-end gap-1">
+                    {s.verified_earned > 0 && (
+                      <Button variant="ghost" size="sm" className="text-primary" onClick={() => setPayTarget({
+                        discord_user_id: s.discord_user_id,
+                        discord_username: s.discord_username,
+                        amount: s.verified_earned,
+                        verified_clicks: s.verified_shills,
+                        payout_type: "shill",
+                        solana_wallet: s.solana_wallet,
+                      })}><Banknote className="h-3.5 w-3.5" /></Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
