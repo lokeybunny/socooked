@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import TopPostsSection from "@/components/shillers/TopPostsSection";
 
 /* ─── Types ─── */
 interface Raider {
