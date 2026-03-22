@@ -1285,8 +1285,11 @@ serve(async (req) => {
         }],
       },
       {
-        name: "payout", description: "Set your Solana wallet address for payouts", type: 1,
-        options: [{ name: "wallet", description: "Your Solana public address", type: 3, required: true }],
+        name: "payout", description: "Request a payout for your verified earnings", type: 1,
+      },
+      {
+        name: "wallet", description: "Set your Solana wallet address for payouts", type: 1,
+        options: [{ name: "address", description: "Your Solana public address", type: 3, required: true }],
       },
     ];
 
