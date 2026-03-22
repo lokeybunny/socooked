@@ -660,7 +660,71 @@ serve(async (req) => {
       }
     }
 
-    return json({ ok: true, forwarded: totalForwarded, expired: expiredCount });
+    // ── Auto-forward announcements channel to Telegram Shill Lounge ──
+    let announcementsForwarded = 0;
+    try {
+      // Get last forwarded message ID from site_configs
+      const { data: fwdCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "tg-announcements-fwd")
+        .single();
+
+      const lastFwdId = (fwdCfg?.content as any)?.last_message_id || null;
+
+      let fwdUrl = `${DISCORD_API}/channels/${DISCORD_ANNOUNCEMENTS_CHANNEL}/messages?limit=20`;
+      if (lastFwdId) fwdUrl += `&after=${lastFwdId}`;
+
+      const fwdRes = await fetch(fwdUrl, {
+        headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+      });
+
+      if (fwdRes.ok) {
+        const fwdMsgs: any[] = await fwdRes.json();
+        if (fwdMsgs.length > 0) {
+          fwdMsgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+          let newestFwdId = lastFwdId;
+          for (const fMsg of fwdMsgs) {
+            if (!newestFwdId || BigInt(fMsg.id) > BigInt(newestFwdId)) {
+              newestFwdId = fMsg.id;
+            }
+
+            const content = fMsg.content || "";
+            const embedTexts = (fMsg.embeds || []).map((e: any) =>
+              [e.title, e.description].filter(Boolean).join("\n")
+            ).join("\n");
+            const fullText = [content, embedTexts].filter(Boolean).join("\n\n");
+
+            if (!fullText.trim()) continue;
+
+            // Truncate if needed (Telegram 4096 char limit)
+            const truncated = fullText.length > 3800 ? fullText.slice(0, 3800) + "…" : fullText;
+            const author = fMsg.author?.username || "announcement";
+
+            const fwdText = `📢 *Discord Announcement*\n` +
+              `👤 \`${author}\`\n\n${truncated}`;
+
+            await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, fwdText);
+            announcementsForwarded++;
+          }
+
+          // Save cursor
+          if (newestFwdId && newestFwdId !== lastFwdId) {
+            await supabase.from("site_configs").upsert({
+              site_id: "smm-auto-shill",
+              section: "tg-announcements-fwd",
+              content: { last_message_id: newestFwdId },
+            }, { onConflict: "site_id,section" });
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[discord-watcher] Announcements forward error:", e);
+    }
+
+    return json({ ok: true, forwarded: totalForwarded, announcements_forwarded: announcementsForwarded, expired: expiredCount });
   } catch (err) {
     console.error("[discord-watcher] Fatal error:", err);
     return json({ error: String(err) }, 500);
