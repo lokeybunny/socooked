@@ -161,6 +161,43 @@ export default function ShillTeam() {
           </div>
         </section>
 
+        {/* Earn Anywhere */}
+        <section className="space-y-6">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Smartphone className="h-6 w-6 text-primary" /> Earn Anywhere
+          </h2>
+          <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.03] to-transparent">
+            <CardContent className="p-6 space-y-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                You don't need to sit in Discord all day. Use <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/notify</code> to turn on private alerts and <strong>get paid on the go</strong>.
+              </p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10 text-primary shrink-0">
+                    <MessageSquare className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Discord DMs</p>
+                    <p className="text-xs text-muted-foreground">Get a private DM every time a new shill or raid alert drops. Tap, verify, earn.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10 text-primary shrink-0">
+                    <Send className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Telegram Mentions</p>
+                    <p className="text-xs text-muted-foreground">Add your @handle and get @mentioned in the Telegram Lounge when alerts fire. Works from any device.</p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground italic pt-1">
+                On the bus, at work, on your phone — alerts come to you. Every verified click is passive income stacking up for your Friday payout. 💰
+              </p>
+            </CardContent>
+          </Card>
+        </section>
+
         {/* Commands */}
         <section className="space-y-6">
           <h2 className="text-2xl font-bold">Discord Commands</h2>
