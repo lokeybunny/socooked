@@ -17,11 +17,6 @@ const commands = [
     icon: <Shield className="h-5 w-5" />,
   },
   {
-    name: '/shill',
-    desc: 'Reply to a tweet using the linked X account. Pass the tweet URL and the bot handles the rest.',
-    icon: <Zap className="h-5 w-5" />,
-  },
-  {
     name: '/wallet',
     desc: 'Set your Solana wallet address so you can receive payouts for verified work.',
     icon: <Wallet className="h-5 w-5" />,
