@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check,
-  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy,
+  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import TopPostsSection from "@/components/shillers/TopPostsSection";
 
