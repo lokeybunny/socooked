@@ -811,6 +811,12 @@ serve(async (req) => {
         const discordUserId = discordUser.id || "unknown";
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
+        // Payouts are only available on Fridays (UTC)
+        const today = new Date();
+        if (today.getUTCDay() !== 5) {
+          return json({ type: 4, data: { content: "❌ **Payouts are only available on Fridays.**\n\nCome back on Friday to request your earnings!", flags: 64 } });
+        }
+
         // Check if user is an authorized raider or shiller
         const { data: existingRaider } = await supabase
           .from("raiders")
