@@ -1,4 +1,4 @@
-import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink } from 'lucide-react';
+import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -186,6 +186,19 @@ export default function ShillTeam() {
             </Button>
           </a>
         </section>
+
+        {/* Telegram */}
+        <div className="flex justify-center">
+          <a
+            href="https://t.me/+t9hUrz3q8ZE4YjBh"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button variant="outline" size="lg" className="gap-2">
+              <Send className="h-5 w-5" /> Join the Telegram Lounge
+            </Button>
+          </a>
+        </div>
 
         {/* Footer */}
         <div className="border-t border-border/40 pt-8 text-center text-xs text-muted-foreground">
