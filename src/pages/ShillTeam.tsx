@@ -29,6 +29,11 @@ const commands = [
     icon: <DollarSign className="h-5 w-5" />,
   },
   {
+    name: '/notify',
+    desc: 'Toggle private alert notifications. Get DMs in Discord or @mentions in Telegram when new alerts drop — earn on the go, anywhere.',
+    icon: <Bell className="h-5 w-5" />,
+  },
+  {
     name: '/payout',
     desc: 'Request a payout once you have verified earnings. Admins will review and process it.',
     icon: <DollarSign className="h-5 w-5" />,
