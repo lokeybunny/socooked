@@ -256,7 +256,7 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
   const TABS: { value: TabValue; label: string; icon: any; badge?: number }[] = [
     { value: 'campaign', label: 'Campaign', icon: Zap },
     { value: 'team', label: 'Team', icon: Users, badge: (config.team_accounts?.length || 0) + (config.retweet_accounts?.length || 0) },
-    { value: 'assignments', label: 'Assignments', icon: KeyRound, badge: assignmentEntries.length },
+    { value: 'assignments', label: 'Shillers', icon: KeyRound, badge: assignmentEntries.length },
     { value: 'cooldown', label: 'Cooldown', icon: Clock, badge: activeCooldowns.length || undefined },
     { value: 'feed', label: 'Feed', icon: Radio, badge: feed.length },
     { value: 'auth-log', label: 'Auth Log', icon: History, badge: authLog.length },
