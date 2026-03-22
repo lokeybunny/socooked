@@ -125,18 +125,6 @@ export default function ReplyEngine() {
   return (
     <div className="min-h-screen bg-background">
       <div className="p-6 space-y-6 max-w-5xl mx-auto">
-        {user ? (
-          <div className="flex items-center gap-3">
-            <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <DoorOpen className="h-5 w-5" />
-            </Link>
-            <Link to="/shill-crm" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <Shield className="h-4 w-4" /> Shill CRM
-            </Link>
-          </div>
-        ) : (
-          <DoorOpen className="h-5 w-5 text-muted-foreground/40 cursor-not-allowed" />
-        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Shillers</h1>
