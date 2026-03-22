@@ -563,7 +563,39 @@ serve(async (req) => {
         return json({ type: 4, data: { content: helpText, flags: 64 } });
       }
 
-      // ─── /clean command — bulk delete bot messages from channel ───
+      // ─── /raidhelp command — raider-specific onboarding (ephemeral) ───
+      if (commandName === "raidhelp") {
+        const raidHelpText = [
+          "**Welcome, Raider!** :crossed_swords:",
+          "",
+          "**How raiding works:**",
+          "1. An admin assigns you a **secret code** — this is your unique identifier",
+          "2. When a raid alert drops, click **⚔️ Raid Now** or **📋 Copy Shill** on the embed",
+          "3. Copy the shill text (it includes your `#secretcode` hashtag) and paste it as a reply on X",
+          "4. Click **✅ Verify Raid** and paste your reply URL as proof",
+          "5. Admins verify your submission — earn **$0.02 per verified raid**",
+          "",
+          "**Raider Commands:**",
+          "`/raidhelp` — Show this guide",
+          "`/wallet <address>` — Set your Solana wallet for payouts",
+          "`/payout` — Request a payout for verified earnings",
+          "",
+          "**Buttons on raid alerts:**",
+          "⚔️ **Raid Now** — Log the raid and get your hashtag",
+          "📋 **Copy Shill** — Get pre-written shill text with your code baked in",
+          "✅ **Verify Raid** — Submit your X reply URL as proof of work",
+          "",
+          "**Tips:**",
+          "• Always include your `#secretcode` in the reply so we can verify it",
+          "• Set your wallet early with `/wallet` so payouts are instant",
+          "• Your secret code is entered once via a popup modal on first interaction",
+          "",
+          ":link: Full guide: https://warren.guru/shillteam",
+        ].join("\n");
+
+        return json({ type: 4, data: { content: raidHelpText, flags: 64 } });
+      }
+
       if (commandName === "clean") {
         const channelId = interaction.channel_id;
         const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
@@ -1423,6 +1455,9 @@ serve(async (req) => {
         name: "help", description: "View all commands and how to get started", type: 1,
       },
       {
+        name: "raidhelp", description: "Raider guide — how to raid, verify, and get paid", type: 1,
+      },
+      {
         name: "shill", description: "Auto-reply to a tweet via X", type: 1,
         options: [{ name: "url", description: "The X/Twitter tweet URL", type: 3, required: true }],
       },
@@ -1549,11 +1584,14 @@ serve(async (req) => {
       const body = await req.json().catch(() => ({}));
       const { username, user_id } = body;
       const WELCOME_CHANNEL = "1484998470103466156";
+      const RAID_CHANNEL = "1485050868838564030";
       const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
       if (!DISCORD_BOT_TOKEN_ENV) return json({ error: "Bot token not configured" }, 500);
 
+      const displayName = username || "new member";
+
       const welcomeText = [
-        `**Welcome to the Shill Team, ${username || "new member"}!** :rocket:`,
+        `**Welcome to the Shill Team, ${displayName}!** :rocket:`,
         "",
         "**How it works:**",
         "1. Use `/authorize` to link your Discord to an X account",
@@ -1574,17 +1612,38 @@ serve(async (req) => {
         ":link: Full guide: https://warren.guru/shillteam",
       ].join("\n");
 
-      const res = await fetch(`https://discord.com/api/v10/channels/${WELCOME_CHANNEL}/messages`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ content: welcomeText }),
-      });
+      const raidWelcomeText = [
+        `**Welcome, ${displayName}!** :crossed_swords: Ready to raid?`,
+        "",
+        "**How raiding works:**",
+        "1. An admin assigns you a **secret code** — your unique identifier",
+        "2. When a raid alert drops, click **⚔️ Raid Now** or **📋 Copy Shill**",
+        "3. Paste the shill text (with your `#secretcode`) as a reply on X",
+        "4. Click **✅ Verify Raid** and submit your reply URL as proof",
+        "5. Earn **$0.02 per verified raid**",
+        "",
+        "**Commands:**",
+        "`/raidhelp` — Show the full raider guide",
+        "`/wallet <address>` — Set your Solana wallet",
+        "`/payout` — Request a payout",
+        "",
+        ":link: Full guide: https://warren.guru/shillteam",
+      ].join("\n");
 
-      const resBody = await res.json().catch(() => ({}));
-      return json({ ok: res.ok, status: res.status, message_id: resBody.id });
+      const headers = { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}`, "Content-Type": "application/json" };
+      const sendMsg = (channelId: string, content: string) =>
+        fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+          method: "POST", headers, body: JSON.stringify({ content }),
+        });
+
+      const [res1, res2] = await Promise.all([
+        sendMsg(WELCOME_CHANNEL, welcomeText),
+        sendMsg(RAID_CHANNEL, raidWelcomeText),
+      ]);
+
+      const body1 = await res1.json().catch(() => ({}));
+      const body2 = await res2.json().catch(() => ({}));
+      return json({ ok: true, shill_channel: { status: res1.status, id: body1.id }, raid_channel: { status: res2.status, id: body2.id } });
     }
 
     // ─── Force clean: delete ALL bot messages from a channel via Discord API ───
