@@ -1546,6 +1546,51 @@ serve(async (req) => {
   if (!isBot && !isAuthed) return json({ error: "Unauthorized" }, 401);
 
   try {
+    // ─── Welcome new member: send help guide to onboarding channel ───
+    if (action === "welcome-member") {
+      const body = await req.json().catch(() => ({}));
+      const { username, user_id } = body;
+      const WELCOME_CHANNEL = "1484998470103466156";
+      const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+      if (!DISCORD_BOT_TOKEN_ENV) return json({ error: "Bot token not configured" }, 500);
+
+      const welcomeText = [
+        `**Welcome to the Shill Team, ${username || "new member"}!** :rocket:`,
+        "",
+        "**How it works:**",
+        "1. Use `/authorize` to link your Discord to an X account",
+        "2. Use `/shill <tweet_url>` to auto-reply from your linked account",
+        "3. Use `/wallet <address>` to set your Solana payout address",
+        "4. Use `/payout` to request a withdrawal once you have verified earnings",
+        "",
+        "**Roles:**",
+        ":zap: **Shiller** — Authorized to post from a linked X account. Earn per verified click.",
+        ":shield: **Raider** — Use your secret code to raid tweets. Earn $0.02 per verified reply.",
+        "",
+        "**Commands:**",
+        "`/help` — Show this guide",
+        "`/authorize` — Link your Discord to an X account",
+        "`/shill <url>` — Auto-reply to a tweet",
+        "`/wallet <address>` — Set your Solana wallet",
+        "`/payout` — Request a payout",
+        "`/clean` — Delete bot messages (admin)",
+        "",
+        ":link: Full guide: https://warren.guru/shillteam",
+      ].join("\n");
+
+      const res = await fetch(`https://discord.com/api/v10/channels/${WELCOME_CHANNEL}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ content: welcomeText }),
+      });
+
+      const resBody = await res.json().catch(() => ({}));
+      return json({ ok: res.ok, status: res.status, message_id: resBody.id });
+    }
+
     // ─── Force clean: delete ALL bot messages from a channel via Discord API ───
     if (action === "force-clean-channel") {
       const body = await req.json().catch(() => ({}));
