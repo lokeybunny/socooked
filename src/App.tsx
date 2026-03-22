@@ -53,6 +53,7 @@ import Vanities from "./pages/Vanities";
 import ReplyEngine from "./pages/ReplyEngine";
 import Raiders from "./pages/Raiders";
 import ShillCRM from "./pages/ShillCRM";
+import ShillTeam from "./pages/ShillTeam";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
