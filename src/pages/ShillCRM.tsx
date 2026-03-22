@@ -338,7 +338,9 @@ interface ShillerRow {
   discord_user_id: string;
   discord_username: string;
   total_shills: number;
-  total_earned: number;
+  verified_shills: number;
+  verified_earned: number;
+  pending_count: number;
   last_active: string;
   x_handle: string | null;
   solana_wallet: string | null;
@@ -354,35 +356,35 @@ function ShillersTab() {
   const fetchShillers = useCallback(async () => {
     setLoading(true);
 
-    // Get all shill clicks
     const { data: clicks } = await supabase
       .from("shill_clicks")
-      .select("discord_user_id, discord_username, rate, created_at, click_type")
+      .select("discord_user_id, discord_username, rate, created_at, click_type, status")
       .eq("click_type", "shill")
       .order("created_at", { ascending: false });
 
-    // Get raider records for wallet/status lookup
     const { data: raiders } = await supabase.from("raiders").select("discord_user_id, solana_wallet, status");
     const raiderMap = new Map((raiders || []).map(r => [r.discord_user_id, r]));
 
-    // Get outbound accounts for X handle lookup
-    const { data: accounts } = await supabase.from("outbound_accounts").select("account_identifier, account_label");
-
-    // Aggregate by discord_user_id
     const map = new Map<string, ShillerRow>();
     for (const c of clicks || []) {
       const existing = map.get(c.discord_user_id);
       const raider = raiderMap.get(c.discord_user_id);
+      const isVerified = c.status === "verified";
+      const rate = Number(c.rate || 0.05);
+
       if (existing) {
         existing.total_shills++;
-        existing.total_earned += Number(c.rate || 0.05);
+        if (isVerified) { existing.verified_shills++; existing.verified_earned += rate; }
+        else if (c.status === "clicked") existing.pending_count++;
         if (c.created_at > existing.last_active) existing.last_active = c.created_at;
       } else {
         map.set(c.discord_user_id, {
           discord_user_id: c.discord_user_id,
           discord_username: c.discord_username,
           total_shills: 1,
-          total_earned: Number(c.rate || 0.05),
+          verified_shills: isVerified ? 1 : 0,
+          verified_earned: isVerified ? rate : 0,
+          pending_count: c.status === "clicked" ? 1 : 0,
           last_active: c.created_at,
           x_handle: null,
           solana_wallet: raider?.solana_wallet || null,
@@ -391,7 +393,7 @@ function ShillersTab() {
       }
     }
 
-    setShillers(Array.from(map.values()).sort((a, b) => b.total_shills - a.total_shills));
+    setShillers(Array.from(map.values()).sort((a, b) => b.verified_shills - a.verified_shills));
     setLoading(false);
   }, []);
 
