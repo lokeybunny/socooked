@@ -235,6 +235,7 @@ function RaidersTab() {
             <TableRow>
               <TableHead>Discord User</TableHead>
               <TableHead>Secret Code</TableHead>
+              <TableHead>Solana Wallet</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Clicks</TableHead>
               <TableHead className="text-right">Rate</TableHead>
