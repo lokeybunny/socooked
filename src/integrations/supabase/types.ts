@@ -1095,6 +1095,39 @@ export type Database = {
         }
         Relationships: []
       }
+      discord_notify_prefs: {
+        Row: {
+          created_at: string
+          discord_user_id: string
+          discord_username: string
+          id: string
+          notify_discord_dm: boolean
+          notify_telegram: boolean
+          telegram_username: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discord_user_id: string
+          discord_username?: string
+          id?: string
+          notify_discord_dm?: boolean
+          notify_telegram?: boolean
+          telegram_username?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discord_user_id?: string
+          discord_username?: string
+          id?: string
+          notify_discord_dm?: boolean
+          notify_telegram?: boolean
+          telegram_username?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           category: string | null
