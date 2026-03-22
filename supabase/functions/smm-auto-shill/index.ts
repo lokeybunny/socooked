@@ -1701,6 +1701,9 @@ serve(async (req) => {
       {
         name: "notify", description: "Toggle shill/raid notifications (Discord DM & Telegram)", type: 1,
       },
+      {
+        name: "balance", description: "Check your verified earnings balance", type: 1,
+      },
     ];
 
     const registerTargets = [
