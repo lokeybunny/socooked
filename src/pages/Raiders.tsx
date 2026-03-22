@@ -274,7 +274,7 @@ export default function Raiders() {
                 <TableHead className="text-right">Rate</TableHead>
                 <TableHead className="text-right">Earned</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead>Actions</TableHead>
+                {user && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
