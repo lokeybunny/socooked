@@ -1640,31 +1640,56 @@ serve(async (req) => {
             : "";
         }
 
+        // ── Helper: pick N random unique items from array ──
+        const pickRandom = <T>(arr: T[], n = 1): T[] => {
+          const shuffled = [...arr].sort(() => Math.random() - 0.5);
+          return shuffled.slice(0, Math.min(n, arr.length));
+        };
+
         // ── RAID CHANNEL: random supportive comment with ticker, no link ──
         if (isRaidChannel) {
-          const raidComments = [
-            `${shillTicker} is the one 🔥🔥🔥`,
-            `LFG ${shillTicker} 🚀🚀🚀`,
-            `${shillTicker} looking absolutely insane rn 💎`,
-            `bullish on ${shillTicker} no cap 🐂🔥`,
-            `${shillTicker} about to change lives fr 🙌`,
-            `sleeping on ${shillTicker} is crazy 😴💰`,
-            `${shillTicker} community is built different 💪🔥`,
-            `imagine not holding ${shillTicker} rn 😂🚀`,
-            `${shillTicker} vibes are immaculate ✨🤝`,
-            `${shillTicker} to the moon let's gooo 🌙🚀`,
-            `this is why ${shillTicker} hits different 💯`,
-            `${shillTicker} gang wya 🫡🔥`,
-            `${shillTicker} szn is here 📈💎`,
-            `can't stop won't stop ${shillTicker} 🏆`,
-            `${shillTicker} believers eating good 🍽️🔥`,
-            `${shillTicker} is inevitable 💎🙌`,
-            `the ${shillTicker} chart speaks for itself 📊🚀`,
-            `${shillTicker} fam we in here 🤝✨`,
-            `${shillTicker} making moves silently 🤫💰`,
-            `once you see ${shillTicker} you can't unsee it 👀🔥`,
+          const intros = [
+            "", "yo ", "bro ", "ngl ", "fr ", "honestly ", "lowkey ", "no cap ", "deadass ",
+            "listen ", "aye ", "real talk ", "facts ", "bruh ", "ok but ",
           ];
-          const randomComment = raidComments[Math.floor(Math.random() * raidComments.length)];
+          const templates = [
+            `{T} is the one`,
+            `LFG {T}`,
+            `{T} looking absolutely insane rn`,
+            `bullish on {T}`,
+            `{T} about to change lives`,
+            `sleeping on {T} is crazy`,
+            `{T} community is built different`,
+            `imagine not holding {T} rn`,
+            `{T} vibes are immaculate`,
+            `{T} to the moon`,
+            `this is why {T} hits different`,
+            `{T} gang wya`,
+            `{T} szn is here`,
+            `can't stop won't stop {T}`,
+            `{T} believers eating good`,
+            `{T} is inevitable`,
+            `the {T} chart speaks for itself`,
+            `{T} fam we in here`,
+            `{T} making moves silently`,
+            `once you see {T} you can't unsee it`,
+            `{T} is just getting started`,
+            `{T} holders know what's up`,
+            `{T} energy is unmatched`,
+            `{T} built for this`,
+            `love what {T} is doing`,
+            `{T} different breed`,
+            `{T} got that momentum`,
+            `everybody sleeping on {T}`,
+            `{T} about to flip everything`,
+            `{T} is a movement not a moment`,
+          ];
+          const emojiPool = ["🔥", "🚀", "💎", "🐂", "🙌", "💰", "💪", "😂", "✨", "🌙", "💯", "🫡", "📈", "🏆", "🍽️", "🤝", "🤫", "👀", "⚡", "🎯", "😤", "🐐", "💸", "🤑", "🥇", "👑", "🦍", "💥", "🌊", "❤️‍🔥"];
+
+          const intro = pickRandom(intros, 1)[0];
+          const template = pickRandom(templates, 1)[0].replace("{T}", shillTicker);
+          const emojis = pickRandom(emojiPool, 2 + Math.floor(Math.random() * 2)).join("");
+          const randomComment = `${intro}${template} ${emojis}`;
 
           return json({
             type: 4,
@@ -1675,14 +1700,22 @@ serve(async (req) => {
           });
         }
 
-        // ── SHILL CHANNEL: standard copy with hashtags + campaign link ──
+        // ── SHILL CHANNEL: randomized copy with hashtags + campaign link ──
         const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
         if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, userHashtag);
         }
+        // Shuffle hashtag order so every click looks different
+        for (let i = copyParts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copyParts[i], copyParts[j]] = [copyParts[j], copyParts[i]];
+        }
 
-        const copyText = copyParts.join(" ") +
+        const shillEmojis = ["🔥", "🚀", "💎", "📈", "⚡", "💪", "✨", "🏆", "💯", "🌊"];
+        const randomEmoji = shillEmojis[Math.floor(Math.random() * shillEmojis.length)];
+
+        const copyText = `${randomEmoji} ` + copyParts.join(" ") +
           (campaignUrl ? `\n${campaignUrl}` : "");
 
         return json({
