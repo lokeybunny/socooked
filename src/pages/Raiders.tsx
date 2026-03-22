@@ -213,7 +213,8 @@ export default function Raiders() {
           </div>
         </div>
 
-        {/* Secret Code Generator */}
+        {/* Secret Code Generator — admin only */}
+        {user && (
         <div className="rounded-lg border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -259,6 +260,7 @@ export default function Raiders() {
             </>
           )}
         </div>
+        )}
 
         {/* Raiders Table */}
         <div className="rounded-lg border border-border">
@@ -272,7 +274,7 @@ export default function Raiders() {
                 <TableHead className="text-right">Rate</TableHead>
                 <TableHead className="text-right">Earned</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead>Actions</TableHead>
+                {user && <TableHead>Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -308,6 +310,7 @@ export default function Raiders() {
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(raider.created_at), { addSuffix: true })}
                   </TableCell>
+                  {user && (
                   <TableCell>
                     <div className="flex gap-1">
                       <Button
@@ -329,6 +332,7 @@ export default function Raiders() {
                       </Button>
                     </div>
                   </TableCell>
+                  )}
                 </TableRow>
               ))}
               {raiders.length === 0 && (

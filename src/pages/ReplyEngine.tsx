@@ -245,20 +245,24 @@ export default function ReplyEngine() {
               <ClipboardCheck className="h-3.5 w-3.5" />
               Team Auditor
             </TabsTrigger>
-            <TabsTrigger value="shillers" className="gap-1.5">
-              <KeyRound className="h-3.5 w-3.5" />
-              Shillers
-              {assignmentEntries.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0">{assignmentEntries.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="auth-log" className="gap-1.5">
-              <History className="h-3.5 w-3.5" />
-              Auth Log
-              {authLog.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0">{authLog.length}</Badge>
-              )}
-            </TabsTrigger>
+            {user && (
+              <TabsTrigger value="shillers" className="gap-1.5">
+                <KeyRound className="h-3.5 w-3.5" />
+                Shillers
+                {assignmentEntries.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0">{assignmentEntries.length}</Badge>
+                )}
+              </TabsTrigger>
+            )}
+            {user && (
+              <TabsTrigger value="auth-log" className="gap-1.5">
+                <History className="h-3.5 w-3.5" />
+                Auth Log
+                {authLog.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[9px] px-1.5 py-0">{authLog.length}</Badge>
+                )}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ═══ ACTIVITY FEED ═══ */}
