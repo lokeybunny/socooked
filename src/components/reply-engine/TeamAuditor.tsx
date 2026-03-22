@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, DollarSign, TrendingUp, Users, Trophy, ExternalLink, CheckCircle, XCircle } from "lucide-react";
+import { RefreshCw, DollarSign, TrendingUp, Users, Trophy, ExternalLink, CheckCircle, XCircle, BadgeCheck } from "lucide-react";
 import { formatDistanceToNow, format, subDays, startOfDay } from "date-fns";
 
 const RATE_PER_CLICK = 0.05; // $0.05 per shill click
