@@ -1721,7 +1721,7 @@ serve(async (req) => {
         return json({
           type: 4,
           data: {
-            content: `📋 **Shill Copy — paste this as your reply:**\n\`\`\`\n${copyText}\n\`\`\`\n🔑 Posting as \`@${assignedXAccount}\``,
+            content: `${copyText}`,
             flags: 64,
           },
         });
