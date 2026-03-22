@@ -64,11 +64,13 @@ export default function TeamAuditor() {
       }
 
       const m = userMap[uid];
-      const isVerified = (c as any).status === "verified";
+      const clickStatus = (c as any).status || "clicked";
+      const isVerified = clickStatus === "verified";
+      const isPending = clickStatus === "clicked";
       m.totalClicks++;
       if (isVerified) m.verifiedClicks++;
       m.earnings = m.verifiedClicks * RATE_PER_CLICK;
-      m.pendingEarnings = (m.totalClicks - m.verifiedClicks) * RATE_PER_CLICK;
+      if (isPending) m.pendingEarnings += RATE_PER_CLICK;
 
       const clickDate = new Date(c.created_at);
       if (clickDate >= todayStart) {
