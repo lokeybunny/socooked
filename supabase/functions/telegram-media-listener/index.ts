@@ -114,6 +114,15 @@ function ensureBotCommandsBg(token: string) {
         }),
       }).catch(() => {})
     ),
+    // Hide menu commands in the Shill Lounge — bot is forwarding-only there
+    fetch(`${TG_API}${token}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        commands: [],
+        scope: { type: 'chat', chat_id: -1002188568751 },
+      }),
+    }).catch(() => {}),
   ]
   // Don't await — let it happen in background
   Promise.all(promises).then(() => console.log('[cmds] registered')).catch(() => {})
