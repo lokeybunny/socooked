@@ -227,6 +227,7 @@ function RaidersTab() {
   const [editFields, setEditFields] = useState({ secret_code: "", rate_per_click: "", status: "" });
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [payTarget, setPayTarget] = useState<PayoutTarget | null>(null);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, { verified: number; pending: number }>>(new Map());
 
