@@ -176,6 +176,21 @@ export default function ShillTeam() {
           </Accordion>
         </section>
 
+        {/* CTA */}
+        <section className="text-center space-y-4 py-4">
+          <h2 className="text-2xl font-bold">Ready to Start Earning?</h2>
+          <p className="text-muted-foreground text-sm max-w-md mx-auto">Open a ticket in our Discord to get onboarded and receive your role.</p>
+          <a
+            href="https://discord.gg/warrenguru"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button size="lg" className="gap-2 mt-2">
+              Open a Ticket — Join the Discord <ExternalLink className="h-4 w-4" />
+            </Button>
+          </a>
+        </section>
+
         {/* Footer */}
         <div className="border-t border-border/40 pt-8 text-center text-xs text-muted-foreground">
           Questions? Ask in the Discord onboarding channel.
