@@ -156,7 +156,7 @@ export default function ViralityTab() {
             <Trash2 className="h-3.5 w-3.5" /> Prune 24h+
           </Button>
         </div>
-        <p className="text-[11px] text-muted-foreground">Auto-sorted by virality score · 48h window</p>
+        <p className="text-[11px] text-muted-foreground">Auto-sorted by virality score · 24h window</p>
       </div>
 
       {/* Feed */}

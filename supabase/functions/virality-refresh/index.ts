@@ -81,8 +81,8 @@ serve(async (req) => {
       }
     }
 
-    // Auto-prune tweets older than 72h with very low engagement
-    const pruneAge = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    // Auto-prune tweets older than 24h with very low engagement
+    const pruneAge = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     await supabase
       .from("shill_post_analytics")
       .delete()
