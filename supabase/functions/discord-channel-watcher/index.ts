@@ -586,10 +586,13 @@ serve(async (req) => {
         if (shouldSendLounge) {
           const isRaidType = listenChannelId === RAID_LISTEN_CHANNEL || replyChannelId === "1485010551196090448";
           const alertType = isRaidType ? "⚔️ RAID" : "🚀 SHILL";
+          const payRate = isRaidType ? "$0.02" : "$0.05";
           const loungeText = `${alertType} *New Alert Dropped!*\n\n` +
-            `💰 There are click payments waiting in the Discord — head over and start earning!\n\n` +
-            `Whether you're already on the team or just getting started, every click counts. 🤑\n\n` +
-            `👇 Tap below to jump in:`;
+            `💰 Earn *${payRate} per verified click* — that's passive income just for engaging!\n\n` +
+            `Shillers earn *$0.05/click* • Raiders earn *$0.02/click*\n` +
+            `Every click stacks up. Payouts every Friday in SOL 🤑\n\n` +
+            `Whether you're already on the team or just getting started — jump in now!\n\n` +
+            `👇 Tap below to start earning:`;
           const loungeKeyboard = {
             inline_keyboard: [
               [{ text: "💬 Join Discord & Start Earning", url: "https://discord.gg/warrenguru" }],

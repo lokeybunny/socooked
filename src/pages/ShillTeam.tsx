@@ -24,14 +24,14 @@ const commands = [
     icon: <Wallet className="h-5 w-5" />,
   },
   {
-    name: '/payout',
-    desc: 'Request a payout once you have verified earnings. Admins will review and process it.',
+    name: '/balance',
+    desc: 'Check your verified earnings balance. See your total clicks, earnings breakdown (shiller & raider), and wallet status.',
     icon: <DollarSign className="h-5 w-5" />,
   },
   {
-    name: '/clean',
-    desc: 'Delete all bot shill messages from the current channel (admin use).',
-    icon: <Terminal className="h-5 w-5" />,
+    name: '/payout',
+    desc: 'Request a payout once you have verified earnings. Admins will review and process it.',
+    icon: <DollarSign className="h-5 w-5" />,
   },
 ];
 
