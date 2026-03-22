@@ -244,7 +244,7 @@ export default function ReplyEngine() {
                     {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
                   </span>
                   <div className="flex-1">
-                    <span className="font-medium text-foreground">{entry.username}</span>
+                    <span className="font-medium text-foreground flex items-center gap-1">@{entry.username}<BadgeCheck className="h-3.5 w-3.5 text-blue-500" /></span>
                   </div>
                   <Badge variant="secondary" className="font-mono">{entry.count} clicks</Badge>
                 </div>
