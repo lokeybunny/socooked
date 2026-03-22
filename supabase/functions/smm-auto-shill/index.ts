@@ -1506,6 +1506,9 @@ serve(async (req) => {
         name: "wallet", description: "Set your Solana wallet address for payouts", type: 1,
         options: [{ name: "address", description: "Your Solana public address", type: 3, required: true }],
       },
+      {
+        name: "notify", description: "Toggle shill/raid notifications (Discord DM & Telegram)", type: 1,
+      },
     ];
 
     const registerTargets = [
