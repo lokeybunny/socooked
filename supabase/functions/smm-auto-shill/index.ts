@@ -1694,7 +1694,7 @@ serve(async (req) => {
           return json({
             type: 4,
             data: {
-              content: `📋 **Raid Copy — paste this as your reply:**\n\`\`\`\n${randomComment}\n\`\`\``,
+              content: `${randomComment}`,
               flags: 64,
             },
           });
