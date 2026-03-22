@@ -1827,6 +1827,29 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "⚠️ You've already submitted this URL for verification.", flags: 64 } });
         }
 
+        // Speed check — find most recent raid click for this user on this message
+        const { data: recentRaidClick } = await supabase
+          .from("shill_clicks")
+          .select("created_at")
+          .eq("discord_user_id", discordUserId)
+          .eq("click_type", "raid")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        // Also check shill click for same msg (they may have clicked shill_now first)
+        const { data: recentShillClick } = await supabase
+          .from("shill_clicks")
+          .select("created_at")
+          .eq("discord_user_id", discordUserId)
+          .eq("discord_msg_id", discordMsgId !== "unknown" ? discordMsgId : null)
+          .eq("click_type", "shill")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        const raidClickTime = recentRaidClick?.[0]?.created_at || recentShillClick?.[0]?.created_at || null;
+        const raidSpeedResult = await speedCheck(supabase, discordUserId, discordUsername, raidClickTime, "raid");
+        if (raidSpeedResult) return raidSpeedResult;
+
         // Insert verification record for admin auditing
         await supabase.from("shill_clicks").insert({
           discord_user_id: discordUserId,
