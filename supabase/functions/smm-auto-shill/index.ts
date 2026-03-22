@@ -550,10 +550,11 @@ serve(async (req) => {
           ":zap: **Shiller** — Authorized to post from a linked X account. Earn per verified click.",
           ":shield: **Raider** — Use your secret code to raid tweets. Earn $0.02 per verified reply.",
           "",
-          "**Commands:**",
+           "**Commands:**",
            "`/help` — Show this guide",
            "`/authorize` — Link your Discord to an X account",
            "`/wallet <address>` — Set your Solana wallet",
+           "`/balance` — Check your verified earnings balance",
            "`/payout` — Request a payout",
            "`/notify` — Toggle DM & Telegram notifications",
            "`/clean` — Delete bot messages (admin)",
@@ -912,6 +913,75 @@ serve(async (req) => {
             flags: 64,
           },
         });
+      }
+
+      // ─── /balance command — check verified earnings ───
+      if (commandName === "balance") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUserId = discordUser.id || "unknown";
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        // Check if user is a raider
+        const { data: existingRaider } = await supabase
+          .from("raiders")
+          .select("id, solana_wallet, status")
+          .eq("discord_user_id", discordUserId)
+          .limit(1);
+
+        const isRaider = existingRaider?.length && existingRaider[0].status === "active";
+
+        // Check if user is a shiller
+        const { data: shillHistory } = await supabase
+          .from("shill_clicks")
+          .select("id")
+          .eq("discord_user_id", discordUserId)
+          .limit(1);
+
+        const isShiller = (shillHistory?.length ?? 0) > 0;
+
+        if (!isRaider && !isShiller) {
+          return json({ type: 4, data: { content: "❌ **No record found.** You must be an authorized shiller or raider to check your balance.", flags: 64 } });
+        }
+
+        // Get verified clicks
+        const { data: verifiedClicks } = await supabase
+          .from("shill_clicks")
+          .select("id, click_type, rate")
+          .eq("discord_user_id", discordUserId)
+          .eq("status", "verified");
+
+        // Get pending clicks
+        const { data: pendingClicks } = await supabase
+          .from("shill_clicks")
+          .select("id, click_type, rate")
+          .eq("discord_user_id", discordUserId)
+          .eq("status", "clicked");
+
+        const verifiedCount = verifiedClicks?.length || 0;
+        const verifiedOwed = (verifiedClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
+        const pendingCount = pendingClicks?.length || 0;
+        const pendingValue = (pendingClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
+
+        const walletAddress = existingRaider?.[0]?.solana_wallet;
+        const walletLine = walletAddress
+          ? `🔐 Wallet: \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\``
+          : "⚠️ No wallet set — use `/wallet <address>` to register one";
+
+        const role = isRaider ? "Raider" : "Shiller";
+
+        return json({ type: 4, data: {
+          content: [
+            `📊 **Balance for ${discordUsername}** (${role})`,
+            "",
+            `✅ Verified: **$${verifiedOwed.toFixed(2)}** (${verifiedCount} clicks)`,
+            `⏳ Pending: **$${pendingValue.toFixed(2)}** (${pendingCount} clicks)`,
+            "",
+            walletLine,
+            "",
+            verifiedOwed > 0 ? "💸 Use `/payout` on **Friday** to cash out your verified balance!" : "Keep shilling/raiding — your earnings will show up here!",
+          ].join("\n"),
+          flags: 64,
+        }});
       }
 
       // ─── /notify command — toggle notification preferences ───
@@ -1630,6 +1700,9 @@ serve(async (req) => {
       },
       {
         name: "notify", description: "Toggle shill/raid notifications (Discord DM & Telegram)", type: 1,
+      },
+      {
+        name: "balance", description: "Check your verified earnings balance", type: 1,
       },
     ];
 
