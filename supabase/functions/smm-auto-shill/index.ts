@@ -551,11 +551,12 @@ serve(async (req) => {
           ":shield: **Raider** — Use your secret code to raid tweets. Earn $0.02 per verified reply.",
           "",
           "**Commands:**",
-          "`/help` — Show this guide",
-          "`/authorize` — Link your Discord to an X account",
-          "`/wallet <address>` — Set your Solana wallet",
-          "`/payout` — Request a payout",
-          "`/clean` — Delete bot messages (admin)",
+           "`/help` — Show this guide",
+           "`/authorize` — Link your Discord to an X account",
+           "`/wallet <address>` — Set your Solana wallet",
+           "`/payout` — Request a payout",
+           "`/notify` — Toggle DM & Telegram notifications",
+           "`/clean` — Delete bot messages (admin)",
           "",
           ":link: Full guide: https://warren.guru/shillteam",
         ].join("\n");
@@ -909,6 +910,76 @@ serve(async (req) => {
           data: {
             content: `✅ **Payout request submitted!**\n\n💰 Amount: **$${totalOwed.toFixed(2)}** (${totalVerified} verified clicks)\n🔐 Wallet: \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n📋 Type: ${userType}\n\n⏳ **Please be patient** — admin will review and process your payout. If you haven't received payment within **48 hours**, please open a support ticket in the Discord server.`,
             flags: 64,
+          },
+        });
+      }
+
+      // ─── /notify command — toggle notification preferences ───
+      if (commandName === "notify") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUserId = discordUser.id || "unknown";
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        // Fetch current prefs
+        const { data: existingPrefs } = await supabase
+          .from("discord_notify_prefs")
+          .select("*")
+          .eq("discord_user_id", discordUserId)
+          .maybeSingle();
+
+        const currentDm = existingPrefs?.notify_discord_dm ?? false;
+        const currentTg = existingPrefs?.notify_telegram ?? false;
+        const currentTgUser = existingPrefs?.telegram_username ?? "";
+
+        // Show a modal with toggle info and telegram username field
+        return json({
+          type: 9, // MODAL
+          data: {
+            custom_id: "notify_settings_submit",
+            title: "🔔 Notification Settings",
+            components: [
+              {
+                type: 1,
+                components: [{
+                  type: 4,
+                  custom_id: "discord_dm_toggle",
+                  label: "Discord DM notifications (yes/no)",
+                  style: 1,
+                  placeholder: "yes or no",
+                  value: currentDm ? "yes" : "no",
+                  required: true,
+                  min_length: 2,
+                  max_length: 3,
+                }],
+              },
+              {
+                type: 1,
+                components: [{
+                  type: 4,
+                  custom_id: "telegram_toggle",
+                  label: "Telegram notifications (yes/no)",
+                  style: 1,
+                  placeholder: "yes or no",
+                  value: currentTg ? "yes" : "no",
+                  required: true,
+                  min_length: 2,
+                  max_length: 3,
+                }],
+              },
+              {
+                type: 1,
+                components: [{
+                  type: 4,
+                  custom_id: "telegram_username_input",
+                  label: "Your Telegram @ (required for TG alerts)",
+                  style: 1,
+                  placeholder: "@yourtelegram",
+                  value: currentTgUser || "",
+                  required: false,
+                  max_length: 100,
+                }],
+              },
+            ],
           },
         });
       }
@@ -1439,6 +1510,57 @@ serve(async (req) => {
         });
       }
 
+      // ─── Notify settings modal submit ───
+      if (customId === "notify_settings_submit") {
+        const components = interaction.data?.components || [];
+        let dmToggle = "no";
+        let tgToggle = "no";
+        let tgUsername = "";
+
+        for (const row of components) {
+          for (const comp of row.components || []) {
+            if (comp.custom_id === "discord_dm_toggle") dmToggle = (comp.value || "no").trim().toLowerCase();
+            if (comp.custom_id === "telegram_toggle") tgToggle = (comp.value || "no").trim().toLowerCase();
+            if (comp.custom_id === "telegram_username_input") tgUsername = (comp.value || "").trim().replace(/^@/, "");
+          }
+        }
+
+        const wantsDm = dmToggle === "yes" || dmToggle === "y";
+        const wantsTg = tgToggle === "yes" || tgToggle === "y";
+
+        // Require telegram username if telegram notifications enabled
+        if (wantsTg && !tgUsername) {
+          return json({ type: 4, data: { content: "❌ You must provide your Telegram @ username to enable Telegram notifications.", flags: 64 } });
+        }
+
+        const { error: upsertErr } = await supabase.from("discord_notify_prefs").upsert({
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+          notify_discord_dm: wantsDm,
+          notify_telegram: wantsTg,
+          telegram_username: tgUsername || null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "discord_user_id" });
+
+        if (upsertErr) {
+          console.error("[auto-shill] Notify prefs upsert error:", upsertErr.message);
+          return json({ type: 4, data: { content: "❌ Failed to save notification preferences. Try again.", flags: 64 } });
+        }
+
+        const statusLines: string[] = [];
+        statusLines.push(`📬 Discord DM: **${wantsDm ? "ON ✅" : "OFF ❌"}**`);
+        statusLines.push(`📱 Telegram: **${wantsTg ? "ON ✅" : "OFF ❌"}**`);
+        if (wantsTg && tgUsername) statusLines.push(`🔗 Telegram user: @${tgUsername}`);
+
+        return json({
+          type: 4,
+          data: {
+            content: `🔔 **Notification settings updated!**\n\n${statusLines.join("\n")}\n\nYou'll be notified when new shill/raid alerts drop.`,
+            flags: 64,
+          },
+        });
+      }
+
       return json({ type: 4, data: { content: "❓ Unknown modal.", flags: 64 } });
     }
 
@@ -1505,6 +1627,9 @@ serve(async (req) => {
       {
         name: "wallet", description: "Set your Solana wallet address for payouts", type: 1,
         options: [{ name: "address", description: "Your Solana public address", type: 3, required: true }],
+      },
+      {
+        name: "notify", description: "Toggle shill/raid notifications (Discord DM & Telegram)", type: 1,
       },
     ];
 

@@ -670,6 +670,58 @@ serve(async (req) => {
           console.error("[discord-watcher] Discord reply error:", e);
         }
 
+        // ── 5) Notify opted-in users (Discord DM + Telegram mention) ──
+        try {
+          const { data: notifyPrefs } = await supabase
+            .from("discord_notify_prefs")
+            .select("discord_user_id, discord_username, notify_discord_dm, notify_telegram, telegram_username")
+            .or("notify_discord_dm.eq.true,notify_telegram.eq.true");
+
+          if (notifyPrefs?.length) {
+            const alertLabel = isRaidChannel ? "⚔️ RAID" : "🚀 SHILL";
+
+            // Discord DM notifications
+            const dmUsers = notifyPrefs.filter((p: any) => p.notify_discord_dm);
+            for (const user of dmUsers) {
+              try {
+                // Open DM channel
+                const dmChannelRes = await fetch(`${DISCORD_API}/users/@me/channels`, {
+                  method: "POST",
+                  headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ recipient_id: user.discord_user_id }),
+                });
+                if (dmChannelRes.ok) {
+                  const dmChannel = await dmChannelRes.json();
+                  await fetch(`${DISCORD_API}/channels/${dmChannel.id}/messages`, {
+                    method: "POST",
+                    headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      content: `${alertLabel} **New alert just dropped!** 🔥\n\n🔗 ${tweetUrl}\n👤 Posted by: ${discordAuthor}\n\n💰 Head to the Discord to claim your click payment!`,
+                    }),
+                  });
+                }
+              } catch (dmErr) {
+                console.error(`[discord-watcher] DM to ${user.discord_user_id} failed:`, dmErr);
+              }
+            }
+
+            // Telegram mention notifications
+            const tgUsers = notifyPrefs.filter((p: any) => p.notify_telegram && p.telegram_username);
+            if (tgUsers.length > 0) {
+              const mentions = tgUsers.map((u: any) => `@${u.telegram_username}`).join(" ");
+              const tgAlertText = `${alertLabel} *Alert!*\n\n` +
+                `🔗 ${tweetUrl}\n` +
+                `👤 Posted by: \`${discordAuthor}\`\n\n` +
+                `💰 Head to Discord and start earning!\n\n` +
+                `📢 ${mentions}`;
+
+              await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, tgAlertText);
+            }
+          }
+        } catch (notifyErr) {
+          console.error("[discord-watcher] User notification error:", notifyErr);
+        }
+
         totalForwarded++;
         // ── 4) Auto-enrich tweet with X API analytics ──
         if (TWITTER_BEARER_TOKEN) {
