@@ -254,6 +254,11 @@ function RaidersTab() {
                     : <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
                 <TableCell>
+                  {r.solana_wallet
+                    ? <span className="font-mono text-xs text-foreground">{r.solana_wallet.slice(0, 4)}...{r.solana_wallet.slice(-4)}</span>
+                    : <span className="text-muted-foreground text-xs">—</span>}
+                </TableCell>
+                <TableCell>
                   <Badge variant={r.status === "active" ? "default" : "destructive"} className="text-xs">{r.status}</Badge>
                 </TableCell>
                 <TableCell className="text-right font-mono">{r.total_clicks}</TableCell>
