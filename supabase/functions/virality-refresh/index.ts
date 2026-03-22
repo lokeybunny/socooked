@@ -19,8 +19,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get tweets from last 48h that need refreshing
-    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    // Get tweets from last 24h that need refreshing
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: tweets, error } = await supabase
       .from("shill_post_analytics")
       .select("id, tweet_id, tweet_url")
