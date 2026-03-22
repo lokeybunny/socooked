@@ -50,6 +50,123 @@ async function validateXLink(url: string): Promise<{ valid: boolean; reason?: st
   }
 }
 
+/** Speed-check: enforce minimum time between click and verify.
+ *  Returns null if OK, or an error Response if too fast. 
+ *  ≤5s = warning (3 warnings → revoke auth). <15s = reject. */
+async function speedCheck(
+  supabase: ReturnType<typeof createClient>,
+  discordUserId: string,
+  discordUsername: string,
+  clickCreatedAt: string | null,
+  role: "shill" | "raid"
+): Promise<Response | null> {
+  if (!clickCreatedAt) return null;
+
+  const elapsedMs = Date.now() - new Date(clickCreatedAt).getTime();
+  const elapsedSec = elapsedMs / 1000;
+
+  // ≤5 seconds — warn + potentially revoke
+  if (elapsedSec <= 5) {
+    // Get current warning count from site_configs
+    const warningKey = `speed_warnings_${discordUserId}`;
+    const { data: existing } = await supabase
+      .from("site_configs")
+      .select("content")
+      .eq("site_id", "speed-warnings")
+      .eq("section", warningKey)
+      .maybeSingle();
+
+    const currentCount = (existing?.content as any)?.count || 0;
+    const newCount = currentCount + 1;
+
+    await supabase.from("site_configs").upsert({
+      site_id: "speed-warnings",
+      section: warningKey,
+      content: { count: newCount, last_warning: new Date().toISOString(), discord_username: discordUsername },
+      is_published: false,
+    }, { onConflict: "site_id,section" });
+
+    // 3 warnings → revoke
+    if (newCount >= 3) {
+      if (role === "raid") {
+        await supabase.from("raiders")
+          .update({ status: "revoked" })
+          .eq("discord_user_id", discordUserId);
+      }
+      // Also remove from shill assignments
+      const { data: cfgRow } = await supabase
+        .from("site_configs")
+        .select("id, content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "config")
+        .maybeSingle();
+      if (cfgRow?.content) {
+        const cfg = cfgRow.content as any;
+        if (cfg.discord_assignments && cfg.discord_assignments[discordUserId]) {
+          delete cfg.discord_assignments[discordUserId];
+          await supabase.from("site_configs")
+            .update({ content: cfg })
+            .eq("id", cfgRow.id);
+        }
+      }
+
+      await supabase.from("activity_log").insert({
+        entity_type: "speed-violation",
+        action: "revoked",
+        meta: {
+          name: `🚨 ${discordUsername} authorization REVOKED (3 speed violations)`,
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+          role,
+          warning_count: newCount,
+        },
+      });
+
+      return json({
+        type: 4,
+        data: {
+          content: `🚨 **Authorization REVOKED.**\n\nYou've been warned 3 times for verifying too quickly (${elapsedSec.toFixed(1)}s). Your ${role} access has been revoked.\n\nContact an admin to appeal.`,
+          flags: 64,
+        },
+      });
+    }
+
+    await supabase.from("activity_log").insert({
+      entity_type: "speed-violation",
+      action: "warned",
+      meta: {
+        name: `⚠️ ${discordUsername} speed warning ${newCount}/3`,
+        discord_user_id: discordUserId,
+        discord_username: discordUsername,
+        role,
+        elapsed_seconds: elapsedSec,
+        warning_count: newCount,
+      },
+    });
+
+    return json({
+      type: 4,
+      data: {
+        content: `⚠️ **Speed Warning ${newCount}/3** — You verified in ${elapsedSec.toFixed(1)}s. That's suspiciously fast.\n\n⏰ You must wait at least **15 seconds** before verifying.\n🚨 **${3 - newCount} more warning(s)** before your authorization is revoked.`,
+        flags: 64,
+      },
+    });
+  }
+
+  // <15 seconds — reject but no warning
+  if (elapsedSec < 15) {
+    return json({
+      type: 4,
+      data: {
+        content: `⏰ **Too fast!** You verified in ${elapsedSec.toFixed(0)}s. Please wait at least **15 seconds** after clicking before verifying.\n\nTry again in a moment.`,
+        flags: 64,
+      },
+    });
+  }
+
+  return null;
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
