@@ -307,6 +307,17 @@ function RaidersTab() {
     else { toast.success("Raider deleted"); fetchRaiders(); }
   };
 
+  const handleResetRaiderEarnings = async (r: Raider) => {
+    if (!confirm(`Reset all verified earnings for ${r.discord_username} to $0? This is for admin testing only.`)) return;
+    const { error } = await supabase.from("shill_clicks").update({ status: "clicked", verified_at: null })
+      .eq("discord_user_id", r.discord_user_id)
+      .eq("click_type", "raid")
+      .eq("status", "verified");
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Reset earnings for ${r.discord_username}`);
+    fetchRaiders();
+  };
+
   const totalVerifiedEarned = raiders.reduce((s, r) => {
     const v = verifiedMap.get(r.discord_user_id);
     return s + (v?.verified || 0) * r.rate_per_click;
