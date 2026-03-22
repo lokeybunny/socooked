@@ -1035,6 +1035,36 @@ serve(async (req) => {
           });
         }
 
+        // ─── Verify Raid button — show modal to enter raid URL ───
+        if (customId.startsWith("raid_verify_")) {
+          const discordMsgId = customId.replace("raid_verify_", "") || null;
+
+          return json({
+            type: 9,
+            data: {
+              custom_id: `raid_verify_submit_${discordMsgId || "unknown"}`,
+              title: "✅ Verify Your Raid",
+              components: [
+                {
+                  type: 1,
+                  components: [
+                    {
+                      type: 4,
+                      custom_id: "raid_url_input",
+                      label: "Paste your raid reply URL",
+                      style: 1,
+                      placeholder: "https://x.com/yourhandle/status/123456...",
+                      required: true,
+                      min_length: 10,
+                      max_length: 300,
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }
+
         return json({ type: 4, data: { content: "❓ Unknown action.", flags: 64 } });
       }
 
