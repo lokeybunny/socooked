@@ -398,6 +398,16 @@ function RaidersTab() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
+                    {v.verified > 0 && (
+                      <Button variant="ghost" size="sm" className="text-primary" onClick={() => setPayTarget({
+                        discord_user_id: r.discord_user_id,
+                        discord_username: r.discord_username,
+                        amount: v.verified * r.rate_per_click,
+                        verified_clicks: v.verified,
+                        payout_type: "raid",
+                        solana_wallet: r.solana_wallet,
+                      })}><Banknote className="h-3.5 w-3.5" /></Button>
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDeleteRaider(r)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                   </div>
