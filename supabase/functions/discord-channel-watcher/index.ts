@@ -528,7 +528,7 @@ serve(async (req) => {
           continue;
         }
 
-        // ── 2) Send Telegram notification ──
+        // ── 2) Send Telegram notification (main chat) ──
         const tgText = `🔍 *New Tweet from Discord*\n\n` +
           `👤 Posted by: \`${discordAuthor}\`\n` +
           `🔗 ${tweetUrl}\n\n` +
@@ -558,6 +558,21 @@ serve(async (req) => {
         } catch (e) {
           console.error("[discord-watcher] Telegram send error:", e);
         }
+
+        // ── 2b) Forward shill/raid alert to Telegram Shill Lounge ──
+        const isRaidType = listenChannelId === RAID_LISTEN_CHANNEL || replyChannelId === "1485010551196090448";
+        const alertType = isRaidType ? "⚔️ RAID" : "🚀 SHILL";
+        const loungeText = `${alertType} *Alert!*\n\n` +
+          `👤 Posted by: \`${discordAuthor}\`\n` +
+          `🔗 ${tweetUrl}\n\n` +
+          `Go to Discord to claim this ${isRaidType ? "raid" : "shill"}!`;
+        const loungeKeyboard = {
+          inline_keyboard: [
+            [{ text: `${alertType} — Open Tweet`, url: tweetUrl }],
+            [{ text: "💬 Open Discord", url: "https://discord.gg/warrenguru" }],
+          ],
+        };
+        await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, loungeText, loungeKeyboard);
 
         // ── 3) Send Discord reply to the REPLY channel ──
         const discordEmbed = {
