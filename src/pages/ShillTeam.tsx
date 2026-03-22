@@ -187,6 +187,19 @@ export default function ShillTeam() {
           </a>
         </section>
 
+        {/* Telegram */}
+        <div className="flex justify-center">
+          <a
+            href="https://t.me/+t9hUrz3q8ZE4YjBh"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button variant="outline" size="lg" className="gap-2">
+              <Send className="h-5 w-5" /> Join the Telegram Lounge
+            </Button>
+          </a>
+        </div>
+
         {/* Footer */}
         <div className="border-t border-border/40 pt-8 text-center text-xs text-muted-foreground">
           Questions? Ask in the Discord onboarding channel.
