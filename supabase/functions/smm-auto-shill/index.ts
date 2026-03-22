@@ -673,6 +673,80 @@ serve(async (req) => {
         });
       }
 
+      // ─── /payout command — user submits their Solana wallet address ───
+      if (commandName === "payout") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUserId = discordUser.id || "unknown";
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+        const walletOption = interaction.data?.options?.find((o: any) => o.name === "wallet");
+        const walletAddress = walletOption?.value?.trim();
+
+        if (!walletAddress) {
+          return json({ type: 4, data: { content: "❌ Please provide your Solana wallet address.\nUsage: `/payout wallet:<your_solana_address>`", flags: 64 } });
+        }
+
+        // Basic Solana address validation (base58, 32-44 chars)
+        const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+        if (!solanaRegex.test(walletAddress)) {
+          return json({ type: 4, data: { content: "❌ That doesn't look like a valid Solana address. Please double-check and try again.", flags: 64 } });
+        }
+
+        // Check if user exists as a raider
+        const { data: existingRaider } = await supabase
+          .from("raiders")
+          .select("id, solana_wallet")
+          .eq("discord_user_id", discordUserId)
+          .limit(1);
+
+        if (existingRaider?.length) {
+          // Update existing raider's wallet
+          await supabase.from("raiders").update({
+            solana_wallet: walletAddress,
+            updated_at: new Date().toISOString(),
+          }).eq("id", existingRaider[0].id);
+        } else {
+          // Also check shill_clicks — if they've shilled before, they're a shiller
+          const { data: shillHistory } = await supabase
+            .from("shill_clicks")
+            .select("id")
+            .eq("discord_user_id", discordUserId)
+            .limit(1);
+
+          if (shillHistory?.length) {
+            // Create a raider record for this shiller so their wallet is tracked
+            await supabase.from("raiders").insert({
+              discord_user_id: discordUserId,
+              discord_username: discordUsername,
+              solana_wallet: walletAddress,
+              status: "active",
+              rate_per_click: 0.05,
+            });
+          } else {
+            return json({ type: 4, data: { content: "❌ You don't have any shill or raid activity yet. Start clicking to earn, then set your wallet!", flags: 64 } });
+          }
+        }
+
+        // Log to activity_log
+        await supabase.from("activity_log").insert({
+          entity_type: "shill-payout",
+          action: "wallet-set",
+          meta: {
+            name: `💰 ${discordUsername} set wallet`,
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            solana_wallet: walletAddress,
+          },
+        });
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Wallet saved!**\n\n💰 \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n\nYour Solana wallet has been registered. You'll receive payouts to this address when approved by admin.`,
+            flags: 64,
+          },
+        });
+      }
+
       // ─── /shill command ───
       let tweetUrl = "";
       const profileUsername = matchedProfile || "NysonBlack";
