@@ -112,7 +112,7 @@ export default function Raiders() {
     fetchData();
   }, [fetchData]);
 
-  if (!user) return <Navigate to="/auth" replace />;
+  
   const handleAssignCode = async () => {
     if (!editRaider || !secretCodeInput.trim()) return;
 
