@@ -1640,6 +1640,42 @@ serve(async (req) => {
             : "";
         }
 
+        // ── RAID CHANNEL: random supportive comment with ticker, no link ──
+        if (isRaidChannel) {
+          const raidComments = [
+            `${shillTicker} is the one 🔥🔥🔥`,
+            `LFG ${shillTicker} 🚀🚀🚀`,
+            `${shillTicker} looking absolutely insane rn 💎`,
+            `bullish on ${shillTicker} no cap 🐂🔥`,
+            `${shillTicker} about to change lives fr 🙌`,
+            `sleeping on ${shillTicker} is crazy 😴💰`,
+            `${shillTicker} community is built different 💪🔥`,
+            `imagine not holding ${shillTicker} rn 😂🚀`,
+            `${shillTicker} vibes are immaculate ✨🤝`,
+            `${shillTicker} to the moon let's gooo 🌙🚀`,
+            `this is why ${shillTicker} hits different 💯`,
+            `${shillTicker} gang wya 🫡🔥`,
+            `${shillTicker} szn is here 📈💎`,
+            `can't stop won't stop ${shillTicker} 🏆`,
+            `${shillTicker} believers eating good 🍽️🔥`,
+            `${shillTicker} is inevitable 💎🙌`,
+            `the ${shillTicker} chart speaks for itself 📊🚀`,
+            `${shillTicker} fam we in here 🤝✨`,
+            `${shillTicker} making moves silently 🤫💰`,
+            `once you see ${shillTicker} you can't unsee it 👀🔥`,
+          ];
+          const randomComment = raidComments[Math.floor(Math.random() * raidComments.length)];
+
+          return json({
+            type: 4,
+            data: {
+              content: `📋 **Raid Copy — paste this as your reply:**\n\`\`\`\n${randomComment}\n\`\`\``,
+              flags: 64,
+            },
+          });
+        }
+
+        // ── SHILL CHANNEL: standard copy with hashtags + campaign link ──
         const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
         if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
