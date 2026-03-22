@@ -112,7 +112,7 @@ export default function ViralityTab() {
       .lt("created_at", cutoff);
     if (error) toast.error(error.message);
     else {
-      toast.success(`Pruned old tweets`);
+      toast.success("Pruned old tweets");
       load();
     }
   };
