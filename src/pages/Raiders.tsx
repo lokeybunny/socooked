@@ -22,7 +22,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check } from "lucide-react";
+import { ArrowLeft, RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check, DoorOpen } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
