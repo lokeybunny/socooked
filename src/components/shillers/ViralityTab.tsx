@@ -153,7 +153,7 @@ export default function ViralityTab() {
             {refreshing ? "Refreshing…" : "Refresh Metrics"}
           </Button>
           <Button variant="ghost" size="sm" onClick={pruneStale} className="gap-1.5 text-muted-foreground">
-            <Trash2 className="h-3.5 w-3.5" /> Prune 48h+
+            <Trash2 className="h-3.5 w-3.5" /> Prune 24h+
           </Button>
         </div>
         <p className="text-[11px] text-muted-foreground">Auto-sorted by virality score · 48h window</p>
