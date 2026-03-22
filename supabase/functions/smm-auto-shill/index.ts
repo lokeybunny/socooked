@@ -1206,7 +1206,6 @@ serve(async (req) => {
           choices: accountChoices.length > 0 ? accountChoices : undefined,
         }],
       },
-      },
       {
         name: "payout", description: "Set your Solana wallet address for payouts", type: 1,
         options: [{ name: "wallet", description: "Your Solana public address", type: 3, required: true }],
