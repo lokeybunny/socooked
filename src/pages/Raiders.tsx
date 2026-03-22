@@ -310,6 +310,7 @@ export default function Raiders() {
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(raider.created_at), { addSuffix: true })}
                   </TableCell>
+                  {user && (
                   <TableCell>
                     <div className="flex gap-1">
                       <Button
@@ -331,6 +332,7 @@ export default function Raiders() {
                       </Button>
                     </div>
                   </TableCell>
+                  )}
                 </TableRow>
               ))}
               {raiders.length === 0 && (
