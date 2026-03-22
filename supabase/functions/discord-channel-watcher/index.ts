@@ -710,7 +710,6 @@ serve(async (req) => {
             if (tgUsers.length > 0) {
               const mentions = tgUsers.map((u: any) => `@${u.telegram_username}`).join(" ");
               const tgAlertText = `${alertLabel} *Alert!*\n\n` +
-                `🔗 ${tweetUrl}\n` +
                 `👤 Posted by: \`${discordAuthor}\`\n\n` +
                 `💰 Head to Discord and start earning!\n\n` +
                 `📢 ${mentions}`;
