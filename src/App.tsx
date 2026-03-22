@@ -125,6 +125,7 @@ const App = () => (
             <Route path="/vanities" element={<Vanities />} />
             <Route path="/shillers" element={<ReplyEngine />} />
             <Route path="/shillers/raiders" element={<Raiders />} />
+            <Route path="/shill-crm" element={<RestrictedGate><ShillCRM /></RestrictedGate>} />
             <Route path="/reply-engine" element={<Navigate to="/shillers" replace />} />
             
             <Route path="*" element={<NotFound />} />

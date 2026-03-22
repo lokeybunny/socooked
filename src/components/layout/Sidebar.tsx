@@ -30,6 +30,7 @@ const navItems: NavItem[] = [
   { to: '/phone', icon: Phone, label: 'Phone', highlight: true },
   { to: '/dashboard/smm', icon: Share2, label: 'SMM', botIcon: true, divider: 'Services' },
   { to: '/shillers', icon: HardHat, label: 'Shillers', botIcon: true },
+  { to: '/shill-crm', icon: Crosshair, label: 'Shill CRM', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
 ];
 
