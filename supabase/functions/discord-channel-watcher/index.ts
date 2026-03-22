@@ -11,6 +11,33 @@ const DISCORD_API = "https://discord.com/api/v10";
 const X_API = "https://api.x.com/2";
 const EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
+// Telegram shill lounge group for forwarding alerts
+const TG_SHILL_LOUNGE = "-1002188568751";
+
+// Discord channel to auto-forward to Telegram
+const DISCORD_ANNOUNCEMENTS_CHANNEL = "1485107307842109523";
+
+/** Send a message to the Telegram shill lounge */
+async function sendToTelegramLounge(botToken: string, text: string, replyMarkup?: any) {
+  try {
+    const body: any = {
+      chat_id: TG_SHILL_LOUNGE,
+      text,
+      parse_mode: "Markdown",
+      disable_web_page_preview: false,
+    };
+    if (replyMarkup) body.reply_markup = replyMarkup;
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) console.error(`[discord-watcher] TG lounge send failed: ${await res.text()}`);
+  } catch (e) {
+    console.error("[discord-watcher] TG lounge error:", e);
+  }
+}
+
 /** Extract tweet ID from an X/Twitter URL */
 function extractTweetId(url: string): string | null {
   const m = url.match(/(?:x\.com|twitter\.com)\/\w+\/status\/(\d+)/);
