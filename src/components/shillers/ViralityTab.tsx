@@ -68,6 +68,7 @@ export default function ViralityTab() {
     const { data, error } = await supabase
       .from("shill_post_analytics")
       .select("*")
+      .or(`posted_at.gte.${cutoff},posted_at.is.null`)
       .gte("created_at", cutoff)
       .order("updated_at", { ascending: false })
       .limit(200);
