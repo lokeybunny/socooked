@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck } from 'lucide-react';
+import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck, Bell, Smartphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,11 @@ const commands = [
     name: '/balance',
     desc: 'Check your verified earnings balance. See your total clicks, earnings breakdown (shiller & raider), and wallet status.',
     icon: <DollarSign className="h-5 w-5" />,
+  },
+  {
+    name: '/notify',
+    desc: 'Toggle private alert notifications. Get DMs in Discord or @mentions in Telegram when new alerts drop — earn on the go, anywhere.',
+    icon: <Bell className="h-5 w-5" />,
   },
   {
     name: '/payout',
@@ -63,6 +68,10 @@ const faq = [
   {
     q: 'How do raiders verify their work?',
     a: 'After you post the raid reply on X, click the ✅ Verify Raid button on the alert embed in Discord. Paste your reply URL in the modal. Admins review it and approve your click.',
+  },
+  {
+    q: 'Can I earn on the go?',
+    a: "Absolutely! Use /notify to opt into private alerts. You can get Discord DMs and/or Telegram mentions whenever a new shill or raid drops. That means you can be anywhere — on your phone, at work, on the bus — and still catch alerts, verify your work, and stack earnings. It's passive income that follows you.",
   },
   {
     q: 'Can I see the leaderboards?',
@@ -150,6 +159,43 @@ export default function ShillTeam() {
               </CardContent>
             </Card>
           </div>
+        </section>
+
+        {/* Earn Anywhere */}
+        <section className="space-y-6">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Smartphone className="h-6 w-6 text-primary" /> Earn Anywhere
+          </h2>
+          <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.03] to-transparent">
+            <CardContent className="p-6 space-y-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                You don't need to sit in Discord all day. Use <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/notify</code> to turn on private alerts and <strong>get paid on the go</strong>.
+              </p>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10 text-primary shrink-0">
+                    <MessageSquare className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Discord DMs</p>
+                    <p className="text-xs text-muted-foreground">Get a private DM every time a new shill or raid alert drops. Tap, verify, earn.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-primary/10 text-primary shrink-0">
+                    <Send className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Telegram Mentions</p>
+                    <p className="text-xs text-muted-foreground">Add your @handle and get @mentioned in the Telegram Lounge when alerts fire. Works from any device.</p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground italic pt-1">
+                On the bus, at work, on your phone — alerts come to you. Every verified click is passive income stacking up for your Friday payout. 💰
+              </p>
+            </CardContent>
+          </Card>
         </section>
 
         {/* Commands */}
