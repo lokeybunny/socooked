@@ -7,7 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 const commands = [
   {
     name: '/help',
-    desc: 'View all available commands and how to get started — right inside Discord.',
+    desc: 'View all available commands and how to get started - right inside Discord.',
     icon: <MessageSquare className="h-5 w-5" />,
   },
   {
