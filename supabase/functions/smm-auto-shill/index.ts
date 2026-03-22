@@ -749,11 +749,30 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "❌ That doesn't look like a valid Solana address. Please double-check and try again.", flags: 64 } });
         }
 
+        // Check if user is an authorized raider or shiller
         const { data: existingRaider } = await supabase
           .from("raiders")
-          .select("id")
+          .select("id, status")
           .eq("discord_user_id", discordUserId)
           .limit(1);
+
+        const isRaider = existingRaider?.length && existingRaider[0].status === "active";
+
+        // Check if user is an authorized shiller (has a discord assignment)
+        const { data: shillConfigs } = await supabase
+          .from("site_configs")
+          .select("content")
+          .eq("site_id", "smm-auto-shill");
+        
+        let isShiller = false;
+        for (const row of (shillConfigs || [])) {
+          const assignments = (row.content as any)?.discord_assignments || {};
+          if (assignments[discordUserId]) { isShiller = true; break; }
+        }
+
+        if (!isRaider && !isShiller) {
+          return json({ type: 4, data: { content: "❌ **Access denied.** You must be an authorized shiller or raider to set a wallet.\n\nShillers: use `/authorize` first.\nRaiders: get your secret code from an admin.", flags: 64 } });
+        }
 
         if (existingRaider?.length) {
           await supabase.from("raiders").update({
