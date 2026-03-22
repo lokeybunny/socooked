@@ -209,7 +209,7 @@ export default function ReplyEngine() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm text-foreground">{entry.discord_author}</span>
+                                <span className="font-medium text-sm text-foreground flex items-center gap-1">@{entry.discord_author}<BadgeCheck className="h-3.5 w-3.5 text-blue-500" /></span>
                                 <Badge
                                   variant="outline"
                                   className={`text-[9px] ${entry.type === "clicked" ? "border-green-500/30 text-green-500" : ""}`}
