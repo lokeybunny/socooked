@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { Suspense } from 'react';
 import DomainLanding from "./components/DomainLanding";
+import { AuthLayoutGate } from "./components/layout/AuthLayoutGate";
 
 // Redirect /warren-landing to warren.guru
 function WarrenRedirect() {
