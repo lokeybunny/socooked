@@ -133,10 +133,27 @@ function RaidersTab() {
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+  const [verifiedMap, setVerifiedMap] = useState<Map<string, { verified: number; pending: number }>>(new Map());
+
   const fetchRaiders = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase.from("raiders").select("*").order("total_clicks", { ascending: false });
     setRaiders((data as Raider[]) || []);
+
+    // Fetch verified/pending counts from shill_clicks for raids
+    const { data: raidClicks } = await supabase
+      .from("shill_clicks")
+      .select("discord_user_id, status")
+      .eq("click_type", "raid");
+
+    const vMap = new Map<string, { verified: number; pending: number }>();
+    for (const c of raidClicks || []) {
+      const entry = vMap.get(c.discord_user_id) || { verified: 0, pending: 0 };
+      if (c.status === "verified") entry.verified++;
+      else if (c.status === "clicked") entry.pending++;
+      vMap.set(c.discord_user_id, entry);
+    }
+    setVerifiedMap(vMap);
     setLoading(false);
   }, []);
 
