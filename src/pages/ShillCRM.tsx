@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check,
-  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink,
+  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
