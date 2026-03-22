@@ -1702,6 +1702,266 @@ serve(async (req) => {
         });
       }
 
+      // ─── Shill verify modal submit — shiller provides their post URL (instant verification) ───
+      if (customId.startsWith("shill_verify_submit_")) {
+        const discordMsgId = customId.replace("shill_verify_submit_", "") || null;
+
+        const components = interaction.data?.components || [];
+        let verifyUrl = "";
+        for (const row of components) {
+          for (const comp of row.components || []) {
+            if (comp.custom_id === "shill_verify_url_input") {
+              verifyUrl = (comp.value || "").trim();
+            }
+          }
+        }
+
+        if (!verifyUrl) {
+          return json({ type: 4, data: { content: "❌ No URL provided. Try again.", flags: 64 } });
+        }
+
+        const isValidUrl = /https?:\/\/(x\.com|twitter\.com)\/\S+/i.test(verifyUrl);
+        if (!isValidUrl) {
+          return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL.", flags: 64 } });
+        }
+
+        // Find this user's pending click for this message and verify it immediately
+        const { data: pendingClick } = await supabase
+          .from("shill_clicks")
+          .select("id")
+          .eq("discord_user_id", discordUserId)
+          .eq("discord_msg_id", discordMsgId !== "unknown" ? discordMsgId : null)
+          .eq("status", "clicked")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (!pendingClick?.length) {
+          return json({ type: 4, data: { content: "❌ No pending shill click found. Click **🚀 SHILL NOW** first.", flags: 64 } });
+        }
+
+        // Mark as verified immediately
+        await supabase.from("shill_clicks").update({
+          status: "verified",
+          verified_at: new Date().toISOString(),
+          receipt_tweet_url: verifyUrl,
+        }).eq("id", pendingClick[0].id);
+
+        // Audit log
+        await supabase.from("activity_log").insert({
+          entity_type: "shill-verification",
+          action: "self-verified",
+          meta: {
+            name: `✅ ${discordUsername} self-verified shill`,
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            verify_url: verifyUrl,
+            discord_msg_id: discordMsgId,
+          },
+        });
+
+        // ── Forward the verified URL to the raid room as a new alert ──
+        const RAID_REPLY_CHANNEL = "1485010551196090448";
+        const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+
+        if (DISCORD_BOT_TOKEN_ENV) {
+          const expiresAtMs = Date.now() + 5 * 60 * 1000;
+          const expiresAt = Math.floor(expiresAtMs / 1000);
+
+          const raidEmbed = {
+            title: "⚔️ New Raid Target — Verified Shill",
+            description: `**Shilled by:** ${discordUsername}\n[Open Tweet](${verifyUrl})`,
+            color: 0x00FF00,
+            footer: { text: "⏱️ Auto-deletes in 5 minutes" },
+            fields: [
+              { name: "⏰ Expires", value: `<t:${expiresAt}:R>`, inline: true },
+            ],
+          };
+
+          const raidMsgId = `sv_${Date.now()}`;
+          const raidButtonRow = [
+            { type: 2, style: 1, label: "⚔️ RAID NOW", custom_id: `shill_now_${raidMsgId}` },
+            { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${raidMsgId}` },
+            { type: 2, style: 3, label: "✅ Verify Raid", custom_id: `raid_verify_${raidMsgId}` },
+            { type: 2, style: 4, label: "🚫 Bad Link", custom_id: `bad_link_${raidMsgId}` },
+          ];
+
+          try {
+            const raidRes = await fetch(`https://discord.com/api/v10/channels/${RAID_REPLY_CHANNEL}/messages`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                embeds: [raidEmbed],
+                components: [{ type: 1, components: raidButtonRow }],
+              }),
+            });
+
+            if (raidRes.ok) {
+              const raidBotMsg = await raidRes.json();
+              // Track for auto-cleanup
+              await supabase.from("activity_log").insert({
+                entity_type: "shill-bot-msg",
+                action: "pending",
+                meta: {
+                  bot_message_id: raidBotMsg.id,
+                  channel_id: RAID_REPLY_CHANNEL,
+                  discord_msg_id: raidMsgId,
+                  tweet_url: verifyUrl,
+                  shiller_discord_user_id: discordUserId,
+                  shiller_discord_username: discordUsername,
+                  expires_at: new Date(expiresAtMs).toISOString(),
+                },
+              });
+            } else {
+              console.error("[auto-shill] Failed to forward to raid room:", await raidRes.text());
+            }
+          } catch (e) {
+            console.error("[auto-shill] Raid room forward error:", e);
+          }
+        }
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Shill verified!** 💰\n\n🔗 Your post: ${verifyUrl}\n👤 \`${discordUsername}\`\n\n✅ Payment confirmed ($0.05)\n📡 Your link has been forwarded to the raid room for raiders to boost!`,
+            flags: 64,
+          },
+        });
+      }
+
+      // ─── Bad Link confirmation modal submit — raider confirms bad link ───
+      if (customId.startsWith("bad_link_confirm_")) {
+        const discordMsgId = customId.replace("bad_link_confirm_", "") || null;
+
+        const components = interaction.data?.components || [];
+        let confirmValue = "";
+        for (const row of components) {
+          for (const comp of row.components || []) {
+            if (comp.custom_id === "bad_link_confirm_input") {
+              confirmValue = (comp.value || "").trim().toUpperCase();
+            }
+          }
+        }
+
+        if (confirmValue !== "YES") {
+          return json({ type: 4, data: { content: "❌ Action cancelled. Type `YES` to confirm a bad link.", flags: 64 } });
+        }
+
+        // Get the tweet URL from the message embed
+        let badTweetUrl = "";
+        const embeds = interaction.message?.embeds || [];
+        if (embeds.length > 0) {
+          const desc = embeds[0].description || "";
+          const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
+          if (urlMatch) badTweetUrl = urlMatch[0].replace(/[)\]}>]+$/, "");
+        }
+
+        // Find the shiller who verified this link (check the bot message tracker)
+        let shillerUserId: string | null = null;
+        let shillerUsername: string | null = null;
+
+        if (discordMsgId) {
+          const { data: trackedMsg } = await supabase
+            .from("activity_log")
+            .select("meta")
+            .eq("entity_type", "shill-bot-msg")
+            .contains("meta", { discord_msg_id: discordMsgId })
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (trackedMsg) {
+            const meta = trackedMsg.meta as any;
+            shillerUserId = meta?.shiller_discord_user_id || null;
+            shillerUsername = meta?.shiller_discord_username || null;
+          }
+        }
+
+        // Also find by receipt_tweet_url match
+        if (badTweetUrl) {
+          const { data: verifiedClicks } = await supabase
+            .from("shill_clicks")
+            .select("id, discord_user_id, discord_username")
+            .eq("receipt_tweet_url", badTweetUrl)
+            .eq("status", "verified")
+            .limit(10);
+
+          if (verifiedClicks?.length) {
+            // Unverify all matching verified clicks
+            for (const click of verifiedClicks) {
+              await supabase.from("shill_clicks").update({
+                status: "flagged_bad",
+                verified_at: null,
+              }).eq("id", click.id);
+
+              if (!shillerUserId) {
+                shillerUserId = click.discord_user_id;
+                shillerUsername = click.discord_username;
+              }
+            }
+          }
+        }
+
+        // Also unverify by shiller user ID if we found one
+        if (shillerUserId && discordMsgId) {
+          await supabase.from("shill_clicks").update({
+            status: "flagged_bad",
+            verified_at: null,
+          })
+          .eq("discord_user_id", shillerUserId)
+          .eq("receipt_tweet_url", badTweetUrl)
+          .eq("status", "verified");
+        }
+
+        // Mark the bot message as expired/stopped
+        if (discordMsgId) {
+          await supabase.from("activity_log")
+            .update({ action: "flagged_bad" })
+            .eq("entity_type", "shill-bot-msg")
+            .contains("meta", { discord_msg_id: discordMsgId });
+        }
+
+        // Delete the raid room bot message to stop the shill
+        const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+        if (DISCORD_BOT_TOKEN_ENV && interaction.message?.id && interaction.channel_id) {
+          try {
+            await fetch(`https://discord.com/api/v10/channels/${interaction.channel_id}/messages/${interaction.message.id}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` },
+            });
+          } catch (e) {
+            console.error("[auto-shill] Failed to delete bad link message:", e);
+          }
+        }
+
+        // Audit log
+        await supabase.from("activity_log").insert({
+          entity_type: "shill-bad-link",
+          action: "flagged",
+          meta: {
+            name: `🚫 ${discordUsername} flagged bad link`,
+            flagged_by_discord_user_id: discordUserId,
+            flagged_by_discord_username: discordUsername,
+            shiller_discord_user_id: shillerUserId,
+            shiller_discord_username: shillerUsername,
+            bad_url: badTweetUrl,
+            discord_msg_id: discordMsgId,
+          },
+        });
+
+        const shillerNote = shillerUsername ? `\n👤 Shiller: \`${shillerUsername}\` — payment unverified` : "";
+
+        return json({
+          type: 4,
+          data: {
+            content: `🚫 **Bad link confirmed!**\n\n🔗 ${badTweetUrl || "Unknown URL"}${shillerNote}\n\n✅ Shill stopped and shiller's payment has been revoked.\n🙏 Thanks for keeping the team honest, \`${discordUsername}\`!`,
+            flags: 64,
+          },
+        });
+      }
+
       // ─── Notify settings modal submit ───
       if (customId === "notify_settings_submit") {
         const components = interaction.data?.components || [];
