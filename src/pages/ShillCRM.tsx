@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check,
-  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt, Inbox, CheckCircle2, XCircle, Clock,
+  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt, Inbox, CheckCircle2, XCircle, Clock, RotateCcw,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -307,6 +307,17 @@ function RaidersTab() {
     else { toast.success("Raider deleted"); fetchRaiders(); }
   };
 
+  const handleResetRaiderEarnings = async (r: Raider) => {
+    if (!confirm(`Reset all verified earnings for ${r.discord_username} to $0? This is for admin testing only.`)) return;
+    const { error } = await supabase.from("shill_clicks").update({ status: "clicked", verified_at: null })
+      .eq("discord_user_id", r.discord_user_id)
+      .eq("click_type", "raid")
+      .eq("status", "verified");
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Reset earnings for ${r.discord_username}`);
+    fetchRaiders();
+  };
+
   const totalVerifiedEarned = raiders.reduce((s, r) => {
     const v = verifiedMap.get(r.discord_user_id);
     return s + (v?.verified || 0) * r.rate_per_click;
@@ -411,6 +422,9 @@ function RaidersTab() {
                       })}><Banknote className="h-3.5 w-3.5" /></Button>
                     )}
                     <Button variant="ghost" size="sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
+                    {v.verified > 0 && (
+                      <Button variant="ghost" size="sm" title="Reset earnings (test)" onClick={() => handleResetRaiderEarnings(r)}><RotateCcw className="h-3.5 w-3.5 text-yellow-500" /></Button>
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => handleDeleteRaider(r)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                   </div>
                 </TableCell>
@@ -578,6 +592,17 @@ function ShillersTab() {
     fetchShillers();
   };
 
+  const handleResetShillerEarnings = async (s: ShillerRow) => {
+    if (!confirm(`Reset all verified earnings for ${s.discord_username} to $0? This is for admin testing only.`)) return;
+    const { error } = await supabase.from("shill_clicks").update({ status: "clicked", verified_at: null })
+      .eq("discord_user_id", s.discord_user_id)
+      .eq("click_type", "shill")
+      .eq("status", "verified");
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Reset earnings for ${s.discord_username}`);
+    fetchShillers();
+  };
+
   const totalVerifiedEarned = shillers.reduce((s, sh) => s + sh.verified_earned, 0);
   const totalPending = shillers.reduce((s, sh) => s + sh.pending_count, 0);
 
@@ -633,6 +658,9 @@ function ShillersTab() {
                         payout_type: "shill",
                         solana_wallet: s.solana_wallet,
                       })}><Banknote className="h-3.5 w-3.5" /></Button>
+                    )}
+                    {s.verified_earned > 0 && (
+                      <Button variant="ghost" size="sm" title="Reset earnings (test)" onClick={() => handleResetShillerEarnings(s)}><RotateCcw className="h-3.5 w-3.5 text-yellow-500" /></Button>
                     )}
                     <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
                   </div>
