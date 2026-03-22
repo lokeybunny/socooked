@@ -1,0 +1,1 @@
+ALTER TABLE public.raiders ADD COLUMN IF NOT EXISTS solana_wallet text DEFAULT null;

@@ -1782,6 +1782,7 @@ export type Database = {
           id: string
           rate_per_click: number
           secret_code: string | null
+          solana_wallet: string | null
           status: string
           total_clicks: number
           total_earned: number
@@ -1794,6 +1795,7 @@ export type Database = {
           id?: string
           rate_per_click?: number
           secret_code?: string | null
+          solana_wallet?: string | null
           status?: string
           total_clicks?: number
           total_earned?: number
@@ -1806,6 +1808,7 @@ export type Database = {
           id?: string
           rate_per_click?: number
           secret_code?: string | null
+          solana_wallet?: string | null
           status?: string
           total_clicks?: number
           total_earned?: number
