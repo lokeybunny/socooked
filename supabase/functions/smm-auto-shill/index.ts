@@ -50,6 +50,123 @@ async function validateXLink(url: string): Promise<{ valid: boolean; reason?: st
   }
 }
 
+/** Speed-check: enforce minimum time between click and verify.
+ *  Returns null if OK, or an error Response if too fast. 
+ *  ≤5s = warning (3 warnings → revoke auth). <15s = reject. */
+async function speedCheck(
+  supabase: ReturnType<typeof createClient>,
+  discordUserId: string,
+  discordUsername: string,
+  clickCreatedAt: string | null,
+  role: "shill" | "raid"
+): Promise<Response | null> {
+  if (!clickCreatedAt) return null;
+
+  const elapsedMs = Date.now() - new Date(clickCreatedAt).getTime();
+  const elapsedSec = elapsedMs / 1000;
+
+  // ≤5 seconds — warn + potentially revoke
+  if (elapsedSec <= 5) {
+    // Get current warning count from site_configs
+    const warningKey = `speed_warnings_${discordUserId}`;
+    const { data: existing } = await supabase
+      .from("site_configs")
+      .select("content")
+      .eq("site_id", "speed-warnings")
+      .eq("section", warningKey)
+      .maybeSingle();
+
+    const currentCount = (existing?.content as any)?.count || 0;
+    const newCount = currentCount + 1;
+
+    await supabase.from("site_configs").upsert({
+      site_id: "speed-warnings",
+      section: warningKey,
+      content: { count: newCount, last_warning: new Date().toISOString(), discord_username: discordUsername },
+      is_published: false,
+    }, { onConflict: "site_id,section" });
+
+    // 3 warnings → revoke
+    if (newCount >= 3) {
+      if (role === "raid") {
+        await supabase.from("raiders")
+          .update({ status: "revoked" })
+          .eq("discord_user_id", discordUserId);
+      }
+      // Also remove from shill assignments
+      const { data: cfgRow } = await supabase
+        .from("site_configs")
+        .select("id, content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "config")
+        .maybeSingle();
+      if (cfgRow?.content) {
+        const cfg = cfgRow.content as any;
+        if (cfg.discord_assignments && cfg.discord_assignments[discordUserId]) {
+          delete cfg.discord_assignments[discordUserId];
+          await supabase.from("site_configs")
+            .update({ content: cfg })
+            .eq("id", cfgRow.id);
+        }
+      }
+
+      await supabase.from("activity_log").insert({
+        entity_type: "speed-violation",
+        action: "revoked",
+        meta: {
+          name: `🚨 ${discordUsername} authorization REVOKED (3 speed violations)`,
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+          role,
+          warning_count: newCount,
+        },
+      });
+
+      return json({
+        type: 4,
+        data: {
+          content: `🚨 **Authorization REVOKED.**\n\nYou've been warned 3 times for verifying too quickly (${elapsedSec.toFixed(1)}s). Your ${role} access has been revoked.\n\nContact an admin to appeal.`,
+          flags: 64,
+        },
+      });
+    }
+
+    await supabase.from("activity_log").insert({
+      entity_type: "speed-violation",
+      action: "warned",
+      meta: {
+        name: `⚠️ ${discordUsername} speed warning ${newCount}/3`,
+        discord_user_id: discordUserId,
+        discord_username: discordUsername,
+        role,
+        elapsed_seconds: elapsedSec,
+        warning_count: newCount,
+      },
+    });
+
+    return json({
+      type: 4,
+      data: {
+        content: `⚠️ **Speed Warning ${newCount}/3** — You verified in ${elapsedSec.toFixed(1)}s. That's suspiciously fast.\n\n⏰ You must wait at least **15 seconds** before verifying.\n🚨 **${3 - newCount} more warning(s)** before your authorization is revoked.`,
+        flags: 64,
+      },
+    });
+  }
+
+  // <15 seconds — reject but no warning
+  if (elapsedSec < 15) {
+    return json({
+      type: 4,
+      data: {
+        content: `⏰ **Too fast!** You verified in ${elapsedSec.toFixed(0)}s. Please wait at least **15 seconds** after clicking before verifying.\n\nTry again in a moment.`,
+        flags: 64,
+      },
+    });
+  }
+
+  return null;
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -1710,6 +1827,29 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "⚠️ You've already submitted this URL for verification.", flags: 64 } });
         }
 
+        // Speed check — find most recent raid click for this user on this message
+        const { data: recentRaidClick } = await supabase
+          .from("shill_clicks")
+          .select("created_at")
+          .eq("discord_user_id", discordUserId)
+          .eq("click_type", "raid")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        // Also check shill click for same msg (they may have clicked shill_now first)
+        const { data: recentShillClick } = await supabase
+          .from("shill_clicks")
+          .select("created_at")
+          .eq("discord_user_id", discordUserId)
+          .eq("discord_msg_id", discordMsgId !== "unknown" ? discordMsgId : null)
+          .eq("click_type", "shill")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        const raidClickTime = recentRaidClick?.[0]?.created_at || recentShillClick?.[0]?.created_at || null;
+        const raidSpeedResult = await speedCheck(supabase, discordUserId, discordUsername, raidClickTime, "raid");
+        if (raidSpeedResult) return raidSpeedResult;
+
         // Insert verification record for admin auditing
         await supabase.from("shill_clicks").insert({
           discord_user_id: discordUserId,
@@ -1779,7 +1919,7 @@ serve(async (req) => {
         // Find this user's pending click for this message and verify it immediately
         const { data: pendingClick } = await supabase
           .from("shill_clicks")
-          .select("id")
+          .select("id, created_at")
           .eq("discord_user_id", discordUserId)
           .eq("discord_msg_id", discordMsgId !== "unknown" ? discordMsgId : null)
           .eq("status", "clicked")
@@ -1789,6 +1929,10 @@ serve(async (req) => {
         if (!pendingClick?.length) {
           return json({ type: 4, data: { content: "❌ No pending shill click found. Click **🚀 SHILL NOW** first.", flags: 64 } });
         }
+
+        // Speed check — must wait ≥15s after clicking SHILL NOW
+        const shillSpeedResult = await speedCheck(supabase, discordUserId, discordUsername, pendingClick[0].created_at, "shill");
+        if (shillSpeedResult) return shillSpeedResult;
 
         // Mark as verified immediately
         await supabase.from("shill_clicks").update({
