@@ -184,7 +184,43 @@ export default function ShillTeam() {
           </Accordion>
         </section>
 
-        {/* CTA */}
+        {/* Public Dashboards */}
+        <section className="space-y-6">
+          <h2 className="text-2xl font-bold">Live Dashboards</h2>
+          <p className="text-muted-foreground text-sm">View real-time stats, verified work, and earnings for both teams — no login required.</p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <Link to="/shillers">
+              <Card className="bg-card/50 border-border/50 hover:border-primary/40 transition-colors cursor-pointer">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10 text-primary">
+                    <Zap className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">Shiller Leaderboard</p>
+                    <p className="text-xs text-muted-foreground">View active shillers, verified clicks &amp; earnings at $0.05/click</p>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground ml-auto" />
+                </CardContent>
+              </Card>
+            </Link>
+            <Link to="/shillers/raiders">
+              <Card className="bg-card/50 border-border/50 hover:border-primary/40 transition-colors cursor-pointer">
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="flex items-center justify-center h-10 w-10 rounded-full bg-accent/10 text-accent-foreground">
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">Raider Leaderboard</p>
+                    <p className="text-xs text-muted-foreground">View active raiders, verified raids &amp; earnings at $0.02/click</p>
+                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground ml-auto" />
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        </section>
+
+
         <section className="text-center space-y-4 py-4">
           <h2 className="text-2xl font-bold">Ready to Start Earning?</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">Open a ticket in our Discord to get onboarded and receive your role.</p>
