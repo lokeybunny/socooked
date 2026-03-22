@@ -1675,6 +1675,12 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL. Please paste the direct link to your reply.", flags: 64 } });
         }
 
+        // Live link validation — check the tweet actually exists
+        const raidLinkCheck = await validateXLink(raidUrl);
+        if (!raidLinkCheck.valid) {
+          return json({ type: 4, data: { content: `❌ **Broken link detected.** ${raidLinkCheck.reason || "The tweet doesn't exist or was deleted."}`, flags: 64 } });
+        }
+
         // Get raider info
         const { data: raider } = await supabase
           .from("raiders")
