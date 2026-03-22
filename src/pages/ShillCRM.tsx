@@ -266,15 +266,18 @@ function RaidersTab() {
               <TableHead>Secret Code</TableHead>
               <TableHead>Solana Wallet</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Clicks</TableHead>
+              <TableHead className="text-right">Verified</TableHead>
+              <TableHead className="text-right">Pending</TableHead>
               <TableHead className="text-right">Rate</TableHead>
-              <TableHead className="text-right">Earned</TableHead>
+              <TableHead className="text-right">Owed</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {raiders.map(r => (
+            {raiders.map(r => {
+              const v = verifiedMap.get(r.discord_user_id) || { verified: 0, pending: 0 };
+              return (
               <TableRow key={r.id}>
                 <TableCell className="font-medium">{r.discord_username}</TableCell>
                 <TableCell>
@@ -290,9 +293,10 @@ function RaidersTab() {
                 <TableCell>
                   <Badge variant={r.status === "active" ? "default" : "destructive"} className="text-xs">{r.status}</Badge>
                 </TableCell>
-                <TableCell className="text-right font-mono">{r.total_clicks}</TableCell>
+                <TableCell className="text-right font-mono">{v.verified}</TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">{v.pending}</TableCell>
                 <TableCell className="text-right font-mono">${r.rate_per_click}</TableCell>
-                <TableCell className="text-right font-mono">${(r.total_clicks * r.rate_per_click).toFixed(2)}</TableCell>
+                <TableCell className="text-right font-mono">${(v.verified * r.rate_per_click).toFixed(2)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
                 </TableCell>
@@ -303,10 +307,11 @@ function RaidersTab() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
             {raiders.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">No raiders yet.</TableCell>
+                <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">No raiders yet.</TableCell>
               </TableRow>
             )}
           </TableBody>
