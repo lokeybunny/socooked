@@ -592,7 +592,17 @@ function ShillersTab() {
     fetchShillers();
   };
 
-  const totalVerifiedEarned = shillers.reduce((s, sh) => s + sh.verified_earned, 0);
+  const handleResetShillerEarnings = async (s: ShillerRow) => {
+    if (!confirm(`Reset all verified earnings for ${s.discord_username} to $0? This is for admin testing only.`)) return;
+    const { error } = await supabase.from("shill_clicks").update({ status: "clicked", verified_at: null })
+      .eq("discord_user_id", s.discord_user_id)
+      .eq("click_type", "shill")
+      .eq("status", "verified");
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Reset earnings for ${s.discord_username}`);
+    fetchShillers();
+  };
+
   const totalPending = shillers.reduce((s, sh) => s + sh.pending_count, 0);
 
   return (
