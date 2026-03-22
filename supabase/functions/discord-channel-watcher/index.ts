@@ -559,20 +559,44 @@ serve(async (req) => {
           console.error("[discord-watcher] Telegram send error:", e);
         }
 
-        // ── 2b) Forward shill/raid alert to Telegram Shill Lounge ──
-        const isRaidType = listenChannelId === RAID_LISTEN_CHANNEL || replyChannelId === "1485010551196090448";
-        const alertType = isRaidType ? "⚔️ RAID" : "🚀 SHILL";
-        const loungeText = `${alertType} *Alert!*\n\n` +
-          `👤 Posted by: \`${discordAuthor}\`\n` +
-          `🔗 ${tweetUrl}\n\n` +
-          `Go to Discord to claim this ${isRaidType ? "raid" : "shill"}!`;
-        const loungeKeyboard = {
-          inline_keyboard: [
-            [{ text: `${alertType} — Open Tweet`, url: tweetUrl }],
-            [{ text: "💬 Open Discord", url: "https://discord.gg/warrenguru" }],
-          ],
-        };
-        await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, loungeText, loungeKeyboard);
+        // ── 2b) Forward shill/raid alert to Telegram Shill Lounge (max 1x per 30 min) ──
+        const LOUNGE_THROTTLE_MS = 30 * 60 * 1000;
+        let shouldSendLounge = true;
+
+        const { data: lastLoungeFwd } = await supabase
+          .from("site_configs")
+          .select("content")
+          .eq("site_id", "smm-auto-shill")
+          .eq("section", "tg-lounge-throttle")
+          .single();
+
+        const lastLoungeTs = (lastLoungeFwd?.content as any)?.last_sent_at;
+        if (lastLoungeTs && (Date.now() - new Date(lastLoungeTs).getTime()) < LOUNGE_THROTTLE_MS) {
+          shouldSendLounge = false;
+          console.log(`[discord-watcher] Lounge throttle active, skipping TG forward`);
+        }
+
+        if (shouldSendLounge) {
+          const isRaidType = listenChannelId === RAID_LISTEN_CHANNEL || replyChannelId === "1485010551196090448";
+          const alertType = isRaidType ? "⚔️ RAID" : "🚀 SHILL";
+          const loungeText = `${alertType} *New Alert Dropped!*\n\n` +
+            `💰 There are click payments waiting in the Discord — head over and start earning!\n\n` +
+            `Whether you're already on the team or just getting started, every click counts. 🤑\n\n` +
+            `👇 Tap below to jump in:`;
+          const loungeKeyboard = {
+            inline_keyboard: [
+              [{ text: `${alertType} — Open Tweet`, url: tweetUrl }],
+              [{ text: "💬 Join Discord & Start Earning", url: "https://discord.gg/warrenguru" }],
+            ],
+          };
+          await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, loungeText, loungeKeyboard);
+
+          await supabase.from("site_configs").upsert({
+            site_id: "smm-auto-shill",
+            section: "tg-lounge-throttle",
+            content: { last_sent_at: new Date().toISOString() },
+          }, { onConflict: "site_id,section" });
+        }
 
         // ── 3) Send Discord reply to the REPLY channel ──
         const discordEmbed = {
