@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
         ok: true,
         tweets_this_hour: tweetsThisHour,
         hourly_avg: hourlyAvg,
-        potential_earnings: totalPotentialEarnings.toFixed(2),
+        potential_earnings: potentialEarnings.toFixed(2),
         discord: discordResults,
         telegram: tgOk,
       }),
