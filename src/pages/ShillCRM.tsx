@@ -156,7 +156,163 @@ function PayoutDialog({ target, onClose, onPaid }: { target: PayoutTarget | null
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
+/* ─── Campaign Tab ─── */
+const SHILL_FUNC_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smm-auto-shill`;
+const shillHeaders = {
+  'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+  'Content-Type': 'application/json',
+};
+
+function CampaignTab() {
+  const [config, setConfig] = useState({
+    enabled: false, campaign_url: '', ticker: '',
+    discord_app_id: '', discord_public_key: '',
+    discord_channel_id: '', discord_listen_channel_id: '', discord_reply_channel_id: '',
+    team_accounts: [] as string[], retweet_accounts: [] as string[],
+    account_hashtags: {} as Record<string, string>,
+    discord_assignments: {} as Record<string, string>,
+    discord_usernames: {} as Record<string, string>,
+  });
+  const [feed, setFeed] = useState<{ id: string; action: string; meta: any; created_at: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const profileUsername = 'NysonBlack';
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [configRes, feedRes] = await Promise.all([
+        fetch(`${SHILL_FUNC_URL}?action=get-config&profile=${profileUsername}`, { headers: shillHeaders }).then(r => r.json()),
+        fetch(`${SHILL_FUNC_URL}?action=feed&profile=${profileUsername}`, { headers: shillHeaders }).then(r => r.json()),
+      ]);
+      if (configRes?.config) {
+        setConfig(prev => ({
+          ...prev, ...configRes.config,
+          team_accounts: configRes.config.team_accounts || [],
+          retweet_accounts: configRes.config.retweet_accounts || [],
+          account_hashtags: configRes.config.account_hashtags || {},
+          discord_assignments: configRes.config.discord_assignments || {},
+          discord_usernames: configRes.config.discord_usernames || {},
+        }));
+      }
+      if (feedRes?.feed) setFeed(feedRes.feed);
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await fetch(`${SHILL_FUNC_URL}?action=save-config`, {
+        method: 'POST', headers: shillHeaders,
+        body: JSON.stringify({ profile_username: profileUsername, ...config }),
+      });
+      toast.success('Campaign config saved');
+    } catch { toast.error('Failed to save'); }
+    setSaving(false);
+  };
+
+  const receivedCount = feed.filter(e => e.action === 'received').length;
+  const repliedCount = feed.filter(e => e.action === 'replied').length;
+  const failedCount = feed.filter(e => e.action === 'failed').length;
+  const cooldownCount = feed.filter(e => e.action === 'cooldown').length;
+  const retweetedCount = feed.filter(e => e.action === 'retweeted').length;
+
+  if (loading) return <div className="flex items-center justify-center py-12"><RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" /> Auto Shill Campaign
+          </h2>
+          <Badge variant={config.enabled ? "default" : "secondary"} className="text-[10px]">{config.enabled ? "ENABLED" : "DISABLED"}</Badge>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={loadData}><RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}><Save className="h-3.5 w-3.5 mr-1.5" /> {saving ? "Saving…" : "Save"}</Button>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-lg border border-border p-3">
+            <span className="text-sm font-medium">Enable Auto Shill</span>
+            <Switch checked={config.enabled} onCheckedChange={(v) => setConfig(prev => ({ ...prev, enabled: v }))} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Ticker</label>
+            <Input value={config.ticker} onChange={(e) => setConfig(prev => ({ ...prev, ticker: e.target.value }))} placeholder="e.g. $whitehouse" className="h-8 text-sm font-mono" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Campaign URL</label>
+            <Input value={config.campaign_url} onChange={(e) => setConfig(prev => ({ ...prev, campaign_url: e.target.value }))} placeholder="https://x.com/community/post/..." className="h-8 text-sm font-mono" />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Listen Channel ID</label>
+            <Input value={config.discord_listen_channel_id || config.discord_channel_id} onChange={(e) => setConfig(prev => ({ ...prev, discord_listen_channel_id: e.target.value }))} className="h-8 text-sm font-mono" />
+            <p className="text-[10px] text-muted-foreground">Channel where users paste X links.</p>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Reply Channel ID</label>
+            <Input value={config.discord_reply_channel_id || config.discord_channel_id} onChange={(e) => setConfig(prev => ({ ...prev, discord_reply_channel_id: e.target.value }))} className="h-8 text-sm font-mono" />
+            <p className="text-[10px] text-muted-foreground">Channel where SHILL NOW alerts post.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      {feed.length > 0 && (
+        <div className="grid grid-cols-5 gap-2 rounded-md border border-border p-3 bg-muted/30">
+          <div className="text-center">
+            <p className="text-lg font-bold text-foreground">{receivedCount}</p>
+            <p className="text-[10px] text-muted-foreground">Received</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold text-green-500">{repliedCount}</p>
+            <p className="text-[10px] text-muted-foreground">Replied</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold text-blue-500">{retweetedCount}</p>
+            <p className="text-[10px] text-muted-foreground">Retweeted</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold text-destructive">{failedCount}</p>
+            <p className="text-[10px] text-muted-foreground">Failed</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold text-yellow-500">{cooldownCount}</p>
+            <p className="text-[10px] text-muted-foreground">Cooldown</p>
+          </div>
+        </div>
+      )}
+
+      {/* Discord Bot Advanced */}
+      <details className="rounded-md border border-border p-3 bg-muted/30">
+        <summary className="text-xs font-semibold text-primary cursor-pointer">Discord Bot Settings (Advanced)</summary>
+        <div className="grid md:grid-cols-2 gap-3 mt-3">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Application ID</label>
+            <Input value={config.discord_app_id} onChange={(e) => setConfig(prev => ({ ...prev, discord_app_id: e.target.value }))} className="h-7 text-xs font-mono" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Public Key</label>
+            <Input value={config.discord_public_key} onChange={(e) => setConfig(prev => ({ ...prev, discord_public_key: e.target.value }))} className="h-7 text-xs font-mono" />
+          </div>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+
    MAIN PAGE
    ═══════════════════════════════════════════════════════════ */
 export default function ShillCRM() {
