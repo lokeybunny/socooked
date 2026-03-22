@@ -2134,6 +2134,32 @@ Deno.serve(async (req) => {
     console.log('[tg] in:', rawBody.slice(0, 150))
     const update = parsedBody
 
+    // ─── NEW MEMBER WELCOME for Shill Lounge (-1002188568751) ───
+    const SHILL_LOUNGE_ID = -1002188568751
+    if (update.message?.new_chat_members && update.message.chat.id === SHILL_LOUNGE_ID) {
+      const newMembers = update.message.new_chat_members
+      for (const member of newMembers) {
+        if (member.is_bot) continue
+        const firstName = member.first_name || 'there'
+        const welcomeText =
+          `👋 *Welcome, ${firstName}!*\n\n` +
+          `This Telegram group is the *Shill Lounge* — a place to hang out and stay updated on alerts.\n\n` +
+          `🔨 *Real work happens in Discord!*\n` +
+          `Want to become a *RAIDER* or *SHILLER*? Head over to Discord and open a ticket:\n\n` +
+          `👉 [Join Discord](https://discord.gg/warrenguru)\n\n` +
+          `💰 Shillers earn per verified click\n` +
+          `⚔️ Raiders earn $0.02 per verified raid\n\n` +
+          `See you in the trenches! 🚀`
+        await tgPost(TG_TOKEN, 'sendMessage', {
+          chat_id: SHILL_LOUNGE_ID,
+          text: welcomeText,
+          parse_mode: 'Markdown',
+          disable_web_page_preview: true,
+        })
+      }
+      return new Response('ok')
+    }
+
     // ─── CALLBACK QUERIES (inline button presses) ───
     if (update.callback_query) {
       const cbq = update.callback_query
