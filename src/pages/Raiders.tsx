@@ -260,6 +260,7 @@ export default function Raiders() {
             </>
           )}
         </div>
+        )}
 
         {/* Raiders Table */}
         <div className="rounded-lg border border-border">
