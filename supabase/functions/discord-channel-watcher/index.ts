@@ -11,6 +11,33 @@ const DISCORD_API = "https://discord.com/api/v10";
 const X_API = "https://api.x.com/2";
 const EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
+// Telegram shill lounge group for forwarding alerts
+const TG_SHILL_LOUNGE = "-1002188568751";
+
+// Discord channel to auto-forward to Telegram
+const DISCORD_ANNOUNCEMENTS_CHANNEL = "1485107307842109523";
+
+/** Send a message to the Telegram shill lounge */
+async function sendToTelegramLounge(botToken: string, text: string, replyMarkup?: any) {
+  try {
+    const body: any = {
+      chat_id: TG_SHILL_LOUNGE,
+      text,
+      parse_mode: "Markdown",
+      disable_web_page_preview: false,
+    };
+    if (replyMarkup) body.reply_markup = replyMarkup;
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) console.error(`[discord-watcher] TG lounge send failed: ${await res.text()}`);
+  } catch (e) {
+    console.error("[discord-watcher] TG lounge error:", e);
+  }
+}
+
 /** Extract tweet ID from an X/Twitter URL */
 function extractTweetId(url: string): string | null {
   const m = url.match(/(?:x\.com|twitter\.com)\/\w+\/status\/(\d+)/);
@@ -501,7 +528,7 @@ serve(async (req) => {
           continue;
         }
 
-        // ── 2) Send Telegram notification ──
+        // ── 2) Send Telegram notification (main chat) ──
         const tgText = `🔍 *New Tweet from Discord*\n\n` +
           `👤 Posted by: \`${discordAuthor}\`\n` +
           `🔗 ${tweetUrl}\n\n` +
@@ -531,6 +558,21 @@ serve(async (req) => {
         } catch (e) {
           console.error("[discord-watcher] Telegram send error:", e);
         }
+
+        // ── 2b) Forward shill/raid alert to Telegram Shill Lounge ──
+        const isRaidType = listenChannelId === RAID_LISTEN_CHANNEL || replyChannelId === "1485010551196090448";
+        const alertType = isRaidType ? "⚔️ RAID" : "🚀 SHILL";
+        const loungeText = `${alertType} *Alert!*\n\n` +
+          `👤 Posted by: \`${discordAuthor}\`\n` +
+          `🔗 ${tweetUrl}\n\n` +
+          `Go to Discord to claim this ${isRaidType ? "raid" : "shill"}!`;
+        const loungeKeyboard = {
+          inline_keyboard: [
+            [{ text: `${alertType} — Open Tweet`, url: tweetUrl }],
+            [{ text: "💬 Open Discord", url: "https://discord.gg/warrenguru" }],
+          ],
+        };
+        await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, loungeText, loungeKeyboard);
 
         // ── 3) Send Discord reply to the REPLY channel ──
         const discordEmbed = {
@@ -618,7 +660,71 @@ serve(async (req) => {
       }
     }
 
-    return json({ ok: true, forwarded: totalForwarded, expired: expiredCount });
+    // ── Auto-forward announcements channel to Telegram Shill Lounge ──
+    let announcementsForwarded = 0;
+    try {
+      // Get last forwarded message ID from site_configs
+      const { data: fwdCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "tg-announcements-fwd")
+        .single();
+
+      const lastFwdId = (fwdCfg?.content as any)?.last_message_id || null;
+
+      let fwdUrl = `${DISCORD_API}/channels/${DISCORD_ANNOUNCEMENTS_CHANNEL}/messages?limit=20`;
+      if (lastFwdId) fwdUrl += `&after=${lastFwdId}`;
+
+      const fwdRes = await fetch(fwdUrl, {
+        headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+      });
+
+      if (fwdRes.ok) {
+        const fwdMsgs: any[] = await fwdRes.json();
+        if (fwdMsgs.length > 0) {
+          fwdMsgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+          let newestFwdId = lastFwdId;
+          for (const fMsg of fwdMsgs) {
+            if (!newestFwdId || BigInt(fMsg.id) > BigInt(newestFwdId)) {
+              newestFwdId = fMsg.id;
+            }
+
+            const content = fMsg.content || "";
+            const embedTexts = (fMsg.embeds || []).map((e: any) =>
+              [e.title, e.description].filter(Boolean).join("\n")
+            ).join("\n");
+            const fullText = [content, embedTexts].filter(Boolean).join("\n\n");
+
+            if (!fullText.trim()) continue;
+
+            // Truncate if needed (Telegram 4096 char limit)
+            const truncated = fullText.length > 3800 ? fullText.slice(0, 3800) + "…" : fullText;
+            const author = fMsg.author?.username || "announcement";
+
+            const fwdText = `📢 *Discord Announcement*\n` +
+              `👤 \`${author}\`\n\n${truncated}`;
+
+            await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, fwdText);
+            announcementsForwarded++;
+          }
+
+          // Save cursor
+          if (newestFwdId && newestFwdId !== lastFwdId) {
+            await supabase.from("site_configs").upsert({
+              site_id: "smm-auto-shill",
+              section: "tg-announcements-fwd",
+              content: { last_message_id: newestFwdId },
+            }, { onConflict: "site_id,section" });
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[discord-watcher] Announcements forward error:", e);
+    }
+
+    return json({ ok: true, forwarded: totalForwarded, announcements_forwarded: announcementsForwarded, expired: expiredCount });
   } catch (err) {
     console.error("[discord-watcher] Fatal error:", err);
     return json({ error: String(err) }, 500);
