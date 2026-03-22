@@ -1,9 +1,11 @@
-import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send } from 'lucide-react';
+import { useState } from 'react';
+import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const commands = [
   {
