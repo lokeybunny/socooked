@@ -1455,6 +1455,9 @@ serve(async (req) => {
         name: "help", description: "View all commands and how to get started", type: 1,
       },
       {
+        name: "raidhelp", description: "Raider guide — how to raid, verify, and get paid", type: 1,
+      },
+      {
         name: "shill", description: "Auto-reply to a tweet via X", type: 1,
         options: [{ name: "url", description: "The X/Twitter tweet URL", type: 3, required: true }],
       },
