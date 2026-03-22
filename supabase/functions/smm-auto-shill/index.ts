@@ -1470,9 +1470,52 @@ serve(async (req) => {
             flags: 64,
           },
         });
-      }
+        }
 
-      return json({ type: 4, data: { content: "❓ Unknown action.", flags: 64 } });
+        // ─── Verify button (shill room) — shiller submits their post URL ───
+        if (customId.startsWith("shill_verify_")) {
+          const discordMsgId = customId.replace("shill_verify_", "") || null;
+
+          // Check the user has clicked at least one button (shill_now or shill_copy) first
+          const { data: userClicks } = await supabase
+            .from("shill_clicks")
+            .select("id")
+            .eq("discord_user_id", discordUserId)
+            .eq("discord_msg_id", discordMsgId)
+            .eq("status", "clicked")
+            .limit(1);
+
+          if (!userClicks?.length) {
+            return json({ type: 4, data: { content: "❌ You need to click **🚀 SHILL NOW** or **📋 Get Shill Copy** first before verifying.", flags: 64 } });
+          }
+
+          return json({
+            type: 9,
+            data: {
+              custom_id: `shill_verify_submit_${discordMsgId || "unknown"}`,
+              title: "✅ Verify Your Shill",
+              components: [
+                {
+                  type: 1,
+                  components: [
+                    {
+                      type: 4,
+                      custom_id: "shill_verify_url_input",
+                      label: "Paste the URL where you posted",
+                      style: 1,
+                      placeholder: "https://x.com/yourhandle/status/123456...",
+                      required: true,
+                      min_length: 10,
+                      max_length: 300,
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }
+
+        return json({ type: 4, data: { content: "❓ Unknown action.", flags: 64 } });
     }
 
     // ─── Modal submit (type 5) — raider secret code entry ───
