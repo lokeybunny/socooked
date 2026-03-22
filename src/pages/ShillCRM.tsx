@@ -194,9 +194,10 @@ export default function ShillCRM() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-          <TabsList className="bg-muted/40">
+          <TabsList className="bg-muted/40 flex-wrap">
             <TabsTrigger value="raiders" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Raiders</TabsTrigger>
             <TabsTrigger value="shillers" className="gap-1.5"><HardHat className="h-3.5 w-3.5" /> Shillers</TabsTrigger>
+            <TabsTrigger value="payouts" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Payouts</TabsTrigger>
             <TabsTrigger value="accounts" className="gap-1.5"><Users className="h-3.5 w-3.5" /> Accounts</TabsTrigger>
             <TabsTrigger value="activity" className="gap-1.5"><Activity className="h-3.5 w-3.5" /> Activity</TabsTrigger>
             <TabsTrigger value="top-posts" className="gap-1.5"><Trophy className="h-3.5 w-3.5" /> Top Posts</TabsTrigger>
@@ -205,6 +206,7 @@ export default function ShillCRM() {
 
           <TabsContent value="raiders"><RaidersTab /></TabsContent>
           <TabsContent value="shillers"><ShillersTab /></TabsContent>
+          <TabsContent value="payouts"><PayoutsTab /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="activity"><ActivityTab /></TabsContent>
           <TabsContent value="top-posts"><TopPostsSection /></TabsContent>
