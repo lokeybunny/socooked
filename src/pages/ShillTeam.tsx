@@ -46,7 +46,7 @@ const faq = [
   },
   {
     q: 'How do I get paid?',
-    a: 'First, set your wallet with /wallet. Shillers earn per verified click. Raiders earn $0.02 per verified raid reply. Once your balance builds up, use /payout to request a withdrawal. Admins process payouts in SOL to your Solana wallet.',
+    a: "First, set your wallet with /wallet. Shillers earn $0.05 per verified click on their auto-posted replies. Raiders earn $0.02 per verified raid reply. The difference reflects the higher commitment Shillers make — they're linked to an X account and use the bot directly, while Raiders copy-paste shill text manually. Once your balance builds up, use /payout to request a withdrawal. Admins process payouts in SOL to your Solana wallet.",
   },
   {
     q: 'How do I get authorized?',
