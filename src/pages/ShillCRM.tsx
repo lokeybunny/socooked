@@ -17,11 +17,12 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check,
-  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt, Inbox, CheckCircle2, XCircle, Clock, RotateCcw, Zap,
+  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt, Inbox, CheckCircle2, XCircle, Clock, RotateCcw, Zap, TrendingUp,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import TopPostsSection from "@/components/shillers/TopPostsSection";
+import ViralityTab from "@/components/shillers/ViralityTab";
 
 /* ─── Types ─── */
 interface Raider {
@@ -355,6 +356,7 @@ export default function ShillCRM() {
             <TabsTrigger value="payouts" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Payouts</TabsTrigger>
             <TabsTrigger value="accounts" className="gap-1.5"><Users className="h-3.5 w-3.5" /> Accounts</TabsTrigger>
             <TabsTrigger value="activity" className="gap-1.5"><Activity className="h-3.5 w-3.5" /> Activity</TabsTrigger>
+            <TabsTrigger value="virality" className="gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Virality</TabsTrigger>
             <TabsTrigger value="top-posts" className="gap-1.5"><Trophy className="h-3.5 w-3.5" /> Top Posts</TabsTrigger>
             <TabsTrigger value="campaign" className="gap-1.5"><Zap className="h-3.5 w-3.5" /> Campaign</TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5"><Settings className="h-3.5 w-3.5" /> Settings</TabsTrigger>
@@ -366,6 +368,7 @@ export default function ShillCRM() {
           <TabsContent value="payouts"><PayoutsTab /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="activity"><ActivityTab /></TabsContent>
+          <TabsContent value="virality"><ViralityTab /></TabsContent>
           <TabsContent value="top-posts"><TopPostsSection /></TabsContent>
           <TabsContent value="campaign"><CampaignTab /></TabsContent>
           <TabsContent value="settings"><SettingsTab /></TabsContent>
