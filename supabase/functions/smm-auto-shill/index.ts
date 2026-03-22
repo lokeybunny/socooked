@@ -1774,6 +1774,12 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL.", flags: 64 } });
         }
 
+        // Live link validation — check the tweet actually exists
+        const shillLinkCheck = await validateXLink(verifyUrl);
+        if (!shillLinkCheck.valid) {
+          return json({ type: 4, data: { content: `❌ **Broken link detected.** ${shillLinkCheck.reason || "The tweet doesn't exist or was deleted."}\n\nPlease submit a valid, live URL.`, flags: 64 } });
+        }
+
         // Find this user's pending click for this message and verify it immediately
         const { data: pendingClick } = await supabase
           .from("shill_clicks")
