@@ -1690,6 +1690,51 @@ export type Database = {
           },
         ]
       }
+      payout_requests: {
+        Row: {
+          admin_notes: string | null
+          amount_owed: number
+          created_at: string
+          discord_user_id: string
+          discord_username: string
+          id: string
+          processed_at: string | null
+          processed_by: string | null
+          solana_wallet: string
+          status: string
+          user_type: string
+          verified_clicks: number
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount_owed?: number
+          created_at?: string
+          discord_user_id: string
+          discord_username: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          solana_wallet: string
+          status?: string
+          user_type?: string
+          verified_clicks?: number
+        }
+        Update: {
+          admin_notes?: string | null
+          amount_owed?: number
+          created_at?: string
+          discord_user_id?: string
+          discord_username?: string
+          id?: string
+          processed_at?: string | null
+          processed_by?: string | null
+          solana_wallet?: string
+          status?: string
+          user_type?: string
+          verified_clicks?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
