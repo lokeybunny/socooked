@@ -63,6 +63,8 @@ const faq = [
 ];
 
 export default function ShillTeam() {
+  const [showTicketReminder, setShowTicketReminder] = useState(false);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero */}
