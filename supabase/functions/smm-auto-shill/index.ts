@@ -914,6 +914,76 @@ serve(async (req) => {
         });
       }
 
+      // ─── /notify command — toggle notification preferences ───
+      if (commandName === "notify") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUserId = discordUser.id || "unknown";
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        // Fetch current prefs
+        const { data: existingPrefs } = await supabase
+          .from("discord_notify_prefs")
+          .select("*")
+          .eq("discord_user_id", discordUserId)
+          .maybeSingle();
+
+        const currentDm = existingPrefs?.notify_discord_dm ?? false;
+        const currentTg = existingPrefs?.notify_telegram ?? false;
+        const currentTgUser = existingPrefs?.telegram_username ?? "";
+
+        // Show a modal with toggle info and telegram username field
+        return json({
+          type: 9, // MODAL
+          data: {
+            custom_id: "notify_settings_submit",
+            title: "🔔 Notification Settings",
+            components: [
+              {
+                type: 1,
+                components: [{
+                  type: 4,
+                  custom_id: "discord_dm_toggle",
+                  label: "Discord DM notifications (yes/no)",
+                  style: 1,
+                  placeholder: "yes or no",
+                  value: currentDm ? "yes" : "no",
+                  required: true,
+                  min_length: 2,
+                  max_length: 3,
+                }],
+              },
+              {
+                type: 1,
+                components: [{
+                  type: 4,
+                  custom_id: "telegram_toggle",
+                  label: "Telegram notifications (yes/no)",
+                  style: 1,
+                  placeholder: "yes or no",
+                  value: currentTg ? "yes" : "no",
+                  required: true,
+                  min_length: 2,
+                  max_length: 3,
+                }],
+              },
+              {
+                type: 1,
+                components: [{
+                  type: 4,
+                  custom_id: "telegram_username_input",
+                  label: "Your Telegram @ (required for TG alerts)",
+                  style: 1,
+                  placeholder: "@yourtelegram",
+                  value: currentTgUser || "",
+                  required: false,
+                  max_length: 100,
+                }],
+              },
+            ],
+          },
+        });
+      }
+
       // ─── /shill command ───
       let tweetUrl = "";
       const profileUsername = matchedProfile || "NysonBlack";
