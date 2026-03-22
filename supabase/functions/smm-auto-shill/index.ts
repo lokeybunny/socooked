@@ -658,6 +658,12 @@ serve(async (req) => {
 
       // ─── /authorize command — link Discord user to X account ───
       if (commandName === "authorize") {
+        // Restrict to allowed channels only
+        const allowedAuthorizeChannels = ["1484998470103466156", "1484830617966481512"];
+        const channelId = interaction.channel_id || interaction.channel?.id;
+        if (!channelId || !allowedAuthorizeChannels.includes(channelId)) {
+          return json({ type: 4, data: { content: "❌ `/authorize` can only be used in the designated authorization channels.", flags: 64 } });
+        }
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUserId = discordUser.id || "unknown";
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
