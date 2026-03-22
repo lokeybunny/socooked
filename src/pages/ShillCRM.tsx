@@ -356,6 +356,7 @@ export default function ShillCRM() {
             <TabsTrigger value="accounts" className="gap-1.5"><Users className="h-3.5 w-3.5" /> Accounts</TabsTrigger>
             <TabsTrigger value="activity" className="gap-1.5"><Activity className="h-3.5 w-3.5" /> Activity</TabsTrigger>
             <TabsTrigger value="top-posts" className="gap-1.5"><Trophy className="h-3.5 w-3.5" /> Top Posts</TabsTrigger>
+            <TabsTrigger value="campaign" className="gap-1.5"><Zap className="h-3.5 w-3.5" /> Campaign</TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5"><Settings className="h-3.5 w-3.5" /> Settings</TabsTrigger>
           </TabsList>
 
@@ -366,6 +367,7 @@ export default function ShillCRM() {
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="activity"><ActivityTab /></TabsContent>
           <TabsContent value="top-posts"><TopPostsSection /></TabsContent>
+          <TabsContent value="campaign"><CampaignTab /></TabsContent>
           <TabsContent value="settings"><SettingsTab /></TabsContent>
         </Tabs>
       </div>
