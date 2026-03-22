@@ -162,7 +162,7 @@ export default function ReplyEngine() {
           </div>
         </div>
 
-        {user && <TopPostsSection />}
+        
 
         <div className="flex gap-2">
           {user && (

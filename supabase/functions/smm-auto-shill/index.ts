@@ -691,12 +691,27 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "❌ That doesn't look like a valid Solana address. Please double-check and try again.", flags: 64 } });
         }
 
-        // Check if user exists as a raider
+        // Check if user is an authorized raider
         const { data: existingRaider } = await supabase
           .from("raiders")
-          .select("id, solana_wallet")
+          .select("id, solana_wallet, status")
           .eq("discord_user_id", discordUserId)
           .limit(1);
+
+        // Check if user has authorized shill activity (via outbound_accounts or shill_clicks)
+        const { data: shillHistory } = await supabase
+          .from("shill_clicks")
+          .select("id")
+          .eq("discord_user_id", discordUserId)
+          .limit(1);
+
+        const isRaider = existingRaider?.length && existingRaider[0].status === "active";
+        const isShiller = (shillHistory?.length ?? 0) > 0;
+
+        // Gate: must be an active raider OR have shill history
+        if (!isRaider && !isShiller) {
+          return json({ type: 4, data: { content: "❌ **Access denied.** You must be an authorized shiller or raider to set a payout wallet.\n\nIf you're a raider, make sure your secret code is registered. If you're a shiller, complete at least one shill first.", flags: 64 } });
+        }
 
         if (existingRaider?.length) {
           // Update existing raider's wallet
@@ -705,25 +720,14 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           }).eq("id", existingRaider[0].id);
         } else {
-          // Also check shill_clicks — if they've shilled before, they're a shiller
-          const { data: shillHistory } = await supabase
-            .from("shill_clicks")
-            .select("id")
-            .eq("discord_user_id", discordUserId)
-            .limit(1);
-
-          if (shillHistory?.length) {
-            // Create a raider record for this shiller so their wallet is tracked
-            await supabase.from("raiders").insert({
-              discord_user_id: discordUserId,
-              discord_username: discordUsername,
-              solana_wallet: walletAddress,
-              status: "active",
-              rate_per_click: 0.05,
-            });
-          } else {
-            return json({ type: 4, data: { content: "❌ You don't have any shill or raid activity yet. Start clicking to earn, then set your wallet!", flags: 64 } });
-          }
+          // Shiller without a raider record — create one to track wallet
+          await supabase.from("raiders").insert({
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            solana_wallet: walletAddress,
+            status: "active",
+            rate_per_click: 0.05,
+          });
         }
 
         // Log to activity_log
