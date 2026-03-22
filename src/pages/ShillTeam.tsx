@@ -49,6 +49,10 @@ const faq = [
     a: "First, set your wallet with /wallet. Shillers earn $0.05 per verified click on their auto-posted replies. Raiders earn $0.02 per verified raid reply. The difference reflects the higher commitment Shillers make — they're linked to an X account and use the bot directly, while Raiders copy-paste shill text manually. Once your balance builds up, use /payout to request a withdrawal. Admins process payouts in SOL to your Solana wallet.",
   },
   {
+    q: 'When do payouts happen?',
+    a: "Payouts are processed every Friday. Make sure your Solana wallet is set with /wallet before then. Admins review all pending balances, verify the work, and send SOL to your wallet. If you miss a Friday, your balance rolls over to the next week.",
+  },
+  {
     q: 'How do I get authorized?',
     a: 'Head to the designated shill channel and type /authorize. Pick the X account you want to claim from the dropdown. Only one person can hold an account at a time.',
   },
@@ -59,6 +63,10 @@ const faq = [
   {
     q: 'How do raiders verify their work?',
     a: 'After you post the raid reply on X, click the ✅ Verify Raid button on the alert embed in Discord. Paste your reply URL in the modal. Admins review it and approve your click.',
+  },
+  {
+    q: 'Can I see the leaderboards?',
+    a: 'Yes! The Shiller and Raider dashboards are public. You can view live stats, verified work, and earnings for both teams right from this site.',
   },
 ];
 
