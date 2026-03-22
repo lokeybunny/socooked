@@ -462,6 +462,8 @@ function RaidersTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PayoutDialog target={payTarget} onClose={() => setPayTarget(null)} onPaid={fetchRaiders} />
     </div>
   );
 }
