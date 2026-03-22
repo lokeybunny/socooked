@@ -168,7 +168,7 @@ export default function TeamAuditor() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-foreground">{member.username}</span>
+                      <span className="font-semibold text-sm text-foreground flex items-center gap-1">@{member.username}<BadgeCheck className="h-4 w-4 text-blue-500" /></span>
                       {member.todayClicks > 0 && (
                         <Badge variant="outline" className="text-[10px] border-green-500/30 text-green-500">
                           active today
