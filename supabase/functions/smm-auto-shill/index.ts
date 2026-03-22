@@ -1339,6 +1339,36 @@ serve(async (req) => {
           });
         }
 
+        // ─── Bad Link button (raid room) — raider flags a bad shill URL ───
+        if (customId.startsWith("bad_link_")) {
+          const discordMsgId = customId.replace("bad_link_", "") || null;
+
+          return json({
+            type: 9,
+            data: {
+              custom_id: `bad_link_confirm_${discordMsgId || "unknown"}`,
+              title: "🚫 Report Bad Link",
+              components: [
+                {
+                  type: 1,
+                  components: [
+                    {
+                      type: 4,
+                      custom_id: "bad_link_confirm_input",
+                      label: "Type YES to confirm this is a bad link",
+                      style: 1,
+                      placeholder: "YES",
+                      required: true,
+                      min_length: 2,
+                      max_length: 10,
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }
+
         return json({ type: 4, data: { content: "❓ Unknown action.", flags: 64 } });
       }
 
