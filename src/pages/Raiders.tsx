@@ -375,7 +375,7 @@ export default function Raiders() {
                       </Badge>
                       {click.raider_secret_code && (
                         <Badge variant="secondary" className="text-[9px] font-mono">
-                          #{click.raider_secret_code}
+                          {user ? `#${click.raider_secret_code}` : "#****"}
                         </Badge>
                       )}
                     </div>
