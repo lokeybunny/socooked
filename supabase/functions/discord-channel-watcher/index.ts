@@ -273,6 +273,28 @@ serve(async (req) => {
           newestId = msg.id;
         }
 
+        // ── Detect new member joins (Discord system message type 7) and send welcome ──
+        if (msg.type === 7 && msg.author) {
+          try {
+            const welcomeUrl = `${SUPABASE_URL}/functions/v1/smm-auto-shill?action=welcome-member`;
+            await fetch(welcomeUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "apikey": SERVICE_KEY,
+              },
+              body: JSON.stringify({
+                username: msg.author.global_name || msg.author.username || "new member",
+                user_id: msg.author.id,
+              }),
+            });
+            console.log(`[discord-watcher] Welcomed new member: ${msg.author.username}`);
+          } catch (e) {
+            console.error(`[discord-watcher] Failed to welcome member:`, e);
+          }
+          continue;
+        }
+
         // Extract X/Twitter URLs from content AND embeds (works for bot posts too)
         const uniqueUrls = extractXUrls(msg);
         if (!uniqueUrls.length) continue;
