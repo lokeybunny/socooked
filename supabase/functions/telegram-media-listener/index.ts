@@ -114,6 +114,15 @@ function ensureBotCommandsBg(token: string) {
         }),
       }).catch(() => {})
     ),
+    // Hide menu commands in the Shill Lounge — bot is forwarding-only there
+    fetch(`${TG_API}${token}/setMyCommands`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        commands: [],
+        scope: { type: 'chat', chat_id: -1002188568751 },
+      }),
+    }).catch(() => {}),
   ]
   // Don't await — let it happen in background
   Promise.all(promises).then(() => console.log('[cmds] registered')).catch(() => {})
@@ -3044,6 +3053,13 @@ Deno.serve(async (req) => {
     const text = (message.text || message.caption || '').trim()
     const isGroup = message.chat.type === 'group' || message.chat.type === 'supergroup'
     const isAllowedGroup = isGroup && ALLOWED_GROUP_IDS.includes(chatId)
+
+    // Shill Lounge: bot is forwarding-only, ignore all user commands/messages
+    const SHILL_LOUNGE_ID = -1002188568751
+    if (isGroup && chatId === SHILL_LOUNGE_ID) {
+      // new_chat_members is handled above; everything else is ignored
+      return new Response('ok')
+    }
 
     // In groups, only respond to allowed groups
     if (isGroup && !isAllowedGroup) return new Response('ok')
