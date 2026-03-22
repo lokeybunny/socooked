@@ -209,7 +209,14 @@ function RaidersTab() {
     else { toast.success("Raider deleted"); fetchRaiders(); }
   };
 
-  const totalEarned = raiders.reduce((s, r) => s + r.total_clicks * r.rate_per_click, 0);
+  const totalVerifiedEarned = raiders.reduce((s, r) => {
+    const v = verifiedMap.get(r.discord_user_id);
+    return s + (v?.verified || 0) * r.rate_per_click;
+  }, 0);
+  const totalPendingRaids = raiders.reduce((s, r) => {
+    const v = verifiedMap.get(r.discord_user_id);
+    return s + (v?.pending || 0);
+  }, 0);
 
   return (
     <div className="space-y-4">
@@ -217,8 +224,8 @@ function RaidersTab() {
       <div className="grid grid-cols-4 gap-3">
         <StatCard icon={Users} label="Raiders" value={raiders.length} />
         <StatCard icon={Hash} label="Active" value={raiders.filter(r => r.status === "active").length} color="text-green-500" />
-        <StatCard icon={Shield} label="Suspended" value={raiders.filter(r => r.status === "suspended").length} color="text-destructive" />
-        <StatCard icon={DollarSign} label="Total Earned" value={`$${totalEarned.toFixed(2)}`} color="text-primary" />
+        <StatCard icon={DollarSign} label="Verified Owed" value={`$${totalVerifiedEarned.toFixed(2)}`} color="text-primary" />
+        <StatCard icon={Shield} label="Pending Raids" value={totalPendingRaids} color="text-yellow-500" />
       </div>
 
       {/* Code generator */}
