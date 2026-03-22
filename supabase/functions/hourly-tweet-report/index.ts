@@ -1,0 +1,207 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const DISCORD_API = "https://discord.com/api/v10";
+const DISCORD_CHANNELS = ["1484998470103466156", "1485050868838564030"];
+const TG_SHILL_LOUNGE = "-1002188568751";
+const SHILLER_RATE = 0.05;
+const RAIDER_RATE = 0.02;
+
+const CHEERFUL_INTROS = [
+  "🎉 Hourly Shill Report is IN!",
+  "⚡ Time for your hourly earnings update!",
+  "🔥 Another hour, another opportunity!",
+  "💰 Cha-ching! Hourly stats are here!",
+  "🚀 Hourly tweet tracker just dropped!",
+  "🍌 Banana time! Here's your hourly report!",
+];
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const botToken = Deno.env.get("DISCORD_BOT_TOKEN");
+    const tgBotToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    if (!botToken) throw new Error("Missing DISCORD_BOT_TOKEN");
+    if (!tgBotToken) throw new Error("Missing TELEGRAM_BOT_TOKEN");
+
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    // Count tweets in the last hour
+    const { count: hourlyCount } = await supabase
+      .from("shill_post_analytics")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", oneHourAgo.toISOString());
+
+    // Count tweets in the last 24 hours for daily average
+    const { count: dailyCount } = await supabase
+      .from("shill_post_analytics")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", twentyFourHoursAgo.toISOString());
+
+    // Get active shillers and raiders count
+    const { data: shillerAssignments } = await supabase
+      .from("site_configs")
+      .select("content")
+      .eq("site_id", "discord-shill-assignments")
+      .eq("section", "assignments")
+      .maybeSingle();
+
+    const { count: activeRaiders } = await supabase
+      .from("raiders")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "active");
+
+    const tweetsThisHour = hourlyCount || 0;
+    const tweetsToday = dailyCount || 0;
+    const hoursElapsed = Math.max(1, Math.round((now.getTime() - twentyFourHoursAgo.getTime()) / (60 * 60 * 1000)));
+    const hourlyAvg = tweetsToday > 0 ? (tweetsToday / hoursElapsed).toFixed(1) : "0";
+
+    // Calculate potential earnings
+    // Each tweet = 1 potential shill click + 1 potential raid click per active user
+    const assignments = shillerAssignments?.content?.assignments || {};
+    const activeShillerCount = Object.keys(assignments).length;
+    const raiderCount = activeRaiders || 0;
+
+    const potentialShillerEarnings = tweetsThisHour * activeShillerCount * SHILLER_RATE;
+    const potentialRaiderEarnings = tweetsThisHour * raiderCount * RAIDER_RATE;
+    const totalPotentialEarnings = potentialShillerEarnings + potentialRaiderEarnings;
+
+    // Pick a random cheerful intro
+    const intro = CHEERFUL_INTROS[Math.floor(Math.random() * CHEERFUL_INTROS.length)];
+
+    const pstTime = now.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "America/Los_Angeles",
+    });
+
+    // ── Discord Embed ──
+    const embed = {
+      title: `${intro}`,
+      color: 0xf59e0b,
+      fields: [
+        {
+          name: "📊 This Hour",
+          value: `**${tweetsThisHour}** tweets detected`,
+          inline: true,
+        },
+        {
+          name: "📈 24h Average",
+          value: `**${hourlyAvg}** tweets/hour`,
+          inline: true,
+        },
+        {
+          name: "👥 Active Team",
+          value: `⚡ **${activeShillerCount}** Shillers\n🛡️ **${raiderCount}** Raiders`,
+          inline: true,
+        },
+        {
+          name: "💰 Potential Passive Income This Hour",
+          value: [
+            `⚡ Shillers: **$${potentialShillerEarnings.toFixed(2)}** ($${SHILLER_RATE}/click × ${tweetsThisHour} tweets × ${activeShillerCount} shillers)`,
+            `🛡️ Raiders: **$${potentialRaiderEarnings.toFixed(2)}** ($${RAIDER_RATE}/click × ${tweetsThisHour} tweets × ${raiderCount} raiders)`,
+            ``,
+            `🤑 **Total: $${totalPotentialEarnings.toFixed(2)}** up for grabs!`,
+          ].join("\n"),
+          inline: false,
+        },
+      ],
+      footer: { text: `${pstTime} PST • Stats refresh every hour` },
+    };
+
+    // Send to Discord channels
+    const discordResults = await Promise.all(
+      DISCORD_CHANNELS.map(async (channelId) => {
+        const res = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${botToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ embeds: [embed] }),
+        });
+        const ok = res.ok;
+        if (!ok) console.error(`[hourly-report] Discord ${channelId} failed:`, await res.text());
+        return { channelId, ok };
+      })
+    );
+
+    // ── Telegram Message ──
+    const tgMessage = [
+      intro,
+      "",
+      `📊 *This Hour:* ${tweetsThisHour} tweets detected`,
+      `📈 *24h Average:* ${hourlyAvg} tweets/hour`,
+      "",
+      `👥 *Active Team:*`,
+      `⚡ ${activeShillerCount} Shillers • 🛡️ ${raiderCount} Raiders`,
+      "",
+      `💰 *Potential Passive Income This Hour:*`,
+      `⚡ Shillers: *$${potentialShillerEarnings.toFixed(2)}*`,
+      `🛡️ Raiders: *$${potentialRaiderEarnings.toFixed(2)}*`,
+      `🤑 *Total: $${totalPotentialEarnings.toFixed(2)}* up for grabs!`,
+      "",
+      `🕐 ${pstTime} PST`,
+    ].join("\n");
+
+    const tgBody: any = {
+      chat_id: TG_SHILL_LOUNGE,
+      text: tgMessage,
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "💎 Join Discord & Start Earning",
+              url: "https://discord.gg/socooked",
+            },
+          ],
+        ],
+      },
+    };
+
+    const tgRes = await fetch(
+      `https://api.telegram.org/bot${tgBotToken}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tgBody),
+      }
+    );
+    const tgOk = tgRes.ok;
+    if (!tgOk) console.error("[hourly-report] TG failed:", await tgRes.text());
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        tweets_this_hour: tweetsThisHour,
+        hourly_avg: hourlyAvg,
+        potential_earnings: totalPotentialEarnings.toFixed(2),
+        discord: discordResults,
+        telegram: tgOk,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err: any) {
+    console.error("[hourly-report] Error:", err);
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
