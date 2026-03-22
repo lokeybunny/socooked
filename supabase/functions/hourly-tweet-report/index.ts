@@ -78,9 +78,9 @@ Deno.serve(async (req) => {
     const hourlyAvg = tweetsToday > 0 ? (tweetsToday / hoursElapsed).toFixed(1) : "0";
     const raiderCount = activeRaiders || 0;
 
-    const potentialShillerEarnings = tweetsThisHour * activeShillerCount * SHILLER_RATE;
-    const potentialRaiderEarnings = tweetsThisHour * raiderCount * RAIDER_RATE;
-    const totalPotentialEarnings = potentialShillerEarnings + potentialRaiderEarnings;
+    // Simple: each tweet link = $0.05 potential click income
+    const potentialEarnings = tweetsThisHour * SHILLER_RATE;
+    const dailyPotentialEarnings = tweetsToday * SHILLER_RATE;
 
     // Pick a random cheerful intro
     const intro = CHEERFUL_INTROS[Math.floor(Math.random() * CHEERFUL_INTROS.length)];
@@ -114,12 +114,12 @@ Deno.serve(async (req) => {
           inline: true,
         },
         {
-          name: "💰 Potential Passive Income This Hour",
+          name: "💰 Potential Passive Income",
           value: [
-            `⚡ Shillers: **$${potentialShillerEarnings.toFixed(2)}** ($${SHILLER_RATE}/click × ${tweetsThisHour} tweets × ${activeShillerCount} shillers)`,
-            `🛡️ Raiders: **$${potentialRaiderEarnings.toFixed(2)}** ($${RAIDER_RATE}/click × ${tweetsThisHour} tweets × ${raiderCount} raiders)`,
+            `This Hour: **${tweetsThisHour}** links × $0.05 = **$${potentialEarnings.toFixed(2)}**`,
+            `Today (24h): **${tweetsToday}** links × $0.05 = **$${dailyPotentialEarnings.toFixed(2)}**`,
             ``,
-            `🤑 **Total: $${totalPotentialEarnings.toFixed(2)}** up for grabs!`,
+            `🤑 Every link is **$0.05** waiting to be claimed!`,
           ].join("\n"),
           inline: false,
         },
@@ -154,10 +154,10 @@ Deno.serve(async (req) => {
       `👥 *Active Team:*`,
       `⚡ ${activeShillerCount} Shillers • 🛡️ ${raiderCount} Raiders`,
       "",
-      `💰 *Potential Passive Income This Hour:*`,
-      `⚡ Shillers: *$${potentialShillerEarnings.toFixed(2)}*`,
-      `🛡️ Raiders: *$${potentialRaiderEarnings.toFixed(2)}*`,
-      `🤑 *Total: $${totalPotentialEarnings.toFixed(2)}* up for grabs!`,
+      `💰 *Potential Passive Income:*`,
+      `This Hour: ${tweetsThisHour} links × $0.05 = *$${potentialEarnings.toFixed(2)}*`,
+      `Today (24h): ${tweetsToday} links × $0.05 = *$${dailyPotentialEarnings.toFixed(2)}*`,
+      `🤑 Every link is *$0.05* waiting to be claimed!`,
       "",
       `🕐 ${pstTime} PST`,
     ].join("\n");
@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
         ok: true,
         tweets_this_hour: tweetsThisHour,
         hourly_avg: hourlyAvg,
-        potential_earnings: totalPotentialEarnings.toFixed(2),
+        potential_earnings: potentialEarnings.toFixed(2),
         discord: discordResults,
         telegram: tgOk,
       }),
