@@ -105,7 +105,7 @@ export default function ViralityTab() {
   };
 
   const pruneStale = async () => {
-    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { error, count } = await supabase
       .from("shill_post_analytics")
       .delete()
