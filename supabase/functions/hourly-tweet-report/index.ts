@@ -78,9 +78,9 @@ Deno.serve(async (req) => {
     const hourlyAvg = tweetsToday > 0 ? (tweetsToday / hoursElapsed).toFixed(1) : "0";
     const raiderCount = activeRaiders || 0;
 
-    const potentialShillerEarnings = tweetsThisHour * activeShillerCount * SHILLER_RATE;
-    const potentialRaiderEarnings = tweetsThisHour * raiderCount * RAIDER_RATE;
-    const totalPotentialEarnings = potentialShillerEarnings + potentialRaiderEarnings;
+    // Simple: each tweet link = $0.05 potential click income
+    const potentialEarnings = tweetsThisHour * SHILLER_RATE;
+    const dailyPotentialEarnings = tweetsToday * SHILLER_RATE;
 
     // Pick a random cheerful intro
     const intro = CHEERFUL_INTROS[Math.floor(Math.random() * CHEERFUL_INTROS.length)];
