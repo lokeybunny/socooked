@@ -81,14 +81,13 @@ serve(async (req) => {
       }
     }
 
-    // Auto-prune tweets older than 24h with very low engagement
+    // Auto-prune tweets older than 24h by posted_at
     const pruneAge = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     await supabase
       .from("shill_post_analytics")
       .delete()
-      .lt("created_at", pruneAge)
-      .lt("likes", 5)
-      .lt("views", 100);
+      .not("posted_at", "is", null)
+      .lt("posted_at", pruneAge);
 
     return new Response(JSON.stringify({ updated, total: tweets.length }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

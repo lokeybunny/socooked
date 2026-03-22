@@ -68,6 +68,7 @@ export default function ViralityTab() {
     const { data, error } = await supabase
       .from("shill_post_analytics")
       .select("*")
+      .or(`posted_at.gte.${cutoff},posted_at.is.null`)
       .gte("created_at", cutoff)
       .order("updated_at", { ascending: false })
       .limit(200);
@@ -106,11 +107,16 @@ export default function ViralityTab() {
 
   const pruneStale = async () => {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { error, count } = await supabase
+    // Prune tweets older than 24h by posted_at OR created_at
+    const { error: e1 } = await supabase
+      .from("shill_post_analytics")
+      .delete()
+      .lt("posted_at", cutoff);
+    const { error: e2 } = await supabase
       .from("shill_post_analytics")
       .delete()
       .lt("created_at", cutoff);
-    if (error) toast.error(error.message);
+    if (e1 || e2) toast.error((e1 || e2)!.message);
     else {
       toast.success("Pruned old tweets");
       load();
