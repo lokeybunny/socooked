@@ -314,7 +314,11 @@ function RaidersTab() {
       .eq("click_type", "raid")
       .eq("status", "verified");
     if (error) { toast.error(error.message); return; }
-    toast.success(`Reset earnings for ${r.discord_username}`);
+    // Remove pending payout requests for this user
+    await supabase.from("payout_requests").delete()
+      .eq("discord_user_id", r.discord_user_id)
+      .eq("status", "pending");
+    toast.success(`Reset earnings for ${r.discord_username} and cleared pending payouts`);
     fetchRaiders();
   };
 
@@ -599,7 +603,11 @@ function ShillersTab() {
       .eq("click_type", "shill")
       .eq("status", "verified");
     if (error) { toast.error(error.message); return; }
-    toast.success(`Reset earnings for ${s.discord_username}`);
+    // Remove pending payout requests for this user
+    await supabase.from("payout_requests").delete()
+      .eq("discord_user_id", s.discord_user_id)
+      .eq("status", "pending");
+    toast.success(`Reset earnings for ${s.discord_username} and cleared pending payouts`);
     fetchShillers();
   };
 
