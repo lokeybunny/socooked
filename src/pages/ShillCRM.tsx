@@ -17,9 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check,
-  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy,
+  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import TopPostsSection from "@/components/shillers/TopPostsSection";
 
@@ -63,6 +63,99 @@ function generateSecretCode(): string {
   return `${word}${suffix}${extra}`;
 }
 
+/* ─── Payout Dialog ─── */
+interface PayoutTarget {
+  discord_user_id: string;
+  discord_username: string;
+  amount: number;
+  verified_clicks: number;
+  payout_type: "shill" | "raid";
+  solana_wallet: string | null;
+}
+
+function PayoutDialog({ target, onClose, onPaid }: { target: PayoutTarget | null; onClose: () => void; onPaid: () => void }) {
+  const { user } = useAuth();
+  const [solanaAddress, setSolanaAddress] = useState(target?.solana_wallet || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setSolanaAddress(target?.solana_wallet || ""); }, [target]);
+
+  if (!target) return null;
+
+  const handlePay = async () => {
+    const addr = solanaAddress.trim();
+    if (!addr) { toast.error("Enter the Solana payout address"); return; }
+    const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+    if (!solanaRegex.test(addr)) { toast.error("Invalid Solana address"); return; }
+
+    setSaving(true);
+
+    const { error } = await supabase.from("shill_payouts").insert({
+      discord_user_id: target.discord_user_id,
+      discord_username: target.discord_username,
+      payout_type: target.payout_type,
+      amount: target.amount,
+      verified_clicks: target.verified_clicks,
+      solana_wallet: addr,
+      paid_by: user?.id || null,
+    });
+
+    if (error) { toast.error(error.message); setSaving(false); return; }
+
+    await supabase.from("shill_clicks").update({ status: "paid" })
+      .eq("discord_user_id", target.discord_user_id)
+      .eq("status", "verified")
+      .eq("click_type", target.payout_type);
+
+    await supabase.from("activity_log").insert({
+      entity_type: "shill-payout",
+      action: "paid",
+      actor_id: user?.id || null,
+      meta: {
+        name: `💸 Paid @${target.discord_username} $${target.amount.toFixed(2)}`,
+        discord_user_id: target.discord_user_id,
+        payout_type: target.payout_type,
+        amount: target.amount,
+        solana_wallet: addr,
+      },
+    });
+
+    toast.success(`Paid $${target.amount.toFixed(2)} to @${target.discord_username}`);
+    setSaving(false);
+    onClose();
+    onPaid();
+  };
+
+  return (
+    <Dialog open={!!target} onOpenChange={open => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Banknote className="h-5 w-5 text-primary" /> Pay @{target.discord_username}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="rounded-lg border border-border p-4 space-y-2">
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Type</span><Badge variant="outline">{target.payout_type}</Badge></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Verified Clicks</span><span className="font-mono">{target.verified_clicks}</span></div>
+            <div className="flex justify-between text-sm font-bold"><span className="text-muted-foreground">Amount Owed</span><span className="font-mono text-primary">${target.amount.toFixed(2)}</span></div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Solana Payout Address (receipt)</label>
+            <Input placeholder="Solana public address used for payment" value={solanaAddress}
+              onChange={e => setSolanaAddress(e.target.value)} className="font-mono" />
+            <p className="text-[10px] text-muted-foreground mt-1">This address is saved as the payout receipt for this transaction.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handlePay} disabled={saving || !solanaAddress.trim()}>
+            <Banknote className="h-4 w-4 mr-1.5" /> {saving ? "Processing…" : "Confirm Paid"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════
    MAIN PAGE
    ═══════════════════════════════════════════════════════════ */
@@ -101,9 +194,10 @@ export default function ShillCRM() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-          <TabsList className="bg-muted/40">
+          <TabsList className="bg-muted/40 flex-wrap">
             <TabsTrigger value="raiders" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Raiders</TabsTrigger>
             <TabsTrigger value="shillers" className="gap-1.5"><HardHat className="h-3.5 w-3.5" /> Shillers</TabsTrigger>
+            <TabsTrigger value="payouts" className="gap-1.5"><Receipt className="h-3.5 w-3.5" /> Payouts</TabsTrigger>
             <TabsTrigger value="accounts" className="gap-1.5"><Users className="h-3.5 w-3.5" /> Accounts</TabsTrigger>
             <TabsTrigger value="activity" className="gap-1.5"><Activity className="h-3.5 w-3.5" /> Activity</TabsTrigger>
             <TabsTrigger value="top-posts" className="gap-1.5"><Trophy className="h-3.5 w-3.5" /> Top Posts</TabsTrigger>
@@ -112,6 +206,7 @@ export default function ShillCRM() {
 
           <TabsContent value="raiders"><RaidersTab /></TabsContent>
           <TabsContent value="shillers"><ShillersTab /></TabsContent>
+          <TabsContent value="payouts"><PayoutsTab /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="activity"><ActivityTab /></TabsContent>
           <TabsContent value="top-posts"><TopPostsSection /></TabsContent>
@@ -132,6 +227,7 @@ function RaidersTab() {
   const [editFields, setEditFields] = useState({ secret_code: "", rate_per_click: "", status: "" });
   const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [payTarget, setPayTarget] = useState<PayoutTarget | null>(null);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, { verified: number; pending: number }>>(new Map());
 
@@ -302,6 +398,16 @@ function RaidersTab() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
+                    {v.verified > 0 && (
+                      <Button variant="ghost" size="sm" className="text-primary" onClick={() => setPayTarget({
+                        discord_user_id: r.discord_user_id,
+                        discord_username: r.discord_username,
+                        amount: v.verified * r.rate_per_click,
+                        verified_clicks: v.verified,
+                        payout_type: "raid",
+                        solana_wallet: r.solana_wallet,
+                      })}><Banknote className="h-3.5 w-3.5" /></Button>
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDeleteRaider(r)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                   </div>
@@ -356,6 +462,8 @@ function RaidersTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PayoutDialog target={payTarget} onClose={() => setPayTarget(null)} onPaid={fetchRaiders} />
     </div>
   );
 }
@@ -381,6 +489,7 @@ function ShillersTab() {
   const [loading, setLoading] = useState(true);
   const [editShiller, setEditShiller] = useState<ShillerRow | null>(null);
   const [editFields, setEditFields] = useState({ x_handle: "", solana_wallet: "", status: "active" });
+  const [payTarget, setPayTarget] = useState<PayoutTarget | null>(null);
 
   const fetchShillers = useCallback(async () => {
     setLoading(true);
@@ -512,7 +621,19 @@ function ShillersTab() {
                   {formatDistanceToNow(new Date(s.last_active), { addSuffix: true })}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                  <div className="flex justify-end gap-1">
+                    {s.verified_earned > 0 && (
+                      <Button variant="ghost" size="sm" className="text-primary" onClick={() => setPayTarget({
+                        discord_user_id: s.discord_user_id,
+                        discord_username: s.discord_username,
+                        amount: s.verified_earned,
+                        verified_clicks: s.verified_shills,
+                        payout_type: "shill",
+                        solana_wallet: s.solana_wallet,
+                      })}><Banknote className="h-3.5 w-3.5" /></Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -557,6 +678,71 @@ function ShillersTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PayoutDialog target={payTarget} onClose={() => setPayTarget(null)} onPaid={fetchShillers} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAYOUTS TAB (shill_payouts history)
+   ═══════════════════════════════════════════════════════════ */
+function PayoutsTab() {
+  const [payouts, setPayouts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPayouts = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("shill_payouts").select("*").order("created_at", { ascending: false }).limit(500);
+    setPayouts(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchPayouts(); }, [fetchPayouts]);
+
+  const totalPaid = payouts.reduce((s, p) => s + Number(p.amount), 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard icon={Receipt} label="Total Payouts" value={payouts.length} />
+        <StatCard icon={DollarSign} label="Total Paid" value={`$${totalPaid.toFixed(2)}`} color="text-primary" />
+        <StatCard icon={Users} label="Unique Users" value={new Set(payouts.map(p => p.discord_user_id)).size} />
+      </div>
+
+      <div className="rounded-lg border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">Clicks</TableHead>
+              <TableHead>Solana Wallet</TableHead>
+              <TableHead>Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {payouts.map(p => (
+              <TableRow key={p.id}>
+                <TableCell className="font-medium">@{p.discord_username}</TableCell>
+                <TableCell><Badge variant="outline" className="text-xs">{p.payout_type}</Badge></TableCell>
+                <TableCell className="text-right font-mono">${Number(p.amount).toFixed(2)}</TableCell>
+                <TableCell className="text-right font-mono">{p.verified_clicks}</TableCell>
+                <TableCell className="font-mono text-xs">{p.solana_wallet?.slice(0, 6)}...{p.solana_wallet?.slice(-4)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{format(new Date(p.created_at), "MMM d, yyyy h:mm a")}</TableCell>
+              </TableRow>
+            ))}
+            {payouts.length === 0 && (
+              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No payouts recorded yet.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Button variant="outline" size="sm" onClick={fetchPayouts} disabled={loading}>
+        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
+      </Button>
     </div>
   );
 }
