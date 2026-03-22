@@ -1919,7 +1919,7 @@ serve(async (req) => {
         // Find this user's pending click for this message and verify it immediately
         const { data: pendingClick } = await supabase
           .from("shill_clicks")
-          .select("id")
+          .select("id, created_at")
           .eq("discord_user_id", discordUserId)
           .eq("discord_msg_id", discordMsgId !== "unknown" ? discordMsgId : null)
           .eq("status", "clicked")
@@ -1929,6 +1929,10 @@ serve(async (req) => {
         if (!pendingClick?.length) {
           return json({ type: 4, data: { content: "❌ No pending shill click found. Click **🚀 SHILL NOW** first.", flags: 64 } });
         }
+
+        // Speed check — must wait ≥15s after clicking SHILL NOW
+        const shillSpeedResult = await speedCheck(supabase, discordUserId, discordUsername, pendingClick[0].created_at, "shill");
+        if (shillSpeedResult) return shillSpeedResult;
 
         // Mark as verified immediately
         await supabase.from("shill_clicks").update({
