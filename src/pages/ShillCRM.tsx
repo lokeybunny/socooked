@@ -84,9 +84,9 @@ function PayoutDialog({ target, onClose, onPaid }: { target: PayoutTarget | null
 
   const handlePay = async () => {
     const addr = solanaAddress.trim();
-    if (!addr) { toast.error("Enter the Solana payout address"); return; }
-    const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-    if (!solanaRegex.test(addr)) { toast.error("Invalid Solana address"); return; }
+    if (!addr) { toast.error("Enter the Solscan transaction URL"); return; }
+    const solscanRegex = /^https:\/\/solscan\.io\/tx\/[A-Za-z0-9]+/;
+    if (!solscanRegex.test(addr)) { toast.error("Please enter a valid Solscan URL (e.g. https://solscan.io/tx/...)"); return; }
 
     setSaving(true);
 
