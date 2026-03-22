@@ -312,9 +312,7 @@ function CampaignTab() {
   );
 }
 
-
-   MAIN PAGE
-   ═══════════════════════════════════════════════════════════ */
+/* ---- MAIN PAGE ---- */
 export default function ShillCRM() {
   const { user, loading: authLoading } = useAuth();
   const [tab, setTab] = useState("raiders");
