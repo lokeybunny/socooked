@@ -181,15 +181,9 @@ export default function ShillTeam() {
           <h2 className="text-2xl font-bold">Ready to Start Earning?</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">Open a ticket in our Discord to get onboarded and receive your role.</p>
           <div className="flex items-center justify-center gap-3 mt-2">
-            <a
-              href="https://discord.gg/warrenguru"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button size="lg" className="gap-2">
-                Join the Discord <ExternalLink className="h-4 w-4" />
-              </Button>
-            </a>
+            <Button size="lg" className="gap-2" onClick={() => setShowTicketReminder(true)}>
+              Join the Discord <ExternalLink className="h-4 w-4" />
+            </Button>
             <a
               href="https://t.me/+t9hUrz3q8ZE4YjBh"
               target="_blank"
