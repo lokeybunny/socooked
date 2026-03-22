@@ -63,6 +63,99 @@ function generateSecretCode(): string {
   return `${word}${suffix}${extra}`;
 }
 
+/* ─── Payout Dialog ─── */
+interface PayoutTarget {
+  discord_user_id: string;
+  discord_username: string;
+  amount: number;
+  verified_clicks: number;
+  payout_type: "shill" | "raid";
+  solana_wallet: string | null;
+}
+
+function PayoutDialog({ target, onClose, onPaid }: { target: PayoutTarget | null; onClose: () => void; onPaid: () => void }) {
+  const { user } = useAuth();
+  const [solanaAddress, setSolanaAddress] = useState(target?.solana_wallet || "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setSolanaAddress(target?.solana_wallet || ""); }, [target]);
+
+  if (!target) return null;
+
+  const handlePay = async () => {
+    const addr = solanaAddress.trim();
+    if (!addr) { toast.error("Enter the Solana payout address"); return; }
+    const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+    if (!solanaRegex.test(addr)) { toast.error("Invalid Solana address"); return; }
+
+    setSaving(true);
+
+    const { error } = await supabase.from("shill_payouts").insert({
+      discord_user_id: target.discord_user_id,
+      discord_username: target.discord_username,
+      payout_type: target.payout_type,
+      amount: target.amount,
+      verified_clicks: target.verified_clicks,
+      solana_wallet: addr,
+      paid_by: user?.id || null,
+    });
+
+    if (error) { toast.error(error.message); setSaving(false); return; }
+
+    await supabase.from("shill_clicks").update({ status: "paid" })
+      .eq("discord_user_id", target.discord_user_id)
+      .eq("status", "verified")
+      .eq("click_type", target.payout_type);
+
+    await supabase.from("activity_log").insert({
+      entity_type: "shill-payout",
+      action: "paid",
+      actor_id: user?.id || null,
+      meta: {
+        name: `💸 Paid @${target.discord_username} $${target.amount.toFixed(2)}`,
+        discord_user_id: target.discord_user_id,
+        payout_type: target.payout_type,
+        amount: target.amount,
+        solana_wallet: addr,
+      },
+    });
+
+    toast.success(`Paid $${target.amount.toFixed(2)} to @${target.discord_username}`);
+    setSaving(false);
+    onClose();
+    onPaid();
+  };
+
+  return (
+    <Dialog open={!!target} onOpenChange={open => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><Banknote className="h-5 w-5 text-primary" /> Pay @{target.discord_username}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="rounded-lg border border-border p-4 space-y-2">
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Type</span><Badge variant="outline">{target.payout_type}</Badge></div>
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Verified Clicks</span><span className="font-mono">{target.verified_clicks}</span></div>
+            <div className="flex justify-between text-sm font-bold"><span className="text-muted-foreground">Amount Owed</span><span className="font-mono text-primary">${target.amount.toFixed(2)}</span></div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Solana Payout Address (receipt)</label>
+            <Input placeholder="Solana public address used for payment" value={solanaAddress}
+              onChange={e => setSolanaAddress(e.target.value)} className="font-mono" />
+            <p className="text-[10px] text-muted-foreground mt-1">This address is saved as the payout receipt for this transaction.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handlePay} disabled={saving || !solanaAddress.trim()}>
+            <Banknote className="h-4 w-4 mr-1.5" /> {saving ? "Processing…" : "Confirm Paid"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════
    MAIN PAGE
    ═══════════════════════════════════════════════════════════ */
