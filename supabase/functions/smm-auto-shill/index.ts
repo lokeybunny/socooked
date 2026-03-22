@@ -930,14 +930,29 @@ serve(async (req) => {
 
         const isRaider = existingRaider?.length && existingRaider[0].status === "active";
 
-        // Check if user is a shiller
-        const { data: shillHistory } = await supabase
-          .from("shill_clicks")
-          .select("id")
-          .eq("discord_user_id", discordUserId)
-          .limit(1);
+        // Check if user is an authorized shiller (has a discord assignment)
+        const { data: shillConfigs } = await supabase
+          .from("site_configs")
+          .select("content")
+          .eq("section", "config")
+          .eq("site_id", "smm-auto-shill");
 
-        const isShiller = (shillHistory?.length ?? 0) > 0;
+        let isShiller = false;
+        for (const row of (shillConfigs || [])) {
+          const assignments = (row.content as any)?.discord_assignments || {};
+          if (assignments[discordUserId]) { isShiller = true; break; }
+        }
+
+        // Fallback: also check if they have shill-type clicks
+        if (!isShiller) {
+          const { data: shillHistory } = await supabase
+            .from("shill_clicks")
+            .select("id")
+            .eq("discord_user_id", discordUserId)
+            .eq("click_type", "shill")
+            .limit(1);
+          if ((shillHistory?.length ?? 0) > 0) isShiller = true;
+        }
 
         if (!isRaider && !isShiller) {
           return json({ type: 4, data: { content: "❌ **No record found.** You must be an authorized shiller or raider to check your balance.", flags: 64 } });
