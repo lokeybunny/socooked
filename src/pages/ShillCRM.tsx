@@ -368,6 +368,7 @@ export default function ShillCRM() {
           <TabsContent value="payouts"><PayoutsTab /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="activity"><ActivityTab /></TabsContent>
+          <TabsContent value="virality"><ViralityTab /></TabsContent>
           <TabsContent value="top-posts"><TopPostsSection /></TabsContent>
           <TabsContent value="campaign"><CampaignTab /></TabsContent>
           <TabsContent value="settings"><SettingsTab /></TabsContent>
