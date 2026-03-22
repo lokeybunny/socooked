@@ -51,6 +51,7 @@ interface Raider {
   total_earned: number;
   created_at: string;
   updated_at: string;
+  solana_wallet: string | null;
 }
 
 export default function Raiders() {

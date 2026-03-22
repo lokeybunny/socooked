@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, DollarSign, TrendingUp, Users, Trophy, ExternalLink, CheckCircle, XCircle } from "lucide-react";
+import { RefreshCw, DollarSign, TrendingUp, Users, Trophy, ExternalLink, CheckCircle, XCircle, BadgeCheck } from "lucide-react";
 import { formatDistanceToNow, format, subDays, startOfDay } from "date-fns";
 
 const RATE_PER_CLICK = 0.05; // $0.05 per shill click
@@ -168,7 +168,7 @@ export default function TeamAuditor() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-sm text-foreground">{member.username}</span>
+                      <span className="font-semibold text-sm text-foreground flex items-center gap-1">@{member.username}<BadgeCheck className="h-4 w-4 text-blue-500" /></span>
                       {member.todayClicks > 0 && (
                         <Badge variant="outline" className="text-[10px] border-green-500/30 text-green-500">
                           active today

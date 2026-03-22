@@ -34,6 +34,7 @@ interface Raider {
   total_earned: number;
   created_at: string;
   updated_at: string;
+  solana_wallet: string | null;
 }
 
 interface OutboundAccount {
@@ -234,6 +235,7 @@ function RaidersTab() {
             <TableRow>
               <TableHead>Discord User</TableHead>
               <TableHead>Secret Code</TableHead>
+              <TableHead>Solana Wallet</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Clicks</TableHead>
               <TableHead className="text-right">Rate</TableHead>
@@ -249,6 +251,11 @@ function RaidersTab() {
                 <TableCell>
                   {r.secret_code
                     ? <Badge variant="outline" className="font-mono">#{r.secret_code}</Badge>
+                    : <span className="text-muted-foreground text-xs">—</span>}
+                </TableCell>
+                <TableCell>
+                  {r.solana_wallet
+                    ? <span className="font-mono text-xs text-foreground">{r.solana_wallet.slice(0, 4)}...{r.solana_wallet.slice(-4)}</span>
                     : <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
                 <TableCell>
@@ -270,7 +277,7 @@ function RaidersTab() {
             ))}
             {raiders.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">No raiders yet.</TableCell>
+                <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">No raiders yet.</TableCell>
               </TableRow>
             )}
           </TableBody>

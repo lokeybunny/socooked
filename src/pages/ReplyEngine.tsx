@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RefreshCw, Users, ExternalLink, Trophy, MousePointerClick, Radio, MessageSquare, ClipboardCheck, DoorOpen, Shield } from "lucide-react";
+import { RefreshCw, Users, ExternalLink, Trophy, MousePointerClick, Radio, MessageSquare, ClipboardCheck, DoorOpen, Shield, BadgeCheck } from "lucide-react";
 import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import TeamAuditor from "@/components/reply-engine/TeamAuditor";
 import TopPostsSection from "@/components/shillers/TopPostsSection";
@@ -164,12 +164,18 @@ export default function ReplyEngine() {
 
         {user && <TopPostsSection />}
 
-        {user && (
+        <div className="flex gap-2">
+          {user && (
+            <Link to="/shillers/raiders" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors text-sm font-medium text-foreground">
+              <Shield className="h-4 w-4 text-primary" />
+              Manage Raiders
+            </Link>
+          )}
           <Link to="/shillers/raiders" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors text-sm font-medium text-foreground">
             <Shield className="h-4 w-4 text-primary" />
-            Manage Raiders
+            Raiders
           </Link>
-        )}
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-muted/50">
@@ -209,7 +215,7 @@ export default function ReplyEngine() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm text-foreground">{entry.discord_author}</span>
+                                <span className="font-medium text-sm text-foreground flex items-center gap-1">@{entry.discord_author}<BadgeCheck className="h-3.5 w-3.5 text-blue-500" /></span>
                                 <Badge
                                   variant="outline"
                                   className={`text-[9px] ${entry.type === "clicked" ? "border-green-500/30 text-green-500" : ""}`}
@@ -244,7 +250,7 @@ export default function ReplyEngine() {
                     {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
                   </span>
                   <div className="flex-1">
-                    <span className="font-medium text-foreground">{entry.username}</span>
+                    <span className="font-medium text-foreground flex items-center gap-1">@{entry.username}<BadgeCheck className="h-3.5 w-3.5 text-blue-500" /></span>
                   </div>
                   <Badge variant="secondary" className="font-mono">{entry.count} clicks</Badge>
                 </div>
