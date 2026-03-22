@@ -563,7 +563,39 @@ serve(async (req) => {
         return json({ type: 4, data: { content: helpText, flags: 64 } });
       }
 
-      // ─── /clean command — bulk delete bot messages from channel ───
+      // ─── /raidhelp command — raider-specific onboarding (ephemeral) ───
+      if (commandName === "raidhelp") {
+        const raidHelpText = [
+          "**Welcome, Raider!** :crossed_swords:",
+          "",
+          "**How raiding works:**",
+          "1. An admin assigns you a **secret code** — this is your unique identifier",
+          "2. When a raid alert drops, click **⚔️ Raid Now** or **📋 Copy Shill** on the embed",
+          "3. Copy the shill text (it includes your `#secretcode` hashtag) and paste it as a reply on X",
+          "4. Click **✅ Verify Raid** and paste your reply URL as proof",
+          "5. Admins verify your submission — earn **$0.02 per verified raid**",
+          "",
+          "**Raider Commands:**",
+          "`/raidhelp` — Show this guide",
+          "`/wallet <address>` — Set your Solana wallet for payouts",
+          "`/payout` — Request a payout for verified earnings",
+          "",
+          "**Buttons on raid alerts:**",
+          "⚔️ **Raid Now** — Log the raid and get your hashtag",
+          "📋 **Copy Shill** — Get pre-written shill text with your code baked in",
+          "✅ **Verify Raid** — Submit your X reply URL as proof of work",
+          "",
+          "**Tips:**",
+          "• Always include your `#secretcode` in the reply so we can verify it",
+          "• Set your wallet early with `/wallet` so payouts are instant",
+          "• Your secret code is entered once via a popup modal on first interaction",
+          "",
+          ":link: Full guide: https://warren.guru/shillteam",
+        ].join("\n");
+
+        return json({ type: 4, data: { content: raidHelpText, flags: 64 } });
+      }
+
       if (commandName === "clean") {
         const channelId = interaction.channel_id;
         const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
