@@ -527,14 +527,16 @@ serve(async (req) => {
           ],
         };
 
+        const isRaidChannel = replyChannelId === "1485010551196090448";
+        const buttonRow: any[] = [
+          { type: 2, style: 1, label: isRaidChannel ? "⚔️ RAID NOW" : "🚀 SHILL NOW", custom_id: `shill_now_${msg.id}` },
+          { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${msg.id}` },
+        ];
+        if (isRaidChannel) {
+          buttonRow.push({ type: 2, style: 3, label: "✅ Verify Raid", custom_id: `raid_verify_${msg.id}` });
+        }
         const discordComponents = [
-          {
-            type: 1, // ActionRow
-            components: [
-              { type: 2, style: 1, label: replyChannelId === "1485010551196090448" ? "⚔️ RAID NOW" : "🚀 SHILL NOW", custom_id: `shill_now_${msg.id}` },
-              { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${msg.id}` },
-            ],
-          },
+          { type: 1, components: buttonRow },
         ];
 
         try {
