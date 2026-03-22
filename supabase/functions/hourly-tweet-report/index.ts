@@ -51,13 +51,21 @@ Deno.serve(async (req) => {
       .select("*", { count: "exact", head: true })
       .gte("created_at", twentyFourHoursAgo.toISOString());
 
-    // Get active shillers and raiders count
-    const { data: shillerAssignments } = await supabase
+    // Get active shillers from smm-auto-shill config (discord_assignments map)
+    const { data: shillConfigs } = await supabase
       .from("site_configs")
       .select("content")
-      .eq("site_id", "discord-shill-assignments")
-      .eq("section", "assignments")
-      .maybeSingle();
+      .eq("site_id", "smm-auto-shill");
+
+    // Count unique discord assignments across all shill configs
+    const allAssignments = new Set<string>();
+    for (const cfg of shillConfigs || []) {
+      const assignments = cfg.content?.discord_assignments;
+      if (assignments && typeof assignments === "object") {
+        Object.keys(assignments).forEach((k) => allAssignments.add(k));
+      }
+    }
+    const activeShillerCount = allAssignments.size;
 
     const { count: activeRaiders } = await supabase
       .from("raiders")
@@ -68,11 +76,6 @@ Deno.serve(async (req) => {
     const tweetsToday = dailyCount || 0;
     const hoursElapsed = Math.max(1, Math.round((now.getTime() - twentyFourHoursAgo.getTime()) / (60 * 60 * 1000)));
     const hourlyAvg = tweetsToday > 0 ? (tweetsToday / hoursElapsed).toFixed(1) : "0";
-
-    // Calculate potential earnings
-    // Each tweet = 1 potential shill click + 1 potential raid click per active user
-    const assignments = shillerAssignments?.content?.assignments || {};
-    const activeShillerCount = Object.keys(assignments).length;
     const raiderCount = activeRaiders || 0;
 
     const potentialShillerEarnings = tweetsThisHour * activeShillerCount * SHILLER_RATE;
