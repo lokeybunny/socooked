@@ -70,6 +70,10 @@ const faq = [
     a: 'After you post the raid reply on X, click the ✅ Verify Raid button on the alert embed in Discord. Paste your reply URL in the modal. Admins review it and approve your click.',
   },
   {
+    q: 'Can I earn on the go?',
+    a: "Absolutely! Use /notify to opt into private alerts. You can get Discord DMs and/or Telegram mentions whenever a new shill or raid drops. That means you can be anywhere — on your phone, at work, on the bus — and still catch alerts, verify your work, and stack earnings. It's passive income that follows you.",
+  },
+  {
     q: 'Can I see the leaderboards?',
     a: 'Yes! The Shiller and Raider dashboards are public. You can view live stats, verified work, and earnings for both teams right from this site.',
   },
