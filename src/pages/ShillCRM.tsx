@@ -332,6 +332,202 @@ function RaidersTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   SHILLERS TAB (aggregated from shill_clicks + outbound_accounts)
+   ═══════════════════════════════════════════════════════════ */
+interface ShillerRow {
+  discord_user_id: string;
+  discord_username: string;
+  total_shills: number;
+  total_earned: number;
+  last_active: string;
+  x_handle: string | null;
+  solana_wallet: string | null;
+  status: string;
+}
+
+function ShillersTab() {
+  const [shillers, setShillers] = useState<ShillerRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editShiller, setEditShiller] = useState<ShillerRow | null>(null);
+  const [editFields, setEditFields] = useState({ x_handle: "", solana_wallet: "", status: "active" });
+
+  const fetchShillers = useCallback(async () => {
+    setLoading(true);
+
+    // Get all shill clicks
+    const { data: clicks } = await supabase
+      .from("shill_clicks")
+      .select("discord_user_id, discord_username, rate, created_at, click_type")
+      .eq("click_type", "shill")
+      .order("created_at", { ascending: false });
+
+    // Get raider records for wallet/status lookup
+    const { data: raiders } = await supabase.from("raiders").select("discord_user_id, solana_wallet, status");
+    const raiderMap = new Map((raiders || []).map(r => [r.discord_user_id, r]));
+
+    // Get outbound accounts for X handle lookup
+    const { data: accounts } = await supabase.from("outbound_accounts").select("account_identifier, account_label");
+
+    // Aggregate by discord_user_id
+    const map = new Map<string, ShillerRow>();
+    for (const c of clicks || []) {
+      const existing = map.get(c.discord_user_id);
+      const raider = raiderMap.get(c.discord_user_id);
+      if (existing) {
+        existing.total_shills++;
+        existing.total_earned += Number(c.rate || 0.05);
+        if (c.created_at > existing.last_active) existing.last_active = c.created_at;
+      } else {
+        map.set(c.discord_user_id, {
+          discord_user_id: c.discord_user_id,
+          discord_username: c.discord_username,
+          total_shills: 1,
+          total_earned: Number(c.rate || 0.05),
+          last_active: c.created_at,
+          x_handle: null,
+          solana_wallet: raider?.solana_wallet || null,
+          status: raider?.status || "active",
+        });
+      }
+    }
+
+    setShillers(Array.from(map.values()).sort((a, b) => b.total_shills - a.total_shills));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchShillers(); }, [fetchShillers]);
+
+  const openEdit = (s: ShillerRow) => {
+    setEditShiller(s);
+    setEditFields({
+      x_handle: s.x_handle || "",
+      solana_wallet: s.solana_wallet || "",
+      status: s.status,
+    });
+  };
+
+  const handleSave = async () => {
+    if (!editShiller) return;
+    // Upsert into raiders table to persist shiller details
+    const { data: existing } = await supabase
+      .from("raiders")
+      .select("id")
+      .eq("discord_user_id", editShiller.discord_user_id)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase.from("raiders").update({
+        solana_wallet: editFields.solana_wallet.trim() || null,
+        status: editFields.status,
+        updated_at: new Date().toISOString(),
+      }).eq("id", existing.id);
+    } else {
+      await supabase.from("raiders").insert({
+        discord_user_id: editShiller.discord_user_id,
+        discord_username: editShiller.discord_username,
+        solana_wallet: editFields.solana_wallet.trim() || null,
+        status: editFields.status,
+        rate_per_click: 0.05,
+      });
+    }
+
+    toast.success(`Updated ${editShiller.discord_username}`);
+    setEditShiller(null);
+    fetchShillers();
+  };
+
+  const totalEarned = shillers.reduce((s, sh) => s + sh.total_earned, 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-4 gap-3">
+        <StatCard icon={HardHat} label="Shillers" value={shillers.length} />
+        <StatCard icon={Activity} label="Total Shills" value={shillers.reduce((s, sh) => s + sh.total_shills, 0)} />
+        <StatCard icon={DollarSign} label="Total Earned" value={`$${totalEarned.toFixed(2)}`} color="text-primary" />
+        <StatCard icon={Users} label="Active" value={shillers.filter(s => s.status === "active").length} color="text-green-500" />
+      </div>
+
+      <div className="rounded-lg border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Discord User</TableHead>
+              <TableHead>Solana Wallet</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Shills</TableHead>
+              <TableHead className="text-right">Earned</TableHead>
+              <TableHead>Last Active</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shillers.map(s => (
+              <TableRow key={s.discord_user_id}>
+                <TableCell className="font-medium">@{s.discord_username}</TableCell>
+                <TableCell>
+                  {s.solana_wallet
+                    ? <span className="font-mono text-xs text-foreground">{s.solana_wallet.slice(0, 4)}...{s.solana_wallet.slice(-4)}</span>
+                    : <span className="text-muted-foreground text-xs">—</span>}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={s.status === "active" ? "default" : "destructive"} className="text-xs">{s.status}</Badge>
+                </TableCell>
+                <TableCell className="text-right font-mono">{s.total_shills}</TableCell>
+                <TableCell className="text-right font-mono">${s.total_earned.toFixed(2)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(s.last_active), { addSuffix: true })}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            {shillers.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">No shillers yet.</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Button variant="outline" size="sm" onClick={fetchShillers} disabled={loading}>
+        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
+      </Button>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editShiller} onOpenChange={open => !open && setEditShiller(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Shiller — @{editShiller?.discord_username}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Solana Wallet</label>
+              <Input placeholder="Solana public address" value={editFields.solana_wallet}
+                onChange={e => setEditFields(f => ({ ...f, solana_wallet: e.target.value }))} className="font-mono" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
+              <div className="flex gap-2">
+                {["active", "suspended"].map(s => (
+                  <Button key={s} variant={editFields.status === s ? "default" : "outline"} size="sm"
+                    onClick={() => setEditFields(f => ({ ...f, status: s }))}>{s}</Button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditShiller(null)}>Cancel</Button>
+            <Button onClick={handleSave}><Save className="h-4 w-4 mr-1.5" /> Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
    ACCOUNTS TAB (outbound_accounts)
    ═══════════════════════════════════════════════════════════ */
 function AccountsTab() {
