@@ -12,7 +12,7 @@ const commands = [
   },
   {
     name: '/authorize',
-    desc: 'Link your Discord account to an X (Twitter) account. You'll pick from a dropdown of available accounts.',
+    desc: 'Link your Discord account to an X (Twitter) account. Pick from a dropdown of available accounts.',
     icon: <Shield className="h-5 w-5" />,
   },
   {
