@@ -438,15 +438,16 @@ function ShillersTab() {
     fetchShillers();
   };
 
-  const totalEarned = shillers.reduce((s, sh) => s + sh.total_earned, 0);
+  const totalVerifiedEarned = shillers.reduce((s, sh) => s + sh.verified_earned, 0);
+  const totalPending = shillers.reduce((s, sh) => s + sh.pending_count, 0);
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-4 gap-3">
         <StatCard icon={HardHat} label="Shillers" value={shillers.length} />
-        <StatCard icon={Activity} label="Total Shills" value={shillers.reduce((s, sh) => s + sh.total_shills, 0)} />
-        <StatCard icon={DollarSign} label="Total Earned" value={`$${totalEarned.toFixed(2)}`} color="text-primary" />
-        <StatCard icon={Users} label="Active" value={shillers.filter(s => s.status === "active").length} color="text-green-500" />
+        <StatCard icon={Activity} label="Verified Shills" value={shillers.reduce((s, sh) => s + sh.verified_shills, 0)} />
+        <StatCard icon={DollarSign} label="Verified Owed" value={`$${totalVerifiedEarned.toFixed(2)}`} color="text-primary" />
+        <StatCard icon={Users} label="Pending" value={totalPending} color="text-yellow-500" />
       </div>
 
       <div className="rounded-lg border border-border">
