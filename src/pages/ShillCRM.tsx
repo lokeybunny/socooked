@@ -678,6 +678,71 @@ function ShillersTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PayoutDialog target={payTarget} onClose={() => setPayTarget(null)} onPaid={fetchShillers} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAYOUTS TAB (shill_payouts history)
+   ═══════════════════════════════════════════════════════════ */
+function PayoutsTab() {
+  const [payouts, setPayouts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPayouts = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("shill_payouts").select("*").order("created_at", { ascending: false }).limit(500);
+    setPayouts(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchPayouts(); }, [fetchPayouts]);
+
+  const totalPaid = payouts.reduce((s, p) => s + Number(p.amount), 0);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard icon={Receipt} label="Total Payouts" value={payouts.length} />
+        <StatCard icon={DollarSign} label="Total Paid" value={`$${totalPaid.toFixed(2)}`} color="text-primary" />
+        <StatCard icon={Users} label="Unique Users" value={new Set(payouts.map(p => p.discord_user_id)).size} />
+      </div>
+
+      <div className="rounded-lg border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">Clicks</TableHead>
+              <TableHead>Solana Wallet</TableHead>
+              <TableHead>Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {payouts.map(p => (
+              <TableRow key={p.id}>
+                <TableCell className="font-medium">@{p.discord_username}</TableCell>
+                <TableCell><Badge variant="outline" className="text-xs">{p.payout_type}</Badge></TableCell>
+                <TableCell className="text-right font-mono">${Number(p.amount).toFixed(2)}</TableCell>
+                <TableCell className="text-right font-mono">{p.verified_clicks}</TableCell>
+                <TableCell className="font-mono text-xs">{p.solana_wallet?.slice(0, 6)}...{p.solana_wallet?.slice(-4)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{format(new Date(p.created_at), "MMM d, yyyy h:mm a")}</TableCell>
+              </TableRow>
+            ))}
+            {payouts.length === 0 && (
+              <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No payouts recorded yet.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Button variant="outline" size="sm" onClick={fetchPayouts} disabled={loading}>
+        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
+      </Button>
     </div>
   );
 }
