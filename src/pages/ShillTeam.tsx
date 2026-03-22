@@ -182,7 +182,7 @@ export default function ShillTeam() {
             rel="noopener noreferrer"
           >
             <Button size="lg" className="gap-2 mt-2">
-              Open a Ticket — Join the Discord <ExternalLink className="h-4 w-4" />
+              Join the Discord <ExternalLink className="h-4 w-4" />
             </Button>
           </a>
         </section>
