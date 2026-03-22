@@ -63,8 +63,8 @@ export default function ViralityTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    // Only fetch last 48h of tweets — keeps it moving
-    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    // Only fetch last 24h of tweets — keeps it moving
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from("shill_post_analytics")
       .select("*")
