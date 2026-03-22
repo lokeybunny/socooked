@@ -1260,6 +1260,101 @@ serve(async (req) => {
         });
       }
 
+      // ─── Raid verify modal submit — user provides their raid reply URL ───
+      if (customId.startsWith("raid_verify_submit_")) {
+        const discordMsgId = customId.replace("raid_verify_submit_", "") || null;
+
+        // Extract URL from modal
+        const components = interaction.data?.components || [];
+        let raidUrl = "";
+        for (const row of components) {
+          for (const comp of row.components || []) {
+            if (comp.custom_id === "raid_url_input") {
+              raidUrl = (comp.value || "").trim();
+            }
+          }
+        }
+
+        if (!raidUrl) {
+          return json({ type: 4, data: { content: "❌ No URL provided. Try again.", flags: 64 } });
+        }
+
+        // Basic URL validation
+        const isValidUrl = /https?:\/\/(x\.com|twitter\.com)\/\S+/i.test(raidUrl);
+        if (!isValidUrl) {
+          return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL. Please paste the direct link to your reply.", flags: 64 } });
+        }
+
+        // Get raider info
+        const { data: raider } = await supabase
+          .from("raiders")
+          .select("secret_code, status, rate_per_click")
+          .eq("discord_user_id", discordUserId)
+          .maybeSingle();
+
+        if (!raider || raider.status !== "active") {
+          return json({ type: 4, data: { content: "🚫 Your raider account is not active. Contact an admin.", flags: 64 } });
+        }
+
+        // Extract the original tweet URL from the embed of the bot message
+        // We'll store it from the interaction's message context
+        let sourceTweetUrl = "";
+        const embeds = interaction.message?.embeds || [];
+        if (embeds.length > 0) {
+          const desc = embeds[0].description || "";
+          const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
+          if (urlMatch) sourceTweetUrl = urlMatch[0].replace(/[)\]}>]+$/, "");
+        }
+
+        // Check for duplicate verification with this exact URL
+        const { data: existingVerify } = await supabase
+          .from("shill_clicks")
+          .select("id")
+          .eq("discord_user_id", discordUserId)
+          .eq("receipt_tweet_url", raidUrl)
+          .limit(1);
+
+        if (existingVerify?.length) {
+          return json({ type: 4, data: { content: "⚠️ You've already submitted this URL for verification.", flags: 64 } });
+        }
+
+        // Insert verification record for admin auditing
+        await supabase.from("shill_clicks").insert({
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+          tweet_url: sourceTweetUrl || null,
+          source_tweet_url: sourceTweetUrl || null,
+          receipt_tweet_url: raidUrl,
+          discord_msg_id: discordMsgId !== "unknown" ? discordMsgId : null,
+          status: "pending_verification",
+          click_type: "raid",
+          rate: raider.rate_per_click || 0.02,
+          raider_secret_code: raider.secret_code || null,
+        });
+
+        // Audit log
+        await supabase.from("activity_log").insert({
+          entity_type: "raid-verification",
+          action: "submitted",
+          meta: {
+            name: `✅ ${discordUsername} submitted raid verification`,
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            raid_url: raidUrl,
+            source_tweet_url: sourceTweetUrl,
+            secret_code: raider.secret_code,
+          },
+        });
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Raid verification submitted!**\n\n🔗 Your reply: ${raidUrl}\n🔑 Code: \`#${raider.secret_code || "N/A"}\`\n\n⏳ An admin will review your raid before payout. Once verified, it will count toward your earnings.\n\n💡 Use \`/payout\` when you're ready to cash out verified work.`,
+            flags: 64,
+          },
+        });
+      }
+
       return json({ type: 4, data: { content: "❓ Unknown modal.", flags: 64 } });
     }
 
