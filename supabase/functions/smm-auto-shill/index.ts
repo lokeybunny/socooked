@@ -536,6 +536,35 @@ serve(async (req) => {
     if (interaction.type === 2) {
       const commandName = interaction.data?.name || "";
 
+      // ─── /help command — onboarding guide (ephemeral) ───
+      if (commandName === "help") {
+        const helpText = [
+          "**Welcome to the Shill Team!** :rocket:",
+          "",
+          "**How it works:**",
+          "1. Use `/authorize` to link your Discord to an X account",
+          "2. Use `/shill <tweet_url>` to auto-reply from your linked account",
+          "3. Use `/wallet <address>` to set your Solana payout address",
+          "4. Use `/payout` to request a withdrawal once you have verified earnings",
+          "",
+          "**Roles:**",
+          ":zap: **Shiller** — Authorized to post from a linked X account. Earn per verified click.",
+          ":shield: **Raider** — Use your secret code to raid tweets. Earn $0.02 per verified reply.",
+          "",
+          "**Commands:**",
+          "`/help` — Show this guide",
+          "`/authorize` — Link your Discord to an X account",
+          "`/shill <url>` — Auto-reply to a tweet",
+          "`/wallet <address>` — Set your Solana wallet",
+          "`/payout` — Request a payout",
+          "`/clean` — Delete bot messages (admin)",
+          "",
+          ":link: Full guide: https://socooked.lovable.app/shillteam",
+        ].join("\n");
+
+        return json({ type: 4, data: { content: helpText, flags: 64 } });
+      }
+
       // ─── /clean command — bulk delete bot messages from channel ───
       if (commandName === "clean") {
         const channelId = interaction.channel_id;
