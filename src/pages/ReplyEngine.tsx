@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   RefreshCw, Users, ExternalLink, Trophy, MousePointerClick, Radio, MessageSquare,
-  ClipboardCheck, Shield, BadgeCheck, KeyRound, History, Trash2, CheckCircle2,
+  ClipboardCheck, Shield, BadgeCheck, KeyRound, History, Trash2, CheckCircle2, ArrowLeft,
 } from "lucide-react";
 import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import TeamAuditor from "@/components/reply-engine/TeamAuditor";
@@ -192,6 +192,15 @@ export default function ReplyEngine() {
   return (
     <div className="min-h-screen bg-background">
       <div className="p-6 space-y-6 max-w-5xl mx-auto">
+        {!user && (
+          <Link
+            to="/shillteam"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Shill Team
+          </Link>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Shillers</h1>

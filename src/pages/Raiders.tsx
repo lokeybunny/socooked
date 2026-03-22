@@ -159,11 +159,11 @@ export default function Raiders() {
         <div className="flex items-center gap-3">
           {!user && (
             <Link
-              to="/shillers"
+              to="/shillteam"
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Shillers
+              Back to Shill Team
             </Link>
           )}
         </div>
