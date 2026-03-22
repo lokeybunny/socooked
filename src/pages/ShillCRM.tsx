@@ -139,10 +139,10 @@ function PayoutDialog({ target, onClose, onPaid }: { target: PayoutTarget | null
             <div className="flex justify-between text-sm font-bold"><span className="text-muted-foreground">Amount Owed</span><span className="font-mono text-primary">${target.amount.toFixed(2)}</span></div>
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Solana Payout Address (receipt)</label>
-            <Input placeholder="Solana public address used for payment" value={solanaAddress}
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Solscan Transaction URL (receipt)</label>
+            <Input placeholder="https://solscan.io/tx/..." value={solanaAddress}
               onChange={e => setSolanaAddress(e.target.value)} className="font-mono" />
-            <p className="text-[10px] text-muted-foreground mt-1">This address is saved as the payout receipt for this transaction.</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Paste the Solscan link for this transaction as a payment receipt.</p>
           </div>
         </div>
         <DialogFooter>
