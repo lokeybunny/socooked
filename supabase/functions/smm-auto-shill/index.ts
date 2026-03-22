@@ -957,29 +957,57 @@ serve(async (req) => {
           .eq("discord_user_id", discordUserId)
           .eq("status", "clicked");
 
-        const verifiedCount = verifiedClicks?.length || 0;
-        const verifiedOwed = (verifiedClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
-        const pendingCount = pendingClicks?.length || 0;
-        const pendingValue = (pendingClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
+        const verifiedList = verifiedClicks || [];
+        const pendingList = pendingClicks || [];
+
+        // Split by click_type
+        const shillVerified = verifiedList.filter((c: any) => c.click_type === "shill");
+        const shillPending = pendingList.filter((c: any) => c.click_type === "shill");
+        const raidVerified = verifiedList.filter((c: any) => c.click_type === "raid");
+        const raidPending = pendingList.filter((c: any) => c.click_type === "raid");
+
+        const sum = (arr: any[]) => arr.reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
+
+        const totalVerified = sum(verifiedList);
+        const totalPending = sum(pendingList);
 
         const walletAddress = existingRaider?.[0]?.solana_wallet;
         const walletLine = walletAddress
           ? `🔐 Wallet: \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\``
           : "⚠️ No wallet set — use `/wallet <address>` to register one";
 
-        const role = isRaider ? "Raider" : "Shiller";
+        const lines: string[] = [
+          `📊 **Balance for ${discordUsername}**`,
+          "",
+        ];
+
+        if (isShiller && isRaider) {
+          lines.push("**🎯 Shiller**");
+          lines.push(`  ✅ Verified: **$${sum(shillVerified).toFixed(2)}** (${shillVerified.length} clicks)`);
+          lines.push(`  ⏳ Pending: **$${sum(shillPending).toFixed(2)}** (${shillPending.length} clicks)`);
+          lines.push("");
+          lines.push("**⚔️ Raider**");
+          lines.push(`  ✅ Verified: **$${sum(raidVerified).toFixed(2)}** (${raidVerified.length} clicks)`);
+          lines.push(`  ⏳ Pending: **$${sum(raidPending).toFixed(2)}** (${raidPending.length} clicks)`);
+          lines.push("");
+          lines.push(`💰 **Combined Total — Verified: $${totalVerified.toFixed(2)} | Pending: $${totalPending.toFixed(2)}**`);
+        } else if (isRaider) {
+          lines.push("**⚔️ Raider**");
+          lines.push(`✅ Verified: **$${sum(raidVerified).toFixed(2)}** (${raidVerified.length} clicks)`);
+          lines.push(`⏳ Pending: **$${sum(raidPending).toFixed(2)}** (${raidPending.length} clicks)`);
+        } else {
+          lines.push("**🎯 Shiller**");
+          lines.push(`✅ Verified: **$${sum(shillVerified).toFixed(2)}** (${shillVerified.length} clicks)`);
+          lines.push(`⏳ Pending: **$${sum(shillPending).toFixed(2)}** (${shillPending.length} clicks)`);
+        }
+
+        lines.push("");
+        lines.push(walletLine);
+        lines.push("");
+        lines.push(totalVerified > 0 ? "💸 Use `/payout` on **Friday** to cash out your verified balance!" : "Keep shilling/raiding — your earnings will show up here!");
 
         return json({ type: 4, data: {
-          content: [
-            `📊 **Balance for ${discordUsername}** (${role})`,
-            "",
-            `✅ Verified: **$${verifiedOwed.toFixed(2)}** (${verifiedCount} clicks)`,
-            `⏳ Pending: **$${pendingValue.toFixed(2)}** (${pendingCount} clicks)`,
-            "",
-            walletLine,
-            "",
-            verifiedOwed > 0 ? "💸 Use `/payout` on **Friday** to cash out your verified balance!" : "Keep shilling/raiding — your earnings will show up here!",
-          ].join("\n"),
+          content: lines.join("\n"),
           flags: 64,
         }});
       }
