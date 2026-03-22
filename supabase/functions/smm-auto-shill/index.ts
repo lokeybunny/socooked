@@ -673,7 +673,7 @@ serve(async (req) => {
         });
       }
 
-      // ─── /payout command — user submits their Solana wallet address ───
+      // ─── /payout command — user requests a payout ───
       if (commandName === "payout") {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUserId = discordUser.id || "unknown";
@@ -694,11 +694,11 @@ serve(async (req) => {
         // Check if user is an authorized raider
         const { data: existingRaider } = await supabase
           .from("raiders")
-          .select("id, solana_wallet, status")
+          .select("id, solana_wallet, status, rate_per_click")
           .eq("discord_user_id", discordUserId)
           .limit(1);
 
-        // Check if user has authorized shill activity (via outbound_accounts or shill_clicks)
+        // Check if user has shill activity
         const { data: shillHistory } = await supabase
           .from("shill_clicks")
           .select("id")
@@ -710,17 +710,16 @@ serve(async (req) => {
 
         // Gate: must be an active raider OR have shill history
         if (!isRaider && !isShiller) {
-          return json({ type: 4, data: { content: "❌ **Access denied.** You must be an authorized shiller or raider to set a payout wallet.\n\nIf you're a raider, make sure your secret code is registered. If you're a shiller, complete at least one shill first.", flags: 64 } });
+          return json({ type: 4, data: { content: "❌ **Access denied.** You must be an authorized shiller or raider to request a payout.\n\nIf you're a raider, make sure your secret code is registered. If you're a shiller, complete at least one shill first.", flags: 64 } });
         }
 
+        // Save/update wallet on raider record
         if (existingRaider?.length) {
-          // Update existing raider's wallet
           await supabase.from("raiders").update({
             solana_wallet: walletAddress,
             updated_at: new Date().toISOString(),
           }).eq("id", existingRaider[0].id);
         } else {
-          // Shiller without a raider record — create one to track wallet
           await supabase.from("raiders").insert({
             discord_user_id: discordUserId,
             discord_username: discordUsername,
@@ -730,22 +729,70 @@ serve(async (req) => {
           });
         }
 
-        // Log to activity_log
+        // Calculate verified balance
+        const { data: verifiedClicks } = await supabase
+          .from("shill_clicks")
+          .select("id, click_type, rate")
+          .eq("discord_user_id", discordUserId)
+          .eq("status", "verified");
+
+        const totalVerified = verifiedClicks?.length || 0;
+        const totalOwed = (verifiedClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
+
+        if (totalOwed <= 0) {
+          return json({ type: 4, data: {
+            content: `💰 **Wallet saved:** \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n\n📊 You currently have **$0.00** in verified earnings. Keep shilling/raiding — once your work is verified, come back and request a payout!`,
+            flags: 64,
+          }});
+        }
+
+        // Check for existing pending request
+        const { data: existingRequest } = await supabase
+          .from("payout_requests")
+          .select("id")
+          .eq("discord_user_id", discordUserId)
+          .eq("status", "pending")
+          .limit(1);
+
+        if (existingRequest?.length) {
+          return json({ type: 4, data: {
+            content: `⏳ **You already have a pending payout request.**\n\n💰 Amount: **$${totalOwed.toFixed(2)}**\n🔐 Wallet: \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n\nPlease be patient — your request is in the admin queue. If you haven't received payment within **48 hours**, please open a support ticket in the Discord server.`,
+            flags: 64,
+          }});
+        }
+
+        // Determine user type
+        const userType = isRaider ? "raider" : "shiller";
+
+        // Create payout request
+        await supabase.from("payout_requests").insert({
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+          user_type: userType,
+          solana_wallet: walletAddress,
+          amount_owed: totalOwed,
+          verified_clicks: totalVerified,
+          status: "pending",
+        });
+
+        // Log to activity
         await supabase.from("activity_log").insert({
           entity_type: "shill-payout",
-          action: "wallet-set",
+          action: "requested",
           meta: {
-            name: `💰 ${discordUsername} set wallet`,
+            name: `📥 ${discordUsername} requested payout $${totalOwed.toFixed(2)}`,
             discord_user_id: discordUserId,
             discord_username: discordUsername,
             solana_wallet: walletAddress,
+            amount: totalOwed,
+            user_type: userType,
           },
         });
 
         return json({
           type: 4,
           data: {
-            content: `✅ **Wallet saved!**\n\n💰 \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n\nYour Solana wallet has been registered. You'll receive payouts to this address when approved by admin.`,
+            content: `✅ **Payout request submitted!**\n\n💰 Amount: **$${totalOwed.toFixed(2)}** (${totalVerified} verified clicks)\n🔐 Wallet: \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n📋 Type: ${userType}\n\n⏳ **Please be patient** — admin will review and process your payout. If you haven't received payment within **48 hours**, please open a support ticket in the Discord server.\n\n_Your wallet has been saved for future payouts._`,
             flags: 64,
           },
         });
