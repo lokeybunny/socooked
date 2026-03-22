@@ -592,7 +592,6 @@ serve(async (req) => {
             `👇 Tap below to jump in:`;
           const loungeKeyboard = {
             inline_keyboard: [
-              [{ text: `${alertType} — Open Tweet`, url: tweetUrl }],
               [{ text: "💬 Join Discord & Start Earning", url: "https://discord.gg/warrenguru" }],
             ],
           };
