@@ -114,12 +114,12 @@ Deno.serve(async (req) => {
           inline: true,
         },
         {
-          name: "💰 Potential Passive Income This Hour",
+          name: "💰 Potential Passive Income",
           value: [
-            `⚡ Shillers: **$${potentialShillerEarnings.toFixed(2)}** ($${SHILLER_RATE}/click × ${tweetsThisHour} tweets × ${activeShillerCount} shillers)`,
-            `🛡️ Raiders: **$${potentialRaiderEarnings.toFixed(2)}** ($${RAIDER_RATE}/click × ${tweetsThisHour} tweets × ${raiderCount} raiders)`,
+            `This Hour: **${tweetsThisHour}** links × $0.05 = **$${potentialEarnings.toFixed(2)}**`,
+            `Today (24h): **${tweetsToday}** links × $0.05 = **$${dailyPotentialEarnings.toFixed(2)}**`,
             ``,
-            `🤑 **Total: $${totalPotentialEarnings.toFixed(2)}** up for grabs!`,
+            `🤑 Every link is **$0.05** waiting to be claimed!`,
           ].join("\n"),
           inline: false,
         },
