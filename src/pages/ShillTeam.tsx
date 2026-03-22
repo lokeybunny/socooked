@@ -135,7 +135,7 @@ export default function ShillTeam() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
                 <p>Shillers are linked 1:1 to an X account via <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/authorize</code>. When a shill alert fires, use <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/shill &lt;url&gt;</code> to auto-reply from your linked account.</p>
-                <p>Each reply is tracked. Clicks on your reply link earn you money. Verified clicks = verified earnings.</p>
+                <p>Each reply is tracked. You earn <strong>$0.05 per verified click</strong> on your reply link. Verified clicks = verified earnings.</p>
               </CardContent>
             </Card>
             <Card className="border-accent/20 bg-accent/[0.02]">
