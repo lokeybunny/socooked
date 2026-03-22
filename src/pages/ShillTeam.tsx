@@ -91,6 +91,23 @@ export default function ShillTeam() {
           <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors mb-4">
             <ArrowLeft className="h-3.5 w-3.5" /> Home
           </Link>
+
+          {/* Video */}
+          <div className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-[40px] border border-border/40 shadow-lg" style={{ aspectRatio: '16/9' }}>
+            <iframe
+              src="https://www.youtube.com/embed/o2BGRuCpp0Y?modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&playsinline=1"
+              title="Shill Team intro"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="absolute inset-0 w-[calc(100%+120px)] h-[calc(100%+120px)] -top-[60px] -left-[60px] pointer-events-auto"
+              style={{ border: 'none' }}
+            />
+            {/* Block YouTube logo click (bottom-right) */}
+            <div className="absolute bottom-0 right-0 w-40 h-16 z-10" />
+            {/* Block top-left title/channel link */}
+            <div className="absolute top-0 left-0 w-full h-12 z-10" />
+          </div>
+
           <div className="flex items-center justify-center gap-3">
             <Users className="h-8 w-8 text-primary" />
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight">Join the Shill Team</h1>
