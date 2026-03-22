@@ -63,8 +63,8 @@ export default function ViralityTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    // Only fetch last 48h of tweets — keeps it moving
-    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    // Only fetch last 24h of tweets — keeps it moving
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from("shill_post_analytics")
       .select("*")
@@ -105,14 +105,14 @@ export default function ViralityTab() {
   };
 
   const pruneStale = async () => {
-    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { error, count } = await supabase
       .from("shill_post_analytics")
       .delete()
       .lt("created_at", cutoff);
     if (error) toast.error(error.message);
     else {
-      toast.success(`Pruned old tweets`);
+      toast.success("Pruned old tweets");
       load();
     }
   };
@@ -153,10 +153,10 @@ export default function ViralityTab() {
             {refreshing ? "Refreshing…" : "Refresh Metrics"}
           </Button>
           <Button variant="ghost" size="sm" onClick={pruneStale} className="gap-1.5 text-muted-foreground">
-            <Trash2 className="h-3.5 w-3.5" /> Prune 48h+
+            <Trash2 className="h-3.5 w-3.5" /> Prune 24h+
           </Button>
         </div>
-        <p className="text-[11px] text-muted-foreground">Auto-sorted by virality score · 48h window</p>
+        <p className="text-[11px] text-muted-foreground">Auto-sorted by virality score · 24h window</p>
       </div>
 
       {/* Feed */}

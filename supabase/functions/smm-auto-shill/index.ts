@@ -11,6 +11,49 @@ const API_BASE = "https://api.upload-post.com/api";
 const FALLBACK_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aXV4c2Z4ZXZqbm1kd25ycWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjgzMzQsImV4cCI6MjA4Njc0NDMzNH0.APi_x5YBKa8bOKpjLGiJUBB5qxi3rKKxWiApQAlf78c";
 const FALLBACK_DISCORD_PUBLIC_KEY = "3d6e57e2ae6bcf70b70dc1fbf0caacb5fe2ed07a9c9a325bdc34734a952ca42d";
 
+const X_API_BASE = "https://api.x.com/2";
+
+/** Validate that an X/Twitter URL points to a real, accessible tweet */
+async function validateXLink(url: string): Promise<{ valid: boolean; reason?: string }> {
+  try {
+    const bearerToken = Deno.env.get("TWITTER_BEARER_TOKEN");
+    if (!bearerToken) {
+      // If no bearer token, fall back to regex-only validation
+      console.warn("[auto-shill] No TWITTER_BEARER_TOKEN — skipping live link check");
+      return { valid: true };
+    }
+
+    // Extract tweet ID from URL
+    const m = url.match(/(?:x\.com|twitter\.com)\/\w+\/status\/(\d+)/);
+    if (!m) return { valid: false, reason: "Could not extract tweet ID from URL" };
+
+    const tweetId = m[1];
+    const res = await fetch(`${X_API_BASE}/tweets/${tweetId}?tweet.fields=author_id`, {
+      headers: { Authorization: `Bearer ${bearerToken}` },
+    });
+
+    if (res.status === 404 || res.status === 403) {
+      return { valid: false, reason: "Tweet not found or has been deleted" };
+    }
+    if (!res.ok) {
+      console.error(`[auto-shill] X API validation ${res.status}`);
+      // Don't block on API errors — allow through
+      return { valid: true };
+    }
+
+    const data = await res.json();
+    if (!data.data) {
+      return { valid: false, reason: "Tweet does not exist" };
+    }
+
+    return { valid: true };
+  } catch (e) {
+    console.error("[auto-shill] Link validation error:", e);
+    // Don't block on network errors
+    return { valid: true };
+  }
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -1632,6 +1675,12 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL. Please paste the direct link to your reply.", flags: 64 } });
         }
 
+        // Live link validation — check the tweet actually exists
+        const raidLinkCheck = await validateXLink(raidUrl);
+        if (!raidLinkCheck.valid) {
+          return json({ type: 4, data: { content: `❌ **Broken link detected.** ${raidLinkCheck.reason || "The tweet doesn't exist or was deleted."}`, flags: 64 } });
+        }
+
         // Get raider info
         const { data: raider } = await supabase
           .from("raiders")
@@ -1723,6 +1772,12 @@ serve(async (req) => {
         const isValidUrl = /https?:\/\/(x\.com|twitter\.com)\/\S+/i.test(verifyUrl);
         if (!isValidUrl) {
           return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL.", flags: 64 } });
+        }
+
+        // Live link validation — check the tweet actually exists
+        const shillLinkCheck = await validateXLink(verifyUrl);
+        if (!shillLinkCheck.valid) {
+          return json({ type: 4, data: { content: `❌ **Broken link detected.** ${shillLinkCheck.reason || "The tweet doesn't exist or was deleted."}\n\nPlease submit a valid, live URL.`, flags: 64 } });
         }
 
         // Find this user's pending click for this message and verify it immediately
