@@ -823,8 +823,8 @@ function ShillersTab() {
                         solana_wallet: s.solana_wallet,
                       })}><Banknote className="h-3.5 w-3.5" /></Button>
                     )}
-                    {s.verified_earned > 0 && (
-                      <Button variant="ghost" size="sm" title="Reset earnings (test)" onClick={() => handleResetShillerEarnings(s)}><RotateCcw className="h-3.5 w-3.5 text-yellow-500" /></Button>
+                    {(s.verified_earned > 0 || s.pending_count > 0) && (
+                      <Button variant="ghost" size="sm" title="Reset earnings" onClick={() => handleResetShillerEarnings(s)}><RotateCcw className="h-3.5 w-3.5 text-yellow-500" /></Button>
                     )}
                     <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
                   </div>
