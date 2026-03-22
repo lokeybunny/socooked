@@ -1,6 +1,7 @@
-import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
@@ -174,6 +175,21 @@ export default function ShillTeam() {
               </AccordionItem>
             ))}
           </Accordion>
+        </section>
+
+        {/* CTA */}
+        <section className="text-center space-y-4 py-4">
+          <h2 className="text-2xl font-bold">Ready to Start Earning?</h2>
+          <p className="text-muted-foreground text-sm max-w-md mx-auto">Open a ticket in our Discord to get onboarded and receive your role.</p>
+          <a
+            href="https://discord.gg/warrenguru"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button size="lg" className="gap-2 mt-2">
+              Open a Ticket — Join the Discord <ExternalLink className="h-4 w-4" />
+            </Button>
+          </a>
         </section>
 
         {/* Footer */}
