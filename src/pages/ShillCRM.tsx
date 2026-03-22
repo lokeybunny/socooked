@@ -687,6 +687,174 @@ function ShillersTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   PAYOUT REQUESTS TAB (user-initiated /payout requests)
+   ═══════════════════════════════════════════════════════════ */
+function PayoutRequestsTab() {
+  const { user } = useAuth();
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [payTarget, setPayTarget] = useState<PayoutTarget | null>(null);
+
+  const fetchRequests = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("payout_requests").select("*").order("created_at", { ascending: false }).limit(500);
+    setRequests(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  const pendingRequests = requests.filter(r => r.status === "pending");
+  const processedRequests = requests.filter(r => r.status !== "pending");
+  const totalPendingAmount = pendingRequests.reduce((s, r) => s + Number(r.amount_owed), 0);
+
+  const handleApproveAndPay = (req: any) => {
+    setPayTarget({
+      discord_user_id: req.discord_user_id,
+      discord_username: req.discord_username,
+      amount: Number(req.amount_owed),
+      verified_clicks: req.verified_clicks,
+      payout_type: req.user_type === "raider" ? "raid" : "shill",
+      solana_wallet: req.solana_wallet,
+    });
+  };
+
+  const handleReject = async (req: any) => {
+    if (!confirm(`Reject payout request from @${req.discord_username}?`)) return;
+    const { error } = await supabase.from("payout_requests").update({
+      status: "rejected",
+      processed_by: user?.id || null,
+      processed_at: new Date().toISOString(),
+      admin_notes: "Rejected by admin",
+    }).eq("id", req.id);
+    if (error) toast.error(error.message);
+    else { toast.success("Request rejected"); fetchRequests(); }
+  };
+
+  const handlePaidCallback = async () => {
+    // Mark all pending requests for this user as processed
+    if (payTarget) {
+      await supabase.from("payout_requests").update({
+        status: "processed",
+        processed_by: user?.id || null,
+        processed_at: new Date().toISOString(),
+      }).eq("discord_user_id", payTarget.discord_user_id).eq("status", "pending");
+    }
+    fetchRequests();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-4 gap-3">
+        <StatCard icon={Inbox} label="Pending" value={pendingRequests.length} color="text-yellow-500" />
+        <StatCard icon={DollarSign} label="Pending Total" value={`$${totalPendingAmount.toFixed(2)}`} color="text-primary" />
+        <StatCard icon={CheckCircle2} label="Processed" value={processedRequests.filter(r => r.status === "processed").length} color="text-green-500" />
+        <StatCard icon={XCircle} label="Rejected" value={processedRequests.filter(r => r.status === "rejected").length} color="text-destructive" />
+      </div>
+
+      {/* Pending Requests */}
+      {pendingRequests.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Clock className="h-4 w-4 text-yellow-500" /> Pending Payout Requests
+          </h3>
+          <div className="rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">Clicks</TableHead>
+                  <TableHead>Wallet</TableHead>
+                  <TableHead>Requested</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingRequests.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">@{r.discord_username}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs">{r.user_type}</Badge></TableCell>
+                    <TableCell className="text-right font-mono font-bold text-primary">${Number(r.amount_owed).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">{r.verified_clicks}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.solana_wallet?.slice(0, 6)}...{r.solana_wallet?.slice(-4)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="default" size="sm" className="h-7 text-xs" onClick={() => handleApproveAndPay(r)}>
+                          <Banknote className="h-3.5 w-3.5 mr-1" /> Pay
+                        </Button>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => handleReject(r)}>
+                          <XCircle className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      {pendingRequests.length === 0 && (
+        <div className="rounded-lg border border-border p-12 text-center text-muted-foreground">
+          <Inbox className="h-8 w-8 mx-auto mb-2 opacity-40" />
+          <p className="text-sm">No pending payout requests</p>
+          <p className="text-xs mt-1">Users can request payouts via <code>/payout</code> in Discord</p>
+        </div>
+      )}
+
+      {/* Processed History */}
+      {processedRequests.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground">Previous Requests</h3>
+          <div className="rounded-lg border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Wallet</TableHead>
+                  <TableHead>Processed</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {processedRequests.slice(0, 50).map(r => (
+                  <TableRow key={r.id} className="opacity-70">
+                    <TableCell className="font-medium">@{r.discord_username}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs">{r.user_type}</Badge></TableCell>
+                    <TableCell className="text-right font-mono">${Number(r.amount_owed).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Badge variant={r.status === "processed" ? "default" : "destructive"} className="text-xs">
+                        {r.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{r.solana_wallet?.slice(0, 6)}...{r.solana_wallet?.slice(-4)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {r.processed_at ? format(new Date(r.processed_at), "MMM d, yyyy") : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      <Button variant="outline" size="sm" onClick={fetchRequests} disabled={loading}>
+        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
+      </Button>
+
+      <PayoutDialog target={payTarget} onClose={() => setPayTarget(null)} onPaid={handlePaidCallback} />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
    PAYOUTS TAB (shill_payouts history)
    ═══════════════════════════════════════════════════════════ */
 function PayoutsTab() {
