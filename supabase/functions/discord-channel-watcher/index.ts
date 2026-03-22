@@ -696,7 +696,7 @@ serve(async (req) => {
                     method: "POST",
                     headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      content: `${alertLabel} **New alert just dropped!** 🔥\n\n🔗 ${tweetUrl}\n👤 Posted by: ${discordAuthor}\n\n💰 Head to the Discord to claim your click payment!`,
+                      content: `${alertLabel} **New alert just dropped!** 🔥\n\n👤 Posted by: ${discordAuthor}\n\n💰 Head to the Discord to claim your click payment!`,
                     }),
                   });
                 }
@@ -710,7 +710,6 @@ serve(async (req) => {
             if (tgUsers.length > 0) {
               const mentions = tgUsers.map((u: any) => `@${u.telegram_username}`).join(" ");
               const tgAlertText = `${alertLabel} *Alert!*\n\n` +
-                `🔗 ${tweetUrl}\n` +
                 `👤 Posted by: \`${discordAuthor}\`\n\n` +
                 `💰 Head to Discord and start earning!\n\n` +
                 `📢 ${mentions}`;
