@@ -464,17 +464,17 @@ function RaidersTab() {
   };
 
   const handleResetRaiderEarnings = async (r: Raider) => {
-    if (!confirm(`Reset all verified earnings for ${r.discord_username} to $0? This is for admin testing only.`)) return;
-    const { error } = await supabase.from("shill_clicks").update({ status: "clicked", verified_at: null })
+    if (!confirm(`Reset all earnings & pending clicks for ${r.discord_username} to $0? This cannot be undone.`)) return;
+    // Delete all raid clicks (verified + unverified pending)
+    const { error } = await supabase.from("shill_clicks").delete()
       .eq("discord_user_id", r.discord_user_id)
-      .eq("click_type", "raid")
-      .eq("status", "verified");
+      .eq("click_type", "raid");
     if (error) { toast.error(error.message); return; }
     // Remove pending payout requests for this user
     await supabase.from("payout_requests").delete()
       .eq("discord_user_id", r.discord_user_id)
       .eq("status", "pending");
-    toast.success(`Reset earnings for ${r.discord_username} and cleared pending payouts`);
+    toast.success(`Cleared all clicks & payouts for ${r.discord_username}`);
     fetchRaiders();
   };
 
@@ -753,17 +753,17 @@ function ShillersTab() {
   };
 
   const handleResetShillerEarnings = async (s: ShillerRow) => {
-    if (!confirm(`Reset all verified earnings for ${s.discord_username} to $0? This is for admin testing only.`)) return;
-    const { error } = await supabase.from("shill_clicks").update({ status: "clicked", verified_at: null })
+    if (!confirm(`Clear all earnings & pending clicks for ${s.discord_username}? This cannot be undone.`)) return;
+    // Delete all shill clicks (verified + unverified pending)
+    const { error } = await supabase.from("shill_clicks").delete()
       .eq("discord_user_id", s.discord_user_id)
-      .eq("click_type", "shill")
-      .eq("status", "verified");
+      .eq("click_type", "shill");
     if (error) { toast.error(error.message); return; }
     // Remove pending payout requests for this user
     await supabase.from("payout_requests").delete()
       .eq("discord_user_id", s.discord_user_id)
       .eq("status", "pending");
-    toast.success(`Reset earnings for ${s.discord_username} and cleared pending payouts`);
+    toast.success(`Cleared all clicks & payouts for ${s.discord_username}`);
     fetchShillers();
   };
 
