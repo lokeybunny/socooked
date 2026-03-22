@@ -489,6 +489,7 @@ function ShillersTab() {
   const [loading, setLoading] = useState(true);
   const [editShiller, setEditShiller] = useState<ShillerRow | null>(null);
   const [editFields, setEditFields] = useState({ x_handle: "", solana_wallet: "", status: "active" });
+  const [payTarget, setPayTarget] = useState<PayoutTarget | null>(null);
 
   const fetchShillers = useCallback(async () => {
     setLoading(true);
