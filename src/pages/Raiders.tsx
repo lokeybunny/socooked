@@ -286,7 +286,7 @@ export default function Raiders() {
                   <TableCell>
                     {raider.secret_code ? (
                       <Badge variant="outline" className="font-mono">
-                        #{raider.secret_code}
+                        {user ? `#${raider.secret_code}` : "#****"}
                       </Badge>
                     ) : (
                       <span className="text-muted-foreground text-xs">Not assigned</span>
