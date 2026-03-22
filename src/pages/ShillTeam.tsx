@@ -1,9 +1,11 @@
-import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send } from 'lucide-react';
+import { useState } from 'react';
+import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 const commands = [
   {
@@ -61,6 +63,8 @@ const faq = [
 ];
 
 export default function ShillTeam() {
+  const [showTicketReminder, setShowTicketReminder] = useState(false);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero */}
@@ -177,15 +181,9 @@ export default function ShillTeam() {
           <h2 className="text-2xl font-bold">Ready to Start Earning?</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">Open a ticket in our Discord to get onboarded and receive your role.</p>
           <div className="flex items-center justify-center gap-3 mt-2">
-            <a
-              href="https://discord.gg/warrenguru"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button size="lg" className="gap-2">
-                Join the Discord <ExternalLink className="h-4 w-4" />
-              </Button>
-            </a>
+            <Button size="lg" className="gap-2" onClick={() => setShowTicketReminder(true)}>
+              Join the Discord <ExternalLink className="h-4 w-4" />
+            </Button>
             <a
               href="https://t.me/+t9hUrz3q8ZE4YjBh"
               target="_blank"
@@ -203,6 +201,28 @@ export default function ShillTeam() {
           Questions? Ask in the Discord onboarding channel.
         </div>
       </div>
+
+      <Dialog open={showTicketReminder} onOpenChange={setShowTicketReminder}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <TicketCheck className="h-6 w-6 text-primary" />
+              <DialogTitle>Don't Forget to Open a Ticket!</DialogTitle>
+            </div>
+            <DialogDescription className="pt-2 text-sm leading-relaxed">
+              Once you're in the Discord, head to the onboarding channel and <strong>open a ticket</strong> to be considered as a <strong>Shiller</strong> or <strong>Raider</strong>. All team members are hand-selected by Warren.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setShowTicketReminder(false)}>Cancel</Button>
+            <a href="https://discord.gg/warrenguru" target="_blank" rel="noopener noreferrer">
+              <Button className="gap-2" onClick={() => setShowTicketReminder(false)}>
+                Got it — Take Me There <ExternalLink className="h-4 w-4" />
+              </Button>
+            </a>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
