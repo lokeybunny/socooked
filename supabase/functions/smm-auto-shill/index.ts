@@ -553,7 +553,6 @@ serve(async (req) => {
           "**Commands:**",
           "`/help` — Show this guide",
           "`/authorize` — Link your Discord to an X account",
-          "`/shill <url>` — Auto-reply to a tweet",
           "`/wallet <address>` — Set your Solana wallet",
           "`/payout` — Request a payout",
           "`/clean` — Delete bot messages (admin)",
