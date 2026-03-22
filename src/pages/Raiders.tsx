@@ -282,7 +282,11 @@ export default function Raiders() {
             <TableBody>
               {raiders.map((raider) => (
                 <TableRow key={raider.id}>
-                  <TableCell className="font-medium">{raider.discord_username}</TableCell>
+                  <TableCell className="font-medium">
+                    {user
+                      ? raider.discord_username
+                      : raider.discord_username.slice(0, Math.ceil(raider.discord_username.length / 2)) + "****"}
+                  </TableCell>
                   <TableCell>
                     {raider.secret_code ? (
                       <Badge variant="outline" className="font-mono">
