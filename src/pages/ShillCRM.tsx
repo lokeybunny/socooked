@@ -670,17 +670,54 @@ function ShillersTab() {
   const fetchShillers = useCallback(async () => {
     setLoading(true);
 
-    const { data: clicks } = await supabase
-      .from("shill_clicks")
-      .select("discord_user_id, discord_username, rate, created_at, click_type, status")
-      .eq("click_type", "shill")
-      .order("created_at", { ascending: false });
+    // Fetch clicks, raiders, and authorized shiller assignments in parallel
+    const [clicksRes, raidersRes, configsRes] = await Promise.all([
+      supabase
+        .from("shill_clicks")
+        .select("discord_user_id, discord_username, rate, created_at, click_type, status")
+        .eq("click_type", "shill")
+        .order("created_at", { ascending: false }),
+      supabase.from("raiders").select("discord_user_id, solana_wallet, status"),
+      supabase.from("site_configs").select("content").eq("section", "config").eq("site_id", "smm-auto-shill"),
+    ]);
 
-    const { data: raiders } = await supabase.from("raiders").select("discord_user_id, solana_wallet, status");
-    const raiderMap = new Map((raiders || []).map(r => [r.discord_user_id, r]));
+    const clicks = clicksRes.data || [];
+    const raiderMap = new Map((raidersRes.data || []).map(r => [r.discord_user_id, r]));
+
+    // Extract authorized shillers from site_configs discord_assignments
+    const authorizedShillers = new Map<string, { discord_username: string; x_handle: string | null }>();
+    for (const row of (configsRes.data || [])) {
+      const assignments = (row.content as any)?.discord_assignments || {};
+      for (const [userId, assignment] of Object.entries(assignments)) {
+        const a = assignment as any;
+        authorizedShillers.set(userId, {
+          discord_username: a.discord_username || a.handle || userId,
+          x_handle: a.handle || a.x_handle || null,
+        });
+      }
+    }
 
     const map = new Map<string, ShillerRow>();
-    for (const c of clicks || []) {
+
+    // Seed with authorized shillers first (so they show even with 0 clicks)
+    for (const [userId, info] of authorizedShillers) {
+      const raider = raiderMap.get(userId);
+      map.set(userId, {
+        discord_user_id: userId,
+        discord_username: info.discord_username,
+        total_shills: 0,
+        verified_shills: 0,
+        verified_earned: 0,
+        pending_count: 0,
+        last_active: new Date().toISOString(),
+        x_handle: info.x_handle,
+        solana_wallet: raider?.solana_wallet || null,
+        status: raider?.status || "active",
+      });
+    }
+
+    // Aggregate clicks
+    for (const c of clicks) {
       const existing = map.get(c.discord_user_id);
       const raider = raiderMap.get(c.discord_user_id);
       const isVerified = c.status === "verified";
