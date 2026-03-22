@@ -53,6 +53,7 @@ import Vanities from "./pages/Vanities";
 import ReplyEngine from "./pages/ReplyEngine";
 import Raiders from "./pages/Raiders";
 import ShillCRM from "./pages/ShillCRM";
+import ShillTeam from "./pages/ShillTeam";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
@@ -128,6 +129,7 @@ const App = () => (
             <Route path="/shillers/raiders" element={<AuthLayoutGate><Raiders /></AuthLayoutGate>} />
             <Route path="/shill-crm" element={<RestrictedGate><AuthLayoutGate><ShillCRM /></AuthLayoutGate></RestrictedGate>} />
             <Route path="/reply-engine" element={<Navigate to="/shillers" replace />} />
+            <Route path="/shillteam" element={<ShillTeam />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
