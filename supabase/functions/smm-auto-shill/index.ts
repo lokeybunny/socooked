@@ -13,37 +13,32 @@ const FALLBACK_DISCORD_PUBLIC_KEY = "3d6e57e2ae6bcf70b70dc1fbf0caacb5fe2ed07a9c9
 
 const X_API_BASE = "https://api.x.com/2";
 
-/** Validate that an X/Twitter URL points to a real, accessible tweet via Upload-Post API */
+/** Validate that an X/Twitter URL points to a real, accessible tweet */
 async function validateXLink(url: string): Promise<{ valid: boolean; reason?: string }> {
   try {
-    const apiKey = Deno.env.get("UPLOAD_POST_API_KEY");
-    if (!apiKey) {
-      console.warn("[auto-shill] No UPLOAD_POST_API_KEY — skipping live link check");
-      return { valid: true };
-    }
-
     // Extract tweet ID from URL
     const m = url.match(/(?:x\.com|twitter\.com)\/\w+\/status\/(\d+)/);
     if (!m) return { valid: false, reason: "Could not extract tweet ID from URL" };
 
-    const tweetId = m[1];
-    const res = await fetch(`${API_BASE}/post/details?postId=${tweetId}&platform=x`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+    // Use oembed endpoint (public, no auth required) to verify tweet exists
+    const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`;
+    const res = await fetch(oembedUrl, {
+      headers: { "User-Agent": "Mozilla/5.0" },
     });
 
-    if (res.status === 404) {
+    if (res.status === 404 || res.status === 403) {
+      await res.text().catch(() => {});
       return { valid: false, reason: "Tweet not found or has been deleted" };
     }
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      console.error(`[auto-shill] Upload-Post validation ${res.status}: ${body}`);
+      console.error(`[auto-shill] oembed validation ${res.status}: ${body}`);
       // Don't block on API errors — allow through
       return { valid: true };
     }
 
-    const data = await res.json();
-    // Upload-Post returns the post data if found; empty/error means not found
-    if (!data || data.error || data.status === "not_found") {
+    const data = await res.json().catch(() => null);
+    if (!data || !data.html) {
       return { valid: false, reason: "Tweet does not exist or was deleted" };
     }
 
