@@ -17,10 +17,11 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check,
-  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink,
+  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import TopPostsSection from "@/components/shillers/TopPostsSection";
 
 /* ─── Types ─── */
 interface Raider {
@@ -104,12 +105,14 @@ export default function ShillCRM() {
             <TabsTrigger value="raiders" className="gap-1.5"><Shield className="h-3.5 w-3.5" /> Raiders</TabsTrigger>
             <TabsTrigger value="accounts" className="gap-1.5"><Users className="h-3.5 w-3.5" /> Accounts</TabsTrigger>
             <TabsTrigger value="activity" className="gap-1.5"><Activity className="h-3.5 w-3.5" /> Activity</TabsTrigger>
+            <TabsTrigger value="top-posts" className="gap-1.5"><Trophy className="h-3.5 w-3.5" /> Top Posts</TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5"><Settings className="h-3.5 w-3.5" /> Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="raiders"><RaidersTab /></TabsContent>
           <TabsContent value="accounts"><AccountsTab /></TabsContent>
           <TabsContent value="activity"><ActivityTab /></TabsContent>
+          <TabsContent value="top-posts"><TopPostsSection /></TabsContent>
           <TabsContent value="settings"><SettingsTab /></TabsContent>
         </Tabs>
       </div>
