@@ -559,21 +559,28 @@ serve(async (req) => {
           console.error("[discord-watcher] Telegram send error:", e);
         }
 
-        // ── 2b) Forward shill/raid alert to Telegram Shill Lounge (max 1x per 30 min) ──
-        const LOUNGE_THROTTLE_MS = 30 * 60 * 1000;
+        // ── 2b) Forward shill/raid alert to Telegram Shill Lounge (max 2 per 5 min) ──
+        const LOUNGE_WINDOW_MS = 5 * 60 * 1000;
+        const LOUNGE_MAX_PER_WINDOW = 2;
         let shouldSendLounge = true;
 
-        const { data: lastLoungeFwd } = await supabase
+        const { data: loungeThrottleRow } = await supabase
           .from("site_configs")
           .select("content")
           .eq("site_id", "smm-auto-shill")
           .eq("section", "tg-lounge-throttle")
           .single();
 
-        const lastLoungeTs = (lastLoungeFwd?.content as any)?.last_sent_at;
-        if (lastLoungeTs && (Date.now() - new Date(lastLoungeTs).getTime()) < LOUNGE_THROTTLE_MS) {
+        const throttleData = (loungeThrottleRow?.content as any) || {};
+        const sentTimestamps: number[] = Array.isArray(throttleData.sent_timestamps)
+          ? throttleData.sent_timestamps : [];
+        const nowMs = Date.now();
+        // Keep only timestamps within the current window
+        const recentSends = sentTimestamps.filter((ts: number) => (nowMs - ts) < LOUNGE_WINDOW_MS);
+
+        if (recentSends.length >= LOUNGE_MAX_PER_WINDOW) {
           shouldSendLounge = false;
-          console.log(`[discord-watcher] Lounge throttle active, skipping TG forward`);
+          console.log(`[discord-watcher] Lounge throttle active (${recentSends.length}/${LOUNGE_MAX_PER_WINDOW} in 5min), skipping TG forward`);
         }
 
         if (shouldSendLounge) {
@@ -591,10 +598,11 @@ serve(async (req) => {
           };
           await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, loungeText, loungeKeyboard);
 
+          recentSends.push(nowMs);
           await supabase.from("site_configs").upsert({
             site_id: "smm-auto-shill",
             section: "tg-lounge-throttle",
-            content: { last_sent_at: new Date().toISOString() },
+            content: { sent_timestamps: recentSends },
           }, { onConflict: "site_id,section" });
         }
 
