@@ -157,25 +157,15 @@ export default function Raiders() {
     <div className="min-h-screen bg-background">
       <div className="p-6 space-y-6 max-w-6xl mx-auto">
         <div className="flex items-center gap-3">
-          {user ? (
-            <>
-              <Link to="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                <DoorOpen className="h-5 w-5" />
-              </Link>
-              <Link to="/shill-crm" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                <Shield className="h-4 w-4" /> Shill CRM
-              </Link>
-            </>
-          ) : (
-            <DoorOpen className="h-5 w-5 text-muted-foreground/40 cursor-not-allowed" />
+          {!user && (
+            <Link
+              to="/shillers"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Shillers
+            </Link>
           )}
-          <Link
-            to="/shillers"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Shillers
-          </Link>
         </div>
 
         <div className="flex items-center justify-between">
