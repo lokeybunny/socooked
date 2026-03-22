@@ -559,7 +559,7 @@ serve(async (req) => {
           "`/payout` — Request a payout",
           "`/clean` — Delete bot messages (admin)",
           "",
-          ":link: Full guide: https://socooked.lovable.app/shillteam",
+          ":link: Full guide: https://warren.guru/shillteam",
         ].join("\n");
 
         return json({ type: 4, data: { content: helpText, flags: 64 } });
