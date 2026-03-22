@@ -9,7 +9,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { RefreshCw, Users, ExternalLink, Trophy, MousePointerClick, Radio, MessageSquare, ClipboardCheck, DoorOpen, Shield, BadgeCheck } from "lucide-react";
 import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import TeamAuditor from "@/components/reply-engine/TeamAuditor";
-import TopPostsSection from "@/components/shillers/TopPostsSection";
 
 interface ShillEntry {
   id: string;
