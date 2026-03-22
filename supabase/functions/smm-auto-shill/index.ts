@@ -811,6 +811,12 @@ serve(async (req) => {
         const discordUserId = discordUser.id || "unknown";
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
+        // Payouts are only available on Fridays (UTC)
+        const today = new Date();
+        if (today.getUTCDay() !== 5) {
+          return json({ type: 4, data: { content: "❌ **Payouts are only available on Fridays.**\n\nCome back on Friday to request your earnings!", flags: 64 } });
+        }
+
         // Check if user is an authorized raider or shiller
         const { data: existingRaider } = await supabase
           .from("raiders")
@@ -1598,6 +1604,31 @@ serve(async (req) => {
   if (!isBot && !isAuthed) return json({ error: "Unauthorized" }, 401);
 
   try {
+    // ─── Friday payout reminder — posts to both channels ───
+    if (action === "payout-reminder") {
+      const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+      if (!DISCORD_BOT_TOKEN_ENV) return json({ error: "Bot token not configured" }, 500);
+
+      const SHILL_CHANNEL = "1484998470103466156";
+      const RAID_CHANNEL = "1485050868838564030";
+
+      const shillMsg = "🔔 **Payout Day!** Don't forget to request `/payout` today! @Shill-Team 💰";
+      const raidMsg = "🔔 **Payout Day!** Don't forget to request `/payout` today! @Raid-Team 💰";
+
+      const headers = { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}`, "Content-Type": "application/json" };
+      const sendMsg = (channelId: string, content: string) =>
+        fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+          method: "POST", headers, body: JSON.stringify({ content }),
+        });
+
+      const [r1, r2] = await Promise.all([
+        sendMsg(SHILL_CHANNEL, shillMsg),
+        sendMsg(RAID_CHANNEL, raidMsg),
+      ]);
+
+      return json({ ok: true, shill: r1.status, raid: r2.status });
+    }
+
     // ─── Welcome new member: send help guide to onboarding channel ───
     if (action === "welcome-member") {
       const body = await req.json().catch(() => ({}));
