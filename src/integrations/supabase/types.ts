@@ -2141,6 +2141,48 @@ export type Database = {
         }
         Relationships: []
       }
+      shill_payouts: {
+        Row: {
+          amount: number
+          created_at: string
+          discord_user_id: string
+          discord_username: string
+          id: string
+          notes: string | null
+          paid_by: string | null
+          payout_type: string
+          solana_tx_address: string | null
+          solana_wallet: string
+          verified_clicks: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          discord_user_id: string
+          discord_username: string
+          id?: string
+          notes?: string | null
+          paid_by?: string | null
+          payout_type?: string
+          solana_tx_address?: string | null
+          solana_wallet: string
+          verified_clicks?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          discord_user_id?: string
+          discord_username?: string
+          id?: string
+          notes?: string | null
+          paid_by?: string | null
+          payout_type?: string
+          solana_tx_address?: string | null
+          solana_wallet?: string
+          verified_clicks?: number
+        }
+        Relationships: []
+      }
       shill_post_analytics: {
         Row: {
           author_handle: string | null
