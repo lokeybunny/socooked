@@ -1422,6 +1422,9 @@ serve(async (req) => {
 
     const commands = [
       {
+        name: "help", description: "View all commands and how to get started", type: 1,
+      },
+      {
         name: "shill", description: "Auto-reply to a tweet via X", type: 1,
         options: [{ name: "url", description: "The X/Twitter tweet URL", type: 3, required: true }],
       },
