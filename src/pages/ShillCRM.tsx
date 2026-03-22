@@ -457,8 +457,9 @@ function ShillersTab() {
               <TableHead>Discord User</TableHead>
               <TableHead>Solana Wallet</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Shills</TableHead>
-              <TableHead className="text-right">Earned</TableHead>
+              <TableHead className="text-right">Verified</TableHead>
+              <TableHead className="text-right">Pending</TableHead>
+              <TableHead className="text-right">Owed</TableHead>
               <TableHead>Last Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -475,8 +476,9 @@ function ShillersTab() {
                 <TableCell>
                   <Badge variant={s.status === "active" ? "default" : "destructive"} className="text-xs">{s.status}</Badge>
                 </TableCell>
-                <TableCell className="text-right font-mono">{s.total_shills}</TableCell>
-                <TableCell className="text-right font-mono">${s.total_earned.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-mono">{s.verified_shills}</TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">{s.pending_count}</TableCell>
+                <TableCell className="text-right font-mono">${s.verified_earned.toFixed(2)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(s.last_active), { addSuffix: true })}
                 </TableCell>
