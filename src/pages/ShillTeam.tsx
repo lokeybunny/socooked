@@ -176,29 +176,27 @@ export default function ShillTeam() {
         <section className="text-center space-y-4 py-4">
           <h2 className="text-2xl font-bold">Ready to Start Earning?</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">Open a ticket in our Discord to get onboarded and receive your role.</p>
-          <a
-            href="https://discord.gg/warrenguru"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button size="lg" className="gap-2 mt-2">
-              Join the Discord <ExternalLink className="h-4 w-4" />
-            </Button>
-          </a>
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button size="lg" className="gap-2">
+                Join the Discord <ExternalLink className="h-4 w-4" />
+              </Button>
+            </a>
+            <a
+              href="https://t.me/+t9hUrz3q8ZE4YjBh"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="outline" size="lg" className="gap-2">
+                <Send className="h-5 w-5" /> Join the Telegram Lounge
+              </Button>
+            </a>
+          </div>
         </section>
-
-        {/* Telegram */}
-        <div className="flex justify-center">
-          <a
-            href="https://t.me/+t9hUrz3q8ZE4YjBh"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button variant="outline" size="lg" className="gap-2">
-              <Send className="h-5 w-5" /> Join the Telegram Lounge
-            </Button>
-          </a>
-        </div>
 
         {/* Footer */}
         <div className="border-t border-border/40 pt-8 text-center text-xs text-muted-foreground">
