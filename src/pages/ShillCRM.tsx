@@ -603,6 +603,7 @@ function ShillersTab() {
     fetchShillers();
   };
 
+  const totalVerifiedEarned = shillers.reduce((s, sh) => s + sh.verified_earned, 0);
   const totalPending = shillers.reduce((s, sh) => s + sh.pending_count, 0);
 
   return (
