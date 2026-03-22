@@ -97,7 +97,7 @@ export default function ShillTeam() {
           <h2 className="text-2xl font-bold">Getting Started</h2>
           <div className="grid md:grid-cols-3 gap-4">
             {[
-              { step: '1', title: 'Join the Discord', text: 'Enter the server and head to the onboarding channel. Type /help to see everything.' },
+              { step: '1', title: 'Join & Open a Ticket', text: 'Join the Discord and open a ticket. All raiders and shillers are hand-selected by Warren — this is how you apply.' },
               { step: '2', title: 'Pick Your Role', text: 'Want to run an X account? Become a Shiller. Prefer quick raid replies? Join as a Raider.' },
               { step: '3', title: 'Start Earning', text: 'Set your wallet, get authorized, and start stacking verified clicks for SOL payouts.' },
             ].map(s => (
