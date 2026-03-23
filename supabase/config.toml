@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.smm-auto-shill]
 verify_jwt = false
+
+[functions.hourly-tweet-report]
+verify_jwt = false
