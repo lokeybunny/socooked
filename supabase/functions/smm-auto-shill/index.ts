@@ -3052,6 +3052,9 @@ serve(async (req) => {
       {
         name: "adminhelp", description: "(Admin) Quick reference of all admin commands", type: 1,
       },
+      {
+        name: "btw", description: "(Admin) Remind users where to check their payments live", type: 1,
+      },
     ];
 
     const registerTargets = [
