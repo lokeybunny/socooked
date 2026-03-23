@@ -956,9 +956,9 @@ serve(async (req) => {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-        // Team gate — @warrenguru, @shill-team, or @raid-team
-        if (!(await isTeamMember(interaction))) {
-          return json({ type: 4, data: { content: "❌ You need the **@shill-team** or **@raid-team** role to use `/authx`.", flags: 64 } });
+        // Admin gate — only @warrenguru
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/authx`.", flags: 64 } });
         }
 
         const accountOption = interaction.data?.options?.find((o: any) => o.name === "account");
@@ -1018,8 +1018,8 @@ serve(async (req) => {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-        if (!(await isTeamMember(interaction))) {
-          return json({ type: 4, data: { content: "❌ You need the **@shill-team** or **@raid-team** role to use `/authx2`.", flags: 64 } });
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/authx2`.", flags: 64 } });
         }
 
         const usernameOption = interaction.data?.options?.find((o: any) => o.name === "username");
@@ -1520,8 +1520,8 @@ serve(async (req) => {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-        if (!(await isTeamMember(interaction))) {
-          return json({ type: 4, data: { content: "❌ You need the **@shill-team** or **@raid-team** role to use `/welcomeshill`.", flags: 64 } });
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/welcomeshill`.", flags: 64 } });
         }
 
         const embedDescription = [
