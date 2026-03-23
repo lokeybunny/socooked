@@ -46,6 +46,15 @@ interface EarningsRow {
   pending_amount: number;
   pending_clicks: number;
   role: "shiller" | "raider" | "both";
+  // Breakdown by type
+  shill_verified: number;
+  shill_pending: number;
+  shill_verified_clicks: number;
+  shill_pending_clicks: number;
+  raid_verified: number;
+  raid_pending: number;
+  raid_verified_clicks: number;
+  raid_pending_clicks: number;
 }
 
 interface Props {
