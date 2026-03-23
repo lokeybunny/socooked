@@ -1615,7 +1615,7 @@ serve(async (req) => {
 
         const userIdOption = interaction.data?.options?.find((o: any) => o.name === "user");
         const walletOption = interaction.data?.options?.find((o: any) => o.name === "address");
-        const targetUserId = userIdOption?.value?.trim();
+        const targetUserId = userIdOption?.value?.trim()?.replace(/<@!?|>/g, "");
         const walletAddress = walletOption?.value?.trim();
 
         if (!targetUserId || !walletAddress) {
