@@ -49,6 +49,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const [walletSearch, setWalletSearch] = useState("");
   const [foundUser, setFoundUser] = useState<EarningsRow | null>(null);
   const [searched, setSearched] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
 
   // Payout request state
   const [payoutSubmitting, setPayoutSubmitting] = useState(false);
