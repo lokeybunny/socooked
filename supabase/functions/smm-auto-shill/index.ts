@@ -2917,41 +2917,6 @@ serve(async (req) => {
       return json({ ok: true, deleted, total_checked: msgs.length });
     }
 
-// ─── Role-based access: check if member has admin, shill-team, or raid-team roles ───
-const TEAM_ROLE_NAMES = ["shill-team", "raid-team"];
-
-async function isTeamMember(interaction: any): Promise<boolean> {
-  const discordUser = interaction.member?.user || interaction.user || {};
-  const discordUsername = discordUser.username || discordUser.global_name || "";
-
-  // Admin bypass
-  if (discordUsername === "warrenguru") return true;
-
-  const memberRoleIds: string[] = interaction.member?.roles || [];
-  if (memberRoleIds.length === 0) return false;
-
-  const guildId = interaction.guild_id;
-  const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
-  if (!guildId || !DISCORD_BOT_TOKEN) return false;
-
-  try {
-    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
-      headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
-    });
-    if (!res.ok) return false;
-    const guildRoles: Array<{ id: string; name: string }> = await res.json();
-
-    const teamRoleIds = guildRoles
-      .filter(r => TEAM_ROLE_NAMES.includes(r.name.toLowerCase()))
-      .map(r => r.id);
-
-    return memberRoleIds.some(id => teamRoleIds.includes(id));
-  } catch {
-    return false;
-  }
-}
-
-
     // ─── GET campaign config ───
     if (action === "get-config") {
       const profileUsername = urlObj.searchParams.get("profile") || "NysonBlack";
