@@ -101,7 +101,8 @@ async function cleanupExpiredMessages(supabase: any, botToken: string) {
     .select("id, meta, created_at")
     .eq("entity_type", "shill-bot-msg")
     .in("action", ["pending", "interacted"])
-    .limit(100);
+    .order("created_at", { ascending: true })
+    .limit(500);
 
   if (fetchErr) {
     console.error("[discord-watcher] Cleanup fetch error:", fetchErr.message);
@@ -178,6 +179,21 @@ serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
   try {
+    let botUserId: string | null = null;
+    try {
+      const selfRes = await fetch(`${DISCORD_API}/users/@me`, {
+        headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+      });
+      if (selfRes.ok) {
+        const selfData = await selfRes.json();
+        botUserId = typeof selfData?.id === "string" ? selfData.id : null;
+      } else {
+        console.error(`[discord-watcher] Failed to resolve bot identity: ${selfRes.status} ${await selfRes.text()}`);
+      }
+    } catch (error) {
+      console.error("[discord-watcher] Failed to fetch bot identity:", error);
+    }
+
     // ── Step 0: Cleanup expired bot messages ──
     const expiredCount = await cleanupExpiredMessages(supabase, DISCORD_BOT_TOKEN);
     if (expiredCount > 0) {
@@ -298,6 +314,10 @@ serve(async (req) => {
       for (const msg of messages) {
         if (!newestId || BigInt(msg.id) > BigInt(newestId)) {
           newestId = msg.id;
+        }
+
+        if (botUserId && msg.author?.id === botUserId) {
+          continue;
         }
 
         // ── Detect new member joins (Discord system message type 7) and send welcome ──
