@@ -837,86 +837,101 @@ serve(async (req) => {
 
       // ─── /authorize command — link Discord user to X account ───
       if (commandName === "authorize") {
-        // Restrict to allowed channels only
-        const allowedAuthorizeChannels = ["1484998470103466156", "1484830617966481512"];
-        const channelId = interaction.channel_id || interaction.channel?.id;
-        if (!channelId || !allowedAuthorizeChannels.includes(channelId)) {
-          return json({ type: 4, data: { content: "❌ `/authorize` can only be used in the designated authorization channels.", flags: 64 } });
+        try {
+          // Restrict to allowed channels only
+          const allowedAuthorizeChannels = ["1484998470103466156", "1484830617966481512"];
+          const channelId = interaction.channel_id || interaction.channel?.id;
+          if (!channelId || !allowedAuthorizeChannels.includes(channelId)) {
+            return json({ type: 4, data: { content: "❌ `/authorize` can only be used in the designated authorization channels.", flags: 64 } });
+          }
+          const discordUser = interaction.member?.user || interaction.user || {};
+          const discordUserId = discordUser.id || "unknown";
+          const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+          const xAccountOption = interaction.data?.options?.find((o: any) => o.name === "account");
+          const xAccount = xAccountOption?.value?.replace(/^@/, "")?.trim();
+
+          if (!xAccount) {
+            return json({ type: 4, data: { content: "❌ Please provide an X account name. Usage: `/authorize account:NysonBlack`", flags: 64 } });
+          }
+
+          const profileUsername = matchedProfile || "NysonBlack";
+          const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
+
+          const assignments: Record<string, string> = currentContent.discord_assignments || {};
+
+          // Use CRM-only check (skip slow external API call) for faster response
+          const { data: crmRows } = await supabase
+            .from("outbound_accounts")
+            .select("account_identifier")
+            .eq("platform", "x")
+            .eq("is_authorized", true);
+          const allXAccounts: string[] = (crmRows || []).map((r: any) => r.account_identifier);
+
+          // Also check config-based accounts as fallback
+          const cfgAccounts = dedupeHandles([...(currentContent?.all_x_accounts || []), ...(currentContent?.team_accounts || [])]);
+          const combinedAccounts = dedupeHandles([...allXAccounts, ...cfgAccounts]);
+
+          // ── Guard: check if the X account is in the connected accounts list ──
+          if (!combinedAccounts.includes(xAccount)) {
+            const availableList = getAvailableAccounts(combinedAccounts, assignments);
+            const availableText = availableList.length > 0
+              ? `\n\n📋 **Available accounts:**\n${availableList.map(a => `• \`@${a}\``).join("\n")}`
+              : "\n\n⚠️ No accounts are currently available.";
+            return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is not a connected X account.${availableText}`, flags: 64 } });
+          }
+
+          // ── Guard: 1 user per 1 X account — check if already claimed ──
+          const existingClaimant = Object.entries(assignments).find(([, acc]) => acc === xAccount);
+          if (existingClaimant && existingClaimant[0] !== discordUserId) {
+            return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is already assigned to another team member. Pick a different account.`, flags: 64 } });
+          }
+
+          // ── Guard: user already assigned to a different account ──
+          if (assignments[discordUserId] && assignments[discordUserId] !== xAccount) {
+            return json({ type: 4, data: { content: `❌ You are already assigned to \`@${assignments[discordUserId]}\`. Only an admin can change your assignment.`, flags: 64 } });
+          }
+
+          // ── Guard: user already assigned to this account ──
+          if (assignments[discordUserId] === xAccount) {
+            return json({ type: 4, data: { content: `ℹ️ You are already authorized for \`@${xAccount}\`.`, flags: 64 } });
+          }
+
+          // Assign
+          assignments[discordUserId] = xAccount;
+          const discordUsernames: Record<string, string> = currentContent.discord_usernames || {};
+          discordUsernames[discordUserId] = discordUsername;
+
+          await supabase.from("site_configs").upsert({
+            id: cfgRow?.id || undefined,
+            site_id: "smm-auto-shill",
+            section: profileUsername,
+            content: { ...currentContent, discord_assignments: assignments, discord_usernames: discordUsernames },
+          }, { onConflict: "id" });
+
+          // Log authorization for audit
+          await supabase.from("activity_log").insert({
+            entity_type: "shill-authorization",
+            action: "authorized",
+            meta: {
+              name: `🔑 ${discordUsername} → @${xAccount}`,
+              discord_user_id: discordUserId,
+              discord_username: discordUsername,
+              x_account: xAccount,
+              profile: profileUsername,
+            },
+          });
+
+          return json({
+            type: 4,
+            data: {
+              content: `✅ **Authorized!** \`${discordUsername}\` → \`@${xAccount}\`\n\nYou'll get the hashtag assigned to this account when you click 📋 Get Shill Copy.`,
+              flags: 64,
+            },
+          });
+        } catch (authErr) {
+          console.error("[auto-shill] /authorize error:", authErr);
+          return json({ type: 4, data: { content: "❌ Something went wrong during authorization. Please try again.", flags: 64 } });
         }
-        const discordUser = interaction.member?.user || interaction.user || {};
-        const discordUserId = discordUser.id || "unknown";
-        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
-        const xAccountOption = interaction.data?.options?.find((o: any) => o.name === "account");
-        const xAccount = xAccountOption?.value?.replace(/^@/, "")?.trim();
-
-        if (!xAccount) {
-          return json({ type: 4, data: { content: "❌ Please provide an X account name. Usage: `/authorize account:NysonBlack`", flags: 64 } });
-        }
-
-        const profileUsername = matchedProfile || "NysonBlack";
-        const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
-
-        const assignments: Record<string, string> = currentContent.discord_assignments || {};
-        const crmAccounts = await loadAllXAccounts(supabase);
-        const allXAccounts: string[] = crmAccounts.map((account) => account.handle);
-
-        // ── Guard: check if the X account is in the connected accounts list ──
-        if (!allXAccounts.includes(xAccount)) {
-          const availableList = getAvailableAccounts(allXAccounts, assignments);
-          const availableText = availableList.length > 0
-            ? `\n\n📋 **Available accounts:**\n${availableList.map(a => `• \`@${a}\``).join("\n")}`
-            : "\n\n⚠️ No accounts are currently available.";
-          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is not a connected X account.${availableText}`, flags: 64 } });
-        }
-
-        // ── Guard: 1 user per 1 X account — check if already claimed ──
-        const existingClaimant = Object.entries(assignments).find(([, acc]) => acc === xAccount);
-        if (existingClaimant && existingClaimant[0] !== discordUserId) {
-          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is already assigned to another team member. Pick a different account.`, flags: 64 } });
-        }
-
-        // ── Guard: user already assigned to a different account ──
-        if (assignments[discordUserId] && assignments[discordUserId] !== xAccount) {
-          return json({ type: 4, data: { content: `❌ You are already assigned to \`@${assignments[discordUserId]}\`. Only an admin can change your assignment.`, flags: 64 } });
-        }
-
-        // ── Guard: user already assigned to this account ──
-        if (assignments[discordUserId] === xAccount) {
-          return json({ type: 4, data: { content: `ℹ️ You are already authorized for \`@${xAccount}\`.`, flags: 64 } });
-        }
-
-        // Assign
-        assignments[discordUserId] = xAccount;
-        const discordUsernames: Record<string, string> = currentContent.discord_usernames || {};
-        discordUsernames[discordUserId] = discordUsername;
-
-        await supabase.from("site_configs").upsert({
-          id: cfgRow?.id || undefined,
-          site_id: "smm-auto-shill",
-          section: profileUsername,
-          content: { ...currentContent, discord_assignments: assignments, discord_usernames: discordUsernames },
-        }, { onConflict: "id" });
-
-        // Log authorization for audit
-        await supabase.from("activity_log").insert({
-          entity_type: "shill-authorization",
-          action: "authorized",
-          meta: {
-            name: `🔑 ${discordUsername} → @${xAccount}`,
-            discord_user_id: discordUserId,
-            discord_username: discordUsername,
-            x_account: xAccount,
-            profile: profileUsername,
-          },
-        });
-
-        return json({
-          type: 4,
-          data: {
-            content: `✅ **Authorized!** \`${discordUsername}\` → \`@${xAccount}\`\n\nYou'll get the hashtag assigned to this account when you click 📋 Get Shill Copy.`,
-            flags: 64,
-          },
-        });
       }
 
       // ─── /authx command — admin-only manual account authorization ───
