@@ -1807,6 +1807,7 @@ serve(async (req) => {
         const copyText = `${randomEmoji} ` + copyParts.join(" ") +
           (campaignUrl ? `\n${campaignUrl}` : "");
 
+        sendCopyDM(discordUserId, copyText);
         return json({
           type: 4,
           data: {
