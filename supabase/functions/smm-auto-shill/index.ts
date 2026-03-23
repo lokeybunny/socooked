@@ -2583,6 +2583,13 @@ serve(async (req) => {
         name: "authx", description: "(Admin) Manually add an X account for shiller assignment", type: 1,
         options: [{ name: "account", description: "The X handle to add (e.g. @SomeHandle)", type: 3, required: true }],
       },
+      {
+        name: "authx2", description: "(Admin) Create a raider with a secret code/hashtag", type: 1,
+        options: [
+          { name: "username", description: "The raider's Discord username", type: 3, required: true },
+          { name: "code", description: "Secret code (also used as their hashtag)", type: 3, required: true },
+        ],
+      },
     ];
 
     const registerTargets = [
