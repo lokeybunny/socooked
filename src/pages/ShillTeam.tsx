@@ -48,7 +48,7 @@ const faq = [
   },
   {
     q: 'What is a Raider?',
-    a: 'Raiders participate in the raid channel. You receive a secret code from an admin, and when a raid alert is posted you copy the shill text (which includes your unique hashtag) and paste it as a reply on X. Submit proof via the ✅ Verify Raid button to get paid.',
+    a: 'Raiders participate in the raid channel. When a raid alert drops, like and repost the target tweet on X. Submit proof via the ✅ Verify Raid button to get paid at $0.02 per verified click.',
   },
   {
     q: 'How do I get paid?',
