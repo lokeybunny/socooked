@@ -1634,6 +1634,26 @@ serve(async (req) => {
 
         const raiderSecretCode = raider.secret_code;
 
+        // ── Self-raid prevention: shillers cannot raid their own verified post ──
+        let selfRaidMsgId: string | null = null;
+        if (customId.startsWith("shill_now_")) selfRaidMsgId = customId.replace("shill_now_", "");
+        else if (customId.startsWith("shill_copy")) selfRaidMsgId = customId.replace("shill_copy_", "");
+        else if (customId.startsWith("raid_verify_")) selfRaidMsgId = customId.replace("raid_verify_", "");
+
+        if (selfRaidMsgId) {
+          const selfCheckMsg = await getTrackedBotMessage(supabase, selfRaidMsgId);
+          const selfMeta = selfCheckMsg?.meta as any;
+          if (selfMeta?.shiller_discord_user_id === discordUserId) {
+            return json({
+              type: 4,
+              data: {
+                content: "🚫 **You can't raid your own shill!** This tweet was verified by you. Let other raiders handle it.",
+                flags: 64,
+              },
+            });
+          }
+        }
+
         // ─── RAID NOW button ───
         if (customId.startsWith("shill_now_")) {
           const discordMsgId = customId.replace("shill_now_", "") || null;
