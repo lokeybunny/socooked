@@ -2467,22 +2467,8 @@ serve(async (req) => {
         }
 
         // ── SHILL CHANNEL: randomized copy with hashtags + campaign link ──
-        // Random natural opener to dodge spam filters
-        const openerPool = [
-          "GM everyone 🌅", "gm gm how we doing today", "yo what's good everyone",
-          "happy vibes only today", "hope everyone's having a great day",
-          "checking in real quick", "just scrolling and had to share",
-          "can't keep this to myself", "been thinking about this all day",
-          "ok hear me out", "good morning fam", "hey everyone what's up",
-          "who's up rn", "late night thoughts", "afternoon check in",
-          "just woke up to this", "real ones know", "had to put y'all on",
-          "dropping this here", "thought y'all should see this",
-          "alright let's talk about it", "not gonna lie this is it",
-          "quick share before I forget", "this one's for the culture",
-          "vibes are immaculate today", "let me put y'all on to something",
-          "ok but fr tho", "passing this along", "sharing some alpha",
-          "woke up feeling bullish", "can we talk about this for a sec",
-        ];
+        // Random natural opener to dodge spam filters (200+ pool)
+        const openerPool = OPENER_POOL;
         const opener = openerPool[Math.floor(Math.random() * openerPool.length)];
 
         const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
