@@ -93,13 +93,13 @@ export default function ShillTeam() {
           </Link>
 
           {/* Video */}
-          <div className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-[40px] border border-border/40 shadow-lg" style={{ aspectRatio: '16/9' }}>
+          <div className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-2xl border border-border/40 shadow-lg" style={{ aspectRatio: '16/9' }}>
             <iframe
               src="https://www.youtube.com/embed/uRQuUxZkRNY?modestbranding=1&rel=0&showinfo=0&iv_load_policy=3&disablekb=1&playsinline=1"
               title="Shill Team intro"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              className="absolute inset-0 w-[calc(100%+120px)] h-[calc(100%+120px)] -top-[60px] -left-[60px] pointer-events-auto"
+              className="absolute inset-0 w-full h-full pointer-events-auto"
               style={{ border: 'none' }}
             />
             {/* Block YouTube logo click (bottom-right) */}
