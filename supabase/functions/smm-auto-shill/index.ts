@@ -151,10 +151,16 @@ async function validateXLink(url: string): Promise<{ valid: boolean; reason?: st
     if (!m) return { valid: false, reason: "Could not extract tweet ID from URL" };
 
     // Use oembed endpoint (public, no auth required) to verify tweet exists
+    // Add 2s timeout to prevent Discord interaction timeouts
     const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
     const res = await fetch(oembedUrl, {
       headers: { "User-Agent": "Mozilla/5.0" },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (res.status === 404 || res.status === 403) {
       await res.text().catch(() => {});
@@ -175,8 +181,21 @@ async function validateXLink(url: string): Promise<{ valid: boolean; reason?: st
     return { valid: true };
   } catch (e) {
     console.error("[auto-shill] Link validation error:", e);
-    // Don't block on network errors
+    // Don't block on network errors or timeouts
     return { valid: true };
+  }
+}
+
+/** Follow up on a deferred Discord interaction response */
+async function followUpInteraction(applicationId: string, interactionToken: string, content: string) {
+  try {
+    await fetch(`https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+  } catch (e) {
+    console.error("[auto-shill] Follow-up error:", e);
   }
 }
 
