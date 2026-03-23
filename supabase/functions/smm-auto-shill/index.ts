@@ -1537,8 +1537,8 @@ serve(async (req) => {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-        if (discordUsername !== "warrenguru") {
-          return json({ type: 4, data: { content: "❌ Only admins can use `/welcomeshill`.", flags: 64 } });
+        if (!(await isTeamMember(interaction))) {
+          return json({ type: 4, data: { content: "❌ You need the **@shill-team** or **@raid-team** role to use `/welcomeshill`.", flags: 64 } });
         }
 
         const embedDescription = [
