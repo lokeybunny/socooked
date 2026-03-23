@@ -2149,7 +2149,7 @@ serve(async (req) => {
         const discordMsgId = customId.replace("shill_now_", "") || null;
 
         const trackedMessage = await getTrackedBotMessage(supabase, discordMsgId);
-        if (isBotMessageExpired(trackedMessage)) {
+        if (isBotMessageExpired(trackedMessage, interaction.message)) {
           await expireTrackedBotMessage(supabase, trackedMessage, DISCORD_BOT_TOKEN);
 
           return json({
