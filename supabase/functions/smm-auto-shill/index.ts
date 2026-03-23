@@ -783,6 +783,21 @@ serve(async (req) => {
     // Fire-and-forget: clean up expired raid messages on every interaction
     cleanupExpiredRaidMessages(supabase, DISCORD_BOT_TOKEN).catch(() => {});
 
+    // ─── Autocomplete handler (type 4) — dynamic account list ───
+    if (interaction.type === 4) {
+      const focusedOption = interaction.data?.options?.find((o: any) => o.focused);
+      if (focusedOption?.name === "account") {
+        const typed = (focusedOption.value || "").toLowerCase();
+        const crmAccounts = await loadAllXAccounts(supabase);
+        const filtered = crmAccounts
+          .filter((a) => a.handle.toLowerCase().includes(typed) || a.label.toLowerCase().includes(typed))
+          .slice(0, 25)
+          .map((a) => ({ name: `@${a.label}`, value: a.handle }));
+        return json({ type: 8, data: { choices: filtered } });
+      }
+      return json({ type: 8, data: { choices: [] } });
+    }
+
     if (interaction.type === 2) {
       const commandName = interaction.data?.name || "";
 
@@ -3061,7 +3076,7 @@ serve(async (req) => {
           description: "The X account to claim",
           type: 3,
           required: true,
-          choices: accountChoices.length > 0 ? accountChoices : undefined,
+          autocomplete: true,
         }],
       },
       {
@@ -3095,7 +3110,7 @@ serve(async (req) => {
         name: "authorizeshiller", description: "(Admin) Authorize a user as a shiller on their behalf", type: 1,
         options: [
           { name: "user", description: "The Discord user ID to authorize", type: 3, required: true },
-          { name: "account", description: "The X account to assign", type: 3, required: true, choices: accountChoices.length > 0 ? accountChoices : undefined },
+          { name: "account", description: "The X account to assign", type: 3, required: true, autocomplete: true },
         ],
       },
       {
