@@ -2869,6 +2869,43 @@ serve(async (req) => {
     return json({ type: 1 });
   }
 
+  // ─── CLEANUP EXPIRED raid messages (manual/cron trigger) ───
+  if (action === "cleanup-expired") {
+    const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+    if (!DISCORD_BOT_TOKEN_ENV) return json({ error: "DISCORD_BOT_TOKEN not set" }, 500);
+
+    const { data: expired } = await supabase
+      .from("activity_log")
+      .select("id, meta")
+      .eq("entity_type", "shill-bot-msg")
+      .in("action", ["pending", "interacted"])
+      .limit(50);
+
+    let cleaned = 0;
+    for (const row of expired || []) {
+      const meta = row.meta as Record<string, unknown> | null;
+      const expiresAt = typeof meta?.expires_at === "string" ? Date.parse(meta.expires_at) : Number.NaN;
+      if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) continue;
+
+      const channelId = typeof meta?.channel_id === "string" ? meta.channel_id : null;
+      const botMessageId = typeof meta?.bot_message_id === "string" ? meta.bot_message_id : null;
+
+      if (channelId && botMessageId) {
+        try {
+          await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${botMessageId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` },
+          });
+        } catch (_) { /* ignore */ }
+      }
+
+      await supabase.from("activity_log").update({ action: "cleaned" }).eq("id", row.id);
+      cleaned++;
+    }
+
+    return json({ ok: true, cleaned });
+  }
+
   // ─── REGISTER slash commands ───
   if (action === "register-commands" && req.method === "POST") {
     const body = await req.json().catch(() => ({}));
