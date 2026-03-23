@@ -1401,10 +1401,33 @@ serve(async (req) => {
               .like("meta->>discord_msg_id", discordMsgId);
           }
 
+          // Build clean copy text (ticker, hashtags, link) for easy mobile copy
+          const raidProfileUsername2 = matchedProfile || "NysonBlack";
+          const { content: raidNowCfg } = await loadShillConfig(supabase, raidProfileUsername2);
+          const raidNowCampaignUrl = raidNowCfg?.campaign_url || "";
+          const raidNowTicker = raidNowCfg?.ticker || "";
+
+          if (raidNowTicker) {
+            const tickerClean2 = raidNowTicker.replace(/^\$/, "");
+            const raidHashtag2 = `#${raiderSecretCode}`;
+            const raidCopyParts = [`${raidNowTicker}`, `#${tickerClean2}`, `#repost`];
+            const insertIdx2 = Math.floor(Math.random() * (raidCopyParts.length + 1));
+            raidCopyParts.splice(insertIdx2, 0, raidHashtag2);
+            const raidCopyText = raidCopyParts.join(" ") + (raidNowCampaignUrl ? `\n${raidNowCampaignUrl}` : "");
+
+            return json({
+              type: 4,
+              data: {
+                content: `${raidCopyText}`,
+                flags: 64,
+              },
+            });
+          }
+
           return json({
             type: 4,
             data: {
-              content: `⚔️ **RAID THIS TWEET NOW!**\n${tweetUrl}\n\n✅ Raid logged for \`${discordUsername}\`\n💰 **$0.02 pending** — post your reply with \`#${raiderSecretCode}\` to confirm payment`,
+              content: `⚔️ Raid logged for \`${discordUsername}\` — use 📋 Get Shill Copy for your post text.`,
               flags: 64,
             },
           });
@@ -1586,10 +1609,49 @@ serve(async (req) => {
             .like("meta->>discord_msg_id", discordMsgId);
         }
 
+        // Build clean copy text for SHILL NOW (same format as Get Shill Copy)
+        const shillNowCfg2 = shillCfg;
+        const shillNowCampaignUrl = shillNowCfg2?.campaign_url || "";
+        const shillNowTicker = shillNowCfg2?.ticker || "";
+        const shillNowAccountHashtags: Record<string, string> = shillNowCfg2?.account_hashtags || {};
+
+        if (shillNowTicker) {
+          const tickerCleanNow = shillNowTicker.replace(/^\$/, "");
+          const assignedXNow = discordAssignments[discordUserId] || "";
+          let userHashtagNow = "";
+          if (assignedXNow && shillNowAccountHashtags[assignedXNow]) {
+            userHashtagNow = `#${shillNowAccountHashtags[assignedXNow].replace(/^#/, "")}`;
+          } else {
+            const avail = Object.values(shillNowAccountHashtags).filter(Boolean);
+            userHashtagNow = avail.length > 0 ? `#${avail[Math.floor(Math.random() * avail.length)].replace(/^#/, "")}` : "";
+          }
+
+          const nowParts = [`${shillNowTicker}`, `#${tickerCleanNow}`, `#repost`];
+          if (userHashtagNow) {
+            const idx = Math.floor(Math.random() * (nowParts.length + 1));
+            nowParts.splice(idx, 0, userHashtagNow);
+          }
+          for (let i = nowParts.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [nowParts[i], nowParts[j]] = [nowParts[j], nowParts[i]];
+          }
+          const shillEmojisNow = ["🔥", "🚀", "💎", "📈", "⚡", "💪", "✨", "🏆", "💯", "🌊"];
+          const randomEmojiNow = shillEmojisNow[Math.floor(Math.random() * shillEmojisNow.length)];
+          const shillNowCopy = `${randomEmojiNow} ` + nowParts.join(" ") + (shillNowCampaignUrl ? `\n${shillNowCampaignUrl}` : "");
+
+          return json({
+            type: 4,
+            data: {
+              content: `${shillNowCopy}`,
+              flags: 64,
+            },
+          });
+        }
+
         return json({
           type: 4,
           data: {
-            content: `🚀 **Go shill this tweet now!**\n${tweetUrl}\n\n✅ Job started for \`${discordUsername}\` (→ @${discordAssignments[discordUserId]})\n💰 Payment pending — post your RT receipt to confirm $0.05`,
+            content: `🚀 Go shill this tweet now!\n${tweetUrl}`,
             flags: 64,
           },
         });
