@@ -140,6 +140,11 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       }
     }
 
+    const zeroBreakdown = {
+      shill_verified: 0, shill_pending: 0, shill_verified_clicks: 0, shill_pending_clicks: 0,
+      raid_verified: 0, raid_pending: 0, raid_verified_clicks: 0, raid_pending_clicks: 0,
+    };
+
     for (const [uid, info] of raiderMap) {
       if (!userMap.has(uid)) {
         userMap.set(uid, {
@@ -148,6 +153,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
           role: shillerUserIds.has(uid) ? "both" : "raider",
+          ...zeroBreakdown,
         });
       }
     }
@@ -162,6 +168,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
           role: raiderMap.has(uid) ? "both" : "shiller",
+          ...zeroBreakdown,
         });
       }
     }
