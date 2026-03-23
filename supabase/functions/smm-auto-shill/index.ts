@@ -1063,75 +1063,81 @@ serve(async (req) => {
 
       // ─── /wallet command — set Solana wallet address ───
       if (commandName === "wallet") {
-        const discordUser = interaction.member?.user || interaction.user || {};
-        const discordUserId = discordUser.id || "unknown";
-        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
-        const walletOption = interaction.data?.options?.find((o: any) => o.name === "address");
-        const walletAddress = walletOption?.value?.trim();
+        try {
+          const discordUser = interaction.member?.user || interaction.user || {};
+          const discordUserId = discordUser.id || "unknown";
+          const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+          const walletOption = interaction.data?.options?.find((o: any) => o.name === "address");
+          const walletAddress = walletOption?.value?.trim();
 
-        if (!walletAddress) {
-          return json({ type: 4, data: { content: "❌ Please provide your Solana wallet address.\nUsage: `/wallet address:<your_solana_address>`", flags: 64 } });
-        }
+          if (!walletAddress) {
+            return json({ type: 4, data: { content: "❌ Please provide your Solana wallet address.\nUsage: `/wallet address:<your_solana_address>`", flags: 64 } });
+          }
 
-        const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-        if (!solanaRegex.test(walletAddress)) {
-          return json({ type: 4, data: { content: "❌ That doesn't look like a valid Solana address. Please double-check and try again.", flags: 64 } });
-        }
+          const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+          if (!solanaRegex.test(walletAddress)) {
+            return json({ type: 4, data: { content: "❌ That doesn't look like a valid Solana address. Please double-check and try again.", flags: 64 } });
+          }
 
-        // Check if user is an authorized raider or shiller
-        const { data: existingRaider } = await supabase
-          .from("raiders")
-          .select("id, status")
-          .eq("discord_user_id", discordUserId)
-          .limit(1);
+          // Check if user is an authorized raider or shiller
+          const { data: existingRaider } = await supabase
+            .from("raiders")
+            .select("id, status, solana_wallet")
+            .eq("discord_user_id", discordUserId)
+            .limit(1);
 
-        const isRaider = existingRaider?.length && existingRaider[0].status === "active";
+          const isRaider = existingRaider?.length && existingRaider[0].status === "active";
 
-        // Check if user is an authorized shiller (has a discord assignment)
-        const { data: shillConfigs } = await supabase
-          .from("site_configs")
-          .select("content")
-          .eq("site_id", "smm-auto-shill");
-        
-        let isShiller = false;
-        for (const row of (shillConfigs || [])) {
-          const assignments = (row.content as any)?.discord_assignments || {};
-          if (assignments[discordUserId]) { isShiller = true; break; }
-        }
+          // Check if user is an authorized shiller (has a discord assignment)
+          const { data: shillConfigs } = await supabase
+            .from("site_configs")
+            .select("content")
+            .eq("site_id", "smm-auto-shill");
+          
+          let isShiller = false;
+          for (const row of (shillConfigs || [])) {
+            const assignments = (row.content as any)?.discord_assignments || {};
+            if (assignments[discordUserId]) { isShiller = true; break; }
+          }
 
-        if (!isRaider && !isShiller) {
-          return json({ type: 4, data: { content: "❌ **Access denied.** You must be an authorized shiller or raider to set a wallet.\n\nShillers: use `/authorize` first.\nRaiders: get your secret code from an admin.", flags: 64 } });
-        }
+          if (!isRaider && !isShiller) {
+            return json({ type: 4, data: { content: "❌ **Access denied.** You must be an authorized shiller or raider to set a wallet.\n\nShillers: use `/authorize` first.\nRaiders: get your secret code from an admin.", flags: 64 } });
+          }
 
-        if (existingRaider?.length) {
-          await supabase.from("raiders").update({
-            solana_wallet: walletAddress,
-            updated_at: new Date().toISOString(),
-          }).eq("id", existingRaider[0].id);
-        } else {
-          await supabase.from("raiders").insert({
-            discord_user_id: discordUserId,
-            discord_username: discordUsername,
-            solana_wallet: walletAddress,
-            status: "active",
-            rate_per_click: 0.05,
+          if (existingRaider?.length) {
+            await supabase.from("raiders").update({
+              solana_wallet: walletAddress,
+              updated_at: new Date().toISOString(),
+            }).eq("id", existingRaider[0].id);
+          } else {
+            // Upsert to handle potential race conditions
+            await supabase.from("raiders").upsert({
+              discord_user_id: discordUserId,
+              discord_username: discordUsername,
+              solana_wallet: walletAddress,
+              status: "active",
+              rate_per_click: 0.05,
+            }, { onConflict: "discord_user_id" });
+          }
+
+          await supabase.from("activity_log").insert({
+            entity_type: "shill-payout",
+            action: "wallet-set",
+            meta: {
+              name: `💰 ${discordUsername} set wallet`,
+              discord_user_id: discordUserId,
+              solana_wallet: walletAddress,
+            },
           });
+
+          return json({ type: 4, data: {
+            content: `✅ **Wallet saved!**\n\n💰 \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n\nYour Solana wallet has been registered. Use \`/payout\` anytime to request your earnings.`,
+            flags: 64,
+          }});
+        } catch (walletErr) {
+          console.error("[auto-shill] /wallet error:", walletErr);
+          return json({ type: 4, data: { content: "❌ Something went wrong saving your wallet. Please try again.", flags: 64 } });
         }
-
-        await supabase.from("activity_log").insert({
-          entity_type: "shill-payout",
-          action: "wallet-set",
-          meta: {
-            name: `💰 ${discordUsername} set wallet`,
-            discord_user_id: discordUserId,
-            solana_wallet: walletAddress,
-          },
-        });
-
-        return json({ type: 4, data: {
-          content: `✅ **Wallet saved!**\n\n💰 \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n\nYour Solana wallet has been registered. Use \`/payout\` anytime to request your earnings.`,
-          flags: 64,
-        }});
       }
 
       // ─── /payout command — auto-submit payout request (no args needed) ───
