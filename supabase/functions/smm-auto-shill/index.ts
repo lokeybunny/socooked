@@ -1218,6 +1218,71 @@ serve(async (req) => {
         });
       }
 
+      // ─── /walletcrm command — admin sets wallet for a user (public response) ───
+      if (commandName === "walletcrm") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/walletcrm`.", flags: 64 } });
+        }
+
+        const userIdOption = interaction.data?.options?.find((o: any) => o.name === "user");
+        const walletOption = interaction.data?.options?.find((o: any) => o.name === "address");
+        const targetUserId = userIdOption?.value?.trim();
+        const walletAddress = walletOption?.value?.trim();
+
+        if (!targetUserId || !walletAddress) {
+          return json({ type: 4, data: { content: "❌ Usage: `/walletcrm user:<discord_user_id> address:<solana_wallet>`", flags: 64 } });
+        }
+
+        const solanaRegex = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+        if (!solanaRegex.test(walletAddress)) {
+          return json({ type: 4, data: { content: "❌ That doesn't look like a valid Solana address.", flags: 64 } });
+        }
+
+        // Check if target is a raider
+        const { data: existingRaider } = await supabase
+          .from("raiders")
+          .select("id")
+          .eq("discord_user_id", targetUserId)
+          .maybeSingle();
+
+        if (existingRaider) {
+          await supabase.from("raiders").update({
+            solana_wallet: walletAddress,
+            updated_at: new Date().toISOString(),
+          }).eq("id", existingRaider.id);
+        } else {
+          // Upsert — covers shillers who may not have a raider row yet
+          await supabase.from("raiders").upsert({
+            discord_user_id: targetUserId,
+            discord_username: `user_${targetUserId}`,
+            solana_wallet: walletAddress,
+            status: "active",
+          }, { onConflict: "discord_user_id" });
+        }
+
+        await supabase.from("activity_log").insert({
+          entity_type: "shill-payout",
+          action: "admin-wallet-set",
+          meta: {
+            name: `🔧 Admin set wallet for <@${targetUserId}>`,
+            admin_username: discordUsername,
+            target_user_id: targetUserId,
+            solana_wallet: walletAddress,
+          },
+        });
+
+        // Public response (no flags: 64 = visible to everyone)
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Wallet stored!**\n\n👤 <@${targetUserId}>\n💰 Wallet: \`${walletAddress}\`\n\nThis wallet is now on file and tracked in the CRM.`,
+          },
+        });
+      }
+
       // ─── /wallet command — set Solana wallet address ───
       if (commandName === "wallet") {
         try {
