@@ -557,6 +557,7 @@ function RaidersTab() {
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Verified</TableHead>
               <TableHead className="text-right">Pending</TableHead>
+              <TableHead className="text-right">🚫 Flags</TableHead>
               <TableHead className="text-right">Rate</TableHead>
               <TableHead className="text-right">Owed</TableHead>
               <TableHead>Joined</TableHead>
