@@ -1477,33 +1477,6 @@ serve(async (req) => {
         });
       }
 
-      // ─── /shill command ───
-      let tweetUrl = "";
-      const profileUsername = matchedProfile || "NysonBlack";
-
-      if (interaction.data?.options) {
-        const urlOption = interaction.data.options.find((o: any) => o.name === "url" || o.name === "tweet");
-        if (urlOption) tweetUrl = urlOption.value;
-      }
-
-      if (!tweetUrl && interaction.data?.resolved?.messages) {
-        const msgs = Object.values(interaction.data.resolved.messages) as any[];
-        for (const msg of msgs) {
-          const match = msg.content?.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
-          if (match) { tweetUrl = match[0]; break; }
-        }
-      }
-
-      if (!tweetUrl) {
-        return json({ type: 4, data: { content: "❌ No tweet URL found.", flags: 64 } });
-      }
-
-      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, TWITTER_BEARER_TOKEN, sendTelegram, false);
-      processPromise.catch(e => console.error("[auto-shill] Async process error:", e));
-
-      return json({ type: 4, data: { content: `🗣️ Auto-shill queued: ${tweetUrl}\n👤 ${profileUsername}` } });
-    }
-
       // ─── /welcomeshill command — admin-only public welcome message ───
       if (commandName === "welcomeshill") {
         const discordUser = interaction.member?.user || interaction.user || {};
@@ -1567,6 +1540,33 @@ serve(async (req) => {
 
         return json({ type: 4, data: { content: welcomeText } });
       }
+
+      // ─── /shill command ───
+      let tweetUrl = "";
+      const profileUsername = matchedProfile || "NysonBlack";
+
+      if (interaction.data?.options) {
+        const urlOption = interaction.data.options.find((o: any) => o.name === "url" || o.name === "tweet");
+        if (urlOption) tweetUrl = urlOption.value;
+      }
+
+      if (!tweetUrl && interaction.data?.resolved?.messages) {
+        const msgs = Object.values(interaction.data.resolved.messages) as any[];
+        for (const msg of msgs) {
+          const match = msg.content?.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
+          if (match) { tweetUrl = match[0]; break; }
+        }
+      }
+
+      if (!tweetUrl) {
+        return json({ type: 4, data: { content: "❌ No tweet URL found.", flags: 64 } });
+      }
+
+      const processPromise = processAutoShill(supabase, tweetUrl, profileUsername, UPLOAD_POST_API_KEY, LOVABLE_API_KEY, TWITTER_BEARER_TOKEN, sendTelegram, false);
+      processPromise.catch(e => console.error("[auto-shill] Async process error:", e));
+
+      return json({ type: 4, data: { content: `🗣️ Auto-shill queued: ${tweetUrl}\n👤 ${profileUsername}` } });
+    }
 
     // ─── Component interaction (button clicks) ───
     if (interaction.type === 3) {
