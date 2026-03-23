@@ -2529,7 +2529,7 @@ serve(async (req) => {
         });
 
         // ── Forward the verified URL to the raid room as a new alert ──
-        const RAID_REPLY_CHANNEL = "1485010551196090448";
+        const RAID_REPLY_CHANNEL = "1485050868838564030";
         const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
 
         if (DISCORD_BOT_TOKEN_ENV) {
