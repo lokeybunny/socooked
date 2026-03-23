@@ -629,6 +629,14 @@ serve(async (req) => {
         }
 
         // ── 3) Send Discord reply to the REPLY channel ──
+        // Skip shill notifications for verify/shill-lounge channel
+        const SHILL_LOUNGE_CHANNEL = "1485050868838564030";
+        if (replyChannelId === SHILL_LOUNGE_CHANNEL) {
+          console.log(`[discord-watcher] Skipping bot notification for shill-lounge channel ${SHILL_LOUNGE_CHANNEL}`);
+          totalForwarded++;
+          continue;
+        }
+
         const discordEmbed = {
           title: "🔍 New Tweet Detected",
           description: `**Posted by:** ${discordAuthor}\n[Open Tweet](${tweetUrl})`,
