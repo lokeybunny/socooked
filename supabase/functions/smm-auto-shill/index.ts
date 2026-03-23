@@ -2129,7 +2129,6 @@ serve(async (req) => {
           const raidMsgId = `sv_${Date.now()}`;
           const raidButtonRow = [
             { type: 2, style: 1, label: "⚔️ RAID NOW", custom_id: `shill_now_${raidMsgId}` },
-            { type: 2, style: 2, label: "📋 Get Shill Copy", custom_id: `shill_copy_${raidMsgId}` },
             { type: 2, style: 3, label: "✅ Verify Raid", custom_id: `raid_verify_${raidMsgId}` },
             { type: 2, style: 4, label: "🚫 Bad Link", custom_id: `bad_link_${raidMsgId}` },
           ];
