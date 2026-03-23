@@ -758,13 +758,16 @@ serve(async (req) => {
             // Telegram mention notifications
             const tgUsers = notifyPrefs.filter((p: any) => p.notify_telegram && p.telegram_username);
             if (tgUsers.length > 0) {
-              const mentions = tgUsers.map((u: any) => `@${u.telegram_username}`).join(" ");
-              const tgAlertText = `${alertLabel} *Alert!*\n\n` +
-                `👤 Posted by: \`${discordAuthor}\`\n\n` +
+              const mentions = tgUsers
+                .map((u: any) => `@${String(u.telegram_username).replace(/^@/, "")}`)
+                .join(" ");
+              const safeAuthor = escapeTelegramHtml(String(discordAuthor || "unknown"));
+              const tgAlertText = `${alertLabel} <b>Alert!</b>\n\n` +
+                `👤 Posted by: <code>${safeAuthor}</code>\n\n` +
                 `💰 Head to Discord and start earning!\n\n` +
                 `📢 ${mentions}`;
 
-              await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, tgAlertText);
+              await sendToTelegramLounge(TELEGRAM_BOT_TOKEN, tgAlertText, undefined, "HTML");
             }
           }
         } catch (notifyErr) {
