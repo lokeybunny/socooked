@@ -2191,12 +2191,25 @@ serve(async (req) => {
           // Raider's secret code is their unique hashtag
           const raidHashtag = `#${raiderSecretCode}`;
 
+          // Random natural opener for raid copy too
+          const raidOpenerPool = [
+            "GM everyone 🌅", "gm gm how we doing today", "yo what's good everyone",
+            "hope everyone's having a great day", "checking in real quick",
+            "just scrolling and had to share", "can't keep this to myself",
+            "ok hear me out", "good morning fam", "hey everyone what's up",
+            "who's up rn", "real ones know", "had to put y'all on",
+            "dropping this here", "vibes are immaculate today",
+            "not gonna lie this is it", "quick share before I forget",
+            "woke up feeling bullish", "passing this along",
+          ];
+          const raidOpener = raidOpenerPool[Math.floor(Math.random() * raidOpenerPool.length)];
+
           const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
           // Insert raider's secret code hashtag at random position
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, raidHashtag);
 
-          const copyText = copyParts.join(" ") + (campaignUrl ? `\n${campaignUrl}` : "");
+          const copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (campaignUrl ? `\n${campaignUrl}` : "");
 
           sendCopyDM(discordUserId, copyText);
           return json({
@@ -2454,6 +2467,24 @@ serve(async (req) => {
         }
 
         // ── SHILL CHANNEL: randomized copy with hashtags + campaign link ──
+        // Random natural opener to dodge spam filters
+        const openerPool = [
+          "GM everyone 🌅", "gm gm how we doing today", "yo what's good everyone",
+          "happy vibes only today", "hope everyone's having a great day",
+          "checking in real quick", "just scrolling and had to share",
+          "can't keep this to myself", "been thinking about this all day",
+          "ok hear me out", "good morning fam", "hey everyone what's up",
+          "who's up rn", "late night thoughts", "afternoon check in",
+          "just woke up to this", "real ones know", "had to put y'all on",
+          "dropping this here", "thought y'all should see this",
+          "alright let's talk about it", "not gonna lie this is it",
+          "quick share before I forget", "this one's for the culture",
+          "vibes are immaculate today", "let me put y'all on to something",
+          "ok but fr tho", "passing this along", "sharing some alpha",
+          "woke up feeling bullish", "can we talk about this for a sec",
+        ];
+        const opener = openerPool[Math.floor(Math.random() * openerPool.length)];
+
         const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
         if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
@@ -2468,7 +2499,7 @@ serve(async (req) => {
         const shillEmojis = ["🔥", "🚀", "💎", "📈", "⚡", "💪", "✨", "🏆", "💯", "🌊"];
         const randomEmoji = shillEmojis[Math.floor(Math.random() * shillEmojis.length)];
 
-        const copyText = `${randomEmoji} ` + copyParts.join(" ") +
+        const copyText = `${opener}\n\n${randomEmoji} ` + copyParts.join(" ") +
           (campaignUrl ? `\n${campaignUrl}` : "");
 
         sendCopyDM(discordUserId, copyText);
