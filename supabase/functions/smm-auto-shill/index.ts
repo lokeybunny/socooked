@@ -191,6 +191,40 @@ function verifyDiscordSignature(publicKeyHex: string, signature: string, timesta
   }
 }
 
+// ─── Role-based access: check if member has admin, shill-team, or raid-team roles ───
+const TEAM_ROLE_NAMES = ["shill-team", "raid-team"];
+
+async function isTeamMember(interaction: any): Promise<boolean> {
+  const discordUser = interaction.member?.user || interaction.user || {};
+  const discordUsername = discordUser.username || discordUser.global_name || "";
+
+  // Admin bypass
+  if (discordUsername === "warrenguru") return true;
+
+  const memberRoleIds: string[] = interaction.member?.roles || [];
+  if (memberRoleIds.length === 0) return false;
+
+  const guildId = interaction.guild_id;
+  const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
+  if (!guildId || !DISCORD_BOT_TOKEN) return false;
+
+  try {
+    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/roles`, {
+      headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+    });
+    if (!res.ok) return false;
+    const guildRoles: Array<{ id: string; name: string }> = await res.json();
+
+    const teamRoleIds = guildRoles
+      .filter(r => TEAM_ROLE_NAMES.includes(r.name.toLowerCase()))
+      .map(r => r.id);
+
+    return memberRoleIds.some(id => teamRoleIds.includes(id));
+  } catch {
+    return false;
+  }
+}
+
 function normalizeXHandle(value: unknown): string {
   return String(value || "")
     .trim()
@@ -939,9 +973,9 @@ serve(async (req) => {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-        // Admin gate — only @warrenguru can use this
-        if (discordUsername !== "warrenguru") {
-          return json({ type: 4, data: { content: "❌ Only admins can use `/authx`.", flags: 64 } });
+        // Team gate — @warrenguru, @shill-team, or @raid-team
+        if (!(await isTeamMember(interaction))) {
+          return json({ type: 4, data: { content: "❌ You need the **@shill-team** or **@raid-team** role to use `/authx`.", flags: 64 } });
         }
 
         const accountOption = interaction.data?.options?.find((o: any) => o.name === "account");
@@ -1001,8 +1035,8 @@ serve(async (req) => {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-        if (discordUsername !== "warrenguru") {
-          return json({ type: 4, data: { content: "❌ Only admins can use `/authx2`.", flags: 64 } });
+        if (!(await isTeamMember(interaction))) {
+          return json({ type: 4, data: { content: "❌ You need the **@shill-team** or **@raid-team** role to use `/authx2`.", flags: 64 } });
         }
 
         const usernameOption = interaction.data?.options?.find((o: any) => o.name === "username");
@@ -1503,8 +1537,8 @@ serve(async (req) => {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-        if (discordUsername !== "warrenguru") {
-          return json({ type: 4, data: { content: "❌ Only admins can use `/welcomeshill`.", flags: 64 } });
+        if (!(await isTeamMember(interaction))) {
+          return json({ type: 4, data: { content: "❌ You need the **@shill-team** or **@raid-team** role to use `/welcomeshill`.", flags: 64 } });
         }
 
         const embedDescription = [
@@ -2916,7 +2950,6 @@ serve(async (req) => {
 
       return json({ ok: true, deleted, total_checked: msgs.length });
     }
-
 
     // ─── GET campaign config ───
     if (action === "get-config") {
