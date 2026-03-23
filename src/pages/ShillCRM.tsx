@@ -97,7 +97,8 @@ function PayoutDialog({ target, onClose, onPaid }: { target: PayoutTarget | null
       payout_type: target.payout_type,
       amount: target.amount,
       verified_clicks: target.verified_clicks,
-      solana_wallet: addr,
+      solana_wallet: target.solana_wallet || "",
+      solana_tx_address: addr,
       paid_by: user?.id || null,
     });
 
