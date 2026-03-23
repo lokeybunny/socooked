@@ -552,19 +552,30 @@ async function getTrackedBotMessage(supabase: any, discordMsgId: string | null) 
   return data;
 }
 
-function isBotMessageExpired(trackedMessage: any) {
-  if (!trackedMessage) return false;
+function isBotMessageExpired(trackedMessage: any, interactionMessage?: any) {
+  // If tracked message exists, check its status/expires_at
+  if (trackedMessage) {
+    if (["expired", "cleaned"].includes(String(trackedMessage.action || ""))) {
+      return true;
+    }
 
-  if (["expired", "cleaned"].includes(String(trackedMessage.action || ""))) {
-    return true;
+    const meta = trackedMessage.meta as Record<string, unknown> | null;
+    const expiresAt = typeof meta?.expires_at === "string"
+      ? Date.parse(meta.expires_at)
+      : Number.NaN;
+
+    if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) return true;
   }
 
-  const meta = trackedMessage.meta as Record<string, unknown> | null;
-  const expiresAt = typeof meta?.expires_at === "string"
-    ? Date.parse(meta.expires_at)
-    : Number.NaN;
+  // Fallback: check the Discord message timestamp (5 min expiry)
+  if (interactionMessage?.timestamp) {
+    const msgTime = Date.parse(interactionMessage.timestamp);
+    if (Number.isFinite(msgTime) && (Date.now() - msgTime) >= 5 * 60 * 1000) {
+      return true;
+    }
+  }
 
-  return Number.isFinite(expiresAt) && expiresAt <= Date.now();
+  return false;
 }
 
 async function expireTrackedBotMessage(supabase: any, trackedMessage: any, discordBotToken?: string | null) {
