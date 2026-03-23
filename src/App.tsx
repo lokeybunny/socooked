@@ -129,6 +129,7 @@ const App = () => (
             <Route path="/shillers/raiders" element={<AuthLayoutGate><Raiders /></AuthLayoutGate>} />
             <Route path="/shill-crm" element={<RestrictedGate><AuthLayoutGate><ShillCRM /></AuthLayoutGate></RestrictedGate>} />
             <Route path="/reply-engine" element={<Navigate to="/shillers" replace />} />
+            <Route path="/raiders" element={<Navigate to="/shillers/raiders" replace />} />
             <Route path="/shillteam" element={<ShillTeam />} />
             
             <Route path="*" element={<NotFound />} />

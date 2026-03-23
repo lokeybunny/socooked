@@ -136,10 +136,11 @@ serve(async (req) => {
       }).join("\n");
     }
 
-    // ── Format X accounts ──
+    // ── Format X accounts (masked for privacy) ──
     const accountList = (accounts || []).slice(0, 8).map(a => {
       const status = a.is_authorized ? "🟢" : "🔴";
-      return `${status} @${a.account_identifier}`;
+      const masked = a.account_identifier ? `${a.account_identifier.slice(0, 3)}****` : "unknown";
+      return `${status} @${masked}`;
     }).join(" • ");
 
     // ── Pending payouts ──
