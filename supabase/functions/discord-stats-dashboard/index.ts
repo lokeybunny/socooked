@@ -59,10 +59,18 @@ serve(async (req) => {
       .eq("status", "pending");
 
     // ── Aggregate shiller stats ──
-    const shillerStats: Record<string, { verified: number; pending: number; flagged: number; earned: number }> = {};
+    // Seed from discord_assignments so all assigned shillers appear even with 0 clicks
+    const shillerStats: Record<string, { verified: number; pending: number; flagged: number; earned: number; xAccount: string }> = {};
+    const assignments = assignmentConfig?.content?.discord_assignments || {};
+    const usernames = assignmentConfig?.content?.discord_usernames || {};
+    for (const [discordId, xAccount] of Object.entries(assignments)) {
+      const name = usernames[discordId] || String(discordId).replace(/<@!?/, "").replace(/>$/, "");
+      if (!shillerStats[name]) shillerStats[name] = { verified: 0, pending: 0, flagged: 0, earned: 0, xAccount: String(xAccount) };
+    }
+
     for (const c of shillClicks || []) {
       const name = c.discord_username || "unknown";
-      if (!shillerStats[name]) shillerStats[name] = { verified: 0, pending: 0, flagged: 0, earned: 0 };
+      if (!shillerStats[name]) shillerStats[name] = { verified: 0, pending: 0, flagged: 0, earned: 0, xAccount: "" };
       if (c.status === "verified") {
         shillerStats[name].verified++;
         shillerStats[name].earned += Number(c.rate || 0.05);
