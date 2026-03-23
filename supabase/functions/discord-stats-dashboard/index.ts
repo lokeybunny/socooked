@@ -114,7 +114,8 @@ serve(async (req) => {
       shillerBoard = shillerEntries.map(([name, s], i) => {
         const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `\`${i + 1}.\``;
         const flag = s.flagged > 0 ? ` ⚠️${s.flagged}` : "";
-        const xTag = s.xAccount ? ` (@${s.xAccount})` : "";
+        // Mask X username: show first 3 chars + ****
+        const xTag = s.xAccount ? ` (@${s.xAccount.slice(0, 3)}****)` : "";
         return `${medal} **${name}**${xTag} — ✅ ${s.verified} | 💰 $${s.earned.toFixed(2)}${flag}`;
       }).join("\n");
     }
@@ -135,10 +136,11 @@ serve(async (req) => {
       }).join("\n");
     }
 
-    // ── Format X accounts ──
+    // ── Format X accounts (masked for privacy) ──
     const accountList = (accounts || []).slice(0, 8).map(a => {
       const status = a.is_authorized ? "🟢" : "🔴";
-      return `${status} @${a.account_identifier}`;
+      const masked = a.account_identifier ? `${a.account_identifier.slice(0, 3)}****` : "unknown";
+      return `${status} @${masked}`;
     }).join(" • ");
 
     // ── Pending payouts ──
