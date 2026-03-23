@@ -2995,6 +2995,27 @@ serve(async (req) => {
           }
         }
 
+        // ── Notify opted-in Telegram users with @mention ──
+        try {
+          const { data: tgPrefs } = await supabase
+            .from("discord_notify_prefs")
+            .select("telegram_username")
+            .eq("notify_telegram", true)
+            .not("telegram_username", "is", null);
+
+          const tgHandles = (tgPrefs || [])
+            .map((p: any) => p.telegram_username?.trim())
+            .filter(Boolean)
+            .map((h: string) => `@${h.replace(/^@/, "")}`);
+
+          if (tgHandles.length > 0 && TELEGRAM_BOT_TOKEN) {
+            const tgText = `🔔 *New Shill Alert!*\n🔗 [Open Tweet](${verifyUrl})\n👤 Shilled by: ${discordUsername}\n\n📢 ${tgHandles.join(" ")}`;
+            await makeSendTelegram(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)(tgText);
+          }
+        } catch (tgErr) {
+          console.error("[auto-shill] Telegram notify error:", tgErr);
+        }
+
         return json({
           type: 4,
           data: {
@@ -3931,8 +3952,25 @@ async function processAutoShill(
         ? `Unverified: ${verificationResult.reason}`
         : "Verification skipped";
 
+    // Fetch opted-in Telegram users for @mention notifications
+    let tgMentionLine = "";
+    try {
+      const { data: tgPrefs } = await supabase
+        .from("discord_notify_prefs")
+        .select("telegram_username")
+        .eq("notify_telegram", true)
+        .not("telegram_username", "is", null);
+
+      const tgHandles = (tgPrefs || [])
+        .map((p: any) => p.telegram_username?.trim())
+        .filter(Boolean)
+        .map((h: string) => `@${h.replace(/^@/, "")}`);
+
+      if (tgHandles.length > 0) tgMentionLine = `\n\n📢 ${tgHandles.join(" ")}`;
+    } catch (_) { /* silent */ }
+
     await sendTelegram(
-      `✅ *Auto-Shill Reply Sent!*\n👤 @${account}\n🔗 ${tweetUrl}\n💬 ${replyText.substring(0, 150)}\n${verifyEmoji} ${verifyNote}`
+      `✅ *Auto-Shill Reply Sent!*\n👤 @${account}\n🔗 ${tweetUrl}\n💬 ${replyText.substring(0, 150)}\n${verifyEmoji} ${verifyNote}${tgMentionLine}`
     );
 
     // Retweet with designated accounts (async, don't block)
