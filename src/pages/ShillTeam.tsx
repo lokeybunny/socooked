@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck, Bell, Smartphone } from 'lucide-react';
+import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck, Bell, Smartphone, Globe, Briefcase, CircleDollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -115,11 +115,29 @@ export default function ShillTeam() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             Earn SOL by shilling and raiding on X. Get authorized, run commands, and stack verified clicks.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+
+          {/* Highlight badges */}
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <Badge className="bg-primary/15 text-primary border-primary/30 text-sm px-3 py-1 gap-1.5">
+              <CircleDollarSign className="h-3.5 w-3.5" /> Paid in Solana
+            </Badge>
+            <Badge className="bg-green-500/15 text-green-400 border-green-500/30 text-sm px-3 py-1 gap-1.5">
+              <Globe className="h-3.5 w-3.5" /> Hiring Internationally
+            </Badge>
             <Badge variant="secondary" className="text-xs">Shillers</Badge>
             <Badge variant="secondary" className="text-xs">Raiders</Badge>
-            <Badge variant="outline" className="text-xs">Earn SOL</Badge>
             <Badge variant="outline" className="text-xs">Discord Bot</Badge>
+          </div>
+
+          {/* Freelancer callout */}
+          <div className="mt-6 rounded-xl border border-primary/20 bg-primary/[0.03] p-5 max-w-xl mx-auto text-center space-y-2">
+            <div className="flex items-center justify-center gap-2 text-primary font-semibold">
+              <Briefcase className="h-5 w-5" />
+              <span>Fiverr &amp; Upwork Contractors</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Already doing social media work on Fiverr or Upwork? Put those skills to work here — no middleman fees, direct SOL payments to your wallet every Friday. Click the links below to get started.
+            </p>
           </div>
         </div>
       </div>
