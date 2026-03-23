@@ -596,6 +596,46 @@ async function expireTrackedBotMessage(supabase: any, trackedMessage: any, disco
     .eq("id", trackedMessage.id);
 }
 
+/** Lazy cleanup: find expired raid messages and delete them from Discord */
+async function cleanupExpiredRaidMessages(supabase: any, discordBotToken: string | null) {
+  if (!discordBotToken) return;
+
+  try {
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: expired } = await supabase
+      .from("activity_log")
+      .select("id, meta")
+      .eq("entity_type", "shill-bot-msg")
+      .in("action", ["pending", "interacted"])
+      .lt("created_at", fiveMinAgo)
+      .limit(10);
+
+    if (!expired || expired.length === 0) return;
+
+    for (const row of expired) {
+      const meta = row.meta as Record<string, unknown> | null;
+      const expiresAt = typeof meta?.expires_at === "string" ? Date.parse(meta.expires_at) : Number.NaN;
+      if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) continue;
+
+      const channelId = typeof meta?.channel_id === "string" ? meta.channel_id : null;
+      const botMessageId = typeof meta?.bot_message_id === "string" ? meta.bot_message_id : null;
+
+      if (channelId && botMessageId) {
+        try {
+          await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${botMessageId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bot ${discordBotToken}` },
+          });
+        } catch (_) { /* ignore */ }
+      }
+
+      await supabase.from("activity_log").update({ action: "cleaned" }).eq("id", row.id);
+    }
+  } catch (e) {
+    console.error("[auto-shill] Lazy cleanup error:", e);
+  }
+}
+
 async function verifyReplyOnX(replyPostId: string, targetTweetUrl: string, twitterBearerToken?: string | null) {
   const targetTweetId = extractTweetId(targetTweetUrl);
   if (!targetTweetId) {
