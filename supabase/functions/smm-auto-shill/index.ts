@@ -1093,6 +1093,131 @@ serve(async (req) => {
         });
       }
 
+      // ─── /authorizeshiller command — admin authorizes a user as a shiller ───
+      if (commandName === "authorizeshiller") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/authorizeshiller`.", flags: 64 } });
+        }
+
+        const userIdOption = interaction.data?.options?.find((o: any) => o.name === "user");
+        const accountOption = interaction.data?.options?.find((o: any) => o.name === "account");
+        const targetUserId = userIdOption?.value?.trim();
+        const xAccount = accountOption?.value?.replace(/^@/, "")?.trim();
+
+        if (!targetUserId || !xAccount) {
+          return json({ type: 4, data: { content: "❌ Usage: `/authorizeshiller user:<discord_user_id> account:<x_handle>`", flags: 64 } });
+        }
+
+        const profileUsername = matchedProfile || "NysonBlack";
+        const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
+        const assignments: Record<string, string> = currentContent.discord_assignments || {};
+
+        // Check if X account is already claimed by someone else
+        const existingClaimant = Object.entries(assignments).find(([, acc]) => acc === xAccount);
+        if (existingClaimant && existingClaimant[0] !== targetUserId) {
+          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is already assigned to <@${existingClaimant[0]}>. Unassign them first.`, flags: 64 } });
+        }
+
+        // Check if target user already has a different account
+        if (assignments[targetUserId] && assignments[targetUserId] !== xAccount) {
+          return json({ type: 4, data: { content: `⚠️ <@${targetUserId}> is already assigned to \`@${assignments[targetUserId]}\`. Overwriting...`, flags: 64 } });
+        }
+
+        // Assign
+        assignments[targetUserId] = xAccount;
+        const discordUsernames: Record<string, string> = currentContent.discord_usernames || {};
+
+        await supabase.from("site_configs").upsert({
+          id: cfgRow?.id || undefined,
+          site_id: "smm-auto-shill",
+          section: profileUsername,
+          content: { ...currentContent, discord_assignments: assignments, discord_usernames: discordUsernames },
+        }, { onConflict: "id" });
+
+        await supabase.from("activity_log").insert({
+          entity_type: "shill-authorization",
+          action: "admin-authorized-shiller",
+          meta: {
+            name: `🔧 Admin authorized <@${targetUserId}> → @${xAccount}`,
+            admin_username: discordUsername,
+            target_user_id: targetUserId,
+            x_account: xAccount,
+            profile: profileUsername,
+          },
+        });
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Shiller authorized!**\n\n👤 <@${targetUserId}> → \`@${xAccount}\`\n\nThey can now use shill buttons and earn per verified click.`,
+            flags: 64,
+          },
+        });
+      }
+
+      // ─── /authorizeraider command — admin authorizes a user as a raider ───
+      if (commandName === "authorizeraider") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/authorizeraider`.", flags: 64 } });
+        }
+
+        const userIdOption = interaction.data?.options?.find((o: any) => o.name === "user");
+        const targetUserId = userIdOption?.value?.trim();
+
+        if (!targetUserId) {
+          return json({ type: 4, data: { content: "❌ Usage: `/authorizeraider user:<discord_user_id>`", flags: 64 } });
+        }
+
+        // Check if already a raider
+        const { data: existingRaider } = await supabase
+          .from("raiders")
+          .select("id, status")
+          .eq("discord_user_id", targetUserId)
+          .maybeSingle();
+
+        if (existingRaider?.status === "active") {
+          return json({ type: 4, data: { content: `ℹ️ <@${targetUserId}> is already an active raider.`, flags: 64 } });
+        }
+
+        if (existingRaider) {
+          await supabase.from("raiders").update({
+            status: "active",
+            updated_at: new Date().toISOString(),
+          }).eq("id", existingRaider.id);
+        } else {
+          await supabase.from("raiders").insert({
+            discord_user_id: targetUserId,
+            discord_username: `user_${targetUserId}`,
+            status: "active",
+          });
+        }
+
+        await supabase.from("activity_log").insert({
+          entity_type: "shill-authorization",
+          action: "admin-authorized-raider",
+          meta: {
+            name: `⚔️ Admin authorized raider <@${targetUserId}>`,
+            admin_username: discordUsername,
+            target_user_id: targetUserId,
+            method: "authorizeraider",
+          },
+        });
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Raider authorized!**\n\n👤 <@${targetUserId}> is now an active raider.\n\nThey can interact with raid alerts and earn $0.02 per verified raid.`,
+            flags: 64,
+          },
+        });
+      }
+
       // ─── /wallet command — set Solana wallet address ───
       if (commandName === "wallet") {
         try {
@@ -1462,55 +1587,57 @@ serve(async (req) => {
         });
       }
 
-      // ─── /raidauth command — register as a raider with secret code ───
+      // ─── /raidauth command — self-register as a raider (no code needed) ───
       if (commandName === "raidauth") {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUserId = discordUser.id || "unknown";
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-        // Upsert raider record first
-        await supabase.from("raiders").upsert({
-          discord_user_id: discordUserId,
-          discord_username: discordUsername,
-        }, { onConflict: "discord_user_id" });
-
-        // Check if already has a secret code
+        // Check if already a raider
         const { data: existingRaider } = await supabase
           .from("raiders")
-          .select("secret_code, status")
+          .select("id, status")
           .eq("discord_user_id", discordUserId)
           .maybeSingle();
 
-        if (existingRaider?.secret_code) {
+        if (existingRaider?.status === "active") {
           return json({ type: 4, data: {
-            content: `✅ You're already registered as a raider!\n\n🔑 Your code: \`#${existingRaider.secret_code}\`\n📊 Status: ${existingRaider.status || "active"}`,
+            content: `✅ You're already registered as an active raider!\n\n📊 Status: active\n💰 Earn $0.02 per verified raid\n\nUse \`/wallet\` to set your payout address.`,
             flags: 64,
           }});
         }
 
-        // Show modal to enter secret code (same as the button flow)
+        // Upsert raider record
+        if (existingRaider) {
+          await supabase.from("raiders").update({
+            status: "active",
+            discord_username: discordUsername,
+            updated_at: new Date().toISOString(),
+          }).eq("id", existingRaider.id);
+        } else {
+          await supabase.from("raiders").insert({
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            status: "active",
+          });
+        }
+
+        // Log registration
+        await supabase.from("activity_log").insert({
+          entity_type: "raider-registration",
+          action: "self-registered",
+          meta: {
+            name: `⚔️ ${discordUsername} self-registered as raider`,
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+          },
+        });
+
         return json({
-          type: 9,
+          type: 4,
           data: {
-            custom_id: `raider_code_submit_raidauth`,
-            title: "Enter Your Raider Secret Code",
-            components: [
-              {
-                type: 1, // ActionRow
-                components: [
-                  {
-                    type: 4, // TextInput
-                    custom_id: "secret_code_input",
-                    label: "Secret Code (given by admin)",
-                    style: 1, // Short
-                    placeholder: "e.g. storm42x",
-                    required: true,
-                    min_length: 2,
-                    max_length: 30,
-                  },
-                ],
-              },
-            ],
+            content: `✅ **Welcome aboard, ${discordUsername}!** ⚔️\n\nYou're now registered as a raider.\n💰 Earn **$0.02** per verified raid\n📋 Click **⚔️ Raid Now** on raid alerts to get started\n🔗 Use \`/wallet <address>\` to set your Solana payout wallet`,
+            flags: 64,
           },
         });
       }
@@ -1623,44 +1750,17 @@ serve(async (req) => {
         await supabase.from("raiders").upsert({
           discord_user_id: discordUserId,
           discord_username: discordUsername,
+          status: "active",
         }, { onConflict: "discord_user_id" });
 
-        // Check if raider has a secret code assigned
+        // Check raider status
         const { data: raider } = await supabase
           .from("raiders")
-          .select("secret_code, status")
+          .select("secret_code, status, total_clicks")
           .eq("discord_user_id", discordUserId)
           .maybeSingle();
 
-        if (!raider?.secret_code) {
-          // Show a modal asking for their secret code (type 9 = Modal response)
-          return json({
-            type: 9,
-            data: {
-              custom_id: `raider_code_submit_${discordUserId}`,
-              title: "⚔️ Enter Your Raider Code",
-              components: [
-                {
-                  type: 1, // ActionRow
-                  components: [
-                    {
-                      type: 4, // TextInput
-                      custom_id: "secret_code_input",
-                      label: "Secret Code (given by admin)",
-                      style: 1, // Short
-                      placeholder: "e.g. storm42x",
-                      required: true,
-                      min_length: 3,
-                      max_length: 30,
-                    },
-                  ],
-                },
-              ],
-            },
-          });
-        }
-
-        if (raider.status !== "active") {
+        if (raider && raider.status !== "active") {
           return json({
             type: 4,
             data: {
@@ -1670,7 +1770,7 @@ serve(async (req) => {
           });
         }
 
-        const raiderSecretCode = raider.secret_code;
+        const raiderSecretCode = raider?.secret_code || null;
 
         // ── Self-raid prevention: shillers cannot raid their own verified post ──
         let selfRaidMsgId: string | null = null;
@@ -2690,7 +2790,7 @@ serve(async (req) => {
         name: "balance", description: "Check your verified earnings balance", type: 1,
       },
       {
-        name: "raidauth", description: "Register as a raider with your secret code", type: 1,
+        name: "raidauth", description: "Register yourself as a raider (repost & like raids)", type: 1,
       },
       {
         name: "authx", description: "(Admin) Manually add an X account for shiller assignment", type: 1,
@@ -2701,6 +2801,19 @@ serve(async (req) => {
         options: [
           { name: "username", description: "The raider's Discord username", type: 3, required: true },
           { name: "code", description: "Secret code (also used as their hashtag)", type: 3, required: true },
+        ],
+      },
+      {
+        name: "authorizeshiller", description: "(Admin) Authorize a user as a shiller on their behalf", type: 1,
+        options: [
+          { name: "user", description: "The Discord user ID to authorize", type: 3, required: true },
+          { name: "account", description: "The X account to assign", type: 3, required: true, choices: accountChoices.length > 0 ? accountChoices : undefined },
+        ],
+      },
+      {
+        name: "authorizeraider", description: "(Admin) Authorize a user as a raider", type: 1,
+        options: [
+          { name: "user", description: "The Discord user ID to authorize", type: 3, required: true },
         ],
       },
       {
