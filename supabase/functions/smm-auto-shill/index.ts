@@ -552,19 +552,30 @@ async function getTrackedBotMessage(supabase: any, discordMsgId: string | null) 
   return data;
 }
 
-function isBotMessageExpired(trackedMessage: any) {
-  if (!trackedMessage) return false;
+function isBotMessageExpired(trackedMessage: any, interactionMessage?: any) {
+  // If tracked message exists, check its status/expires_at
+  if (trackedMessage) {
+    if (["expired", "cleaned"].includes(String(trackedMessage.action || ""))) {
+      return true;
+    }
 
-  if (["expired", "cleaned"].includes(String(trackedMessage.action || ""))) {
-    return true;
+    const meta = trackedMessage.meta as Record<string, unknown> | null;
+    const expiresAt = typeof meta?.expires_at === "string"
+      ? Date.parse(meta.expires_at)
+      : Number.NaN;
+
+    if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) return true;
   }
 
-  const meta = trackedMessage.meta as Record<string, unknown> | null;
-  const expiresAt = typeof meta?.expires_at === "string"
-    ? Date.parse(meta.expires_at)
-    : Number.NaN;
+  // Fallback: check the Discord message timestamp (5 min expiry)
+  if (interactionMessage?.timestamp) {
+    const msgTime = Date.parse(interactionMessage.timestamp);
+    if (Number.isFinite(msgTime) && (Date.now() - msgTime) >= 5 * 60 * 1000) {
+      return true;
+    }
+  }
 
-  return Number.isFinite(expiresAt) && expiresAt <= Date.now();
+  return false;
 }
 
 async function expireTrackedBotMessage(supabase: any, trackedMessage: any, discordBotToken?: string | null) {
@@ -837,6 +848,33 @@ serve(async (req) => {
         return json({ type: 4, data: { content: raidHelpText, flags: 64 } });
       }
 
+      // ─── /btw command — admin-only public reminder about payment tracking ───
+      if (commandName === "btw") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/btw`.", flags: 64 } });
+        }
+
+        // Public response (no flags: 64)
+        return json({
+          type: 4,
+          data: {
+            content: [
+              "💰 **Quick Reminder — Check Your Payments Live!**",
+              "",
+              "You can track your active payout amount, wallet, and earnings in real-time on the app:",
+              "",
+              "🔗 **Shillers:** https://warren.guru/shillers",
+              "🔗 **Raiders:** https://warren.guru/raiders",
+              "",
+              "Everything is public and updated live. No need to ask — just check your page! 🚀",
+            ].join("\n"),
+          },
+        });
+      }
+
       // ─── /adminhelp command — admin-only quick reference (ephemeral) ───
       if (commandName === "adminhelp") {
         const discordUser = interaction.member?.user || interaction.user || {};
@@ -858,7 +896,8 @@ serve(async (req) => {
           "**Wallet & Payouts:**",
           "`/walletcrm <user> <address>` — Set a Solana wallet for any user (public)",
           "",
-          "**Channel Management:**",
+          "**Announcements:**",
+          "`/btw` — Remind users where to check payments (public)",
           "`/welcomeshill` — Post the welcome/onboarding embed for new members",
           "`/clean` — Delete all bot messages from the current channel",
           "",
@@ -1944,7 +1983,7 @@ serve(async (req) => {
           const discordMsgId = customId.replace("shill_now_", "") || null;
 
           const trackedMessage = await getTrackedBotMessage(supabase, discordMsgId);
-          if (isBotMessageExpired(trackedMessage)) {
+          if (isBotMessageExpired(trackedMessage, interaction.message)) {
             await expireTrackedBotMessage(supabase, trackedMessage, DISCORD_BOT_TOKEN);
             return json({ type: 4, data: { content: "⏰ This raid alert has expired — find a new post.", flags: 64 } });
           }
@@ -1994,6 +2033,12 @@ serve(async (req) => {
         // ─── Get Raid Copy button ───
         if (customId.startsWith("shill_copy")) {
           const discordMsgId = customId.replace("shill_copy_", "") || null;
+
+          const trackedCopy = await getTrackedBotMessage(supabase, discordMsgId);
+          if (isBotMessageExpired(trackedCopy, interaction.message)) {
+            await expireTrackedBotMessage(supabase, trackedCopy, DISCORD_BOT_TOKEN);
+            return json({ type: 4, data: { content: "⏰ This raid alert has expired — find a new post.", flags: 64 } });
+          }
 
           const cleanTweetUrl2 = (tweetUrl || "").replace(/[)\]}>]+$/, "");
           await supabase.from("shill_clicks").insert({
@@ -2138,7 +2183,7 @@ serve(async (req) => {
         const discordMsgId = customId.replace("shill_now_", "") || null;
 
         const trackedMessage = await getTrackedBotMessage(supabase, discordMsgId);
-        if (isBotMessageExpired(trackedMessage)) {
+        if (isBotMessageExpired(trackedMessage, interaction.message)) {
           await expireTrackedBotMessage(supabase, trackedMessage, DISCORD_BOT_TOKEN);
 
           return json({
@@ -2183,6 +2228,12 @@ serve(async (req) => {
       // ─── Get Shill Copy button ───
       if (customId.startsWith("shill_copy")) {
         const discordMsgId = customId.replace("shill_copy_", "") || null;
+
+        const trackedCopy = await getTrackedBotMessage(supabase, discordMsgId);
+        if (isBotMessageExpired(trackedCopy, interaction.message)) {
+          await expireTrackedBotMessage(supabase, trackedCopy, DISCORD_BOT_TOKEN);
+          return json({ type: 4, data: { content: "⏰ This shill alert has expired — find a new post.", flags: 64 } });
+        }
 
         const cleanTweetUrl2 = (tweetUrl || "").replace(/[)\]}>]+$/, "");
         await supabase.from("shill_clicks").insert({
@@ -3012,6 +3063,9 @@ serve(async (req) => {
       },
       {
         name: "adminhelp", description: "(Admin) Quick reference of all admin commands", type: 1,
+      },
+      {
+        name: "btw", description: "(Admin) Remind users where to check their payments live", type: 1,
       },
     ];
 
