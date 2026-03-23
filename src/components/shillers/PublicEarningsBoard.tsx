@@ -12,8 +12,19 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 function maskUsername(name: string): string {
-  if (name.length <= 3) return name + "****";
-  return name.slice(0, 3) + "****";
+  // Strip Discord mention format like <@123456789>
+  const cleaned = name.replace(/^<@!?/, "").replace(/>$/, "");
+  // If it's a pure numeric Discord ID, show masked version
+  if (/^\d{10,}$/.test(cleaned)) {
+    return `@user${cleaned.slice(-3)}****`;
+  }
+  // If it starts with "user_" fallback, mask it nicer
+  if (cleaned.startsWith("user_")) {
+    return `@${cleaned.slice(0, 6)}****`;
+  }
+  if (cleaned.length <= 3) return `@${cleaned}****`;
+  const half = Math.ceil(cleaned.length / 2);
+  return `@${cleaned.slice(0, half)}****`;
 }
 
 function shortWallet(addr: string | null): string {
