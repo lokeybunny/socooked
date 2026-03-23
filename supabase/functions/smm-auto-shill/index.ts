@@ -3120,6 +3120,13 @@ serve(async (req) => {
       {
         name: "btw", description: "(Admin) Remind users where to check their payments live", type: 1,
       },
+      {
+        name: "notifyglobal", description: "(Admin) Setup Discord DM & Telegram alerts for a user", type: 1,
+        options: [
+          { name: "user", description: "Discord user ID", type: 3, required: true },
+          { name: "telegram", description: "Telegram @username (optional)", type: 3, required: false },
+        ],
+      },
     ];
 
     const registerTargets = [
