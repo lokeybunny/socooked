@@ -1779,6 +1779,7 @@ serve(async (req) => {
           const emojis = pickRandom(emojiPool, 2 + Math.floor(Math.random() * 2)).join("");
           const randomComment = `${intro}${template} ${emojis}`;
 
+          sendCopyDM(discordUserId, randomComment);
           return json({
             type: 4,
             data: {
