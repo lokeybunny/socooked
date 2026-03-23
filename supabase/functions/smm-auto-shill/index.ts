@@ -3076,7 +3076,7 @@ serve(async (req) => {
           description: "The X account to claim",
           type: 3,
           required: true,
-          choices: accountChoices.length > 0 ? accountChoices : undefined,
+          autocomplete: true,
         }],
       },
       {
