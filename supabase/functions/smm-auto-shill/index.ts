@@ -769,6 +769,9 @@ serve(async (req) => {
     const interaction = JSON.parse(rawBody);
     if (interaction.type === 1) return json({ type: 1 });
 
+    // Fire-and-forget: clean up expired raid messages on every interaction
+    cleanupExpiredRaidMessages(supabase, DISCORD_BOT_TOKEN).catch(() => {});
+
     if (interaction.type === 2) {
       const commandName = interaction.data?.name || "";
 
