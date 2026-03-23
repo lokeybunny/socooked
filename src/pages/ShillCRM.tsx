@@ -567,6 +567,7 @@ function RaidersTab() {
           <TableBody>
             {raiders.map(r => {
               const v = verifiedMap.get(r.discord_user_id) || { verified: 0, pending: 0 };
+              const flags = badLinkMap.get(r.discord_user_id) || 0;
               return (
               <TableRow key={r.id}>
                 <TableCell className="font-medium">{r.discord_username}</TableCell>
