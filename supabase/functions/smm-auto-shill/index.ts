@@ -2440,6 +2440,9 @@ serve(async (req) => {
       {
         name: "balance", description: "Check your verified earnings balance", type: 1,
       },
+      {
+        name: "raidauth", description: "Register as a raider with your secret code", type: 1,
+      },
     ];
 
     const registerTargets = [
