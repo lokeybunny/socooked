@@ -1438,6 +1438,7 @@ serve(async (req) => {
             raidCopyParts.splice(insertIdx2, 0, raidHashtag2);
             const raidCopyText = raidCopyParts.join(" ") + (raidNowCampaignUrl ? `\n${raidNowCampaignUrl}` : "");
 
+            sendCopyDM(discordUserId, raidCopyText);
             return json({
               type: 4,
               data: {
