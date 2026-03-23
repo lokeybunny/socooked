@@ -668,6 +668,29 @@ serve(async (req) => {
   const TWITTER_BEARER_TOKEN = Deno.env.get("TWITTER_BEARER_TOKEN");
   const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
 
+  /** Fire-and-forget DM to a Discord user with copy text */
+  const sendCopyDM = (userId: string, text: string) => {
+    if (!DISCORD_BOT_TOKEN) return;
+    (async () => {
+      try {
+        // 1. Open/get DM channel
+        const dmCh = await fetch("https://discord.com/api/v10/users/@me/channels", {
+          method: "POST",
+          headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ recipient_id: userId }),
+        });
+        if (!dmCh.ok) { console.error("[DM] open channel failed", dmCh.status); return; }
+        const { id: channelId } = await dmCh.json();
+        // 2. Send the copy text
+        await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+          method: "POST",
+          headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ content: `📋 **Copy this:**\n\`\`\`\n${text}\n\`\`\`` }),
+        });
+      } catch (e) { console.error("[DM] send failed", e); }
+    })();
+  };
+
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
   const sendTelegram = makeSendTelegram(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID);
 
