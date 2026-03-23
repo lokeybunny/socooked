@@ -138,6 +138,9 @@ export default function ShillTeam() {
             <p className="text-sm text-muted-foreground">
               Already doing social media work on Fiverr or Upwork? Put those skills to work here — no middleman fees, direct SOL payments to your wallet every Friday. Click the links below to get started.
             </p>
+            <a href="#join-cta" className="inline-flex items-center justify-center mt-3 h-10 w-10 rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-colors animate-bounce">
+              <ArrowDown className="h-5 w-5" />
+            </a>
           </div>
         </div>
       </div>
