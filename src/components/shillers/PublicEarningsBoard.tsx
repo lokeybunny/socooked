@@ -367,6 +367,69 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
                 <span className="text-xs text-muted-foreground">Payouts open on Fridays (UTC)</span>
               )}
             </div>
+
+            {/* Payment History */}
+            {paymentHistory.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <h5 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <History className="h-3.5 w-3.5 text-primary" />
+                  Payment History ({paymentHistory.length})
+                </h5>
+                <div className="rounded-md border border-border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-xs">Type</TableHead>
+                        <TableHead className="text-xs text-right">Amount</TableHead>
+                        <TableHead className="text-xs text-right">Clicks</TableHead>
+                        <TableHead className="text-xs">Receipt</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paymentHistory.map((p) => (
+                        <TableRow key={p.id}>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {format(new Date(p.created_at), "MMM d, yyyy")}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px]">{p.payout_type}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-sm font-semibold text-green-500">
+                            ${Number(p.amount).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-xs">{p.verified_clicks}</TableCell>
+                          <TableCell>
+                            {p.solana_tx_address ? (
+                              <a
+                                href={p.solana_tx_address}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                Solscan
+                              </a>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/50">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Total paid: ${paymentHistory.reduce((s, p) => s + Number(p.amount), 0).toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            {paymentHistory.length === 0 && (
+              <p className="text-xs text-muted-foreground pt-1 flex items-center gap-1">
+                <Receipt className="h-3 w-3" /> No payment history yet.
+              </p>
+            )}
           </div>
         )}
 
