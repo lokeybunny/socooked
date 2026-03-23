@@ -2236,6 +2236,7 @@ serve(async (req) => {
         }
 
         const cleanTweetUrl2 = (tweetUrl || "").replace(/[)\]}>]+$/, "");
+        await supabase.from("shill_clicks").insert({
           discord_user_id: discordUserId,
           discord_username: discordUsername,
           tweet_url: cleanTweetUrl2 || null,
