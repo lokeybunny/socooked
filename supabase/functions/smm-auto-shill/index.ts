@@ -2973,6 +2973,9 @@ serve(async (req) => {
       {
         name: "welcomeshill", description: "(Admin) Post the welcome/onboarding guide for new shillers & raiders", type: 1,
       },
+      {
+        name: "adminhelp", description: "(Admin) Quick reference of all admin commands", type: 1,
+      },
     ];
 
     const registerTargets = [
