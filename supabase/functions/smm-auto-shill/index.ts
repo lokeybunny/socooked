@@ -2995,6 +2995,27 @@ serve(async (req) => {
           }
         }
 
+        // ── Notify opted-in Telegram users with @mention ──
+        try {
+          const { data: tgPrefs } = await supabase
+            .from("discord_notify_prefs")
+            .select("telegram_username")
+            .eq("notify_telegram", true)
+            .not("telegram_username", "is", null);
+
+          const tgHandles = (tgPrefs || [])
+            .map((p: any) => p.telegram_username?.trim())
+            .filter(Boolean)
+            .map((h: string) => `@${h.replace(/^@/, "")}`);
+
+          if (tgHandles.length > 0 && TELEGRAM_BOT_TOKEN) {
+            const tgText = `🔔 *New Shill Alert!*\n🔗 [Open Tweet](${verifyUrl})\n👤 Shilled by: ${discordUsername}\n\n📢 ${tgHandles.join(" ")}`;
+            await makeSendTelegram(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)(tgText);
+          }
+        } catch (tgErr) {
+          console.error("[auto-shill] Telegram notify error:", tgErr);
+        }
+
         return json({
           type: 4,
           data: {
