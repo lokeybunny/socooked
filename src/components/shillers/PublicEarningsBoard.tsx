@@ -1,24 +1,28 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, Wallet, Users, Shield, RefreshCw } from "lucide-react";
+import { DollarSign, Wallet, Users, RefreshCw, Send } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { toast } from "sonner";
 
-/** Mask a discord username for public privacy: keep first 3 chars + **** */
 function maskUsername(name: string): string {
   if (name.length <= 3) return name + "****";
   return name.slice(0, 3) + "****";
 }
 
-/** Shorten a wallet: first 4 + ... + last 4 */
 function shortWallet(addr: string | null): string {
   if (!addr) return "—";
   if (addr.length <= 10) return addr;
   return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+}
+
+function isFriday(): boolean {
+  return new Date().getUTCDay() === 5;
 }
 
 interface EarningsRow {
@@ -33,7 +37,6 @@ interface EarningsRow {
 }
 
 interface Props {
-  /** Filter to only show a specific role, or "all" */
   roleFilter?: "shiller" | "raider" | "all";
 }
 
@@ -41,21 +44,22 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const [rows, setRows] = useState<EarningsRow[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Payout request state
+  const [payoutDiscordId, setPayoutDiscordId] = useState("");
+  const [payoutSubmitting, setPayoutSubmitting] = useState(false);
+
   const fetchEarnings = async () => {
     setLoading(true);
 
-    // Get all shill_clicks
     const { data: clicks } = await supabase
       .from("shill_clicks")
       .select("discord_user_id, discord_username, click_type, status, rate");
 
-    // Get raiders for wallet info
     const { data: raiders } = await supabase
       .from("raiders")
       .select("discord_user_id, discord_username, solana_wallet, status")
       .eq("status", "active");
 
-    // Get shill config for shiller identities
     const { data: configs } = await supabase
       .from("site_configs")
       .select("content")
@@ -72,7 +76,6 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       raiderMap.set(r.discord_user_id, { wallet: r.solana_wallet, username: r.discord_username });
     }
 
-    // Aggregate by user
     const userMap = new Map<string, EarningsRow>();
 
     for (const click of clicks || []) {
@@ -85,10 +88,8 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           discord_user_id: uid,
           discord_username: click.discord_username || raiderInfo?.username || uid,
           solana_wallet: raiderInfo?.wallet || null,
-          verified_amount: 0,
-          verified_clicks: 0,
-          pending_amount: 0,
-          pending_clicks: 0,
+          verified_amount: 0, verified_clicks: 0,
+          pending_amount: 0, pending_clicks: 0,
           role: isShiller && isRaider ? "both" : isShiller ? "shiller" : "raider",
         });
       }
@@ -103,17 +104,13 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       }
     }
 
-    // Also add raiders/shillers who have wallets but no clicks yet
     for (const [uid, info] of raiderMap) {
       if (!userMap.has(uid)) {
         userMap.set(uid, {
-          discord_user_id: uid,
-          discord_username: info.username,
+          discord_user_id: uid, discord_username: info.username,
           solana_wallet: info.wallet,
-          verified_amount: 0,
-          verified_clicks: 0,
-          pending_amount: 0,
-          pending_clicks: 0,
+          verified_amount: 0, verified_clicks: 0,
+          pending_amount: 0, pending_clicks: 0,
           role: shillerUserIds.has(uid) ? "both" : "raider",
         });
       }
@@ -126,50 +123,107 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           discord_user_id: uid,
           discord_username: raiderInfo?.username || `user_${uid.slice(-4)}`,
           solana_wallet: raiderInfo?.wallet || null,
-          verified_amount: 0,
-          verified_clicks: 0,
-          pending_amount: 0,
-          pending_clicks: 0,
+          verified_amount: 0, verified_clicks: 0,
+          pending_amount: 0, pending_clicks: 0,
           role: raiderMap.has(uid) ? "both" : "shiller",
         });
       }
     }
 
     let result = Array.from(userMap.values());
-
-    // Filter by role
     if (roleFilter === "shiller") {
       result = result.filter((r) => r.role === "shiller" || r.role === "both");
     } else if (roleFilter === "raider") {
       result = result.filter((r) => r.role === "raider" || r.role === "both");
     }
-
-    // Sort by verified amount desc
     result.sort((a, b) => b.verified_amount - a.verified_amount || b.pending_amount - a.pending_amount);
-
     setRows(result);
     setLoading(false);
   };
 
   useEffect(() => {
     fetchEarnings();
-
-    // Realtime subscription for live updates
     const channel = supabase
       .channel("public-earnings-board")
-      .on("postgres_changes", { event: "*", schema: "public", table: "shill_clicks" }, () => {
-        fetchEarnings();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "raiders" }, () => {
-        fetchEarnings();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "shill_clicks" }, () => fetchEarnings())
+      .on("postgres_changes", { event: "*", schema: "public", table: "raiders" }, () => fetchEarnings())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [roleFilter]);
 
   const totalVerified = rows.reduce((s, r) => s + r.verified_amount, 0);
   const totalPending = rows.reduce((s, r) => s + r.pending_amount, 0);
+
+  const handlePayoutRequest = async () => {
+    if (!payoutDiscordId.trim()) {
+      toast.error("Enter your Discord User ID to request a payout.");
+      return;
+    }
+    if (!isFriday()) {
+      toast.error("Payout requests are only available on Fridays (UTC).");
+      return;
+    }
+
+    setPayoutSubmitting(true);
+    try {
+      const uid = payoutDiscordId.trim();
+
+      // Find the user in our data
+      const match = rows.find((r) => r.discord_user_id === uid);
+      if (!match) {
+        toast.error("Discord User ID not found. Make sure you're using your numeric Discord ID.");
+        setPayoutSubmitting(false);
+        return;
+      }
+      if (match.verified_amount <= 0) {
+        toast.error("No verified earnings to request a payout for.");
+        setPayoutSubmitting(false);
+        return;
+      }
+      if (!match.solana_wallet) {
+        toast.error("No wallet on file. Ask admin to set your wallet via /walletcrm or use /wallet in Discord.");
+        setPayoutSubmitting(false);
+        return;
+      }
+
+      // Check for existing pending payout
+      const { data: existing } = await supabase
+        .from("payout_requests")
+        .select("id")
+        .eq("discord_user_id", uid)
+        .eq("status", "pending")
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        toast.error("You already have a pending payout request.");
+        setPayoutSubmitting(false);
+        return;
+      }
+
+      // Determine user_type
+      const userType = match.role === "both" ? "shiller" : match.role;
+
+      // Submit payout request
+      const { error } = await supabase.from("payout_requests").insert({
+        discord_user_id: uid,
+        discord_username: match.discord_username,
+        user_type: userType,
+        solana_wallet: match.solana_wallet,
+        verified_clicks: match.verified_clicks,
+        amount_owed: match.verified_amount,
+        status: "pending",
+      });
+
+      if (error) throw error;
+
+      toast.success(`Payout request submitted! $${match.verified_amount.toFixed(2)} → ${shortWallet(match.solana_wallet)}`);
+      setPayoutDiscordId("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit payout request.");
+    } finally {
+      setPayoutSubmitting(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -200,6 +254,39 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           <DollarSign className="h-4 w-4 mx-auto mb-1 text-yellow-500" />
           <p className="text-2xl font-bold text-yellow-500">${totalPending.toFixed(2)}</p>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pending</p>
+        </div>
+      </div>
+
+      {/* Friday Payout Request */}
+      <div className="rounded-lg border border-border p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Send className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-foreground text-sm">Request Payout</h3>
+          {isFriday() ? (
+            <Badge variant="default" className="text-[10px] bg-green-600">OPEN</Badge>
+          ) : (
+            <Badge variant="secondary" className="text-[10px]">Fridays Only</Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Enter your Discord User ID to request a payout to your designated wallet. Payouts are processed on Fridays only.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Your Discord User ID (numeric)"
+            value={payoutDiscordId}
+            onChange={(e) => setPayoutDiscordId(e.target.value)}
+            className="font-mono text-sm"
+            disabled={!isFriday() || payoutSubmitting}
+          />
+          <Button
+            onClick={handlePayoutRequest}
+            disabled={!isFriday() || payoutSubmitting || !payoutDiscordId.trim()}
+            size="sm"
+            className="shrink-0"
+          >
+            {payoutSubmitting ? "Submitting..." : "Submit"}
+          </Button>
         </div>
       </div>
 
