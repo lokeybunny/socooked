@@ -391,6 +391,7 @@ function RaidersTab() {
   const [payTarget, setPayTarget] = useState<PayoutTarget | null>(null);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, { verified: number; pending: number }>>(new Map());
+  const [badLinkMap, setBadLinkMap] = useState<Map<string, number>>(new Map());
 
   const fetchRaiders = useCallback(async () => {
     setLoading(true);
@@ -411,6 +412,22 @@ function RaidersTab() {
       vMap.set(c.discord_user_id, entry);
     }
     setVerifiedMap(vMap);
+
+    // Fetch bad link flags from activity_log
+    const { data: badLinks } = await supabase
+      .from("activity_log")
+      .select("meta")
+      .eq("entity_type", "shill-bad-link")
+      .eq("action", "flagged");
+
+    const bMap = new Map<string, number>();
+    for (const bl of badLinks || []) {
+      const meta = bl.meta as any;
+      const uid = meta?.shiller_discord_user_id;
+      if (uid) bMap.set(uid, (bMap.get(uid) || 0) + 1);
+    }
+    setBadLinkMap(bMap);
+
     setLoading(false);
   }, []);
 
@@ -540,6 +557,7 @@ function RaidersTab() {
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Verified</TableHead>
               <TableHead className="text-right">Pending</TableHead>
+              <TableHead className="text-right">🚫 Flags</TableHead>
               <TableHead className="text-right">Rate</TableHead>
               <TableHead className="text-right">Owed</TableHead>
               <TableHead>Joined</TableHead>
@@ -549,6 +567,7 @@ function RaidersTab() {
           <TableBody>
             {raiders.map(r => {
               const v = verifiedMap.get(r.discord_user_id) || { verified: 0, pending: 0 };
+              const flags = badLinkMap.get(r.discord_user_id) || 0;
               return (
               <TableRow key={r.id}>
                 <TableCell className="font-medium">{r.discord_username}</TableCell>
@@ -567,6 +586,11 @@ function RaidersTab() {
                 </TableCell>
                 <TableCell className="text-right font-mono">{v.verified}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">{v.pending}</TableCell>
+                <TableCell className="text-right font-mono">
+                  {flags > 0
+                    ? <Badge variant="destructive" className="text-xs">{flags}</Badge>
+                    : <span className="text-muted-foreground">0</span>}
+                </TableCell>
                 <TableCell className="text-right font-mono">${r.rate_per_click}</TableCell>
                 <TableCell className="text-right font-mono">${(v.verified * r.rate_per_click).toFixed(2)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
@@ -596,7 +620,7 @@ function RaidersTab() {
             })}
             {raiders.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">No raiders yet.</TableCell>
+                <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">No raiders yet.</TableCell>
               </TableRow>
             )}
           </TableBody>
