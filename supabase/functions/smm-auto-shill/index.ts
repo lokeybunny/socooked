@@ -919,6 +919,68 @@ serve(async (req) => {
         });
       }
 
+      // ─── /authx command — admin-only manual account authorization ───
+      if (commandName === "authx") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        // Admin gate — only @warrenguru can use this
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/authx`.", flags: 64 } });
+        }
+
+        const accountOption = interaction.data?.options?.find((o: any) => o.name === "account");
+        const rawAccount = accountOption?.value?.trim();
+        if (!rawAccount) {
+          return json({ type: 4, data: { content: "❌ Usage: `/authx account:@SomeHandle`", flags: 64 } });
+        }
+        const xAccount = rawAccount.replace(/^@/, "").trim();
+        if (!xAccount) {
+          return json({ type: 4, data: { content: "❌ Please provide a valid X handle.", flags: 64 } });
+        }
+
+        // Check if already exists in outbound_accounts
+        const { data: existing } = await supabase
+          .from("outbound_accounts")
+          .select("id")
+          .eq("platform", "x")
+          .eq("account_identifier", xAccount)
+          .maybeSingle();
+
+        if (existing) {
+          return json({ type: 4, data: { content: `ℹ️ \`@${xAccount}\` is already registered as an authorized account.`, flags: 64 } });
+        }
+
+        // Insert into outbound_accounts (manual entry)
+        await supabase.from("outbound_accounts").insert({
+          platform: "x",
+          provider: "manual",
+          account_identifier: xAccount,
+          account_label: xAccount,
+          is_authorized: true,
+        });
+
+        // Log for audit
+        await supabase.from("activity_log").insert({
+          entity_type: "shill-authorization",
+          action: "admin-added",
+          meta: {
+            name: `🔧 Admin added @${xAccount} (manual)`,
+            admin_username: discordUsername,
+            x_account: xAccount,
+            method: "authx",
+          },
+        });
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Account added!** \`@${xAccount}\` is now available for shiller assignment.\n\nTeam members can claim it with \`/authorize account:${xAccount}\``,
+            flags: 64,
+          },
+        });
+      }
+
       // ─── /wallet command — set Solana wallet address ───
       if (commandName === "wallet") {
         const discordUser = interaction.member?.user || interaction.user || {};
@@ -2436,6 +2498,10 @@ serve(async (req) => {
       },
       {
         name: "raidauth", description: "Register as a raider with your secret code", type: 1,
+      },
+      {
+        name: "authx", description: "(Admin) Manually add an X account for shiller assignment", type: 1,
+        options: [{ name: "account", description: "The X handle to add (e.g. @SomeHandle)", type: 3, required: true }],
       },
     ];
 
