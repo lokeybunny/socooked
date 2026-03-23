@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, Wallet, Users, RefreshCw, Send } from "lucide-react";
+import { DollarSign, Wallet, Users, RefreshCw, Send, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +44,12 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const [rows, setRows] = useState<EarningsRow[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Wallet lookup state
+  const [walletSearch, setWalletSearch] = useState("");
+  const [foundUser, setFoundUser] = useState<EarningsRow | null>(null);
+  const [searched, setSearched] = useState(false);
+
   // Payout request state
-  const [payoutDiscordId, setPayoutDiscordId] = useState("");
   const [payoutSubmitting, setPayoutSubmitting] = useState(false);
 
   const fetchEarnings = async () => {
@@ -154,9 +158,29 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const totalVerified = rows.reduce((s, r) => s + r.verified_amount, 0);
   const totalPending = rows.reduce((s, r) => s + r.pending_amount, 0);
 
+  const handleWalletLookup = () => {
+    const query = walletSearch.trim();
+    if (!query) {
+      toast.error("Enter your Solana wallet address to look up your info.");
+      return;
+    }
+    const match = rows.find((r) => r.solana_wallet && r.solana_wallet.toLowerCase() === query.toLowerCase());
+    setSearched(true);
+    setFoundUser(match || null);
+    if (!match) {
+      toast.error("No account found with that wallet address. Make sure your wallet is registered via /wallet or /walletcrm in Discord.");
+    }
+  };
+
+  const clearSearch = () => {
+    setWalletSearch("");
+    setFoundUser(null);
+    setSearched(false);
+  };
+
   const handlePayoutRequest = async () => {
-    if (!payoutDiscordId.trim()) {
-      toast.error("Enter your Discord User ID to request a payout.");
+    if (!foundUser) {
+      toast.error("Look up your wallet first to request a payout.");
       return;
     }
     if (!isFriday()) {
@@ -166,31 +190,21 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
 
     setPayoutSubmitting(true);
     try {
-      const uid = payoutDiscordId.trim();
-
-      // Find the user in our data
-      const match = rows.find((r) => r.discord_user_id === uid);
-      if (!match) {
-        toast.error("Discord User ID not found. Make sure you're using your numeric Discord ID.");
-        setPayoutSubmitting(false);
-        return;
-      }
-      if (match.verified_amount <= 0) {
+      if (foundUser.verified_amount <= 0) {
         toast.error("No verified earnings to request a payout for.");
         setPayoutSubmitting(false);
         return;
       }
-      if (!match.solana_wallet) {
-        toast.error("No wallet on file. Ask admin to set your wallet via /walletcrm or use /wallet in Discord.");
+      if (!foundUser.solana_wallet) {
+        toast.error("No wallet on file.");
         setPayoutSubmitting(false);
         return;
       }
 
-      // Check for existing pending payout
       const { data: existing } = await supabase
         .from("payout_requests")
         .select("id")
-        .eq("discord_user_id", uid)
+        .eq("discord_user_id", foundUser.discord_user_id)
         .eq("status", "pending")
         .limit(1);
 
@@ -200,24 +214,22 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
         return;
       }
 
-      // Determine user_type
-      const userType = match.role === "both" ? "shiller" : match.role;
+      const userType = foundUser.role === "both" ? "shiller" : foundUser.role;
 
-      // Submit payout request
       const { error } = await supabase.from("payout_requests").insert({
-        discord_user_id: uid,
-        discord_username: match.discord_username,
+        discord_user_id: foundUser.discord_user_id,
+        discord_username: foundUser.discord_username,
         user_type: userType,
-        solana_wallet: match.solana_wallet,
-        verified_clicks: match.verified_clicks,
-        amount_owed: match.verified_amount,
+        solana_wallet: foundUser.solana_wallet,
+        verified_clicks: foundUser.verified_clicks,
+        amount_owed: foundUser.verified_amount,
         status: "pending",
       });
 
       if (error) throw error;
 
-      toast.success(`Payout request submitted! $${match.verified_amount.toFixed(2)} → ${shortWallet(match.solana_wallet)}`);
-      setPayoutDiscordId("");
+      toast.success(`Payout request submitted! $${foundUser.verified_amount.toFixed(2)} → ${shortWallet(foundUser.solana_wallet)}`);
+      clearSearch();
     } catch (err: any) {
       toast.error(err.message || "Failed to submit payout request.");
     } finally {
@@ -257,37 +269,97 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
         </div>
       </div>
 
-      {/* Friday Payout Request */}
-      <div className="rounded-lg border border-border p-4 space-y-3">
+      {/* Wallet Lookup + Payout Section */}
+      <div className="rounded-lg border border-border p-4 space-y-3 bg-card">
         <div className="flex items-center gap-2">
-          <Send className="h-4 w-4 text-primary" />
-          <h3 className="font-semibold text-foreground text-sm">Request Payout</h3>
-          {isFriday() ? (
-            <Badge variant="default" className="text-[10px] bg-green-600">OPEN</Badge>
-          ) : (
-            <Badge variant="secondary" className="text-[10px]">Fridays Only</Badge>
-          )}
+          <Search className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-foreground text-sm">Find Your Earnings</h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Enter your Discord User ID to request a payout to your designated wallet. Payouts are processed on Fridays only.
+          Enter your Solana wallet address to view your personal earnings and request payouts on Fridays.
         </p>
         <div className="flex gap-2">
           <Input
-            placeholder="Your Discord User ID (numeric)"
-            value={payoutDiscordId}
-            onChange={(e) => setPayoutDiscordId(e.target.value)}
+            placeholder="Your Solana wallet address"
+            value={walletSearch}
+            onChange={(e) => setWalletSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleWalletLookup()}
             className="font-mono text-sm"
-            disabled={!isFriday() || payoutSubmitting}
           />
-          <Button
-            onClick={handlePayoutRequest}
-            disabled={!isFriday() || payoutSubmitting || !payoutDiscordId.trim()}
-            size="sm"
-            className="shrink-0"
-          >
-            {payoutSubmitting ? "Submitting..." : "Submit"}
+          {searched ? (
+            <Button variant="ghost" size="sm" onClick={clearSearch} className="shrink-0">
+              <X className="h-4 w-4" />
+            </Button>
+          ) : null}
+          <Button onClick={handleWalletLookup} size="sm" className="shrink-0">
+            <Search className="h-3.5 w-3.5 mr-1.5" />
+            Look Up
           </Button>
         </div>
+
+        {/* Found user card */}
+        {foundUser && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3 mt-2">
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-foreground flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-primary" />
+                Your Account
+              </h4>
+              <Badge
+                variant={foundUser.role === "shiller" ? "default" : foundUser.role === "raider" ? "secondary" : "outline"}
+                className="text-[10px]"
+              >
+                {foundUser.role === "both" ? "shiller + raider" : foundUser.role}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="text-center">
+                <p className="text-lg font-bold text-green-500">${foundUser.verified_amount.toFixed(2)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Verified</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-yellow-500">${foundUser.pending_amount.toFixed(2)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Pending</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-foreground">{foundUser.verified_clicks}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Verified Clicks</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-foreground">{foundUser.pending_clicks}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Pending Clicks</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+              <Wallet className="h-3 w-3" />
+              {foundUser.solana_wallet}
+            </div>
+
+            {/* Payout button */}
+            <div className="flex items-center gap-3 pt-1">
+              <Button
+                onClick={handlePayoutRequest}
+                disabled={!isFriday() || payoutSubmitting || foundUser.verified_amount <= 0}
+                size="sm"
+                className="gap-1.5"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {payoutSubmitting ? "Submitting..." : "Request Payout"}
+              </Button>
+              {isFriday() ? (
+                <Badge variant="default" className="text-[10px] bg-green-600">PAYOUTS OPEN</Badge>
+              ) : (
+                <span className="text-xs text-muted-foreground">Payouts open on Fridays (UTC)</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {searched && !foundUser && (
+          <p className="text-sm text-destructive mt-1">
+            No account found for that wallet. Make sure it's registered via <code className="bg-muted px-1 rounded">/wallet</code> or <code className="bg-muted px-1 rounded">/walletcrm</code> in Discord.
+          </p>
+        )}
       </div>
 
       {/* Earnings table */}
@@ -305,7 +377,10 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={row.discord_user_id}>
+              <TableRow
+                key={row.discord_user_id}
+                className={foundUser?.discord_user_id === row.discord_user_id ? "bg-primary/10 border-l-2 border-l-primary" : ""}
+              >
                 <TableCell className="font-medium font-mono text-sm">
                   {maskUsername(row.discord_username)}
                 </TableCell>
