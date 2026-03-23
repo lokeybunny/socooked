@@ -1664,6 +1664,7 @@ serve(async (req) => {
           const randomEmojiNow = shillEmojisNow[Math.floor(Math.random() * shillEmojisNow.length)];
           const shillNowCopy = `${randomEmojiNow} ` + nowParts.join(" ") + (shillNowCampaignUrl ? `\n${shillNowCampaignUrl}` : "");
 
+          sendCopyDM(discordUserId, shillNowCopy);
           return json({
             type: 4,
             data: {
