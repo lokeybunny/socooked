@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import PublicEarningsBoard from "@/components/shillers/PublicEarningsBoard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
@@ -473,6 +474,9 @@ export default function ReplyEngine() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Public Earnings Board */}
+        <PublicEarningsBoard roleFilter="shiller" />
       </div>
     </div>
   );

@@ -48,7 +48,7 @@ const faq = [
   },
   {
     q: 'What is a Raider?',
-    a: 'Raiders participate in the raid channel. You receive a secret code from an admin, and when a raid alert is posted you copy the shill text (which includes your unique hashtag) and paste it as a reply on X. Submit proof via the ✅ Verify Raid button to get paid.',
+    a: 'Raiders participate in the raid channel. When a raid alert drops, like and repost the target tweet on X. Submit proof via the ✅ Verify Raid button to get paid at $0.02 per verified click.',
   },
   {
     q: 'How do I get paid?',
@@ -193,8 +193,8 @@ export default function ShillTeam() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>Raiders don't need an X account link. You get a <strong>secret code</strong> from an admin. When a raid alert drops, copy the shill text (with your unique hashtag) and manually reply on X.</p>
-                <p>Hit the <strong>✅ Verify Raid</strong> button and paste your reply URL. Admins verify it. Earn <strong>$0.02 per verified click</strong>.</p>
+                <p>Raiders don't need an X account link. When a raid alert drops in the raid channel, like and repost the target tweet on X.</p>
+                <p>Hit the <strong>✅ Verify Raid</strong> button and paste your proof URL. Admins verify it. Earn <strong>$0.02 per verified click</strong>.</p>
               </CardContent>
             </Card>
           </div>

@@ -2,50 +2,21 @@ import { useState, useEffect, useCallback } from "react";
 import PublicEarningsBoard from "@/components/shillers/PublicEarningsBoard";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { ArrowLeft, RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check, DoorOpen } from "lucide-react";
+import { ArrowLeft, RefreshCw, Shield, DollarSign, Users } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
-
-/** Generate a random secret code like "storm42", "bolt7x", etc. */
-function generateSecretCode(): string {
-  const words = [
-    "alpha", "bolt", "storm", "viper", "blaze", "frost", "nova", "shadow",
-    "raven", "titan", "cobra", "surge", "flash", "ghost", "iron", "onyx",
-    "pulse", "apex", "claw", "drift", "eagle", "fang", "grit", "hawk",
-    "jade", "kite", "lynx", "mars", "nuke", "orion", "pike", "raid",
-  ];
-  const word = words[Math.floor(Math.random() * words.length)];
-  const suffix = Math.floor(Math.random() * 99) + 1;
-  const extra = Math.random() > 0.5 ? "x" : "";
-  return `${word}${suffix}${extra}`;
-}
 
 interface Raider {
   id: string;
   discord_user_id: string;
   discord_username: string;
-  secret_code: string | null;
   status: string;
   rate_per_click: number;
   total_clicks: number;
@@ -60,36 +31,6 @@ export default function Raiders() {
   const [raiders, setRaiders] = useState<Raider[]>([]);
   const [raidClicks, setRaidClicks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editRaider, setEditRaider] = useState<Raider | null>(null);
-  const [secretCodeInput, setSecretCodeInput] = useState("");
-  const [generatedCodes, setGeneratedCodes] = useState<string[]>([]);
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
-
-  const handleGenerateCodes = (count: number) => {
-    const existing = new Set([
-      ...raiders.map((r) => r.secret_code).filter(Boolean),
-      ...generatedCodes,
-    ]);
-    const codes: string[] = [];
-    let attempts = 0;
-    while (codes.length < count && attempts < 200) {
-      const code = generateSecretCode();
-      if (!existing.has(code)) {
-        codes.push(code);
-        existing.add(code);
-      }
-      attempts++;
-    }
-    setGeneratedCodes((prev) => [...codes, ...prev]);
-    toast.success(`Generated ${codes.length} secret codes`);
-  };
-
-  const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(`#${code}`);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
-    toast.success(`Copied #${code}`);
-  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -121,26 +62,6 @@ export default function Raiders() {
 
     return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
-
-  
-  const handleAssignCode = async () => {
-    if (!editRaider || !secretCodeInput.trim()) return;
-
-    const code = secretCodeInput.trim().replace(/^#/, "");
-    const { error } = await supabase
-      .from("raiders")
-      .update({ secret_code: code, updated_at: new Date().toISOString() })
-      .eq("id", editRaider.id);
-
-    if (error) {
-      toast.error("Failed to assign code: " + error.message);
-    } else {
-      toast.success(`Code #${code} assigned to ${editRaider.discord_username}`);
-      setEditRaider(null);
-      setSecretCodeInput("");
-      fetchData();
-    }
-  };
 
   const handleToggleStatus = async (raider: Raider) => {
     const newStatus = raider.status === "active" ? "suspended" : "active";
@@ -184,7 +105,7 @@ export default function Raiders() {
               Raiders
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Manage raid team members, assign secret codes, track clicks
+              Manage raid team members, track clicks &amp; earnings
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
@@ -201,7 +122,7 @@ export default function Raiders() {
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Raiders</p>
           </div>
           <div className="rounded-lg border border-border p-4 text-center">
-            <Hash className="h-5 w-5 mx-auto mb-1 text-primary" />
+            <Shield className="h-5 w-5 mx-auto mb-1 text-primary" />
             <p className="text-3xl font-bold text-foreground">{totalPending}</p>
             <p className="text-xs text-muted-foreground uppercase tracking-wider">Pending</p>
           </div>
@@ -222,62 +143,12 @@ export default function Raiders() {
           </div>
         </div>
 
-        {/* Secret Code Generator — admin only */}
-        {user && (
-        <div className="rounded-lg border border-border p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Wand2 className="h-4 w-4 text-primary" />
-                Secret Code Generator
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Generate unique hashtag codes to assign to raiders
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleGenerateCodes(1)}>
-                Generate 1
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleGenerateCodes(5)}>
-                Generate 5
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleGenerateCodes(10)}>
-                Generate 10
-              </Button>
-            </div>
-          </div>
-          {generatedCodes.length > 0 && (
-            <>
-              <Separator />
-              <div className="flex flex-wrap gap-2">
-                {generatedCodes.map((code) => (
-                  <button
-                    key={code}
-                    onClick={() => handleCopyCode(code)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border bg-muted/30 hover:bg-muted/60 transition-colors font-mono text-sm text-foreground"
-                  >
-                    #{code}
-                    {copiedCode === code ? (
-                      <Check className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Copy className="h-3 w-3 text-muted-foreground" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        )}
-
         {/* Raiders Table */}
         <div className="rounded-lg border border-border">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Discord User</TableHead>
-                <TableHead>Secret Code</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Clicks</TableHead>
                 <TableHead className="text-right">Rate</TableHead>
@@ -293,15 +164,6 @@ export default function Raiders() {
                     {user
                       ? raider.discord_username
                       : raider.discord_username.slice(0, Math.ceil(raider.discord_username.length / 2)) + "****"}
-                  </TableCell>
-                  <TableCell>
-                    {raider.secret_code ? (
-                      <Badge variant="outline" className="font-mono">
-                        {user ? `#${raider.secret_code}` : "#****"}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">Not assigned</span>
-                    )}
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -320,18 +182,7 @@ export default function Raiders() {
                     {formatDistanceToNow(new Date(raider.created_at), { addSuffix: true })}
                   </TableCell>
                   {user && (
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditRaider(raider);
-                          setSecretCodeInput(raider.secret_code || "");
-                        }}
-                      >
-                        <Hash className="h-3.5 w-3.5" />
-                      </Button>
+                    <TableCell>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -339,14 +190,13 @@ export default function Raiders() {
                       >
                         <Shield className={`h-3.5 w-3.5 ${raider.status === "active" ? "text-green-500" : "text-destructive"}`} />
                       </Button>
-                    </div>
-                  </TableCell>
+                    </TableCell>
                   )}
                 </TableRow>
               ))}
               {raiders.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                     No raiders registered yet. They'll appear here when they click buttons in the raid channel.
                   </TableCell>
                 </TableRow>
@@ -370,7 +220,7 @@ export default function Raiders() {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-foreground">
+                      <span className="font-medium text-sm text-foreground">
                         {user
                           ? click.discord_username
                           : click.discord_username
@@ -383,11 +233,6 @@ export default function Raiders() {
                       >
                         {click.status === "verified" ? "verified" : "pending"}
                       </Badge>
-                      {click.raider_secret_code && (
-                        <Badge variant="secondary" className="text-[9px] font-mono">
-                          {user ? `#${click.raider_secret_code}` : "#****"}
-                        </Badge>
-                      )}
                     </div>
                     {click.tweet_url && (
                       <a
@@ -416,37 +261,6 @@ export default function Raiders() {
             </div>
           </ScrollArea>
         </div>
-
-        {/* Assign Secret Code Dialog */}
-        <Dialog open={!!editRaider} onOpenChange={(open) => !open && setEditRaider(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                Assign Secret Code — {editRaider?.discord_username}
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">
-                This code becomes the raider's unique hashtag (e.g. <code>#alpha7</code>).
-                It's injected into their shill copy and used to verify their posts on X.
-              </p>
-              <Input
-                placeholder="e.g. alpha7"
-                value={secretCodeInput}
-                onChange={(e) => setSecretCodeInput(e.target.value)}
-                className="font-mono"
-              />
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditRaider(null)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAssignCode} disabled={!secretCodeInput.trim()}>
-                Assign Code
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );
