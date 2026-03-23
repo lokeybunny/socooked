@@ -12,15 +12,15 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 function maskUsername(name: string): string {
-  // Strip Discord mention format like <@123456789>
-  const cleaned = name.replace(/^<@!?/, "").replace(/>$/, "");
+  // Strip "user_" prefix, Discord mention wrappers, and extract clean name
+  let cleaned = name
+    .replace(/^user_/, "")
+    .replace(/<@!?/g, "")
+    .replace(/>/g, "")
+    .trim();
   // If it's a pure numeric Discord ID, show masked version
   if (/^\d{10,}$/.test(cleaned)) {
     return `@user${cleaned.slice(-3)}****`;
-  }
-  // If it starts with "user_" fallback, mask it nicer
-  if (cleaned.startsWith("user_")) {
-    return `@${cleaned.slice(0, 6)}****`;
   }
   if (cleaned.length <= 3) return `@${cleaned}****`;
   const half = Math.ceil(cleaned.length / 2);
