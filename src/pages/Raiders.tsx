@@ -362,8 +362,12 @@ export default function Raiders() {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-foreground">
-                        {click.discord_username}
+                        <span className="font-medium text-sm text-foreground">
+                        {user
+                          ? click.discord_username
+                          : click.discord_username
+                            ? click.discord_username.slice(0, Math.ceil(click.discord_username.length / 2)) + "****"
+                            : "unknown"}
                       </span>
                       <Badge
                         variant="outline"
