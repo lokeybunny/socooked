@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck, Bell, Smartphone, Globe, Briefcase, CircleDollarSign, ArrowDown } from 'lucide-react';
+import PublicEarningsBoard from '@/components/shillers/PublicEarningsBoard';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
