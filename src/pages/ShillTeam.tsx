@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck, Bell, Smartphone, Globe, Briefcase, CircleDollarSign, ArrowDown } from 'lucide-react';
+import PublicEarningsBoard from '@/components/shillers/PublicEarningsBoard';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -302,6 +303,15 @@ export default function ShillTeam() {
               </Card>
             </Link>
           </div>
+        </section>
+
+        {/* Public Earnings Board */}
+        <section className="space-y-6">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <DollarSign className="h-6 w-6 text-primary" /> Live Payouts
+          </h2>
+          <p className="text-muted-foreground text-sm">See what the team is earning in real-time. Usernames are masked for privacy.</p>
+          <PublicEarningsBoard roleFilter="all" />
         </section>
 
 

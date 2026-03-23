@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import PublicEarningsBoard from "@/components/shillers/PublicEarningsBoard";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Link, Navigate } from "react-router-dom";
@@ -345,6 +346,9 @@ export default function Raiders() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Public Earnings Board for Raiders */}
+        <PublicEarningsBoard roleFilter="raider" />
 
         {/* Recent Raid Clicks */}
         <div>
