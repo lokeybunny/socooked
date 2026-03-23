@@ -3110,7 +3110,7 @@ serve(async (req) => {
         name: "authorizeshiller", description: "(Admin) Authorize a user as a shiller on their behalf", type: 1,
         options: [
           { name: "user", description: "The Discord user ID to authorize", type: 3, required: true },
-          { name: "account", description: "The X account to assign", type: 3, required: true, choices: accountChoices.length > 0 ? accountChoices : undefined },
+          { name: "account", description: "The X account to assign", type: 3, required: true, autocomplete: true },
         ],
       },
       {
