@@ -112,6 +112,14 @@ export default function Raiders() {
 
   useEffect(() => {
     fetchData();
+
+    const channel = supabase
+      .channel("raiders-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "raiders" }, () => fetchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "shill_clicks" }, () => fetchData())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
 
   
