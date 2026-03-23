@@ -2034,6 +2034,12 @@ serve(async (req) => {
         if (customId.startsWith("shill_copy")) {
           const discordMsgId = customId.replace("shill_copy_", "") || null;
 
+          const trackedCopy = await getTrackedBotMessage(supabase, discordMsgId);
+          if (isBotMessageExpired(trackedCopy, interaction.message)) {
+            await expireTrackedBotMessage(supabase, trackedCopy, DISCORD_BOT_TOKEN);
+            return json({ type: 4, data: { content: "⏰ This raid alert has expired — find a new post.", flags: 64 } });
+          }
+
           const cleanTweetUrl2 = (tweetUrl || "").replace(/[)\]}>]+$/, "");
           await supabase.from("shill_clicks").insert({
             discord_user_id: discordUserId,
