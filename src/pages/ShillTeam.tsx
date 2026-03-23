@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck, Bell, Smartphone, Globe, Briefcase, CircleDollarSign } from 'lucide-react';
+import { Shield, Zap, Terminal, Wallet, DollarSign, Users, MessageSquare, ArrowLeft, ExternalLink, Send, TicketCheck, Bell, Smartphone, Globe, Briefcase, CircleDollarSign, ArrowDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -138,6 +138,9 @@ export default function ShillTeam() {
             <p className="text-sm text-muted-foreground">
               Already doing social media work on Fiverr or Upwork? Put those skills to work here — no middleman fees, direct SOL payments to your wallet every Friday. Click the links below to get started.
             </p>
+            <a href="#join-cta" className="inline-flex items-center justify-center mt-3 h-10 w-10 rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-colors animate-bounce">
+              <ArrowDown className="h-5 w-5" />
+            </a>
           </div>
         </div>
       </div>
@@ -302,7 +305,7 @@ export default function ShillTeam() {
         </section>
 
 
-        <section className="text-center space-y-4 py-4">
+        <section id="join-cta" className="text-center space-y-4 py-4">
           <h2 className="text-2xl font-bold">Ready to Start Earning?</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">Open a ticket in our Discord to get onboarded and receive your role.</p>
           <div className="flex items-center justify-center gap-3 mt-2">
