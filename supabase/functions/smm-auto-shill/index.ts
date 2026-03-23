@@ -1806,8 +1806,8 @@ serve(async (req) => {
         if (urlMatch) tweetUrl = urlMatch[0].replace(/\)$/, "");
       }
 
-      // ── RAID CHANNEL BYPASS — channel 1485010551196090448 ──
-      const RAID_CHANNEL_ID = "1485010551196090448";
+      // ── RAID CHANNEL BYPASS — channel 1485050868838564030 ──
+      const RAID_CHANNEL_ID = "1485050868838564030";
       const isRaidChannel = interactionChannelId === RAID_CHANNEL_ID;
 
       if (isRaidChannel) {
