@@ -848,6 +848,33 @@ serve(async (req) => {
         return json({ type: 4, data: { content: raidHelpText, flags: 64 } });
       }
 
+      // ─── /btw command — admin-only public reminder about payment tracking ───
+      if (commandName === "btw") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/btw`.", flags: 64 } });
+        }
+
+        // Public response (no flags: 64)
+        return json({
+          type: 4,
+          data: {
+            content: [
+              "💰 **Quick Reminder — Check Your Payments Live!**",
+              "",
+              "You can track your active payout amount, wallet, and earnings in real-time on the app:",
+              "",
+              "🔗 **Shillers:** https://warren.guru/shillers",
+              "🔗 **Raiders:** https://warren.guru/raiders",
+              "",
+              "Everything is public and updated live. No need to ask — just check your page! 🚀",
+            ].join("\n"),
+          },
+        });
+      }
+
       // ─── /adminhelp command — admin-only quick reference (ephemeral) ───
       if (commandName === "adminhelp") {
         const discordUser = interaction.member?.user || interaction.user || {};
