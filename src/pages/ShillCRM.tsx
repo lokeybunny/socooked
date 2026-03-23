@@ -586,6 +586,11 @@ function RaidersTab() {
                 </TableCell>
                 <TableCell className="text-right font-mono">{v.verified}</TableCell>
                 <TableCell className="text-right font-mono text-muted-foreground">{v.pending}</TableCell>
+                <TableCell className="text-right font-mono">
+                  {flags > 0
+                    ? <Badge variant="destructive" className="text-xs">{flags}</Badge>
+                    : <span className="text-muted-foreground">0</span>}
+                </TableCell>
                 <TableCell className="text-right font-mono">${r.rate_per_click}</TableCell>
                 <TableCell className="text-right font-mono">${(v.verified * r.rate_per_click).toFixed(2)}</TableCell>
                 <TableCell className="text-xs text-muted-foreground">
