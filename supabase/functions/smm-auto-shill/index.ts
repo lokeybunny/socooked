@@ -837,6 +837,45 @@ serve(async (req) => {
         return json({ type: 4, data: { content: raidHelpText, flags: 64 } });
       }
 
+      // ─── /adminhelp command — admin-only quick reference (ephemeral) ───
+      if (commandName === "adminhelp") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/adminhelp`.", flags: 64 } });
+        }
+
+        const adminHelpText = [
+          "🔧 **Admin Command Reference**",
+          "",
+          "**Worker Management:**",
+          "`/authx <account>` — Manually add an X account for shiller assignment",
+          "`/authx2 <username> <code>` — Create a raider with a secret code/hashtag",
+          "`/authorizeshiller <user> <account>` — Authorize a user as a shiller",
+          "`/authorizeraider <user>` — Authorize a user as a raider",
+          "",
+          "**Wallet & Payouts:**",
+          "`/walletcrm <user> <address>` — Set a Solana wallet for any user (public)",
+          "",
+          "**Channel Management:**",
+          "`/welcomeshill` — Post the welcome/onboarding embed for new members",
+          "`/clean` — Delete all bot messages from the current channel",
+          "",
+          "**User Commands (also available to you):**",
+          "`/help` — General onboarding guide",
+          "`/raidhelp` — Raider-specific guide",
+          "`/balance` — Check earnings breakdown",
+          "`/payout` — Request a payout",
+          "`/wallet <address>` — Set your own wallet",
+          "`/notify` — Toggle DM & Telegram alerts",
+          "`/shill <url>` — Auto-reply to a tweet via X",
+          "`/authorize <account>` — Link Discord to an X account",
+        ].join("\n");
+
+        return json({ type: 4, data: { content: adminHelpText, flags: 64 } });
+      }
+
       if (commandName === "clean") {
         const channelId = interaction.channel_id;
         const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
