@@ -875,6 +875,56 @@ serve(async (req) => {
         });
       }
 
+      // ─── /notifyglobal command — admin sets up notify prefs for a user ───
+      if (commandName === "notifyglobal") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/notifyglobal`.", flags: 64 } });
+        }
+
+        const opts = interaction.data.options || [];
+        const targetUserId = opts.find((o: any) => o.name === "user")?.value?.trim();
+        const tgUsername = opts.find((o: any) => o.name === "telegram")?.value?.trim()?.replace(/^@/, "") || null;
+
+        if (!targetUserId) {
+          return json({ type: 4, data: { content: "❌ Provide a Discord user ID.", flags: 64 } });
+        }
+
+        // Resolve discord username from raiders or activity_log
+        let resolvedUsername = targetUserId;
+        const { data: raiderRow } = await supabase
+          .from("raiders")
+          .select("discord_username")
+          .eq("discord_user_id", targetUserId)
+          .maybeSingle();
+        if (raiderRow?.discord_username) resolvedUsername = raiderRow.discord_username;
+
+        const { error: upsertErr } = await supabase
+          .from("discord_notify_prefs")
+          .upsert({
+            discord_user_id: targetUserId,
+            discord_username: resolvedUsername,
+            notify_discord_dm: true,
+            notify_telegram: !!tgUsername,
+            telegram_username: tgUsername,
+          }, { onConflict: "discord_user_id" });
+
+        if (upsertErr) {
+          console.error("[notifyglobal] upsert error:", upsertErr);
+          return json({ type: 4, data: { content: `❌ Failed: ${upsertErr.message}`, flags: 64 } });
+        }
+
+        const tgLine = tgUsername ? `\n📲 Telegram: @${tgUsername}` : "\n📲 Telegram: not set";
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Notifications configured for** <@${targetUserId}>\n🔔 Discord DMs: ON${tgLine}`,
+          },
+        });
+      }
+
       // ─── /adminhelp command — admin-only quick reference (ephemeral) ───
       if (commandName === "adminhelp") {
         const discordUser = interaction.member?.user || interaction.user || {};
@@ -895,6 +945,9 @@ serve(async (req) => {
           "",
           "**Wallet & Payouts:**",
           "`/walletcrm <user> <address>` — Set a Solana wallet for any user (public)",
+          "",
+          "**Notifications:**",
+          "`/notifyglobal <user> [telegram]` — Setup Discord DM + Telegram alerts for a user",
           "",
           "**Announcements:**",
           "`/btw` — Remind users where to check payments (public)",
@@ -3066,6 +3119,13 @@ serve(async (req) => {
       },
       {
         name: "btw", description: "(Admin) Remind users where to check their payments live", type: 1,
+      },
+      {
+        name: "notifyglobal", description: "(Admin) Setup Discord DM & Telegram alerts for a user", type: 1,
+        options: [
+          { name: "user", description: "Discord user ID", type: 3, required: true },
+          { name: "telegram", description: "Telegram @username (optional)", type: 3, required: false },
+        ],
       },
     ];
 
