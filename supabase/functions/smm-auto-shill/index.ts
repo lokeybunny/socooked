@@ -2499,6 +2499,10 @@ serve(async (req) => {
       {
         name: "raidauth", description: "Register as a raider with your secret code", type: 1,
       },
+      {
+        name: "authx", description: "(Admin) Manually add an X account for shiller assignment", type: 1,
+        options: [{ name: "account", description: "The X handle to add (e.g. @SomeHandle)", type: 3, required: true }],
+      },
     ];
 
     const registerTargets = [
