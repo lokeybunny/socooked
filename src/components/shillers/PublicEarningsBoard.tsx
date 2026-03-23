@@ -160,7 +160,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const totalVerified = rows.reduce((s, r) => s + r.verified_amount, 0);
   const totalPending = rows.reduce((s, r) => s + r.pending_amount, 0);
 
-  const handleWalletLookup = () => {
+  const handleWalletLookup = async () => {
     const query = walletSearch.trim();
     if (!query) {
       toast.error("Enter your Solana wallet address to look up your info.");
@@ -169,15 +169,28 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
     const match = rows.find((r) => r.solana_wallet && r.solana_wallet.toLowerCase() === query.toLowerCase());
     setSearched(true);
     setFoundUser(match || null);
+    setPaymentHistory([]);
+
     if (!match) {
       toast.error("No account found with that wallet address. Make sure your wallet is registered via /wallet or /walletcrm in Discord.");
+      return;
     }
+
+    // Fetch payment history from shill_payouts
+    const { data: payouts } = await supabase
+      .from("shill_payouts")
+      .select("id, amount, payout_type, verified_clicks, solana_wallet, solana_tx_address, created_at")
+      .eq("discord_user_id", match.discord_user_id)
+      .order("created_at", { ascending: false });
+
+    setPaymentHistory(payouts || []);
   };
 
   const clearSearch = () => {
     setWalletSearch("");
     setFoundUser(null);
     setSearched(false);
+    setPaymentHistory([]);
   };
 
   const handlePayoutRequest = async () => {
