@@ -2790,7 +2790,7 @@ serve(async (req) => {
         name: "balance", description: "Check your verified earnings balance", type: 1,
       },
       {
-        name: "raidauth", description: "Register as a raider with your secret code", type: 1,
+        name: "raidauth", description: "Register yourself as a raider (repost & like raids)", type: 1,
       },
       {
         name: "authx", description: "(Admin) Manually add an X account for shiller assignment", type: 1,
@@ -2801,6 +2801,19 @@ serve(async (req) => {
         options: [
           { name: "username", description: "The raider's Discord username", type: 3, required: true },
           { name: "code", description: "Secret code (also used as their hashtag)", type: 3, required: true },
+        ],
+      },
+      {
+        name: "authorizeshiller", description: "(Admin) Authorize a user as a shiller on their behalf", type: 1,
+        options: [
+          { name: "user", description: "The Discord user ID to authorize", type: 3, required: true },
+          { name: "account", description: "The X account to assign", type: 3, required: true, choices: accountChoices.length > 0 ? accountChoices : undefined },
+        ],
+      },
+      {
+        name: "authorizeraider", description: "(Admin) Authorize a user as a raider", type: 1,
+        options: [
+          { name: "user", description: "The Discord user ID to authorize", type: 3, required: true },
         ],
       },
       {
