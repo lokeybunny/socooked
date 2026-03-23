@@ -1504,7 +1504,7 @@ serve(async (req) => {
           "1. Get your **secret code** from an admin",
           "2. `/raidauth` — register with your code",
           "3. `/wallet <solana_address>` — set your payout wallet",
-          "4. Click **⚔️ Raid Now** or **📋 Copy Shill** on raid alerts",
+          "4. Click **⚔️ Raid Now** on raid alerts",
           "5. Paste as a reply on X → click **✅ Verify Raid** with your URL",
           "",
           "**📋 Commands**",
