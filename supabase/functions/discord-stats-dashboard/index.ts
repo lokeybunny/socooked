@@ -21,7 +21,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ── Fetch shiller data (outbound_accounts + shill_clicks) ──
+    // ── Fetch shiller data (outbound_accounts + shill_clicks + assignments) ──
     const { data: accounts } = await supabase
       .from("outbound_accounts")
       .select("account_label, account_identifier, is_authorized")
@@ -31,6 +31,14 @@ serve(async (req) => {
       .from("shill_clicks")
       .select("discord_username, click_type, status, rate")
       .in("click_type", ["shill"]);
+
+    // Fetch assigned shillers from config so we show all workers, even those with 0 clicks
+    const { data: assignmentConfig } = await supabase
+      .from("site_configs")
+      .select("content")
+      .eq("site_id", "smm-auto-shill")
+      .eq("section", "NysonBlack")
+      .maybeSingle();
 
     const { data: raidClicks } = await supabase
       .from("shill_clicks")
