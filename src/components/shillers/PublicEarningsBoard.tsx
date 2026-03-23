@@ -46,6 +46,15 @@ interface EarningsRow {
   pending_amount: number;
   pending_clicks: number;
   role: "shiller" | "raider" | "both";
+  // Breakdown by type
+  shill_verified: number;
+  shill_pending: number;
+  shill_verified_clicks: number;
+  shill_pending_clicks: number;
+  raid_verified: number;
+  raid_pending: number;
+  raid_verified_clicks: number;
+  raid_pending_clicks: number;
 }
 
 interface Props {
@@ -101,6 +110,10 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
         const raiderInfo = raiderMap.get(uid);
         const isShiller = shillerUserIds.has(uid);
         const isRaider = raiderMap.has(uid);
+        const defaults = {
+          shill_verified: 0, shill_pending: 0, shill_verified_clicks: 0, shill_pending_clicks: 0,
+          raid_verified: 0, raid_pending: 0, raid_verified_clicks: 0, raid_pending_clicks: 0,
+        };
         userMap.set(uid, {
           discord_user_id: uid,
           discord_username: click.discord_username || raiderInfo?.username || uid,
@@ -108,18 +121,29 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
           role: isShiller && isRaider ? "both" : isShiller ? "shiller" : "raider",
+          ...defaults,
         });
       }
       const entry = userMap.get(uid)!;
       const rate = Number(click.rate || 0);
+      const isRaidClick = click.click_type === "raid";
       if (click.status === "verified") {
         entry.verified_amount += rate;
         entry.verified_clicks += 1;
+        if (isRaidClick) { entry.raid_verified += rate; entry.raid_verified_clicks += 1; }
+        else { entry.shill_verified += rate; entry.shill_verified_clicks += 1; }
       } else if (click.status === "clicked") {
         entry.pending_amount += rate;
         entry.pending_clicks += 1;
+        if (isRaidClick) { entry.raid_pending += rate; entry.raid_pending_clicks += 1; }
+        else { entry.shill_pending += rate; entry.shill_pending_clicks += 1; }
       }
     }
+
+    const zeroBreakdown = {
+      shill_verified: 0, shill_pending: 0, shill_verified_clicks: 0, shill_pending_clicks: 0,
+      raid_verified: 0, raid_pending: 0, raid_verified_clicks: 0, raid_pending_clicks: 0,
+    };
 
     for (const [uid, info] of raiderMap) {
       if (!userMap.has(uid)) {
@@ -129,6 +153,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
           role: shillerUserIds.has(uid) ? "both" : "raider",
+          ...zeroBreakdown,
         });
       }
     }
@@ -143,6 +168,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
           role: raiderMap.has(uid) ? "both" : "shiller",
+          ...zeroBreakdown,
         });
       }
     }
@@ -341,21 +367,76 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="text-center">
                 <p className="text-lg font-bold text-green-500">${foundUser.verified_amount.toFixed(2)}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Verified</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Total Verified</p>
               </div>
               <div className="text-center">
                 <p className="text-lg font-bold text-yellow-500">${foundUser.pending_amount.toFixed(2)}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Pending</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Total Pending</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-foreground">{foundUser.verified_clicks}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Verified Clicks</p>
+                <p className="text-lg font-bold text-foreground">{foundUser.verified_clicks + foundUser.pending_clicks}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Total Clicks</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-foreground">{foundUser.pending_clicks}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Pending Clicks</p>
+                <p className="text-lg font-bold text-foreground">${(foundUser.verified_amount + foundUser.pending_amount).toFixed(2)}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Grand Total</p>
               </div>
             </div>
+
+            {/* Shill vs Raid breakdown */}
+            {foundUser.role === "both" && (
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="rounded-md border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Shill Earnings</p>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Verified</span>
+                    <span className="font-mono text-sm font-semibold text-green-500">${foundUser.shill_verified.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Pending</span>
+                    <span className="font-mono text-sm text-yellow-500">${foundUser.shill_pending.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Clicks</span>
+                    <span className="font-mono text-sm text-foreground">{foundUser.shill_verified_clicks + foundUser.shill_pending_clicks}</span>
+                  </div>
+                </div>
+                <div className="rounded-md border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Raid Earnings</p>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Verified</span>
+                    <span className="font-mono text-sm font-semibold text-green-500">${foundUser.raid_verified.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Pending</span>
+                    <span className="font-mono text-sm text-yellow-500">${foundUser.raid_pending.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Clicks</span>
+                    <span className="font-mono text-sm text-foreground">{foundUser.raid_verified_clicks + foundUser.raid_pending_clicks}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Single-role breakdown for non-both users */}
+            {foundUser.role !== "both" && (
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="rounded-md border border-border p-3 space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    {foundUser.role === "shiller" ? "Shill" : "Raid"} Breakdown
+                  </p>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Verified Clicks</span>
+                    <span className="font-mono text-sm text-foreground">{foundUser.verified_clicks}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Pending Clicks</span>
+                    <span className="font-mono text-sm text-foreground">{foundUser.pending_clicks}</span>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
               <Wallet className="h-3 w-3" />
               {foundUser.solana_wallet}
