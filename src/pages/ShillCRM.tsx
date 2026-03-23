@@ -620,7 +620,7 @@ function RaidersTab() {
             })}
             {raiders.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">No raiders yet.</TableCell>
+                <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">No raiders yet.</TableCell>
               </TableRow>
             )}
           </TableBody>
