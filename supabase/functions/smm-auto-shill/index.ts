@@ -1587,55 +1587,57 @@ serve(async (req) => {
         });
       }
 
-      // ─── /raidauth command — register as a raider with secret code ───
+      // ─── /raidauth command — self-register as a raider (no code needed) ───
       if (commandName === "raidauth") {
         const discordUser = interaction.member?.user || interaction.user || {};
         const discordUserId = discordUser.id || "unknown";
         const discordUsername = discordUser.username || discordUser.global_name || "unknown";
 
-        // Upsert raider record first
-        await supabase.from("raiders").upsert({
-          discord_user_id: discordUserId,
-          discord_username: discordUsername,
-        }, { onConflict: "discord_user_id" });
-
-        // Check if already has a secret code
+        // Check if already a raider
         const { data: existingRaider } = await supabase
           .from("raiders")
-          .select("secret_code, status")
+          .select("id, status")
           .eq("discord_user_id", discordUserId)
           .maybeSingle();
 
-        if (existingRaider?.secret_code) {
+        if (existingRaider?.status === "active") {
           return json({ type: 4, data: {
-            content: `✅ You're already registered as a raider!\n\n🔑 Your code: \`#${existingRaider.secret_code}\`\n📊 Status: ${existingRaider.status || "active"}`,
+            content: `✅ You're already registered as an active raider!\n\n📊 Status: active\n💰 Earn $0.02 per verified raid\n\nUse \`/wallet\` to set your payout address.`,
             flags: 64,
           }});
         }
 
-        // Show modal to enter secret code (same as the button flow)
+        // Upsert raider record
+        if (existingRaider) {
+          await supabase.from("raiders").update({
+            status: "active",
+            discord_username: discordUsername,
+            updated_at: new Date().toISOString(),
+          }).eq("id", existingRaider.id);
+        } else {
+          await supabase.from("raiders").insert({
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+            status: "active",
+          });
+        }
+
+        // Log registration
+        await supabase.from("activity_log").insert({
+          entity_type: "raider-registration",
+          action: "self-registered",
+          meta: {
+            name: `⚔️ ${discordUsername} self-registered as raider`,
+            discord_user_id: discordUserId,
+            discord_username: discordUsername,
+          },
+        });
+
         return json({
-          type: 9,
+          type: 4,
           data: {
-            custom_id: `raider_code_submit_raidauth`,
-            title: "Enter Your Raider Secret Code",
-            components: [
-              {
-                type: 1, // ActionRow
-                components: [
-                  {
-                    type: 4, // TextInput
-                    custom_id: "secret_code_input",
-                    label: "Secret Code (given by admin)",
-                    style: 1, // Short
-                    placeholder: "e.g. storm42x",
-                    required: true,
-                    min_length: 2,
-                    max_length: 30,
-                  },
-                ],
-              },
-            ],
+            content: `✅ **Welcome aboard, ${discordUsername}!** ⚔️\n\nYou're now registered as a raider.\n💰 Earn **$0.02** per verified raid\n📋 Click **⚔️ Raid Now** on raid alerts to get started\n🔗 Use \`/wallet <address>\` to set your Solana payout wallet`,
+            flags: 64,
           },
         });
       }
