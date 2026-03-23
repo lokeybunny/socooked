@@ -1504,6 +1504,70 @@ serve(async (req) => {
       return json({ type: 4, data: { content: `🗣️ Auto-shill queued: ${tweetUrl}\n👤 ${profileUsername}` } });
     }
 
+      // ─── /welcomeshill command — admin-only public welcome message ───
+      if (commandName === "welcomeshill") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/welcomeshill`.", flags: 64 } });
+        }
+
+        const welcomeText = [
+          "# 🎉 Welcome to the Shill Team!",
+          "",
+          "Thanks for opening a ticket — you're one step away from earning **SOL** for social media work. Here's everything you need to get started.",
+          "",
+          "---",
+          "",
+          "## 💰 How You Get Paid",
+          "- **Shillers** earn **$0.05** per verified post",
+          "- **Raiders** earn **$0.02** per verified raid reply",
+          "- All payments are made in **Solana (SOL)** directly to your wallet",
+          "- Payouts are processed **every Friday**",
+          "",
+          "## 🚀 Getting Started as a Shiller",
+          "1. Use `/authorize account:<X_handle>` to link your Discord to an available X account",
+          "2. Use `/wallet <your_solana_address>` to set your payout wallet",
+          "3. Head to the shill channel and use `/shill <tweet_url>` to auto-reply to tweets",
+          "4. Click **✅ Verify** on the embed to confirm your post and get paid",
+          "",
+          "## ⚔️ Getting Started as a Raider",
+          "1. Ask an admin for your **secret code** — this is your unique identifier",
+          "2. Use `/raidauth` to register with your code",
+          "3. Use `/wallet <your_solana_address>` to set your payout wallet",
+          "4. When a raid alert drops, click **⚔️ Raid Now** or **📋 Copy Shill**",
+          "5. Paste the shill text (includes your `#secretcode`) as a reply on X",
+          "6. Click **✅ Verify Raid** and submit your reply URL as proof",
+          "",
+          "## 📋 Essential Commands",
+          "| Command | What it does |",
+          "|---------|-------------|",
+          "| `/help` | Full shiller guide |",
+          "| `/raidhelp` | Full raider guide |",
+          "| `/authorize` | Link your X account |",
+          "| `/raidauth` | Register as a raider |",
+          "| `/wallet <addr>` | Set your SOL wallet |",
+          "| `/balance` | Check your earnings |",
+          "| `/payout` | Request a Friday payout |",
+          "| `/notify` | Toggle DM & Telegram alerts |",
+          "",
+          "## 📲 Stay in the Loop",
+          "- Use `/notify` to get **Discord DM** or **Telegram** alerts when new shill opportunities drop",
+          "- Use `/balance` anytime to see your verified + pending earnings",
+          "",
+          "## 🌍 Open to All",
+          "We hire **internationally** — no middleman fees, no platform cuts. Already freelancing on Fiverr or Upwork? Put those skills to work here and get paid directly in SOL.",
+          "",
+          "---",
+          "",
+          "📖 **Full guide:** https://warren.guru/shillteam",
+          "❓ **Questions?** Drop them right here in this ticket!",
+        ].join("\n");
+
+        return json({ type: 4, data: { content: welcomeText } });
+      }
+
     // ─── Component interaction (button clicks) ───
     if (interaction.type === 3) {
       const customId = interaction.data?.custom_id || "";
