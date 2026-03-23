@@ -596,6 +596,46 @@ async function expireTrackedBotMessage(supabase: any, trackedMessage: any, disco
     .eq("id", trackedMessage.id);
 }
 
+/** Lazy cleanup: find expired raid messages and delete them from Discord */
+async function cleanupExpiredRaidMessages(supabase: any, discordBotToken: string | null) {
+  if (!discordBotToken) return;
+
+  try {
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: expired } = await supabase
+      .from("activity_log")
+      .select("id, meta")
+      .eq("entity_type", "shill-bot-msg")
+      .in("action", ["pending", "interacted"])
+      .lt("created_at", fiveMinAgo)
+      .limit(10);
+
+    if (!expired || expired.length === 0) return;
+
+    for (const row of expired) {
+      const meta = row.meta as Record<string, unknown> | null;
+      const expiresAt = typeof meta?.expires_at === "string" ? Date.parse(meta.expires_at) : Number.NaN;
+      if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) continue;
+
+      const channelId = typeof meta?.channel_id === "string" ? meta.channel_id : null;
+      const botMessageId = typeof meta?.bot_message_id === "string" ? meta.bot_message_id : null;
+
+      if (channelId && botMessageId) {
+        try {
+          await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${botMessageId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bot ${discordBotToken}` },
+          });
+        } catch (_) { /* ignore */ }
+      }
+
+      await supabase.from("activity_log").update({ action: "cleaned" }).eq("id", row.id);
+    }
+  } catch (e) {
+    console.error("[auto-shill] Lazy cleanup error:", e);
+  }
+}
+
 async function verifyReplyOnX(replyPostId: string, targetTweetUrl: string, twitterBearerToken?: string | null) {
   const targetTweetId = extractTweetId(targetTweetUrl);
   if (!targetTweetId) {
@@ -729,6 +769,9 @@ serve(async (req) => {
     const interaction = JSON.parse(rawBody);
     if (interaction.type === 1) return json({ type: 1 });
 
+    // Fire-and-forget: clean up expired raid messages on every interaction
+    cleanupExpiredRaidMessages(supabase, DISCORD_BOT_TOKEN).catch(() => {});
+
     if (interaction.type === 2) {
       const commandName = interaction.data?.name || "";
 
@@ -792,6 +835,45 @@ serve(async (req) => {
         ].join("\n");
 
         return json({ type: 4, data: { content: raidHelpText, flags: 64 } });
+      }
+
+      // ─── /adminhelp command — admin-only quick reference (ephemeral) ───
+      if (commandName === "adminhelp") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/adminhelp`.", flags: 64 } });
+        }
+
+        const adminHelpText = [
+          "🔧 **Admin Command Reference**",
+          "",
+          "**Worker Management:**",
+          "`/authx <account>` — Manually add an X account for shiller assignment",
+          "`/authx2 <username> <code>` — Create a raider with a secret code/hashtag",
+          "`/authorizeshiller <user> <account>` — Authorize a user as a shiller",
+          "`/authorizeraider <user>` — Authorize a user as a raider",
+          "",
+          "**Wallet & Payouts:**",
+          "`/walletcrm <user> <address>` — Set a Solana wallet for any user (public)",
+          "",
+          "**Channel Management:**",
+          "`/welcomeshill` — Post the welcome/onboarding embed for new members",
+          "`/clean` — Delete all bot messages from the current channel",
+          "",
+          "**User Commands (also available to you):**",
+          "`/help` — General onboarding guide",
+          "`/raidhelp` — Raider-specific guide",
+          "`/balance` — Check earnings breakdown",
+          "`/payout` — Request a payout",
+          "`/wallet <address>` — Set your own wallet",
+          "`/notify` — Toggle DM & Telegram alerts",
+          "`/shill <url>` — Auto-reply to a tweet via X",
+          "`/authorize <account>` — Link Discord to an X account",
+        ].join("\n");
+
+        return json({ type: 4, data: { content: adminHelpText, flags: 64 } });
       }
 
       if (commandName === "clean") {
@@ -1806,8 +1888,8 @@ serve(async (req) => {
         if (urlMatch) tweetUrl = urlMatch[0].replace(/\)$/, "");
       }
 
-      // ── RAID CHANNEL BYPASS — channel 1485010551196090448 ──
-      const RAID_CHANNEL_ID = "1485010551196090448";
+      // ── RAID CHANNEL BYPASS — channel 1485050868838564030 ──
+      const RAID_CHANNEL_ID = "1485050868838564030";
       const isRaidChannel = interactionChannelId === RAID_CHANNEL_ID;
 
       if (isRaidChannel) {
@@ -2529,7 +2611,7 @@ serve(async (req) => {
         });
 
         // ── Forward the verified URL to the raid room as a new alert ──
-        const RAID_REPLY_CHANNEL = "1485010551196090448";
+        const RAID_REPLY_CHANNEL = "1485050868838564030";
         const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
 
         if (DISCORD_BOT_TOKEN_ENV) {
@@ -2787,6 +2869,43 @@ serve(async (req) => {
     return json({ type: 1 });
   }
 
+  // ─── CLEANUP EXPIRED raid messages (manual/cron trigger) ───
+  if (action === "cleanup-expired") {
+    const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+    if (!DISCORD_BOT_TOKEN_ENV) return json({ error: "DISCORD_BOT_TOKEN not set" }, 500);
+
+    const { data: expired } = await supabase
+      .from("activity_log")
+      .select("id, meta")
+      .eq("entity_type", "shill-bot-msg")
+      .in("action", ["pending", "interacted"])
+      .limit(50);
+
+    let cleaned = 0;
+    for (const row of expired || []) {
+      const meta = row.meta as Record<string, unknown> | null;
+      const expiresAt = typeof meta?.expires_at === "string" ? Date.parse(meta.expires_at) : Number.NaN;
+      if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) continue;
+
+      const channelId = typeof meta?.channel_id === "string" ? meta.channel_id : null;
+      const botMessageId = typeof meta?.bot_message_id === "string" ? meta.bot_message_id : null;
+
+      if (channelId && botMessageId) {
+        try {
+          await fetch(`https://discord.com/api/v10/channels/${channelId}/messages/${botMessageId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}` },
+          });
+        } catch (_) { /* ignore */ }
+      }
+
+      await supabase.from("activity_log").update({ action: "cleaned" }).eq("id", row.id);
+      cleaned++;
+    }
+
+    return json({ ok: true, cleaned });
+  }
+
   // ─── REGISTER slash commands ───
   if (action === "register-commands" && req.method === "POST") {
     const body = await req.json().catch(() => ({}));
@@ -2890,6 +3009,9 @@ serve(async (req) => {
       },
       {
         name: "welcomeshill", description: "(Admin) Post the welcome/onboarding guide for new shillers & raiders", type: 1,
+      },
+      {
+        name: "adminhelp", description: "(Admin) Quick reference of all admin commands", type: 1,
       },
     ];
 
