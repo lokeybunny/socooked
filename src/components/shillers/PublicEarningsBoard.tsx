@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, Wallet, Users, RefreshCw, Send, Search, X } from "lucide-react";
+import { DollarSign, Wallet, Users, RefreshCw, Send, Search, X, ExternalLink, Receipt, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 function maskUsername(name: string): string {
   if (name.length <= 3) return name + "****";
