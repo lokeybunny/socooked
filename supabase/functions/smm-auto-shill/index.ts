@@ -1750,44 +1750,17 @@ serve(async (req) => {
         await supabase.from("raiders").upsert({
           discord_user_id: discordUserId,
           discord_username: discordUsername,
+          status: "active",
         }, { onConflict: "discord_user_id" });
 
-        // Check if raider has a secret code assigned
+        // Check raider status
         const { data: raider } = await supabase
           .from("raiders")
-          .select("secret_code, status")
+          .select("secret_code, status, total_clicks")
           .eq("discord_user_id", discordUserId)
           .maybeSingle();
 
-        if (!raider?.secret_code) {
-          // Show a modal asking for their secret code (type 9 = Modal response)
-          return json({
-            type: 9,
-            data: {
-              custom_id: `raider_code_submit_${discordUserId}`,
-              title: "⚔️ Enter Your Raider Code",
-              components: [
-                {
-                  type: 1, // ActionRow
-                  components: [
-                    {
-                      type: 4, // TextInput
-                      custom_id: "secret_code_input",
-                      label: "Secret Code (given by admin)",
-                      style: 1, // Short
-                      placeholder: "e.g. storm42x",
-                      required: true,
-                      min_length: 3,
-                      max_length: 30,
-                    },
-                  ],
-                },
-              ],
-            },
-          });
-        }
-
-        if (raider.status !== "active") {
+        if (raider && raider.status !== "active") {
           return json({
             type: 4,
             data: {
@@ -1797,7 +1770,7 @@ serve(async (req) => {
           });
         }
 
-        const raiderSecretCode = raider.secret_code;
+        const raiderSecretCode = raider?.secret_code || null;
 
         // ── Self-raid prevention: shillers cannot raid their own verified post ──
         let selfRaidMsgId: string | null = null;
