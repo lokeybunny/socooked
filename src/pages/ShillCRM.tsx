@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   RefreshCw, Shield, DollarSign, Hash, Users, Wand2, Copy, Check,
-  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt, Inbox, CheckCircle2, XCircle, Clock, RotateCcw, Zap, TrendingUp,
+  Settings, Activity, HardHat, Pencil, Trash2, Plus, Save, ExternalLink, Trophy, Banknote, Receipt, Inbox, CheckCircle2, XCircle, Clock, RotateCcw, Zap, TrendingUp, LinkIcon,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -375,6 +375,126 @@ export default function ShillCRM() {
           <TabsContent value="settings"><SettingsTab /></TabsContent>
         </Tabs>
       </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════
+   VERIFIED LINKS AUDIT TAB
+   ═══════════════════════════════════════════════════════════ */
+function VerifiedLinksTab() {
+  const [clicks, setClicks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState<"all" | "shill" | "raid">("all");
+
+  const fetchClicks = useCallback(async () => {
+    setLoading(true);
+    let query = supabase
+      .from("shill_clicks")
+      .select("*")
+      .eq("status", "verified")
+      .order("verified_at", { ascending: false });
+
+    if (filterType !== "all") query = query.eq("click_type", filterType);
+
+    const { data } = await query.limit(500);
+    setClicks(data || []);
+    setLoading(false);
+  }, [filterType]);
+
+  useEffect(() => { fetchClicks(); }, [fetchClicks]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <LinkIcon className="h-4 w-4 text-primary" /> Verified Links Audit Log
+          </h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Every verified shill &amp; raid submission with proof links for admin review.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant={filterType === "all" ? "default" : "outline"} size="sm" onClick={() => setFilterType("all")}>All</Button>
+          <Button variant={filterType === "shill" ? "default" : "outline"} size="sm" onClick={() => setFilterType("shill")}>Shill</Button>
+          <Button variant={filterType === "raid" ? "default" : "outline"} size="sm" onClick={() => setFilterType("raid")}>Raid</Button>
+          <Button variant="outline" size="sm" onClick={fetchClicks} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border">
+        <ScrollArea className="h-[600px]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Proof Link</TableHead>
+                <TableHead>Source Tweet</TableHead>
+                <TableHead className="text-right">Rate</TableHead>
+                <TableHead>Verified At</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clicks.map((click) => (
+                <TableRow key={click.id}>
+                  <TableCell className="font-medium text-sm">{click.discord_username}</TableCell>
+                  <TableCell>
+                    <Badge variant={click.click_type === "shill" ? "default" : "secondary"} className="text-[10px]">
+                      {click.click_type}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {click.receipt_tweet_url ? (
+                      <a href={click.receipt_tweet_url} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline font-mono truncate block max-w-[200px]">
+                        {click.receipt_tweet_url.replace(/https?:\/\/(x\.com|twitter\.com)\//, "")}
+                      </a>
+                    ) : click.tweet_url ? (
+                      <a href={click.tweet_url} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline font-mono truncate block max-w-[200px]">
+                        {click.tweet_url.replace(/https?:\/\/(x\.com|twitter\.com)\//, "")}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {click.source_tweet_url ? (
+                      <a href={click.source_tweet_url} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-muted-foreground hover:text-primary hover:underline font-mono truncate block max-w-[200px]">
+                        {click.source_tweet_url.replace(/https?:\/\/(x\.com|twitter\.com)\//, "")}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm">${Number(click.rate || 0).toFixed(2)}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {click.verified_at
+                      ? formatDistanceToNow(new Date(click.verified_at), { addSuffix: true })
+                      : formatDistanceToNow(new Date(click.created_at), { addSuffix: true })}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {clicks.length === 0 && !loading && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                    No verified links yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      </div>
+
+      <p className="text-[10px] text-muted-foreground">
+        Showing up to 500 most recent verified submissions. Proof links are the URLs workers submitted as verification.
+      </p>
     </div>
   );
 }
