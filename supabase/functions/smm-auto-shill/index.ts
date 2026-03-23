@@ -1477,34 +1477,13 @@ serve(async (req) => {
               .like("meta->>discord_msg_id", discordMsgId);
           }
 
-          // Build clean copy text (ticker, hashtags, link) for easy mobile copy
-          const raidProfileUsername2 = matchedProfile || "NysonBlack";
-          const { content: raidNowCfg } = await loadShillConfig(supabase, raidProfileUsername2);
-          const raidNowCampaignUrl = raidNowCfg?.campaign_url || "";
-          const raidNowTicker = raidNowCfg?.ticker || "";
-
-          if (raidNowTicker) {
-            const tickerClean2 = raidNowTicker.replace(/^\$/, "");
-            const raidHashtag2 = `#${raiderSecretCode}`;
-            const raidCopyParts = [`${raidNowTicker}`, `#${tickerClean2}`, `#repost`];
-            const insertIdx2 = Math.floor(Math.random() * (raidCopyParts.length + 1));
-            raidCopyParts.splice(insertIdx2, 0, raidHashtag2);
-            const raidCopyText = raidCopyParts.join(" ") + (raidNowCampaignUrl ? `\n${raidNowCampaignUrl}` : "");
-
-            sendCopyDM(discordUserId, raidCopyText);
-            return json({
-              type: 4,
-              data: {
-                content: `${raidCopyText}`,
-                flags: 64,
-              },
-            });
-          }
-
+          const cleanTweetUrlDisplay = (tweetUrl || "").replace(/[)\]}>]+$/, "");
           return json({
             type: 4,
             data: {
-              content: `⚔️ Raid logged for \`${discordUsername}\` — use 📋 Get Shill Copy for your post text.`,
+              content: cleanTweetUrlDisplay
+                ? `⚔️ **Go raid this tweet now!**\n${cleanTweetUrlDisplay}\n\n💡 Use **📋 Get Shill Copy** for ready-to-paste text.`
+                : `⚔️ Raid logged for \`${discordUsername}\` — use 📋 Get Shill Copy for your post text.`,
               flags: 64,
             },
           });
