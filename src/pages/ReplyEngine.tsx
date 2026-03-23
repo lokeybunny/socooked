@@ -473,6 +473,9 @@ export default function ReplyEngine() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Public Earnings Board */}
+        <PublicEarningsBoard roleFilter="shiller" />
       </div>
     </div>
   );
