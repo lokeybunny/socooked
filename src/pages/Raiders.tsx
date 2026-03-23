@@ -347,6 +347,9 @@ export default function Raiders() {
           </Table>
         </div>
 
+        {/* Public Earnings Board for Raiders */}
+        <PublicEarningsBoard roleFilter="raider" />
+
         {/* Recent Raid Clicks */}
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-3">Recent Raid Clicks</h2>
