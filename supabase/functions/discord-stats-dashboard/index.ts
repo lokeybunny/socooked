@@ -21,7 +21,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ── Fetch shiller data (outbound_accounts + shill_clicks) ──
+    // ── Fetch shiller data (outbound_accounts + shill_clicks + assignments) ──
     const { data: accounts } = await supabase
       .from("outbound_accounts")
       .select("account_label, account_identifier, is_authorized")
@@ -31,6 +31,14 @@ serve(async (req) => {
       .from("shill_clicks")
       .select("discord_username, click_type, status, rate")
       .in("click_type", ["shill"]);
+
+    // Fetch assigned shillers from config so we show all workers, even those with 0 clicks
+    const { data: assignmentConfig } = await supabase
+      .from("site_configs")
+      .select("content")
+      .eq("site_id", "smm-auto-shill")
+      .eq("section", "NysonBlack")
+      .maybeSingle();
 
     const { data: raidClicks } = await supabase
       .from("shill_clicks")
@@ -51,10 +59,18 @@ serve(async (req) => {
       .eq("status", "pending");
 
     // ── Aggregate shiller stats ──
-    const shillerStats: Record<string, { verified: number; pending: number; flagged: number; earned: number }> = {};
+    // Seed from discord_assignments so all assigned shillers appear even with 0 clicks
+    const shillerStats: Record<string, { verified: number; pending: number; flagged: number; earned: number; xAccount: string }> = {};
+    const assignments = assignmentConfig?.content?.discord_assignments || {};
+    const usernames = assignmentConfig?.content?.discord_usernames || {};
+    for (const [discordId, xAccount] of Object.entries(assignments)) {
+      const name = usernames[discordId] || String(discordId).replace(/<@!?/, "").replace(/>$/, "");
+      if (!shillerStats[name]) shillerStats[name] = { verified: 0, pending: 0, flagged: 0, earned: 0, xAccount: String(xAccount) };
+    }
+
     for (const c of shillClicks || []) {
       const name = c.discord_username || "unknown";
-      if (!shillerStats[name]) shillerStats[name] = { verified: 0, pending: 0, flagged: 0, earned: 0 };
+      if (!shillerStats[name]) shillerStats[name] = { verified: 0, pending: 0, flagged: 0, earned: 0, xAccount: "" };
       if (c.status === "verified") {
         shillerStats[name].verified++;
         shillerStats[name].earned += Number(c.rate || 0.05);
@@ -98,7 +114,8 @@ serve(async (req) => {
       shillerBoard = shillerEntries.map(([name, s], i) => {
         const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `\`${i + 1}.\``;
         const flag = s.flagged > 0 ? ` ⚠️${s.flagged}` : "";
-        return `${medal} **${name}** — ✅ ${s.verified} | 💰 $${s.earned.toFixed(2)}${flag}`;
+        const xTag = s.xAccount ? ` (@${s.xAccount})` : "";
+        return `${medal} **${name}**${xTag} — ✅ ${s.verified} | 💰 $${s.earned.toFixed(2)}${flag}`;
       }).join("\n");
     }
 
