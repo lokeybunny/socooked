@@ -305,6 +305,15 @@ export default function ShillTeam() {
           </div>
         </section>
 
+        {/* Public Earnings Board */}
+        <section className="space-y-6">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <DollarSign className="h-6 w-6 text-primary" /> Live Payouts
+          </h2>
+          <p className="text-muted-foreground text-sm">See what the team is earning in real-time. Usernames are masked for privacy.</p>
+          <PublicEarningsBoard roleFilter="all" />
+        </section>
+
 
         <section id="join-cta" className="text-center space-y-4 py-4">
           <h2 className="text-2xl font-bold">Ready to Start Earning?</h2>
