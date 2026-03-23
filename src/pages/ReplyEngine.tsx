@@ -295,8 +295,8 @@ export default function ReplyEngine() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm text-foreground flex items-center gap-1">@{entry.discord_author}<BadgeCheck className="h-3.5 w-3.5 text-blue-500" /></span>
-                                <Badge
+                                 <span className="font-medium text-sm text-foreground flex items-center gap-1">@{user ? entry.discord_author : entry.discord_author.slice(0, Math.ceil(entry.discord_author.length / 2)) + "****"}<BadgeCheck className="h-3.5 w-3.5 text-blue-500" /></span>
+                                 <Badge
                                   variant="outline"
                                   className={`text-[9px] ${entry.type === "clicked" ? "border-green-500/30 text-green-500" : ""}`}
                                 >
@@ -331,7 +331,7 @@ export default function ReplyEngine() {
                     {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
                   </span>
                   <div className="flex-1">
-                    <span className="font-medium text-foreground flex items-center gap-1">@{entry.username}<BadgeCheck className="h-3.5 w-3.5 text-blue-500" /></span>
+                    <span className="font-medium text-foreground flex items-center gap-1">@{user ? entry.username : entry.username.slice(0, Math.ceil(entry.username.length / 2)) + "****"}<BadgeCheck className="h-3.5 w-3.5 text-blue-500" /></span>
                   </div>
                   <Badge variant="secondary" className="font-mono">{entry.count} clicks</Badge>
                 </div>
