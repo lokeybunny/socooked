@@ -151,10 +151,16 @@ async function validateXLink(url: string): Promise<{ valid: boolean; reason?: st
     if (!m) return { valid: false, reason: "Could not extract tweet ID from URL" };
 
     // Use oembed endpoint (public, no auth required) to verify tweet exists
+    // Add 2s timeout to prevent Discord interaction timeouts
     const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
     const res = await fetch(oembedUrl, {
       headers: { "User-Agent": "Mozilla/5.0" },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (res.status === 404 || res.status === 403) {
       await res.text().catch(() => {});
@@ -175,8 +181,21 @@ async function validateXLink(url: string): Promise<{ valid: boolean; reason?: st
     return { valid: true };
   } catch (e) {
     console.error("[auto-shill] Link validation error:", e);
-    // Don't block on network errors
+    // Don't block on network errors or timeouts
     return { valid: true };
+  }
+}
+
+/** Follow up on a deferred Discord interaction response */
+async function followUpInteraction(applicationId: string, interactionToken: string, content: string) {
+  try {
+    await fetch(`https://discord.com/api/v10/webhooks/${applicationId}/${interactionToken}/messages/@original`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+  } catch (e) {
+    console.error("[auto-shill] Follow-up error:", e);
   }
 }
 
@@ -2725,6 +2744,8 @@ serve(async (req) => {
       // ─── Raid verify modal submit — user provides their raid reply URL ───
       if (customId.startsWith("raid_verify_submit_")) {
         const discordMsgId = customId.replace("raid_verify_submit_", "") || null;
+        const applicationId = interaction.application_id;
+        const interactionToken = interaction.token;
 
         // Extract URL from modal
         const components = interaction.data?.components || [];
@@ -2741,114 +2762,134 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "❌ No URL provided. Try again.", flags: 64 } });
         }
 
-        // Basic URL validation
+        // Basic URL validation (fast, no network)
         const isValidUrl = /https?:\/\/(x\.com|twitter\.com)\/\S+/i.test(raidUrl);
         if (!isValidUrl) {
           return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL. Please paste the direct link to your reply.", flags: 64 } });
         }
 
-        // Live link validation — check the tweet actually exists
-        const raidLinkCheck = await validateXLink(raidUrl);
-        if (!raidLinkCheck.valid) {
-          return json({ type: 4, data: { content: `❌ **Broken link detected.** ${raidLinkCheck.reason || "The tweet doesn't exist or was deleted."}`, flags: 64 } });
-        }
+        // Defer the response immediately to avoid Discord 3s timeout
+        // Then do all the heavy work (link validation, DB queries) in background
+        const _raidUrl = raidUrl;
+        const _discordMsgId = discordMsgId;
+        (async () => {
+          try {
+            // Live link validation
+            const raidLinkCheck = await validateXLink(_raidUrl);
+            if (!raidLinkCheck.valid) {
+              await followUpInteraction(applicationId, interactionToken, `❌ **Broken link detected.** ${raidLinkCheck.reason || "The tweet doesn't exist or was deleted."}`);
+              return;
+            }
 
-        // Get raider info
-        const { data: raider } = await supabase
-          .from("raiders")
-          .select("secret_code, status, rate_per_click")
-          .eq("discord_user_id", discordUserId)
-          .maybeSingle();
+            // Get raider info
+            const { data: raider } = await supabase
+              .from("raiders")
+              .select("secret_code, status, rate_per_click")
+              .eq("discord_user_id", discordUserId)
+              .maybeSingle();
 
-        if (!raider || raider.status !== "active") {
-          return json({ type: 4, data: { content: "🚫 Your raider account is not active. Contact an admin.", flags: 64 } });
-        }
+            if (!raider || raider.status !== "active") {
+              await followUpInteraction(applicationId, interactionToken, "🚫 Your raider account is not active. Contact an admin.");
+              return;
+            }
 
-        // Extract the original tweet URL from the embed of the bot message
-        // We'll store it from the interaction's message context
-        let sourceTweetUrl = "";
-        const embeds = interaction.message?.embeds || [];
-        if (embeds.length > 0) {
-          const desc = embeds[0].description || "";
-          const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
-          if (urlMatch) sourceTweetUrl = urlMatch[0].replace(/[)\]}>]+$/, "");
-        }
+            // Extract the original tweet URL from the embed
+            let sourceTweetUrl = "";
+            const embeds = interaction.message?.embeds || [];
+            if (embeds.length > 0) {
+              const desc = embeds[0].description || "";
+              const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
+              if (urlMatch) sourceTweetUrl = urlMatch[0].replace(/[)\]}>]+$/, "");
+            }
 
-        // Check for duplicate verification with this exact URL
-        const { data: existingVerify } = await supabase
-          .from("shill_clicks")
-          .select("id")
-          .eq("discord_user_id", discordUserId)
-          .eq("receipt_tweet_url", raidUrl)
-          .limit(1);
+            // Check for duplicate verification
+            const { data: existingVerify } = await supabase
+              .from("shill_clicks")
+              .select("id")
+              .eq("discord_user_id", discordUserId)
+              .eq("receipt_tweet_url", _raidUrl)
+              .limit(1);
 
-        if (existingVerify?.length) {
-          return json({ type: 4, data: { content: "⚠️ You've already submitted this URL for verification.", flags: 64 } });
-        }
+            if (existingVerify?.length) {
+              await followUpInteraction(applicationId, interactionToken, "⚠️ You've already submitted this URL for verification.");
+              return;
+            }
 
-        // Speed check — find most recent raid click for this user on this message
-        const { data: recentRaidClick } = await supabase
-          .from("shill_clicks")
-          .select("created_at")
-          .eq("discord_user_id", discordUserId)
-          .eq("click_type", "raid")
-          .order("created_at", { ascending: false })
-          .limit(1);
+            // Speed check
+            const { data: recentRaidClick } = await supabase
+              .from("shill_clicks")
+              .select("created_at")
+              .eq("discord_user_id", discordUserId)
+              .eq("click_type", "raid")
+              .order("created_at", { ascending: false })
+              .limit(1);
 
-        // Also check shill click for same msg (they may have clicked shill_now first)
-        const { data: recentShillClick } = await supabase
-          .from("shill_clicks")
-          .select("created_at")
-          .eq("discord_user_id", discordUserId)
-          .eq("discord_msg_id", discordMsgId !== "unknown" ? discordMsgId : null)
-          .eq("click_type", "shill")
-          .order("created_at", { ascending: false })
-          .limit(1);
+            const { data: recentShillClick } = await supabase
+              .from("shill_clicks")
+              .select("created_at")
+              .eq("discord_user_id", discordUserId)
+              .eq("discord_msg_id", _discordMsgId !== "unknown" ? _discordMsgId : null)
+              .eq("click_type", "shill")
+              .order("created_at", { ascending: false })
+              .limit(1);
 
-        const raidClickTime = recentRaidClick?.[0]?.created_at || recentShillClick?.[0]?.created_at || null;
-        const raidSpeedResult = await speedCheck(supabase, discordUserId, discordUsername, raidClickTime, "raid");
-        if (raidSpeedResult) return raidSpeedResult;
+            const raidClickTime = recentRaidClick?.[0]?.created_at || recentShillClick?.[0]?.created_at || null;
+            const raidSpeedResult = await speedCheck(supabase, discordUserId, discordUsername, raidClickTime, "raid");
+            if (raidSpeedResult) {
+              // Speed check failed — extract message from the response
+              try {
+                const speedBody = await raidSpeedResult.clone().json();
+                await followUpInteraction(applicationId, interactionToken, speedBody?.data?.content || "❌ Too fast! Please wait before verifying.");
+              } catch { await followUpInteraction(applicationId, interactionToken, "❌ Too fast! Please wait before verifying."); }
+              return;
+            }
 
-        // Insert verification record for admin auditing
-        await supabase.from("shill_clicks").insert({
-          discord_user_id: discordUserId,
-          discord_username: discordUsername,
-          tweet_url: sourceTweetUrl || null,
-          source_tweet_url: sourceTweetUrl || null,
-          receipt_tweet_url: raidUrl,
-          discord_msg_id: discordMsgId !== "unknown" ? discordMsgId : null,
-          status: "pending_verification",
-          click_type: "raid",
-          rate: raider.rate_per_click || 0.02,
-          raider_secret_code: raider.secret_code || null,
-        });
+            // Insert verification record
+            await supabase.from("shill_clicks").insert({
+              discord_user_id: discordUserId,
+              discord_username: discordUsername,
+              tweet_url: sourceTweetUrl || null,
+              source_tweet_url: sourceTweetUrl || null,
+              receipt_tweet_url: _raidUrl,
+              discord_msg_id: _discordMsgId !== "unknown" ? _discordMsgId : null,
+              status: "pending_verification",
+              click_type: "raid",
+              rate: raider.rate_per_click || 0.02,
+              raider_secret_code: raider.secret_code || null,
+            });
 
-        // Audit log
-        await supabase.from("activity_log").insert({
-          entity_type: "raid-verification",
-          action: "submitted",
-          meta: {
-            name: `✅ ${discordUsername} submitted raid verification`,
-            discord_user_id: discordUserId,
-            discord_username: discordUsername,
-            raid_url: raidUrl,
-            source_tweet_url: sourceTweetUrl,
-            secret_code: raider.secret_code,
-          },
-        });
+            // Audit log
+            await supabase.from("activity_log").insert({
+              entity_type: "raid-verification",
+              action: "submitted",
+              meta: {
+                name: `✅ ${discordUsername} submitted raid verification`,
+                discord_user_id: discordUserId,
+                discord_username: discordUsername,
+                raid_url: _raidUrl,
+                source_tweet_url: sourceTweetUrl,
+                secret_code: raider.secret_code,
+              },
+            });
 
-        return json({
-          type: 4,
-          data: {
-            content: `✅ **Raid verification submitted!**\n\n🔗 Your reply: ${raidUrl}\n🔑 Code: \`#${raider.secret_code || "N/A"}\`\n\n⏳ An admin will review your raid before payout. Once verified, it will count toward your earnings.\n\n💡 Use \`/payout\` when you're ready to cash out verified work.`,
-            flags: 64,
-          },
-        });
+            await followUpInteraction(applicationId, interactionToken,
+              `✅ **Raid verification submitted!**\n\n🔗 Your reply: ${_raidUrl}\n🔑 Code: \`#${raider.secret_code || "N/A"}\`\n\n⏳ An admin will review your raid before payout. Once verified, it will count toward your earnings.\n\n💡 Use \`/payout\` when you're ready to cash out verified work.`
+            );
+          } catch (err) {
+            console.error("[auto-shill] Deferred raid verify error:", err);
+            await followUpInteraction(applicationId, interactionToken, "❌ Something went wrong verifying your raid. Please try again.");
+          }
+        })();
+
+        // Return deferred response immediately (type 5 = DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE)
+        return json({ type: 5, data: { flags: 64 } });
       }
 
       // ─── Shill verify modal submit — shiller provides their post URL (instant verification) ───
       if (customId.startsWith("shill_verify_submit_")) {
         const discordMsgId = customId.replace("shill_verify_submit_", "") || null;
+        const applicationId = interaction.application_id;
+        const interactionToken = interaction.token;
 
         const components = interaction.data?.components || [];
         let verifyUrl = "";
@@ -2869,160 +2910,172 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL. Please paste the direct link to your actual reply tweet.", flags: 64 } });
         }
 
-        // Live link validation — check the tweet actually exists
-        const shillLinkCheck = await validateXLink(verifyUrl);
-        if (!shillLinkCheck.valid) {
-          return json({ type: 4, data: { content: `❌ **Broken link detected.** ${shillLinkCheck.reason || "The tweet doesn't exist or was deleted."}\n\nPlease submit a valid, live URL.`, flags: 64 } });
-        }
-
-        let sourceTweetUrl = "";
-        const embeds = interaction.message?.embeds || [];
-        if (embeds.length > 0) {
-          const desc = embeds[0].description || "";
-          const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
-          if (urlMatch) sourceTweetUrl = urlMatch[0].replace(/[)\]}>]+$/, "");
-        }
-
-        const submittedTweetId = extractTweetId(verifyUrl);
-        const sourceTweetId = extractTweetId(sourceTweetUrl);
-        if (submittedTweetId && sourceTweetId && submittedTweetId === sourceTweetId) {
-          return json({
-            type: 4,
-            data: {
-              content: "❌ That is the original shill post link — submit the URL of your actual reply tweet instead.",
-              flags: 64,
-            },
-          });
-        }
-
-        // Find this user's pending click for this message and verify it immediately
-        const { data: pendingClick } = await supabase
-          .from("shill_clicks")
-          .select("id, created_at")
-          .eq("discord_user_id", discordUserId)
-          .eq("discord_msg_id", discordMsgId !== "unknown" ? discordMsgId : null)
-          .eq("status", "clicked")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (!pendingClick?.length) {
-          return json({ type: 4, data: { content: "❌ No pending shill click found. Click **🚀 SHILL NOW** first.", flags: 64 } });
-        }
-
-        // Speed check — must wait ≥15s after clicking SHILL NOW
-        const shillSpeedResult = await speedCheck(supabase, discordUserId, discordUsername, pendingClick[0].created_at, "shill");
-        if (shillSpeedResult) return shillSpeedResult;
-
-        // Mark as verified immediately
-        await supabase.from("shill_clicks").update({
-          status: "verified",
-          verified_at: new Date().toISOString(),
-          receipt_tweet_url: verifyUrl,
-        }).eq("id", pendingClick[0].id);
-
-        // Audit log
-        await supabase.from("activity_log").insert({
-          entity_type: "shill-verification",
-          action: "self-verified",
-          meta: {
-            name: `✅ ${discordUsername} self-verified shill`,
-            discord_user_id: discordUserId,
-            discord_username: discordUsername,
-            verify_url: verifyUrl,
-            discord_msg_id: discordMsgId,
-          },
-        });
-
-        // ── Forward the verified URL to the raid room as a new alert ──
-        const RAID_REPLY_CHANNEL = "1485010551196090448";
-        const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
-
-        if (DISCORD_BOT_TOKEN_ENV) {
-          const expiresAtMs = Date.now() + 5 * 60 * 1000;
-          const expiresAt = Math.floor(expiresAtMs / 1000);
-
-          const raidEmbed = {
-            title: "⚔️ New Raid Target — Verified Shill",
-            description: `**Shilled by:** ${discordUsername}\n[Open Tweet](${verifyUrl})`,
-            color: 0x00FF00,
-            footer: { text: "⏱️ Auto-deletes in 5 minutes" },
-            fields: [
-              { name: "⏰ Expires", value: `<t:${expiresAt}:R>`, inline: true },
-            ],
-          };
-
-          const raidMsgId = `sv_${Date.now()}`;
-          const raidButtonRow = [
-            { type: 2, style: 1, label: "⚔️ RAID NOW", custom_id: `shill_now_${raidMsgId}` },
-            { type: 2, style: 3, label: "✅ Verify Raid", custom_id: `raid_verify_${raidMsgId}` },
-            { type: 2, style: 4, label: "🚫 Bad Link", custom_id: `bad_link_${raidMsgId}` },
-          ];
-
+        // Defer the response immediately to avoid Discord 3s timeout
+        const _verifyUrl = verifyUrl;
+        const _discordMsgId = discordMsgId;
+        const _interactionMessage = interaction.message;
+        (async () => {
           try {
-            const raidRes = await fetch(`https://discord.com/api/v10/channels/${RAID_REPLY_CHANNEL}/messages`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}`,
-                "Content-Type": "application/json",
+            // Live link validation
+            const shillLinkCheck = await validateXLink(_verifyUrl);
+            if (!shillLinkCheck.valid) {
+              await followUpInteraction(applicationId, interactionToken, `❌ **Broken link detected.** ${shillLinkCheck.reason || "The tweet doesn't exist or was deleted."}\n\nPlease submit a valid, live URL.`);
+              return;
+            }
+
+            let sourceTweetUrl = "";
+            const embeds = _interactionMessage?.embeds || [];
+            if (embeds.length > 0) {
+              const desc = embeds[0].description || "";
+              const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
+              if (urlMatch) sourceTweetUrl = urlMatch[0].replace(/[)\]}>]+$/, "");
+            }
+
+            const submittedTweetId = extractTweetId(_verifyUrl);
+            const sourceTweetId = extractTweetId(sourceTweetUrl);
+            if (submittedTweetId && sourceTweetId && submittedTweetId === sourceTweetId) {
+              await followUpInteraction(applicationId, interactionToken, "❌ That is the original shill post link — submit the URL of your actual reply tweet instead.");
+              return;
+            }
+
+            // Find this user's pending click
+            const { data: pendingClick } = await supabase
+              .from("shill_clicks")
+              .select("id, created_at")
+              .eq("discord_user_id", discordUserId)
+              .eq("discord_msg_id", _discordMsgId !== "unknown" ? _discordMsgId : null)
+              .eq("status", "clicked")
+              .order("created_at", { ascending: false })
+              .limit(1);
+
+            if (!pendingClick?.length) {
+              await followUpInteraction(applicationId, interactionToken, "❌ No pending shill click found. Click **🚀 SHILL NOW** first.");
+              return;
+            }
+
+            // Speed check
+            const shillSpeedResult = await speedCheck(supabase, discordUserId, discordUsername, pendingClick[0].created_at, "shill");
+            if (shillSpeedResult) {
+              try {
+                const speedBody = await shillSpeedResult.clone().json();
+                await followUpInteraction(applicationId, interactionToken, speedBody?.data?.content || "❌ Too fast! Please wait before verifying.");
+              } catch { await followUpInteraction(applicationId, interactionToken, "❌ Too fast! Please wait before verifying."); }
+              return;
+            }
+
+            // Mark as verified immediately
+            await supabase.from("shill_clicks").update({
+              status: "verified",
+              verified_at: new Date().toISOString(),
+              receipt_tweet_url: _verifyUrl,
+            }).eq("id", pendingClick[0].id);
+
+            // Audit log
+            await supabase.from("activity_log").insert({
+              entity_type: "shill-verification",
+              action: "self-verified",
+              meta: {
+                name: `✅ ${discordUsername} self-verified shill`,
+                discord_user_id: discordUserId,
+                discord_username: discordUsername,
+                verify_url: _verifyUrl,
+                discord_msg_id: _discordMsgId,
               },
-              body: JSON.stringify({
-                embeds: [raidEmbed],
-                components: [{ type: 1, components: raidButtonRow }],
-              }),
             });
 
-            if (raidRes.ok) {
-              const raidBotMsg = await raidRes.json();
-              // Track for auto-cleanup
-              await supabase.from("activity_log").insert({
-                entity_type: "shill-bot-msg",
-                action: "pending",
-                meta: {
-                  bot_message_id: raidBotMsg.id,
-                  channel_id: RAID_REPLY_CHANNEL,
-                  discord_msg_id: raidMsgId,
-                  tweet_url: verifyUrl,
-                  shiller_discord_user_id: discordUserId,
-                  shiller_discord_username: discordUsername,
-                  expires_at: new Date(expiresAtMs).toISOString(),
-                },
-              });
-            } else {
-              console.error("[auto-shill] Failed to forward to raid room:", await raidRes.text());
+            // ── Forward the verified URL to the raid room ──
+            const RAID_REPLY_CHANNEL = "1485010551196090448";
+            const DISCORD_BOT_TOKEN_ENV = Deno.env.get("DISCORD_BOT_TOKEN");
+
+            if (DISCORD_BOT_TOKEN_ENV) {
+              const expiresAtMs = Date.now() + 5 * 60 * 1000;
+              const expiresAt = Math.floor(expiresAtMs / 1000);
+
+              const raidEmbed = {
+                title: "⚔️ New Raid Target — Verified Shill",
+                description: `**Shilled by:** ${discordUsername}\n[Open Tweet](${_verifyUrl})`,
+                color: 0x00FF00,
+                footer: { text: "⏱️ Auto-deletes in 5 minutes" },
+                fields: [
+                  { name: "⏰ Expires", value: `<t:${expiresAt}:R>`, inline: true },
+                ],
+              };
+
+              const raidMsgId = `sv_${Date.now()}`;
+              const raidButtonRow = [
+                { type: 2, style: 1, label: "⚔️ RAID NOW", custom_id: `shill_now_${raidMsgId}` },
+                { type: 2, style: 3, label: "✅ Verify Raid", custom_id: `raid_verify_${raidMsgId}` },
+                { type: 2, style: 4, label: "🚫 Bad Link", custom_id: `bad_link_${raidMsgId}` },
+              ];
+
+              try {
+                const raidRes = await fetch(`https://discord.com/api/v10/channels/${RAID_REPLY_CHANNEL}/messages`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bot ${DISCORD_BOT_TOKEN_ENV}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    embeds: [raidEmbed],
+                    components: [{ type: 1, components: raidButtonRow }],
+                  }),
+                });
+
+                if (raidRes.ok) {
+                  const raidBotMsg = await raidRes.json();
+                  await supabase.from("activity_log").insert({
+                    entity_type: "shill-bot-msg",
+                    action: "pending",
+                    meta: {
+                      bot_message_id: raidBotMsg.id,
+                      channel_id: RAID_REPLY_CHANNEL,
+                      discord_msg_id: raidMsgId,
+                      tweet_url: _verifyUrl,
+                      shiller_discord_user_id: discordUserId,
+                      shiller_discord_username: discordUsername,
+                      expires_at: new Date(expiresAtMs).toISOString(),
+                    },
+                  });
+                } else {
+                  console.error("[auto-shill] Failed to forward to raid room:", await raidRes.text());
+                }
+              } catch (e) {
+                console.error("[auto-shill] Raid room forward error:", e);
+              }
             }
-          } catch (e) {
-            console.error("[auto-shill] Raid room forward error:", e);
+
+            // ── Notify opted-in Telegram users ──
+            try {
+              const { data: tgPrefs } = await supabase
+                .from("discord_notify_prefs")
+                .select("telegram_username")
+                .eq("notify_telegram", true)
+                .not("telegram_username", "is", null);
+
+              const tgHandles = (tgPrefs || [])
+                .map((p: any) => p.telegram_username?.trim())
+                .filter(Boolean)
+                .map((h: string) => `@${h.replace(/^@/, "")}`);
+
+              if (tgHandles.length > 0 && TELEGRAM_BOT_TOKEN) {
+                const tgText = `🔔 *New Shill Alert!*\n🔗 [Open Tweet](${_verifyUrl})\n👤 Shilled by: ${discordUsername}\n\n📢 ${tgHandles.join(" ")}`;
+                await makeSendTelegram(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)(tgText);
+              }
+            } catch (tgErr) {
+              console.error("[auto-shill] Telegram notify error:", tgErr);
+            }
+
+            await followUpInteraction(applicationId, interactionToken,
+              `✅ **Shill verified!** 💰\n\n🔗 Your post: ${_verifyUrl}\n👤 \`${discordUsername}\`\n\n✅ Payment confirmed ($0.05)\n📡 Your link has been forwarded to the raid room for raiders to boost!`
+            );
+          } catch (err) {
+            console.error("[auto-shill] Deferred shill verify error:", err);
+            await followUpInteraction(applicationId, interactionToken, "❌ Something went wrong verifying your shill. Please try again.");
           }
-        }
+        })();
 
-        // ── Notify opted-in Telegram users with @mention ──
-        try {
-          const { data: tgPrefs } = await supabase
-            .from("discord_notify_prefs")
-            .select("telegram_username")
-            .eq("notify_telegram", true)
-            .not("telegram_username", "is", null);
-
-          const tgHandles = (tgPrefs || [])
-            .map((p: any) => p.telegram_username?.trim())
-            .filter(Boolean)
-            .map((h: string) => `@${h.replace(/^@/, "")}`);
-
-          if (tgHandles.length > 0 && TELEGRAM_BOT_TOKEN) {
-            const tgText = `🔔 *New Shill Alert!*\n🔗 [Open Tweet](${verifyUrl})\n👤 Shilled by: ${discordUsername}\n\n📢 ${tgHandles.join(" ")}`;
-            await makeSendTelegram(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)(tgText);
-          }
-        } catch (tgErr) {
-          console.error("[auto-shill] Telegram notify error:", tgErr);
-        }
-
-        return json({
-          type: 4,
-          data: {
-            content: `✅ **Shill verified!** 💰\n\n🔗 Your post: ${verifyUrl}\n👤 \`${discordUsername}\`\n\n✅ Payment confirmed ($0.05)\n📡 Your link has been forwarded to the raid room for raiders to boost!`,
-            flags: 64,
-          },
-        });
+        // Return deferred response immediately (type 5 = DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE)
+        return json({ type: 5, data: { flags: 64 } });
       }
 
       // ─── Bad Link confirmation modal submit — raider confirms bad link ───
