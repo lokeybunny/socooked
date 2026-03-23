@@ -54,6 +54,21 @@ You can perform these actions:
 4. SEARCH/LIST customers: GET /clawd-bot/customers with optional ?status=X&category=X
 5. LOOKUP a specific customer: GET /clawd-bot/search?q=name_or_email
 
+GOOGLE MAPS PASTE DETECTION:
+When the user pastes raw text from Google Maps (contains patterns like ratings "4.2 (64)", addresses, phone numbers, URLs, business types like "Auto repair shop", "Opens 8 AM", etc.), automatically extract ALL data and create a customer with:
+- full_name: The business name (e.g. "Fedel's Auto Care INC")
+- company: Same as full_name
+- phone: The phone number found (e.g. "(702) 454-1699")
+- address: The street address (e.g. "5675 Boulder Hwy, Las Vegas, NV 89122")
+- status: "lead"
+- category: Map the business type to the closest valid category (auto repair/services → "mobile-services", restaurant/cafe → "food-and-beverage", store/retail → "brick-and-mortar", web/tech → "digital-services", online store → "digital-ecommerce", default → "other")
+- source: "manual"
+- notes: Include rating, review count, business type, hours, website, and plus code. Example: "Rating: 4.2/5 (64 reviews)\\nType: Auto repair shop\\nHours: Closed · Opens 8 AM\\nWebsite: fedelsautocare.com\\nPlus Code: 3XX2+QH Las Vegas, Nevada"
+- tags: Extract business type keywords (e.g. ["auto-repair", "automotive"])
+- meta: { gmaps_rating, gmaps_review_count, website, source_platform: "google-maps-paste" }
+
+Do NOT ask for clarification when Google Maps data is pasted — just extract and create immediately.
+
 Respond with JSON in this exact format:
 {
   "type": "executed",
