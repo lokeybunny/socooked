@@ -302,7 +302,7 @@ export default function ShillTeam() {
         </section>
 
 
-        <section className="text-center space-y-4 py-4">
+        <section id="join-cta" className="text-center space-y-4 py-4">
           <h2 className="text-2xl font-bold">Ready to Start Earning?</h2>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">Open a ticket in our Discord to get onboarded and receive your role.</p>
           <div className="flex items-center justify-center gap-3 mt-2">
