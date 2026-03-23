@@ -2882,6 +2882,13 @@ serve(async (req) => {
         ],
       },
       {
+        name: "walletcrm", description: "(Admin) Set a Solana wallet for a user (public)", type: 1,
+        options: [
+          { name: "user", description: "The Discord user ID", type: 3, required: true },
+          { name: "address", description: "Solana wallet address", type: 3, required: true },
+        ],
+      },
+      {
         name: "welcomeshill", description: "(Admin) Post the welcome/onboarding guide for new shillers & raiders", type: 1,
       },
     ];
