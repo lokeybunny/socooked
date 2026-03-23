@@ -412,6 +412,22 @@ function RaidersTab() {
       vMap.set(c.discord_user_id, entry);
     }
     setVerifiedMap(vMap);
+
+    // Fetch bad link flags from activity_log
+    const { data: badLinks } = await supabase
+      .from("activity_log")
+      .select("meta")
+      .eq("entity_type", "shill-bad-link")
+      .eq("action", "flagged");
+
+    const bMap = new Map<string, number>();
+    for (const bl of badLinks || []) {
+      const meta = bl.meta as any;
+      const uid = meta?.shiller_discord_user_id;
+      if (uid) bMap.set(uid, (bMap.get(uid) || 0) + 1);
+    }
+    setBadLinkMap(bMap);
+
     setLoading(false);
   }, []);
 
