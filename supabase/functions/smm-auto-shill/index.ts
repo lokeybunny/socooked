@@ -2191,12 +2191,25 @@ serve(async (req) => {
           // Raider's secret code is their unique hashtag
           const raidHashtag = `#${raiderSecretCode}`;
 
+          // Random natural opener for raid copy too
+          const raidOpenerPool = [
+            "GM everyone 🌅", "gm gm how we doing today", "yo what's good everyone",
+            "hope everyone's having a great day", "checking in real quick",
+            "just scrolling and had to share", "can't keep this to myself",
+            "ok hear me out", "good morning fam", "hey everyone what's up",
+            "who's up rn", "real ones know", "had to put y'all on",
+            "dropping this here", "vibes are immaculate today",
+            "not gonna lie this is it", "quick share before I forget",
+            "woke up feeling bullish", "passing this along",
+          ];
+          const raidOpener = raidOpenerPool[Math.floor(Math.random() * raidOpenerPool.length)];
+
           const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
           // Insert raider's secret code hashtag at random position
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, raidHashtag);
 
-          const copyText = copyParts.join(" ") + (campaignUrl ? `\n${campaignUrl}` : "");
+          const copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (campaignUrl ? `\n${campaignUrl}` : "");
 
           sendCopyDM(discordUserId, copyText);
           return json({
