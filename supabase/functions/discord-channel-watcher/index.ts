@@ -17,13 +17,27 @@ const TG_SHILL_LOUNGE = "-1002188568751";
 // Discord channel to auto-forward to Telegram
 const DISCORD_ANNOUNCEMENTS_CHANNEL = "1485107307842109523";
 
+/** Escape dynamic content for Telegram HTML messages */
+function escapeTelegramHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 /** Send a message to the Telegram shill lounge */
-async function sendToTelegramLounge(botToken: string, text: string, replyMarkup?: any) {
+async function sendToTelegramLounge(
+  botToken: string,
+  text: string,
+  replyMarkup?: any,
+  parseMode: "Markdown" | "HTML" = "Markdown",
+) {
   try {
     const body: any = {
       chat_id: TG_SHILL_LOUNGE,
       text,
-      parse_mode: "Markdown",
+      parse_mode: parseMode,
       disable_web_page_preview: false,
     };
     if (replyMarkup) body.reply_markup = replyMarkup;
