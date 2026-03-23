@@ -391,6 +391,7 @@ function RaidersTab() {
   const [payTarget, setPayTarget] = useState<PayoutTarget | null>(null);
 
   const [verifiedMap, setVerifiedMap] = useState<Map<string, { verified: number; pending: number }>>(new Map());
+  const [badLinkMap, setBadLinkMap] = useState<Map<string, number>>(new Map());
 
   const fetchRaiders = useCallback(async () => {
     setLoading(true);
