@@ -981,6 +981,86 @@ serve(async (req) => {
         });
       }
 
+      // ─── /authx2 command — admin-only: create raider with secret code ───
+      if (commandName === "authx2") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        if (discordUsername !== "warrenguru") {
+          return json({ type: 4, data: { content: "❌ Only admins can use `/authx2`.", flags: 64 } });
+        }
+
+        const usernameOption = interaction.data?.options?.find((o: any) => o.name === "username");
+        const codeOption = interaction.data?.options?.find((o: any) => o.name === "code");
+        const targetUsername = usernameOption?.value?.trim();
+        const secretCode = codeOption?.value?.trim();
+
+        if (!targetUsername || !secretCode) {
+          return json({ type: 4, data: { content: "❌ Usage: `/authx2 username:discorduser code:storm42x`", flags: 64 } });
+        }
+
+        // Validate secret code format (alphanumeric, 3-30 chars)
+        if (!/^[a-zA-Z0-9_]{3,30}$/.test(secretCode)) {
+          return json({ type: 4, data: { content: "❌ Secret code must be 3-30 alphanumeric characters (letters, numbers, underscores).", flags: 64 } });
+        }
+
+        // Check if code is already in use by another raider
+        const { data: codeExists } = await supabase
+          .from("raiders")
+          .select("id, discord_username")
+          .eq("secret_code", secretCode)
+          .maybeSingle();
+
+        if (codeExists) {
+          return json({ type: 4, data: { content: `❌ Code \`${secretCode}\` is already assigned to \`${codeExists.discord_username}\`. Pick a unique code.`, flags: 64 } });
+        }
+
+        // Check if raider already exists by username
+        const { data: existingRaider } = await supabase
+          .from("raiders")
+          .select("id, secret_code, discord_user_id")
+          .eq("discord_username", targetUsername)
+          .maybeSingle();
+
+        if (existingRaider) {
+          // Update existing raider with new secret code
+          await supabase.from("raiders").update({
+            secret_code: secretCode,
+            status: "active",
+            updated_at: new Date().toISOString(),
+          }).eq("id", existingRaider.id);
+        } else {
+          // Create new raider record — discord_user_id will be filled when they first interact
+          await supabase.from("raiders").insert({
+            discord_user_id: `pending_${targetUsername}`,
+            discord_username: targetUsername,
+            secret_code: secretCode,
+            status: "active",
+          });
+        }
+
+        // Log for audit
+        await supabase.from("activity_log").insert({
+          entity_type: "shill-authorization",
+          action: "admin-raider-created",
+          meta: {
+            name: `⚔️ Admin created raider ${targetUsername} → #${secretCode}`,
+            admin_username: discordUsername,
+            raider_username: targetUsername,
+            secret_code: secretCode,
+            method: "authx2",
+          },
+        });
+
+        return json({
+          type: 4,
+          data: {
+            content: `✅ **Raider created!**\n\n👤 \`${targetUsername}\`\n🔑 Code: \`${secretCode}\`\n#️⃣ Hashtag: \`#${secretCode}\`\n\nThey can now use this code with \`/raidauth\` or it will auto-apply when they interact in the raid channel.`,
+            flags: 64,
+          },
+        });
+      }
+
       // ─── /wallet command — set Solana wallet address ───
       if (commandName === "wallet") {
         const discordUser = interaction.member?.user || interaction.user || {};
