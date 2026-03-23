@@ -236,6 +236,34 @@ function normalizeXLabel(value: unknown, fallback: string): string {
   return label || fallback;
 }
 
+function normalizeDiscordUserId(value: unknown): string {
+  const raw = String(value || "").trim();
+  const mentionMatch = raw.match(/^<@!?(\d+)>$/);
+  if (mentionMatch) return mentionMatch[1];
+  const digitMatch = raw.match(/\d{8,}/);
+  return digitMatch ? digitMatch[0] : raw;
+}
+
+function normalizeDiscordAssignmentsMap(assignments: Record<string, string>) {
+  const normalized: Record<string, string> = {};
+  let changed = false;
+
+  for (const [rawUserId, account] of Object.entries(assignments || {})) {
+    const userId = normalizeDiscordUserId(rawUserId);
+    if (!userId) {
+      changed = true;
+      continue;
+    }
+
+    if (userId !== rawUserId) changed = true;
+    if (normalized[userId] !== account) {
+      normalized[userId] = account;
+    }
+  }
+
+  return { assignments: normalized, changed };
+}
+
 function dedupeAccountChoices(accounts: Array<{ handle: string; label: string }>): Array<{ handle: string; label: string }> {
   const seen = new Set<string>();
   const output: Array<{ handle: string; label: string }> = [];
@@ -335,7 +363,24 @@ async function loadShillConfig(supabase: any, profileUsername: string) {
   const { data: cfgRow } = await supabase
     .from("site_configs").select("id, content")
     .eq("site_id", "smm-auto-shill").eq("section", profileUsername).maybeSingle();
-  return { row: cfgRow, content: (cfgRow?.content as any) || {} };
+
+  const content = (cfgRow?.content as any) || {};
+  const assignmentResult = normalizeDiscordAssignmentsMap(content.discord_assignments || {});
+
+  if (cfgRow?.id && assignmentResult.changed) {
+    const normalizedContent = { ...content, discord_assignments: assignmentResult.assignments };
+    await supabase.from("site_configs")
+      .update({ content: normalizedContent })
+      .eq("id", cfgRow.id);
+    return { row: cfgRow, content: normalizedContent };
+  }
+
+  return {
+    row: cfgRow,
+    content: assignmentResult.changed
+      ? { ...content, discord_assignments: assignmentResult.assignments }
+      : content,
+  };
 }
 
 async function resolveDiscordGuildId(
@@ -1293,7 +1338,7 @@ serve(async (req) => {
 
         const userIdOption = interaction.data?.options?.find((o: any) => o.name === "user");
         const accountOption = interaction.data?.options?.find((o: any) => o.name === "account");
-        const targetUserId = userIdOption?.value?.trim();
+        const targetUserId = normalizeDiscordUserId(userIdOption?.value);
         const xAccount = accountOption?.value?.replace(/^@/, "")?.trim();
 
         if (!targetUserId || !xAccount) {
@@ -1302,7 +1347,7 @@ serve(async (req) => {
 
         const profileUsername = matchedProfile || "NysonBlack";
         const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
-        const assignments: Record<string, string> = currentContent.discord_assignments || {};
+        const assignments: Record<string, string> = { ...(currentContent.discord_assignments || {}) };
 
         // Check if X account is already claimed by someone else
         const existingClaimant = Object.entries(assignments).find(([, acc]) => acc === xAccount);
@@ -1317,7 +1362,11 @@ serve(async (req) => {
 
         // Assign
         assignments[targetUserId] = xAccount;
-        const discordUsernames: Record<string, string> = currentContent.discord_usernames || {};
+        const discordUsernames: Record<string, string> = { ...(currentContent.discord_usernames || {}) };
+
+        const resolvedUser = interaction.data?.resolved?.users?.[targetUserId];
+        const targetUsername = resolvedUser?.username || resolvedUser?.global_name || discordUsernames[targetUserId] || `user_${targetUserId}`;
+        discordUsernames[targetUserId] = targetUsername;
 
         await supabase.from("site_configs").upsert({
           id: cfgRow?.id || undefined,
@@ -1357,7 +1406,7 @@ serve(async (req) => {
         }
 
         const userIdOption = interaction.data?.options?.find((o: any) => o.name === "user");
-        const targetUserId = userIdOption?.value?.trim();
+        const targetUserId = normalizeDiscordUserId(userIdOption?.value);
 
         if (!targetUserId) {
           return json({ type: 4, data: { content: "❌ Usage: `/authorizeraider user:<discord_user_id>`", flags: 64 } });
@@ -3109,14 +3158,14 @@ serve(async (req) => {
       {
         name: "authorizeshiller", description: "(Admin) Authorize a user as a shiller on their behalf", type: 1,
         options: [
-          { name: "user", description: "The Discord user ID to authorize", type: 3, required: true },
+          { name: "user", description: "The Discord user to authorize", type: 6, required: true },
           { name: "account", description: "The X account to assign", type: 3, required: true, autocomplete: true },
         ],
       },
       {
         name: "authorizeraider", description: "(Admin) Authorize a user as a raider", type: 1,
         options: [
-          { name: "user", description: "The Discord user ID to authorize", type: 3, required: true },
+          { name: "user", description: "The Discord user to authorize", type: 6, required: true },
         ],
       },
       {
