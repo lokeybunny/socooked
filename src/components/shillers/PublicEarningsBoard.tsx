@@ -110,6 +110,10 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
         const raiderInfo = raiderMap.get(uid);
         const isShiller = shillerUserIds.has(uid);
         const isRaider = raiderMap.has(uid);
+        const defaults = {
+          shill_verified: 0, shill_pending: 0, shill_verified_clicks: 0, shill_pending_clicks: 0,
+          raid_verified: 0, raid_pending: 0, raid_verified_clicks: 0, raid_pending_clicks: 0,
+        };
         userMap.set(uid, {
           discord_user_id: uid,
           discord_username: click.discord_username || raiderInfo?.username || uid,
@@ -117,16 +121,22 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
           role: isShiller && isRaider ? "both" : isShiller ? "shiller" : "raider",
+          ...defaults,
         });
       }
       const entry = userMap.get(uid)!;
       const rate = Number(click.rate || 0);
+      const isRaidClick = click.click_type === "raid";
       if (click.status === "verified") {
         entry.verified_amount += rate;
         entry.verified_clicks += 1;
+        if (isRaidClick) { entry.raid_verified += rate; entry.raid_verified_clicks += 1; }
+        else { entry.shill_verified += rate; entry.shill_verified_clicks += 1; }
       } else if (click.status === "clicked") {
         entry.pending_amount += rate;
         entry.pending_clicks += 1;
+        if (isRaidClick) { entry.raid_pending += rate; entry.raid_pending_clicks += 1; }
+        else { entry.shill_pending += rate; entry.shill_pending_clicks += 1; }
       }
     }
 
