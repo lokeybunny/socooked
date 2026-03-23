@@ -2654,6 +2654,9 @@ serve(async (req) => {
           { name: "code", description: "Secret code (also used as their hashtag)", type: 3, required: true },
         ],
       },
+      {
+        name: "welcomeshill", description: "(Admin) Post the welcome/onboarding guide for new shillers & raiders", type: 1,
+      },
     ];
 
     const registerTargets = [
