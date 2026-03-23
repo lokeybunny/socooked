@@ -657,14 +657,13 @@ async function cleanupExpiredRaidMessages(supabase: any, discordBotToken: string
   if (!discordBotToken) return;
 
   try {
-    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
     const { data: expired } = await supabase
       .from("activity_log")
       .select("id, meta")
       .eq("entity_type", "shill-bot-msg")
       .in("action", ["pending", "interacted"])
-      .lt("created_at", fiveMinAgo)
-      .limit(10);
+      .order("created_at", { ascending: true })
+      .limit(200);
 
     if (!expired || expired.length === 0) return;
 
@@ -2511,7 +2510,7 @@ serve(async (req) => {
                     {
                       type: 4,
                       custom_id: "shill_verify_url_input",
-                      label: "Paste the URL where you posted",
+                      label: "Paste your reply tweet URL",
                       style: 1,
                       placeholder: "https://x.com/yourhandle/status/123456...",
                       required: true,
@@ -2731,13 +2730,33 @@ serve(async (req) => {
 
         const isValidUrl = /https?:\/\/(x\.com|twitter\.com)\/\S+/i.test(verifyUrl);
         if (!isValidUrl) {
-          return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL.", flags: 64 } });
+          return json({ type: 4, data: { content: "❌ That doesn't look like a valid X/Twitter URL. Please paste the direct link to your actual reply tweet.", flags: 64 } });
         }
 
         // Live link validation — check the tweet actually exists
         const shillLinkCheck = await validateXLink(verifyUrl);
         if (!shillLinkCheck.valid) {
           return json({ type: 4, data: { content: `❌ **Broken link detected.** ${shillLinkCheck.reason || "The tweet doesn't exist or was deleted."}\n\nPlease submit a valid, live URL.`, flags: 64 } });
+        }
+
+        let sourceTweetUrl = "";
+        const embeds = interaction.message?.embeds || [];
+        if (embeds.length > 0) {
+          const desc = embeds[0].description || "";
+          const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
+          if (urlMatch) sourceTweetUrl = urlMatch[0].replace(/[)\]}>]+$/, "");
+        }
+
+        const submittedTweetId = extractTweetId(verifyUrl);
+        const sourceTweetId = extractTweetId(sourceTweetUrl);
+        if (submittedTweetId && sourceTweetId && submittedTweetId === sourceTweetId) {
+          return json({
+            type: 4,
+            data: {
+              content: "❌ That is the original shill post link — submit the URL of your actual reply tweet instead.",
+              flags: 64,
+            },
+          });
         }
 
         // Find this user's pending click for this message and verify it immediately
