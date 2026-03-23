@@ -1282,6 +1282,59 @@ serve(async (req) => {
         });
       }
 
+      // ─── /raidauth command — register as a raider with secret code ───
+      if (commandName === "raidauth") {
+        const discordUser = interaction.member?.user || interaction.user || {};
+        const discordUserId = discordUser.id || "unknown";
+        const discordUsername = discordUser.username || discordUser.global_name || "unknown";
+
+        // Upsert raider record first
+        await supabase.from("raiders").upsert({
+          discord_user_id: discordUserId,
+          discord_username: discordUsername,
+        }, { onConflict: "discord_user_id" });
+
+        // Check if already has a secret code
+        const { data: existingRaider } = await supabase
+          .from("raiders")
+          .select("secret_code, status")
+          .eq("discord_user_id", discordUserId)
+          .maybeSingle();
+
+        if (existingRaider?.secret_code) {
+          return json({ type: 4, data: {
+            content: `✅ You're already registered as a raider!\n\n🔑 Your code: \`#${existingRaider.secret_code}\`\n📊 Status: ${existingRaider.status || "active"}`,
+            flags: 64,
+          }});
+        }
+
+        // Show modal to enter secret code (same as the button flow)
+        return json({
+          type: 9,
+          data: {
+            custom_id: `raider_code_submit_raidauth`,
+            title: "Enter Your Raider Secret Code",
+            components: [
+              {
+                type: 1, // ActionRow
+                components: [
+                  {
+                    type: 4, // TextInput
+                    custom_id: "secret_code_input",
+                    label: "Secret Code (given by admin)",
+                    style: 1, // Short
+                    placeholder: "e.g. storm42x",
+                    required: true,
+                    min_length: 2,
+                    max_length: 30,
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }
+
       // ─── /shill command ───
       let tweetUrl = "";
       const profileUsername = matchedProfile || "NysonBlack";
@@ -2439,6 +2492,9 @@ serve(async (req) => {
       },
       {
         name: "balance", description: "Check your verified earnings balance", type: 1,
+      },
+      {
+        name: "raidauth", description: "Register as a raider with your secret code", type: 1,
       },
     ];
 
