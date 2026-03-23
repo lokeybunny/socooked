@@ -114,7 +114,8 @@ serve(async (req) => {
       shillerBoard = shillerEntries.map(([name, s], i) => {
         const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `\`${i + 1}.\``;
         const flag = s.flagged > 0 ? ` ⚠️${s.flagged}` : "";
-        return `${medal} **${name}** — ✅ ${s.verified} | 💰 $${s.earned.toFixed(2)}${flag}`;
+        const xTag = s.xAccount ? ` (@${s.xAccount})` : "";
+        return `${medal} **${name}**${xTag} — ✅ ${s.verified} | 💰 $${s.earned.toFixed(2)}${flag}`;
       }).join("\n");
     }
 
