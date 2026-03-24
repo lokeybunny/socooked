@@ -183,6 +183,20 @@ export default function XShill() {
         .order("scheduled_at", { ascending: true })
         .limit(200);
       setScheduledPosts((posts as any[]) || []);
+
+      // Load rotation accounts
+      const { data: rotCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "shill-rotation-accounts")
+        .maybeSingle();
+      if (rotCfg?.content) {
+        setRotationAccounts((rotCfg.content as any).accounts || []);
+      } else {
+        // Seed with current default account
+        setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
+      }
     } catch (e) {
       console.error("Load error:", e);
     } finally {
