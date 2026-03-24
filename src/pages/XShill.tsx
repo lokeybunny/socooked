@@ -529,28 +529,71 @@ export default function XShill() {
                               <p className="text-[10px] text-muted-foreground">
                                 {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
                               </p>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 gap-1 text-[10px] border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
-                                onClick={async () => {
-                                  const { error } = await supabase
-                                    .from("shill_scheduled_posts")
-                                    .update({ status: "scheduled", error: null })
-                                    .eq("id", post.id);
-                                  if (error) {
-                                    toast.error("Failed to re-queue: " + error.message);
-                                  } else {
-                                    toast.success("Post re-queued for next cycle");
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 gap-1 text-[10px] border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                                  onClick={async () => {
+                                    // Re-queue to scheduled for next cron cycle
+                                    const { error } = await supabase
+                                      .from("shill_scheduled_posts")
+                                      .update({ status: "scheduled", error: null })
+                                      .eq("id", post.id);
+                                    if (error) {
+                                      toast.error("Failed to re-queue: " + error.message);
+                                    } else {
+                                      toast.success("Post queued for next cycle");
+                                      setScheduledPosts((prev) =>
+                                        prev.map((p) => p.id === post.id ? { ...p, status: "scheduled", error: null } : p)
+                                      );
+                                    }
+                                  }}
+                                >
+                                  <Clock className="h-2.5 w-2.5" />
+                                  QUE
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 gap-1 text-[10px] border-green-500/30 text-green-600 hover:bg-green-500/10"
+                                  onClick={async () => {
+                                    // Set to scheduled then immediately invoke shill-scheduler
+                                    const { error } = await supabase
+                                      .from("shill_scheduled_posts")
+                                      .update({ status: "scheduled", error: null, scheduled_at: new Date().toISOString() })
+                                      .eq("id", post.id);
+                                    if (error) {
+                                      toast.error("Failed to push: " + error.message);
+                                      return;
+                                    }
                                     setScheduledPosts((prev) =>
                                       prev.map((p) => p.id === post.id ? { ...p, status: "scheduled", error: null } : p)
                                     );
-                                  }
-                                }}
-                              >
-                                <RotateCcw className="h-2.5 w-2.5" />
-                                PUSH
-                              </Button>
+                                    toast.info("Pushing post now...");
+                                    try {
+                                      const res = await supabase.functions.invoke("shill-scheduler");
+                                      if (res.error) {
+                                        toast.error("Push failed: " + res.error.message);
+                                      } else {
+                                        toast.success("Post pushed immediately!");
+                                        // Refresh list
+                                        const { data } = await supabase
+                                          .from("shill_scheduled_posts")
+                                          .select("*")
+                                          .order("scheduled_at", { ascending: false })
+                                          .limit(100);
+                                        if (data) setScheduledPosts(data);
+                                      }
+                                    } catch (e: any) {
+                                      toast.error("Push error: " + e.message);
+                                    }
+                                  }}
+                                >
+                                  <Zap className="h-2.5 w-2.5" />
+                                  PUSH
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         ))}
