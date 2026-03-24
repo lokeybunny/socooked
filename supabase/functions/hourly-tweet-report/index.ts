@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
 
     const tweetsThisHour = hourlyCount || 0;
     const tweetsToday = dailyCount || 0;
-    const hoursElapsed = Math.max(1, Math.round((now.getTime() - twentyFourHoursAgo.getTime()) / (60 * 60 * 1000)));
+    const hoursElapsed = Math.max(1, Math.floor((now.getTime() - startOfDayUTC.getTime()) / (60 * 60 * 1000)));
     const hourlyAvg = tweetsToday > 0 ? (tweetsToday / hoursElapsed).toFixed(1) : "0";
     const raiderCount = activeRaiders || 0;
 
