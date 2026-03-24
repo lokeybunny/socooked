@@ -248,6 +248,11 @@ export default function XShill() {
   const completedPosts = scheduledPosts.filter((p) => p.status === "posted");
   const failedPosts = scheduledPosts.filter((p) => p.status === "failed");
 
+  const [pendingPage, setPendingPage] = useState(1);
+  const PENDING_PAGE_SIZE = 6;
+  const pendingTotalPages = Math.max(1, Math.ceil(pendingPosts.length / PENDING_PAGE_SIZE));
+  const pagedPendingPosts = pendingPosts.slice((pendingPage - 1) * PENDING_PAGE_SIZE, pendingPage * PENDING_PAGE_SIZE);
+
   const statusColor = (status: string) => {
     switch (status) {
       case "scheduled": return "default";
