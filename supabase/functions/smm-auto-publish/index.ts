@@ -933,7 +933,11 @@ Deno.serve(async (req) => {
         hourlyPlatformCount.set(p, (hourlyPlatformCount.get(p) || 0) + 1);
       }
       const normTitle = normalizeComparableText(ev.title);
-      if (normTitle) publishedTitleSet.add(normTitle);
+      if (normTitle) {
+        for (const p of evPayload.platforms) {
+          publishedPlatformTitleSet.add(`${p}::${normTitle}`);
+        }
+      }
     };
 
     const processReadyBatch = async (readyEvents: any[], label: string) => {
