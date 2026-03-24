@@ -185,8 +185,8 @@ export default function XShill() {
     await supabase.from("site_configs").upsert({
       site_id: "smm-auto-shill",
       section,
-      content: { last_post_ms: 0 },
-    }, { onConflict: "site_id,section" });
+      content: { last_post_ms: 0 } as any,
+    } as any, { onConflict: "site_id,section" } as any);
     toast.success("Throttle reset — next detection will post immediately");
     loadAll();
   };
