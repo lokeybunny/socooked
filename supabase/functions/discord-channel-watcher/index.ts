@@ -378,8 +378,8 @@ serve(async (req) => {
         }
 
         // ═══ RAID COMMUNITY AUTO-POST ═══
-        // Any Trump / WhiteHouse related content triggers community posts.
-        // Direct @whitehouse posts bypass throttle; other Trump-related content uses 10 min cooldown.
+        // Any WhiteHouse-related content triggers community posts.
+        // Direct @whitehouse posts bypass throttle; other WH content uses 10 min cooldown.
         const RAID_COMMUNITY_SOURCE = "1484699554271072257";
         const X_COMMUNITY_ID = "2029596385180291485";
         const WHITEHOUSE_CA = "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
