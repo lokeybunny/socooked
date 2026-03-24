@@ -3568,18 +3568,43 @@ Deno.serve(async (req) => {
 
       // ─── Shill session handler ───
       if (sessionType === 'shill_session') {
-        if (sp.step === 'caption' && text) {
-          // User entered caption, now ask for video
-          await supabase.from('webhook_events').update({
-            payload: { ...sp, step: 'video', caption: text },
-          }).eq('id', session.id)
-          await tgPost(TG_TOKEN, 'sendMessage', {
-            chat_id: chatId,
-            text: `✅ Caption saved:\n<i>"${text}"</i>\n\n📹 Now please upload the video to share.`,
-            parse_mode: 'HTML',
-          })
-          return new Response('ok')
-        }
+       if (sp.step === 'caption' && text) {
+           // User entered caption, now ask post now or schedule
+           await supabase.from('webhook_events').update({
+             payload: { ...sp, step: 'timing', caption: text },
+           }).eq('id', session.id)
+           await tgPost(TG_TOKEN, 'sendMessage', {
+             chat_id: chatId,
+             text: `✅ Caption saved:\n<i>"${text}"</i>\n\n⏱ Would you like to <b>post now</b> or <b>schedule</b> this post?`,
+             parse_mode: 'HTML',
+             reply_markup: {
+               inline_keyboard: [
+                 [{ text: '🚀 Post Now', callback_data: 'shill_timing_now' }],
+                 [{ text: '📅 Schedule', callback_data: 'shill_timing_schedule' }],
+               ],
+             },
+           })
+           return new Response('ok')
+         }
+
+         // Timing step: handled via callback, but if user types text instead
+         if (sp.step === 'timing' && text) {
+           const lower = text.toLowerCase()
+           if (lower.includes('now')) {
+             await supabase.from('webhook_events').update({
+               payload: { ...sp, step: 'video', timing: 'now' },
+             }).eq('id', session.id)
+             await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Upload the video to post now.', parse_mode: 'HTML' })
+           } else if (lower.includes('schedule') || lower.includes('later')) {
+             await supabase.from('webhook_events').update({
+               payload: { ...sp, step: 'video', timing: 'schedule' },
+             }).eq('id', session.id)
+             await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Upload the video to schedule.', parse_mode: 'HTML' })
+           } else {
+             await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❓ Please choose "Post Now" or "Schedule".', parse_mode: 'HTML' })
+           }
+           return new Response('ok')
+         }
 
         if (sp.step === 'video' && media) {
           await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📡 Downloading video from Telegram...' })
