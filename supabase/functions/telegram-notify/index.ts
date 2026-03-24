@@ -255,21 +255,32 @@ Deno.serve(async (req) => {
       console.error("Telegram API partial delivery failure:", failedDeliveries);
     }
 
-    // Forward top_gainer alerts to Discord TP10 webhook
+    // Forward to Discord TP8 webhook
     let discordSent = false;
-    if (entry.entity_type === "top_gainer") {
-      const discordWebhookUrl = Deno.env.get("DISCORD_TP8_WEBHOOK_URL");
-      if (discordWebhookUrl) {
+    const discordWebhookUrl = Deno.env.get("DISCORD_TP8_WEBHOOK_URL");
+    if (discordWebhookUrl) {
+      const DISCORD_ENTITY_TYPES = new Set([
+        "top_gainer",
+        "shill-bot-msg",
+        "auto-shill",
+      ]);
+
+      if (DISCORD_ENTITY_TYPES.has(entry.entity_type)) {
         try {
-          const ca = entry.meta?.ca_address || "";
-          const discordMsg = ca;
+          let discordMsg: string;
+          if (entry.entity_type === "top_gainer") {
+            discordMsg = entry.meta?.ca_address || "";
+          } else {
+            // Shill/raid alerts — send the same formatted message
+            discordMsg = message;
+          }
           const discordRes = await fetch(discordWebhookUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ content: discordMsg }),
           });
           discordSent = discordRes.ok;
-          console.log(`[telegram-notify] Discord TP10 sent: ${discordMsg}`);
+          console.log(`[telegram-notify] Discord sent (${entry.entity_type}): ${discordMsg.substring(0, 80)}`);
         } catch (discordErr: any) {
           console.error("[telegram-notify] Discord webhook error:", discordErr.message);
         }
