@@ -239,15 +239,18 @@ serve(async (req) => {
 
     if (channelConfigs.length === 0) return json({ ok: true, skipped: true, reason: "No channels configured", expired: expiredCount });
 
-    // Deduplicate by listen channel
-    const seenChannels = new Set<string>();
-    const uniqueChannels: typeof channelConfigs = [];
+    // Deduplicate by listen channel — prefer configs with a distinct reply channel
+    const seenChannels = new Map<string, typeof channelConfigs[0]>();
     for (const cc of channelConfigs) {
-      if (!seenChannels.has(cc.listenChannelId)) {
-        seenChannels.add(cc.listenChannelId);
-        uniqueChannels.push(cc);
+      const prev = seenChannels.get(cc.listenChannelId);
+      if (!prev) {
+        seenChannels.set(cc.listenChannelId, cc);
+      } else if (prev.replyChannelId === prev.listenChannelId && cc.replyChannelId !== cc.listenChannelId) {
+        // Prefer the config that has a dedicated reply channel
+        seenChannels.set(cc.listenChannelId, cc);
       }
     }
+    const uniqueChannels = Array.from(seenChannels.values());
 
     let totalForwarded = 0;
 
