@@ -3715,7 +3715,7 @@ Deno.serve(async (req) => {
                   status: 'scheduled',
                 })
 
-                const timeStr = scheduledAt.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+                const timeStr = scheduledAt.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
                 await tgPost(TG_TOKEN, 'sendMessage', {
                   chat_id: chatId,
                   text: `📅 <b>Video scheduled!</b>\n\n📝 Caption: <i>"${sp.caption}"</i>\n🕐 Posting at: <b>${timeStr} ET</b>\n🎬 <a href="${publicUrl}">Preview Video</a>\n\n<i>Manage scheduled posts in the X Shill → Campaign tab.</i>`,
