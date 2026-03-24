@@ -2332,9 +2332,8 @@ serve(async (req) => {
           let raidFinalUrl = raidCfg?.campaign_url || "";
           const shillTicker = raidCfg?.ticker || "";
 
-          // Discord Campaign Mode for raids too
-          const raidDiscordCampaign = raidCfg?.discord_campaign_mode === true;
-          if (raidDiscordCampaign && shillTicker) {
+          // Always try to find owned video post with ticker for raids too
+          if (shillTicker) {
             try {
               const UPLOAD_POST_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
               const histRes = await fetch(
@@ -2352,7 +2351,7 @@ serve(async (req) => {
                 if (match?.post_url) raidFinalUrl = match.post_url;
               }
             } catch (e) {
-              console.error("[auto-shill] Raid discord campaign mode error:", e);
+              console.error("[auto-shill] Raid campaign mode error:", e);
             }
           }
 
