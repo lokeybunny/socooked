@@ -28,6 +28,7 @@ interface ShillConfig {
   enabled: boolean;
   campaign_url: string;
   ticker: string;
+  discord_campaign_mode: boolean;
   discord_app_id: string;
   discord_public_key: string;
   discord_channel_id: string;
@@ -64,7 +65,7 @@ const headers = {
 type TabValue = 'campaign' | 'team' | 'cooldown' | 'feed' | 'assignments' | 'auth-log';
 
 export default function AutoShillModal({ open, onOpenChange, profileUsername, profiles = [] }: AutoShillModalProps) {
-  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_app_id: '', discord_public_key: '', discord_channel_id: '', discord_listen_channel_id: '', discord_reply_channel_id: '', team_accounts: [], retweet_accounts: [], account_hashtags: {}, discord_assignments: {}, discord_usernames: {} });
+  const [config, setConfig] = useState<ShillConfig>({ enabled: false, campaign_url: '', ticker: '', discord_campaign_mode: false, discord_app_id: '', discord_public_key: '', discord_channel_id: '', discord_listen_channel_id: '', discord_reply_channel_id: '', team_accounts: [], retweet_accounts: [], account_hashtags: {}, discord_assignments: {}, discord_usernames: {} });
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [authLog, setAuthLog] = useState<AuthLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -308,7 +309,17 @@ export default function AutoShillModal({ open, onOpenChange, profileUsername, pr
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">Campaign URL</Label>
-                  <Input value={config.campaign_url} onChange={(e) => setConfig(prev => ({ ...prev, campaign_url: e.target.value }))} placeholder="https://x.com/community/post/..." className="h-8 text-sm font-mono" />
+                  <Input value={config.campaign_url} onChange={(e) => setConfig(prev => ({ ...prev, campaign_url: e.target.value }))} placeholder="https://x.com/community/post/..." className="h-8 text-sm font-mono" disabled={config.discord_campaign_mode} />
+                </div>
+
+                <div className="flex items-center justify-between rounded-md border border-border p-3 bg-muted/30">
+                  <div>
+                    <Label className="text-sm font-medium">Discord Campaign Mode</Label>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      When enabled, "Get Shill Copy" links to your latest X video post containing the ticker — posted by your owned accounts only.
+                    </p>
+                  </div>
+                  <Switch checked={config.discord_campaign_mode ?? false} onCheckedChange={(v) => setConfig(prev => ({ ...prev, discord_campaign_mode: v }))} />
                 </div>
 
                 {/* Stats summary */}

@@ -2605,7 +2605,40 @@ serve(async (req) => {
         }
 
         // ── SHILL CHANNEL: randomized copy with hashtags + campaign link ──
-        const finalUrl = campaignUrl;
+        let finalUrl = campaignUrl;
+
+        // Discord Campaign Mode: find latest owned X video post with the ticker
+        const discordCampaignMode = cfg?.discord_campaign_mode === true;
+        if (discordCampaignMode && shillTicker) {
+          try {
+            const UPLOAD_POST_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
+            const histRes = await fetch(
+              `https://api.upload-post.com/api/uploadposts/history?page=1&limit=50`,
+              { headers: { Authorization: `Bearer ${UPLOAD_POST_KEY}` } }
+            );
+            if (histRes.ok) {
+              const histJson = await histRes.json();
+              const history = histJson?.history || [];
+              const tickerLower = shillTicker.replace(/^\$/, "").toLowerCase();
+              // Find the latest X video post containing the ticker from our owned accounts
+              const match = history.find((h: any) =>
+                h.platform === "x" &&
+                h.success === true &&
+                h.media_type === "video" &&
+                h.post_url &&
+                (h.post_caption || h.post_title || "").toLowerCase().includes(tickerLower)
+              );
+              if (match?.post_url) {
+                finalUrl = match.post_url;
+                console.log(`[auto-shill] Discord campaign mode: using owned video post ${finalUrl}`);
+              } else {
+                console.log(`[auto-shill] Discord campaign mode: no matching owned video post found for ticker ${shillTicker}, falling back to campaign_url`);
+              }
+            }
+          } catch (e) {
+            console.error("[auto-shill] Discord campaign mode fetch error:", e);
+          }
+        }
 
         // Random natural opener to dodge spam filters (200+ pool)
         const openerPool = OPENER_POOL;
