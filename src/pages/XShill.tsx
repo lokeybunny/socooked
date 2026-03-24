@@ -666,7 +666,92 @@ export default function XShill() {
             </div>
           </TabsContent>
 
-          {/* ═══ COMMUNITIES ═══ */}
+          {/* ═══ ACCOUNTS (Rotation Pool) ═══ */}
+          <TabsContent value="accounts" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4 text-primary" />
+                  X Account Rotation Pool
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground">
+                  Add multiple X accounts. When one hits the daily 50-post cap, the system auto-rotates to the next active account.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Add account */}
+                <div className="flex gap-2">
+                  <Input
+                    className="text-xs flex-1"
+                    placeholder="@handle (e.g. xslaves)"
+                    value={newAccountHandle}
+                    onChange={(e) => setNewAccountHandle(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addRotationAccount()}
+                  />
+                  <Button size="sm" onClick={addRotationAccount}>
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
+
+                {/* Account list */}
+                <div className="space-y-2">
+                  {rotationAccounts.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No accounts configured. Add one above.</p>
+                  ) : (
+                    rotationAccounts.map((acc, idx) => (
+                      <div key={acc.id} className="flex items-center justify-between border rounded-md p-3">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="text-[9px] font-mono">#{idx + 1}</Badge>
+                          <div>
+                            <p className="text-sm font-medium">@{acc.handle}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {acc.posts_today} posts today
+                              {acc.capped_at && ` • Capped ${formatDistanceToNow(new Date(acc.capped_at), { addSuffix: true })}`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={acc.status === "active" ? "default" : acc.status === "capped" ? "destructive" : "secondary"}
+                            className="text-[9px]"
+                          >
+                            {acc.status === "active" ? "🟢 ACTIVE" : acc.status === "capped" ? "🔴 CAPPED" : "⏸ PAUSED"}
+                          </Badge>
+                          {acc.status === "capped" && (
+                            <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => resetAccountCap(acc.id)}>
+                              Reset Cap
+                            </Button>
+                          )}
+                          {acc.status !== "capped" && (
+                            <Switch
+                              checked={acc.status === "active"}
+                              onCheckedChange={(v) => toggleAccountStatus(acc.id, v ? "active" : "paused")}
+                            />
+                          )}
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeRotationAccount(acc.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p className="font-semibold text-foreground">How Rotation Works:</p>
+                  <p>1. Posts are sent using the first <strong>active</strong> account in the list</p>
+                  <p>2. If the Upload-Post API returns a "daily cap" error, the account is auto-marked as <strong>CAPPED</strong></p>
+                  <p>3. The system immediately retries with the next active account in the rotation</p>
+                  <p>4. Capped accounts auto-reset at midnight UTC (or manually via "Reset Cap")</p>
+                  <p>5. If all accounts are capped, posts are queued until an account is available</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+
           <TabsContent value="communities" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Target Communities</h3>
