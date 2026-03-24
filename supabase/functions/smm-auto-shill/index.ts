@@ -3894,7 +3894,21 @@ async function processAutoShill(
   sendTelegram: (text: string) => Promise<void>,
   isBot: boolean,
 ) {
-  const COOLDOWN_MS = 5 * 60 * 1000;
+  const COOLDOWN_MS = 30 * 60 * 1000; // 30 min cooldown per account
+
+  // ── Global hourly rate limit: max 2 auto-shill replies per hour ──
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count: repliesLastHour } = await supabase
+    .from("activity_log")
+    .select("id", { count: "exact", head: true })
+    .eq("entity_type", "auto-shill")
+    .eq("action", "replied")
+    .gte("created_at", oneHourAgo);
+
+  if ((repliesLastHour ?? 0) >= 2) {
+    await sendTelegram(`⏳ *Auto-shill hourly limit reached* (2/hr)\nSkipping: ${tweetUrl}`);
+    return { ok: true, skipped: true, reason: "Hourly limit reached (max 2 auto-shill replies per hour)" };
+  }
 
   const { data: shillConfigs } = await supabase
     .from("site_configs").select("content, section")
