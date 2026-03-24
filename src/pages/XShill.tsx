@@ -201,6 +201,18 @@ export default function XShill() {
         // Seed with current default account
         setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
       }
+
+      // Load shill copy config (ticker + campaign_url for Get Shill Copy button)
+      const { data: shillCopyCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "config")
+        .maybeSingle();
+      if (shillCopyCfg?.content) {
+        setShillCopyTicker((shillCopyCfg.content as any).ticker || "");
+        setShillCopyCampaignUrl((shillCopyCfg.content as any).campaign_url || "");
+      }
     } catch (e) {
       console.error("Load error:", e);
     } finally {
