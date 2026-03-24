@@ -37,7 +37,13 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    // Calculate start of today in PST (midnight PST = 08:00 UTC)
+    const pstNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+    const startOfDayPST = new Date(pstNow.getFullYear(), pstNow.getMonth(), pstNow.getDate());
+    // Convert back to UTC: PST is UTC-7 (PDT) or UTC-8 (PST)
+    const pstOffsetMs = now.getTime() - pstNow.getTime();
+    const startOfDayUTC = new Date(startOfDayPST.getTime() + pstOffsetMs);
 
     // Count tweets in the last hour
     const { count: hourlyCount } = await supabase
@@ -45,11 +51,11 @@ Deno.serve(async (req) => {
       .select("*", { count: "exact", head: true })
       .gte("created_at", oneHourAgo.toISOString());
 
-    // Count tweets in the last 24 hours for daily average
+    // Count tweets since midnight PST (resets daily)
     const { count: dailyCount } = await supabase
       .from("shill_post_analytics")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", twentyFourHoursAgo.toISOString());
+      .gte("created_at", startOfDayUTC.toISOString());
 
     // Get active shillers from smm-auto-shill config (discord_assignments map)
     const { data: shillConfigs } = await supabase
