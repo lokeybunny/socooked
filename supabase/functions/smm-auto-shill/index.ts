@@ -2192,9 +2192,9 @@ serve(async (req) => {
         if (urlMatch) tweetUrl = urlMatch[0].replace(/\)$/, "");
       }
 
-      // ── RAID CHANNEL BYPASS — channel 1485050868838564030 ──
-      const RAID_CHANNEL_ID = "1485050868838564030";
-      const isRaidChannel = interactionChannelId === RAID_CHANNEL_ID;
+      // ── RAID CHANNEL BYPASS — raid channels don't require X account assignment ──
+      const RAID_CHANNEL_IDS = ["1485050868838564030", "1485010551196090448"];
+      const isRaidChannel = RAID_CHANNEL_IDS.includes(interactionChannelId);
 
       if (isRaidChannel) {
         // Upsert raider record (auto-register on first click)
