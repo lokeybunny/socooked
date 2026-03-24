@@ -3660,81 +3660,138 @@ Deno.serve(async (req) => {
             const { data: urlData } = supa.storage.from('content-uploads').getPublicUrl(storagePath)
             const publicUrl = urlData.publicUrl
 
-            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📤 Sending video to X community...' })
+            // ─── SCHEDULE PATH ───
+            if (sp.timing === 'schedule') {
+              // Find next available slot: max 3 per hour, randomized within each hour
+              const { data: existingPosts } = await supa
+                .from('shill_scheduled_posts')
+                .select('scheduled_at')
+                .in('status', ['scheduled', 'processing'])
+                .order('scheduled_at', { ascending: true })
 
-            // Post to Upload-Post API via smm-api with community_id
-            // IMPORTANT: parameter name is "video" (not "video_url") per Upload-Post API docs
-            const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
-            const X_COMMUNITY_ID = '2029596385180291485'
-            const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
-              method: 'POST',
-              headers: {
-                'apikey': ANON_KEY,
-                'Authorization': `Bearer ${ANON_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                title: sp.caption,
-                video: publicUrl,
-                'platform[]': ['x'],
-                user: 'xslaves',
-                community_id: X_COMMUNITY_ID,
-              }),
-            })
-            const postResult = await postRes.json()
+              // Build a map of posts per hour
+              const hourCounts: Record<string, number> = {}
+              for (const p of existingPosts || []) {
+                const hourKey = new Date(p.scheduled_at).toISOString().slice(0, 13) // YYYY-MM-DDTHH
+                hourCounts[hourKey] = (hourCounts[hourKey] || 0) + 1
+              }
 
-            if (!postRes.ok || postResult?.error) {
-              const errMsg = postResult?.error || postResult?.message || `HTTP ${postRes.status}`
-              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Upload failed: ${errMsg}` })
-            } else {
-              const requestId = postResult?.request_id || postResult?.data?.request_id || ''
+              // Find next hour with fewer than 3 posts
+              let scheduledAt: Date | null = null
+              const now = new Date()
+              // Start from next hour (don't schedule in current partial hour to allow breathing room)
+              const startHour = new Date(now)
+              startHour.setMinutes(0, 0, 0)
+              startHour.setHours(startHour.getHours() + 1)
 
-              // Poll upload-status to confirm processing before reporting success
-              let postUrl = ''
-              let statusLabel = 'submitted'
-              if (requestId) {
-                await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏳ Waiting for video to process...' })
-                for (let poll = 0; poll < 12; poll++) {
-                  await new Promise(r => setTimeout(r, 5000)) // 5s intervals, up to 60s
-                  try {
-                    const statusRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-status&request_id=${requestId}`, {
-                      headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` },
-                    })
-                    const statusData = await statusRes.json()
-                    const st = statusData?.status || statusData?.data?.status || ''
-                    console.log(`[shill] poll #${poll + 1} status=${st}`)
-                    if (st === 'completed' || st === 'success' || st === 'done') {
-                      statusLabel = 'completed'
-                      // Try to extract the post URL from the status response
-                      postUrl = statusData?.post_url || statusData?.data?.post_url ||
-                                statusData?.posts?.[0]?.post_url || statusData?.data?.posts?.[0]?.post_url || ''
-                      break
-                    }
-                    if (st === 'failed' || st === 'error') {
-                      statusLabel = 'failed'
-                      break
-                    }
-                  } catch (pollErr: any) {
-                    console.error('[shill] poll error:', pollErr.message)
-                  }
+              for (let h = 0; h < 168; h++) { // scan up to 7 days ahead
+                const candidate = new Date(startHour)
+                candidate.setHours(candidate.getHours() + h)
+                const hourKey = candidate.toISOString().slice(0, 13)
+                if ((hourCounts[hourKey] || 0) < 3) {
+                  // Randomize minute within the hour (avoid :00 and :59 for algo friendliness)
+                  const randomMinute = 2 + Math.floor(Math.random() * 56) // 2-57
+                  const randomSecond = Math.floor(Math.random() * 30)
+                  candidate.setMinutes(randomMinute, randomSecond, 0)
+                  scheduledAt = candidate
+                  break
                 }
               }
 
-              if (statusLabel === 'failed') {
-                await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Video processing failed on the provider side. Try again.' })
+              if (!scheduledAt) {
+                await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ All slots full for the next 7 days. Try posting now instead.' })
               } else {
-                let successMsg = `✅ <b>Video posted to $whitehouse community!</b>\n\n📝 Caption: <i>"${sp.caption}"</i>\n🆔 Request: <code>${requestId}</code>`
-                if (statusLabel === 'completed' && postUrl) {
-                  successMsg += `\n\n🔗 <a href="${postUrl}">View Post on X</a>`
-                } else if (statusLabel === 'submitted') {
-                  successMsg += `\n\n⏳ Video is still processing. Check status in SMM dashboard.`
-                }
+                await supa.from('shill_scheduled_posts').insert({
+                  chat_id: chatId,
+                  caption: sp.caption,
+                  video_url: publicUrl,
+                  storage_path: storagePath,
+                  scheduled_at: scheduledAt.toISOString(),
+                  status: 'scheduled',
+                })
+
+                const timeStr = scheduledAt.toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
                 await tgPost(TG_TOKEN, 'sendMessage', {
                   chat_id: chatId,
-                  text: successMsg,
+                  text: `📅 <b>Video scheduled!</b>\n\n📝 Caption: <i>"${sp.caption}"</i>\n🕐 Posting at: <b>${timeStr} ET</b>\n🎬 <a href="${publicUrl}">Preview Video</a>\n\n<i>Manage scheduled posts in the X Shill → Campaign tab.</i>`,
                   parse_mode: 'HTML',
                   disable_web_page_preview: false,
                 })
+              }
+            } else {
+              // ─── POST NOW PATH (existing logic) ───
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📤 Sending video to X community...' })
+
+              const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+              const X_COMMUNITY_ID = '2029596385180291485'
+              const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
+                method: 'POST',
+                headers: {
+                  'apikey': ANON_KEY,
+                  'Authorization': `Bearer ${ANON_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  title: sp.caption,
+                  video: publicUrl,
+                  'platform[]': ['x'],
+                  user: 'xslaves',
+                  community_id: X_COMMUNITY_ID,
+                }),
+              })
+              const postResult = await postRes.json()
+
+              if (!postRes.ok || postResult?.error) {
+                const errMsg = postResult?.error || postResult?.message || `HTTP ${postRes.status}`
+                await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Upload failed: ${errMsg}` })
+              } else {
+                const requestId = postResult?.request_id || postResult?.data?.request_id || ''
+
+                let postUrl = ''
+                let statusLabel = 'submitted'
+                if (requestId) {
+                  await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏳ Waiting for video to process...' })
+                  for (let poll = 0; poll < 12; poll++) {
+                    await new Promise(r => setTimeout(r, 5000))
+                    try {
+                      const statusRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-status&request_id=${requestId}`, {
+                        headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` },
+                      })
+                      const statusData = await statusRes.json()
+                      const st = statusData?.status || statusData?.data?.status || ''
+                      console.log(`[shill] poll #${poll + 1} status=${st}`)
+                      if (st === 'completed' || st === 'success' || st === 'done') {
+                        statusLabel = 'completed'
+                        postUrl = statusData?.post_url || statusData?.data?.post_url ||
+                                  statusData?.posts?.[0]?.post_url || statusData?.data?.posts?.[0]?.post_url || ''
+                        break
+                      }
+                      if (st === 'failed' || st === 'error') {
+                        statusLabel = 'failed'
+                        break
+                      }
+                    } catch (pollErr: any) {
+                      console.error('[shill] poll error:', pollErr.message)
+                    }
+                  }
+                }
+
+                if (statusLabel === 'failed') {
+                  await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Video processing failed on the provider side. Try again.' })
+                } else {
+                  let successMsg = `✅ <b>Video posted to $whitehouse community!</b>\n\n📝 Caption: <i>"${sp.caption}"</i>\n🆔 Request: <code>${requestId}</code>`
+                  if (statusLabel === 'completed' && postUrl) {
+                    successMsg += `\n\n🔗 <a href="${postUrl}">View Post on X</a>`
+                  } else if (statusLabel === 'submitted') {
+                    successMsg += `\n\n⏳ Video is still processing. Check status in SMM dashboard.`
+                  }
+                  await tgPost(TG_TOKEN, 'sendMessage', {
+                    chat_id: chatId,
+                    text: successMsg,
+                    parse_mode: 'HTML',
+                    disable_web_page_preview: false,
+                  })
+                }
               }
             }
           } catch (e: any) {
