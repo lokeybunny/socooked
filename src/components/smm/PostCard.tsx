@@ -437,7 +437,28 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
           </div>
         )}
 
-        {post.error && <p className="text-xs text-destructive border-t border-border pt-2">Error: {post.error}</p>}
+        {post.error && (
+          <div className="flex items-center gap-2 border-t border-border pt-2">
+            <p className="text-xs text-destructive flex-1">Error: {post.error}</p>
+            {post.status === 'failed' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 gap-1 text-[10px] border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                onClick={() => {
+                  if (onPush) {
+                    onPush(post);
+                  } else {
+                    toast.info('Force-push coming soon — use the terminal to manually re-upload this post.');
+                  }
+                }}
+              >
+                <RotateCcw className="h-2.5 w-2.5" />
+                PUSH
+              </Button>
+            )}
+          </div>
+        )}
       </div>
       <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} onDelete={onDelete} />
     </>
