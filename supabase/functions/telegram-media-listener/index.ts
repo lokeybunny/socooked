@@ -3676,51 +3676,47 @@ Deno.serve(async (req) => {
               const MIN_GAP_MS = 20 * 60 * 1000
               const isFarEnough = (t: number) => existingTimes.every(e => Math.abs(t - e) >= MIN_GAP_MS)
 
-              // ─── COOLDOWN LOGIC ───
-              // After every 3 consecutive posts (within 2h of each other), the NEXT post
-              // must be 1-3 hours after the 3rd post in that burst.
-              let cooldownAfter = 0 // earliest timestamp after cooldown
-              if (existingTimes.length >= 3) {
-                // Walk backwards and count the current consecutive burst
-                let burstCount = 1
-                for (let i = existingTimes.length - 1; i > 0; i--) {
-                  const gap = existingTimes[i] - existingTimes[i - 1]
-                  if (gap <= 2 * 60 * 60 * 1000) { // within 2 hours = same burst
-                    burstCount++
-                    if (burstCount >= 3) break // only need to detect 3
-                  } else {
-                    break
-                  }
-                }
-                // If the current burst has 3+ posts, enforce cooldown
-                if (burstCount >= 3) {
-                  const lastPost = existingTimes[existingTimes.length - 1]
-                  const cooldownHours = 1 + Math.random() * 2 // 1-3 hours
-                  cooldownAfter = lastPost + cooldownHours * 60 * 60 * 1000
+              // ─── BURST-GAP LOGIC ───
+              // Walk the full sorted timeline and figure out the burst position
+              // of the NEW post. After every 3rd consecutive post, the next post
+              // must be 1-3 hours after the 3rd.
+              // "Consecutive" = posts within 2h of each other.
+              const TWO_HOURS_MS = 2 * 60 * 60 * 1000
+
+              // Count consecutive posts at the END of the existing timeline
+              let tailBurstCount = 1
+              for (let i = existingTimes.length - 1; i > 0; i--) {
+                const gap = existingTimes[i] - existingTimes[i - 1]
+                if (gap <= TWO_HOURS_MS) {
+                  tailBurstCount++
+                } else {
+                  break // hit a gap, burst ended
                 }
               }
 
-              // Build hour-count map for 3-per-hour cap
-              const hourCounts: Record<string, number> = {}
-              for (const p of existingPosts || []) {
-                const hourKey = new Date(p.scheduled_at).toISOString().slice(0, 13)
-                hourCounts[hourKey] = (hourCounts[hourKey] || 0) + 1
+              // The new post will be the (tailBurstCount % 3 + 1)th post in the cycle
+              // If tailBurstCount is already a multiple of 3 (3, 6, 9...), the NEXT post
+              // needs a 1-3 hour cooldown gap after the last scheduled post
+              let cooldownAfter = 0
+              if (existingTimes.length > 0 && tailBurstCount % 3 === 0) {
+                const lastPost = existingTimes[existingTimes.length - 1]
+                const cooldownHours = 1 + Math.random() * 2 // 1-3 hours random
+                cooldownAfter = lastPost + cooldownHours * 60 * 60 * 1000
               }
 
               let scheduledAt: Date | null = null
               const now = new Date()
               // Start scheduling 30 minutes from now (never post immediately)
               let earliestMs = now.getTime() + 30 * 60 * 1000
-              // Apply cooldown if active
+              // Apply cooldown if active — this is the key: forces a 1-3h gap
               if (cooldownAfter > earliestMs) earliestMs = cooldownAfter
               const earliest = new Date(earliestMs)
 
-              for (let h = 0; h < 168; h++) { // scan up to 7 days ahead
+              // Scan forward to find a valid slot
+              for (let h = 0; h < 168; h++) { // up to 7 days ahead
                 const hourStart = new Date(earliest)
                 hourStart.setMinutes(0, 0, 0)
                 hourStart.setHours(hourStart.getHours() + h)
-                const hourKey = hourStart.toISOString().slice(0, 13)
-                if ((hourCounts[hourKey] || 0) >= 3) continue
 
                 // Try up to 15 random minutes in this hour to find a valid gap
                 for (let attempt = 0; attempt < 15; attempt++) {
