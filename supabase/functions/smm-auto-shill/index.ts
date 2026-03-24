@@ -2343,14 +2343,7 @@ serve(async (req) => {
           const raidDiscordShillOn = raidCommunityTargets.some((t: any) => t.enabled && t.discord_shill);
 
           if (raidDiscordShillOn) {
-            const { data: latestRaidPostCfg } = await supabase
-              .from("site_configs")
-              .select("content")
-              .eq("site_id", "smm-auto-shill")
-              .eq("section", "latest-community-post")
-              .maybeSingle();
-
-            const raidCommunityUrl = (latestRaidPostCfg?.content as any)?.post_url || "";
+            const raidCommunityUrl = await resolveLatestWhitehouseCommunityUrl(supabase);
             if (raidCommunityUrl) {
               const raidOpener = OPENER_POOL[Math.floor(Math.random() * OPENER_POOL.length)];
               const copyText = `${raidOpener}\n\n${raidCommunityUrl}`;
@@ -2643,15 +2636,7 @@ serve(async (req) => {
         const discordShillEnabled = communityTargets.some((t: any) => t.enabled && t.discord_shill);
 
         if (discordShillEnabled) {
-          // Fetch latest community post URL from site_configs (stored by discord-channel-watcher)
-          const { data: latestCPostCfg } = await supabase
-            .from("site_configs")
-            .select("content")
-            .eq("site_id", "smm-auto-shill")
-            .eq("section", "latest-community-post")
-            .maybeSingle();
-
-          const communityPostUrl = (latestCPostCfg?.content as any)?.post_url || "";
+          const communityPostUrl = await resolveLatestWhitehouseCommunityUrl(supabase);
 
           if (communityPostUrl) {
             const opener = OPENER_POOL[Math.floor(Math.random() * OPENER_POOL.length)];
@@ -2681,19 +2666,9 @@ serve(async (req) => {
 
         let finalUrl = campaignUrl;
         if (isCommunityCopyVariant) {
-          // Fetch the latest posted community post from @ctothispump (xslaves)
-          const { data: latestCommunityPost } = await supabase
-            .from("shill_scheduled_posts")
-            .select("post_url")
-            .eq("x_account", "xslaves")
-            .eq("status", "posted")
-            .not("post_url", "is", null)
-            .order("updated_at", { ascending: false })
-            .limit(1)
-            .single();
-
-          if (latestCommunityPost?.post_url) {
-            finalUrl = latestCommunityPost.post_url;
+          const latestWhUrl = await resolveLatestWhitehouseCommunityUrl(supabase);
+          if (latestWhUrl) {
+            finalUrl = latestWhUrl;
           }
         }
 
