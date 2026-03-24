@@ -3245,8 +3245,8 @@ Deno.serve(async (req) => {
     }
 
     // Session types we track (moved to module-level constants for performance)
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session']
-    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session']
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session']
+    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session']
 
     // action already resolved above (before reply guard)
 
