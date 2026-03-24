@@ -37,7 +37,13 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    // Calculate start of today in PST (midnight PST = 08:00 UTC)
+    const pstNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+    const startOfDayPST = new Date(pstNow.getFullYear(), pstNow.getMonth(), pstNow.getDate());
+    // Convert back to UTC: PST is UTC-7 (PDT) or UTC-8 (PST)
+    const pstOffsetMs = now.getTime() - pstNow.getTime();
+    const startOfDayUTC = new Date(startOfDayPST.getTime() + pstOffsetMs);
 
     // Count tweets in the last hour
     const { count: hourlyCount } = await supabase
@@ -45,11 +51,11 @@ Deno.serve(async (req) => {
       .select("*", { count: "exact", head: true })
       .gte("created_at", oneHourAgo.toISOString());
 
-    // Count tweets in the last 24 hours for daily average
+    // Count tweets since midnight PST (resets daily)
     const { count: dailyCount } = await supabase
       .from("shill_post_analytics")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", twentyFourHoursAgo.toISOString());
+      .gte("created_at", startOfDayUTC.toISOString());
 
     // Get active shillers from smm-auto-shill config (discord_assignments map)
     const { data: shillConfigs } = await supabase
@@ -74,7 +80,7 @@ Deno.serve(async (req) => {
 
     const tweetsThisHour = hourlyCount || 0;
     const tweetsToday = dailyCount || 0;
-    const hoursElapsed = Math.max(1, Math.round((now.getTime() - twentyFourHoursAgo.getTime()) / (60 * 60 * 1000)));
+    const hoursElapsed = Math.max(1, Math.floor((now.getTime() - startOfDayUTC.getTime()) / (60 * 60 * 1000)));
     const hourlyAvg = tweetsToday > 0 ? (tweetsToday / hoursElapsed).toFixed(1) : "0";
     const raiderCount = activeRaiders || 0;
 
@@ -104,7 +110,7 @@ Deno.serve(async (req) => {
           inline: true,
         },
         {
-          name: "📈 24h Average",
+          name: "📈 Today's Average",
           value: `**${hourlyAvg}** tweets/hour`,
           inline: true,
         },
@@ -117,7 +123,7 @@ Deno.serve(async (req) => {
           name: "💰 Potential Passive Income",
           value: [
             `This Hour: **${tweetsThisHour}** links × $0.05 = **$${potentialEarnings.toFixed(2)}**`,
-            `Today (24h): **${tweetsToday}** links × $0.05 = **$${dailyPotentialEarnings.toFixed(2)}**`,
+            `Today: **${tweetsToday}** links × $0.05 = **$${dailyPotentialEarnings.toFixed(2)}**`,
             ``,
             `🤑 Every link is **$0.05** waiting to be claimed!`,
           ].join("\n"),
@@ -149,14 +155,14 @@ Deno.serve(async (req) => {
       intro,
       "",
       `📊 *This Hour:* ${tweetsThisHour} tweets detected`,
-      `📈 *24h Average:* ${hourlyAvg} tweets/hour`,
+      `📈 *Today's Average:* ${hourlyAvg} tweets/hour`,
       "",
       `👥 *Active Team:*`,
       `⚡ ${activeShillerCount} Shillers • 🛡️ ${raiderCount} Raiders`,
       "",
       `💰 *Potential Passive Income:*`,
       `This Hour: ${tweetsThisHour} links × $0.05 = *$${potentialEarnings.toFixed(2)}*`,
-      `Today (24h): ${tweetsToday} links × $0.05 = *$${dailyPotentialEarnings.toFixed(2)}*`,
+      `Today: ${tweetsToday} links × $0.05 = *$${dailyPotentialEarnings.toFixed(2)}*`,
       `🤑 Every link is *$0.05* waiting to be claimed!`,
       "",
       `🕐 ${pstTime} PST`,
