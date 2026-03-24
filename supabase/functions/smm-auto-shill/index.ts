@@ -2604,6 +2604,46 @@ serve(async (req) => {
           });
         }
 
+        // ── Check if "Discord Shill" mode is enabled for this community ──
+        // When enabled, replace ticker/campaign URL with latest community post URL
+        const { data: targetCfgRow } = await supabase
+          .from("site_configs")
+          .select("content")
+          .eq("site_id", "smm-auto-shill")
+          .eq("section", "raid-community-targets")
+          .maybeSingle();
+        const communityTargets: any[] = (targetCfgRow?.content as any)?.targets || [];
+        const discordShillEnabled = communityTargets.some((t: any) => t.enabled && t.discord_shill);
+
+        if (discordShillEnabled) {
+          // Fetch latest posted community post from rotation accounts
+          const { data: latestCPost } = await supabase
+            .from("shill_scheduled_posts")
+            .select("post_url")
+            .eq("status", "posted")
+            .not("post_url", "is", null)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .single();
+
+          const communityPostUrl = latestCPost?.post_url || "";
+
+          if (communityPostUrl) {
+            const opener = OPENER_POOL[Math.floor(Math.random() * OPENER_POOL.length)];
+            const copyText = `${opener}\n\n${communityPostUrl}`;
+
+            sendCopyDM(discordUserId, copyText);
+            return json({
+              type: 4,
+              data: {
+                content: `${copyText}`,
+                flags: 64,
+              },
+            });
+          }
+          // If no community post found, fall through to normal copy
+        }
+
         // ── SHILL CHANNEL: randomized copy with hashtags + campaign link ──
         // Every other click alternates between campaign URL and community post URL
         const { count: userClickCount } = await supabase
