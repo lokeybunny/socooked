@@ -118,8 +118,9 @@ Deno.serve(async (req) => {
       await supabase.from("shill_scheduled_posts").update({ status: "processing" }).eq("id", post.id);
 
       try {
-        // Use caption as-is (no signature appended)
-        const captionWithSig = post.caption;
+        // Append CA signature to community posts
+        const CA_SIGNATURE = "\n\nCA - 7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
+        const captionWithSig = post.caption + CA_SIGNATURE;
 
         // Post to Upload-Post API
         const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
