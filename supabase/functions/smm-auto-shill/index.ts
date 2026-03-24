@@ -2332,7 +2332,23 @@ serve(async (req) => {
           let raidFinalUrl = raidCfg?.campaign_url || "";
           const shillTicker = raidCfg?.ticker || "";
 
-          // Always try to find owned video post with ticker for raids too
+          // Rotate through campaign_links if configured
+          const raidCampaignLinks: string[] = (raidCfg?.campaign_links || []).filter((l: string) => l && l.trim());
+          if (raidCampaignLinks.length > 0) {
+            const rotationKey = `shill-link-rotation-${raidProfileUsername}`;
+            const { data: rotRow } = await supabase
+              .from("site_configs").select("id, content")
+              .eq("site_id", "smm-auto-shill").eq("section", rotationKey).maybeSingle();
+            const currentIdx = (rotRow?.content as any)?.index || 0;
+            const nextIdx = (currentIdx + 1) % raidCampaignLinks.length;
+            raidFinalUrl = raidCampaignLinks[currentIdx] || raidFinalUrl;
+            await supabase.from("site_configs").upsert({
+              site_id: "smm-auto-shill", section: rotationKey,
+              content: { index: nextIdx } as any, is_published: false,
+            } as any, { onConflict: "site_id,section" } as any);
+          }
+
+          // Also try owned video post from Upload-Post history
           if (shillTicker) {
             try {
               const UPLOAD_POST_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
@@ -2348,7 +2364,9 @@ serve(async (req) => {
                   h.platform === "x" && h.success === true && h.media_type === "video" && h.post_url &&
                   (h.post_caption || h.post_title || "").toLowerCase().includes(tickerLower)
                 );
-                if (match?.post_url) raidFinalUrl = match.post_url;
+                if (match?.post_url && (raidCampaignLinks.length === 0 || Math.random() < 0.5)) {
+                  raidFinalUrl = match.post_url;
+                }
               }
             } catch (e) {
               console.error("[auto-shill] Raid campaign mode error:", e);
