@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
   try {
     const now = new Date();
     const nowIso = now.toISOString();
-    const MIN_GAP_MS = 20 * 60 * 1000; // 20 minutes between posts
+    const MIN_GAP_MS = 30 * 60 * 1000; // 30 minutes minimum between posts
 
     // ── PST/PDT posting window: 5AM - 9PM Pacific ──
     const getPacificHour = (d: Date): number => {
