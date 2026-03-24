@@ -48,6 +48,35 @@ Deno.serve(async (req) => {
       .gte("updated_at", oneHourAgo);
 
     if ((postsLastHour ?? 0) >= 3) {
+      // ── Mandatory 3-5 hour cooldown after a 3-post burst ──
+      // Find when the 3rd most recent post was sent
+      const { data: recentThree } = await supabase
+        .from("shill_scheduled_posts")
+        .select("updated_at")
+        .eq("status", "posted")
+        .order("updated_at", { ascending: false })
+        .limit(3);
+
+      if (recentThree && recentThree.length >= 3) {
+        const thirdPostTime = new Date(recentThree[2].updated_at).getTime();
+        // Deterministic cooldown: 3-5 hours based on hash of the date
+        const dayHash = now.getUTCDate() + now.getUTCMonth() * 31;
+        const cooldownHours = 3 + (dayHash % 3); // 3, 4, or 5 hours
+        const cooldownMs = cooldownHours * 60 * 60 * 1000;
+        const cooldownEnd = thirdPostTime + cooldownMs;
+        const remainingMs = cooldownEnd - now.getTime();
+
+        if (remainingMs > 0) {
+          const remainingMin = Math.ceil(remainingMs / 60000);
+          return json({
+            ok: true, processed: 0, skipped: true,
+            cooldown_hours: cooldownHours,
+            wait_minutes: remainingMin,
+            reason: `3-post burst detected. ${cooldownHours}h cooldown in effect — ${remainingMin}m remaining`,
+          });
+        }
+      }
+
       return json({ ok: true, processed: 0, skipped: true, reason: "3 posts already sent in the last hour" });
     }
 
