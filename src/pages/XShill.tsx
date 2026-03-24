@@ -291,7 +291,7 @@ export default function XShill() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Active</span>
-                    <span className="text-sm font-bold text-green-500">{targets.filter(t => t.enabled).length}</span>
+                    <span className="text-sm font-bold text-primary">{targets.filter(t => t.enabled).length}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Recent Posts</span>
