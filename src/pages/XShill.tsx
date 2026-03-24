@@ -304,7 +304,6 @@ export default function XShill() {
   const saveShillCopyConfig = async () => {
     setShillCopySaving(true);
     try {
-      // Load existing config to merge
       const { data: existing } = await supabase
         .from("site_configs")
         .select("id, content")
@@ -313,10 +312,13 @@ export default function XShill() {
         .maybeSingle();
 
       const existingContent = (existing?.content as any) || {};
+      // Filter out empty links
+      const activeLinks = shillCopyCampaignLinks.filter(l => l.trim());
       const updatedContent = {
         ...existingContent,
         ticker: shillCopyTicker,
-        campaign_url: shillCopyCampaignUrl,
+        campaign_url: activeLinks[0] || shillCopyCampaignUrl || "",
+        campaign_links: shillCopyCampaignLinks,
       };
 
       await supabase.from("site_configs").upsert({
@@ -326,7 +328,7 @@ export default function XShill() {
         content: updatedContent as any,
       } as any, { onConflict: "site_id,section" } as any);
 
-      toast.success("Shill copy config saved — Get Shill Copy button will use these values");
+      toast.success(`Shill copy config saved — ${activeLinks.length} link(s) will rotate`);
     } catch {
       toast.error("Failed to save shill copy config");
     }
