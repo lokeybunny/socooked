@@ -113,6 +113,7 @@ export default function XShill() {
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [editPost, setEditPost] = useState<ScheduledPost | null>(null);
   const [editPostDialog, setEditPostDialog] = useState(false);
+  const [pendingPage, setPendingPage] = useState(1);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
@@ -247,6 +248,10 @@ export default function XShill() {
   const pendingPosts = scheduledPosts.filter((p) => p.status === "scheduled");
   const completedPosts = scheduledPosts.filter((p) => p.status === "posted");
   const failedPosts = scheduledPosts.filter((p) => p.status === "failed");
+
+  const PENDING_PAGE_SIZE = 6;
+  const pendingTotalPages = Math.max(1, Math.ceil(pendingPosts.length / PENDING_PAGE_SIZE));
+  const pagedPendingPosts = pendingPosts.slice((pendingPage - 1) * PENDING_PAGE_SIZE, pendingPage * PENDING_PAGE_SIZE);
 
   const statusColor = (status: string) => {
     switch (status) {
@@ -415,7 +420,7 @@ export default function XShill() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pendingPosts.map((post) => (
+                        {pagedPendingPosts.map((post) => (
                           <TableRow key={post.id}>
                             <TableCell className="text-[10px] font-mono whitespace-nowrap">
                               {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
@@ -449,6 +454,21 @@ export default function XShill() {
                         ))}
                       </TableBody>
                     </Table>
+                    {pendingTotalPages > 1 && (
+                      <div className="flex items-center justify-between pt-3 px-1">
+                        <p className="text-xs text-muted-foreground">
+                          Showing {(pendingPage - 1) * PENDING_PAGE_SIZE + 1}–{Math.min(pendingPage * PENDING_PAGE_SIZE, pendingPosts.length)} of {pendingPosts.length}
+                        </p>
+                        <div className="flex gap-1">
+                          <Button variant="outline" size="sm" className="h-7 text-xs" disabled={pendingPage <= 1} onClick={() => setPendingPage(p => p - 1)}>
+                            Previous
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" disabled={pendingPage >= pendingTotalPages} onClick={() => setPendingPage(p => p + 1)}>
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </ScrollArea>
                 )}
               </CardContent>
