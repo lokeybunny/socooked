@@ -4,7 +4,7 @@ import { PLATFORM_META } from '@/lib/smm/context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye, AlertTriangle, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye, AlertTriangle, Trash2, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
@@ -298,6 +298,24 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
                   PUSH
                 </button>
               )}
+              {/* PUSH button for failed posts */}
+              {post.status === 'failed' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onPush) {
+                      onPush(post);
+                    } else {
+                      toast.info('Force-push coming soon — use the terminal to manually re-upload this post.');
+                    }
+                  }}
+                  className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors flex items-center gap-1"
+                  title="Retry this failed post"
+                >
+                  <RotateCcw className="h-2.5 w-2.5" />
+                  PUSH
+                </button>
+              )}
             </div>
           </div>
           <DropdownMenu>
@@ -419,7 +437,28 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
           </div>
         )}
 
-        {post.error && <p className="text-xs text-destructive border-t border-border pt-2">Error: {post.error}</p>}
+        {post.error && (
+          <div className="flex items-center gap-2 border-t border-border pt-2">
+            <p className="text-xs text-destructive flex-1">Error: {post.error}</p>
+            {post.status === 'failed' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 gap-1 text-[10px] border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                onClick={() => {
+                  if (onPush) {
+                    onPush(post);
+                  } else {
+                    toast.info('Force-push coming soon — use the terminal to manually re-upload this post.');
+                  }
+                }}
+              >
+                <RotateCcw className="h-2.5 w-2.5" />
+                PUSH
+              </Button>
+            )}
+          </div>
+        )}
       </div>
       <PostDetailDialog post={post} open={detailOpen} onOpenChange={setDetailOpen} onDelete={onDelete} />
     </>
