@@ -456,11 +456,11 @@ export default function XShill() {
                         </TableBody>
                       </Table>
                     </ScrollArea>
-                    {pendingTotalPages > 1 && (
-                      <div className="flex items-center justify-between pt-3 px-1 border-t border-border mt-2">
-                        <p className="text-xs text-muted-foreground">
-                          Showing {(pendingPage - 1) * PENDING_PAGE_SIZE + 1}–{Math.min(pendingPage * PENDING_PAGE_SIZE, pendingPosts.length)} of {pendingPosts.length}
-                        </p>
+                    <div className="flex items-center justify-between pt-3 px-1 border-t border-border mt-2">
+                      <p className="text-xs text-muted-foreground">
+                        Showing {(pendingPage - 1) * PENDING_PAGE_SIZE + 1}–{Math.min(pendingPage * PENDING_PAGE_SIZE, pendingPosts.length)} of {pendingPosts.length}
+                      </p>
+                      {pendingTotalPages > 1 && (
                         <div className="flex gap-1">
                           <Button variant="outline" size="sm" className="h-7 text-xs" disabled={pendingPage <= 1} onClick={() => setPendingPage(p => p - 1)}>
                             Previous
@@ -469,8 +469,8 @@ export default function XShill() {
                             Next
                           </Button>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </>
                 )}
               </CardContent>
