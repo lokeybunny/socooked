@@ -276,7 +276,7 @@ export default function XShill() {
   };
 
 
-    await supabase.from("shill_scheduled_posts").delete().eq("id", id);
+    const deleteScheduledPost = async (id: string) => {
     setScheduledPosts((prev) => prev.filter((p) => p.id !== id));
     toast.success("Scheduled post deleted");
   };
