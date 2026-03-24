@@ -169,6 +169,7 @@ const shillHeaders = {
 function CampaignTab() {
   const [config, setConfig] = useState({
     enabled: false, campaign_url: '', ticker: '',
+    ca_address: '7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump',
     discord_app_id: '', discord_public_key: '',
     discord_channel_id: '', discord_listen_channel_id: '', discord_reply_channel_id: '',
     team_accounts: [] as string[], retweet_accounts: [] as string[],
@@ -249,6 +250,11 @@ function CampaignTab() {
           <div className="space-y-1">
             <label className="text-xs font-semibold text-muted-foreground">Ticker</label>
             <Input value={config.ticker} onChange={(e) => setConfig(prev => ({ ...prev, ticker: e.target.value }))} placeholder="e.g. $whitehouse" className="h-8 text-sm font-mono" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">CA Address</label>
+            <Input value={config.ca_address} onChange={(e) => setConfig(prev => ({ ...prev, ca_address: e.target.value }))} placeholder="e.g. 7oXNE1dbpHUp6dn1JF..." className="h-8 text-sm font-mono" />
+            <p className="text-[10px] text-muted-foreground">Appended as signature to all shill copy.</p>
           </div>
           <div className="space-y-1">
             <label className="text-xs font-semibold text-muted-foreground">Campaign URL</label>

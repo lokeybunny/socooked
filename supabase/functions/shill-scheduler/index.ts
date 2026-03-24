@@ -118,8 +118,15 @@ Deno.serve(async (req) => {
       await supabase.from("shill_scheduled_posts").update({ status: "processing" }).eq("id", post.id);
 
       try {
-        // Append CA signature to community posts
-        const CA_SIGNATURE = "\n\nCA - 7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
+        // Load CA address from config, fallback to default
+        const { data: caConfigRow } = await supabase
+          .from("site_configs")
+          .select("content")
+          .eq("site_id", "smm-auto-shill")
+          .eq("section", "NysonBlack")
+          .maybeSingle();
+        const caAddress = (caConfigRow?.content as any)?.ca_address || "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
+        const CA_SIGNATURE = `\n\nCA - ${caAddress}`;
         const captionWithSig = post.caption + CA_SIGNATURE;
 
         // Post to Upload-Post API
