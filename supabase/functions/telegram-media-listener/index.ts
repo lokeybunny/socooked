@@ -3672,8 +3672,8 @@ Deno.serve(async (req) => {
               const existingTimes = (existingPosts || []).map((p: any) => new Date(p.scheduled_at).getTime())
               existingTimes.sort((a: number, b: number) => a - b)
 
-              // Helper: check if a candidate time is at least 20 min from all existing
-              const MIN_GAP_MS = 20 * 60 * 1000
+              // Helper: check if a candidate time is at least 30-75 min from all existing
+              const MIN_GAP_MS = (30 + Math.floor(Math.random() * 45)) * 60 * 1000 // 30-75 min randomized
               const isFarEnough = (t: number) => existingTimes.every(e => Math.abs(t - e) >= MIN_GAP_MS)
 
               // ─── BURST-GAP LOGIC ───
