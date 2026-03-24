@@ -298,6 +298,24 @@ export default function PostCard({ post, compact, onEdit, onDuplicate, onCancel,
                   PUSH
                 </button>
               )}
+              {/* PUSH button for failed posts */}
+              {post.status === 'failed' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onPush) {
+                      onPush(post);
+                    } else {
+                      toast.info('Force-push coming soon — use the terminal to manually re-upload this post.');
+                    }
+                  }}
+                  className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors flex items-center gap-1"
+                  title="Retry this failed post"
+                >
+                  <RotateCcw className="h-2.5 w-2.5" />
+                  PUSH
+                </button>
+              )}
             </div>
           </div>
           <DropdownMenu>
