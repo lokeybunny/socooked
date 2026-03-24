@@ -20,6 +20,7 @@ import {
 import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
+  Video, Play, Pause, ExternalLink, CalendarClock,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -46,6 +47,23 @@ interface RaidLog {
   created_at: string;
   action: string;
   meta: any;
+}
+
+interface ScheduledPost {
+  id: string;
+  chat_id: number;
+  caption: string;
+  video_url: string;
+  storage_path: string | null;
+  community_id: string;
+  x_account: string;
+  scheduled_at: string;
+  status: string;
+  post_url: string | null;
+  request_id: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 const DEFAULT_WH_TEMPLATES = [
@@ -92,11 +110,13 @@ export default function XShill() {
   const [refreshing, setRefreshing] = useState(false);
   const [editTarget, setEditTarget] = useState<CommunityTarget | null>(null);
   const [editDialog, setEditDialog] = useState(false);
+  const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
+  const [editPost, setEditPost] = useState<ScheduledPost | null>(null);
+  const [editPostDialog, setEditPostDialog] = useState(false);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Load community targets from site_configs
       const { data: targetCfg } = await supabase
         .from("site_configs")
         .select("content")
@@ -108,12 +128,10 @@ export default function XShill() {
         const parsed = (targetCfg.content as any).targets || [];
         setTargets(parsed);
       } else {
-        // Seed default
         const defaultTargets = [{ ...DEFAULT_TARGET, id: crypto.randomUUID() }];
         setTargets(defaultTargets);
       }
 
-      // Load source channel config
       const { data: srcCfg } = await supabase
         .from("site_configs")
         .select("content")
@@ -122,7 +140,6 @@ export default function XShill() {
         .single();
       setSourceEnabled(!!(srcCfg?.content as any)?.enabled);
 
-      // Load throttle states
       const { data: whThrottle } = await supabase
         .from("site_configs")
         .select("content")
@@ -139,7 +156,6 @@ export default function XShill() {
         .single();
       setThrottleOther(otherThrottle?.content || null);
 
-      // Load recent activity logs
       const { data: logData } = await supabase
         .from("activity_log")
         .select("id, created_at, action, meta")
@@ -148,6 +164,14 @@ export default function XShill() {
         .order("created_at", { ascending: false })
         .limit(100);
       setLogs(logData || []);
+
+      // Load scheduled posts
+      const { data: posts } = await supabase
+        .from("shill_scheduled_posts")
+        .select("*")
+        .order("scheduled_at", { ascending: true })
+        .limit(200);
+      setScheduledPosts((posts as any[]) || []);
     } catch (e) {
       console.error("Load error:", e);
     } finally {
@@ -191,11 +215,48 @@ export default function XShill() {
     loadAll();
   };
 
+  const deleteScheduledPost = async (id: string) => {
+    await supabase.from("shill_scheduled_posts").delete().eq("id", id);
+    setScheduledPosts((prev) => prev.filter((p) => p.id !== id));
+    toast.success("Scheduled post deleted");
+  };
+
+  const updateScheduledPost = async (post: ScheduledPost) => {
+    const { error } = await supabase
+      .from("shill_scheduled_posts")
+      .update({
+        caption: post.caption,
+        scheduled_at: post.scheduled_at,
+      })
+      .eq("id", post.id);
+    if (error) {
+      toast.error("Failed to update: " + error.message);
+    } else {
+      toast.success("Post updated");
+      setScheduledPosts((prev) => prev.map((p) => (p.id === post.id ? post : p)));
+    }
+    setEditPostDialog(false);
+  };
+
   if (authLoading) return null;
   if (!user) return <Navigate to="/auth" replace />;
 
   const whLastPost = throttleWH?.last_post_ms ? new Date(throttleWH.last_post_ms) : null;
   const otherLastPost = throttleOther?.last_post_ms ? new Date(throttleOther.last_post_ms) : null;
+
+  const pendingPosts = scheduledPosts.filter((p) => p.status === "scheduled");
+  const completedPosts = scheduledPosts.filter((p) => p.status === "posted");
+  const failedPosts = scheduledPosts.filter((p) => p.status === "failed");
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case "scheduled": return "default";
+      case "processing": return "secondary";
+      case "posted": return "default";
+      case "failed": return "destructive";
+      default: return "outline";
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -227,8 +288,9 @@ export default function XShill() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-4 max-w-lg">
+          <TabsList className="grid w-full grid-cols-5 max-w-2xl">
             <TabsTrigger value="overview" className="text-xs"><Activity className="h-3 w-3 mr-1" />Overview</TabsTrigger>
+            <TabsTrigger value="campaign" className="text-xs"><Video className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
             <TabsTrigger value="communities" className="text-xs"><Globe className="h-3 w-3 mr-1" />Communities</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Messages</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs"><Clock className="h-3 w-3 mr-1" />Logs</TabsTrigger>
@@ -237,7 +299,6 @@ export default function XShill() {
           {/* ═══ OVERVIEW ═══ */}
           <TabsContent value="overview" className="space-y-4 mt-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Status Card */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Trump / @WhiteHouse Tracker</CardTitle>
@@ -258,10 +319,26 @@ export default function XShill() {
                 </CardContent>
               </Card>
 
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Scheduled Posts</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Pending</span>
+                    <span className="text-sm font-bold text-primary">{pendingPosts.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Posted</span>
+                    <span className="text-sm font-bold text-green-500">{completedPosts.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Failed</span>
+                    <span className="text-sm font-bold text-destructive">{failedPosts.length}</span>
+                  </div>
+                </CardContent>
+              </Card>
 
-
-
-              {/* Stats */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Stats</CardTitle>
@@ -283,7 +360,6 @@ export default function XShill() {
               </Card>
             </div>
 
-            {/* How it works */}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">How It Works</CardTitle>
@@ -297,6 +373,147 @@ export default function XShill() {
                 <p>6. Posts via <code className="text-foreground">@ctothispump</code> (xslaves) account</p>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* ═══ CAMPAIGN (TikTok/Shill Scheduler) ═══ */}
+          <TabsContent value="campaign" className="space-y-4 mt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4 text-primary" />
+                  Shill Campaign — Scheduled Posts
+                </h3>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Max 3 posts/hour • Randomized times • Auto-posted via cron
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={loadAll} disabled={refreshing}>
+                <RefreshCw className={`h-3 w-3 mr-1 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+              </Button>
+            </div>
+
+            {/* Pending Posts */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">📅 Upcoming ({pendingPosts.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pendingPosts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    No scheduled posts. Use <code>/shill</code> in Telegram and choose "Schedule" to add videos.
+                  </p>
+                ) : (
+                  <ScrollArea className="max-h-[400px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Scheduled</TableHead>
+                          <TableHead className="text-xs">Caption</TableHead>
+                          <TableHead className="text-xs">Video</TableHead>
+                          <TableHead className="text-xs">Status</TableHead>
+                          <TableHead className="text-xs w-[100px]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pendingPosts.map((post) => (
+                          <TableRow key={post.id}>
+                            <TableCell className="text-[10px] font-mono whitespace-nowrap">
+                              {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
+                            </TableCell>
+                            <TableCell className="text-xs max-w-[200px] truncate">{post.caption}</TableCell>
+                            <TableCell>
+                              <a href={post.video_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                <Play className="h-3 w-3 inline mr-1" />
+                                <span className="text-[10px]">Preview</span>
+                              </a>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={statusColor(post.status) as any} className="text-[9px]">
+                                {post.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
+                                  setEditPost({ ...post });
+                                  setEditPostDialog(true);
+                                }}>
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => deleteScheduledPost(post.id)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Completed + Failed */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">✅ Posted ({completedPosts.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="max-h-[300px]">
+                    {completedPosts.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">No completed posts yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {completedPosts.slice(0, 20).map((post) => (
+                          <div key={post.id} className="flex items-center justify-between border rounded-md p-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs truncate">{post.caption}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
+                              </p>
+                            </div>
+                            {post.post_url && (
+                              <a href={post.post_url} target="_blank" rel="noopener noreferrer">
+                                <Button size="icon" variant="ghost" className="h-6 w-6 shrink-0">
+                                  <ExternalLink className="h-3 w-3 text-primary" />
+                                </Button>
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">❌ Failed ({failedPosts.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="max-h-[300px]">
+                    {failedPosts.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">No failed posts. 🎉</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {failedPosts.slice(0, 20).map((post) => (
+                          <div key={post.id} className="border border-destructive/30 rounded-md p-2">
+                            <p className="text-xs truncate">{post.caption}</p>
+                            <p className="text-[10px] text-destructive">{post.error}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* ═══ COMMUNITIES ═══ */}
@@ -409,9 +626,6 @@ export default function XShill() {
                       </Button>
                     </div>
                   </div>
-
-
-
 
                   <Button className="w-full" onClick={() => saveTargets(targets)}>
                     <Save className="h-3 w-3 mr-1" /> Save All Templates
@@ -541,6 +755,48 @@ export default function XShill() {
               saveTargets(updated);
               setEditDialog(false);
             }}>
+              <Save className="h-3 w-3 mr-1" /> Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ EDIT SCHEDULED POST DIALOG ═══ */}
+      <Dialog open={editPostDialog} onOpenChange={setEditPostDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Edit Scheduled Post</DialogTitle>
+          </DialogHeader>
+          {editPost && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] text-muted-foreground">Caption</label>
+                <Textarea
+                  className="text-xs min-h-[80px]"
+                  value={editPost.caption}
+                  onChange={(e) => setEditPost({ ...editPost, caption: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">Scheduled At</label>
+                <Input
+                  type="datetime-local"
+                  className="text-xs"
+                  value={editPost.scheduled_at.slice(0, 16)}
+                  onChange={(e) => setEditPost({ ...editPost, scheduled_at: new Date(e.target.value).toISOString() })}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">Video</label>
+                <a href={editPost.video_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                  <ExternalLink className="h-3 w-3" /> Preview Video
+                </a>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPostDialog(false)}>Cancel</Button>
+            <Button onClick={() => editPost && updateScheduledPost(editPost)}>
               <Save className="h-3 w-3 mr-1" /> Save
             </Button>
           </DialogFooter>
