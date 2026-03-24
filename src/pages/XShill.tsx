@@ -176,8 +176,8 @@ export default function XShill() {
         enabled,
         discord_listen_channel_id: "1484699554271072257",
         discord_channel_id: "1484699554271072257",
-      },
-    }, { onConflict: "site_id,section" });
+      } as any,
+    } as any, { onConflict: "site_id,section" } as any);
     toast.success(enabled ? "Raid bot enabled" : "Raid bot disabled");
   };
 
