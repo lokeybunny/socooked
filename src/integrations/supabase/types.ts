@@ -2315,6 +2315,57 @@ export type Database = {
         }
         Relationships: []
       }
+      shill_scheduled_posts: {
+        Row: {
+          caption: string
+          chat_id: number
+          community_id: string
+          created_at: string
+          error: string | null
+          id: string
+          post_url: string | null
+          request_id: string | null
+          scheduled_at: string
+          status: string
+          storage_path: string | null
+          updated_at: string
+          video_url: string
+          x_account: string
+        }
+        Insert: {
+          caption: string
+          chat_id: number
+          community_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          post_url?: string | null
+          request_id?: string | null
+          scheduled_at: string
+          status?: string
+          storage_path?: string | null
+          updated_at?: string
+          video_url: string
+          x_account?: string
+        }
+        Update: {
+          caption?: string
+          chat_id?: number
+          community_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          post_url?: string | null
+          request_id?: string | null
+          scheduled_at?: string
+          status?: string
+          storage_path?: string | null
+          updated_at?: string
+          video_url?: string
+          x_account?: string
+        }
+        Relationships: []
+      }
       signatures: {
         Row: {
           category: string | null
