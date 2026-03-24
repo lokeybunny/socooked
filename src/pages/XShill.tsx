@@ -127,6 +127,7 @@ export default function XShill() {
   const [newAccountHandle, setNewAccountHandle] = useState("");
   const [shillCopyTicker, setShillCopyTicker] = useState("");
   const [shillCopyCampaignUrl, setShillCopyCampaignUrl] = useState("");
+  const [shillCopyCampaignLinks, setShillCopyCampaignLinks] = useState<string[]>(["", "", "", "", ""]);
   const [shillCopySaving, setShillCopySaving] = useState(false);
 
   const loadAll = useCallback(async () => {
