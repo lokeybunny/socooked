@@ -3582,7 +3582,7 @@ Deno.serve(async (req) => {
         }
 
         if (sp.step === 'video' && media) {
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📡 Uploading video to $whitehouse community...' })
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📡 Downloading video from Telegram...' })
           try {
             // Download video from Telegram
             const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
@@ -3611,7 +3611,10 @@ Deno.serve(async (req) => {
             const { data: urlData } = supa.storage.from('content-uploads').getPublicUrl(storagePath)
             const publicUrl = urlData.publicUrl
 
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📤 Sending video to X community...' })
+
             // Post to Upload-Post API via smm-api with community_id
+            // IMPORTANT: parameter name is "video" (not "video_url") per Upload-Post API docs
             const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
             const X_COMMUNITY_ID = '2029596385180291485'
             const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
@@ -3623,7 +3626,7 @@ Deno.serve(async (req) => {
               },
               body: JSON.stringify({
                 title: sp.caption,
-                video_url: publicUrl,
+                video: publicUrl,
                 'platform[]': ['x'],
                 user: 'xslaves',
                 community_id: X_COMMUNITY_ID,
@@ -3631,15 +3634,59 @@ Deno.serve(async (req) => {
             })
             const postResult = await postRes.json()
 
-            if (postResult?.error) {
-              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Upload failed: ${postResult.error}` })
+            if (!postRes.ok || postResult?.error) {
+              const errMsg = postResult?.error || postResult?.message || `HTTP ${postRes.status}`
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Upload failed: ${errMsg}` })
             } else {
               const requestId = postResult?.request_id || postResult?.data?.request_id || ''
-              await tgPost(TG_TOKEN, 'sendMessage', {
-                chat_id: chatId,
-                text: `✅ <b>Video posted to $whitehouse community!</b>\n\n📝 Caption: <i>"${sp.caption}"</i>\n🆔 Request: <code>${requestId}</code>`,
-                parse_mode: 'HTML',
-              })
+
+              // Poll upload-status to confirm processing before reporting success
+              let postUrl = ''
+              let statusLabel = 'submitted'
+              if (requestId) {
+                await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏳ Waiting for video to process...' })
+                for (let poll = 0; poll < 12; poll++) {
+                  await new Promise(r => setTimeout(r, 5000)) // 5s intervals, up to 60s
+                  try {
+                    const statusRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-status&request_id=${requestId}`, {
+                      headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` },
+                    })
+                    const statusData = await statusRes.json()
+                    const st = statusData?.status || statusData?.data?.status || ''
+                    console.log(`[shill] poll #${poll + 1} status=${st}`)
+                    if (st === 'completed' || st === 'success' || st === 'done') {
+                      statusLabel = 'completed'
+                      // Try to extract the post URL from the status response
+                      postUrl = statusData?.post_url || statusData?.data?.post_url ||
+                                statusData?.posts?.[0]?.post_url || statusData?.data?.posts?.[0]?.post_url || ''
+                      break
+                    }
+                    if (st === 'failed' || st === 'error') {
+                      statusLabel = 'failed'
+                      break
+                    }
+                  } catch (pollErr: any) {
+                    console.error('[shill] poll error:', pollErr.message)
+                  }
+                }
+              }
+
+              if (statusLabel === 'failed') {
+                await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Video processing failed on the provider side. Try again.' })
+              } else {
+                let successMsg = `✅ <b>Video posted to $whitehouse community!</b>\n\n📝 Caption: <i>"${sp.caption}"</i>\n🆔 Request: <code>${requestId}</code>`
+                if (statusLabel === 'completed' && postUrl) {
+                  successMsg += `\n\n🔗 <a href="${postUrl}">View Post on X</a>`
+                } else if (statusLabel === 'submitted') {
+                  successMsg += `\n\n⏳ Video is still processing. Check status in SMM dashboard.`
+                }
+                await tgPost(TG_TOKEN, 'sendMessage', {
+                  chat_id: chatId,
+                  text: successMsg,
+                  parse_mode: 'HTML',
+                  disable_web_page_preview: false,
+                })
+              }
             }
           } catch (e: any) {
             console.error('[shill] error:', e)
