@@ -460,10 +460,43 @@ serve(async (req) => {
                 const postResult = await postRes.json();
                 console.log(`[discord-watcher] 🎯 Community raid post (WhiteHouse):`, JSON.stringify(postResult).slice(0, 200));
 
+                // Store the request_id and poll for the post URL
+                const requestId = postResult?.request_id || postResult?.data?.request_id || "";
+                let communityPostUrl = "";
+                if (requestId) {
+                  for (let poll = 0; poll < 10; poll++) {
+                    await new Promise((r) => setTimeout(r, 5000));
+                    try {
+                      const statusRes = await fetch(
+                        `${SUPABASE_URL}/functions/v1/smm-api?action=upload-status&request_id=${requestId}`,
+                        { headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}` } },
+                      );
+                      const statusData = await statusRes.json();
+                      const st = statusData?.status || statusData?.data?.status || "";
+                      if (st === "completed" || st === "success" || st === "done") {
+                        communityPostUrl = statusData?.post_url || statusData?.data?.post_url ||
+                          statusData?.posts?.[0]?.post_url || statusData?.data?.posts?.[0]?.post_url || "";
+                        break;
+                      }
+                      if (st === "failed" || st === "error") break;
+                    } catch (_) { /* continue polling */ }
+                  }
+                }
+
+                // Save latest community post URL for discord shill copy
+                if (communityPostUrl) {
+                  await supabase.from("site_configs").upsert({
+                    site_id: "smm-auto-shill",
+                    section: "latest-community-post",
+                    content: { post_url: communityPostUrl, posted_at: new Date().toISOString(), request_id: requestId },
+                  }, { onConflict: "site_id,section" });
+                  console.log(`[discord-watcher] ✅ Stored community post URL: ${communityPostUrl}`);
+                }
+
                 await supabase.from("site_configs").upsert({
                   site_id: "smm-auto-shill",
                   section: throttleSection,
-                  content: { last_post_ms: Date.now(), last_url: raidTargetUrl, is_whitehouse: isDirectWhitehouse },
+                  content: { last_post_ms: Date.now(), last_url: raidTargetUrl, is_whitehouse: isDirectWhitehouse, community_post_url: communityPostUrl || null },
                 }, { onConflict: "site_id,section" });
               } catch (raidErr) {
                 console.error("[discord-watcher] Community raid post error:", raidErr);
