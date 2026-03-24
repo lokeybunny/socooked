@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
           inline: true,
         },
         {
-          name: "📈 24h Average",
+          name: "📈 Today's Average",
           value: `**${hourlyAvg}** tweets/hour`,
           inline: true,
         },
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
           name: "💰 Potential Passive Income",
           value: [
             `This Hour: **${tweetsThisHour}** links × $0.05 = **$${potentialEarnings.toFixed(2)}**`,
-            `Today (24h): **${tweetsToday}** links × $0.05 = **$${dailyPotentialEarnings.toFixed(2)}**`,
+            `Today: **${tweetsToday}** links × $0.05 = **$${dailyPotentialEarnings.toFixed(2)}**`,
             ``,
             `🤑 Every link is **$0.05** waiting to be claimed!`,
           ].join("\n"),
