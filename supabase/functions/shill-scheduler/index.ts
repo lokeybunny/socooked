@@ -50,8 +50,11 @@ Deno.serve(async (req) => {
             "Authorization": `Bearer ${ANON_KEY}`,
             "Content-Type": "application/json",
           },
+          const captionWithSig = post.caption.includes('[VIDEO FROM TIKTOK]')
+            ? post.caption
+            : `${post.caption}\n\n[VIDEO FROM TIKTOK]`;
           body: JSON.stringify({
-            title: post.caption,
+            title: captionWithSig,
             video: post.video_url,
             "platform[]": ["x"],
             user: post.x_account || "xslaves",
