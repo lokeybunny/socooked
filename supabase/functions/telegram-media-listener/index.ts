@@ -3562,9 +3562,102 @@ Deno.serve(async (req) => {
       const sessionType = session.event_type
       const history = sp.history || []
 
-      // Check for media in the message (for banana/higgsfield)
+      // Check for media in the message
       const media = extractMedia(message)
       let imageUrl: string | undefined
+
+      // ─── Shill session handler ───
+      if (sessionType === 'shill_session') {
+        if (sp.step === 'caption' && text) {
+          // User entered caption, now ask for video
+          await supabase.from('webhook_events').update({
+            payload: { ...sp, step: 'video', caption: text },
+          }).eq('id', session.id)
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `✅ Caption saved:\n<i>"${text}"</i>\n\n📹 Now please upload the video to share.`,
+            parse_mode: 'HTML',
+          })
+          return new Response('ok')
+        }
+
+        if (sp.step === 'video' && media) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📡 Uploading video to $whitehouse community...' })
+          try {
+            // Download video from Telegram
+            const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ file_id: media.fileId }),
+            })
+            const fileInfo = await fileInfoRes.json()
+            const filePath = fileInfo.result?.file_path
+            if (!filePath) throw new Error('Could not get file path from Telegram')
+
+            const fileUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
+            const fileRes = await fetch(fileUrl)
+            if (!fileRes.ok) throw new Error(`Failed to download file: ${fileRes.status}`)
+            const fileBytes = await fileRes.arrayBuffer()
+
+            // Upload to Supabase storage to get a public URL
+            const storagePath = `shill/${Date.now()}_${media.fileName}`
+            const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+            const supa = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+            const { error: uploadErr } = await supa.storage.from('content-uploads').upload(storagePath, fileBytes, {
+              contentType: media.type === 'video' ? 'video/mp4' : 'application/octet-stream',
+              upsert: false,
+            })
+            if (uploadErr) throw new Error(`Storage upload failed: ${uploadErr.message}`)
+            const { data: urlData } = supa.storage.from('content-uploads').getPublicUrl(storagePath)
+            const publicUrl = urlData.publicUrl
+
+            // Post to Upload-Post API via smm-api with community_id
+            const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+            const X_COMMUNITY_ID = '2029596385180291485'
+            const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
+              method: 'POST',
+              headers: {
+                'apikey': ANON_KEY,
+                'Authorization': `Bearer ${ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                title: sp.caption,
+                video_url: publicUrl,
+                'platform[]': ['x'],
+                user: 'xslaves',
+                community_id: X_COMMUNITY_ID,
+              }),
+            })
+            const postResult = await postRes.json()
+
+            if (postResult?.error) {
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Upload failed: ${postResult.error}` })
+            } else {
+              const requestId = postResult?.request_id || postResult?.data?.request_id || ''
+              await tgPost(TG_TOKEN, 'sendMessage', {
+                chat_id: chatId,
+                text: `✅ <b>Video posted to $whitehouse community!</b>\n\n📝 Caption: <i>"${sp.caption}"</i>\n🆔 Request: <code>${requestId}</code>`,
+                parse_mode: 'HTML',
+              })
+            }
+          } catch (e: any) {
+            console.error('[shill] error:', e)
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Shill failed: ${e.message}` })
+          }
+          // Clean up session
+          await supabase.from('webhook_events').delete().eq('id', session.id)
+          return new Response('ok')
+        }
+
+        // If in video step but no media, remind
+        if (sp.step === 'video' && !media) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Please upload a video file to continue, or type /cancel to exit.' })
+          return new Response('ok')
+        }
+
+        return new Response('ok')
+      }
 
       if (media && (sessionType === 'banana_session' || sessionType === 'banana2_session' || sessionType === 'higgsfield_session')) {
         const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
