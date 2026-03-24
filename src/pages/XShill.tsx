@@ -125,6 +125,9 @@ export default function XShill() {
   const [pendingPage, setPendingPage] = useState(1);
   const [rotationAccounts, setRotationAccounts] = useState<RotationAccount[]>([]);
   const [newAccountHandle, setNewAccountHandle] = useState("");
+  const [shillCopyTicker, setShillCopyTicker] = useState("");
+  const [shillCopyCampaignUrl, setShillCopyCampaignUrl] = useState("");
+  const [shillCopySaving, setShillCopySaving] = useState(false);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
