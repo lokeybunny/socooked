@@ -2605,32 +2605,7 @@ serve(async (req) => {
         }
 
         // ── SHILL CHANNEL: randomized copy with hashtags + campaign link ──
-        // Every other click alternates between campaign URL and community post URL
-        const { count: userClickCount } = await supabase
-          .from("shill_clicks")
-          .select("id", { count: "exact", head: true })
-          .eq("discord_user_id", discordUserId)
-          .eq("click_type", "shill");
-
-        const isCommunityCopyVariant = ((userClickCount ?? 0) % 2) === 1;
-
-        let finalUrl = campaignUrl;
-        if (isCommunityCopyVariant) {
-          // Fetch the latest posted community post from @ctothispump (xslaves)
-          const { data: latestCommunityPost } = await supabase
-            .from("shill_scheduled_posts")
-            .select("post_url")
-            .eq("x_account", "xslaves")
-            .eq("status", "posted")
-            .not("post_url", "is", null)
-            .order("updated_at", { ascending: false })
-            .limit(1)
-            .single();
-
-          if (latestCommunityPost?.post_url) {
-            finalUrl = latestCommunityPost.post_url;
-          }
-        }
+        const finalUrl = campaignUrl;
 
         // Random natural opener to dodge spam filters (200+ pool)
         const openerPool = OPENER_POOL;
