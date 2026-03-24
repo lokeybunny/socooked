@@ -4,7 +4,7 @@ import { PLATFORM_META } from '@/lib/smm/context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye, AlertTriangle, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Edit, Copy, Clock, CalendarDays, X, ExternalLink, Play, Eye, AlertTriangle, Trash2, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import VideoThumbnail from '@/components/ui/VideoThumbnail';
