@@ -374,6 +374,91 @@ serve(async (req) => {
           continue; // Already processed this message
         }
 
+        // ═══ RAID COMMUNITY AUTO-POST ═══
+        // When tweets are detected in the raid source channel, auto-post to the
+        // X community. @whitehouse tweets get priority (10 min cooldown),
+        // others use a 20 min cooldown. Intervals are randomised to avoid spam detection.
+        const RAID_COMMUNITY_SOURCE = "1484699554271072257";
+        const X_COMMUNITY_ID = "2029596385180291485";
+        const WHITEHOUSE_CA = "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
+
+        if (listenChannelId === RAID_COMMUNITY_SOURCE && uniqueUrls.length > 0) {
+          const whUrlMatch = uniqueUrls.find(u => /x\.com\/whitehouse\//i.test(u) || /twitter\.com\/whitehouse\//i.test(u));
+          const isWhitehouse = !!whUrlMatch;
+          const raidTargetUrl = whUrlMatch || uniqueUrls[0];
+
+          const throttleSection = isWhitehouse ? "raid-community-wh" : "raid-community-other";
+          const baseIntervalMs = isWhitehouse ? 10 * 60 * 1000 : 20 * 60 * 1000;
+
+          const { data: raidThrottleCfg } = await supabase
+            .from("site_configs")
+            .select("content")
+            .eq("site_id", "smm-auto-shill")
+            .eq("section", throttleSection)
+            .single();
+
+          const lastPostMs = (raidThrottleCfg?.content as any)?.last_post_ms || 0;
+          const elapsedMs = Date.now() - lastPostMs;
+          // Random jitter: 0-3 min for whitehouse, 0-5 min for others
+          const jitterMs = Math.floor(Math.random() * (isWhitehouse ? 3 * 60 * 1000 : 5 * 60 * 1000));
+          const effectiveInterval = baseIntervalMs + jitterMs;
+
+          if (elapsedMs >= effectiveInterval) {
+            const whMessages = [
+              `Just Detected New Post that could be Raided $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+              `🚨 New @WhiteHouse post just dropped! Rally $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+              `Whitehouse just posted — time to raid $WHITEHOUSE 🏛️\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+              `Fresh @WhiteHouse tweet detected 🔥 Raid opportunity for $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+              `🏛️ New @WhiteHouse alert — $WHITEHOUSE raid incoming\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+              `Spotted a new @WhiteHouse post! Lets go $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+            ];
+
+            const otherMessages = [
+              `Detected this guy on X, he gets a lot of engagement, lets try to raid and shill here\n\n${raidTargetUrl}`,
+              `This account has been getting major traction on X — worth a raid 🚀\n\n${raidTargetUrl}`,
+              `Found a high engagement post on X, lets get in there 🔥\n\n${raidTargetUrl}`,
+              `Spotted a viral thread on X — time to raid and shill\n\n${raidTargetUrl}`,
+              `This post is blowing up on X, perfect raid target 💥\n\n${raidTargetUrl}`,
+              `Big engagement detected on X, lets raid this one 🎯\n\n${raidTargetUrl}`,
+            ];
+
+            const msgPool = isWhitehouse ? whMessages : otherMessages;
+            const raidText = msgPool[Math.floor(Math.random() * msgPool.length)];
+
+            try {
+              const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+              const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-text`, {
+                method: "POST",
+                headers: {
+                  apikey: ANON_KEY,
+                  Authorization: `Bearer ${ANON_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  title: raidText,
+                  "platform[]": ["x"],
+                  user: "xslaves",
+                  community_id: X_COMMUNITY_ID,
+                }),
+              });
+
+              const postResult = await postRes.json();
+              console.log(`[discord-watcher] 🎯 Community raid post (${isWhitehouse ? "WH" : "other"}):`, JSON.stringify(postResult).slice(0, 200));
+
+              // Save throttle timestamp
+              await supabase.from("site_configs").upsert({
+                site_id: "smm-auto-shill",
+                section: throttleSection,
+                content: { last_post_ms: Date.now(), last_url: raidTargetUrl, is_whitehouse: isWhitehouse },
+              }, { onConflict: "site_id,section" });
+            } catch (raidErr) {
+              console.error("[discord-watcher] Community raid post error:", raidErr);
+            }
+          } else {
+            console.log(`[discord-watcher] Community raid throttled (${isWhitehouse ? "WH" : "other"}) — ${Math.round((effectiveInterval - elapsedMs) / 1000)}s remaining`);
+          }
+        }
+
         // For RT (retweet) messages in the raid channel, use the quoted tweet
         // URL which is typically the 3rd-to-last link (the actual target tweet).
         let tweetUrl: string;
