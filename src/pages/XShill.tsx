@@ -409,49 +409,8 @@ export default function XShill() {
                     </div>
                   </div>
 
-                  <Separator />
 
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">Other Account Messages ({t.other_templates.length})</p>
-                    <div className="space-y-2">
-                      {t.other_templates.map((msg, i) => (
-                        <div key={i} className="flex gap-2 items-start">
-                          <Badge variant="outline" className="text-[9px] mt-1 shrink-0">{i + 1}</Badge>
-                          <Textarea
-                            className="text-xs min-h-[50px]"
-                            value={msg}
-                            onChange={(e) => {
-                              const updated = targets.map(x => {
-                                if (x.id !== t.id) return x;
-                                const newTemplates = [...x.other_templates];
-                                newTemplates[i] = e.target.value;
-                                return { ...x, other_templates: newTemplates };
-                              });
-                              setTargets(updated);
-                            }}
-                          />
-                          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-destructive" onClick={() => {
-                            const updated = targets.map(x => {
-                              if (x.id !== t.id) return x;
-                              return { ...x, other_templates: x.other_templates.filter((_, idx) => idx !== i) };
-                            });
-                            setTargets(updated);
-                          }}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button size="sm" variant="outline" className="text-xs" onClick={() => {
-                        const updated = targets.map(x => x.id === t.id
-                          ? { ...x, other_templates: [...x.other_templates, ""] }
-                          : x
-                        );
-                        setTargets(updated);
-                      }}>
-                        <Plus className="h-3 w-3 mr-1" /> Add Template
-                      </Button>
-                    </div>
-                  </div>
+
 
                   <Button className="w-full" onClick={() => saveTargets(targets)}>
                     <Save className="h-3 w-3 mr-1" /> Save All Templates
