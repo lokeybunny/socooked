@@ -239,8 +239,43 @@ export default function XShill() {
     toast.success("Throttle reset — next detection will post immediately");
     loadAll();
   };
+  const saveRotationAccounts = async (accounts: RotationAccount[]) => {
+    setRotationAccounts(accounts);
+    await supabase.from("site_configs").upsert({
+      site_id: "smm-auto-shill",
+      section: "shill-rotation-accounts",
+      content: { accounts } as any,
+    } as any, { onConflict: "site_id,section" } as any);
+    toast.success("Rotation accounts saved");
+  };
 
-  const deleteScheduledPost = async (id: string) => {
+  const addRotationAccount = async () => {
+    const handle = newAccountHandle.trim().replace(/^@/, "");
+    if (!handle) return;
+    if (rotationAccounts.find(a => a.handle === handle)) {
+      toast.error("Account already exists");
+      return;
+    }
+    const updated = [...rotationAccounts, { id: crypto.randomUUID(), handle, status: "active" as const, posts_today: 0 }];
+    await saveRotationAccounts(updated);
+    setNewAccountHandle("");
+  };
+
+  const removeRotationAccount = async (id: string) => {
+    await saveRotationAccounts(rotationAccounts.filter(a => a.id !== id));
+  };
+
+  const toggleAccountStatus = async (id: string, status: "active" | "paused") => {
+    const updated = rotationAccounts.map(a => a.id === id ? { ...a, status, capped_at: undefined } : a);
+    await saveRotationAccounts(updated);
+  };
+
+  const resetAccountCap = async (id: string) => {
+    const updated = rotationAccounts.map(a => a.id === id ? { ...a, status: "active" as const, capped_at: undefined, posts_today: 0 } : a);
+    await saveRotationAccounts(updated);
+  };
+
+
     await supabase.from("shill_scheduled_posts").delete().eq("id", id);
     setScheduledPosts((prev) => prev.filter((p) => p.id !== id));
     toast.success("Scheduled post deleted");
