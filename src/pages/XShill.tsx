@@ -408,54 +408,56 @@ export default function XShill() {
                     No scheduled posts. Use <code>/shill</code> in Telegram and choose "Schedule" to add videos.
                   </p>
                 ) : (
-                  <ScrollArea className="max-h-[400px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Scheduled</TableHead>
-                          <TableHead className="text-xs">Caption</TableHead>
-                          <TableHead className="text-xs">Video</TableHead>
-                          <TableHead className="text-xs">Status</TableHead>
-                          <TableHead className="text-xs w-[100px]">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {pagedPendingPosts.map((post) => (
-                          <TableRow key={post.id}>
-                            <TableCell className="text-[10px] font-mono whitespace-nowrap">
-                              {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
-                            </TableCell>
-                            <TableCell className="text-xs max-w-[200px] truncate">{post.caption}</TableCell>
-                            <TableCell>
-                              <a href={post.video_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                                <Play className="h-3 w-3 inline mr-1" />
-                                <span className="text-[10px]">Preview</span>
-                              </a>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={statusColor(post.status) as any} className="text-[9px]">
-                                {post.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1">
-                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
-                                  setEditPost({ ...post });
-                                  setEditPostDialog(true);
-                                }}>
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => deleteScheduledPost(post.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </TableCell>
+                  <>
+                    <ScrollArea className="max-h-[350px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="text-xs">Scheduled</TableHead>
+                            <TableHead className="text-xs">Caption</TableHead>
+                            <TableHead className="text-xs">Video</TableHead>
+                            <TableHead className="text-xs">Status</TableHead>
+                            <TableHead className="text-xs w-[100px]">Actions</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {pagedPendingPosts.map((post) => (
+                            <TableRow key={post.id}>
+                              <TableCell className="text-[10px] font-mono whitespace-nowrap">
+                                {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
+                              </TableCell>
+                              <TableCell className="text-xs max-w-[200px] truncate">{post.caption}</TableCell>
+                              <TableCell>
+                                <a href={post.video_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                  <Play className="h-3 w-3 inline mr-1" />
+                                  <span className="text-[10px]">Preview</span>
+                                </a>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={statusColor(post.status) as any} className="text-[9px]">
+                                  {post.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
+                                    setEditPost({ ...post });
+                                    setEditPostDialog(true);
+                                  }}>
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => deleteScheduledPost(post.id)}>
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                     {pendingTotalPages > 1 && (
-                      <div className="flex items-center justify-between pt-3 px-1">
+                      <div className="flex items-center justify-between pt-3 px-1 border-t border-border mt-2">
                         <p className="text-xs text-muted-foreground">
                           Showing {(pendingPage - 1) * PENDING_PAGE_SIZE + 1}–{Math.min(pendingPage * PENDING_PAGE_SIZE, pendingPosts.length)} of {pendingPosts.length}
                         </p>
@@ -469,7 +471,7 @@ export default function XShill() {
                         </div>
                       </div>
                     )}
-                  </ScrollArea>
+                  </>
                 )}
               </CardContent>
             </Card>
