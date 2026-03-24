@@ -3319,6 +3319,31 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Handle /shill command (admin-only) ───
+    if (text.toLowerCase().startsWith('/shill')) {
+      const senderUsername = (message.from?.username || '').toLowerCase()
+      if (senderUsername !== 'lokeybunny') {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🔒 This command is restricted to admin only.' })
+        return new Response('ok')
+      }
+      // Clean up old shill sessions
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'shill_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      // Create shill session at caption step
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'shill_session',
+        payload: { chat_id: chatId, step: 'caption', community: '$whitehouse', created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: '🚀 <b>Shill to X Community</b>\n\n📝 Community: <b>$whitehouse</b> (ctothispump)\n\nWhat caption do you want for this post?',
+        parse_mode: 'HTML',
+      })
+      return new Response('ok')
+    }
+
     // ─── Handle /xpost command ───
     if (text.toLowerCase().startsWith('/xpost')) {
       // Fetch SMM profiles
