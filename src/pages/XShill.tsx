@@ -420,7 +420,7 @@ export default function XShill() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pendingPosts.map((post) => (
+                        {pagedPendingPosts.map((post) => (
                           <TableRow key={post.id}>
                             <TableCell className="text-[10px] font-mono whitespace-nowrap">
                               {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
@@ -454,6 +454,21 @@ export default function XShill() {
                         ))}
                       </TableBody>
                     </Table>
+                    {pendingTotalPages > 1 && (
+                      <div className="flex items-center justify-between pt-3 px-1">
+                        <p className="text-xs text-muted-foreground">
+                          Showing {(pendingPage - 1) * PENDING_PAGE_SIZE + 1}–{Math.min(pendingPage * PENDING_PAGE_SIZE, pendingPosts.length)} of {pendingPosts.length}
+                        </p>
+                        <div className="flex gap-1">
+                          <Button variant="outline" size="sm" className="h-7 text-xs" disabled={pendingPage <= 1} onClick={() => setPendingPage(p => p - 1)}>
+                            Previous
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 text-xs" disabled={pendingPage >= pendingTotalPages} onClick={() => setPendingPage(p => p + 1)}>
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </ScrollArea>
                 )}
               </CardContent>
