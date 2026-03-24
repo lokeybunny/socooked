@@ -240,7 +240,7 @@ export default function XShill() {
               {/* Status Card */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">@WhiteHouse Tracker</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">Trump / @WhiteHouse Tracker</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex items-center justify-between">
