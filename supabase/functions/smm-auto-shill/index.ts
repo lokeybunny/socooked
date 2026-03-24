@@ -2329,8 +2329,32 @@ serve(async (req) => {
           // Load shill config for copy text
           const raidProfileUsername = matchedProfile || "NysonBlack";
           const { content: raidCfg } = await loadShillConfig(supabase, raidProfileUsername);
-          const campaignUrl = raidCfg?.campaign_url || "";
+          let raidFinalUrl = raidCfg?.campaign_url || "";
           const shillTicker = raidCfg?.ticker || "";
+
+          // Discord Campaign Mode for raids too
+          const raidDiscordCampaign = raidCfg?.discord_campaign_mode === true;
+          if (raidDiscordCampaign && shillTicker) {
+            try {
+              const UPLOAD_POST_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
+              const histRes = await fetch(
+                `https://api.upload-post.com/api/uploadposts/history?page=1&limit=50`,
+                { headers: { Authorization: `Bearer ${UPLOAD_POST_KEY}` } }
+              );
+              if (histRes.ok) {
+                const histJson = await histRes.json();
+                const history = histJson?.history || [];
+                const tickerLower = shillTicker.replace(/^\$/, "").toLowerCase();
+                const match = history.find((h: any) =>
+                  h.platform === "x" && h.success === true && h.media_type === "video" && h.post_url &&
+                  (h.post_caption || h.post_title || "").toLowerCase().includes(tickerLower)
+                );
+                if (match?.post_url) raidFinalUrl = match.post_url;
+              }
+            } catch (e) {
+              console.error("[auto-shill] Raid discord campaign mode error:", e);
+            }
+          }
 
           if (!shillTicker) {
             return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
@@ -2347,7 +2371,7 @@ serve(async (req) => {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, raidHashtag);
 
-          const copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (campaignUrl ? `\n${campaignUrl}` : "");
+          const copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (raidFinalUrl ? `\n${raidFinalUrl}` : "");
 
           sendCopyDM(discordUserId, copyText);
           return json({
@@ -2605,7 +2629,40 @@ serve(async (req) => {
         }
 
         // ── SHILL CHANNEL: randomized copy with hashtags + campaign link ──
-        const finalUrl = campaignUrl;
+        let finalUrl = campaignUrl;
+
+        // Discord Campaign Mode: find latest owned X video post with the ticker
+        const discordCampaignMode = cfg?.discord_campaign_mode === true;
+        if (discordCampaignMode && shillTicker) {
+          try {
+            const UPLOAD_POST_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
+            const histRes = await fetch(
+              `https://api.upload-post.com/api/uploadposts/history?page=1&limit=50`,
+              { headers: { Authorization: `Bearer ${UPLOAD_POST_KEY}` } }
+            );
+            if (histRes.ok) {
+              const histJson = await histRes.json();
+              const history = histJson?.history || [];
+              const tickerLower = shillTicker.replace(/^\$/, "").toLowerCase();
+              // Find the latest X video post containing the ticker from our owned accounts
+              const match = history.find((h: any) =>
+                h.platform === "x" &&
+                h.success === true &&
+                h.media_type === "video" &&
+                h.post_url &&
+                (h.post_caption || h.post_title || "").toLowerCase().includes(tickerLower)
+              );
+              if (match?.post_url) {
+                finalUrl = match.post_url;
+                console.log(`[auto-shill] Discord campaign mode: using owned video post ${finalUrl}`);
+              } else {
+                console.log(`[auto-shill] Discord campaign mode: no matching owned video post found for ticker ${shillTicker}, falling back to campaign_url`);
+              }
+            }
+          } catch (e) {
+            console.error("[auto-shill] Discord campaign mode fetch error:", e);
+          }
+        }
 
         // Random natural opener to dodge spam filters (200+ pool)
         const openerPool = OPENER_POOL;
