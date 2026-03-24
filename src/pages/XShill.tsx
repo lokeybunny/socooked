@@ -127,6 +127,7 @@ export default function XShill() {
   const [newAccountHandle, setNewAccountHandle] = useState("");
   const [shillCopyTicker, setShillCopyTicker] = useState("");
   const [shillCopyCampaignUrl, setShillCopyCampaignUrl] = useState("");
+  const [shillCopyCampaignLinks, setShillCopyCampaignLinks] = useState<string[]>(["", "", "", "", ""]);
   const [shillCopySaving, setShillCopySaving] = useState(false);
 
   const loadAll = useCallback(async () => {
@@ -202,8 +203,7 @@ export default function XShill() {
         setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
       }
 
-      // Load shill copy config (ticker + campaign_url for Get Shill Copy button)
-      // This is stored under the profile username section (default: NysonBlack)
+      // Load shill copy config (ticker + campaign_links for Get Shill Copy button)
       const { data: shillCopyCfg } = await supabase
         .from("site_configs")
         .select("content")
@@ -211,8 +211,17 @@ export default function XShill() {
         .eq("section", "NysonBlack")
         .maybeSingle();
       if (shillCopyCfg?.content) {
-        setShillCopyTicker((shillCopyCfg.content as any).ticker || "");
-        setShillCopyCampaignUrl((shillCopyCfg.content as any).campaign_url || "");
+        const c = shillCopyCfg.content as any;
+        setShillCopyTicker(c.ticker || "");
+        setShillCopyCampaignUrl(c.campaign_url || "");
+        const links = c.campaign_links || [];
+        setShillCopyCampaignLinks([
+          links[0] || c.campaign_url || "",
+          links[1] || "",
+          links[2] || "",
+          links[3] || "",
+          links[4] || "",
+        ]);
       }
     } catch (e) {
       console.error("Load error:", e);
@@ -295,7 +304,6 @@ export default function XShill() {
   const saveShillCopyConfig = async () => {
     setShillCopySaving(true);
     try {
-      // Load existing config to merge
       const { data: existing } = await supabase
         .from("site_configs")
         .select("id, content")
@@ -304,10 +312,13 @@ export default function XShill() {
         .maybeSingle();
 
       const existingContent = (existing?.content as any) || {};
+      // Filter out empty links
+      const activeLinks = shillCopyCampaignLinks.filter(l => l.trim());
       const updatedContent = {
         ...existingContent,
         ticker: shillCopyTicker,
-        campaign_url: shillCopyCampaignUrl,
+        campaign_url: activeLinks[0] || shillCopyCampaignUrl || "",
+        campaign_links: shillCopyCampaignLinks,
       };
 
       await supabase.from("site_configs").upsert({
@@ -317,7 +328,7 @@ export default function XShill() {
         content: updatedContent as any,
       } as any, { onConflict: "site_id,section" } as any);
 
-      toast.success("Shill copy config saved — Get Shill Copy button will use these values");
+      toast.success(`Shill copy config saved — ${activeLinks.length} link(s) will rotate`);
     } catch {
       toast.error("Failed to save shill copy config");
     }
@@ -485,29 +496,40 @@ export default function XShill() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Campaign Ticker</label>
-                    <Input
-                      value={shillCopyTicker}
-                      onChange={(e) => setShillCopyTicker(e.target.value)}
-                      placeholder="e.g. $WHITEHOUSE"
-                      className="h-8 text-sm font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Campaign Link (fallback)</label>
-                    <Input
-                      value={shillCopyCampaignUrl}
-                      onChange={(e) => setShillCopyCampaignUrl(e.target.value)}
-                      placeholder="https://x.com/community/post/..."
-                      className="h-8 text-sm font-mono"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Campaign Ticker</label>
+                  <Input
+                    value={shillCopyTicker}
+                    onChange={(e) => setShillCopyTicker(e.target.value)}
+                    placeholder="e.g. $WHITEHOUSE"
+                    className="h-8 text-sm font-mono max-w-xs"
+                  />
                 </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-muted-foreground">Campaign Links (up to 5 — rotates 1 per click)</label>
+                  {shillCopyCampaignLinks.map((link, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">
+                        {idx + 1}
+                      </Badge>
+                      <Input
+                        value={link}
+                        onChange={(e) => {
+                          const updated = [...shillCopyCampaignLinks];
+                          updated[idx] = e.target.value;
+                          setShillCopyCampaignLinks(updated);
+                        }}
+                        placeholder={idx === 0 ? "https://x.com/... (primary link)" : "https://x.com/... (optional)"}
+                        className="h-8 text-sm font-mono"
+                      />
+                    </div>
+                  ))}
+                </div>
+
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] text-muted-foreground">
-                    💡 If a matching owned video post (with ticker) is found in Upload-Post history, that link is used instead of the campaign link.
+                    🔄 Each "Get Shill Copy" click rotates to the next non-empty link. If Upload-Post has a matching owned video post, it's mixed in too.
                   </p>
                   <Button size="sm" onClick={saveShillCopyConfig} disabled={shillCopySaving} className="gap-1.5">
                     <Save className="h-3 w-3" />
