@@ -2332,6 +2332,34 @@ serve(async (req) => {
           const campaignUrl = raidCfg?.campaign_url || "";
           const shillTicker = raidCfg?.ticker || "";
 
+          // Check if Discord Shill mode is enabled
+          const { data: raidTargetCfgRow } = await supabase
+            .from("site_configs")
+            .select("content")
+            .eq("site_id", "smm-auto-shill")
+            .eq("section", "raid-community-targets")
+            .maybeSingle();
+          const raidCommunityTargets: any[] = (raidTargetCfgRow?.content as any)?.targets || [];
+          const raidDiscordShillOn = raidCommunityTargets.some((t: any) => t.enabled && t.discord_shill);
+
+          if (raidDiscordShillOn) {
+            const { data: latestRaidPost } = await supabase
+              .from("shill_scheduled_posts")
+              .select("post_url")
+              .eq("status", "posted")
+              .not("post_url", "is", null)
+              .order("updated_at", { ascending: false })
+              .limit(1)
+              .single();
+
+            if (latestRaidPost?.post_url) {
+              const raidOpener = OPENER_POOL[Math.floor(Math.random() * OPENER_POOL.length)];
+              const copyText = `${raidOpener}\n\n${latestRaidPost.post_url}`;
+              sendCopyDM(discordUserId, copyText);
+              return json({ type: 4, data: { content: `${copyText}`, flags: 64 } });
+            }
+          }
+
           if (!shillTicker) {
             return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
           }
