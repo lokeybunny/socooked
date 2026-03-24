@@ -883,19 +883,23 @@ Deno.serve(async (req) => {
     }
     console.log(`[smm-auto-publish] Hourly platform counts:`, Object.fromEntries(hourlyPlatformCount));
 
-    // ── Global duplicate guard: collect all published titles ──
+    // ── Global duplicate guard: collect all published titles keyed by platform ──
     const { data: allPublished } = await supabase
       .from("calendar_events")
-      .select("title")
+      .select("title, source_id, description")
       .in("category", ["smm", "artist-campaign"])
       .like("source_id", `${PUBLISHED_PREFIX}%`)
       .order("start_time", { ascending: false })
       .limit(1000);
 
-    const publishedTitleSet = new Set<string>();
+    const publishedPlatformTitleSet = new Set<string>();
     for (const pe of (allPublished || [])) {
       const norm = normalizeComparableText(pe.title);
-      if (norm) publishedTitleSet.add(norm);
+      if (!norm) continue;
+      const pePlatforms = inferPlatforms(pe, pe.source_id || "");
+      for (const plat of pePlatforms) {
+        publishedPlatformTitleSet.add(`${plat}::${norm}`);
+      }
     }
 
     /** Returns true if the event should be skipped due to rate-limit or duplicate */
