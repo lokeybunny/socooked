@@ -395,7 +395,7 @@ serve(async (req) => {
           // Check if URL is directly from @whitehouse account
           const whUrlMatch = filteredUrls.find(u => /x\.com\/whitehouse\//i.test(u) || /twitter\.com\/whitehouse\//i.test(u));
 
-          // Broaden: check message text + embeds for Trump/WhiteHouse keywords
+          // Check message text + embeds for WhiteHouse-only keywords (no Trump/MAGA/POTUS)
           const allMsgText = [
             msg.content || "",
             ...(msg.embeds || []).flatMap((e: any) => [e.title || "", e.description || ""]),
@@ -403,15 +403,14 @@ serve(async (req) => {
             ...(msg.message_snapshots || []).map((s: any) => s.message?.content || ""),
           ].join(" ").toLowerCase();
 
-          const TRUMP_KEYWORDS = [
-            "trump", "whitehouse", "white house", "potus", "oval office",
-            "executive order", "mar-a-lago", "maga", "realdonaldtrump",
-            "@whitehouse", "@potus", "$whitehouse",
+          const WH_KEYWORDS = [
+            "whitehouse", "white house", "@whitehouse", "$whitehouse",
+            "oval office", "executive order",
           ];
-          const isTrumpRelated = TRUMP_KEYWORDS.some(kw => allMsgText.includes(kw));
+          const isWhiteHouseRelated = WH_KEYWORDS.some(kw => allMsgText.includes(kw));
           const isDirectWhitehouse = !!whUrlMatch;
 
-          if (isDirectWhitehouse || isTrumpRelated) {
+          if (isDirectWhitehouse || isWhiteHouseRelated) {
             const raidTargetUrl = whUrlMatch || filteredUrls[0];
             const throttleSection = "raid-community-wh";
             const baseIntervalMs = isDirectWhitehouse ? 0 : 10 * 60 * 1000; // @whitehouse = instant, others = 10min
@@ -429,20 +428,14 @@ serve(async (req) => {
             const effectiveInterval = baseIntervalMs + jitterMs;
 
             if (elapsedMs >= effectiveInterval) {
-              const whMessages = isDirectWhitehouse ? [
+              const whMessages = [
                 `Just Detected New Post that could be Raided $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `🚨 New @WhiteHouse post just dropped! Rally $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `Whitehouse just posted — time to raid $WHITEHOUSE 🏛️\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `Fresh @WhiteHouse tweet detected 🔥 Raid opportunity for $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `🏛️ New @WhiteHouse alert — $WHITEHOUSE raid incoming\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `Spotted a new @WhiteHouse post! Lets go $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
-              ] : [
-                `🔥 Trump-related post detected — $WHITEHOUSE raid time!\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
-                `🏛️ Breaking Trump/WhiteHouse news on X — lets raid $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
-                `Trump is trending! Time to shill $WHITEHOUSE 🇺🇸\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `News about the White House just dropped — $WHITEHOUSE raid incoming!\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
-                `Trump/POTUS content detected 🚨 Rally $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
-                `Detected Trump-related post on X, lets get in there $WHITEHOUSE 🎯\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
               ];
 
               const raidText = whMessages[Math.floor(Math.random() * whMessages.length)];
