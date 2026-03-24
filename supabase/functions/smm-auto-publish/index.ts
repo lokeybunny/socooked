@@ -567,7 +567,11 @@ Deno.serve(async (req) => {
     try { uploadData = JSON.parse(uploadText); } catch {}
 
     if (!uploadRes.ok) {
-      if (RETRYABLE_HTTP_STATUSES.has(uploadRes.status)) {
+      const isCampaign = event.category === "artist-campaign";
+      const isDailyCapError = uploadText.toLowerCase().includes("daily") && (uploadText.toLowerCase().includes("cap") || uploadText.toLowerCase().includes("limit"));
+
+      // Campaign posts bypass daily cap errors — treat as retryable
+      if (RETRYABLE_HTTP_STATUSES.has(uploadRes.status) || (isCampaign && isDailyCapError)) {
         await logActivity("auto_publish_retry_pending", {
           name: `🔁 Auto-publish retry pending: ${event.title}`,
           event_id: event.id,
@@ -575,6 +579,7 @@ Deno.serve(async (req) => {
           platforms,
           status_code: uploadRes.status,
           provider_response: uploadText.substring(0, 300),
+          campaign_exception: isCampaign && isDailyCapError,
         });
         return json({
           ok: true,
@@ -582,7 +587,9 @@ Deno.serve(async (req) => {
           pending: 1,
           retry: true,
           title: event.title,
-          message: `Provider temporary error (HTTP ${uploadRes.status}); will retry automatically`,
+          message: isCampaign && isDailyCapError
+            ? `Daily cap hit but campaign post — will retry automatically`
+            : `Provider temporary error (HTTP ${uploadRes.status}); will retry automatically`,
         });
       }
 
