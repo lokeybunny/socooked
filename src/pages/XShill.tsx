@@ -292,6 +292,37 @@ export default function XShill() {
     await saveRotationAccounts(updated);
   };
 
+  const saveShillCopyConfig = async () => {
+    setShillCopySaving(true);
+    try {
+      // Load existing config to merge
+      const { data: existing } = await supabase
+        .from("site_configs")
+        .select("id, content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "NysonBlack")
+        .maybeSingle();
+
+      const existingContent = (existing?.content as any) || {};
+      const updatedContent = {
+        ...existingContent,
+        ticker: shillCopyTicker,
+        campaign_url: shillCopyCampaignUrl,
+      };
+
+      await supabase.from("site_configs").upsert({
+        ...(existing?.id ? { id: existing.id } : {}),
+        site_id: "smm-auto-shill",
+        section: "NysonBlack",
+        content: updatedContent as any,
+      } as any, { onConflict: "site_id,section" } as any);
+
+      toast.success("Shill copy config saved — Get Shill Copy button will use these values");
+    } catch {
+      toast.error("Failed to save shill copy config");
+    }
+    setShillCopySaving(false);
+  };
 
     const deleteScheduledPost = async (id: string) => {
     setScheduledPosts((prev) => prev.filter((p) => p.id !== id));
