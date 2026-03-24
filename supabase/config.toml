@@ -137,3 +137,9 @@ verify_jwt = false
 
 [functions.hourly-tweet-report]
 verify_jwt = false
+
+[functions.shill-scheduler]
+verify_jwt = false
+
+[functions.artist-campaign-scheduler]
+verify_jwt = false
