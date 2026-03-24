@@ -2644,17 +2644,15 @@ serve(async (req) => {
         const discordShillEnabled = communityTargets.some((t: any) => t.enabled && t.discord_shill);
 
         if (discordShillEnabled) {
-          // Fetch latest posted community post from rotation accounts
-          const { data: latestCPost } = await supabase
-            .from("shill_scheduled_posts")
-            .select("post_url")
-            .eq("status", "posted")
-            .not("post_url", "is", null)
-            .order("updated_at", { ascending: false })
-            .limit(1)
-            .single();
+          // Fetch latest community post URL from site_configs (stored by discord-channel-watcher)
+          const { data: latestCPostCfg } = await supabase
+            .from("site_configs")
+            .select("content")
+            .eq("site_id", "smm-auto-shill")
+            .eq("section", "latest-community-post")
+            .maybeSingle();
 
-          const communityPostUrl = latestCPost?.post_url || "";
+          const communityPostUrl = (latestCPostCfg?.content as any)?.post_url || "";
 
           if (communityPostUrl) {
             const opener = OPENER_POOL[Math.floor(Math.random() * OPENER_POOL.length)];
