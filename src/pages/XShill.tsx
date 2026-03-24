@@ -21,6 +21,7 @@ import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
   Video, Play, Pause, ExternalLink, CalendarClock, RotateCcw,
+  Users,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -352,9 +353,10 @@ export default function XShill() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-5 max-w-2xl">
+          <TabsList className="grid w-full grid-cols-6 max-w-3xl">
             <TabsTrigger value="overview" className="text-xs"><Activity className="h-3 w-3 mr-1" />Overview</TabsTrigger>
             <TabsTrigger value="campaign" className="text-xs"><Video className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
+            <TabsTrigger value="accounts" className="text-xs"><Users className="h-3 w-3 mr-1" />Accounts</TabsTrigger>
             <TabsTrigger value="communities" className="text-xs"><Globe className="h-3 w-3 mr-1" />Communities</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Messages</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs"><Clock className="h-3 w-3 mr-1" />Logs</TabsTrigger>
