@@ -3811,7 +3811,7 @@ serve(async (req) => {
     // ─── SAVE campaign config ───
     if (action === "save-config") {
       const body = await req.json();
-      const { profile_username, enabled, campaign_url, ticker, discord_app_id, discord_public_key, discord_channel_id, discord_listen_channel_id, discord_reply_channel_id, discord_guild_id, team_accounts, retweet_accounts, account_hashtags, all_x_accounts } = body;
+      const { profile_username, enabled, campaign_url, campaign_links, ticker, discord_app_id, discord_public_key, discord_channel_id, discord_listen_channel_id, discord_reply_channel_id, discord_guild_id, team_accounts, retweet_accounts, account_hashtags, all_x_accounts } = body;
       const section = profile_username || "NysonBlack";
 
       // Preserve fields that aren't sent from the save
