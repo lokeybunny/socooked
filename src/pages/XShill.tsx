@@ -20,7 +20,7 @@ import {
 import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
-  Video, Play, Pause, ExternalLink, CalendarClock,
+  Video, Play, Pause, ExternalLink, CalendarClock, RotateCcw,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -522,12 +522,36 @@ export default function XShill() {
                     ) : (
                       <div className="space-y-2">
                         {failedPosts.slice(0, 20).map((post) => (
-                          <div key={post.id} className="border border-destructive/30 rounded-md p-2">
+                          <div key={post.id} className="border border-destructive/30 rounded-md p-2 space-y-1">
                             <p className="text-xs truncate">{post.caption}</p>
                             <p className="text-[10px] text-destructive">{post.error}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
-                            </p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] text-muted-foreground">
+                                {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
+                              </p>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 gap-1 text-[10px] border-amber-500/30 text-amber-600 hover:bg-amber-500/10"
+                                onClick={async () => {
+                                  const { error } = await supabase
+                                    .from("shill_scheduled_posts")
+                                    .update({ status: "scheduled", error: null })
+                                    .eq("id", post.id);
+                                  if (error) {
+                                    toast.error("Failed to re-queue: " + error.message);
+                                  } else {
+                                    toast.success("Post re-queued for next cycle");
+                                    setScheduledPosts((prev) =>
+                                      prev.map((p) => p.id === post.id ? { ...p, status: "scheduled", error: null } : p)
+                                    );
+                                  }
+                                }}
+                              >
+                                <RotateCcw className="h-2.5 w-2.5" />
+                                PUSH
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
