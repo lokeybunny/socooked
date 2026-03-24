@@ -33,6 +33,7 @@ interface CommunityTarget {
   community_name: string;
   x_account: string;
   enabled: boolean;
+  discord_shill: boolean;
   whitehouse_interval_min: number;
   other_interval_min: number;
   whitehouse_jitter_min: number;
@@ -98,6 +99,7 @@ const DEFAULT_TARGET: Omit<CommunityTarget, "id"> = {
   community_name: "$WHITEHOUSE Community",
   x_account: "xslaves",
   enabled: true,
+  discord_shill: false,
   whitehouse_interval_min: 10,
   other_interval_min: 20,
   whitehouse_jitter_min: 3,
@@ -781,6 +783,16 @@ export default function XShill() {
                         <div className="text-right text-[10px] text-muted-foreground mr-2">
                           <p>Account: @{t.x_account}</p>
                           <p>${t.ticker} • WH: {t.whitehouse_interval_min}m / Other: {t.other_interval_min}m</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 border rounded-md px-2 py-1">
+                          <span className="text-[9px] text-muted-foreground whitespace-nowrap">Discord Shill</span>
+                          <Switch
+                            checked={t.discord_shill ?? false}
+                            onCheckedChange={(v) => {
+                              const updated = targets.map(x => x.id === t.id ? { ...x, discord_shill: v } : x);
+                              saveTargets(updated);
+                            }}
+                          />
                         </div>
                         <Switch
                           checked={t.enabled}
