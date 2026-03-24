@@ -904,14 +904,19 @@ Deno.serve(async (req) => {
 
     /** Returns true if the event should be skipped due to rate-limit or duplicate */
     const shouldSkipEvent = (ev: any): { skip: boolean; reason?: string } => {
-      // Duplicate check — exact title match against all previously published
+      // Duplicate check — per-platform title match against all previously published
       const normTitle = normalizeComparableText(ev.title);
-      if (normTitle && publishedTitleSet.has(normTitle)) {
-        return { skip: true, reason: `duplicate title already published` };
+      const evPayload = extractEventPayload(ev);
+      if (normTitle) {
+        const allPlatsDuplicate = evPayload.platforms.every(
+          (p: string) => publishedPlatformTitleSet.has(`${p}::${normTitle}`)
+        );
+        if (allPlatsDuplicate) {
+          return { skip: true, reason: `duplicate title already published on all target platforms` };
+        }
       }
 
       // Hourly rate-limit per platform
-      const evPayload = extractEventPayload(ev);
       for (const p of evPayload.platforms) {
         const current = hourlyPlatformCount.get(p) || 0;
         if (current >= HOURLY_PLATFORM_LIMIT) {
