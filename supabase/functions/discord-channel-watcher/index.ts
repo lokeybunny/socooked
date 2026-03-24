@@ -481,6 +481,7 @@ serve(async (req) => {
           } else {
             console.log(`[discord-watcher] No Trump/WhiteHouse content detected in raid source channel — skipping`);
           }
+          } // end filteredUrls.length > 0
         }
 
         // For RT (retweet) messages in the raid channel, use the quoted tweet
