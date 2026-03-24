@@ -113,6 +113,7 @@ export default function XShill() {
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [editPost, setEditPost] = useState<ScheduledPost | null>(null);
   const [editPostDialog, setEditPostDialog] = useState(false);
+  const [pendingPage, setPendingPage] = useState(1);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
