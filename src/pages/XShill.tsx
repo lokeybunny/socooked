@@ -517,6 +517,7 @@ export default function XShill() {
               </CardContent>
             </Card>
 
+            <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">How It Works</CardTitle>
               </CardHeader>
