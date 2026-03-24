@@ -458,12 +458,12 @@ serve(async (req) => {
                 });
 
                 const postResult = await postRes.json();
-                console.log(`[discord-watcher] 🎯 Community raid post (${isDirectWhitehouse ? "WH-direct" : "Trump-related"}):`, JSON.stringify(postResult).slice(0, 200));
+                console.log(`[discord-watcher] 🎯 Community raid post (WhiteHouse):`, JSON.stringify(postResult).slice(0, 200));
 
                 await supabase.from("site_configs").upsert({
                   site_id: "smm-auto-shill",
                   section: throttleSection,
-                  content: { last_post_ms: Date.now(), last_url: raidTargetUrl, is_whitehouse: isDirectWhitehouse, is_trump_related: isTrumpRelated },
+                  content: { last_post_ms: Date.now(), last_url: raidTargetUrl, is_whitehouse: isDirectWhitehouse },
                 }, { onConflict: "site_id,section" });
               } catch (raidErr) {
                 console.error("[discord-watcher] Community raid post error:", raidErr);
