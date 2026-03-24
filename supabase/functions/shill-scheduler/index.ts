@@ -21,6 +21,21 @@ Deno.serve(async (req) => {
     const nowIso = now.toISOString();
     const MIN_GAP_MS = 20 * 60 * 1000; // 20 minutes between posts
 
+    // ── PST/PDT posting window: 5AM - 9PM Pacific ──
+    const getPacificHour = (d: Date): number => {
+      const year = d.getUTCFullYear();
+      const marStart = new Date(Date.UTC(year, 2, 8));
+      marStart.setUTCDate(8 + (7 - marStart.getUTCDay()) % 7);
+      const novEnd = new Date(Date.UTC(year, 10, 1));
+      novEnd.setUTCDate(1 + (7 - novEnd.getUTCDay()) % 7);
+      const offset = (d >= marStart && d < novEnd) ? -7 : -8;
+      return (d.getUTCHours() + offset + 24) % 24;
+    };
+    const pacificHour = getPacificHour(now);
+    if (pacificHour < 5 || pacificHour >= 21) {
+      return json({ ok: true, processed: 0, skipped: true, reason: `Outside posting window (${pacificHour}h Pacific, allowed 5AM-9PM)` });
+    }
+
     // ── Anti-spam: check when the last post was actually sent ──
     const { data: lastPosted } = await supabase
       .from("shill_scheduled_posts")
