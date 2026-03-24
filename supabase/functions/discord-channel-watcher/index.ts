@@ -472,7 +472,7 @@ serve(async (req) => {
               console.log(`[discord-watcher] Community raid throttled — ${Math.round((effectiveInterval - elapsedMs) / 1000)}s remaining`);
             }
           } else {
-            console.log(`[discord-watcher] No Trump/WhiteHouse content detected in raid source channel — skipping`);
+            console.log(`[discord-watcher] No WhiteHouse content detected in raid source channel — skipping`);
           }
           } // end filteredUrls.length > 0
         }
