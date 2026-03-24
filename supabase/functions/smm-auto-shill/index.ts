@@ -2650,8 +2650,9 @@ serve(async (req) => {
         const shillEmojis = ["🔥", "🚀", "💎", "📈", "⚡", "💪", "✨", "🏆", "💯", "🌊"];
         const randomEmoji = shillEmojis[Math.floor(Math.random() * shillEmojis.length)];
 
+        const CA_SIGNATURE = "\n\nCA - 7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
         const copyText = `${opener}\n\n${randomEmoji} ` + copyParts.join(" ") +
-          (finalUrl ? `\n${finalUrl}` : "");
+          (finalUrl ? `\n${finalUrl}` : "") + CA_SIGNATURE;
 
         sendCopyDM(discordUserId, copyText);
         return json({
