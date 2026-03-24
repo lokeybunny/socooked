@@ -180,10 +180,6 @@ Deno.serve(async (req) => {
         }
 
         processed++;
-        // 8s delay between posts for rate limiting
-        if (duePosts.indexOf(post) < duePosts.length - 1) {
-          await new Promise((r) => setTimeout(r, 8000));
-        }
       } catch (err: any) {
         console.error(`[shill-scheduler] error processing ${post.id}:`, err.message);
         await supabase.from("shill_scheduled_posts").update({
