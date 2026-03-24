@@ -301,6 +301,25 @@ Deno.serve(async (req) => {
                 post_url: postUrl || null,
                 x_account: accountToUse, // record which account actually posted
               }).eq("id", post.id);
+
+              // Save latest WhiteHouse community post info for Discord shill copy
+              const postCommunityId = post.community_id || X_COMMUNITY_ID;
+              if (postCommunityId === X_COMMUNITY_ID) {
+                await supabase.from("site_configs").upsert({
+                  site_id: "smm-auto-shill",
+                  section: "latest-community-post-whitehouse",
+                  content: {
+                    post_url: postUrl || null,
+                    request_id: requestId || null,
+                    posted_at: new Date().toISOString(),
+                    community_id: X_COMMUNITY_ID,
+                    x_account: accountToUse,
+                    caption: post.caption || "",
+                    is_whitehouse: true,
+                  },
+                }, { onConflict: "site_id,section" });
+                console.log(`[shill-scheduler] ✅ Stored WhiteHouse community post for discord shill copy (post_url: ${postUrl || "pending"}, request_id: ${requestId})`);
+              }
             }
 
             // Notify via Telegram
