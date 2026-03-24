@@ -203,8 +203,7 @@ export default function XShill() {
         setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
       }
 
-      // Load shill copy config (ticker + campaign_url for Get Shill Copy button)
-      // This is stored under the profile username section (default: NysonBlack)
+      // Load shill copy config (ticker + campaign_links for Get Shill Copy button)
       const { data: shillCopyCfg } = await supabase
         .from("site_configs")
         .select("content")
@@ -212,8 +211,17 @@ export default function XShill() {
         .eq("section", "NysonBlack")
         .maybeSingle();
       if (shillCopyCfg?.content) {
-        setShillCopyTicker((shillCopyCfg.content as any).ticker || "");
-        setShillCopyCampaignUrl((shillCopyCfg.content as any).campaign_url || "");
+        const c = shillCopyCfg.content as any;
+        setShillCopyTicker(c.ticker || "");
+        setShillCopyCampaignUrl(c.campaign_url || "");
+        const links = c.campaign_links || [];
+        setShillCopyCampaignLinks([
+          links[0] || c.campaign_url || "",
+          links[1] || "",
+          links[2] || "",
+          links[3] || "",
+          links[4] || "",
+        ]);
       }
     } catch (e) {
       console.error("Load error:", e);
