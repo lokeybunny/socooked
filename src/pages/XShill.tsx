@@ -20,7 +20,7 @@ import {
 import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
-  Video, Play, Pause, ExternalLink, CalendarClock,
+  Video, Play, Pause, ExternalLink, CalendarClock, RotateCcw,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
