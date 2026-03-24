@@ -59,9 +59,9 @@ Deno.serve(async (req) => {
 
       if (recentThree && recentThree.length >= 3) {
         const thirdPostTime = new Date(recentThree[2].updated_at).getTime();
-        // Deterministic cooldown: 3-5 hours based on hash of the date
-        const dayHash = now.getUTCDate() + now.getUTCMonth() * 31;
-        const cooldownHours = 3 + (dayHash % 3); // 3, 4, or 5 hours
+        // Deterministic cooldown: 1-3 hours based on hash of the date
+        const dayHash = now.getUTCDate() + now.getUTCMonth() * 31 + now.getUTCHours();
+        const cooldownHours = 1 + (dayHash % 3); // 1, 2, or 3 hours
         const cooldownMs = cooldownHours * 60 * 60 * 1000;
         const cooldownEnd = thirdPostTime + cooldownMs;
         const remainingMs = cooldownEnd - now.getTime();

@@ -3678,7 +3678,7 @@ Deno.serve(async (req) => {
 
               // ─── COOLDOWN LOGIC ───
               // After every 3 consecutive posts (within 2h of each other), the NEXT post
-              // must be 3-5 hours after the 3rd post in that burst.
+              // must be 1-3 hours after the 3rd post in that burst.
               let cooldownAfter = 0 // earliest timestamp after cooldown
               if (existingTimes.length >= 3) {
                 // Walk backwards and count the current consecutive burst
@@ -3687,14 +3687,15 @@ Deno.serve(async (req) => {
                   const gap = existingTimes[i] - existingTimes[i - 1]
                   if (gap <= 2 * 60 * 60 * 1000) { // within 2 hours = same burst
                     burstCount++
+                    if (burstCount >= 3) break // only need to detect 3
                   } else {
                     break
                   }
                 }
-                // If the current burst is a multiple of 3, enforce cooldown
-                if (burstCount > 0 && burstCount % 3 === 0) {
+                // If the current burst has 3+ posts, enforce cooldown
+                if (burstCount >= 3) {
                   const lastPost = existingTimes[existingTimes.length - 1]
-                  const cooldownHours = 3 + Math.random() * 2 // 3-5 hours
+                  const cooldownHours = 1 + Math.random() * 2 // 1-3 hours
                   cooldownAfter = lastPost + cooldownHours * 60 * 60 * 1000
                 }
               }
