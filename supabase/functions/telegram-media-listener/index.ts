@@ -3670,10 +3670,34 @@ Deno.serve(async (req) => {
                 .order('scheduled_at', { ascending: true })
 
               const existingTimes = (existingPosts || []).map((p: any) => new Date(p.scheduled_at).getTime())
+              existingTimes.sort((a: number, b: number) => a - b)
 
               // Helper: check if a candidate time is at least 20 min from all existing
               const MIN_GAP_MS = 20 * 60 * 1000
               const isFarEnough = (t: number) => existingTimes.every(e => Math.abs(t - e) >= MIN_GAP_MS)
+
+              // ─── COOLDOWN LOGIC ───
+              // After every 3 consecutive posts (within 2h of each other), the NEXT post
+              // must be 3-5 hours after the 3rd post in that burst.
+              let cooldownAfter = 0 // earliest timestamp after cooldown
+              if (existingTimes.length >= 3) {
+                // Walk backwards and count the current consecutive burst
+                let burstCount = 1
+                for (let i = existingTimes.length - 1; i > 0; i--) {
+                  const gap = existingTimes[i] - existingTimes[i - 1]
+                  if (gap <= 2 * 60 * 60 * 1000) { // within 2 hours = same burst
+                    burstCount++
+                  } else {
+                    break
+                  }
+                }
+                // If the current burst is a multiple of 3, enforce cooldown
+                if (burstCount > 0 && burstCount % 3 === 0) {
+                  const lastPost = existingTimes[existingTimes.length - 1]
+                  const cooldownHours = 3 + Math.random() * 2 // 3-5 hours
+                  cooldownAfter = lastPost + cooldownHours * 60 * 60 * 1000
+                }
+              }
 
               // Build hour-count map for 3-per-hour cap
               const hourCounts: Record<string, number> = {}
@@ -3685,7 +3709,10 @@ Deno.serve(async (req) => {
               let scheduledAt: Date | null = null
               const now = new Date()
               // Start scheduling 30 minutes from now (never post immediately)
-              const earliest = new Date(now.getTime() + 30 * 60 * 1000)
+              let earliestMs = now.getTime() + 30 * 60 * 1000
+              // Apply cooldown if active
+              if (cooldownAfter > earliestMs) earliestMs = cooldownAfter
+              const earliest = new Date(earliestMs)
 
               for (let h = 0; h < 168; h++) { // scan up to 7 days ahead
                 const hourStart = new Date(earliest)
