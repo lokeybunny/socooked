@@ -385,8 +385,15 @@ serve(async (req) => {
         const WHITEHOUSE_CA = "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
 
         if (listenChannelId === RAID_COMMUNITY_SOURCE && uniqueUrls.length > 0) {
+          // Filter out posts from @warrenguru to avoid double-posting (Warren posts + bot reposts)
+          const filteredUrls = uniqueUrls.filter(u => !/x\.com\/warrenguru\//i.test(u) && !/twitter\.com\/warrenguru\//i.test(u));
+          if (filteredUrls.length === 0) {
+            console.log(`[discord-watcher] All URLs are from @warrenguru — skipping to avoid double-post`);
+          }
+
+          if (filteredUrls.length > 0) {
           // Check if URL is directly from @whitehouse account
-          const whUrlMatch = uniqueUrls.find(u => /x\.com\/whitehouse\//i.test(u) || /twitter\.com\/whitehouse\//i.test(u));
+          const whUrlMatch = filteredUrls.find(u => /x\.com\/whitehouse\//i.test(u) || /twitter\.com\/whitehouse\//i.test(u));
 
           // Broaden: check message text + embeds for Trump/WhiteHouse keywords
           const allMsgText = [
@@ -405,7 +412,7 @@ serve(async (req) => {
           const isDirectWhitehouse = !!whUrlMatch;
 
           if (isDirectWhitehouse || isTrumpRelated) {
-            const raidTargetUrl = whUrlMatch || uniqueUrls[0];
+            const raidTargetUrl = whUrlMatch || filteredUrls[0];
             const throttleSection = "raid-community-wh";
             const baseIntervalMs = isDirectWhitehouse ? 0 : 10 * 60 * 1000; // @whitehouse = instant, others = 10min
 
@@ -474,6 +481,7 @@ serve(async (req) => {
           } else {
             console.log(`[discord-watcher] No Trump/WhiteHouse content detected in raid source channel — skipping`);
           }
+          } // end filteredUrls.length > 0
         }
 
         // For RT (retweet) messages in the raid channel, use the quoted tweet
