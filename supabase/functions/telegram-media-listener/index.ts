@@ -3704,12 +3704,49 @@ Deno.serve(async (req) => {
                 cooldownAfter = lastPost + cooldownHours * 60 * 60 * 1000
               }
 
+              // ─── PST/PDT POSTING WINDOW: 5AM - 9PM ───
+              // Determine current PDT/PST offset (simplified: Mar Sun2 - Nov Sun1 = PDT -7, else PST -8)
+              const getPacificOffsetHours = (d: Date): number => {
+                const year = d.getUTCFullYear()
+                const marStart = new Date(Date.UTC(year, 2, 8)) // Mar 8 approx
+                marStart.setUTCDate(8 + (7 - marStart.getUTCDay()) % 7) // 2nd Sunday
+                const novEnd = new Date(Date.UTC(year, 10, 1))
+                novEnd.setUTCDate(1 + (7 - novEnd.getUTCDay()) % 7) // 1st Sunday
+                return (d >= marStart && d < novEnd) ? -7 : -8
+              }
+              const PST_WINDOW_START = 5  // 5 AM Pacific
+              const PST_WINDOW_END = 21   // 9 PM Pacific
+
+              const isInPacificWindow = (utcMs: number): boolean => {
+                const d = new Date(utcMs)
+                const offset = getPacificOffsetHours(d)
+                const pacificHour = (d.getUTCHours() + offset + 24) % 24
+                return pacificHour >= PST_WINDOW_START && pacificHour < PST_WINDOW_END
+              }
+
+              // Push a UTC timestamp forward to the next 5AM Pacific if outside window
+              const snapToWindow = (utcMs: number): number => {
+                if (isInPacificWindow(utcMs)) return utcMs
+                const d = new Date(utcMs)
+                const offset = getPacificOffsetHours(d)
+                const pacificHour = (d.getUTCHours() + offset + 24) % 24
+                // If past 9PM, jump to next day 5AM; if before 5AM, jump to today 5AM
+                const dLocal = new Date(utcMs + offset * 3600000)
+                const nextDay = pacificHour >= PST_WINDOW_END ? 1 : 0
+                const target = new Date(dLocal)
+                target.setUTCDate(target.getUTCDate() + nextDay)
+                target.setUTCHours(PST_WINDOW_START, Math.floor(Math.random() * 15), Math.floor(Math.random() * 30), 0)
+                return target.getTime() - offset * 3600000 // convert back to UTC
+              }
+
               let scheduledAt: Date | null = null
               const now = new Date()
               // Start scheduling 30 minutes from now (never post immediately)
               let earliestMs = now.getTime() + 30 * 60 * 1000
               // Apply cooldown if active — this is the key: forces a 1-3h gap
               if (cooldownAfter > earliestMs) earliestMs = cooldownAfter
+              // Snap to Pacific window
+              earliestMs = snapToWindow(earliestMs)
               const earliest = new Date(earliestMs)
 
               // Scan forward to find a valid slot
@@ -3717,6 +3754,9 @@ Deno.serve(async (req) => {
                 const hourStart = new Date(earliest)
                 hourStart.setMinutes(0, 0, 0)
                 hourStart.setHours(hourStart.getHours() + h)
+
+                // Skip hours outside the Pacific window
+                if (!isInPacificWindow(hourStart.getTime())) continue
 
                 // Try up to 15 random minutes in this hour to find a valid gap
                 for (let attempt = 0; attempt < 15; attempt++) {
@@ -3727,6 +3767,8 @@ Deno.serve(async (req) => {
 
                   // Must be after earliest allowed time
                   if (candidate.getTime() < earliest.getTime()) continue
+                  // Must be within Pacific window
+                  if (!isInPacificWindow(candidate.getTime())) continue
                   // Must be 20+ min from every existing post
                   if (!isFarEnough(candidate.getTime())) continue
 
