@@ -487,8 +487,15 @@ serve(async (req) => {
                 if (communityPostUrl) {
                   await supabase.from("site_configs").upsert({
                     site_id: "smm-auto-shill",
-                    section: "latest-community-post",
-                    content: { post_url: communityPostUrl, posted_at: new Date().toISOString(), request_id: requestId },
+                    section: "latest-community-post-whitehouse",
+                    content: {
+                      post_url: communityPostUrl,
+                      posted_at: new Date().toISOString(),
+                      request_id: requestId,
+                      community_id: X_COMMUNITY_ID,
+                      x_account: "xslaves",
+                      is_whitehouse: true,
+                    },
                   }, { onConflict: "site_id,section" });
                   console.log(`[discord-watcher] ✅ Stored community post URL: ${communityPostUrl}`);
                 }
