@@ -203,11 +203,12 @@ export default function XShill() {
       }
 
       // Load shill copy config (ticker + campaign_url for Get Shill Copy button)
+      // This is stored under the profile username section (default: NysonBlack)
       const { data: shillCopyCfg } = await supabase
         .from("site_configs")
         .select("content")
         .eq("site_id", "smm-auto-shill")
-        .eq("section", "config")
+        .eq("section", "NysonBlack")
         .maybeSingle();
       if (shillCopyCfg?.content) {
         setShillCopyTicker((shillCopyCfg.content as any).ticker || "");
