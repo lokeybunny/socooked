@@ -54,6 +54,7 @@ import ReplyEngine from "./pages/ReplyEngine";
 import Raiders from "./pages/Raiders";
 import ShillCRM from "./pages/ShillCRM";
 import ShillTeam from "./pages/ShillTeam";
+import XShill from "./pages/XShill";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
@@ -131,6 +132,7 @@ const App = () => (
             <Route path="/reply-engine" element={<Navigate to="/shillers" replace />} />
             <Route path="/raiders" element={<Navigate to="/shillers/raiders" replace />} />
             <Route path="/shillteam" element={<ShillTeam />} />
+            <Route path="/x-shill" element={<RestrictedGate><AuthLayoutGate><XShill /></AuthLayoutGate></RestrictedGate>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
