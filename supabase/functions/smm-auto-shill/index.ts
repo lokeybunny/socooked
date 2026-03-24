@@ -2332,9 +2332,8 @@ serve(async (req) => {
           let raidFinalUrl = raidCfg?.campaign_url || "";
           const shillTicker = raidCfg?.ticker || "";
 
-          // Discord Campaign Mode for raids too
-          const raidDiscordCampaign = raidCfg?.discord_campaign_mode === true;
-          if (raidDiscordCampaign && shillTicker) {
+          // Always try to find owned video post with ticker for raids too
+          if (shillTicker) {
             try {
               const UPLOAD_POST_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
               const histRes = await fetch(
@@ -2352,7 +2351,7 @@ serve(async (req) => {
                 if (match?.post_url) raidFinalUrl = match.post_url;
               }
             } catch (e) {
-              console.error("[auto-shill] Raid discord campaign mode error:", e);
+              console.error("[auto-shill] Raid campaign mode error:", e);
             }
           }
 
@@ -2632,8 +2631,9 @@ serve(async (req) => {
         let finalUrl = campaignUrl;
 
         // Discord Campaign Mode: find latest owned X video post with the ticker
-        const discordCampaignMode = cfg?.discord_campaign_mode === true;
-        if (discordCampaignMode && shillTicker) {
+        // When discord_campaign_mode is true OR campaign_url is empty, auto-resolve from owned posts
+        const discordCampaignMode = cfg?.discord_campaign_mode === true || !campaignUrl;
+        if (shillTicker) {
           try {
             const UPLOAD_POST_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
             const histRes = await fetch(
@@ -2656,7 +2656,7 @@ serve(async (req) => {
                 finalUrl = match.post_url;
                 console.log(`[auto-shill] Discord campaign mode: using owned video post ${finalUrl}`);
               } else {
-                console.log(`[auto-shill] Discord campaign mode: no matching owned video post found for ticker ${shillTicker}, falling back to campaign_url`);
+                console.log(`[auto-shill] Discord campaign mode: no matching owned video post found for ticker ${shillTicker}, using campaign_url fallback`);
               }
             }
           } catch (e) {
