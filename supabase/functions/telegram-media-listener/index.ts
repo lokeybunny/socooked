@@ -2374,6 +2374,30 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── SHILL TIMING callbacks ───
+      if (cbData === 'shill_timing_now' || cbData === 'shill_timing_schedule') {
+        const { data: shillSessions } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'shill_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+          .eq('processed', false).limit(1)
+        const ss = shillSessions?.[0]
+        if (ss) {
+          const ssp = ss.payload as any
+          const timing = cbData === 'shill_timing_now' ? 'now' : 'schedule'
+          await supabase.from('webhook_events').update({
+            payload: { ...ssp, step: 'video', timing },
+          }).eq('id', ss.id)
+          const label = timing === 'now' ? '🚀 Got it — posting immediately after upload.' : '📅 Got it — video will be scheduled (max 3/hour, randomized times).'
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: `${label}\n\n📹 Now upload the video.`,
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
       // ─── SHILL NOW copy callback ───
       if (cbData === 'shill_copy') {
         const { data: shillConfigs } = await supabase
