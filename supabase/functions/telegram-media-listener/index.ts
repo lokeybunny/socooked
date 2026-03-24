@@ -85,6 +85,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'proposal', description: '📝 Create & send a proposal' },
     { command: 'audit', description: '🔍 Audit a website + Instagram' },
     { command: 'gains', description: '⚡ Toggle TP10 gain alerts on/off' },
+    { command: 'shill', description: '🚀 Shill video to X Community' },
   ]
 
   // Fire-and-forget: register commands + ensure webhook accepts channel_post
