@@ -3685,6 +3685,7 @@ Deno.serve(async (req) => {
 
               for (let h = 0; h < 168; h++) { // scan up to 7 days ahead
                 const candidate = new Date(startHour)
+                candidate.setMinutes(0, 0, 0)
                 candidate.setHours(candidate.getHours() + h)
                 const hourKey = candidate.toISOString().slice(0, 13)
                 if ((hourCounts[hourKey] || 0) < 3) {
@@ -3692,6 +3693,11 @@ Deno.serve(async (req) => {
                   const randomMinute = 2 + Math.floor(Math.random() * 56) // 2-57
                   const randomSecond = Math.floor(Math.random() * 30)
                   candidate.setMinutes(randomMinute, randomSecond, 0)
+                  // Ensure we never schedule before the 30min minimum
+                  const earliest = new Date(now.getTime() + 30 * 60 * 1000)
+                  if (candidate.getTime() < earliest.getTime()) {
+                    candidate.setTime(earliest.getTime() + Math.floor(Math.random() * 10) * 60000)
+                  }
                   scheduledAt = candidate
                   break
                 }
