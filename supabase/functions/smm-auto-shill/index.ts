@@ -3855,7 +3855,7 @@ async function findAvailableAccount(
     if (entry.action === "replied" || entry.action === "failed") {
       const cdEnd = activityTime + COOLDOWN_MS;
       if (cdEnd > now) {
-        cooldownMap[account] = { until: cdEnd, reason: "Cooldown (5m)" };
+        cooldownMap[account] = { until: cdEnd, reason: "Cooldown (30m)" };
       }
     }
   }
