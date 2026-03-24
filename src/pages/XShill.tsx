@@ -125,6 +125,9 @@ export default function XShill() {
   const [pendingPage, setPendingPage] = useState(1);
   const [rotationAccounts, setRotationAccounts] = useState<RotationAccount[]>([]);
   const [newAccountHandle, setNewAccountHandle] = useState("");
+  const [shillCopyTicker, setShillCopyTicker] = useState("");
+  const [shillCopyCampaignUrl, setShillCopyCampaignUrl] = useState("");
+  const [shillCopySaving, setShillCopySaving] = useState(false);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
@@ -197,6 +200,19 @@ export default function XShill() {
       } else {
         // Seed with current default account
         setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
+      }
+
+      // Load shill copy config (ticker + campaign_url for Get Shill Copy button)
+      // This is stored under the profile username section (default: NysonBlack)
+      const { data: shillCopyCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "NysonBlack")
+        .maybeSingle();
+      if (shillCopyCfg?.content) {
+        setShillCopyTicker((shillCopyCfg.content as any).ticker || "");
+        setShillCopyCampaignUrl((shillCopyCfg.content as any).campaign_url || "");
       }
     } catch (e) {
       console.error("Load error:", e);
@@ -276,6 +292,37 @@ export default function XShill() {
     await saveRotationAccounts(updated);
   };
 
+  const saveShillCopyConfig = async () => {
+    setShillCopySaving(true);
+    try {
+      // Load existing config to merge
+      const { data: existing } = await supabase
+        .from("site_configs")
+        .select("id, content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "NysonBlack")
+        .maybeSingle();
+
+      const existingContent = (existing?.content as any) || {};
+      const updatedContent = {
+        ...existingContent,
+        ticker: shillCopyTicker,
+        campaign_url: shillCopyCampaignUrl,
+      };
+
+      await supabase.from("site_configs").upsert({
+        ...(existing?.id ? { id: existing.id } : {}),
+        site_id: "smm-auto-shill",
+        section: "NysonBlack",
+        content: updatedContent as any,
+      } as any, { onConflict: "site_id,section" } as any);
+
+      toast.success("Shill copy config saved — Get Shill Copy button will use these values");
+    } catch {
+      toast.error("Failed to save shill copy config");
+    }
+    setShillCopySaving(false);
+  };
 
     const deleteScheduledPost = async (id: string) => {
     setScheduledPosts((prev) => prev.filter((p) => p.id !== id));
@@ -425,6 +472,50 @@ export default function XShill() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Shill Copy Config — controls Get Shill Copy button output */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  Shill Copy Config
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground">
+                  These values control the <strong>📋 Get Shill Copy</strong> button output in Discord. The ticker and link appear in every generated shill/raid copy.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Campaign Ticker</label>
+                    <Input
+                      value={shillCopyTicker}
+                      onChange={(e) => setShillCopyTicker(e.target.value)}
+                      placeholder="e.g. $WHITEHOUSE"
+                      className="h-8 text-sm font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Campaign Link (fallback)</label>
+                    <Input
+                      value={shillCopyCampaignUrl}
+                      onChange={(e) => setShillCopyCampaignUrl(e.target.value)}
+                      placeholder="https://x.com/community/post/..."
+                      className="h-8 text-sm font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-muted-foreground">
+                    💡 If a matching owned video post (with ticker) is found in Upload-Post history, that link is used instead of the campaign link.
+                  </p>
+                  <Button size="sm" onClick={saveShillCopyConfig} disabled={shillCopySaving} className="gap-1.5">
+                    <Save className="h-3 w-3" />
+                    {shillCopySaving ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader className="pb-2">
