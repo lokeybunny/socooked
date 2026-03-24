@@ -3662,45 +3662,54 @@ Deno.serve(async (req) => {
 
             // ─── SCHEDULE PATH ───
             if (sp.timing === 'schedule') {
-              // Find next available slot: max 3 per hour, randomized within each hour
+              // Fetch all existing scheduled times
               const { data: existingPosts } = await supa
                 .from('shill_scheduled_posts')
                 .select('scheduled_at')
                 .in('status', ['scheduled', 'processing'])
                 .order('scheduled_at', { ascending: true })
 
-              // Build a map of posts per hour
+              const existingTimes = (existingPosts || []).map((p: any) => new Date(p.scheduled_at).getTime())
+
+              // Helper: check if a candidate time is at least 20 min from all existing
+              const MIN_GAP_MS = 20 * 60 * 1000
+              const isFarEnough = (t: number) => existingTimes.every(e => Math.abs(t - e) >= MIN_GAP_MS)
+
+              // Build hour-count map for 3-per-hour cap
               const hourCounts: Record<string, number> = {}
               for (const p of existingPosts || []) {
-                const hourKey = new Date(p.scheduled_at).toISOString().slice(0, 13) // YYYY-MM-DDTHH
+                const hourKey = new Date(p.scheduled_at).toISOString().slice(0, 13)
                 hourCounts[hourKey] = (hourCounts[hourKey] || 0) + 1
               }
 
-              // Find next hour with fewer than 3 posts
               let scheduledAt: Date | null = null
               const now = new Date()
               // Start scheduling 30 minutes from now (never post immediately)
-              const startHour = new Date(now.getTime() + 30 * 60 * 1000)
-              startHour.setSeconds(0, 0)
+              const earliest = new Date(now.getTime() + 30 * 60 * 1000)
 
               for (let h = 0; h < 168; h++) { // scan up to 7 days ahead
-                const candidate = new Date(startHour)
-                candidate.setMinutes(0, 0, 0)
-                candidate.setHours(candidate.getHours() + h)
-                const hourKey = candidate.toISOString().slice(0, 13)
-                if ((hourCounts[hourKey] || 0) < 3) {
-                  // Randomize minute within the hour (avoid :00 and :59 for algo friendliness)
+                const hourStart = new Date(earliest)
+                hourStart.setMinutes(0, 0, 0)
+                hourStart.setHours(hourStart.getHours() + h)
+                const hourKey = hourStart.toISOString().slice(0, 13)
+                if ((hourCounts[hourKey] || 0) >= 3) continue
+
+                // Try up to 15 random minutes in this hour to find a valid gap
+                for (let attempt = 0; attempt < 15; attempt++) {
                   const randomMinute = 2 + Math.floor(Math.random() * 56) // 2-57
                   const randomSecond = Math.floor(Math.random() * 30)
+                  const candidate = new Date(hourStart)
                   candidate.setMinutes(randomMinute, randomSecond, 0)
-                  // Ensure we never schedule before the 30min minimum
-                  const earliest = new Date(now.getTime() + 30 * 60 * 1000)
-                  if (candidate.getTime() < earliest.getTime()) {
-                    candidate.setTime(earliest.getTime() + Math.floor(Math.random() * 10) * 60000)
-                  }
+
+                  // Must be after earliest allowed time
+                  if (candidate.getTime() < earliest.getTime()) continue
+                  // Must be 20+ min from every existing post
+                  if (!isFarEnough(candidate.getTime())) continue
+
                   scheduledAt = candidate
                   break
                 }
+                if (scheduledAt) break
               }
 
               if (!scheduledAt) {
