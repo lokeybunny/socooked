@@ -169,6 +169,7 @@ const shillHeaders = {
 function CampaignTab() {
   const [config, setConfig] = useState({
     enabled: false, campaign_url: '', ticker: '',
+    ca_address: '7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump',
     discord_app_id: '', discord_public_key: '',
     discord_channel_id: '', discord_listen_channel_id: '', discord_reply_channel_id: '',
     team_accounts: [] as string[], retweet_accounts: [] as string[],
