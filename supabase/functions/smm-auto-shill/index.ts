@@ -3826,6 +3826,7 @@ serve(async (req) => {
         content: {
           enabled,
           campaign_url: campaign_url || "",
+          campaign_links: Array.isArray(campaign_links) ? campaign_links : existingContent?.campaign_links || [],
           ticker: ticker || "",
           discord_app_id: discord_app_id || "",
           discord_public_key: discord_public_key || "",
