@@ -2371,7 +2371,7 @@ serve(async (req) => {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, raidHashtag);
 
-          const copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (campaignUrl ? `\n${campaignUrl}` : "");
+          const copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (raidFinalUrl ? `\n${raidFinalUrl}` : "");
 
           sendCopyDM(discordUserId, copyText);
           return json({
