@@ -2343,18 +2343,17 @@ serve(async (req) => {
           const raidDiscordShillOn = raidCommunityTargets.some((t: any) => t.enabled && t.discord_shill);
 
           if (raidDiscordShillOn) {
-            const { data: latestRaidPost } = await supabase
-              .from("shill_scheduled_posts")
-              .select("post_url")
-              .eq("status", "posted")
-              .not("post_url", "is", null)
-              .order("updated_at", { ascending: false })
-              .limit(1)
-              .single();
+            const { data: latestRaidPostCfg } = await supabase
+              .from("site_configs")
+              .select("content")
+              .eq("site_id", "smm-auto-shill")
+              .eq("section", "latest-community-post")
+              .maybeSingle();
 
-            if (latestRaidPost?.post_url) {
+            const raidCommunityUrl = (latestRaidPostCfg?.content as any)?.post_url || "";
+            if (raidCommunityUrl) {
               const raidOpener = OPENER_POOL[Math.floor(Math.random() * OPENER_POOL.length)];
-              const copyText = `${raidOpener}\n\n${latestRaidPost.post_url}`;
+              const copyText = `${raidOpener}\n\n${raidCommunityUrl}`;
               sendCopyDM(discordUserId, copyText);
               return json({ type: 4, data: { content: `${copyText}`, flags: 64 } });
             }
