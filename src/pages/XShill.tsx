@@ -21,6 +21,7 @@ import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
   Video, Play, Pause, ExternalLink, CalendarClock, RotateCcw,
+  Users,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -47,6 +48,14 @@ interface RaidLog {
   created_at: string;
   action: string;
   meta: any;
+}
+
+interface RotationAccount {
+  id: string;
+  handle: string;
+  status: "active" | "paused" | "capped";
+  capped_at?: string;
+  posts_today: number;
 }
 
 interface ScheduledPost {
@@ -114,6 +123,8 @@ export default function XShill() {
   const [editPost, setEditPost] = useState<ScheduledPost | null>(null);
   const [editPostDialog, setEditPostDialog] = useState(false);
   const [pendingPage, setPendingPage] = useState(1);
+  const [rotationAccounts, setRotationAccounts] = useState<RotationAccount[]>([]);
+  const [newAccountHandle, setNewAccountHandle] = useState("");
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
@@ -173,6 +184,20 @@ export default function XShill() {
         .order("scheduled_at", { ascending: true })
         .limit(200);
       setScheduledPosts((posts as any[]) || []);
+
+      // Load rotation accounts
+      const { data: rotCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "shill-rotation-accounts")
+        .maybeSingle();
+      if (rotCfg?.content) {
+        setRotationAccounts((rotCfg.content as any).accounts || []);
+      } else {
+        // Seed with current default account
+        setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
+      }
     } catch (e) {
       console.error("Load error:", e);
     } finally {
@@ -215,9 +240,44 @@ export default function XShill() {
     toast.success("Throttle reset — next detection will post immediately");
     loadAll();
   };
+  const saveRotationAccounts = async (accounts: RotationAccount[]) => {
+    setRotationAccounts(accounts);
+    await supabase.from("site_configs").upsert({
+      site_id: "smm-auto-shill",
+      section: "shill-rotation-accounts",
+      content: { accounts } as any,
+    } as any, { onConflict: "site_id,section" } as any);
+    toast.success("Rotation accounts saved");
+  };
 
-  const deleteScheduledPost = async (id: string) => {
-    await supabase.from("shill_scheduled_posts").delete().eq("id", id);
+  const addRotationAccount = async () => {
+    const handle = newAccountHandle.trim().replace(/^@/, "");
+    if (!handle) return;
+    if (rotationAccounts.find(a => a.handle === handle)) {
+      toast.error("Account already exists");
+      return;
+    }
+    const updated = [...rotationAccounts, { id: crypto.randomUUID(), handle, status: "active" as const, posts_today: 0 }];
+    await saveRotationAccounts(updated);
+    setNewAccountHandle("");
+  };
+
+  const removeRotationAccount = async (id: string) => {
+    await saveRotationAccounts(rotationAccounts.filter(a => a.id !== id));
+  };
+
+  const toggleAccountStatus = async (id: string, status: "active" | "paused") => {
+    const updated = rotationAccounts.map(a => a.id === id ? { ...a, status, capped_at: undefined } : a);
+    await saveRotationAccounts(updated);
+  };
+
+  const resetAccountCap = async (id: string) => {
+    const updated = rotationAccounts.map(a => a.id === id ? { ...a, status: "active" as const, capped_at: undefined, posts_today: 0 } : a);
+    await saveRotationAccounts(updated);
+  };
+
+
+    const deleteScheduledPost = async (id: string) => {
     setScheduledPosts((prev) => prev.filter((p) => p.id !== id));
     toast.success("Scheduled post deleted");
   };
@@ -293,9 +353,10 @@ export default function XShill() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-5 max-w-2xl">
+          <TabsList className="grid w-full grid-cols-6 max-w-3xl">
             <TabsTrigger value="overview" className="text-xs"><Activity className="h-3 w-3 mr-1" />Overview</TabsTrigger>
             <TabsTrigger value="campaign" className="text-xs"><Video className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
+            <TabsTrigger value="accounts" className="text-xs"><Users className="h-3 w-3 mr-1" />Accounts</TabsTrigger>
             <TabsTrigger value="communities" className="text-xs"><Globe className="h-3 w-3 mr-1" />Communities</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Messages</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs"><Clock className="h-3 w-3 mr-1" />Logs</TabsTrigger>
@@ -605,7 +666,92 @@ export default function XShill() {
             </div>
           </TabsContent>
 
-          {/* ═══ COMMUNITIES ═══ */}
+          {/* ═══ ACCOUNTS (Rotation Pool) ═══ */}
+          <TabsContent value="accounts" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4 text-primary" />
+                  X Account Rotation Pool
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground">
+                  Add multiple X accounts. When one hits the daily 50-post cap, the system auto-rotates to the next active account.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Add account */}
+                <div className="flex gap-2">
+                  <Input
+                    className="text-xs flex-1"
+                    placeholder="@handle (e.g. xslaves)"
+                    value={newAccountHandle}
+                    onChange={(e) => setNewAccountHandle(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addRotationAccount()}
+                  />
+                  <Button size="sm" onClick={addRotationAccount}>
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
+
+                {/* Account list */}
+                <div className="space-y-2">
+                  {rotationAccounts.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No accounts configured. Add one above.</p>
+                  ) : (
+                    rotationAccounts.map((acc, idx) => (
+                      <div key={acc.id} className="flex items-center justify-between border rounded-md p-3">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="text-[9px] font-mono">#{idx + 1}</Badge>
+                          <div>
+                            <p className="text-sm font-medium">@{acc.handle}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {acc.posts_today} posts today
+                              {acc.capped_at && ` • Capped ${formatDistanceToNow(new Date(acc.capped_at), { addSuffix: true })}`}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={acc.status === "active" ? "default" : acc.status === "capped" ? "destructive" : "secondary"}
+                            className="text-[9px]"
+                          >
+                            {acc.status === "active" ? "🟢 ACTIVE" : acc.status === "capped" ? "🔴 CAPPED" : "⏸ PAUSED"}
+                          </Badge>
+                          {acc.status === "capped" && (
+                            <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => resetAccountCap(acc.id)}>
+                              Reset Cap
+                            </Button>
+                          )}
+                          {acc.status !== "capped" && (
+                            <Switch
+                              checked={acc.status === "active"}
+                              onCheckedChange={(v) => toggleAccountStatus(acc.id, v ? "active" : "paused")}
+                            />
+                          )}
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => removeRotationAccount(acc.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <Separator />
+
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p className="font-semibold text-foreground">How Rotation Works:</p>
+                  <p>1. Posts are sent using the first <strong>active</strong> account in the list</p>
+                  <p>2. If the Upload-Post API returns a "daily cap" error, the account is auto-marked as <strong>CAPPED</strong></p>
+                  <p>3. The system immediately retries with the next active account in the rotation</p>
+                  <p>4. Capped accounts auto-reset at midnight UTC (or manually via "Reset Cap")</p>
+                  <p>5. If all accounts are capped, posts are queued until an account is available</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+
           <TabsContent value="communities" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Target Communities</h3>

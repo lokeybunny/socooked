@@ -8,6 +8,14 @@ const corsHeaders = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+interface RotationAccount {
+  id: string;
+  handle: string;
+  status: "active" | "paused" | "capped";
+  capped_at?: string;
+  posts_today: number;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -19,7 +27,7 @@ Deno.serve(async (req) => {
   try {
     const now = new Date();
     const nowIso = now.toISOString();
-    const MIN_GAP_MS = 30 * 60 * 1000; // 30 minutes minimum between posts
+    const MIN_GAP_MS = 30 * 60 * 1000;
 
     // ── PST/PDT posting window: 5AM - 9PM Pacific ──
     const getPacificHour = (d: Date): number => {
@@ -63,8 +71,6 @@ Deno.serve(async (req) => {
       .gte("updated_at", oneHourAgo);
 
     if ((postsLastHour ?? 0) >= 3) {
-      // ── Mandatory 3-5 hour cooldown after a 3-post burst ──
-      // Find when the 3rd most recent post was sent
       const { data: recentThree } = await supabase
         .from("shill_scheduled_posts")
         .select("updated_at")
@@ -74,9 +80,8 @@ Deno.serve(async (req) => {
 
       if (recentThree && recentThree.length >= 3) {
         const thirdPostTime = new Date(recentThree[2].updated_at).getTime();
-        // Deterministic cooldown: 1-3 hours based on hash of the date
         const dayHash = now.getUTCDate() + now.getUTCMonth() * 31 + now.getUTCHours();
-        const cooldownHours = 1 + (dayHash % 3); // 1, 2, or 3 hours
+        const cooldownHours = 1 + (dayHash % 3);
         const cooldownMs = cooldownHours * 60 * 60 * 1000;
         const cooldownEnd = thirdPostTime + cooldownMs;
         const remainingMs = cooldownEnd - now.getTime();
@@ -95,7 +100,41 @@ Deno.serve(async (req) => {
       return json({ ok: true, processed: 0, skipped: true, reason: "3 posts already sent in the last hour" });
     }
 
-    // Only process 1 post per invocation to enforce natural pacing
+    // ── Load rotation accounts ──
+    const { data: rotCfg } = await supabase
+      .from("site_configs")
+      .select("content")
+      .eq("site_id", "smm-auto-shill")
+      .eq("section", "shill-rotation-accounts")
+      .maybeSingle();
+
+    let rotationAccounts: RotationAccount[] = (rotCfg?.content as any)?.accounts || [];
+
+    // Auto-reset capped accounts at midnight UTC
+    const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+    let rotationChanged = false;
+    for (const acc of rotationAccounts) {
+      if (acc.status === "capped" && acc.capped_at && acc.capped_at < todayStart) {
+        acc.status = "active";
+        acc.posts_today = 0;
+        acc.capped_at = undefined;
+        rotationChanged = true;
+      }
+    }
+    if (rotationChanged) {
+      await supabase.from("site_configs").upsert({
+        site_id: "smm-auto-shill",
+        section: "shill-rotation-accounts",
+        content: { accounts: rotationAccounts },
+      }, { onConflict: "site_id,section" });
+    }
+
+    // Get the active account (first active one in the rotation)
+    const getActiveAccount = (): RotationAccount | null => {
+      return rotationAccounts.find(a => a.status === "active") || null;
+    };
+
+    // Only process 1 post per invocation
     const { data: duePosts, error: fetchErr } = await supabase
       .from("shill_scheduled_posts")
       .select("*")
@@ -114,11 +153,10 @@ Deno.serve(async (req) => {
     let processed = 0;
 
     for (const post of duePosts) {
-      // Mark as processing
       await supabase.from("shill_scheduled_posts").update({ status: "processing" }).eq("id", post.id);
 
       try {
-        // Load CA address from config, fallback to default
+        // Load CA address
         const { data: caConfigRow } = await supabase
           .from("site_configs")
           .select("content")
@@ -129,107 +167,181 @@ Deno.serve(async (req) => {
         const CA_SIGNATURE = `\n\nCA - ${caAddress}`;
         const captionWithSig = post.caption + CA_SIGNATURE;
 
-        // Post to Upload-Post API
-        const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
-          method: "POST",
-          headers: {
-            "apikey": ANON_KEY,
-            "Authorization": `Bearer ${ANON_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            title: captionWithSig,
-            video: post.video_url,
-            "platform[]": ["x"],
-            user: post.x_account || "xslaves",
-            community_id: post.community_id || X_COMMUNITY_ID,
-          }),
-        });
+        // Determine which account to use — try rotation pool first
+        let accountToUse = post.x_account || "xslaves";
+        const activeAcc = getActiveAccount();
+        if (activeAcc) {
+          accountToUse = activeAcc.handle;
+        }
 
-        const postResult = await postRes.json();
+        // ── Try posting, with account rotation on daily cap ──
+        let postSuccess = false;
+        let lastErrMsg = "";
+        let triedAccounts = 0;
+        const maxRetries = rotationAccounts.filter(a => a.status === "active").length || 1;
 
-        if (!postRes.ok || postResult?.error) {
-          const errMsg = postResult?.error || postResult?.message || `HTTP ${postRes.status}`;
+        while (!postSuccess && triedAccounts < maxRetries) {
+          triedAccounts++;
+
+          const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
+            method: "POST",
+            headers: {
+              "apikey": ANON_KEY,
+              "Authorization": `Bearer ${ANON_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: captionWithSig,
+              video: post.video_url,
+              "platform[]": ["x"],
+              user: accountToUse,
+              community_id: post.community_id || X_COMMUNITY_ID,
+            }),
+          });
+
+          const postResult = await postRes.json();
+
+          if (!postRes.ok || postResult?.error) {
+            lastErrMsg = postResult?.error || postResult?.message || `HTTP ${postRes.status}`;
+            const isDailyCap = lastErrMsg.toLowerCase().includes("daily") &&
+              (lastErrMsg.toLowerCase().includes("cap") || lastErrMsg.toLowerCase().includes("limit"));
+
+            if (isDailyCap && rotationAccounts.length > 0) {
+              // Mark current account as capped
+              console.log(`[shill-scheduler] Account @${accountToUse} hit daily cap, rotating...`);
+              rotationAccounts = rotationAccounts.map(a =>
+                a.handle === accountToUse ? { ...a, status: "capped" as const, capped_at: nowIso } : a
+              );
+              // Save updated rotation state
+              await supabase.from("site_configs").upsert({
+                site_id: "smm-auto-shill",
+                section: "shill-rotation-accounts",
+                content: { accounts: rotationAccounts },
+              }, { onConflict: "site_id,section" });
+
+              // Notify via Telegram
+              if (post.chat_id && TG_TOKEN) {
+                await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    chat_id: post.chat_id,
+                    text: `⚠️ @${accountToUse} hit daily cap (50/50). Auto-rotating to next account...`,
+                  }),
+                });
+              }
+
+              // Try next active account
+              const nextAcc = rotationAccounts.find(a => a.status === "active");
+              if (nextAcc) {
+                accountToUse = nextAcc.handle;
+                continue; // retry with new account
+              } else {
+                // All accounts capped
+                lastErrMsg = "All rotation accounts have hit their daily cap. Post queued for retry.";
+                break;
+              }
+            } else {
+              // Non-cap error, don't rotate
+              break;
+            }
+          } else {
+            // Success!
+            postSuccess = true;
+
+            // Increment post count for the account
+            rotationAccounts = rotationAccounts.map(a =>
+              a.handle === accountToUse ? { ...a, posts_today: (a.posts_today || 0) + 1 } : a
+            );
+            await supabase.from("site_configs").upsert({
+              site_id: "smm-auto-shill",
+              section: "shill-rotation-accounts",
+              content: { accounts: rotationAccounts },
+            }, { onConflict: "site_id,section" });
+
+            const requestId = postResult?.request_id || postResult?.data?.request_id || "";
+
+            // Poll for completion
+            let postUrl = "";
+            let statusLabel = "submitted";
+            if (requestId) {
+              for (let poll = 0; poll < 12; poll++) {
+                await new Promise((r) => setTimeout(r, 5000));
+                try {
+                  const statusRes = await fetch(
+                    `${SUPABASE_URL}/functions/v1/smm-api?action=upload-status&request_id=${requestId}`,
+                    { headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}` } },
+                  );
+                  const statusData = await statusRes.json();
+                  const st = statusData?.status || statusData?.data?.status || "";
+                  if (st === "completed" || st === "success" || st === "done") {
+                    statusLabel = "completed";
+                    postUrl = statusData?.post_url || statusData?.data?.post_url ||
+                      statusData?.posts?.[0]?.post_url || statusData?.data?.posts?.[0]?.post_url || "";
+                    break;
+                  }
+                  if (st === "failed" || st === "error") {
+                    statusLabel = "failed";
+                    break;
+                  }
+                } catch (_) { /* continue polling */ }
+              }
+            }
+
+            if (statusLabel === "failed") {
+              await supabase.from("shill_scheduled_posts").update({
+                status: "failed",
+                request_id: requestId,
+                error: "Video processing failed on provider side",
+              }).eq("id", post.id);
+            } else {
+              await supabase.from("shill_scheduled_posts").update({
+                status: "posted",
+                request_id: requestId,
+                post_url: postUrl || null,
+                x_account: accountToUse, // record which account actually posted
+              }).eq("id", post.id);
+            }
+
+            // Notify via Telegram
+            if (post.chat_id && TG_TOKEN) {
+              const statusIcon = statusLabel === "failed" ? "❌" : "✅";
+              let msg = `${statusIcon} <b>Scheduled post ${statusLabel === "failed" ? "failed" : "published"}!</b>\n\n📝 "${post.caption}"\n👤 via @${accountToUse}`;
+              if (postUrl) msg += `\n\n🔗 <a href="${postUrl}">View Post on X</a>`;
+              await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  chat_id: post.chat_id,
+                  text: msg,
+                  parse_mode: "HTML",
+                  disable_web_page_preview: false,
+                }),
+              });
+            }
+
+            processed++;
+          }
+        }
+
+        // If we exhausted all accounts without success
+        if (!postSuccess) {
           await supabase.from("shill_scheduled_posts").update({
             status: "failed",
-            error: errMsg,
+            error: lastErrMsg,
           }).eq("id", post.id);
 
-          // Notify via Telegram
           if (post.chat_id && TG_TOKEN) {
             await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 chat_id: post.chat_id,
-                text: `❌ Scheduled shill failed:\n"${post.caption}"\n\nError: ${errMsg}`,
+                text: `❌ Scheduled shill failed:\n"${post.caption}"\n\nError: ${lastErrMsg}`,
               }),
             });
           }
-          continue;
         }
-
-        const requestId = postResult?.request_id || postResult?.data?.request_id || "";
-
-        // Poll for completion
-        let postUrl = "";
-        let statusLabel = "submitted";
-        if (requestId) {
-          for (let poll = 0; poll < 12; poll++) {
-            await new Promise((r) => setTimeout(r, 5000));
-            try {
-              const statusRes = await fetch(
-                `${SUPABASE_URL}/functions/v1/smm-api?action=upload-status&request_id=${requestId}`,
-                { headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}` } },
-              );
-              const statusData = await statusRes.json();
-              const st = statusData?.status || statusData?.data?.status || "";
-              if (st === "completed" || st === "success" || st === "done") {
-                statusLabel = "completed";
-                postUrl = statusData?.post_url || statusData?.data?.post_url ||
-                  statusData?.posts?.[0]?.post_url || statusData?.data?.posts?.[0]?.post_url || "";
-                break;
-              }
-              if (st === "failed" || st === "error") {
-                statusLabel = "failed";
-                break;
-              }
-            } catch (_) { /* continue polling */ }
-          }
-        }
-
-        if (statusLabel === "failed") {
-          await supabase.from("shill_scheduled_posts").update({
-            status: "failed",
-            request_id: requestId,
-            error: "Video processing failed on provider side",
-          }).eq("id", post.id);
-        } else {
-          await supabase.from("shill_scheduled_posts").update({
-            status: "posted",
-            request_id: requestId,
-            post_url: postUrl || null,
-          }).eq("id", post.id);
-        }
-
-        // Notify via Telegram
-        if (post.chat_id && TG_TOKEN) {
-          const statusIcon = statusLabel === "failed" ? "❌" : "✅";
-          let msg = `${statusIcon} <b>Scheduled post ${statusLabel === "failed" ? "failed" : "published"}!</b>\n\n📝 "${post.caption}"`;
-          if (postUrl) msg += `\n\n🔗 <a href="${postUrl}">View Post on X</a>`;
-          await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: post.chat_id,
-              text: msg,
-              parse_mode: "HTML",
-              disable_web_page_preview: false,
-            }),
-          });
-        }
-
-        processed++;
       } catch (err: any) {
         console.error(`[shill-scheduler] error processing ${post.id}:`, err.message);
         await supabase.from("shill_scheduled_posts").update({
