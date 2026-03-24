@@ -258,26 +258,8 @@ export default function XShill() {
                 </CardContent>
               </Card>
 
-              {/* Other Tracker */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Other Accounts</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">Last Post</span>
-                    <span className="text-xs font-mono">
-                      {otherLastPost ? formatDistanceToNow(otherLastPost, { addSuffix: true }) : "Never"}
-                    </span>
-                  </div>
-                  {throttleOther?.last_url && (
-                    <p className="text-[10px] text-muted-foreground truncate">{throttleOther.last_url}</p>
-                  )}
-                  <Button size="sm" variant="ghost" className="w-full text-xs" onClick={() => resetThrottle("raid-community-other")}>
-                    Reset Cooldown
-                  </Button>
-                </CardContent>
-              </Card>
+
+
 
               {/* Stats */}
               <Card>
