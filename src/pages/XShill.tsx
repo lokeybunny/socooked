@@ -49,6 +49,14 @@ interface RaidLog {
   meta: any;
 }
 
+interface RotationAccount {
+  id: string;
+  handle: string;
+  status: "active" | "paused" | "capped";
+  capped_at?: string;
+  posts_today: number;
+}
+
 interface ScheduledPost {
   id: string;
   chat_id: number;
@@ -114,6 +122,8 @@ export default function XShill() {
   const [editPost, setEditPost] = useState<ScheduledPost | null>(null);
   const [editPostDialog, setEditPostDialog] = useState(false);
   const [pendingPage, setPendingPage] = useState(1);
+  const [rotationAccounts, setRotationAccounts] = useState<RotationAccount[]>([]);
+  const [newAccountHandle, setNewAccountHandle] = useState("");
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
