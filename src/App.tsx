@@ -132,6 +132,7 @@ const App = () => (
             <Route path="/reply-engine" element={<Navigate to="/shillers" replace />} />
             <Route path="/raiders" element={<Navigate to="/shillers/raiders" replace />} />
             <Route path="/shillteam" element={<ShillTeam />} />
+            <Route path="/x-shill" element={<RestrictedGate><AuthLayoutGate><XShill /></AuthLayoutGate></RestrictedGate>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
