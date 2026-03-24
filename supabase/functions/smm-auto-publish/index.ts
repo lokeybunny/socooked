@@ -18,7 +18,7 @@ const HISTORY_CONFIRMATION_LOOKBACK_MS = 36 * 60 * 60 * 1000;
 const HISTORY_CONFIRMATION_EARLY_BUFFER_MS = 12 * 60 * 60 * 1000;
 const HISTORY_LIMIT = 100;
 const MIN_HISTORY_MATCH_LENGTH = 32;
-const HOURLY_PLATFORM_LIMIT = 1;
+const HOURLY_PLATFORM_LIMIT = 3;
 
 const SUCCESS_STATUSES = new Set(["success", "successful", "completed", "complete", "published", "posted", "done"]);
 const FAILURE_STATUSES = new Set(["failed", "failure", "error", "rejected", "cancelled", "canceled", "expired"]);
@@ -883,31 +883,40 @@ Deno.serve(async (req) => {
     }
     console.log(`[smm-auto-publish] Hourly platform counts:`, Object.fromEntries(hourlyPlatformCount));
 
-    // ── Global duplicate guard: collect all published titles ──
+    // ── Global duplicate guard: collect all published titles keyed by platform ──
     const { data: allPublished } = await supabase
       .from("calendar_events")
-      .select("title")
+      .select("title, source_id, description")
       .in("category", ["smm", "artist-campaign"])
       .like("source_id", `${PUBLISHED_PREFIX}%`)
       .order("start_time", { ascending: false })
       .limit(1000);
 
-    const publishedTitleSet = new Set<string>();
+    const publishedPlatformTitleSet = new Set<string>();
     for (const pe of (allPublished || [])) {
       const norm = normalizeComparableText(pe.title);
-      if (norm) publishedTitleSet.add(norm);
+      if (!norm) continue;
+      const pePlatforms = inferPlatforms(pe, pe.source_id || "");
+      for (const plat of pePlatforms) {
+        publishedPlatformTitleSet.add(`${plat}::${norm}`);
+      }
     }
 
     /** Returns true if the event should be skipped due to rate-limit or duplicate */
     const shouldSkipEvent = (ev: any): { skip: boolean; reason?: string } => {
-      // Duplicate check — exact title match against all previously published
+      // Duplicate check — per-platform title match against all previously published
       const normTitle = normalizeComparableText(ev.title);
-      if (normTitle && publishedTitleSet.has(normTitle)) {
-        return { skip: true, reason: `duplicate title already published` };
+      const evPayload = extractEventPayload(ev);
+      if (normTitle) {
+        const allPlatsDuplicate = evPayload.platforms.every(
+          (p: string) => publishedPlatformTitleSet.has(`${p}::${normTitle}`)
+        );
+        if (allPlatsDuplicate) {
+          return { skip: true, reason: `duplicate title already published on all target platforms` };
+        }
       }
 
       // Hourly rate-limit per platform
-      const evPayload = extractEventPayload(ev);
       for (const p of evPayload.platforms) {
         const current = hourlyPlatformCount.get(p) || 0;
         if (current >= HOURLY_PLATFORM_LIMIT) {
@@ -924,7 +933,11 @@ Deno.serve(async (req) => {
         hourlyPlatformCount.set(p, (hourlyPlatformCount.get(p) || 0) + 1);
       }
       const normTitle = normalizeComparableText(ev.title);
-      if (normTitle) publishedTitleSet.add(normTitle);
+      if (normTitle) {
+        for (const p of evPayload.platforms) {
+          publishedPlatformTitleSet.add(`${p}::${normTitle}`);
+        }
+      }
     };
 
     const processReadyBatch = async (readyEvents: any[], label: string) => {
