@@ -290,10 +290,11 @@ export default function XShill() {
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground space-y-1">
                 <p>1. Discord channel <code className="text-foreground">1484699554271072257</code> is monitored for X/Twitter links</p>
-                <p>2. Only <code className="text-foreground">@whitehouse</code> tweets trigger a community post with $WHITEHOUSE message + CA (10 min + random jitter)</p>
-                <p>3. Non-whitehouse tweets are ignored</p>
-                <p>4. All intervals are randomized to avoid X spam detection</p>
-                <p>5. Posts via <code className="text-foreground">@ctothispump</code> (xslaves) account</p>
+                <p>2. Direct <code className="text-foreground">@whitehouse</code> tweets <strong>bypass throttle</strong> and post to the community instantly</p>
+                <p>3. Any Trump/WhiteHouse/POTUS related content triggers a community post (10 min + random jitter cooldown)</p>
+                <p>4. Keywords detected: trump, whitehouse, white house, potus, oval office, executive order, mar-a-lago, maga, realdonaldtrump</p>
+                <p>5. All intervals are randomized to avoid X spam detection</p>
+                <p>6. Posts via <code className="text-foreground">@ctothispump</code> (xslaves) account</p>
               </CardContent>
             </Card>
           </TabsContent>
