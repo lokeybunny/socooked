@@ -42,6 +42,11 @@ Deno.serve(async (req) => {
       await supabase.from("shill_scheduled_posts").update({ status: "processing" }).eq("id", post.id);
 
       try {
+        // Append [VIDEO FROM TIKTOK] signature if missing
+        const captionWithSig = post.caption.includes('[VIDEO FROM TIKTOK]')
+          ? post.caption
+          : `${post.caption}\n\n[VIDEO FROM TIKTOK]`;
+
         // Post to Upload-Post API
         const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
           method: "POST",
@@ -50,9 +55,6 @@ Deno.serve(async (req) => {
             "Authorization": `Bearer ${ANON_KEY}`,
             "Content-Type": "application/json",
           },
-          const captionWithSig = post.caption.includes('[VIDEO FROM TIKTOK]')
-            ? post.caption
-            : `${post.caption}\n\n[VIDEO FROM TIKTOK]`;
           body: JSON.stringify({
             title: captionWithSig,
             video: post.video_url,
