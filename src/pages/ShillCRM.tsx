@@ -252,6 +252,11 @@ function CampaignTab() {
             <Input value={config.ticker} onChange={(e) => setConfig(prev => ({ ...prev, ticker: e.target.value }))} placeholder="e.g. $whitehouse" className="h-8 text-sm font-mono" />
           </div>
           <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">CA Address</label>
+            <Input value={config.ca_address} onChange={(e) => setConfig(prev => ({ ...prev, ca_address: e.target.value }))} placeholder="e.g. 7oXNE1dbpHUp6dn1JF..." className="h-8 text-sm font-mono" />
+            <p className="text-[10px] text-muted-foreground">Appended as signature to all shill copy.</p>
+          </div>
+          <div className="space-y-1">
             <label className="text-xs font-semibold text-muted-foreground">Campaign URL</label>
             <Input value={config.campaign_url} onChange={(e) => setConfig(prev => ({ ...prev, campaign_url: e.target.value }))} placeholder="https://x.com/community/post/..." className="h-8 text-sm font-mono" />
           </div>
