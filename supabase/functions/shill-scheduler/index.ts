@@ -17,16 +17,48 @@ Deno.serve(async (req) => {
   );
 
   try {
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const MIN_GAP_MS = 20 * 60 * 1000; // 20 minutes between posts
 
-    // Find posts that are due (scheduled_at <= now and status = 'scheduled')
+    // ── Anti-spam: check when the last post was actually sent ──
+    const { data: lastPosted } = await supabase
+      .from("shill_scheduled_posts")
+      .select("updated_at")
+      .in("status", ["posted", "processing"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (lastPosted?.updated_at) {
+      const lastPostedMs = new Date(lastPosted.updated_at).getTime();
+      const elapsed = now.getTime() - lastPostedMs;
+      if (elapsed < MIN_GAP_MS) {
+        const waitMin = Math.ceil((MIN_GAP_MS - elapsed) / 60000);
+        return json({ ok: true, processed: 0, skipped: true, wait_minutes: waitMin, reason: `Last post was ${Math.floor(elapsed / 60000)}m ago, need ${Math.ceil(MIN_GAP_MS / 60000)}m gap` });
+      }
+    }
+
+    // ── Hourly rate limit: max 3 posts in the last 60 minutes ──
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+    const { count: postsLastHour } = await supabase
+      .from("shill_scheduled_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "posted")
+      .gte("updated_at", oneHourAgo);
+
+    if ((postsLastHour ?? 0) >= 3) {
+      return json({ ok: true, processed: 0, skipped: true, reason: "3 posts already sent in the last hour" });
+    }
+
+    // Only process 1 post per invocation to enforce natural pacing
     const { data: duePosts, error: fetchErr } = await supabase
       .from("shill_scheduled_posts")
       .select("*")
       .eq("status", "scheduled")
-      .lte("scheduled_at", now)
+      .lte("scheduled_at", nowIso)
       .order("scheduled_at", { ascending: true })
-      .limit(3); // Process max 3 per invocation
+      .limit(1);
 
     if (fetchErr) return json({ error: fetchErr.message }, 500);
     if (!duePosts || duePosts.length === 0) return json({ ok: true, processed: 0 });
@@ -148,10 +180,6 @@ Deno.serve(async (req) => {
         }
 
         processed++;
-        // 8s delay between posts for rate limiting
-        if (duePosts.indexOf(post) < duePosts.length - 1) {
-          await new Promise((r) => setTimeout(r, 8000));
-        }
       } catch (err: any) {
         console.error(`[shill-scheduler] error processing ${post.id}:`, err.message);
         await supabase.from("shill_scheduled_posts").update({
