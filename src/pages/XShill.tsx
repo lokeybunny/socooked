@@ -162,8 +162,8 @@ export default function XShill() {
     await supabase.from("site_configs").upsert({
       site_id: "smm-auto-shill",
       section: "raid-community-targets",
-      content: { targets: updated },
-    }, { onConflict: "site_id,section" });
+      content: { targets: updated } as any,
+    } as any, { onConflict: "site_id,section" } as any);
     toast.success("Community targets saved");
   };
 
