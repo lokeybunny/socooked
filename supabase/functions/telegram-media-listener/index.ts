@@ -3679,10 +3679,9 @@ Deno.serve(async (req) => {
               // Find next hour with fewer than 3 posts
               let scheduledAt: Date | null = null
               const now = new Date()
-              // Start from next hour (don't schedule in current partial hour to allow breathing room)
-              const startHour = new Date(now)
-              startHour.setMinutes(0, 0, 0)
-              startHour.setHours(startHour.getHours() + 1)
+              // Start scheduling 30 minutes from now (never post immediately)
+              const startHour = new Date(now.getTime() + 30 * 60 * 1000)
+              startHour.setSeconds(0, 0)
 
               for (let h = 0; h < 168; h++) { // scan up to 7 days ahead
                 const candidate = new Date(startHour)
