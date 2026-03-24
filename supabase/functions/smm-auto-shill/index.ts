@@ -727,6 +727,110 @@ function extractTweetId(tweetUrl: string): string | null {
 }
 
 async function getTrackedBotMessage(supabase: any, discordMsgId: string | null) {
+
+const WHITEHOUSE_COMMUNITY_ID = "2029596385180291485";
+
+/**
+ * Resolve the latest WhiteHouse community post URL.
+ * Sources (in priority order):
+ * 1. site_configs latest-community-post-whitehouse (stored by shill-scheduler + discord-channel-watcher)
+ *    - If post_url exists, return it directly
+ *    - If only request_id exists, poll smm-api to resolve the post_url
+ * 2. shill_scheduled_posts table — latest posted row with community_id matching WhiteHouse
+ *    - Try to resolve post_url from request_id if null
+ */
+async function resolveLatestWhitehouseCommunityUrl(supabase: any): Promise<string> {
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+
+  // Source 1: site_configs
+  const { data: cfgRow } = await supabase
+    .from("site_configs")
+    .select("content")
+    .eq("site_id", "smm-auto-shill")
+    .eq("section", "latest-community-post-whitehouse")
+    .maybeSingle();
+
+  const cfgContent = (cfgRow?.content as any) || {};
+  let postUrl = typeof cfgContent.post_url === "string" ? cfgContent.post_url.trim() : "";
+  const cfgRequestId = typeof cfgContent.request_id === "string" ? cfgContent.request_id.trim() : "";
+
+  // If we have a post_url already, return it
+  if (postUrl) return postUrl;
+
+  // If we have a request_id but no post_url, try to resolve it now
+  if (cfgRequestId && SUPABASE_URL && ANON_KEY) {
+    const resolved = await tryResolvePostUrl(cfgRequestId, SUPABASE_URL, ANON_KEY);
+    if (resolved) {
+      // Save it back so future lookups are instant
+      await supabase.from("site_configs").upsert({
+        site_id: "smm-auto-shill",
+        section: "latest-community-post-whitehouse",
+        content: { ...cfgContent, post_url: resolved },
+      }, { onConflict: "site_id,section" });
+      return resolved;
+    }
+  }
+
+  // Source 2: shill_scheduled_posts — latest posted WhiteHouse community post
+  const { data: latestRow } = await supabase
+    .from("shill_scheduled_posts")
+    .select("post_url, request_id")
+    .eq("community_id", WHITEHOUSE_COMMUNITY_ID)
+    .eq("status", "posted")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestRow?.post_url) return latestRow.post_url;
+
+  // Try resolving from request_id in the table
+  if (latestRow?.request_id && SUPABASE_URL && ANON_KEY) {
+    const resolved = await tryResolvePostUrl(latestRow.request_id, SUPABASE_URL, ANON_KEY);
+    if (resolved) {
+      // Update the row for future use
+      await supabase.from("shill_scheduled_posts")
+        .update({ post_url: resolved })
+        .eq("request_id", latestRow.request_id);
+      // Also update site_configs
+      await supabase.from("site_configs").upsert({
+        site_id: "smm-auto-shill",
+        section: "latest-community-post-whitehouse",
+        content: {
+          post_url: resolved,
+          request_id: latestRow.request_id,
+          posted_at: new Date().toISOString(),
+          community_id: WHITEHOUSE_COMMUNITY_ID,
+          is_whitehouse: true,
+        },
+      }, { onConflict: "site_id,section" });
+      return resolved;
+    }
+  }
+
+  return "";
+}
+
+/** Try to resolve a post_url from smm-api upload-status endpoint */
+async function tryResolvePostUrl(requestId: string, supabaseUrl: string, anonKey: string): Promise<string> {
+  try {
+    const statusRes = await fetch(
+      `${supabaseUrl}/functions/v1/smm-api?action=upload-status&request_id=${requestId}`,
+      { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` } },
+    );
+    if (!statusRes.ok) return "";
+    const statusData = await statusRes.json();
+    const st = statusData?.status || statusData?.data?.status || "";
+    if (st === "completed" || st === "success" || st === "done") {
+      return statusData?.post_url || statusData?.data?.post_url ||
+        statusData?.posts?.[0]?.post_url || statusData?.data?.posts?.[0]?.post_url || "";
+    }
+  } catch (e) {
+    console.error("[auto-shill] tryResolvePostUrl error:", e);
+  }
+  return "";
+}
+
   if (!discordMsgId) return null;
 
   const { data, error } = await supabase
