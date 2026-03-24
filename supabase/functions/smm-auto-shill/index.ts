@@ -2627,12 +2627,34 @@ serve(async (req) => {
           });
         }
 
-        // ── SHILL CHANNEL: randomized copy with hashtags + campaign link ──
+        // ── SHILL CHANNEL: randomized copy with hashtags + campaign link (rotation) ──
+        // Support up to 5 campaign_links that rotate per user click
+        const campaignLinks: string[] = (cfg?.campaign_links || []).filter((l: string) => l && l.trim());
         let finalUrl = campaignUrl;
 
-        // Discord Campaign Mode: find latest owned X video post with the ticker
-        // When discord_campaign_mode is true OR campaign_url is empty, auto-resolve from owned posts
-        const discordCampaignMode = cfg?.discord_campaign_mode === true || !campaignUrl;
+        if (campaignLinks.length > 0) {
+          // Rotate: use a counter stored in site_configs to track position
+          const rotationKey = `shill-link-rotation-${profileUsername}`;
+          const { data: rotRow } = await supabase
+            .from("site_configs")
+            .select("id, content")
+            .eq("site_id", "smm-auto-shill")
+            .eq("section", rotationKey)
+            .maybeSingle();
+          const currentIdx = (rotRow?.content as any)?.index || 0;
+          const nextIdx = (currentIdx + 1) % campaignLinks.length;
+          finalUrl = campaignLinks[currentIdx] || campaignUrl;
+          // Persist next index
+          await supabase.from("site_configs").upsert({
+            site_id: "smm-auto-shill",
+            section: rotationKey,
+            content: { index: nextIdx } as any,
+            is_published: false,
+          } as any, { onConflict: "site_id,section" } as any);
+          console.log(`[auto-shill] Link rotation: using link ${currentIdx + 1}/${campaignLinks.length} — ${finalUrl}`);
+        }
+
+        // Discord Campaign Mode: also try owned video post from Upload-Post history
         if (shillTicker) {
           try {
             const UPLOAD_POST_KEY = Deno.env.get("UPLOAD_POST_API_KEY") || "";
@@ -2644,7 +2666,6 @@ serve(async (req) => {
               const histJson = await histRes.json();
               const history = histJson?.history || [];
               const tickerLower = shillTicker.replace(/^\$/, "").toLowerCase();
-              // Find the latest X video post containing the ticker from our owned accounts
               const match = history.find((h: any) =>
                 h.platform === "x" &&
                 h.success === true &&
@@ -2652,11 +2673,14 @@ serve(async (req) => {
                 h.post_url &&
                 (h.post_caption || h.post_title || "").toLowerCase().includes(tickerLower)
               );
-              if (match?.post_url) {
-                finalUrl = match.post_url;
-                console.log(`[auto-shill] Discord campaign mode: using owned video post ${finalUrl}`);
-              } else {
-                console.log(`[auto-shill] Discord campaign mode: no matching owned video post found for ticker ${shillTicker}, using campaign_url fallback`);
+              // Only override if no rotation links are configured, or discord_campaign_mode is on
+              const discordCampaignMode = cfg?.discord_campaign_mode === true;
+              if (match?.post_url && (discordCampaignMode || campaignLinks.length === 0)) {
+                // Mix owned video post into rotation — 50% chance to use it when rotation links exist
+                if (campaignLinks.length === 0 || Math.random() < 0.5) {
+                  finalUrl = match.post_url;
+                  console.log(`[auto-shill] Using owned video post ${finalUrl}`);
+                }
               }
             }
           } catch (e) {
