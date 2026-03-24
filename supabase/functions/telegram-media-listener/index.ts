@@ -3056,7 +3056,7 @@ Deno.serve(async (req) => {
     const isAllowedGroup = isGroup && ALLOWED_GROUP_IDS.includes(chatId)
 
     // Shill Lounge: bot is forwarding-only, ignore all user commands/messages
-    const SHILL_LOUNGE_ID = -1002188568751
+    // SHILL_LOUNGE_ID already declared above
     if (isGroup && chatId === SHILL_LOUNGE_ID) {
       // new_chat_members is handled above; everything else is ignored
       return new Response('ok')
