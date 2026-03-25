@@ -520,6 +520,20 @@ export default function XShill() {
     await saveShillXConfig(updated);
   };
 
+  const updateAwayComm = async () => {
+    if (!editingAwayComm) return;
+    if (!editingAwayComm.community_id.trim()) { toast.error("Community ID is required"); return; }
+    const updated: ShillXConfig = {
+      communities: shillXConfig.communities.map(c =>
+        c.id === editingAwayComm.id
+          ? { ...c, community_id: editingAwayComm.community_id.trim(), community_name: editingAwayComm.community_name.trim() || c.community_name }
+          : c
+      ),
+    };
+    await saveShillXConfig(updated);
+    setEditingAwayComm(null);
+  };
+
   const addAwayComm = async () => {
     if (!newAwayComm.community_id.trim()) { toast.error("Community ID is required"); return; }
     const newComm: AwayComm = {
