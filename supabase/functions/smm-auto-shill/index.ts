@@ -2540,35 +2540,8 @@ serve(async (req) => {
         }
 
 
-        // ─── Bad Link button (raid room) — raider flags a bad shill URL ───
-        if (customId.startsWith("bad_link_")) {
-          const discordMsgId = customId.replace("bad_link_", "") || null;
 
-          return json({
-            type: 9,
-            data: {
-              custom_id: `bad_link_confirm_${discordMsgId || "unknown"}`,
-              title: "🚫 Report Bad Link",
-              components: [
-                {
-                  type: 1,
-                  components: [
-                    {
-                      type: 4,
-                      custom_id: "bad_link_confirm_input",
-                      label: "Type YES to confirm this is a bad link",
-                      style: 1,
-                      placeholder: "YES",
-                      required: true,
-                      min_length: 2,
-                      max_length: 10,
-                    },
-                  ],
-                },
-              ],
-            },
-          });
-        }
+
 
         await followUpInteraction(applicationId, interactionToken, "❓ Unknown action."); return;
       }
@@ -2824,48 +2797,8 @@ serve(async (req) => {
         await followUpInteraction(applicationId, interactionToken, `${copyText}`); return;
         }
 
-        // ─── Verify button (shill room) — shiller submits their post URL ───
-        if (customId.startsWith("shill_verify_")) {
-          const discordMsgId = customId.replace("shill_verify_", "") || null;
 
-          // Check the user has clicked at least one button (shill_now or shill_copy) first
-          const { data: userClicks } = await supabase
-            .from("shill_clicks")
-            .select("id")
-            .eq("discord_user_id", discordUserId)
-            .eq("discord_msg_id", discordMsgId)
-            .eq("status", "clicked")
-            .limit(1);
 
-          if (!userClicks?.length) {
-            await followUpInteraction(applicationId, interactionToken, "❌ You need to click **🚀 SHILL NOW** or **📋 Get Shill Copy** first before verifying."); return;
-          }
-
-          return json({
-            type: 9,
-            data: {
-              custom_id: `shill_verify_submit_${discordMsgId || "unknown"}`,
-              title: "✅ Verify Your Shill",
-              components: [
-                {
-                  type: 1,
-                  components: [
-                    {
-                      type: 4,
-                      custom_id: "shill_verify_url_input",
-                      label: "Paste your reply tweet URL",
-                      style: 1,
-                      placeholder: "https://x.com/yourhandle/status/123456...",
-                      required: true,
-                      min_length: 10,
-                      max_length: 300,
-                    },
-                  ],
-                },
-              ],
-            },
-          });
-        }
 
         await followUpInteraction(applicationId, interactionToken, "❓ Unknown action."); return;
     }
