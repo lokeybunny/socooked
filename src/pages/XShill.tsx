@@ -1790,7 +1790,7 @@ export default function XShill() {
                 </div>
               </CardHeader>
               <CardContent>
-                {(() => {
+              {(() => {
                   const postedPosts = scheduledPosts
                     .filter(p => p.status === "posted")
                     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
@@ -1799,10 +1799,15 @@ export default function XShill() {
                     return <p className="text-sm text-muted-foreground text-center py-8">No posted content to recycle yet.</p>;
                   }
 
+                  const RECYCLE_PAGE_SIZE = 6;
+                  const recycleTotalPages = Math.ceil(postedPosts.length / RECYCLE_PAGE_SIZE);
+                  const recyclePageClamped = Math.min(recyclePage, recycleTotalPages);
+                  const recycleSlice = postedPosts.slice((recyclePageClamped - 1) * RECYCLE_PAGE_SIZE, recyclePageClamped * RECYCLE_PAGE_SIZE);
+
                   return (
-                    <ScrollArea className="max-h-[600px]">
+                    <div className="space-y-3">
                       <div className="space-y-2">
-                        {postedPosts.map((post) => (
+                        {recycleSlice.map((post) => (
                           <div key={post.id} className="border rounded-lg p-3 flex items-start gap-3 hover:bg-muted/30 transition-colors">
                             {/* Video thumbnail */}
                             {post.video_url && (
