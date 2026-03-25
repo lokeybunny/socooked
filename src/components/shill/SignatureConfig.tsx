@@ -34,7 +34,7 @@ const SITE_ID = "smm-auto-shill";
 const SECTION = "shill-signature-config";
 
 export default function SignatureConfig() {
-  const [config, setConfig] = useState<SigConfig>({ enabled: false, mode: "all", scrape_ids: [] });
+  const [config, setConfig] = useState<SigConfig>({ enabled: false, mode: "all", scrape_ids: [], apply_to_shill_copy: false });
   const [scrapes, setScrapes] = useState<CommScrape[]>([]);
   const [recentUsage, setRecentUsage] = useState<UsageEntry[]>([]);
   const [saving, setSaving] = useState(false);
