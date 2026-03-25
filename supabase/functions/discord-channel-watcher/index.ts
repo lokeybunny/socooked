@@ -650,6 +650,13 @@ serve(async (req) => {
           tweetUrl = uniqueUrls[0];
         }
 
+        // Skip @warrenguru tweets from generating alerts (owned account)
+        if (/x\.com\/warrenguru\//i.test(tweetUrl) || /twitter\.com\/warrenguru\//i.test(tweetUrl)) {
+          console.log(`[discord-watcher] Skipping @warrenguru tweet alert — owned account`);
+          totalForwarded++;
+          continue;
+        }
+
         // ── Payment verification for RT receipts in the raid channel ──
         // When a user posts their reply receipt via TweetShift, we match any
         // extracted URL against pending shill_clicks to confirm payment.
