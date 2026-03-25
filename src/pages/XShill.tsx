@@ -223,8 +223,11 @@ export default function XShill() {
       if (rotCfg?.content) {
         setRotationAccounts((rotCfg.content as any).accounts || []);
       } else {
-        // Seed with current default account
-        setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
+        // Seed with current default accounts
+        setRotationAccounts([
+          { id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 },
+          { id: crypto.randomUUID(), handle: "warrenguru", status: "active", posts_today: 0 },
+        ]);
       }
 
       // Load shill campaign presets

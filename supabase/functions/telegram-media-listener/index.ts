@@ -86,6 +86,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'audit', description: '🔍 Audit a website + Instagram' },
     { command: 'gains', description: '⚡ Toggle TP10 gain alerts on/off' },
     { command: 'shill', description: '🚀 Shill video to X Community' },
+    { command: 'shill2', description: '🎯 Shill video to Shill X community' },
   ]
 
   // Fire-and-forget: register commands + ensure webhook accepts channel_post
@@ -2389,6 +2390,30 @@ Deno.serve(async (req) => {
             payload: { ...ssp, step: 'video', timing },
           }).eq('id', ss.id)
           const label = timing === 'now' ? '🚀 Got it — posting immediately after upload.' : '📅 Got it — video will be scheduled (max 3/hour, randomized times).'
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: `${label}\n\n📹 Now upload the video.`,
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
+      // ─── SHILL X TIMING callbacks ───
+      if (cbData === 'shill_x_timing_now' || cbData === 'shill_x_timing_schedule') {
+        const { data: sxSessions } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'shill_x_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+          .eq('processed', false).limit(1)
+        const sx = sxSessions?.[0]
+        if (sx) {
+          const sxp = sx.payload as any
+          const timing = cbData === 'shill_x_timing_now' ? 'now' : 'schedule'
+          await supabase.from('webhook_events').update({
+            payload: { ...sxp, step: 'video', timing },
+          }).eq('id', sx.id)
+          const label = timing === 'now' ? '🚀 Got it — posting immediately after upload.' : '📅 Got it — video will be scheduled.'
           await tgPost(TG_TOKEN, 'sendMessage', {
             chat_id: cbChatId,
             text: `${label}\n\n📹 Now upload the video.`,
