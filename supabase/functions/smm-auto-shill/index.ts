@@ -2801,6 +2801,15 @@ serve(async (req) => {
 
 
         await followUpInteraction(applicationId, interactionToken, "❓ Unknown action."); return;
+          } catch (e) {
+            console.error("[auto-shill] Deferred button handler error:", e);
+            await followUpInteraction(applicationId, interactionToken, "❌ Something went wrong. Please try again.").catch(() => {});
+          }
+        })();
+        asyncProcess.catch(e => console.error("[auto-shill] Async button error:", e));
+
+        // Return deferred ephemeral response immediately
+        return json({ type: 5, data: { flags: 64 } });
     }
 
     // ─── Modal submit (type 5) — raider secret code entry ───
