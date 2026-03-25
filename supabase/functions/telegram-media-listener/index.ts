@@ -3368,13 +3368,22 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
-    // ─── Handle /shill command (admin-only) ───
-    if (text.toLowerCase().startsWith('/shill')) {
+    // ─── Handle /shill command (admin-only) — must NOT match /shill2 ───
+    if (text.toLowerCase().startsWith('/shill') && !text.toLowerCase().startsWith('/shill2')) {
       const senderUsername = (message.from?.username || '').toLowerCase()
       if (senderUsername !== 'lokeybunny') {
         await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🔒 This command is restricted to admin only.' })
         return new Response('ok')
       }
+
+      // Load Home Comm config from active campaign target
+      const { data: homeCfg } = await supabase.from('site_configs')
+        .select('content').eq('site_id', 'x-shill').eq('section', 'targets').maybeSingle()
+      const homeTargets = (homeCfg?.content as any)?.targets || []
+      const activeHome = homeTargets.find((t: any) => t.enabled)
+      const homeCommunityName = activeHome?.community_name || '$whitehouse'
+      const homeXAccount = activeHome?.x_account || 'ctothispump'
+
       // Clean up old shill sessions
       await supabase.from('webhook_events').delete()
         .eq('source', 'telegram').eq('event_type', 'shill_session')
@@ -3383,11 +3392,11 @@ Deno.serve(async (req) => {
       await supabase.from('webhook_events').insert({
         source: 'telegram',
         event_type: 'shill_session',
-        payload: { chat_id: chatId, step: 'caption', community: '$whitehouse', created: Date.now() },
+        payload: { chat_id: chatId, step: 'caption', community: homeCommunityName, created: Date.now() },
       })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: '🏠 <b>HOME COMM — Shill to X Community</b>\n\n📝 Community: <b>$whitehouse</b> (ctothispump)\n\nWhat caption do you want for this post?',
+        text: `🏠 <b>HOME COMM — Shill to X Community</b>\n\n📡 Community: <b>${homeCommunityName}</b> (${homeXAccount})\n\nWhat caption do you want for this post?`,
         parse_mode: 'HTML',
       })
       return new Response('ok')
