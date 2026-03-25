@@ -640,7 +640,7 @@ export default function XShill() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-9 max-w-5xl">
+          <TabsList className="grid w-full grid-cols-10 max-w-6xl">
             <TabsTrigger value="overview" className="text-xs"><Activity className="h-3 w-3 mr-1" />Overview</TabsTrigger>
             <TabsTrigger value="campaign" className="text-xs"><Video className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
             <TabsTrigger value="accounts" className="text-xs"><Users className="h-3 w-3 mr-1" />Accounts</TabsTrigger>
@@ -649,6 +649,7 @@ export default function XShill() {
             <TabsTrigger value="comm-extract" className="text-xs"><Search className="h-3 w-3 mr-1" />Comm Extract</TabsTrigger>
             <TabsTrigger value="signatures" className="text-xs"><Shield className="h-3 w-3 mr-1" />Signatures</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Messages</TabsTrigger>
+            <TabsTrigger value="recycle" className="text-xs"><RotateCcw className="h-3 w-3 mr-1" />Recycle</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs"><Clock className="h-3 w-3 mr-1" />Logs</TabsTrigger>
           </TabsList>
 
@@ -1769,15 +1770,196 @@ export default function XShill() {
             <SignatureConfig />
           </TabsContent>
 
+          {/* ═══ RECYCLE ═══ */}
+          <TabsContent value="recycle" className="mt-4 space-y-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <RotateCcw className="h-4 w-4 text-primary" />
+                      Recycle Bin — Previously Posted Content
+                    </CardTitle>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Select posts to recycle them back into your campaign schedule. They'll be re-queued as new scheduled posts.
+                    </p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={loadAll} disabled={refreshing} className="gap-1 text-xs">
+                    <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const postedPosts = scheduledPosts
+                    .filter(p => p.status === "posted")
+                    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+                  if (postedPosts.length === 0) {
+                    return <p className="text-sm text-muted-foreground text-center py-8">No posted content to recycle yet.</p>;
+                  }
+
+                  return (
+                    <ScrollArea className="max-h-[600px]">
+                      <div className="space-y-2">
+                        {postedPosts.map((post) => (
+                          <div key={post.id} className="border rounded-lg p-3 flex items-start gap-3 hover:bg-muted/30 transition-colors">
+                            {/* Video thumbnail */}
+                            {post.video_url && (
+                              <a href={post.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0 w-16 h-16 rounded-md overflow-hidden border border-border bg-black flex items-center justify-center">
+                                <Play className="h-5 w-5 text-white/70" />
+                              </a>
+                            )}
+
+                            {/* Content */}
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <p className="text-xs font-medium truncate" title={post.caption}>{post.caption}</p>
+                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                <span>via <XHandle handle={post.x_account || "—"} className="text-[10px]" /></span>
+                                <span>•</span>
+                                <span>{format(new Date(post.updated_at), "MMM d, h:mm a")}</span>
+                                {post.post_url && (
+                                  <>
+                                    <span>•</span>
+                                    <a href={post.post_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-0.5">
+                                      <ExternalLink className="h-2.5 w-2.5" /> View
+                                    </a>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Recycle actions */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 gap-1 text-[10px] border-primary/30 text-primary hover:bg-primary/10"
+                                onClick={async () => {
+                                  // Schedule 30 min from now
+                                  const scheduledAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+                                  const { error } = await supabase.from("shill_scheduled_posts").insert({
+                                    chat_id: post.chat_id,
+                                    caption: post.caption,
+                                    video_url: post.video_url,
+                                    storage_path: post.storage_path,
+                                    community_id: post.community_id,
+                                    x_account: post.x_account,
+                                    scheduled_at: scheduledAt,
+                                    status: "scheduled",
+                                    repeat_daily: false,
+                                    all_mode: false,
+                                  });
+                                  if (error) {
+                                    toast.error("Recycle failed: " + error.message);
+                                  } else {
+                                    toast.success("♻️ Post recycled — scheduled for 30 min from now");
+                                    loadAll();
+                                  }
+                                }}
+                              >
+                                <RotateCcw className="h-2.5 w-2.5" />
+                                Recycle
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 gap-1 text-[10px] border-green-500/30 text-green-600 hover:bg-green-500/10"
+                                onClick={async () => {
+                                  // Push live immediately
+                                  const { error } = await supabase.from("shill_scheduled_posts").insert({
+                                    chat_id: post.chat_id,
+                                    caption: post.caption,
+                                    video_url: post.video_url,
+                                    storage_path: post.storage_path,
+                                    community_id: post.community_id,
+                                    x_account: post.x_account,
+                                    scheduled_at: new Date().toISOString(),
+                                    status: "scheduled",
+                                    repeat_daily: false,
+                                    all_mode: false,
+                                  });
+                                  if (error) {
+                                    toast.error("Push failed: " + error.message);
+                                    return;
+                                  }
+                                  toast.info("Pushing recycled post now...");
+                                  try {
+                                    const res = await supabase.functions.invoke("shill-scheduler");
+                                    if (res.error) {
+                                      toast.error("Push failed: " + res.error.message);
+                                    } else {
+                                      toast.success("♻️ Recycled post pushed live!");
+                                    }
+                                    loadAll();
+                                  } catch (e: any) {
+                                    toast.error("Push error: " + e.message);
+                                  }
+                                }}
+                              >
+                                <Zap className="h-2.5 w-2.5" />
+                                Push Now
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* ═══ LOGS ═══ */}
           <TabsContent value="logs" className="mt-4">
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm">Post Logs — All Outbound Activity</CardTitle>
-                  <Button size="sm" variant="outline" onClick={loadAll} disabled={refreshing} className="gap-1 text-xs">
-                    <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} /> Refresh
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1 text-xs"
+                      onClick={async () => {
+                        // Backfill post_urls for all posted entries missing them
+                        const missing = scheduledPosts.filter(p => p.status === "posted" && !p.post_url && p.request_id);
+                        if (missing.length === 0) {
+                          toast.info("All posts already have links!");
+                          return;
+                        }
+                        toast.info(`Fetching links for ${missing.length} posts...`);
+                        let found = 0;
+                        for (const post of missing.slice(0, 20)) {
+                          try {
+                            const res = await fetch(
+                              `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/smm-api?action=upload-status&request_id=${post.request_id}`,
+                              {
+                                headers: {
+                                  "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aXV4c2Z4ZXZqbm1kd25ycWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjgzMzQsImV4cCI6MjA4Njc0NDMzNH0.APi_x5YBKa8bOKpjLGiJUBB5qxi3rKKxWiApQAlf78c",
+                                  "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aXV4c2Z4ZXZqbm1kd25ycWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjgzMzQsImV4cCI6MjA4Njc0NDMzNH0.APi_x5YBKa8bOKpjLGiJUBB5qxi3rKKxWiApQAlf78c",
+                                },
+                              }
+                            );
+                            const data = await res.json();
+                            const url = data?.results?.[0]?.url || data?.post_url || "";
+                            if (url) {
+                              await supabase.from("shill_scheduled_posts").update({ post_url: url }).eq("id", post.id);
+                              found++;
+                            }
+                          } catch { /* skip */ }
+                        }
+                        toast.success(`Found ${found} post links`);
+                        loadAll();
+                      }}
+                    >
+                      <ExternalLink className="h-3 w-3" /> Fetch Missing Links
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={loadAll} disabled={refreshing} className="gap-1 text-xs">
+                      <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground">Every post sent via the Upload-Post API — posted, failed, and processing.</p>
               </CardHeader>
@@ -1822,6 +2004,38 @@ export default function XShill() {
                                 <a href={post.post_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1 text-xs">
                                   <ExternalLink className="h-3 w-3" /> View on X
                                 </a>
+                              ) : post.request_id ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-5 text-[9px] text-muted-foreground hover:text-primary gap-0.5 px-1"
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch(
+                                        `https://mziuxsfxevjnmdwnrqjs.supabase.co/functions/v1/smm-api?action=upload-status&request_id=${post.request_id}`,
+                                        {
+                                          headers: {
+                                            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aXV4c2Z4ZXZqbm1kd25ycWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjgzMzQsImV4cCI6MjA4Njc0NDMzNH0.APi_x5YBKa8bOKpjLGiJUBB5qxi3rKKxWiApQAlf78c",
+                                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aXV4c2Z4ZXZqbm1kd25ycWpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExNjgzMzQsImV4cCI6MjA4Njc0NDMzNH0.APi_x5YBKa8bOKpjLGiJUBB5qxi3rKKxWiApQAlf78c",
+                                          },
+                                        }
+                                      );
+                                      const data = await res.json();
+                                      const url = data?.results?.[0]?.url || data?.post_url || "";
+                                      if (url) {
+                                        await supabase.from("shill_scheduled_posts").update({ post_url: url }).eq("id", post.id);
+                                        setScheduledPosts(prev => prev.map(p => p.id === post.id ? { ...p, post_url: url } : p));
+                                        toast.success("Link found!");
+                                      } else {
+                                        toast.error("No link found for this post");
+                                      }
+                                    } catch {
+                                      toast.error("Failed to fetch link");
+                                    }
+                                  }}
+                                >
+                                  <Search className="h-2.5 w-2.5" /> Fetch
+                                </Button>
                               ) : (
                                 <span className="text-[10px] text-muted-foreground">—</span>
                               )}
