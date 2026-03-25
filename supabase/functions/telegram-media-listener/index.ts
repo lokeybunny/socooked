@@ -3368,6 +3368,39 @@ Deno.serve(async (req) => {
       return new Response('ok')
     }
 
+    // ─── Handle /shill2 command (admin-only) — posts to Shill X community ───
+    if (text.toLowerCase().startsWith('/shill2')) {
+      const senderUsername = (message.from?.username || '').toLowerCase()
+      if (senderUsername !== 'lokeybunny') {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🔒 This command is restricted to admin only.' })
+        return new Response('ok')
+      }
+      // Load Shill X config
+      const { data: sxCfg } = await supabase.from('site_configs')
+        .select('content').eq('site_id', 'smm-auto-shill').eq('section', 'shill-x-config').maybeSingle()
+      const sxContent = sxCfg?.content as any
+      if (!sxContent?.community_id || !sxContent?.enabled) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Shill X is not configured or disabled. Set it up in the X Shill → Shill X tab first.' })
+        return new Response('ok')
+      }
+      // Clean up old shill_x sessions
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'shill_x_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      // Create shill_x session at caption step
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'shill_x_session',
+        payload: { chat_id: chatId, step: 'caption', community_id: sxContent.community_id, community_name: sxContent.community_name || 'Shill X', created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: `🎯 <b>Shill X — Cross-Community Post</b>\n\n📡 Target: <b>${sxContent.community_name || sxContent.community_id}</b>\n🆔 Community: <code>${sxContent.community_id}</code>\n\n📝 What caption do you want for this post?`,
+        parse_mode: 'HTML',
+      })
+      return new Response('ok')
+    }
+
     // ─── Handle /xpost command ───
     if (text.toLowerCase().startsWith('/xpost')) {
       // Fetch SMM profiles
