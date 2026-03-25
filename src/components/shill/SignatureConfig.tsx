@@ -45,6 +45,11 @@ export default function SignatureConfig() {
   const [usagePage, setUsagePage] = useState(0);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [cooldownOpen, setCooldownOpen] = useState(false);
+  const [cooldownHandles, setCooldownHandles] = useState<UsageEntry[]>([]);
+  const [cooldownTotal, setCooldownTotal] = useState(0);
+  const [cooldownPage, setCooldownPage] = useState(0);
+  const COOLDOWN_PAGE_SIZE = 100;
 
   const loadUsagePage = useCallback(async (page: number) => {
     const from = page * PAGE_SIZE;
