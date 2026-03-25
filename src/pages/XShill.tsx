@@ -856,9 +856,10 @@ export default function XShill() {
             </div>
 
             {/* Pending Posts */}
+             {/* Home Comm Upcoming - /shill */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">📅 Upcoming ({pendingPosts.length})</CardTitle>
+                <CardTitle className="text-sm">🏠 Home Comm Upcoming — /shill ({pendingPosts.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 {pendingPosts.length === 0 ? (
