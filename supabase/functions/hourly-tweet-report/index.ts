@@ -196,7 +196,12 @@ Deno.serve(async (req) => {
       `💰 *Verified Earnings:*`,
       `This Hour: ${clicksThisHour} clicks × $0.05 = *$${hourlyEarnings.toFixed(2)}*`,
       `Today: ${clicksToday} clicks × $0.05 = *$${dailyEarnings.toFixed(2)}*`,
-      `🤑 Every verified click = *$0.05* earned!`,
+      "",
+      `💸 *Potential Earnings (Unclaimed):*`,
+      `${tweetsToday} tweets today → Potential: *$${(tweetsToday * SHILLER_RATE).toFixed(2)}*`,
+      `✅ Claimed: *$${dailyEarnings.toFixed(2)}* (${tweetsToday > 0 ? ((clicksToday / tweetsToday) * 100).toFixed(0) : 0}% capture)`,
+      `❌ Left on table: *$${((tweetsToday * SHILLER_RATE) - dailyEarnings).toFixed(2)}*`,
+      `🤑 Don't leave money on the table!`,
       "",
       `🕐 ${pstTime} PST`,
     ].join("\n");
