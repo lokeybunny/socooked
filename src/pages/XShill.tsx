@@ -512,7 +512,7 @@ export default function XShill() {
 
   const toggleAwayComm = async (id: string) => {
     const updated: ShillXConfig = {
-      communities: shillXConfig.communities.map(c => ({ ...c, enabled: c.id === id ? !c.enabled : false })),
+      communities: shillXConfig.communities.map(c => c.id === id ? { ...c, enabled: !c.enabled } : c),
     };
     await saveShillXConfig(updated);
   };
@@ -783,9 +783,12 @@ export default function XShill() {
                 </div>
                 <p className="text-[10px] text-muted-foreground">
                   Campaigns targeting the active <strong>Away Comm</strong> community. Used by <code>/shill2</code> in Telegram.
-                  {shillXConfig.communities.find(c => c.enabled)
-                    ? <> Active target: <strong>{shillXConfig.communities.find(c => c.enabled)?.community_name}</strong></>
-                    : <span className="text-destructive"> ⚠ No active away community set.</span>}
+                  {(() => {
+                    const activeComms = shillXConfig.communities.filter(c => c.enabled);
+                    if (activeComms.length > 1) return <> 🔄 <strong>Multiple Campaigns activated</strong> ({activeComms.length} communities)</>;
+                    if (activeComms.length === 1) return <> Active target: <strong>{activeComms[0].community_name}</strong></>;
+                    return <span className="text-destructive"> ⚠ No active away community set.</span>;
+                  })()}
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -1293,7 +1296,7 @@ export default function XShill() {
                   </Badge>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Add multiple away communities. Only <strong>1 can be active</strong> at a time — the active one is used by <code>/shill2</code> in Telegram.
+                  Add multiple away communities. <strong>Multiple can be active</strong> — active ones rotate when posting via <code>/shill2</code> in Telegram.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
