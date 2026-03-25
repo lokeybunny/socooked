@@ -35,7 +35,7 @@ interface UsageEntry {
 
 const SITE_ID = "smm-auto-shill";
 const SECTION = "shill-signature-config";
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 export default function SignatureConfig() {
   const [config, setConfig] = useState<SigConfig>({ enabled: false, mode: "all", scrape_ids: [], apply_to_shill_copy: false, shill_copy_mode: "all" });
