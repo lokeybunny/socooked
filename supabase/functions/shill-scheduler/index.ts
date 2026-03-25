@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
             .select("content").eq("site_id", "x-shill").eq("section", "targets").maybeSingle();
           const homeTargets = (homeCfgRow?.content as any)?.targets || [];
           const matchedHome = homeTargets.find((t: any) => t.community_id === postCommunityId);
-          if (matchedHome) tickerName = matchedHome.community_name || "";
+          if (matchedHome) tickerName = matchedHome.ticker || matchedHome.community_name || "";
         }
 
         // Replace $TICKER in caption (case-insensitive)
