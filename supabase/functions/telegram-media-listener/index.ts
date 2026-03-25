@@ -3269,8 +3269,8 @@ Deno.serve(async (req) => {
     }
 
     // Session types we track (moved to module-level constants for performance)
-    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session']
-    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session']
+    const ALL_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'xpost_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session']
+    const ALL_REPLY_SESSIONS = ['assistant_session', 'invoice_session', 'smm_session', 'smm_strategist_session', 'customer_session', 'calendar_session', 'meeting_session', 'calendly_session', 'custom_session', 'webdev_session', 'banana_session', 'banana2_session', 'higgsfield_session', 'email_session', 'proposal_session', 'audit_session', 'shill_session', 'shill_x_session']
 
     // action already resolved above (before reply guard)
 
@@ -3363,6 +3363,39 @@ Deno.serve(async (req) => {
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
         text: '🚀 <b>Shill to X Community</b>\n\n📝 Community: <b>$whitehouse</b> (ctothispump)\n\nWhat caption do you want for this post?',
+        parse_mode: 'HTML',
+      })
+      return new Response('ok')
+    }
+
+    // ─── Handle /shill2 command (admin-only) — posts to Shill X community ───
+    if (text.toLowerCase().startsWith('/shill2')) {
+      const senderUsername = (message.from?.username || '').toLowerCase()
+      if (senderUsername !== 'lokeybunny') {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🔒 This command is restricted to admin only.' })
+        return new Response('ok')
+      }
+      // Load Shill X config
+      const { data: sxCfg } = await supabase.from('site_configs')
+        .select('content').eq('site_id', 'smm-auto-shill').eq('section', 'shill-x-config').maybeSingle()
+      const sxContent = sxCfg?.content as any
+      if (!sxContent?.community_id || !sxContent?.enabled) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Shill X is not configured or disabled. Set it up in the X Shill → Shill X tab first.' })
+        return new Response('ok')
+      }
+      // Clean up old shill_x sessions
+      await supabase.from('webhook_events').delete()
+        .eq('source', 'telegram').eq('event_type', 'shill_x_session')
+        .filter('payload->>chat_id', 'eq', String(chatId))
+      // Create shill_x session at caption step
+      await supabase.from('webhook_events').insert({
+        source: 'telegram',
+        event_type: 'shill_x_session',
+        payload: { chat_id: chatId, step: 'caption', community_id: sxContent.community_id, community_name: sxContent.community_name || 'Shill X', created: Date.now() },
+      })
+      await tgPost(TG_TOKEN, 'sendMessage', {
+        chat_id: chatId,
+        text: `🎯 <b>Shill X — Cross-Community Post</b>\n\n📡 Target: <b>${sxContent.community_name || sxContent.community_id}</b>\n🆔 Community: <code>${sxContent.community_id}</code>\n\n📝 What caption do you want for this post?`,
         parse_mode: 'HTML',
       })
       return new Response('ok')
