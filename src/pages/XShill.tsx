@@ -977,6 +977,32 @@ export default function XShill() {
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 gap-1 text-[10px] border-green-500/30 text-green-600 hover:bg-green-500/10"
+                                    onClick={async () => {
+                                      await supabase
+                                        .from("shill_scheduled_posts")
+                                        .update({ status: "scheduled", scheduled_at: new Date().toISOString() })
+                                        .eq("id", post.id);
+                                      toast.info("Pushing post now...");
+                                      try {
+                                        const res = await supabase.functions.invoke("shill-scheduler");
+                                        if (res.error) {
+                                          toast.error("Push failed: " + res.error.message);
+                                        } else {
+                                          toast.success("Post pushed live!");
+                                        }
+                                        loadAll();
+                                      } catch (e: any) {
+                                        toast.error("Push error: " + e.message);
+                                      }
+                                    }}
+                                  >
+                                    <Zap className="h-2.5 w-2.5" />
+                                    PUSH
+                                  </Button>
                                   <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
                                     setEditPost({ ...post });
                                     setEditPostDialog(true);
@@ -1077,6 +1103,32 @@ export default function XShill() {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 gap-1 text-[10px] border-green-500/30 text-green-600 hover:bg-green-500/10"
+                                  onClick={async () => {
+                                    await supabase
+                                      .from("shill_scheduled_posts")
+                                      .update({ status: "scheduled", scheduled_at: new Date().toISOString() })
+                                      .eq("id", post.id);
+                                    toast.info("Pushing post now...");
+                                    try {
+                                      const res = await supabase.functions.invoke("shill-scheduler");
+                                      if (res.error) {
+                                        toast.error("Push failed: " + res.error.message);
+                                      } else {
+                                        toast.success("Post pushed live!");
+                                      }
+                                      loadAll();
+                                    } catch (e: any) {
+                                      toast.error("Push error: " + e.message);
+                                    }
+                                  }}
+                                >
+                                  <Zap className="h-2.5 w-2.5" />
+                                  PUSH
+                                </Button>
                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
                                   setEditPost({ ...post });
                                   setEditPostDialog(true);
@@ -1721,36 +1773,68 @@ export default function XShill() {
           <TabsContent value="logs" className="mt-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Recent Raid Activity</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">Post Logs — All Outbound Activity</CardTitle>
+                  <Button size="sm" variant="outline" onClick={loadAll} disabled={refreshing} className="gap-1 text-xs">
+                    <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Every post sent via the Upload-Post API — posted, failed, and processing.</p>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[500px]">
+                <ScrollArea className="h-[600px]">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="text-xs">Time</TableHead>
-                        <TableHead className="text-xs">Action</TableHead>
-                        <TableHead className="text-xs">Details</TableHead>
+                        <TableHead className="text-xs">Caption</TableHead>
+                        <TableHead className="text-xs">Account</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs">Post Link</TableHead>
+                        <TableHead className="text-xs">Error</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {logs.map((log) => (
-                        <TableRow key={log.id}>
-                          <TableCell className="text-[10px] font-mono whitespace-nowrap">
-                            {format(new Date(log.created_at), "MMM d HH:mm")}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-[9px]">{log.action}</Badge>
-                          </TableCell>
-                          <TableCell className="text-[10px] text-muted-foreground max-w-[300px] truncate">
-                            {log.meta?.name || log.meta?.last_url || JSON.stringify(log.meta).slice(0, 100)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {logs.length === 0 && (
+                      {scheduledPosts
+                        .filter(p => ["posted", "failed", "processing"].includes(p.status))
+                        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+                        .map((post) => (
+                          <TableRow key={post.id}>
+                            <TableCell className="text-[10px] font-mono whitespace-nowrap">
+                              {format(new Date(post.updated_at), "MMM d, h:mm a")}
+                            </TableCell>
+                            <TableCell className="text-xs max-w-[220px] truncate" title={post.caption}>
+                              {post.caption}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              <XHandle handle={post.x_account || "—"} />
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={post.status === "posted" ? "default" : post.status === "failed" ? "destructive" : "secondary"}
+                                className="text-[9px]"
+                              >
+                                {post.status === "posted" ? "✅ posted" : post.status === "failed" ? "❌ failed" : "⏳ processing"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {post.post_url ? (
+                                <a href={post.post_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1 text-xs">
+                                  <ExternalLink className="h-3 w-3" /> View on X
+                                </a>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-[10px] text-destructive max-w-[180px] truncate" title={post.error || ""}>
+                              {post.error || "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      {scheduledPosts.filter(p => ["posted", "failed", "processing"].includes(p.status)).length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={3} className="text-center text-sm text-muted-foreground py-8">
-                            No raid activity yet. Posts will appear here once tweets are detected.
+                          <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                            No post activity yet. Posts will appear here once scheduled posts are processed.
                           </TableCell>
                         </TableRow>
                       )}
