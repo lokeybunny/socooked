@@ -187,6 +187,16 @@ serve(async (req) => {
             inline: false,
           },
           {
+            name: "📉 Potential Earnings (Unclaimed)",
+            value: [
+              `📡 **${detectedCount.toLocaleString()}** Tweets Detected Today`,
+              `💵 **$${potentialEarnings.toFixed(2)}** Potential @ $0.05/each`,
+              `✅ **${captureRate}%** Capture Rate (${capturedClicks}/${detectedCount})`,
+              `🚫 **$${leftOnTable > 0 ? leftOnTable.toFixed(2) : "0.00"}** Left on the Table`,
+            ].join("\n"),
+            inline: false,
+          },
+          {
             name: "─── X Accounts ───",
             value: accountList || "*No accounts configured*",
             inline: false,
