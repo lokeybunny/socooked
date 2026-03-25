@@ -1937,6 +1937,25 @@ export default function XShill() {
             </Card>
           </TabsContent>
 
+          {/* Video preview dialog for recycle bin */}
+          <Dialog open={!!recycleVideoUrl} onOpenChange={(open) => !open && setRecycleVideoUrl(null)}>
+            <DialogContent className="max-w-2xl p-0 overflow-hidden bg-black border-border">
+              <DialogHeader className="p-3 pb-0">
+                <DialogTitle className="text-sm text-white/90">Video Preview</DialogTitle>
+              </DialogHeader>
+              {recycleVideoUrl && (
+                <div className="w-full aspect-video">
+                  <video
+                    src={recycleVideoUrl}
+                    controls
+                    autoPlay
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           {/* ═══ LOGS ═══ */}
           <TabsContent value="logs" className="mt-4">
             <Card>
