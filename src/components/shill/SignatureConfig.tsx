@@ -49,7 +49,7 @@ export default function SignatureConfig() {
     ]);
     if (cfgRes.data?.content) {
       const c = cfgRes.data.content as any;
-      setConfig({ enabled: !!c.enabled, mode: c.mode || "all", scrape_ids: c.scrape_ids || [] });
+      setConfig({ enabled: !!c.enabled, mode: c.mode || "all", scrape_ids: c.scrape_ids || [], apply_to_shill_copy: !!c.apply_to_shill_copy });
     }
     setScrapes(scrapesRes.data || []);
     setRecentUsage((usageRes.data as UsageEntry[]) || []);
