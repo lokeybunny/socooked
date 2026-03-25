@@ -334,8 +334,70 @@ Deno.serve(async (req) => {
                 status: "posted",
                 request_id: requestId,
                 post_url: postUrl || null,
-                x_account: accountToUse, // record which account actually posted
+                x_account: accountToUse,
               }).eq("id", post.id);
+
+              // ── Repeat Daily: schedule same post for tomorrow same time ──
+              if (post.repeat_daily) {
+                const nextDay = new Date(new Date(post.scheduled_at).getTime() + 24 * 60 * 60 * 1000).toISOString();
+                await supabase.from("shill_scheduled_posts").insert({
+                  chat_id: post.chat_id,
+                  caption: post.caption,
+                  video_url: post.video_url,
+                  storage_path: post.storage_path,
+                  community_id: post.community_id,
+                  x_account: post.x_account,
+                  scheduled_at: nextDay,
+                  status: "scheduled",
+                  repeat_daily: true,
+                  all_mode: post.all_mode || false,
+                });
+                console.log(`[shill-scheduler] 🔁 Repeat: cloned post for ${nextDay}`);
+              }
+
+              // ── ALL MODE: clone to other active away communities with staggered times ──
+              if (post.all_mode) {
+                const { data: sxCfgAll } = await supabase.from("site_configs")
+                  .select("content").eq("site_id", "smm-auto-shill").eq("section", "shill-x-config").maybeSingle();
+                const allAwayCommunities = ((sxCfgAll?.content as any)?.communities || [])
+                  .filter((c: any) => c.enabled && c.community_id !== post.community_id);
+
+                if (allAwayCommunities.length > 0) {
+                  const baseTime = new Date(post.scheduled_at).getTime();
+                  for (let i = 0; i < allAwayCommunities.length; i++) {
+                    const comm = allAwayCommunities[i];
+                    // Space each community 30-50 min apart (randomized)
+                    const gapMs = (30 + Math.floor(Math.random() * 21)) * 60 * 1000;
+                    const staggeredTime = new Date(baseTime + gapMs * (i + 1)).toISOString();
+
+                    // Check if there's already a scheduled post for this community today
+                    const dayStart = staggeredTime.slice(0, 10) + "T00:00:00Z";
+                    const dayEnd = staggeredTime.slice(0, 10) + "T23:59:59Z";
+                    const { count: existing } = await supabase.from("shill_scheduled_posts")
+                      .select("id", { count: "exact", head: true })
+                      .eq("community_id", comm.community_id)
+                      .eq("status", "scheduled")
+                      .gte("scheduled_at", dayStart)
+                      .lte("scheduled_at", dayEnd);
+
+                    if ((existing ?? 0) === 0) {
+                      await supabase.from("shill_scheduled_posts").insert({
+                        chat_id: post.chat_id,
+                        caption: post.caption,
+                        video_url: post.video_url,
+                        storage_path: post.storage_path,
+                        community_id: comm.community_id,
+                        x_account: post.x_account,
+                        scheduled_at: staggeredTime,
+                        status: "scheduled",
+                        repeat_daily: post.repeat_daily || false,
+                        all_mode: false, // cloned posts don't cascade all_mode
+                      });
+                      console.log(`[shill-scheduler] 🌐 ALL MODE: cloned to ${comm.community_name} at ${staggeredTime}`);
+                    }
+                  }
+                }
+              }
             }
 
             // Notify via Telegram
