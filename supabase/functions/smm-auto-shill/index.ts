@@ -316,7 +316,25 @@ async function speedCheck(
   return null;
 }
 
-const json = (body: unknown, status = 200) =>
+/** Earnings cap: block verification if unpaid verified earnings >= $20.
+ *  "Unpaid" = status='verified' clicks (not yet paid out / processed). */
+const EARNINGS_CAP = 20;
+
+async function checkEarningsCap(
+  supabase: ReturnType<typeof createClient>,
+  discordUserId: string,
+): Promise<{ capped: boolean; unpaid: number }> {
+  const { data: verifiedClicks } = await supabase
+    .from("shill_clicks")
+    .select("rate")
+    .eq("discord_user_id", discordUserId)
+    .eq("status", "verified");
+
+  const unpaid = (verifiedClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
+  return { capped: unpaid >= EARNINGS_CAP, unpaid };
+}
+
+
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 // ─── Ed25519 signature verification for Discord Interactions ───
@@ -1960,7 +1978,15 @@ serve(async (req) => {
         lines.push("");
         lines.push(walletLine);
         lines.push("");
-        lines.push(totalVerified > 0 ? "💸 Use `/payout` on **Friday** to cash out your verified balance!" : "Keep shilling/raiding — your earnings will show up here!");
+        const capRemaining = Math.max(0, EARNINGS_CAP - totalVerified);
+        if (totalVerified >= EARNINGS_CAP) {
+          lines.push(`🚫 **EARNINGS CAPPED** — You've hit the **$${EARNINGS_CAP}** unpaid cap. Use \`/payout\` on **Friday** to cash out before you can earn more.`);
+        } else if (totalVerified > 0) {
+          lines.push(`💸 Use \`/payout\` on **Friday** to cash out your verified balance!`);
+          lines.push(`📏 Earnings cap: **$${capRemaining.toFixed(2)}** remaining before $${EARNINGS_CAP} cap`);
+        } else {
+          lines.push("Keep shilling/raiding — your earnings will show up here!");
+        }
 
         return json({ type: 4, data: {
           content: lines.join("\n"),
@@ -2937,6 +2963,16 @@ serve(async (req) => {
               .limit(1);
 
             const raidClickTime = recentRaidClick?.[0]?.created_at || recentShillClick?.[0]?.created_at || null;
+
+            // Earnings cap check
+            const raidCapResult = await checkEarningsCap(supabase, discordUserId);
+            if (raidCapResult.capped) {
+              await followUpInteraction(applicationId, interactionToken,
+                `🚫 **Earnings cap reached!** You have **$${raidCapResult.unpaid.toFixed(2)}** in unpaid verified earnings (cap: $${EARNINGS_CAP}).\n\n💸 Use \`/payout\` on **Friday** to cash out, then you can continue earning.`
+              );
+              return;
+            }
+
             const raidSpeedResult = await speedCheck(supabase, discordUserId, discordUsername, raidClickTime, "raid");
             if (raidSpeedResult) {
               // Speed check failed — extract message from the response
@@ -3053,6 +3089,15 @@ serve(async (req) => {
 
             if (!pendingClick?.length) {
               await followUpInteraction(applicationId, interactionToken, "❌ No pending shill click found. Click **🚀 SHILL NOW** first.");
+              return;
+            }
+
+            // Earnings cap check
+            const shillCapResult = await checkEarningsCap(supabase, discordUserId);
+            if (shillCapResult.capped) {
+              await followUpInteraction(applicationId, interactionToken,
+                `🚫 **Earnings cap reached!** You have **$${shillCapResult.unpaid.toFixed(2)}** in unpaid verified earnings (cap: $${EARNINGS_CAP}).\n\n💸 Use \`/payout\` on **Friday** to cash out, then you can continue earning.`
+              );
               return;
             }
 
