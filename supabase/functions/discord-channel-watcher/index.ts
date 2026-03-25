@@ -442,23 +442,93 @@ serve(async (req) => {
 
               try {
                 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-                const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-text`, {
-                  method: "POST",
-                  headers: {
-                    apikey: ANON_KEY,
-                    Authorization: `Bearer ${ANON_KEY}`,
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    title: raidText,
-                    "platform[]": ["x"],
-                    user: "xslaves",
-                    community_id: X_COMMUNITY_ID,
-                  }),
-                });
 
-                const postResult = await postRes.json();
-                console.log(`[discord-watcher] 🎯 Community raid post (WhiteHouse):`, JSON.stringify(postResult).slice(0, 200));
+                // ── Load rotation accounts from config ──
+                const { data: rotCfg } = await supabase
+                  .from("site_configs")
+                  .select("content")
+                  .eq("site_id", "smm-auto-shill")
+                  .eq("section", "shill-rotation-accounts")
+                  .maybeSingle();
+
+                let rotationAccounts: { id: string; handle: string; status: string; posts_today: number; capped_at?: string }[] =
+                  (rotCfg?.content as any)?.accounts || [];
+
+                // Filter to active accounts only
+                const activeAccounts = rotationAccounts.filter(a => a.status === "active");
+                if (activeAccounts.length === 0) {
+                  console.error("[discord-watcher] No active rotation accounts — falling back to xslaves");
+                  activeAccounts.push({ id: "fallback", handle: "xslaves", status: "active", posts_today: 0 });
+                }
+
+                let posted = false;
+                for (const account of activeAccounts) {
+                  console.log(`[discord-watcher] Attempting community raid post with @${account.handle}`);
+
+                  const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-text`, {
+                    method: "POST",
+                    headers: {
+                      apikey: ANON_KEY,
+                      Authorization: `Bearer ${ANON_KEY}`,
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      title: raidText,
+                      "platform[]": ["x"],
+                      user: account.handle,
+                      community_id: X_COMMUNITY_ID,
+                    }),
+                  });
+
+                  const postResult = await postRes.json();
+                  const resultStr = JSON.stringify(postResult).toLowerCase();
+                  const isDailyCap = !postRes.ok && (
+                    resultStr.includes("daily") ||
+                    resultStr.includes("cap") ||
+                    resultStr.includes("limit") ||
+                    resultStr.includes("50") ||
+                    resultStr.includes("max") ||
+                    postRes.status === 429
+                  );
+
+                  if (isDailyCap) {
+                    console.log(`[discord-watcher] @${account.handle} hit daily cap — marking capped, trying next`);
+                    // Mark this account as capped in the rotation config
+                    rotationAccounts = rotationAccounts.map(a =>
+                      a.id === account.id ? { ...a, status: "capped", capped_at: new Date().toISOString() } : a
+                    );
+                    await supabase.from("site_configs").upsert({
+                      site_id: "smm-auto-shill",
+                      section: "shill-rotation-accounts",
+                      content: { accounts: rotationAccounts },
+                    }, { onConflict: "site_id,section" });
+                    continue; // try next account
+                  }
+
+                  if (!postRes.ok) {
+                    console.error(`[discord-watcher] Community raid post failed with @${account.handle}:`, JSON.stringify(postResult).slice(0, 300));
+                    continue; // try next account on any error
+                  }
+
+                  // Success
+                  console.log(`[discord-watcher] 🎯 Community raid post via @${account.handle}:`, JSON.stringify(postResult).slice(0, 200));
+                  // Increment posts_today
+                  rotationAccounts = rotationAccounts.map(a =>
+                    a.id === account.id ? { ...a, posts_today: (a.posts_today || 0) + 1 } : a
+                  );
+                  await supabase.from("site_configs").upsert({
+                    site_id: "smm-auto-shill",
+                    section: "shill-rotation-accounts",
+                    content: { accounts: rotationAccounts },
+                  }, { onConflict: "site_id,section" });
+                  posted = true;
+                  break;
+                }
+
+                if (!posted) {
+                  console.error("[discord-watcher] All rotation accounts exhausted — community raid post failed");
+                  await sendTelegram(`🚨 *Community Raid FAILED*\nAll ${activeAccounts.length} accounts hit daily cap or errored.\n🔗 ${raidTargetUrl}`);
+                }
 
                 await supabase.from("site_configs").upsert({
                   site_id: "smm-auto-shill",
