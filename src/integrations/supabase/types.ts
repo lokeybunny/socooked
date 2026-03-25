@@ -2317,6 +2317,7 @@ export type Database = {
       }
       shill_scheduled_posts: {
         Row: {
+          all_mode: boolean
           caption: string
           chat_id: number
           community_id: string
@@ -2324,6 +2325,7 @@ export type Database = {
           error: string | null
           id: string
           post_url: string | null
+          repeat_daily: boolean
           request_id: string | null
           scheduled_at: string
           status: string
@@ -2333,6 +2335,7 @@ export type Database = {
           x_account: string
         }
         Insert: {
+          all_mode?: boolean
           caption: string
           chat_id: number
           community_id?: string
@@ -2340,6 +2343,7 @@ export type Database = {
           error?: string | null
           id?: string
           post_url?: string | null
+          repeat_daily?: boolean
           request_id?: string | null
           scheduled_at: string
           status?: string
@@ -2349,6 +2353,7 @@ export type Database = {
           x_account?: string
         }
         Update: {
+          all_mode?: boolean
           caption?: string
           chat_id?: number
           community_id?: string
@@ -2356,6 +2361,7 @@ export type Database = {
           error?: string | null
           id?: string
           post_url?: string | null
+          repeat_daily?: boolean
           request_id?: string | null
           scheduled_at?: string
           status?: string
