@@ -2821,8 +2821,10 @@ serve(async (req) => {
         const opener = openerPool[Math.floor(Math.random() * openerPool.length)];
 
         const engagementTags = ["#mustwatch", "#viral", "#trending", "#repost", "#explore", "#fyp", "#followme", "#share", "#like", "#comment", "#instagood", "#hot", "#breakingnews", "#dontmissthis", "#watchthis", "#cantmissthis", "#goviral", "#blowthisup", "#spreadtheword", "#boosted", "#promoted", "#signal", "#alpha", "#gem", "#earlybird", "#100x", "#moonshot", "#bullish", "#sendIt", "#wagmi"];
-        const engagementTag = engagementTags[Math.floor(Math.random() * engagementTags.length)];
-        const copyParts = [`${shillTicker}`, `#${tickerClean}`, engagementTag];
+        const tag1 = engagementTags[Math.floor(Math.random() * engagementTags.length)];
+        let tag2 = engagementTags[Math.floor(Math.random() * engagementTags.length)];
+        while (tag2 === tag1) tag2 = engagementTags[Math.floor(Math.random() * engagementTags.length)];
+        const copyParts = [`${shillTicker}`, tag1, tag2];
         if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, userHashtag);
