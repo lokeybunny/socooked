@@ -77,6 +77,223 @@ async function notifySMMFailure(action: string, statusCode: number, errorBody: s
   } catch (e) { console.error('[smm-api] email failure notify error:', e); }
 }
 
+async function fetchUploadPostProfiles(apiKey: string) {
+  const response = await fetch(`${API_BASE}/uploadposts/users`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Apikey ${apiKey}`,
+    },
+  });
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(`Failed to list Upload-Post profiles [${response.status}]: ${responseText}`);
+  }
+
+  const parsed = JSON.parse(responseText);
+  return parsed.profiles || parsed.users || (Array.isArray(parsed) ? parsed : []);
+}
+
+async function resolveUploadPostUsername(user: string, apiKey: string) {
+  const requested = String(user || '').trim();
+  if (!requested) return requested;
+
+  const cacheKey = requested.toLowerCase();
+  const cached = uploadProfileCache.get(cacheKey);
+  if (cached) return cached;
+
+  const profiles = await fetchUploadPostProfiles(apiKey);
+  const normalizedRequested = requested.replace(/^@/, '').toLowerCase();
+
+  const matched = profiles.find((profile: any) => {
+    const candidates = [
+      profile?.username,
+      profile?.social_accounts?.x?.handle,
+      profile?.social_accounts?.x?.display_name,
+    ]
+      .filter(Boolean)
+      .map((value: string) => String(value).replace(/^@/, '').toLowerCase());
+
+    return candidates.includes(normalizedRequested);
+  });
+
+  if (!matched?.username) {
+    return requested;
+  }
+
+  const resolvedUsername = String(matched.username).trim();
+  uploadProfileCache.set(cacheKey, resolvedUsername);
+  uploadProfileCache.set(resolvedUsername.toLowerCase(), resolvedUsername);
+
+  const xHandle = matched?.social_accounts?.x?.handle;
+  if (xHandle) {
+    uploadProfileCache.set(String(xHandle).replace(/^@/, '').toLowerCase(), resolvedUsername);
+  }
+
+  return resolvedUsername;
+}
+
+function normalizeProfileLookup(value: string) {
+  return value.trim().replace(/^@/, '').toLowerCase();
+}
+
+async function fetchUploadProfiles(authHeaders: Record<string, string>) {
+  const response = await fetch(`${API_BASE}/uploadposts/users`, { method: 'GET', headers: authHeaders });
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(`Failed to list Upload-Post profiles [${response.status}]: ${responseText}`);
+  }
+  try {
+    const parsed = JSON.parse(responseText);
+    return parsed.profiles || parsed.users || (Array.isArray(parsed) ? parsed : []);
+  } catch {
+    throw new Error(`Failed to parse Upload-Post profiles response: ${responseText}`);
+  }
+}
+
+async function resolveUploadProfileUsername(userValue: string, authHeaders: Record<string, string>) {
+  const normalized = normalizeProfileLookup(userValue);
+  if (!normalized) return userValue;
+
+  const cached = uploadProfileCache.get(normalized);
+  if (cached) return cached;
+
+  const profiles = await fetchUploadProfiles(authHeaders);
+  for (const profile of profiles) {
+    const username = typeof profile?.username === 'string' ? profile.username : '';
+    const directMatch = normalizeProfileLookup(username);
+    if (directMatch === normalized) {
+      uploadProfileCache.set(normalized, username);
+      return username;
+    }
+
+    const socialAccounts = profile?.social_accounts || {};
+    for (const account of Object.values(socialAccounts)) {
+      if (!account || typeof account !== 'object') continue;
+      const handle = typeof (account as Record<string, unknown>).handle === 'string' ? String((account as Record<string, unknown>).handle) : '';
+      const displayName = typeof (account as Record<string, unknown>).display_name === 'string' ? String((account as Record<string, unknown>).display_name) : '';
+      if (normalizeProfileLookup(handle) === normalized || normalizeProfileLookup(displayName) === normalized) {
+        uploadProfileCache.set(normalized, username);
+        return username;
+      }
+    }
+  }
+
+  return userValue;
+}
+
+async function listUploadPostProfiles(uploadPostApiKey: string) {
+  const response = await fetch(`${API_BASE}/uploadposts/users`, {
+    headers: {
+      'Authorization': `Apikey ${uploadPostApiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to list Upload-Post profiles [${response.status}]: ${await response.text()}`);
+  }
+
+  const parsed = await response.json();
+  return parsed.profiles || parsed.users || (Array.isArray(parsed) ? parsed : []);
+}
+
+async function resolveUploadPostUsername(uploadPostApiKey: string, rawUser: unknown) {
+  const input = String(rawUser || '').trim();
+  if (!input) return input;
+
+  const normalized = input.replace(/^@/, '').toLowerCase();
+  if (uploadProfileCache.has(normalized)) {
+    return uploadProfileCache.get(normalized)!;
+  }
+
+  const profiles = await listUploadPostProfiles(uploadPostApiKey);
+  for (const profile of profiles) {
+    const profileUsername = String(profile?.username || '').trim();
+    const xAccount = profile?.social_accounts?.x || null;
+    const handleCandidates = [
+      profileUsername,
+      xAccount?.handle,
+      xAccount?.display_name,
+      xAccount?.username,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim());
+
+    const isMatch = handleCandidates.some((candidate) => candidate.replace(/^@/, '').toLowerCase() === normalized);
+    if (isMatch && profileUsername) {
+      uploadProfileCache.set(normalized, profileUsername);
+      uploadProfileCache.set(profileUsername.replace(/^@/, '').toLowerCase(), profileUsername);
+      if (xAccount?.handle) uploadProfileCache.set(String(xAccount.handle).replace(/^@/, '').toLowerCase(), profileUsername);
+      if (xAccount?.display_name) uploadProfileCache.set(String(xAccount.display_name).replace(/^@/, '').toLowerCase(), profileUsername);
+      console.log(`[smm-api] Resolved Upload-Post user '${input}' -> '${profileUsername}'`);
+      return profileUsername;
+    }
+  }
+
+  return input;
+}
+
+async function fetchUploadProfiles(authHeaders: Record<string, string>) {
+  const response = await fetch(`${API_BASE}/uploadposts/users`, {
+    method: 'GET',
+    headers: authHeaders,
+  });
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(`Failed to fetch upload profiles [${response.status}]: ${responseText}`);
+  }
+
+  const parsed = JSON.parse(responseText);
+  if (Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed?.profiles)) return parsed.profiles;
+  if (Array.isArray(parsed?.users)) return parsed.users;
+  return [];
+}
+
+function buildUploadProfileCandidates(rawUser: string) {
+  const trimmed = rawUser.trim().replace(/^@+/, '');
+  const lower = trimmed.toLowerCase();
+  return Array.from(new Set([trimmed, lower]));
+}
+
+async function resolveUploadProfileUsername(rawUser: string, authHeaders: Record<string, string>) {
+  const candidates = buildUploadProfileCandidates(rawUser);
+
+  for (const candidate of candidates) {
+    const cached = uploadProfileCache.get(candidate.toLowerCase());
+    if (cached) return cached;
+  }
+
+  const profiles = await fetchUploadProfiles(authHeaders);
+  const matchedProfile = profiles.find((profile: any) => {
+    const username = String(profile?.username || '').trim();
+    const xHandle = String(profile?.social_accounts?.x?.handle || '').trim();
+    const normalizedUsername = username.toLowerCase();
+    const normalizedHandle = xHandle.toLowerCase();
+    return candidates.some((candidate) => {
+      const normalizedCandidate = candidate.toLowerCase();
+      return normalizedCandidate === normalizedUsername || normalizedCandidate === normalizedHandle;
+    });
+  });
+
+  if (!matchedProfile?.username) {
+    return rawUser;
+  }
+
+  const resolvedUsername = String(matchedProfile.username).trim();
+  for (const candidate of candidates) {
+    uploadProfileCache.set(candidate.toLowerCase(), resolvedUsername);
+  }
+  const xHandle = String(matchedProfile?.social_accounts?.x?.handle || '').trim();
+  if (xHandle) {
+    uploadProfileCache.set(xHandle.toLowerCase(), resolvedUsername);
+  }
+  uploadProfileCache.set(resolvedUsername.toLowerCase(), resolvedUsername);
+
+  return resolvedUsername;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
