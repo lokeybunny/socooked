@@ -2,7 +2,6 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -37,6 +36,7 @@ export interface SavedScrape {
 export default function CommExtractTab() {
   const [communityUrl, setCommunityUrl] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(true);
+  const [filterMode, setFilterMode] = useState<"all" | "verified" | "unverified">("all");
   const [members, setMembers] = useState<Member[]>([]);
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [runId, setRunId] = useState<string | null>(null);
@@ -148,7 +148,11 @@ export default function CommExtractTab() {
     toast.success("CSV downloaded");
   };
 
-  const displayMembers = verifiedOnly ? members.filter(m => m.verified) : members;
+  const displayMembers = filterMode === "verified"
+    ? members.filter(m => m.verified)
+    : filterMode === "unverified"
+    ? members.filter(m => !m.verified)
+    : members;
 
   return (
     <div className="space-y-4 mt-4">
@@ -177,12 +181,22 @@ export default function CommExtractTab() {
             </Button>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Switch checked={verifiedOnly} onCheckedChange={setVerifiedOnly} />
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <BadgeCheck className="h-3.5 w-3.5 text-[#1d9bf0]" /> Verified only
-              </span>
-            </div>
+              <div className="flex rounded-md border border-border overflow-hidden text-[10px]">
+                {(["all", "verified", "unverified"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setFilterMode(mode)}
+                    className={`px-2.5 py-1 capitalize transition-colors ${
+                      filterMode === mode
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {mode === "verified" && <BadgeCheck className="h-3 w-3 inline mr-0.5 text-[#1d9bf0]" />}
+                    {mode}
+                  </button>
+                ))}
+              </div>
             {statusText && (
               <Badge variant={status === "error" ? "destructive" : status === "done" ? "default" : "secondary"} className="text-[10px]">
                 {status === "running" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
