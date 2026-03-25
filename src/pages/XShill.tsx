@@ -89,6 +89,12 @@ interface ShillCampaign {
   active: boolean;
 }
 
+interface ShillXConfig {
+  community_id: string;
+  community_name: string;
+  enabled: boolean;
+}
+
 const DEFAULT_WH_TEMPLATES = [
   "Just Detected New Post that could be Raided $WHITEHOUSE",
   "🚨 New @WhiteHouse post just dropped! Rally $WHITEHOUSE",
@@ -144,6 +150,9 @@ export default function XShill() {
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   const [campaignDraft, setCampaignDraft] = useState<ShillCampaign | null>(null);
   const [outboundXAccounts, setOutboundXAccounts] = useState<{ id: string; account_label: string; account_identifier: string }[]>([]);
+  const [shillXConfig, setShillXConfig] = useState<ShillXConfig>({ community_id: "", community_name: "", enabled: false });
+  const [shillXSaving, setShillXSaving] = useState(false);
+  const [shillXPosts, setShillXPosts] = useState<ScheduledPost[]>([]);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
