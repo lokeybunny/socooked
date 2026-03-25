@@ -1123,6 +1123,106 @@ export default function XShill() {
 
 
 
+          {/* ═══ SHILL X ═══ */}
+          <TabsContent value="shill-x" className="space-y-4 mt-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  Shill X — Cross-Community Posting
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground">
+                  Configure a target X community. Use <code>/shill2</code> in Telegram to post videos here. Accounts rotate automatically.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-24 shrink-0">Enabled</span>
+                  <Switch
+                    checked={shillXConfig.enabled}
+                    onCheckedChange={(v) => saveShillXConfig({ ...shillXConfig, enabled: v })}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-24 shrink-0">Community ID</span>
+                  <Input
+                    value={shillXConfig.community_id}
+                    onChange={(e) => setShillXConfig({ ...shillXConfig, community_id: e.target.value })}
+                    placeholder="e.g. 2029596385180291485"
+                    className="h-8 text-xs font-mono max-w-xs"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-24 shrink-0">Name</span>
+                  <Input
+                    value={shillXConfig.community_name}
+                    onChange={(e) => setShillXConfig({ ...shillXConfig, community_name: e.target.value })}
+                    placeholder="e.g. $PEPE Community"
+                    className="h-8 text-xs max-w-xs"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => saveShillXConfig(shillXConfig)}
+                  disabled={shillXSaving || !shillXConfig.community_id.trim()}
+                  className="gap-1.5 text-xs"
+                >
+                  <Save className="h-3 w-3" />
+                  {shillXSaving ? "Saving…" : "Save Config"}
+                </Button>
+
+                <Separator />
+
+                <div>
+                  <h4 className="text-xs font-semibold mb-2">Rotation Accounts</h4>
+                  <p className="text-[10px] text-muted-foreground mb-2">
+                    These are the same accounts from the Accounts tab. They will rotate when posting to this community via <code>/shill2</code>.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {rotationAccounts.filter(a => a.status === "active").map(a => (
+                      <Badge key={a.id} variant="outline" className="text-xs gap-1">
+                        <XHandle handle={a.handle} className="text-xs" />
+                      </Badge>
+                    ))}
+                    {rotationAccounts.filter(a => a.status === "active").length === 0 && (
+                      <p className="text-xs text-muted-foreground">No active accounts. Add some in the Accounts tab.</p>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <h4 className="text-xs font-semibold mb-2">Recent Shill X Posts</h4>
+                  {shillXPosts.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No posts yet. Use <code>/shill2</code> in Telegram to get started.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px]">Caption</TableHead>
+                          <TableHead className="text-[10px]">Account</TableHead>
+                          <TableHead className="text-[10px]">Status</TableHead>
+                          <TableHead className="text-[10px]">Scheduled</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {shillXPosts.slice(0, 20).map(p => (
+                          <TableRow key={p.id}>
+                            <TableCell className="text-xs max-w-[200px] truncate">{p.caption}</TableCell>
+                            <TableCell className="text-xs"><XHandle handle={p.x_account} /></TableCell>
+                            <TableCell><Badge variant={statusColor(p.status)} className="text-[9px]">{p.status}</Badge></TableCell>
+                            <TableCell className="text-[10px] font-mono">{format(new Date(p.scheduled_at), "MMM d, h:mm a")}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="communities" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">Target Communities</h3>
