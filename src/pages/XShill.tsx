@@ -598,8 +598,8 @@ export default function XShill() {
             <TabsTrigger value="overview" className="text-xs"><Activity className="h-3 w-3 mr-1" />Overview</TabsTrigger>
             <TabsTrigger value="campaign" className="text-xs"><Video className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
             <TabsTrigger value="accounts" className="text-xs"><Users className="h-3 w-3 mr-1" />Accounts</TabsTrigger>
-            <TabsTrigger value="shill-x" className="text-xs"><Target className="h-3 w-3 mr-1" />Shill X</TabsTrigger>
-            <TabsTrigger value="communities" className="text-xs"><Globe className="h-3 w-3 mr-1" />Communities</TabsTrigger>
+            <TabsTrigger value="shill-x" className="text-xs"><Target className="h-3 w-3 mr-1" />Away Comm</TabsTrigger>
+            <TabsTrigger value="communities" className="text-xs"><Globe className="h-3 w-3 mr-1" />Home Comm</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Messages</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs"><Clock className="h-3 w-3 mr-1" />Logs</TabsTrigger>
           </TabsList>
