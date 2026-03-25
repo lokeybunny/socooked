@@ -87,12 +87,18 @@ interface ShillCampaign {
   ticker: string;
   links: string[];
   active: boolean;
+  team?: 'home' | 'away';
 }
 
-interface ShillXConfig {
+interface AwayComm {
+  id: string;
   community_id: string;
   community_name: string;
   enabled: boolean;
+}
+
+interface ShillXConfig {
+  communities: AwayComm[];
 }
 
 const DEFAULT_WH_TEMPLATES = [
@@ -150,9 +156,10 @@ export default function XShill() {
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   const [campaignDraft, setCampaignDraft] = useState<ShillCampaign | null>(null);
   const [outboundXAccounts, setOutboundXAccounts] = useState<{ id: string; account_label: string; account_identifier: string }[]>([]);
-  const [shillXConfig, setShillXConfig] = useState<ShillXConfig>({ community_id: "", community_name: "", enabled: false });
+  const [shillXConfig, setShillXConfig] = useState<ShillXConfig>({ communities: [] });
   const [shillXSaving, setShillXSaving] = useState(false);
   const [shillXPosts, setShillXPosts] = useState<ScheduledPost[]>([]);
+  const [newAwayComm, setNewAwayComm] = useState<{ community_id: string; community_name: string }>({ community_id: "", community_name: "" });
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
