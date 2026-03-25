@@ -1388,9 +1388,12 @@ export default function XShill() {
                               </Badge>
                             </div>
                             <p className="text-[10px] text-muted-foreground font-mono">ID: {c.community_id}</p>
+                            {c.hide_ticker && (
+                              <Badge variant="outline" className="text-[9px] mt-0.5">🙈 Hide Ticker</Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingAwayComm({ id: c.id, community_id: c.community_id, community_name: c.community_name })}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingAwayComm({ id: c.id, community_id: c.community_id, community_name: c.community_name, hide_ticker: c.hide_ticker })}>
                               <Pencil className="h-3 w-3" />
                             </Button>
                             <Switch checked={c.enabled} onCheckedChange={() => toggleAwayComm(c.id)} />
