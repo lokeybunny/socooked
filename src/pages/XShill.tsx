@@ -21,8 +21,14 @@ import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
   Video, Play, Pause, ExternalLink, CalendarClock, RotateCcw,
-  Users,
+  Users, BadgeCheck,
 } from "lucide-react";
+
+const XHandle = ({ handle, className = "text-sm font-medium" }: { handle: string; className?: string }) => (
+  <span className={`inline-flex items-center gap-1 ${className}`}>
+    @{handle}<BadgeCheck className="h-3.5 w-3.5 text-[#1d9bf0] shrink-0" />
+  </span>
+);
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 
