@@ -22,8 +22,9 @@ import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
   Video, Play, Pause, ExternalLink, CalendarClock, RotateCcw,
-  Users, BadgeCheck,
+  Users, BadgeCheck, Search,
 } from "lucide-react";
+import CommExtractTab from "@/components/shill/CommExtractTab";
 
 const XHandle = ({ handle, className = "text-sm font-medium" }: { handle: string; className?: string }) => (
   <span className={`inline-flex items-center gap-1 ${className}`}>
@@ -638,12 +639,13 @@ export default function XShill() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-7 max-w-4xl">
+          <TabsList className="grid w-full grid-cols-8 max-w-5xl">
             <TabsTrigger value="overview" className="text-xs"><Activity className="h-3 w-3 mr-1" />Overview</TabsTrigger>
             <TabsTrigger value="campaign" className="text-xs"><Video className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
             <TabsTrigger value="accounts" className="text-xs"><Users className="h-3 w-3 mr-1" />Accounts</TabsTrigger>
             <TabsTrigger value="shill-x" className="text-xs"><Target className="h-3 w-3 mr-1" />Away Comm</TabsTrigger>
             <TabsTrigger value="communities" className="text-xs"><Globe className="h-3 w-3 mr-1" />Home Comm</TabsTrigger>
+            <TabsTrigger value="comm-extract" className="text-xs"><Search className="h-3 w-3 mr-1" />Comm Extract</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Messages</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs"><Clock className="h-3 w-3 mr-1" />Logs</TabsTrigger>
           </TabsList>
@@ -1701,6 +1703,11 @@ export default function XShill() {
                 </CardContent>
               </Card>
             ))}
+          </TabsContent>
+
+          {/* ═══ COMM EXTRACT ═══ */}
+          <TabsContent value="comm-extract">
+            <CommExtractTab />
           </TabsContent>
 
           {/* ═══ LOGS ═══ */}
