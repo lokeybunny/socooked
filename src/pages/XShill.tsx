@@ -1811,11 +1811,15 @@ export default function XShill() {
                       <div className="space-y-2">
                         {recycleSlice.map((post) => (
                           <div key={post.id} className="border rounded-lg p-3 flex items-start gap-3 hover:bg-muted/30 transition-colors">
-                            {/* Video thumbnail */}
+                            {/* Video thumbnail — click to preview */}
                             {post.video_url && (
-                              <a href={post.video_url} target="_blank" rel="noopener noreferrer" className="shrink-0 w-16 h-16 rounded-md overflow-hidden border border-border bg-black flex items-center justify-center">
-                                <Play className="h-5 w-5 text-white/70" />
-                              </a>
+                              <button
+                                onClick={() => setRecycleVideoUrl(post.video_url)}
+                                className="shrink-0 w-20 h-20 rounded-md overflow-hidden border border-border bg-black flex items-center justify-center relative group cursor-pointer"
+                              >
+                                <Play className="h-6 w-6 text-white/80 group-hover:scale-110 transition-transform z-10" />
+                                <span className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
+                              </button>
                             )}
 
                             {/* Content */}
