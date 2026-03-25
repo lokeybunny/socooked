@@ -152,6 +152,7 @@ export default function XShill() {
   const [editTarget, setEditTarget] = useState<CommunityTarget | null>(null);
   const [editDialog, setEditDialog] = useState(false);
   const [recyclePage, setRecyclePage] = useState(1);
+  const [recycleVideoUrl, setRecycleVideoUrl] = useState<string | null>(null);
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [editPost, setEditPost] = useState<ScheduledPost | null>(null);
   const [editPostDialog, setEditPostDialog] = useState(false);
