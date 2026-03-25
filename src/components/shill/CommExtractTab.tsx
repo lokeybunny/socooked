@@ -65,7 +65,7 @@ export default function CommExtractTab() {
   const pollResults = useCallback(async (rid: string, vOnly: boolean) => {
     try {
       const { data, error } = await supabase.functions.invoke("comm-extract", {
-        body: { action: "poll", runId: rid, verifiedOnly: vOnly },
+        body: { action: "poll", runId: rid, verifiedOnly: vOnly, communityUrl: communityUrl.trim() },
       });
       if (error) throw error;
 
@@ -85,7 +85,7 @@ export default function CommExtractTab() {
     } catch (e: any) {
       console.error("Poll error:", e);
     }
-  }, [loadSavedScrapes]);
+  }, [loadSavedScrapes, communityUrl]);
 
   const startScrape = async () => {
     if (!communityUrl.trim()) {
