@@ -542,7 +542,8 @@ export default function XShill() {
       id: crypto.randomUUID(),
       community_id: newAwayComm.community_id.trim(),
       community_name: newAwayComm.community_name.trim() || `Community ${newAwayComm.community_id.slice(-6)}`,
-      enabled: shillXConfig.communities.length === 0, // auto-enable if first
+      enabled: shillXConfig.communities.length === 0,
+      hide_ticker: newAwayComm.hide_ticker || false,
     };
     const updated: ShillXConfig = { communities: [...shillXConfig.communities, newComm] };
     await saveShillXConfig(updated);
