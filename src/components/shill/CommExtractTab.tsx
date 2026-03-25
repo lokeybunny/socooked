@@ -149,7 +149,11 @@ export default function CommExtractTab() {
     toast.success("CSV downloaded");
   };
 
-  const displayMembers = verifiedOnly ? members.filter(m => m.verified) : members;
+  const displayMembers = filterMode === "verified"
+    ? members.filter(m => m.verified)
+    : filterMode === "unverified"
+    ? members.filter(m => !m.verified)
+    : members;
 
   return (
     <div className="space-y-4 mt-4">
