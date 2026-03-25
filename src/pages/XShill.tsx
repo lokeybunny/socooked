@@ -935,7 +935,47 @@ export default function XShill() {
               </CardContent>
             </Card>
 
-            {/* Completed + Failed */}
+            {/* Away Comm Upcoming - /shill2 */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">✈️ Away Comm Upcoming — /shill2 ({awayPendingPosts.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {awayPendingPosts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    No scheduled posts. Use <code>/shill2</code> in Telegram to schedule posts to away communities.
+                  </p>
+                ) : (
+                  <ScrollArea className="max-h-[350px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Scheduled</TableHead>
+                          <TableHead className="text-xs">Caption</TableHead>
+                          <TableHead className="text-xs">Account</TableHead>
+                          <TableHead className="text-xs">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {awayPendingPosts.map((post) => (
+                          <TableRow key={post.id}>
+                            <TableCell className="text-[10px] font-mono whitespace-nowrap">
+                              {format(new Date(post.scheduled_at), "MMM d, h:mm a")}
+                            </TableCell>
+                            <TableCell className="text-xs max-w-[200px] truncate">{post.caption}</TableCell>
+                            <TableCell className="text-xs"><XHandle handle={post.x_account} /></TableCell>
+                            <TableCell>
+                              <Badge variant={statusColor(post.status) as any} className="text-[9px]">{post.status}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card>
                 <CardHeader className="pb-2">
