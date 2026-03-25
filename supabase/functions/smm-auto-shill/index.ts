@@ -2490,7 +2490,9 @@ serve(async (req) => {
 
           const raidOpener = OPENER_POOL[Math.floor(Math.random() * OPENER_POOL.length)];
 
-          const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
+          const engagementTags = ["#mustwatch", "#viral", "#trending", "#repost", "#explore", "#fyp", "#followme", "#share", "#like", "#comment", "#instagood", "#hot", "#breakingnews", "#dontmissthis", "#watchthis", "#cantmissthis", "#goviral", "#blowthisup", "#spreadtheword", "#boosted", "#promoted", "#signal", "#alpha", "#gem", "#earlybird", "#100x", "#moonshot", "#bullish", "#sendIt", "#wagmi"];
+          const raidEngagementTag = engagementTags[Math.floor(Math.random() * engagementTags.length)];
+          const copyParts = [`${shillTicker}`, `#${tickerClean}`, raidEngagementTag];
           // Insert raider's secret code hashtag at random position
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, raidHashtag);
@@ -2818,7 +2820,9 @@ serve(async (req) => {
         const openerPool = OPENER_POOL;
         const opener = openerPool[Math.floor(Math.random() * openerPool.length)];
 
-        const copyParts = [`${shillTicker}`, `#${tickerClean}`, `#repost`];
+        const engagementTags = ["#mustwatch", "#viral", "#trending", "#repost", "#explore", "#fyp", "#followme", "#share", "#like", "#comment", "#instagood", "#hot", "#breakingnews", "#dontmissthis", "#watchthis", "#cantmissthis", "#goviral", "#blowthisup", "#spreadtheword", "#boosted", "#promoted", "#signal", "#alpha", "#gem", "#earlybird", "#100x", "#moonshot", "#bullish", "#sendIt", "#wagmi"];
+        const engagementTag = engagementTags[Math.floor(Math.random() * engagementTags.length)];
+        const copyParts = [`${shillTicker}`, `#${tickerClean}`, engagementTag];
         if (userHashtag) {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, userHashtag);
