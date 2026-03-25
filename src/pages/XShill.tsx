@@ -452,6 +452,22 @@ export default function XShill() {
     setEditingCampaignId(null);
   };
 
+  const saveShillXConfig = async (cfg: ShillXConfig) => {
+    setShillXSaving(true);
+    try {
+      await supabase.from("site_configs").upsert({
+        site_id: "smm-auto-shill",
+        section: "shill-x-config",
+        content: cfg as any,
+      } as any, { onConflict: "site_id,section" } as any);
+      setShillXConfig(cfg);
+      toast.success("Shill X config saved");
+    } catch {
+      toast.error("Failed to save Shill X config");
+    }
+    setShillXSaving(false);
+  };
+
     const deleteScheduledPost = async (id: string) => {
     setScheduledPosts((prev) => prev.filter((p) => p.id !== id));
     toast.success("Scheduled post deleted");
