@@ -276,7 +276,7 @@ export default function XShill() {
         .eq("provider", "upload-post");
       if (obAccounts) setOutboundXAccounts(obAccounts);
 
-      // Load Shill X config
+      // Load Shill X config (migrate from old single-community format)
       const { data: shillXCfg } = await supabase
         .from("site_configs")
         .select("content")
@@ -284,16 +284,26 @@ export default function XShill() {
         .eq("section", "shill-x-config")
         .maybeSingle();
       if (shillXCfg?.content) {
-        setShillXConfig(shillXCfg.content as any);
+        const raw = shillXCfg.content as any;
+        // Migrate old format { community_id, community_name, enabled } → { communities: [] }
+        if (raw.communities) {
+          setShillXConfig(raw);
+        } else if (raw.community_id) {
+          const migrated: ShillXConfig = {
+            communities: [{ id: crypto.randomUUID(), community_id: raw.community_id, community_name: raw.community_name || "", enabled: !!raw.enabled }],
+          };
+          setShillXConfig(migrated);
+        }
       }
 
-      // Load Shill X posts (community_id != default whitehouse community)
-      const shillXCommunityId = (shillXCfg?.content as any)?.community_id;
-      if (shillXCommunityId) {
+      // Load Shill X posts for all away communities
+      const awayCommunities = shillXConfig.communities || [];
+      const activeAway = awayCommunities.find(c => c.enabled);
+      if (activeAway) {
         const { data: sxPosts } = await supabase
           .from("shill_scheduled_posts")
           .select("*")
-          .eq("community_id", shillXCommunityId)
+          .eq("community_id", activeAway.community_id)
           .order("scheduled_at", { ascending: false })
           .limit(50);
         setShillXPosts((sxPosts as any[]) || []);
