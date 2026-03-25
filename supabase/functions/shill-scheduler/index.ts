@@ -197,6 +197,8 @@ Deno.serve(async (req) => {
         if (tickerName) {
           resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, tickerName);
         }
+        // Safety: strip any remaining unresolved $TICKER — never show literal placeholder
+        resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, "").replace(/\s{2,}/g, " ").trim();
 
         // ── Away Comm posting window: 10AM - 5PM PST only ──
         const isAwayComm = !!matchedAway;
