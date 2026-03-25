@@ -1105,24 +1105,6 @@ export default function XShill() {
             })()}
           </TabsContent>
 
-  const saveShillXConfig = async (cfg: ShillXConfig) => {
-    setShillXSaving(true);
-    try {
-      await supabase.from("site_configs").upsert({
-        site_id: "smm-auto-shill",
-        section: "shill-x-config",
-        content: cfg as any,
-      } as any, { onConflict: "site_id,section" } as any);
-      setShillXConfig(cfg);
-      toast.success("Shill X config saved");
-    } catch {
-      toast.error("Failed to save Shill X config");
-    }
-    setShillXSaving(false);
-  };
-
-
-
           {/* ═══ SHILL X ═══ */}
           <TabsContent value="shill-x" className="space-y-4 mt-4">
             <Card>
