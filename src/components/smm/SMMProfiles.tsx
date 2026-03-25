@@ -53,7 +53,7 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
     const handles = new Set<string>();
     profiles.forEach(p =>
       p.connected_platforms
-        .filter(cp => cp.connected && (cp.platform === 'twitter' || cp.platform === 'x'))
+        .filter(cp => cp.connected && (cp.platform === 'twitter' || (cp.platform as string) === 'x'))
         .forEach(cp => {
           handles.add((cp.handle || cp.display_name).toLowerCase().replace(/^@/, ''));
         })
