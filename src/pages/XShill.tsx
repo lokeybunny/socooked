@@ -80,6 +80,8 @@ interface ScheduledPost {
   error: string | null;
   created_at: string;
   updated_at: string;
+  repeat_daily?: boolean;
+  all_mode?: boolean;
 }
 
 interface ShillCampaign {
@@ -898,6 +900,7 @@ export default function XShill() {
                             <TableHead className="text-xs">Caption</TableHead>
                             <TableHead className="text-xs">Video</TableHead>
                             <TableHead className="text-xs">Status</TableHead>
+                            <TableHead className="text-xs">Repeat</TableHead>
                             <TableHead className="text-xs w-[100px]">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -918,6 +921,19 @@ export default function XShill() {
                                 <Badge variant={statusColor(post.status) as any} className="text-[9px]">
                                   {post.status}
                                 </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Switch
+                                    checked={post.repeat_daily || false}
+                                    onCheckedChange={async (v) => {
+                                      await supabase.from("shill_scheduled_posts").update({ repeat_daily: v }).eq("id", post.id);
+                                      setScheduledPosts(prev => prev.map(p => p.id === post.id ? { ...p, repeat_daily: v } : p));
+                                      toast.success(v ? "🔁 Repeat ON — will repost daily" : "Repeat OFF");
+                                    }}
+                                  />
+                                  {post.repeat_daily && <RotateCcw className="h-3 w-3 text-primary" />}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-1">
@@ -976,6 +992,9 @@ export default function XShill() {
                           <TableHead className="text-xs">Caption</TableHead>
                           <TableHead className="text-xs">Account</TableHead>
                           <TableHead className="text-xs">Status</TableHead>
+                          <TableHead className="text-xs">Repeat</TableHead>
+                          <TableHead className="text-xs">ALL</TableHead>
+                          <TableHead className="text-xs w-[80px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -988,6 +1007,46 @@ export default function XShill() {
                             <TableCell className="text-xs"><XHandle handle={post.x_account} /></TableCell>
                             <TableCell>
                               <Badge variant={statusColor(post.status) as any} className="text-[9px]">{post.status}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Switch
+                                  checked={post.repeat_daily || false}
+                                  onCheckedChange={async (v) => {
+                                    await supabase.from("shill_scheduled_posts").update({ repeat_daily: v }).eq("id", post.id);
+                                    setShillXPosts(prev => prev.map(p => p.id === post.id ? { ...p, repeat_daily: v } : p));
+                                    toast.success(v ? "🔁 Repeat ON" : "Repeat OFF");
+                                  }}
+                                />
+                                {post.repeat_daily && <RotateCcw className="h-3 w-3 text-primary" />}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Switch
+                                  checked={post.all_mode || false}
+                                  onCheckedChange={async (v) => {
+                                    await supabase.from("shill_scheduled_posts").update({ all_mode: v }).eq("id", post.id);
+                                    setShillXPosts(prev => prev.map(p => p.id === post.id ? { ...p, all_mode: v } : p));
+                                    const activeCount = shillXConfig.communities.filter(c => c.enabled).length;
+                                    toast.success(v ? `🌐 ALL MODE ON — will post to ${activeCount} active communities` : "ALL MODE OFF");
+                                  }}
+                                />
+                                {post.all_mode && <Globe className="h-3 w-3 text-primary" />}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => {
+                                  setEditPost({ ...post });
+                                  setEditPostDialog(true);
+                                }}>
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => deleteScheduledPost(post.id)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
