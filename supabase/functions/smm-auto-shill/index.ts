@@ -426,6 +426,7 @@ async function appendSignatureHandles(supabase: any, copyText: string): Promise<
     console.error("[auto-shill] shill copy signature error (non-fatal):", e.message);
     return copyText;
   }
+}
 
 // ─── Role-based access: check if member has admin, shill-team, or raid-team roles ───
 const TEAM_ROLE_IDS = [
