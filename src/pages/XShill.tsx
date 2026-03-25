@@ -1326,7 +1326,7 @@ export default function XShill() {
 
           <TabsContent value="communities" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Target Communities</h3>
+              <h3 className="text-sm font-semibold">🏠 Home Comm — Target Communities</h3>
               <Button size="sm" onClick={() => {
                 setEditTarget({ ...DEFAULT_TARGET, id: crypto.randomUUID() } as CommunityTarget);
                 setEditDialog(true);
