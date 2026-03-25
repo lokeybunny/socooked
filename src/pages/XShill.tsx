@@ -544,10 +544,11 @@ export default function XShill() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-6 max-w-3xl">
+          <TabsList className="grid w-full grid-cols-7 max-w-4xl">
             <TabsTrigger value="overview" className="text-xs"><Activity className="h-3 w-3 mr-1" />Overview</TabsTrigger>
             <TabsTrigger value="campaign" className="text-xs"><Video className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
             <TabsTrigger value="accounts" className="text-xs"><Users className="h-3 w-3 mr-1" />Accounts</TabsTrigger>
+            <TabsTrigger value="shill-x" className="text-xs"><Target className="h-3 w-3 mr-1" />Shill X</TabsTrigger>
             <TabsTrigger value="communities" className="text-xs"><Globe className="h-3 w-3 mr-1" />Communities</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Messages</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs"><Clock className="h-3 w-3 mr-1" />Logs</TabsTrigger>
