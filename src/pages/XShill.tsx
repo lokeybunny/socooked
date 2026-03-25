@@ -554,58 +554,111 @@ export default function XShill() {
               </Card>
             </div>
 
-            {/* Shill Copy Config — controls Get Shill Copy button output */}
+            {/* Shill Campaign Presets */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  Shill Copy Config
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    Shill Copy Campaigns
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={startNewCampaign} disabled={!!campaignDraft} className="gap-1.5 text-xs">
+                    <Plus className="h-3 w-3" /> New Campaign
+                  </Button>
+                </div>
                 <p className="text-[10px] text-muted-foreground">
-                  These values control the <strong>📋 Get Shill Copy</strong> button output in Discord. The ticker and link appear in every generated shill/raid copy.
+                  Create campaign presets with a ticker + 5 rotating links. Only <strong>1 campaign</strong> can be active at a time — the active one powers the <strong>📋 Get Shill Copy</strong> button in Discord.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Campaign Ticker</label>
-                  <Input
-                    value={shillCopyTicker}
-                    onChange={(e) => setShillCopyTicker(e.target.value)}
-                    placeholder="e.g. $WHITEHOUSE"
-                    className="h-8 text-sm font-mono max-w-xs"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">Campaign Links (up to 5 — rotates 1 per click)</label>
-                  {shillCopyCampaignLinks.map((link, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">
-                        {idx + 1}
-                      </Badge>
+                {/* Campaign Draft (new or edit) */}
+                {campaignDraft && (
+                  <div className="border border-primary/30 rounded-lg p-3 space-y-3 bg-primary/5">
+                    <div className="flex items-center gap-2">
                       <Input
-                        value={link}
-                        onChange={(e) => {
-                          const updated = [...shillCopyCampaignLinks];
-                          updated[idx] = e.target.value;
-                          setShillCopyCampaignLinks(updated);
-                        }}
-                        placeholder={idx === 0 ? "https://x.com/... (primary link)" : "https://x.com/... (optional)"}
-                        className="h-8 text-sm font-mono"
+                        value={campaignDraft.name}
+                        onChange={(e) => setCampaignDraft({ ...campaignDraft, name: e.target.value })}
+                        placeholder="Campaign name (e.g. $WHITEHOUSE Q2)"
+                        className="h-8 text-sm max-w-xs"
+                      />
+                      <Input
+                        value={campaignDraft.ticker}
+                        onChange={(e) => setCampaignDraft({ ...campaignDraft, ticker: e.target.value })}
+                        placeholder="Ticker e.g. WHITEHOUSE"
+                        className="h-8 text-sm font-mono max-w-[160px]"
                       />
                     </div>
-                  ))}
-                </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-medium text-muted-foreground">Rotation Links (up to 5)</label>
+                      {campaignDraft.links.map((link, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">
+                            {idx + 1}
+                          </Badge>
+                          <Input
+                            value={link}
+                            onChange={(e) => {
+                              const updated = [...campaignDraft.links];
+                              updated[idx] = e.target.value;
+                              setCampaignDraft({ ...campaignDraft, links: updated });
+                            }}
+                            placeholder={idx === 0 ? "https://x.com/... (primary)" : "https://x.com/... (optional)"}
+                            className="h-7 text-xs font-mono"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button size="sm" onClick={saveCampaignDraft} disabled={shillCopySaving} className="gap-1.5 text-xs">
+                        <Save className="h-3 w-3" />
+                        {editingCampaignId ? "Update" : "Create"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={cancelCampaignDraft} className="text-xs">Cancel</Button>
+                    </div>
+                  </div>
+                )}
 
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-muted-foreground">
-                    🔄 Each "Get Shill Copy" click rotates to the next non-empty link. If Upload-Post has a matching owned video post, it's mixed in too.
-                  </p>
-                  <Button size="sm" onClick={saveShillCopyConfig} disabled={shillCopySaving} className="gap-1.5">
-                    <Save className="h-3 w-3" />
-                    {shillCopySaving ? "Saving..." : "Save"}
-                  </Button>
-                </div>
+                {/* Campaign List */}
+                {shillCampaigns.length === 0 && !campaignDraft && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No campaigns yet. Create one to get started.</p>
+                )}
+                {shillCampaigns.map((c) => (
+                  <div key={c.id} className={`border rounded-lg p-3 flex items-start justify-between gap-3 ${c.active ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold truncate">{c.name || `$${c.ticker} Campaign`}</span>
+                        <Badge variant={c.active ? "default" : "secondary"} className="text-[9px]">
+                          {c.active ? "ACTIVE" : "INACTIVE"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs font-mono text-muted-foreground">${c.ticker.replace(/^\$/, "")}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {c.links.filter(l => l.trim()).length} link(s) configured
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {c.active ? (
+                        <Button size="sm" variant="outline" onClick={() => deactivateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1">
+                          <Pause className="h-3 w-3" /> Deactivate
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="default" onClick={() => activateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1">
+                          <Play className="h-3 w-3" /> Activate
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => startEditCampaign(c)} className="h-7 w-7 p-0">
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteCampaign(c.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                <p className="text-[10px] text-muted-foreground">
+                  🔄 The active campaign's links rotate 1 per "Get Shill Copy" click. If Upload-Post has a matching owned video post, it's mixed in too.
+                </p>
               </CardContent>
             </Card>
 
