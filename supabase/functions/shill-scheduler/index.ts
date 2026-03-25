@@ -274,7 +274,7 @@ Deno.serve(async (req) => {
                 captionWithSig += sigPrefix + picked.map(h => `@${h}`).join(separator) + sigSuffix;
 
                 // Record usage
-                const usageRows = picked.map(h => ({ handle: h, post_id: post.id }));
+                const usageRows = picked.map(h => ({ handle: h, post_id: post.id, source: "live_post" }));
                 await supabase.from("signature_usage").insert(usageRows);
                 console.log(`[shill-scheduler] 🏷️ Signature: appended ${picked.length} handles`);
               }

@@ -417,7 +417,7 @@ async function appendSignatureHandles(supabase: any, copyText: string): Promise<
     }
 
     if (picked.length > 0) {
-      const usageRows = picked.map(h => ({ handle: h, post_id: "shill-copy-" + Date.now() }));
+      const usageRows = picked.map(h => ({ handle: h, post_id: "shill-copy-" + Date.now(), source: "shill_copy" }));
       await supabase.from("signature_usage").insert(usageRows);
       console.log(`[auto-shill] 🏷️ Shill copy signature: appended ${picked.length} handles`);
       return copyText + sigPrefix + picked.map(h => `@${h}`).join(separator) + sigSuffix;
