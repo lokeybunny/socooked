@@ -220,22 +220,35 @@ export default function XShill() {
         .limit(200);
       setScheduledPosts((posts as any[]) || []);
 
-      // Load rotation accounts
+      // Load rotation accounts — auto-sync from outbound_accounts (all X accounts)
       const { data: rotCfg } = await supabase
         .from("site_configs")
         .select("content")
         .eq("site_id", "smm-auto-shill")
         .eq("section", "shill-rotation-accounts")
         .maybeSingle();
-      if (rotCfg?.content) {
-        setRotationAccounts((rotCfg.content as any).accounts || []);
-      } else {
-        // Seed with current default accounts
-        setRotationAccounts([
-          { id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 },
-          { id: crypto.randomUUID(), handle: "warrenguru", status: "active", posts_today: 0 },
-        ]);
+      const existingAccounts: RotationAccount[] = (rotCfg?.content as any)?.accounts || [];
+
+      // Fetch all X accounts from outbound_accounts
+      const { data: outboundAccs } = await supabase
+        .from("outbound_accounts")
+        .select("account_label")
+        .eq("platform", "x");
+      const outboundHandles = (outboundAccs || []).map((a: any) => a.account_label.replace(/^@/, "").toLowerCase());
+
+      // Merge: add any outbound accounts not already in rotation
+      let merged = [...existingAccounts];
+      let changed = false;
+      for (const handle of outboundHandles) {
+        if (!merged.find(a => a.handle.toLowerCase() === handle)) {
+          merged.push({ id: crypto.randomUUID(), handle, status: "active", posts_today: 0 });
+          changed = true;
+        }
       }
+      if (changed || existingAccounts.length === 0) {
+        await saveRotationAccounts(merged);
+      }
+      setRotationAccounts(merged);
 
       // Load shill campaign presets
       const { data: campaignsCfg } = await supabase
