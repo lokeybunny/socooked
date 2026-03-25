@@ -640,7 +640,7 @@ export default function XShill() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-9 max-w-5xl">
+          <TabsList className="grid w-full grid-cols-10 max-w-6xl">
             <TabsTrigger value="overview" className="text-xs"><Activity className="h-3 w-3 mr-1" />Overview</TabsTrigger>
             <TabsTrigger value="campaign" className="text-xs"><Video className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
             <TabsTrigger value="accounts" className="text-xs"><Users className="h-3 w-3 mr-1" />Accounts</TabsTrigger>
@@ -649,6 +649,7 @@ export default function XShill() {
             <TabsTrigger value="comm-extract" className="text-xs"><Search className="h-3 w-3 mr-1" />Comm Extract</TabsTrigger>
             <TabsTrigger value="signatures" className="text-xs"><Shield className="h-3 w-3 mr-1" />Signatures</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Messages</TabsTrigger>
+            <TabsTrigger value="recycle" className="text-xs"><RotateCcw className="h-3 w-3 mr-1" />Recycle</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs"><Clock className="h-3 w-3 mr-1" />Logs</TabsTrigger>
           </TabsList>
 
