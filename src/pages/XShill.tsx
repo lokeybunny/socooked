@@ -75,6 +75,14 @@ interface ScheduledPost {
   updated_at: string;
 }
 
+interface ShillCampaign {
+  id: string;
+  name: string;
+  ticker: string;
+  links: string[];
+  active: boolean;
+}
+
 const DEFAULT_WH_TEMPLATES = [
   "Just Detected New Post that could be Raided $WHITEHOUSE",
   "🚨 New @WhiteHouse post just dropped! Rally $WHITEHOUSE",
@@ -125,10 +133,10 @@ export default function XShill() {
   const [pendingPage, setPendingPage] = useState(1);
   const [rotationAccounts, setRotationAccounts] = useState<RotationAccount[]>([]);
   const [newAccountHandle, setNewAccountHandle] = useState("");
-  const [shillCopyTicker, setShillCopyTicker] = useState("");
-  const [shillCopyCampaignUrl, setShillCopyCampaignUrl] = useState("");
-  const [shillCopyCampaignLinks, setShillCopyCampaignLinks] = useState<string[]>(["", "", "", "", ""]);
+  const [shillCampaigns, setShillCampaigns] = useState<ShillCampaign[]>([]);
   const [shillCopySaving, setShillCopySaving] = useState(false);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+  const [campaignDraft, setCampaignDraft] = useState<ShillCampaign | null>(null);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
@@ -203,25 +211,35 @@ export default function XShill() {
         setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
       }
 
-      // Load shill copy config (ticker + campaign_links for Get Shill Copy button)
-      const { data: shillCopyCfg } = await supabase
+      // Load shill campaign presets
+      const { data: campaignsCfg } = await supabase
         .from("site_configs")
         .select("content")
         .eq("site_id", "smm-auto-shill")
-        .eq("section", "NysonBlack")
+        .eq("section", "shill-copy-campaigns")
         .maybeSingle();
-      if (shillCopyCfg?.content) {
-        const c = shillCopyCfg.content as any;
-        setShillCopyTicker(c.ticker || "");
-        setShillCopyCampaignUrl(c.campaign_url || "");
-        const links = c.campaign_links || [];
-        setShillCopyCampaignLinks([
-          links[0] || c.campaign_url || "",
-          links[1] || "",
-          links[2] || "",
-          links[3] || "",
-          links[4] || "",
-        ]);
+      if (campaignsCfg?.content) {
+        setShillCampaigns((campaignsCfg.content as any).campaigns || []);
+      } else {
+        // Migrate from old single-config if it exists
+        const { data: oldCfg } = await supabase
+          .from("site_configs")
+          .select("content")
+          .eq("site_id", "smm-auto-shill")
+          .eq("section", "NysonBlack")
+          .maybeSingle();
+        if (oldCfg?.content) {
+          const c = oldCfg.content as any;
+          const migratedLinks = c.campaign_links || [c.campaign_url || "", "", "", "", ""];
+          const migrated: ShillCampaign = {
+            id: crypto.randomUUID(),
+            name: c.ticker ? `$${c.ticker.replace(/^\$/, "")} Campaign` : "Default Campaign",
+            ticker: c.ticker || "",
+            links: [migratedLinks[0] || "", migratedLinks[1] || "", migratedLinks[2] || "", migratedLinks[3] || "", migratedLinks[4] || ""],
+            active: true,
+          };
+          setShillCampaigns([migrated]);
+        }
       }
     } catch (e) {
       console.error("Load error:", e);
@@ -301,26 +319,32 @@ export default function XShill() {
     await saveRotationAccounts(updated);
   };
 
-  const saveShillCopyConfig = async () => {
+  const saveCampaigns = async (campaigns: ShillCampaign[]) => {
     setShillCopySaving(true);
     try {
+      // Save all campaigns to the presets config
+      await supabase.from("site_configs").upsert({
+        site_id: "smm-auto-shill",
+        section: "shill-copy-campaigns",
+        content: { campaigns } as any,
+      } as any, { onConflict: "site_id,section" } as any);
+
+      // Sync the active campaign to NysonBlack config (used by edge function)
+      const activeCampaign = campaigns.find(c => c.active);
       const { data: existing } = await supabase
         .from("site_configs")
         .select("id, content")
         .eq("site_id", "smm-auto-shill")
         .eq("section", "NysonBlack")
         .maybeSingle();
-
       const existingContent = (existing?.content as any) || {};
-      // Filter out empty links
-      const activeLinks = shillCopyCampaignLinks.filter(l => l.trim());
+      const activeLinks = activeCampaign?.links.filter(l => l.trim()) || [];
       const updatedContent = {
         ...existingContent,
-        ticker: shillCopyTicker,
-        campaign_url: activeLinks[0] || shillCopyCampaignUrl || "",
-        campaign_links: shillCopyCampaignLinks,
+        ticker: activeCampaign?.ticker || "",
+        campaign_url: activeLinks[0] || "",
+        campaign_links: activeCampaign?.links || ["", "", "", "", ""],
       };
-
       await supabase.from("site_configs").upsert({
         ...(existing?.id ? { id: existing.id } : {}),
         site_id: "smm-auto-shill",
@@ -328,11 +352,57 @@ export default function XShill() {
         content: updatedContent as any,
       } as any, { onConflict: "site_id,section" } as any);
 
-      toast.success(`Shill copy config saved — ${activeLinks.length} link(s) will rotate`);
+      setShillCampaigns(campaigns);
+      toast.success(activeCampaign ? `Active: $${activeCampaign.ticker} — ${activeLinks.length} link(s)` : "Campaigns saved (none active)");
     } catch {
-      toast.error("Failed to save shill copy config");
+      toast.error("Failed to save campaigns");
     }
     setShillCopySaving(false);
+  };
+
+  const activateCampaign = async (id: string) => {
+    const updated = shillCampaigns.map(c => ({ ...c, active: c.id === id }));
+    await saveCampaigns(updated);
+  };
+
+  const deactivateCampaign = async (id: string) => {
+    const updated = shillCampaigns.map(c => c.id === id ? { ...c, active: false } : c);
+    await saveCampaigns(updated);
+  };
+
+  const deleteCampaign = async (id: string) => {
+    const updated = shillCampaigns.filter(c => c.id !== id);
+    await saveCampaigns(updated);
+  };
+
+  const startNewCampaign = () => {
+    setCampaignDraft({ id: crypto.randomUUID(), name: "", ticker: "", links: ["", "", "", "", ""], active: false });
+    setEditingCampaignId(null);
+  };
+
+  const startEditCampaign = (c: ShillCampaign) => {
+    setCampaignDraft({ ...c, links: [...c.links, "", "", "", "", ""].slice(0, 5) });
+    setEditingCampaignId(c.id);
+  };
+
+  const saveCampaignDraft = async () => {
+    if (!campaignDraft) return;
+    if (!campaignDraft.ticker.trim()) { toast.error("Ticker is required"); return; }
+    if (!campaignDraft.name.trim()) { campaignDraft.name = `$${campaignDraft.ticker.replace(/^\$/, "")} Campaign`; }
+    let updated: ShillCampaign[];
+    if (editingCampaignId) {
+      updated = shillCampaigns.map(c => c.id === editingCampaignId ? campaignDraft : c);
+    } else {
+      updated = [...shillCampaigns, campaignDraft];
+    }
+    await saveCampaigns(updated);
+    setCampaignDraft(null);
+    setEditingCampaignId(null);
+  };
+
+  const cancelCampaignDraft = () => {
+    setCampaignDraft(null);
+    setEditingCampaignId(null);
   };
 
     const deleteScheduledPost = async (id: string) => {
@@ -484,58 +554,111 @@ export default function XShill() {
               </Card>
             </div>
 
-            {/* Shill Copy Config — controls Get Shill Copy button output */}
+            {/* Shill Campaign Presets */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  Shill Copy Config
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    Shill Copy Campaigns
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={startNewCampaign} disabled={!!campaignDraft} className="gap-1.5 text-xs">
+                    <Plus className="h-3 w-3" /> New Campaign
+                  </Button>
+                </div>
                 <p className="text-[10px] text-muted-foreground">
-                  These values control the <strong>📋 Get Shill Copy</strong> button output in Discord. The ticker and link appear in every generated shill/raid copy.
+                  Create campaign presets with a ticker + 5 rotating links. Only <strong>1 campaign</strong> can be active at a time — the active one powers the <strong>📋 Get Shill Copy</strong> button in Discord.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Campaign Ticker</label>
-                  <Input
-                    value={shillCopyTicker}
-                    onChange={(e) => setShillCopyTicker(e.target.value)}
-                    placeholder="e.g. $WHITEHOUSE"
-                    className="h-8 text-sm font-mono max-w-xs"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground">Campaign Links (up to 5 — rotates 1 per click)</label>
-                  {shillCopyCampaignLinks.map((link, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">
-                        {idx + 1}
-                      </Badge>
+                {/* Campaign Draft (new or edit) */}
+                {campaignDraft && (
+                  <div className="border border-primary/30 rounded-lg p-3 space-y-3 bg-primary/5">
+                    <div className="flex items-center gap-2">
                       <Input
-                        value={link}
-                        onChange={(e) => {
-                          const updated = [...shillCopyCampaignLinks];
-                          updated[idx] = e.target.value;
-                          setShillCopyCampaignLinks(updated);
-                        }}
-                        placeholder={idx === 0 ? "https://x.com/... (primary link)" : "https://x.com/... (optional)"}
-                        className="h-8 text-sm font-mono"
+                        value={campaignDraft.name}
+                        onChange={(e) => setCampaignDraft({ ...campaignDraft, name: e.target.value })}
+                        placeholder="Campaign name (e.g. $WHITEHOUSE Q2)"
+                        className="h-8 text-sm max-w-xs"
+                      />
+                      <Input
+                        value={campaignDraft.ticker}
+                        onChange={(e) => setCampaignDraft({ ...campaignDraft, ticker: e.target.value })}
+                        placeholder="Ticker e.g. WHITEHOUSE"
+                        className="h-8 text-sm font-mono max-w-[160px]"
                       />
                     </div>
-                  ))}
-                </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-medium text-muted-foreground">Rotation Links (up to 5)</label>
+                      {campaignDraft.links.map((link, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">
+                            {idx + 1}
+                          </Badge>
+                          <Input
+                            value={link}
+                            onChange={(e) => {
+                              const updated = [...campaignDraft.links];
+                              updated[idx] = e.target.value;
+                              setCampaignDraft({ ...campaignDraft, links: updated });
+                            }}
+                            placeholder={idx === 0 ? "https://x.com/... (primary)" : "https://x.com/... (optional)"}
+                            className="h-7 text-xs font-mono"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button size="sm" onClick={saveCampaignDraft} disabled={shillCopySaving} className="gap-1.5 text-xs">
+                        <Save className="h-3 w-3" />
+                        {editingCampaignId ? "Update" : "Create"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={cancelCampaignDraft} className="text-xs">Cancel</Button>
+                    </div>
+                  </div>
+                )}
 
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-muted-foreground">
-                    🔄 Each "Get Shill Copy" click rotates to the next non-empty link. If Upload-Post has a matching owned video post, it's mixed in too.
-                  </p>
-                  <Button size="sm" onClick={saveShillCopyConfig} disabled={shillCopySaving} className="gap-1.5">
-                    <Save className="h-3 w-3" />
-                    {shillCopySaving ? "Saving..." : "Save"}
-                  </Button>
-                </div>
+                {/* Campaign List */}
+                {shillCampaigns.length === 0 && !campaignDraft && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No campaigns yet. Create one to get started.</p>
+                )}
+                {shillCampaigns.map((c) => (
+                  <div key={c.id} className={`border rounded-lg p-3 flex items-start justify-between gap-3 ${c.active ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold truncate">{c.name || `$${c.ticker} Campaign`}</span>
+                        <Badge variant={c.active ? "default" : "secondary"} className="text-[9px]">
+                          {c.active ? "ACTIVE" : "INACTIVE"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs font-mono text-muted-foreground">${c.ticker.replace(/^\$/, "")}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {c.links.filter(l => l.trim()).length} link(s) configured
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {c.active ? (
+                        <Button size="sm" variant="outline" onClick={() => deactivateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1">
+                          <Pause className="h-3 w-3" /> Deactivate
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="default" onClick={() => activateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1">
+                          <Play className="h-3 w-3" /> Activate
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => startEditCampaign(c)} className="h-7 w-7 p-0">
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteCampaign(c.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
+                <p className="text-[10px] text-muted-foreground">
+                  🔄 The active campaign's links rotate 1 per "Get Shill Copy" click. If Upload-Post has a matching owned video post, it's mixed in too.
+                </p>
               </CardContent>
             </Card>
 
