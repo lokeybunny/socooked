@@ -1297,28 +1297,40 @@ export default function XShill() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Add new away community */}
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <label className="text-[10px] text-muted-foreground">Community ID</label>
-                    <Input
-                      value={newAwayComm.community_id}
-                      onChange={(e) => setNewAwayComm({ ...newAwayComm, community_id: e.target.value })}
-                      placeholder="e.g. 2029596385180291485"
-                      className="h-8 text-xs font-mono"
-                    />
+                <div className="space-y-2">
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground">Community ID</label>
+                      <Input
+                        value={newAwayComm.community_id}
+                        onChange={(e) => setNewAwayComm({ ...newAwayComm, community_id: e.target.value })}
+                        placeholder="e.g. 2029596385180291485"
+                        className="h-8 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground">Name</label>
+                      <Input
+                        value={newAwayComm.community_name}
+                        onChange={(e) => setNewAwayComm({ ...newAwayComm, community_name: e.target.value })}
+                        placeholder="e.g. $PEPE Community"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <Button size="sm" onClick={addAwayComm} disabled={shillXSaving} className="gap-1 text-xs h-8">
+                      <Plus className="h-3 w-3" /> Add
+                    </Button>
                   </div>
-                  <div className="flex-1">
-                    <label className="text-[10px] text-muted-foreground">Name</label>
-                    <Input
-                      value={newAwayComm.community_name}
-                      onChange={(e) => setNewAwayComm({ ...newAwayComm, community_name: e.target.value })}
-                      placeholder="e.g. $PEPE Community"
-                      className="h-8 text-xs"
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="new-hide-ticker"
+                      checked={newAwayComm.hide_ticker || false}
+                      onCheckedChange={(v) => setNewAwayComm({ ...newAwayComm, hide_ticker: !!v })}
                     />
+                    <label htmlFor="new-hide-ticker" className="text-[10px] text-muted-foreground cursor-pointer">
+                      Hide Ticker — only use caption data from /shill or /shill2
+                    </label>
                   </div>
-                  <Button size="sm" onClick={addAwayComm} disabled={shillXSaving} className="gap-1 text-xs h-8">
-                    <Plus className="h-3 w-3" /> Add
-                  </Button>
                 </div>
 
                 {/* Community list */}
