@@ -165,7 +165,42 @@ Deno.serve(async (req) => {
           .maybeSingle();
         const caAddress = (caConfigRow?.content as any)?.ca_address || "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
         const CA_SIGNATURE = `\n\nCA - ${caAddress}`;
-        const captionWithSig = post.caption + CA_SIGNATURE;
+
+        // ── Resolve $TICKER placeholder ──
+        // Look up the community name from the Away Comm config (by community_id)
+        // or from the Home Comm config (targets)
+        let tickerName = "";
+        let hideTickerFlag = false;
+        const postCommunityId = post.community_id || "";
+
+        // Try Away Comm config first
+        const { data: sxCfgRow } = await supabase.from("site_configs")
+          .select("content").eq("site_id", "smm-auto-shill").eq("section", "shill-x-config").maybeSingle();
+        const awayCommunities = (sxCfgRow?.content as any)?.communities || [];
+        const matchedAway = awayCommunities.find((c: any) => c.community_id === postCommunityId);
+        if (matchedAway) {
+          tickerName = matchedAway.community_name || "";
+          hideTickerFlag = !!matchedAway.hide_ticker;
+        }
+
+        // If not found in Away, try Home Comm targets
+        if (!tickerName) {
+          const { data: homeCfgRow } = await supabase.from("site_configs")
+            .select("content").eq("site_id", "x-shill").eq("section", "targets").maybeSingle();
+          const homeTargets = (homeCfgRow?.content as any)?.targets || [];
+          const matchedHome = homeTargets.find((t: any) => t.community_id === postCommunityId);
+          if (matchedHome) tickerName = matchedHome.community_name || "";
+        }
+
+        // Replace $TICKER in caption (case-insensitive)
+        let resolvedCaption = post.caption;
+        if (tickerName) {
+          resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, tickerName);
+        }
+
+        // If hide_ticker is enabled, strip the ticker from the caption
+        // (the ticker won't be auto-appended by the system)
+        const captionWithSig = resolvedCaption + (hideTickerFlag ? "" : CA_SIGNATURE);
 
         // Determine which account to use — try rotation pool first
         let accountToUse = post.x_account || "xslaves";
