@@ -161,8 +161,8 @@ export default function XShill() {
   const [shillXConfig, setShillXConfig] = useState<ShillXConfig>({ communities: [] });
   const [shillXSaving, setShillXSaving] = useState(false);
   const [shillXPosts, setShillXPosts] = useState<ScheduledPost[]>([]);
-  const [newAwayComm, setNewAwayComm] = useState<{ community_id: string; community_name: string }>({ community_id: "", community_name: "" });
-  const [editingAwayComm, setEditingAwayComm] = useState<{ id: string; community_id: string; community_name: string } | null>(null);
+  const [newAwayComm, setNewAwayComm] = useState<{ community_id: string; community_name: string; hide_ticker?: boolean }>({ community_id: "", community_name: "" });
+  const [editingAwayComm, setEditingAwayComm] = useState<{ id: string; community_id: string; community_name: string; hide_ticker?: boolean } | null>(null);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
