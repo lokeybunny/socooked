@@ -3396,7 +3396,7 @@ Deno.serve(async (req) => {
       })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: `🏠 <b>HOME COMM — Shill to X Community</b>\n\n📡 Community: <b>${homeCommunityName}</b> (${homeXAccount})\n\nWhat caption do you want for this post?`,
+        text: `🏠 <b>HOME COMM — Shill to X Community</b>\n\n📡 Community: <b>${homeCommunityName}</b> (${homeXAccount})\n\nWhat caption do you want for this post?\n\n💡 <i>Tip: Use <code>$TICKER</code> as a placeholder — it will be replaced with <b>${homeCommunityName}</b> when posted.</i>`,
         parse_mode: 'HTML',
       })
       return new Response('ok')
