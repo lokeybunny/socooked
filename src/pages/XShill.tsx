@@ -319,26 +319,32 @@ export default function XShill() {
     await saveRotationAccounts(updated);
   };
 
-  const saveShillCopyConfig = async () => {
+  const saveCampaigns = async (campaigns: ShillCampaign[]) => {
     setShillCopySaving(true);
     try {
+      // Save all campaigns to the presets config
+      await supabase.from("site_configs").upsert({
+        site_id: "smm-auto-shill",
+        section: "shill-copy-campaigns",
+        content: { campaigns } as any,
+      } as any, { onConflict: "site_id,section" } as any);
+
+      // Sync the active campaign to NysonBlack config (used by edge function)
+      const activeCampaign = campaigns.find(c => c.active);
       const { data: existing } = await supabase
         .from("site_configs")
         .select("id, content")
         .eq("site_id", "smm-auto-shill")
         .eq("section", "NysonBlack")
         .maybeSingle();
-
       const existingContent = (existing?.content as any) || {};
-      // Filter out empty links
-      const activeLinks = shillCopyCampaignLinks.filter(l => l.trim());
+      const activeLinks = activeCampaign?.links.filter(l => l.trim()) || [];
       const updatedContent = {
         ...existingContent,
-        ticker: shillCopyTicker,
-        campaign_url: activeLinks[0] || shillCopyCampaignUrl || "",
-        campaign_links: shillCopyCampaignLinks,
+        ticker: activeCampaign?.ticker || "",
+        campaign_url: activeLinks[0] || "",
+        campaign_links: activeCampaign?.links || ["", "", "", "", ""],
       };
-
       await supabase.from("site_configs").upsert({
         ...(existing?.id ? { id: existing.id } : {}),
         site_id: "smm-auto-shill",
@@ -346,11 +352,57 @@ export default function XShill() {
         content: updatedContent as any,
       } as any, { onConflict: "site_id,section" } as any);
 
-      toast.success(`Shill copy config saved — ${activeLinks.length} link(s) will rotate`);
+      setShillCampaigns(campaigns);
+      toast.success(activeCampaign ? `Active: $${activeCampaign.ticker} — ${activeLinks.length} link(s)` : "Campaigns saved (none active)");
     } catch {
-      toast.error("Failed to save shill copy config");
+      toast.error("Failed to save campaigns");
     }
     setShillCopySaving(false);
+  };
+
+  const activateCampaign = async (id: string) => {
+    const updated = shillCampaigns.map(c => ({ ...c, active: c.id === id }));
+    await saveCampaigns(updated);
+  };
+
+  const deactivateCampaign = async (id: string) => {
+    const updated = shillCampaigns.map(c => c.id === id ? { ...c, active: false } : c);
+    await saveCampaigns(updated);
+  };
+
+  const deleteCampaign = async (id: string) => {
+    const updated = shillCampaigns.filter(c => c.id !== id);
+    await saveCampaigns(updated);
+  };
+
+  const startNewCampaign = () => {
+    setCampaignDraft({ id: crypto.randomUUID(), name: "", ticker: "", links: ["", "", "", "", ""], active: false });
+    setEditingCampaignId(null);
+  };
+
+  const startEditCampaign = (c: ShillCampaign) => {
+    setCampaignDraft({ ...c, links: [...c.links, "", "", "", "", ""].slice(0, 5) });
+    setEditingCampaignId(c.id);
+  };
+
+  const saveCampaignDraft = async () => {
+    if (!campaignDraft) return;
+    if (!campaignDraft.ticker.trim()) { toast.error("Ticker is required"); return; }
+    if (!campaignDraft.name.trim()) { campaignDraft.name = `$${campaignDraft.ticker.replace(/^\$/, "")} Campaign`; }
+    let updated: ShillCampaign[];
+    if (editingCampaignId) {
+      updated = shillCampaigns.map(c => c.id === editingCampaignId ? campaignDraft : c);
+    } else {
+      updated = [...shillCampaigns, campaignDraft];
+    }
+    await saveCampaigns(updated);
+    setCampaignDraft(null);
+    setEditingCampaignId(null);
+  };
+
+  const cancelCampaignDraft = () => {
+    setCampaignDraft(null);
+    setEditingCampaignId(null);
   };
 
     const deleteScheduledPost = async (id: string) => {
