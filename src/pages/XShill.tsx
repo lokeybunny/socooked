@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import CommExtractTab from "@/components/shill/CommExtractTab";
 import SignatureConfig from "@/components/shill/SignatureConfig";
+import CampaignHUD from "@/components/shill/CampaignHUD";
 
 const XHandle = ({ handle, className = "text-sm font-medium" }: { handle: string; className?: string }) => (
   <span className={`inline-flex items-center gap-1 ${className}`}>
