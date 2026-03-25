@@ -1318,33 +1318,66 @@ export default function XShill() {
           <DialogHeader>
             <DialogTitle className="text-sm">Edit Scheduled Post</DialogTitle>
           </DialogHeader>
-          {editPost && (
-            <div className="space-y-3">
-              <div>
-                <label className="text-[10px] text-muted-foreground">Caption</label>
-                <Textarea
-                  className="text-xs min-h-[80px]"
-                  value={editPost.caption}
-                  onChange={(e) => setEditPost({ ...editPost, caption: e.target.value })}
-                />
+          {editPost && (() => {
+            // Convert UTC ISO → PST/PDT local datetime string for the input
+            const utcToPackedPacific = (iso: string) => {
+              const d = new Date(iso);
+              const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Los_Angeles',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', hour12: false,
+              }).formatToParts(d);
+              const get = (t: string) => parts.find(p => p.type === t)?.value || '00';
+              return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+            };
+            // Convert PST/PDT datetime-local string → UTC ISO for storage
+            const pacificToUtc = (localStr: string) => {
+              const [date, time] = localStr.split('T');
+              const [year, month, day] = date.split('-').map(Number);
+              const [hour, minute] = time.split(':').map(Number);
+              const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+              const fmt = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'America/Los_Angeles', hour12: false,
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+              });
+              const p = Object.fromEntries(
+                fmt.formatToParts(utcGuess).filter(x => x.type !== 'literal').map(x => [x.type, x.value])
+              ) as Record<string, string>;
+              const zonedMs = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+              const offsetMs = zonedMs - utcGuess.getTime();
+              return new Date(utcGuess.getTime() - offsetMs).toISOString();
+            };
+            const pacificValue = utcToPackedPacific(editPost.scheduled_at);
+            return (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Caption</label>
+                  <Textarea
+                    className="text-xs min-h-[80px]"
+                    value={editPost.caption}
+                    onChange={(e) => setEditPost({ ...editPost, caption: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Scheduled At (Pacific Time)</label>
+                  <Input
+                    type="datetime-local"
+                    className="text-xs"
+                    value={pacificValue}
+                    onChange={(e) => setEditPost({ ...editPost, scheduled_at: pacificToUtc(e.target.value) })}
+                  />
+                  <p className="text-[9px] text-muted-foreground mt-1">Times shown in PST/PDT — posting window is 5AM–9PM Pacific</p>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground">Video</label>
+                  <a href={editPost.video_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
+                    <ExternalLink className="h-3 w-3" /> Preview Video
+                  </a>
+                </div>
               </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground">Scheduled At</label>
-                <Input
-                  type="datetime-local"
-                  className="text-xs"
-                  value={editPost.scheduled_at.slice(0, 16)}
-                  onChange={(e) => setEditPost({ ...editPost, scheduled_at: new Date(e.target.value).toISOString() })}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground">Video</label>
-                <a href={editPost.video_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
-                  <ExternalLink className="h-3 w-3" /> Preview Video
-                </a>
-              </div>
-            </div>
-          )}
+            );
+          })()}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditPostDialog(false)}>Cancel</Button>
             <Button onClick={() => editPost && updateScheduledPost(editPost)}>
