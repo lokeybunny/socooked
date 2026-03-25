@@ -1325,22 +1325,56 @@ export default function XShill() {
                     <p className="text-sm text-muted-foreground text-center py-6">No away communities configured. Add one above.</p>
                   )}
                   {shillXConfig.communities.map((c) => (
-                    <div key={c.id} className={`border rounded-lg p-3 flex items-center justify-between ${c.enabled ? "border-primary bg-primary/5" : "border-border"}`}>
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold">{c.community_name}</span>
-                          <Badge variant={c.enabled ? "default" : "secondary"} className="text-[9px]">
-                            {c.enabled ? "ACTIVE" : "INACTIVE"}
-                          </Badge>
+                    <div key={c.id} className={`border rounded-lg p-3 ${c.enabled ? "border-primary bg-primary/5" : "border-border"}`}>
+                      {editingAwayComm?.id === c.id ? (
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <label className="text-[10px] text-muted-foreground">Community ID</label>
+                              <Input
+                                value={editingAwayComm.community_id}
+                                onChange={(e) => setEditingAwayComm({ ...editingAwayComm, community_id: e.target.value })}
+                                className="h-8 text-xs font-mono"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label className="text-[10px] text-muted-foreground">Name</label>
+                              <Input
+                                value={editingAwayComm.community_name}
+                                onChange={(e) => setEditingAwayComm({ ...editingAwayComm, community_name: e.target.value })}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingAwayComm(null)}>Cancel</Button>
+                            <Button size="sm" className="h-7 text-xs gap-1" onClick={updateAwayComm} disabled={shillXSaving}>
+                              <Save className="h-3 w-3" /> Save
+                            </Button>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-muted-foreground font-mono">ID: {c.community_id}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Switch checked={c.enabled} onCheckedChange={() => toggleAwayComm(c.id)} />
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteAwayComm(c.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold">{c.community_name}</span>
+                              <Badge variant={c.enabled ? "default" : "secondary"} className="text-[9px]">
+                                {c.enabled ? "ACTIVE" : "INACTIVE"}
+                              </Badge>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground font-mono">ID: {c.community_id}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingAwayComm({ id: c.id, community_id: c.community_id, community_name: c.community_name })}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Switch checked={c.enabled} onCheckedChange={() => toggleAwayComm(c.id)} />
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteAwayComm(c.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
