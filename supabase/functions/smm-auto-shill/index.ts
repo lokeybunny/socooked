@@ -2289,10 +2289,21 @@ serve(async (req) => {
       const discordUserId = discordUser.id || "unknown";
       const discordUsername = discordUser.username || discordUser.global_name || "unknown";
       const interactionChannelId = interaction.channel_id || interaction.channel?.id || "";
+      const applicationId = interaction.application_id;
+      const interactionToken = interaction.token;
+      const interactionMessage = interaction.message;
 
+      // ── Buttons that show modals must respond synchronously (type 9) — no defer ──
+      if (customId.startsWith("raid_verify_") || customId.startsWith("shill_verify_") || customId.startsWith("bad_link_")) {
+        // These return modal responses (type 9) which must be immediate
+        // Fall through to existing handlers below
+      } else {
+        // ── ALL other button clicks: defer immediately, process async ──
+        const asyncProcess = (async () => {
+          try {
       // Extract tweet URL from the original message's embed
       let tweetUrl = "";
-      const embeds = interaction.message?.embeds || [];
+      const embeds = interactionMessage?.embeds || [];
       if (embeds.length > 0) {
         const desc = embeds[0].description || "";
         const urlMatch = desc.match(/https?:\/\/(x\.com|twitter\.com)\/\S+/i);
