@@ -296,22 +296,23 @@ export default function XShill() {
         .eq("site_id", "smm-auto-shill")
         .eq("section", "shill-x-config")
         .maybeSingle();
+      let parsedCommunities: AwayComm[] = [];
       if (shillXCfg?.content) {
         const raw = shillXCfg.content as any;
-        // Migrate old format { community_id, community_name, enabled } → { communities: [] }
         if (raw.communities) {
           setShillXConfig(raw);
+          parsedCommunities = raw.communities;
         } else if (raw.community_id) {
           const migrated: ShillXConfig = {
             communities: [{ id: crypto.randomUUID(), community_id: raw.community_id, community_name: raw.community_name || "", enabled: !!raw.enabled }],
           };
           setShillXConfig(migrated);
+          parsedCommunities = migrated.communities;
         }
       }
 
-      // Load Shill X posts for all away communities
-      const awayCommunities = shillXConfig.communities || [];
-      const activeAway = awayCommunities.find(c => c.enabled);
+      // Load Shill X posts for the active away community
+      const activeAway = parsedCommunities.find(c => c.enabled);
       if (activeAway) {
         const { data: sxPosts } = await supabase
           .from("shill_scheduled_posts")
