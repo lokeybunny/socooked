@@ -22,7 +22,7 @@ import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
   Video, Play, Pause, ExternalLink, CalendarClock, RotateCcw,
-  Users, BadgeCheck, Search,
+  Users, BadgeCheck, Search, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import CommExtractTab from "@/components/shill/CommExtractTab";
 import SignatureConfig from "@/components/shill/SignatureConfig";
@@ -151,6 +151,7 @@ export default function XShill() {
   const [refreshing, setRefreshing] = useState(false);
   const [editTarget, setEditTarget] = useState<CommunityTarget | null>(null);
   const [editDialog, setEditDialog] = useState(false);
+  const [recyclePage, setRecyclePage] = useState(1);
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [editPost, setEditPost] = useState<ScheduledPost | null>(null);
   const [editPostDialog, setEditPostDialog] = useState(false);
@@ -1790,7 +1791,7 @@ export default function XShill() {
                 </div>
               </CardHeader>
               <CardContent>
-                {(() => {
+              {(() => {
                   const postedPosts = scheduledPosts
                     .filter(p => p.status === "posted")
                     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
@@ -1799,10 +1800,15 @@ export default function XShill() {
                     return <p className="text-sm text-muted-foreground text-center py-8">No posted content to recycle yet.</p>;
                   }
 
+                  const RECYCLE_PAGE_SIZE = 6;
+                  const recycleTotalPages = Math.ceil(postedPosts.length / RECYCLE_PAGE_SIZE);
+                  const recyclePageClamped = Math.min(recyclePage, recycleTotalPages);
+                  const recycleSlice = postedPosts.slice((recyclePageClamped - 1) * RECYCLE_PAGE_SIZE, recyclePageClamped * RECYCLE_PAGE_SIZE);
+
                   return (
-                    <ScrollArea className="max-h-[600px]">
+                    <div className="space-y-3">
                       <div className="space-y-2">
-                        {postedPosts.map((post) => (
+                        {recycleSlice.map((post) => (
                           <div key={post.id} className="border rounded-lg p-3 flex items-start gap-3 hover:bg-muted/30 transition-colors">
                             {/* Video thumbnail */}
                             {post.video_url && (
@@ -1904,7 +1910,22 @@ export default function XShill() {
                           </div>
                         ))}
                       </div>
-                    </ScrollArea>
+                      {recycleTotalPages > 1 && (
+                        <div className="flex items-center justify-between pt-2 border-t border-border">
+                          <p className="text-xs text-muted-foreground">
+                            Page {recyclePageClamped} of {recycleTotalPages} ({postedPosts.length} posts)
+                          </p>
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="icon" className="h-7 w-7" disabled={recyclePageClamped <= 1} onClick={() => setRecyclePage(p => p - 1)}>
+                              <ChevronLeft className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="outline" size="icon" className="h-7 w-7" disabled={recyclePageClamped >= recycleTotalPages} onClick={() => setRecyclePage(p => p + 1)}>
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })()}
               </CardContent>
