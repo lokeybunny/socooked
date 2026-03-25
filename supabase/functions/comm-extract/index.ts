@@ -92,11 +92,12 @@ serve(async (req) => {
         if (dataRes.ok) {
           const items = await dataRes.json();
           members = (items || []).map((item: any) => ({
-            handle: item.screen_name || item.username || item.handle || '',
-            name: item.name || item.display_name || '',
-            verified: !!(item.is_blue_verified || item.verified || item.is_verified),
+            handle: item.core?.screen_name || item.screen_name || item.username || item.handle || '',
+            name: item.core?.name || item.name || item.display_name || '',
+            verified: !!(item.is_blue_verified || item.verification?.verified),
             followers: item.followers_count || item.follower_count || 0,
-            bio: item.description || item.bio || '',
+            bio: item.core?.description || item.description || item.bio || '',
+            role: item.community_role || '',
           })).filter((m: any) => m.handle);
         }
       }
