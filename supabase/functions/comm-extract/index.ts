@@ -23,8 +23,20 @@ serve(async (req) => {
         });
       }
 
+      let cookie: any[];
+      try {
+        cookie = JSON.parse(TWITTER_COOKIE_JSON);
+      } catch {
+        return new Response(JSON.stringify({ error: 'TWITTER_COOKIE_JSON secret is not valid JSON' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       const input: Record<string, unknown> = {
         communityUrl,
+        cookie,
+        minDelay: 2,
+        maxDelay: 5,
       };
 
       const startUrl = `https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${APIFY_TOKEN}`;
