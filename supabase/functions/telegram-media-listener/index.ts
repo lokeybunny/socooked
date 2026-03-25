@@ -3449,7 +3449,9 @@ Deno.serve(async (req) => {
       const homeTargets = (homeCfg?.content as any)?.targets || []
       const activeHome = homeTargets.find((t: any) => t.enabled)
       const homeCommunityName = activeHome?.community_name || '$whitehouse'
+      const homeTicker = activeHome?.ticker || homeCommunityName
       const homeXAccount = activeHome?.x_account || 'ctothispump'
+      const homeCommunityId = activeHome?.community_id || '2029596385180291485'
 
       // Clean up old shill sessions
       await supabase.from('webhook_events').delete()
@@ -3459,11 +3461,11 @@ Deno.serve(async (req) => {
       await supabase.from('webhook_events').insert({
         source: 'telegram',
         event_type: 'shill_session',
-        payload: { chat_id: chatId, step: 'caption', community: homeCommunityName, created: Date.now() },
+        payload: { chat_id: chatId, step: 'caption', community: homeCommunityName, ticker: homeTicker, community_id: homeCommunityId, created: Date.now() },
       })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: `🏠 <b>HOME COMM — Shill to X Community</b>\n\n📡 Community: <b>${homeCommunityName}</b> (${homeXAccount})\n\nWhat caption do you want for this post?\n\n💡 <i>Tip: Use <code>$TICKER</code> as a placeholder — it will be replaced with <b>${homeCommunityName}</b> when posted.</i>`,
+        text: `🏠 <b>HOME COMM — Shill to X Community</b>\n\n📡 Community: <b>${homeCommunityName}</b> (${homeXAccount})\n\nWhat caption do you want for this post?\n\n💡 <i>Tip: Use <code>$TICKER</code> as a placeholder — it will be replaced with <b>${homeTicker}</b> when posted.</i>`,
         parse_mode: 'HTML',
       })
       return new Response('ok')
@@ -3956,10 +3958,14 @@ Deno.serve(async (req) => {
                const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
                const X_COMMUNITY_ID = '2029596385180291485'
 
-               // Resolve $TICKER placeholder with home community name
+               // Resolve $TICKER placeholder with home community ticker
                let resolvedCaption = sp.caption || ''
-               const homeCommunityLabel = sp.community || '$whitehouse'
-               resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, homeCommunityLabel)
+               const tickerLabel = sp.ticker || sp.community || ''
+               if (tickerLabel) {
+                 resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, tickerLabel)
+               }
+               // Safety: strip any remaining unresolved $TICKER to never show literal placeholder
+               resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, '').replace(/\s{2,}/g, ' ').trim()
 
                // Append signature handles
                resolvedCaption = await appendSignatureToCaption(supa, resolvedCaption)
@@ -4227,6 +4233,8 @@ Deno.serve(async (req) => {
               // Resolve $TICKER placeholder with away community name
               let resolvedCaption = sp.caption || ''
               resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, COMMUNITY_NAME)
+              // Safety: strip any remaining unresolved $TICKER
+              resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, '').replace(/\s{2,}/g, ' ').trim()
 
                // Append signature handles
                resolvedCaption = await appendSignatureToCaption(supa, resolvedCaption)
