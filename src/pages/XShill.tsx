@@ -1361,6 +1361,16 @@ export default function XShill() {
                               />
                             </div>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={`edit-hide-ticker-${c.id}`}
+                              checked={editingAwayComm.hide_ticker || false}
+                              onCheckedChange={(v) => setEditingAwayComm({ ...editingAwayComm, hide_ticker: !!v })}
+                            />
+                            <label htmlFor={`edit-hide-ticker-${c.id}`} className="text-[10px] text-muted-foreground cursor-pointer">
+                              Hide Ticker
+                            </label>
+                          </div>
                           <div className="flex gap-2 justify-end">
                             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingAwayComm(null)}>Cancel</Button>
                             <Button size="sm" className="h-7 text-xs gap-1" onClick={updateAwayComm} disabled={shillXSaving}>
