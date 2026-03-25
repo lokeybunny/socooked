@@ -475,17 +475,47 @@ export default function XShill() {
   const saveShillXConfig = async (cfg: ShillXConfig) => {
     setShillXSaving(true);
     try {
+      // Also sync the active community to the old format for TG bot compatibility
+      const activeCommunity = cfg.communities.find(c => c.enabled);
+      const legacyPayload = activeCommunity
+        ? { community_id: activeCommunity.community_id, community_name: activeCommunity.community_name, enabled: true, communities: cfg.communities }
+        : { community_id: "", community_name: "", enabled: false, communities: cfg.communities };
       await supabase.from("site_configs").upsert({
         site_id: "smm-auto-shill",
         section: "shill-x-config",
-        content: cfg as any,
+        content: legacyPayload as any,
       } as any, { onConflict: "site_id,section" } as any);
       setShillXConfig(cfg);
-      toast.success("Shill X config saved");
+      toast.success("Away Comm config saved");
     } catch {
-      toast.error("Failed to save Shill X config");
+      toast.error("Failed to save config");
     }
     setShillXSaving(false);
+  };
+
+  const toggleAwayComm = async (id: string) => {
+    const updated: ShillXConfig = {
+      communities: shillXConfig.communities.map(c => ({ ...c, enabled: c.id === id ? !c.enabled : false })),
+    };
+    await saveShillXConfig(updated);
+  };
+
+  const deleteAwayComm = async (id: string) => {
+    const updated: ShillXConfig = { communities: shillXConfig.communities.filter(c => c.id !== id) };
+    await saveShillXConfig(updated);
+  };
+
+  const addAwayComm = async () => {
+    if (!newAwayComm.community_id.trim()) { toast.error("Community ID is required"); return; }
+    const newComm: AwayComm = {
+      id: crypto.randomUUID(),
+      community_id: newAwayComm.community_id.trim(),
+      community_name: newAwayComm.community_name.trim() || `Community ${newAwayComm.community_id.slice(-6)}`,
+      enabled: shillXConfig.communities.length === 0, // auto-enable if first
+    };
+    const updated: ShillXConfig = { communities: [...shillXConfig.communities, newComm] };
+    await saveShillXConfig(updated);
+    setNewAwayComm({ community_id: "", community_name: "" });
   };
 
     const deleteScheduledPost = async (id: string) => {
