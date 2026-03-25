@@ -3939,6 +3939,7 @@ Deno.serve(async (req) => {
                   caption: sp.caption,
                   video_url: publicUrl,
                   storage_path: storagePath,
+                  community_id: sp.community_id || '2029596385180291485',
                   scheduled_at: scheduledAt.toISOString(),
                   status: 'scheduled',
                 })
