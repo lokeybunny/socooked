@@ -125,10 +125,18 @@ export default function XShill() {
   const [pendingPage, setPendingPage] = useState(1);
   const [rotationAccounts, setRotationAccounts] = useState<RotationAccount[]>([]);
   const [newAccountHandle, setNewAccountHandle] = useState("");
-  const [shillCopyTicker, setShillCopyTicker] = useState("");
-  const [shillCopyCampaignUrl, setShillCopyCampaignUrl] = useState("");
-  const [shillCopyCampaignLinks, setShillCopyCampaignLinks] = useState<string[]>(["", "", "", "", ""]);
+  // Campaign presets system
+  interface ShillCampaign {
+    id: string;
+    name: string;
+    ticker: string;
+    links: string[];
+    active: boolean;
+  }
+  const [shillCampaigns, setShillCampaigns] = useState<ShillCampaign[]>([]);
   const [shillCopySaving, setShillCopySaving] = useState(false);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+  const [campaignDraft, setCampaignDraft] = useState<ShillCampaign | null>(null);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
