@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -95,6 +96,7 @@ interface AwayComm {
   community_id: string;
   community_name: string;
   enabled: boolean;
+  hide_ticker?: boolean;
 }
 
 interface ShillXConfig {
@@ -159,8 +161,8 @@ export default function XShill() {
   const [shillXConfig, setShillXConfig] = useState<ShillXConfig>({ communities: [] });
   const [shillXSaving, setShillXSaving] = useState(false);
   const [shillXPosts, setShillXPosts] = useState<ScheduledPost[]>([]);
-  const [newAwayComm, setNewAwayComm] = useState<{ community_id: string; community_name: string }>({ community_id: "", community_name: "" });
-  const [editingAwayComm, setEditingAwayComm] = useState<{ id: string; community_id: string; community_name: string } | null>(null);
+  const [newAwayComm, setNewAwayComm] = useState<{ community_id: string; community_name: string; hide_ticker?: boolean }>({ community_id: "", community_name: "" });
+  const [editingAwayComm, setEditingAwayComm] = useState<{ id: string; community_id: string; community_name: string; hide_ticker?: boolean } | null>(null);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
@@ -526,7 +528,7 @@ export default function XShill() {
     const updated: ShillXConfig = {
       communities: shillXConfig.communities.map(c =>
         c.id === editingAwayComm.id
-          ? { ...c, community_id: editingAwayComm.community_id.trim(), community_name: editingAwayComm.community_name.trim() || c.community_name }
+          ? { ...c, community_id: editingAwayComm.community_id.trim(), community_name: editingAwayComm.community_name.trim() || c.community_name, hide_ticker: editingAwayComm.hide_ticker || false }
           : c
       ),
     };
@@ -540,7 +542,8 @@ export default function XShill() {
       id: crypto.randomUUID(),
       community_id: newAwayComm.community_id.trim(),
       community_name: newAwayComm.community_name.trim() || `Community ${newAwayComm.community_id.slice(-6)}`,
-      enabled: shillXConfig.communities.length === 0, // auto-enable if first
+      enabled: shillXConfig.communities.length === 0,
+      hide_ticker: newAwayComm.hide_ticker || false,
     };
     const updated: ShillXConfig = { communities: [...shillXConfig.communities, newComm] };
     await saveShillXConfig(updated);
@@ -1295,28 +1298,40 @@ export default function XShill() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Add new away community */}
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <label className="text-[10px] text-muted-foreground">Community ID</label>
-                    <Input
-                      value={newAwayComm.community_id}
-                      onChange={(e) => setNewAwayComm({ ...newAwayComm, community_id: e.target.value })}
-                      placeholder="e.g. 2029596385180291485"
-                      className="h-8 text-xs font-mono"
-                    />
+                <div className="space-y-2">
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground">Community ID</label>
+                      <Input
+                        value={newAwayComm.community_id}
+                        onChange={(e) => setNewAwayComm({ ...newAwayComm, community_id: e.target.value })}
+                        placeholder="e.g. 2029596385180291485"
+                        className="h-8 text-xs font-mono"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground">Name</label>
+                      <Input
+                        value={newAwayComm.community_name}
+                        onChange={(e) => setNewAwayComm({ ...newAwayComm, community_name: e.target.value })}
+                        placeholder="e.g. $PEPE Community"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <Button size="sm" onClick={addAwayComm} disabled={shillXSaving} className="gap-1 text-xs h-8">
+                      <Plus className="h-3 w-3" /> Add
+                    </Button>
                   </div>
-                  <div className="flex-1">
-                    <label className="text-[10px] text-muted-foreground">Name</label>
-                    <Input
-                      value={newAwayComm.community_name}
-                      onChange={(e) => setNewAwayComm({ ...newAwayComm, community_name: e.target.value })}
-                      placeholder="e.g. $PEPE Community"
-                      className="h-8 text-xs"
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="new-hide-ticker"
+                      checked={newAwayComm.hide_ticker || false}
+                      onCheckedChange={(v) => setNewAwayComm({ ...newAwayComm, hide_ticker: !!v })}
                     />
+                    <label htmlFor="new-hide-ticker" className="text-[10px] text-muted-foreground cursor-pointer">
+                      Hide Ticker — only use caption data from /shill or /shill2
+                    </label>
                   </div>
-                  <Button size="sm" onClick={addAwayComm} disabled={shillXSaving} className="gap-1 text-xs h-8">
-                    <Plus className="h-3 w-3" /> Add
-                  </Button>
                 </div>
 
                 {/* Community list */}
@@ -1346,6 +1361,16 @@ export default function XShill() {
                               />
                             </div>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={`edit-hide-ticker-${c.id}`}
+                              checked={editingAwayComm.hide_ticker || false}
+                              onCheckedChange={(v) => setEditingAwayComm({ ...editingAwayComm, hide_ticker: !!v })}
+                            />
+                            <label htmlFor={`edit-hide-ticker-${c.id}`} className="text-[10px] text-muted-foreground cursor-pointer">
+                              Hide Ticker
+                            </label>
+                          </div>
                           <div className="flex gap-2 justify-end">
                             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingAwayComm(null)}>Cancel</Button>
                             <Button size="sm" className="h-7 text-xs gap-1" onClick={updateAwayComm} disabled={shillXSaving}>
@@ -1363,9 +1388,12 @@ export default function XShill() {
                               </Badge>
                             </div>
                             <p className="text-[10px] text-muted-foreground font-mono">ID: {c.community_id}</p>
+                            {c.hide_ticker && (
+                              <Badge variant="outline" className="text-[9px] mt-0.5">🙈 Hide Ticker</Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingAwayComm({ id: c.id, community_id: c.community_id, community_name: c.community_name })}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingAwayComm({ id: c.id, community_id: c.community_id, community_name: c.community_name, hide_ticker: c.hide_ticker })}>
                               <Pencil className="h-3 w-3" />
                             </Button>
                             <Switch checked={c.enabled} onCheckedChange={() => toggleAwayComm(c.id)} />
