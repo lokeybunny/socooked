@@ -822,6 +822,35 @@ export default function XShill() {
                     </div>
                   </div>
                 )}
+                {/* Active Away Communities */}
+                {shillXConfig.communities.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Active Away Communities</label>
+                    {shillXConfig.communities.map((comm) => (
+                      <div key={comm.id} className={`border rounded-lg p-3 flex items-start justify-between gap-3 ${comm.enabled ? "border-primary bg-primary/5" : "border-border"}`}>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold truncate">{comm.community_name}</span>
+                            <Badge variant={comm.enabled ? "default" : "secondary"} className="text-[9px]">{comm.enabled ? "ACTIVE" : "INACTIVE"}</Badge>
+                            <Badge variant="outline" className="text-[8px]">✈️ AWAY</Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground font-mono">ID: {comm.community_id}</p>
+                          {(() => {
+                            const commPosts = shillXPosts.filter(p => p.community_id === comm.community_id && p.status === "scheduled");
+                            return commPosts.length > 0 ? (
+                              <p className="text-[10px] text-primary">{commPosts.length} post(s) scheduled</p>
+                            ) : (
+                              <p className="text-[10px] text-muted-foreground">No upcoming posts</p>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Separator className="my-2" />
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Away Shill Campaigns</label>
                 {shillCampaigns.filter(c => c.team === "away").length === 0 && campaignDraft?.team !== "away" && (
                   <p className="text-sm text-muted-foreground text-center py-4">No away campaigns yet.</p>
                 )}
