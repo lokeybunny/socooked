@@ -75,6 +75,14 @@ interface ScheduledPost {
   updated_at: string;
 }
 
+interface ShillCampaign {
+  id: string;
+  name: string;
+  ticker: string;
+  links: string[];
+  active: boolean;
+}
+
 const DEFAULT_WH_TEMPLATES = [
   "Just Detected New Post that could be Raided $WHITEHOUSE",
   "🚨 New @WhiteHouse post just dropped! Rally $WHITEHOUSE",
