@@ -22,7 +22,7 @@ import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
   Video, Play, Pause, ExternalLink, CalendarClock, RotateCcw,
-  Users, BadgeCheck, Search,
+  Users, BadgeCheck, Search, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import CommExtractTab from "@/components/shill/CommExtractTab";
 import SignatureConfig from "@/components/shill/SignatureConfig";
