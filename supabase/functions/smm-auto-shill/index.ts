@@ -379,7 +379,8 @@ async function appendSignatureHandles(supabase: any, copyText: string): Promise<
       for (const m of members) {
         const handle = (m.username || m.handle || "").replace(/^@/, "").trim();
         if (!handle) continue;
-        if (sigCfg.mode === "verified" && !m.verified) continue;
+        const copyMode = sigCfg.shill_copy_mode || sigCfg.mode || "all";
+        if (copyMode === "verified" && !m.verified) continue;
         allHandles.push(handle);
       }
     }
