@@ -459,12 +459,11 @@ serve(async (req) => {
                 let rotationAccounts: { id: string; handle: string; status: string; posts_today: number; capped_at?: string }[] =
                   (rotCfg?.content as any)?.accounts || [];
 
-                // Filter to active accounts only
-                const activeAccounts = rotationAccounts.filter(a => a.status === "active");
+                // Filter to active accounts only, excluding @warrenguru to avoid loop-back alerts
+                const activeAccounts = rotationAccounts.filter(a => a.status === "active" && a.handle?.toLowerCase() !== "warrenguru");
                 if (activeAccounts.length === 0) {
-                  console.error("[discord-watcher] No active rotation accounts — falling back to xslaves + warrenguru");
+                  console.error("[discord-watcher] No active rotation accounts — falling back to xslaves");
                   activeAccounts.push({ id: "fallback-1", handle: "xslaves", status: "active", posts_today: 0 });
-                  activeAccounts.push({ id: "fallback-2", handle: "warrenguru", status: "active", posts_today: 0 });
                 }
 
                 let posted = false;
