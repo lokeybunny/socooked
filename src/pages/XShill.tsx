@@ -232,15 +232,15 @@ export default function XShill() {
       // Fetch all X accounts from outbound_accounts
       const { data: outboundAccs } = await supabase
         .from("outbound_accounts")
-        .select("account_label")
+        .select("account_identifier")
         .eq("platform", "x");
-      const outboundHandles = (outboundAccs || []).map((a: any) => a.account_label.replace(/^@/, "").toLowerCase());
+      const outboundHandles = (outboundAccs || []).map((a: any) => a.account_identifier.replace(/^@/, "").toLowerCase());
 
-      // Merge: add any outbound accounts not already in rotation
+      // Merge: add any outbound accounts not already in rotation (match by identifier)
       let merged = [...existingAccounts];
       let changed = false;
       for (const handle of outboundHandles) {
-        if (!merged.find(a => a.handle.toLowerCase() === handle)) {
+        if (!merged.find(a => a.handle.toLowerCase() === handle.toLowerCase())) {
           merged.push({ id: crypto.randomUUID(), handle, status: "active", posts_today: 0 });
           changed = true;
         }
