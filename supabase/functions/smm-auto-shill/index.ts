@@ -2493,7 +2493,8 @@ serve(async (req) => {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, raidHashtag);
 
-          const copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (raidFinalUrl ? `\n${raidFinalUrl}` : "");
+          let copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (raidFinalUrl ? `\n${raidFinalUrl}` : "");
+          copyText = await appendSignatureHandles(supabase, copyText);
 
           sendCopyDM(discordUserId, copyText);
           return json({
@@ -2831,8 +2832,9 @@ serve(async (req) => {
 
         const caAddress = cfg?.ca_address || "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
         const CA_SIGNATURE = `\n\nCA - ${caAddress}`;
-        const copyText = `${opener}\n\n${randomEmoji} ` + copyParts.join(" ") +
+        let copyText = `${opener}\n\n${randomEmoji} ` + copyParts.join(" ") +
           (finalUrl ? `\n${finalUrl}` : "") + CA_SIGNATURE;
+        copyText = await appendSignatureHandles(supabase, copyText);
 
         sendCopyDM(discordUserId, copyText);
         return json({
