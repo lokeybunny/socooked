@@ -1,0 +1,259 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Users, BadgeCheck, Shield, RefreshCw, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { format, formatDistanceToNow } from "date-fns";
+
+interface SigConfig {
+  enabled: boolean;
+  mode: "all" | "verified";
+  scrape_ids: string[];
+}
+
+interface CommScrape {
+  id: string;
+  name: string;
+  member_count: number;
+  created_at: string;
+}
+
+interface UsageEntry {
+  handle: string;
+  used_at: string;
+}
+
+const SITE_ID = "smm-auto-shill";
+const SECTION = "shill-signature-config";
+
+export default function SignatureConfig() {
+  const [config, setConfig] = useState<SigConfig>({ enabled: false, mode: "all", scrape_ids: [] });
+  const [scrapes, setScrapes] = useState<CommScrape[]>([]);
+  const [recentUsage, setRecentUsage] = useState<UsageEntry[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [cfgRes, scrapesRes, usageRes] = await Promise.all([
+      supabase.from("site_configs").select("content").eq("site_id", SITE_ID).eq("section", SECTION).maybeSingle(),
+      supabase.from("comm_scrapes").select("id, name, member_count, created_at").order("created_at", { ascending: false }),
+      supabase.from("signature_usage").select("handle, used_at").order("used_at", { ascending: false }).limit(50),
+    ]);
+    if (cfgRes.data?.content) {
+      const c = cfgRes.data.content as any;
+      setConfig({ enabled: !!c.enabled, mode: c.mode || "all", scrape_ids: c.scrape_ids || [] });
+    }
+    setScrapes(scrapesRes.data || []);
+    setRecentUsage((usageRes.data as UsageEntry[]) || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (updated: SigConfig) => {
+    setSaving(true);
+    setConfig(updated);
+    await supabase.from("site_configs").upsert({
+      site_id: SITE_ID,
+      section: SECTION,
+      content: updated as any,
+    } as any, { onConflict: "site_id,section" } as any);
+    setSaving(false);
+    toast.success("Signature config saved");
+  };
+
+  const toggleScrape = (id: string) => {
+    const ids = config.scrape_ids.includes(id)
+      ? config.scrape_ids.filter(s => s !== id)
+      : [...config.scrape_ids, id];
+    save({ ...config, scrape_ids: ids });
+  };
+
+  const clearUsageHistory = async () => {
+    await supabase.from("signature_usage").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    setRecentUsage([]);
+    toast.success("Usage history cleared — all handles available again");
+  };
+
+  // Count unique handles on cooldown (used in last 5 days)
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+  const onCooldown = new Set(recentUsage.filter(u => new Date(u.used_at) > fiveDaysAgo).map(u => u.handle));
+
+  // Count total available members from selected scrapes
+  const selectedScrapes = scrapes.filter(s => config.scrape_ids.includes(s.id));
+  const totalMembers = selectedScrapes.reduce((sum, s) => sum + s.member_count, 0);
+
+  if (loading) return <div className="text-center py-8 text-muted-foreground text-sm">Loading signature config…</div>;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <Card className="border-border/50 bg-card/80">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Shield className="h-4 w-4 text-primary" />
+              Tweet Signature — @Handle Injection
+            </CardTitle>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground">{config.enabled ? "Active" : "Disabled"}</span>
+              <Switch checked={config.enabled} onCheckedChange={v => save({ ...config, enabled: v })} />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Appends random @handles from selected community scrapes to scheduled tweets. Each handle has a 5-day cooldown after use.
+          </p>
+
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-4">
+            <span className="text-xs font-medium text-foreground">Handle Source:</span>
+            <div className="flex gap-1">
+              {(["all", "verified"] as const).map(m => (
+                <Button
+                  key={m}
+                  size="sm"
+                  variant={config.mode === m ? "default" : "outline"}
+                  className="text-xs h-7 px-3"
+                  onClick={() => save({ ...config, mode: m })}
+                >
+                  {m === "all" ? (
+                    <><Users className="h-3 w-3 mr-1" />All Members</>
+                  ) : (
+                    <><BadgeCheck className="h-3 w-3 mr-1" />Verified Only</>
+                  )}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="flex gap-4 text-xs">
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-primary" />
+              <span className="text-muted-foreground">{selectedScrapes.length} source{selectedScrapes.length !== 1 ? "s" : ""} selected</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <span className="text-muted-foreground">{totalMembers.toLocaleString()} total members</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-amber-500" />
+              <span className="text-muted-foreground">{onCooldown.size} on cooldown</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Source Selection */}
+      <Card className="border-border/50 bg-card/80">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Select Community Sources</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {scrapes.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">
+              No community scrapes found. Use Comm Extract to scrape a community first.
+            </p>
+          ) : (
+            <ScrollArea className="max-h-[300px]">
+              <div className="space-y-2">
+                {scrapes.map(s => (
+                  <label
+                    key={s.id}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border/50 hover:bg-muted/30 cursor-pointer transition-colors"
+                  >
+                    <Checkbox
+                      checked={config.scrape_ids.includes(s.id)}
+                      onCheckedChange={() => toggleScrape(s.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{s.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {s.member_count.toLocaleString()} members · scraped {formatDistanceToNow(new Date(s.created_at), { addSuffix: true })}
+                      </p>
+                    </div>
+                    {config.scrape_ids.includes(s.id) && (
+                      <Badge variant="secondary" className="text-[10px] shrink-0">Selected</Badge>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Usage / Cooldown */}
+      <Card className="border-border/50 bg-card/80">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">Recent Handle Usage (5-Day Cooldown)</CardTitle>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={load}>
+                <RefreshCw className="h-3 w-3 mr-1" />Refresh
+              </Button>
+              {recentUsage.length > 0 && (
+                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={clearUsageHistory}>
+                  <Trash2 className="h-3 w-3 mr-1" />Clear All
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {recentUsage.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">No handles used yet.</p>
+          ) : (
+            <ScrollArea className="max-h-[200px]">
+              <div className="flex flex-wrap gap-1.5">
+                {recentUsage.map((u, i) => {
+                  const isActive = new Date(u.used_at) > fiveDaysAgo;
+                  return (
+                    <Badge
+                      key={`${u.handle}-${i}`}
+                      variant={isActive ? "destructive" : "secondary"}
+                      className="text-[10px] font-mono"
+                    >
+                      @{u.handle}
+                      <span className="ml-1 opacity-60">
+                        {formatDistanceToNow(new Date(u.used_at), { addSuffix: true })}
+                      </span>
+                    </Badge>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Preview */}
+      <Card className="border-border/50 bg-card/80">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Preview Format</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="bg-muted/30 rounded-lg p-4 font-mono text-xs text-foreground leading-relaxed">
+            <p>Your scheduled caption text here...</p>
+            <p className="mt-1">CA - 7oXNE1d...pump</p>
+            <p className="mt-2 text-muted-foreground">
+              ⌈ @user1 · @user2 · @user3 · @user4 · @user5 ⌋
+            </p>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            Handles are selected randomly, respecting the 5-day cooldown. Max handles are calculated from remaining character space (280 char limit).
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
