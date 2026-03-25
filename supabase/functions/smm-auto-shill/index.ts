@@ -2491,8 +2491,10 @@ serve(async (req) => {
           const raidOpener = OPENER_POOL[Math.floor(Math.random() * OPENER_POOL.length)];
 
           const engagementTags = ["#mustwatch", "#viral", "#trending", "#repost", "#explore", "#fyp", "#followme", "#share", "#like", "#comment", "#instagood", "#hot", "#breakingnews", "#dontmissthis", "#watchthis", "#cantmissthis", "#goviral", "#blowthisup", "#spreadtheword", "#boosted", "#promoted", "#signal", "#alpha", "#gem", "#earlybird", "#100x", "#moonshot", "#bullish", "#sendIt", "#wagmi"];
-          const raidEngagementTag = engagementTags[Math.floor(Math.random() * engagementTags.length)];
-          const copyParts = [`${shillTicker}`, `#${tickerClean}`, raidEngagementTag];
+          const rTag1 = engagementTags[Math.floor(Math.random() * engagementTags.length)];
+          let rTag2 = engagementTags[Math.floor(Math.random() * engagementTags.length)];
+          while (rTag2 === rTag1) rTag2 = engagementTags[Math.floor(Math.random() * engagementTags.length)];
+          const copyParts = [`${shillTicker}`, rTag1, rTag2];
           // Insert raider's secret code hashtag at random position
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, raidHashtag);
