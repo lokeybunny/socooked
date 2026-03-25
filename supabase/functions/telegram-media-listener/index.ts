@@ -373,6 +373,73 @@ function extractMedia(message: Record<string, unknown>): { fileId: string; type:
   return null
 }
 
+// ─── Signature injection for /shill and /shill2 Post Now (mirrors shill-scheduler logic) ───
+async function appendSignatureToCaption(supabase: any, caption: string): Promise<string> {
+  try {
+    const { data: sigCfgRow } = await supabase.from("site_configs")
+      .select("content").eq("site_id", "smm-auto-shill").eq("section", "shill-signature-config").maybeSingle()
+    const sigCfg = (sigCfgRow?.content as any) || {}
+
+    if (!sigCfg.enabled || !sigCfg.scrape_ids?.length) return caption
+
+    const { data: scrapeRows } = await supabase.from("comm_scrapes")
+      .select("members").in("id", sigCfg.scrape_ids)
+
+    let allHandles: string[] = []
+    for (const row of (scrapeRows || [])) {
+      const members = (row.members as any[]) || []
+      for (const m of members) {
+        const handle = (m.username || m.handle || "").replace(/^@/, "").trim()
+        if (!handle) continue
+        if (sigCfg.mode === "verified" && !m.verified) continue
+        allHandles.push(handle)
+      }
+    }
+    allHandles = [...new Set(allHandles)]
+
+    const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: usedRows } = await supabase.from("signature_usage")
+      .select("handle").gte("used_at", fiveDaysAgo)
+    const cooldownSet = new Set((usedRows || []).map((r: any) => r.handle.toLowerCase()))
+    const available = allHandles.filter(h => !cooldownSet.has(h.toLowerCase()))
+
+    if (available.length === 0) return caption
+
+    // Shuffle
+    for (let i = available.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [available[i], available[j]] = [available[j], available[i]]
+    }
+
+    const sigPrefix = "\n\n⌈ "
+    const sigSuffix = " ⌋"
+    const separator = " · "
+    const overhead = sigPrefix.length + sigSuffix.length
+    let remaining = 280 - caption.length - overhead
+    const picked: string[] = []
+
+    for (const h of available) {
+      const tag = `@${h}`
+      const needed = picked.length === 0 ? tag.length : separator.length + tag.length
+      if (remaining >= needed) {
+        picked.push(h)
+        remaining -= needed
+      } else break
+    }
+
+    if (picked.length > 0) {
+      const usageRows = picked.map(h => ({ handle: h, post_id: "tg-shill-" + Date.now(), source: "live_post" }))
+      await supabase.from("signature_usage").insert(usageRows)
+      console.log(`[shill] 🏷️ Signature: appended ${picked.length} handles`)
+      return caption + sigPrefix + picked.map(h => `@${h}`).join(separator) + sigSuffix
+    }
+    return caption
+  } catch (e: any) {
+    console.error("[shill] signature error (non-fatal):", e.message)
+    return caption
+  }
+}
+
 // ─── Invoice Terminal via Telegram ───
 async function processInvoiceCommand(
   chatId: number,
