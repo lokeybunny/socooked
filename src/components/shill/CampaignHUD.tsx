@@ -74,6 +74,8 @@ export default function CampaignHUD() {
   const [draft, setDraft] = useState<CampaignConfig | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [botEnabled, setBotEnabled] = useState(true);
+  const [activeListenChannel, setActiveListenChannel] = useState(SHILL_NOW_CHANNELS[0].id);
 
   const loadData = useCallback(async () => {
     setLoading(true);
