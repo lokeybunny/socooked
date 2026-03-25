@@ -4119,11 +4119,16 @@ Deno.serve(async (req) => {
               // POST NOW
               await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📤 Posting to ${COMMUNITY_NAME} via @${selectedAccount}...` })
               const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+
+              // Resolve $TICKER placeholder with away community name
+              let resolvedCaption = sp.caption || ''
+              resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, COMMUNITY_NAME)
+
               const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
                 method: 'POST',
                 headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  title: sp.caption,
+                  title: resolvedCaption,
                   video: publicUrl,
                   'platform[]': ['x'],
                   user: selectedAccount,
