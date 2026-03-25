@@ -954,7 +954,7 @@ export default function XShill() {
                         <div className="flex items-center gap-3">
                           <Badge variant="outline" className="text-[9px] font-mono">#{idx + 1}</Badge>
                           <div>
-                            <p className="text-sm font-medium">@{acc.handle}</p>
+                            <XHandle handle={acc.handle} />
                             <p className="text-[10px] text-muted-foreground">
                               {acc.posts_today} posts today
                               {acc.capped_at && ` • Capped ${formatDistanceToNow(new Date(acc.capped_at), { addSuffix: true })}`}
@@ -1045,7 +1045,7 @@ export default function XShill() {
                             return (
                               <div key={a.id} className="flex items-center justify-between border rounded-md p-2.5">
                                 <div>
-                                  <p className="text-xs font-medium">@{handle}</p>
+                                  <XHandle handle={handle} className="text-xs font-medium" />
                                   <p className="text-[10px] text-muted-foreground">{a.account_label}</p>
                                 </div>
                                 <Button
