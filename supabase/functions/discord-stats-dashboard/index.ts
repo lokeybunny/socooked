@@ -94,6 +94,18 @@ serve(async (req) => {
       }
     }
 
+    // ── Potential earnings from tweet detections (shill-bot-msg in activity_log) ──
+    // Each detected tweet = $0.05 potential if a shiller had claimed it
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const { count: totalDetectedToday } = await supabase
+      .from("activity_log")
+      .select("id", { count: "exact", head: true })
+      .eq("entity_type", "shill-bot-msg")
+      .gte("created_at", todayStart);
+
+    const detectedCount = totalDetectedToday || 0;
+    const potentialEarnings = detectedCount * 0.05;
+
     // ── Build totals ──
     const totalShillerEarned = Object.values(shillerStats).reduce((s, v) => s + v.earned, 0);
     const totalShillerVerified = Object.values(shillerStats).reduce((s, v) => s + v.verified, 0);
@@ -101,6 +113,11 @@ serve(async (req) => {
     const totalRaiderVerified = Object.values(raiderClickStats).reduce((s, v) => s + v.verified, 0);
     const totalPendingPayouts = (payouts || []).reduce((s, p) => s + Number(p.amount_owed), 0);
     const activeAccounts = (accounts || []).filter(a => a.is_authorized).length;
+
+    // Capture rate: verified clicks vs total detected
+    const capturedClicks = totalShillerVerified;
+    const captureRate = detectedCount > 0 ? ((capturedClicks / detectedCount) * 100).toFixed(1) : "0";
+    const leftOnTable = potentialEarnings - totalShillerEarned;
 
     // ── Format shiller leaderboard ──
     const shillerEntries = Object.entries(shillerStats)
