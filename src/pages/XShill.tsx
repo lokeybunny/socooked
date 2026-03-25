@@ -1293,13 +1293,15 @@ export default function XShill() {
                     These are the same accounts from the Accounts tab. They will rotate when posting via <code>/shill2</code>.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {rotationAccounts.filter(a => a.status === "active").map(a => (
-                      <Badge key={a.id} variant="outline" className="text-xs gap-1">
+                    {rotationAccounts.map(a => (
+                      <Badge key={a.id} variant={a.status === "active" ? "default" : "secondary"} className="text-xs gap-1">
                         <XHandle handle={a.handle} className="text-xs" />
+                        {a.status === "capped" && <span className="text-destructive">⛔</span>}
+                        {a.status === "paused" && <span>⏸</span>}
                       </Badge>
                     ))}
-                    {rotationAccounts.filter(a => a.status === "active").length === 0 && (
-                      <p className="text-xs text-muted-foreground">No active accounts. Add some in the Accounts tab.</p>
+                    {rotationAccounts.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No accounts. Add some in the Accounts tab.</p>
                     )}
                   </div>
                 </div>
@@ -1395,6 +1397,32 @@ export default function XShill() {
                 <p className="text-sm text-muted-foreground text-center py-8">No communities configured. Add one to get started.</p>
               )}
             </div>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <RotateCcw className="h-4 w-4 text-primary" />
+                  Rotation Accounts
+                </CardTitle>
+                <p className="text-[10px] text-muted-foreground">
+                  These accounts rotate when posting via <code>/shill</code> to Home communities.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {rotationAccounts.map(a => (
+                    <Badge key={a.id} variant={a.status === "active" ? "default" : "secondary"} className="text-xs gap-1">
+                      <XHandle handle={a.handle} className="text-xs" />
+                      {a.status === "capped" && <span className="text-destructive">⛔</span>}
+                      {a.status === "paused" && <span>⏸</span>}
+                    </Badge>
+                  ))}
+                  {rotationAccounts.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No accounts. Add some in the Accounts tab.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ═══ TEMPLATES ═══ */}
