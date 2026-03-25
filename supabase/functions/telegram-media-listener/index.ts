@@ -85,8 +85,8 @@ function ensureBotCommandsBg(token: string) {
     { command: 'proposal', description: '📝 Create & send a proposal' },
     { command: 'audit', description: '🔍 Audit a website + Instagram' },
     { command: 'gains', description: '⚡ Toggle TP10 gain alerts on/off' },
-    { command: 'shill', description: '🚀 Shill video to X Community' },
-    { command: 'shill2', description: '🎯 Shill video to Shill X community' },
+    { command: 'shill', description: '🏠 HOME — Shill video to Home communities' },
+    { command: 'shill2', description: '✈️ AWAY — Shill video to Away community' },
   ]
 
   // Fire-and-forget: register commands + ensure webhook accepts channel_post
@@ -3387,25 +3387,40 @@ Deno.serve(async (req) => {
       })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: '🚀 <b>Shill to X Community</b>\n\n📝 Community: <b>$whitehouse</b> (ctothispump)\n\nWhat caption do you want for this post?',
+        text: '🏠 <b>HOME COMM — Shill to X Community</b>\n\n📝 Community: <b>$whitehouse</b> (ctothispump)\n\nWhat caption do you want for this post?',
         parse_mode: 'HTML',
       })
       return new Response('ok')
     }
 
-    // ─── Handle /shill2 command (admin-only) — posts to Shill X community ───
+    // ─── Handle /shill2 command (admin-only) — posts to AWAY community ───
     if (text.toLowerCase().startsWith('/shill2')) {
       const senderUsername = (message.from?.username || '').toLowerCase()
       if (senderUsername !== 'lokeybunny') {
         await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '🔒 This command is restricted to admin only.' })
         return new Response('ok')
       }
-      // Load Shill X config
+      // Load Away Comm config
       const { data: sxCfg } = await supabase.from('site_configs')
         .select('content').eq('site_id', 'smm-auto-shill').eq('section', 'shill-x-config').maybeSingle()
       const sxContent = sxCfg?.content as any
-      if (!sxContent?.community_id || !sxContent?.enabled) {
-        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Shill X is not configured or disabled. Set it up in the X Shill → Shill X tab first.' })
+
+      // Support both old format (community_id) and new format (communities[])
+      let activeCommunityId = ''
+      let activeCommunityName = ''
+      if (sxContent?.communities && Array.isArray(sxContent.communities)) {
+        const active = sxContent.communities.find((c: any) => c.enabled)
+        if (active) {
+          activeCommunityId = active.community_id
+          activeCommunityName = active.community_name || 'Away Comm'
+        }
+      } else if (sxContent?.community_id && sxContent?.enabled) {
+        activeCommunityId = sxContent.community_id
+        activeCommunityName = sxContent.community_name || 'Away Comm'
+      }
+
+      if (!activeCommunityId) {
+        await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ No active Away Community configured.\n\nGo to X Shill → Away Comm tab and enable at least one community before using /shill2.' })
         return new Response('ok')
       }
       // Clean up old shill_x sessions
@@ -3416,11 +3431,11 @@ Deno.serve(async (req) => {
       await supabase.from('webhook_events').insert({
         source: 'telegram',
         event_type: 'shill_x_session',
-        payload: { chat_id: chatId, step: 'caption', community_id: sxContent.community_id, community_name: sxContent.community_name || 'Shill X', created: Date.now() },
+        payload: { chat_id: chatId, step: 'caption', community_id: activeCommunityId, community_name: activeCommunityName, created: Date.now() },
       })
       await tgPost(TG_TOKEN, 'sendMessage', {
         chat_id: chatId,
-        text: `🎯 <b>Shill X — Cross-Community Post</b>\n\n📡 Target: <b>${sxContent.community_name || sxContent.community_id}</b>\n🆔 Community: <code>${sxContent.community_id}</code>\n\n📝 What caption do you want for this post?`,
+        text: `✈️ <b>AWAY COMM — Cross-Community Post</b>\n\n📡 Target: <b>${activeCommunityName}</b>\n🆔 Community: <code>${activeCommunityId}</code>\n\n📝 What caption do you want for this post?`,
         parse_mode: 'HTML',
       })
       return new Response('ok')

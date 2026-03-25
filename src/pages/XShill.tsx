@@ -87,12 +87,18 @@ interface ShillCampaign {
   ticker: string;
   links: string[];
   active: boolean;
+  team?: 'home' | 'away';
 }
 
-interface ShillXConfig {
+interface AwayComm {
+  id: string;
   community_id: string;
   community_name: string;
   enabled: boolean;
+}
+
+interface ShillXConfig {
+  communities: AwayComm[];
 }
 
 const DEFAULT_WH_TEMPLATES = [
@@ -150,9 +156,10 @@ export default function XShill() {
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   const [campaignDraft, setCampaignDraft] = useState<ShillCampaign | null>(null);
   const [outboundXAccounts, setOutboundXAccounts] = useState<{ id: string; account_label: string; account_identifier: string }[]>([]);
-  const [shillXConfig, setShillXConfig] = useState<ShillXConfig>({ community_id: "", community_name: "", enabled: false });
+  const [shillXConfig, setShillXConfig] = useState<ShillXConfig>({ communities: [] });
   const [shillXSaving, setShillXSaving] = useState(false);
   const [shillXPosts, setShillXPosts] = useState<ScheduledPost[]>([]);
+  const [newAwayComm, setNewAwayComm] = useState<{ community_id: string; community_name: string }>({ community_id: "", community_name: "" });
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
@@ -269,7 +276,7 @@ export default function XShill() {
         .eq("provider", "upload-post");
       if (obAccounts) setOutboundXAccounts(obAccounts);
 
-      // Load Shill X config
+      // Load Shill X config (migrate from old single-community format)
       const { data: shillXCfg } = await supabase
         .from("site_configs")
         .select("content")
@@ -277,16 +284,26 @@ export default function XShill() {
         .eq("section", "shill-x-config")
         .maybeSingle();
       if (shillXCfg?.content) {
-        setShillXConfig(shillXCfg.content as any);
+        const raw = shillXCfg.content as any;
+        // Migrate old format { community_id, community_name, enabled } → { communities: [] }
+        if (raw.communities) {
+          setShillXConfig(raw);
+        } else if (raw.community_id) {
+          const migrated: ShillXConfig = {
+            communities: [{ id: crypto.randomUUID(), community_id: raw.community_id, community_name: raw.community_name || "", enabled: !!raw.enabled }],
+          };
+          setShillXConfig(migrated);
+        }
       }
 
-      // Load Shill X posts (community_id != default whitehouse community)
-      const shillXCommunityId = (shillXCfg?.content as any)?.community_id;
-      if (shillXCommunityId) {
+      // Load Shill X posts for all away communities
+      const awayCommunities = shillXConfig.communities || [];
+      const activeAway = awayCommunities.find(c => c.enabled);
+      if (activeAway) {
         const { data: sxPosts } = await supabase
           .from("shill_scheduled_posts")
           .select("*")
-          .eq("community_id", shillXCommunityId)
+          .eq("community_id", activeAway.community_id)
           .order("scheduled_at", { ascending: false })
           .limit(50);
         setShillXPosts((sxPosts as any[]) || []);
@@ -458,17 +475,47 @@ export default function XShill() {
   const saveShillXConfig = async (cfg: ShillXConfig) => {
     setShillXSaving(true);
     try {
+      // Also sync the active community to the old format for TG bot compatibility
+      const activeCommunity = cfg.communities.find(c => c.enabled);
+      const legacyPayload = activeCommunity
+        ? { community_id: activeCommunity.community_id, community_name: activeCommunity.community_name, enabled: true, communities: cfg.communities }
+        : { community_id: "", community_name: "", enabled: false, communities: cfg.communities };
       await supabase.from("site_configs").upsert({
         site_id: "smm-auto-shill",
         section: "shill-x-config",
-        content: cfg as any,
+        content: legacyPayload as any,
       } as any, { onConflict: "site_id,section" } as any);
       setShillXConfig(cfg);
-      toast.success("Shill X config saved");
+      toast.success("Away Comm config saved");
     } catch {
-      toast.error("Failed to save Shill X config");
+      toast.error("Failed to save config");
     }
     setShillXSaving(false);
+  };
+
+  const toggleAwayComm = async (id: string) => {
+    const updated: ShillXConfig = {
+      communities: shillXConfig.communities.map(c => ({ ...c, enabled: c.id === id ? !c.enabled : false })),
+    };
+    await saveShillXConfig(updated);
+  };
+
+  const deleteAwayComm = async (id: string) => {
+    const updated: ShillXConfig = { communities: shillXConfig.communities.filter(c => c.id !== id) };
+    await saveShillXConfig(updated);
+  };
+
+  const addAwayComm = async () => {
+    if (!newAwayComm.community_id.trim()) { toast.error("Community ID is required"); return; }
+    const newComm: AwayComm = {
+      id: crypto.randomUUID(),
+      community_id: newAwayComm.community_id.trim(),
+      community_name: newAwayComm.community_name.trim() || `Community ${newAwayComm.community_id.slice(-6)}`,
+      enabled: shillXConfig.communities.length === 0, // auto-enable if first
+    };
+    const updated: ShillXConfig = { communities: [...shillXConfig.communities, newComm] };
+    await saveShillXConfig(updated);
+    setNewAwayComm({ community_id: "", community_name: "" });
   };
 
     const deleteScheduledPost = async (id: string) => {
@@ -551,8 +598,8 @@ export default function XShill() {
             <TabsTrigger value="overview" className="text-xs"><Activity className="h-3 w-3 mr-1" />Overview</TabsTrigger>
             <TabsTrigger value="campaign" className="text-xs"><Video className="h-3 w-3 mr-1" />Campaign</TabsTrigger>
             <TabsTrigger value="accounts" className="text-xs"><Users className="h-3 w-3 mr-1" />Accounts</TabsTrigger>
-            <TabsTrigger value="shill-x" className="text-xs"><Target className="h-3 w-3 mr-1" />Shill X</TabsTrigger>
-            <TabsTrigger value="communities" className="text-xs"><Globe className="h-3 w-3 mr-1" />Communities</TabsTrigger>
+            <TabsTrigger value="shill-x" className="text-xs"><Target className="h-3 w-3 mr-1" />Away Comm</TabsTrigger>
+            <TabsTrigger value="communities" className="text-xs"><Globe className="h-3 w-3 mr-1" />Home Comm</TabsTrigger>
             <TabsTrigger value="templates" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Messages</TabsTrigger>
             <TabsTrigger value="logs" className="text-xs"><Clock className="h-3 w-3 mr-1" />Logs</TabsTrigger>
           </TabsList>
@@ -621,110 +668,141 @@ export default function XShill() {
               </Card>
             </div>
 
-            {/* Shill Campaign Presets */}
+            {/* ═══ HOME TEAM Campaigns ═══ */}
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Target className="h-4 w-4 text-primary" />
-                    Shill Copy Campaigns
+                    <Shield className="h-4 w-4 text-primary" />
+                    🏠 HOME TEAM — Campaigns
                   </CardTitle>
-                  <Button size="sm" variant="outline" onClick={startNewCampaign} disabled={!!campaignDraft} className="gap-1.5 text-xs">
-                    <Plus className="h-3 w-3" /> New Campaign
+                  <Button size="sm" variant="outline" onClick={() => { setCampaignDraft({ id: crypto.randomUUID(), name: "", ticker: "", links: ["", "", "", "", ""], active: false, team: "home" }); setEditingCampaignId(null); }} disabled={!!campaignDraft} className="gap-1.5 text-xs">
+                    <Plus className="h-3 w-3" /> New Home Campaign
                   </Button>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Create campaign presets with a ticker + 5 rotating links. Only <strong>1 campaign</strong> can be active at a time — the active one powers the <strong>📋 Get Shill Copy</strong> button in Discord.
+                  Campaigns targeting your <strong>Home Comm</strong> communities. Powers the <strong>📋 Get Shill Copy</strong> button in Discord + <code>/shill</code>.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {/* Campaign Draft (new or edit) */}
-                {campaignDraft && (
+                {campaignDraft && (!campaignDraft.team || campaignDraft.team === "home") && (
                   <div className="border border-primary/30 rounded-lg p-3 space-y-3 bg-primary/5">
                     <div className="flex items-center gap-2">
-                      <Input
-                        value={campaignDraft.name}
-                        onChange={(e) => setCampaignDraft({ ...campaignDraft, name: e.target.value })}
-                        placeholder="Campaign name (e.g. $WHITEHOUSE Q2)"
-                        className="h-8 text-sm max-w-xs"
-                      />
-                      <Input
-                        value={campaignDraft.ticker}
-                        onChange={(e) => setCampaignDraft({ ...campaignDraft, ticker: e.target.value })}
-                        placeholder="Ticker e.g. WHITEHOUSE"
-                        className="h-8 text-sm font-mono max-w-[160px]"
-                      />
+                      <Input value={campaignDraft.name} onChange={(e) => setCampaignDraft({ ...campaignDraft, name: e.target.value })} placeholder="Campaign name" className="h-8 text-sm max-w-xs" />
+                      <Input value={campaignDraft.ticker} onChange={(e) => setCampaignDraft({ ...campaignDraft, ticker: e.target.value })} placeholder="Ticker" className="h-8 text-sm font-mono max-w-[160px]" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-medium text-muted-foreground">Rotation Links (up to 5)</label>
                       {campaignDraft.links.map((link, idx) => (
                         <div key={idx} className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">
-                            {idx + 1}
-                          </Badge>
-                          <Input
-                            value={link}
-                            onChange={(e) => {
-                              const updated = [...campaignDraft.links];
-                              updated[idx] = e.target.value;
-                              setCampaignDraft({ ...campaignDraft, links: updated });
-                            }}
-                            placeholder={idx === 0 ? "https://x.com/... (primary)" : "https://x.com/... (optional)"}
-                            className="h-7 text-xs font-mono"
-                          />
+                          <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">{idx + 1}</Badge>
+                          <Input value={link} onChange={(e) => { const u = [...campaignDraft.links]; u[idx] = e.target.value; setCampaignDraft({ ...campaignDraft, links: u }); }} placeholder={idx === 0 ? "https://x.com/... (primary)" : "https://x.com/... (optional)"} className="h-7 text-xs font-mono" />
                         </div>
                       ))}
                     </div>
                     <div className="flex items-center gap-2 pt-1">
-                      <Button size="sm" onClick={saveCampaignDraft} disabled={shillCopySaving} className="gap-1.5 text-xs">
-                        <Save className="h-3 w-3" />
-                        {editingCampaignId ? "Update" : "Create"}
-                      </Button>
+                      <Button size="sm" onClick={saveCampaignDraft} disabled={shillCopySaving} className="gap-1.5 text-xs"><Save className="h-3 w-3" />{editingCampaignId ? "Update" : "Create"}</Button>
                       <Button size="sm" variant="ghost" onClick={cancelCampaignDraft} className="text-xs">Cancel</Button>
                     </div>
                   </div>
                 )}
-
-                {/* Campaign List */}
-                {shillCampaigns.length === 0 && !campaignDraft && (
-                  <p className="text-sm text-muted-foreground text-center py-4">No campaigns yet. Create one to get started.</p>
+                {shillCampaigns.filter(c => !c.team || c.team === "home").length === 0 && !campaignDraft && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No home campaigns yet.</p>
                 )}
-                {shillCampaigns.map((c) => (
+                {shillCampaigns.filter(c => !c.team || c.team === "home").map((c) => (
                   <div key={c.id} className={`border rounded-lg p-3 flex items-start justify-between gap-3 ${c.active ? "border-primary bg-primary/5" : "border-border"}`}>
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold truncate">{c.name || `$${c.ticker} Campaign`}</span>
-                        <Badge variant={c.active ? "default" : "secondary"} className="text-[9px]">
-                          {c.active ? "ACTIVE" : "INACTIVE"}
-                        </Badge>
+                        <Badge variant={c.active ? "default" : "secondary"} className="text-[9px]">{c.active ? "ACTIVE" : "INACTIVE"}</Badge>
+                        <Badge variant="outline" className="text-[8px]">🏠 HOME</Badge>
                       </div>
                       <p className="text-xs font-mono text-muted-foreground">${c.ticker.replace(/^\$/, "")}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {c.links.filter(l => l.trim()).length} link(s) configured
-                      </p>
+                      <p className="text-[10px] text-muted-foreground">{c.links.filter(l => l.trim()).length} link(s)</p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {c.active ? (
-                        <Button size="sm" variant="outline" onClick={() => deactivateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1">
-                          <Pause className="h-3 w-3" /> Deactivate
-                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => deactivateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1"><Pause className="h-3 w-3" /> Off</Button>
                       ) : (
-                        <Button size="sm" variant="default" onClick={() => activateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1">
-                          <Play className="h-3 w-3" /> Activate
-                        </Button>
+                        <Button size="sm" variant="default" onClick={() => activateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1"><Play className="h-3 w-3" /> On</Button>
                       )}
-                      <Button size="sm" variant="ghost" onClick={() => startEditCampaign(c)} className="h-7 w-7 p-0">
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => deleteCampaign(c.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => startEditCampaign(c)} className="h-7 w-7 p-0"><Pencil className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteCampaign(c.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* ═══ AWAY TEAM Campaigns ═══ */}
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    ✈️ AWAY TEAM — Campaigns
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={() => { setCampaignDraft({ id: crypto.randomUUID(), name: "", ticker: "", links: ["", "", "", "", ""], active: false, team: "away" }); setEditingCampaignId(null); }} disabled={!!campaignDraft} className="gap-1.5 text-xs">
+                    <Plus className="h-3 w-3" /> New Away Campaign
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Campaigns targeting the active <strong>Away Comm</strong> community. Used by <code>/shill2</code> in Telegram.
+                  {shillXConfig.communities.find(c => c.enabled)
+                    ? <> Active target: <strong>{shillXConfig.communities.find(c => c.enabled)?.community_name}</strong></>
+                    : <span className="text-destructive"> ⚠ No active away community set.</span>}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {campaignDraft?.team === "away" && (
+                  <div className="border border-primary/30 rounded-lg p-3 space-y-3 bg-primary/5">
+                    <div className="flex items-center gap-2">
+                      <Input value={campaignDraft.name} onChange={(e) => setCampaignDraft({ ...campaignDraft, name: e.target.value })} placeholder="Campaign name" className="h-8 text-sm max-w-xs" />
+                      <Input value={campaignDraft.ticker} onChange={(e) => setCampaignDraft({ ...campaignDraft, ticker: e.target.value })} placeholder="Ticker" className="h-8 text-sm font-mono max-w-[160px]" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-medium text-muted-foreground">Rotation Links (up to 5)</label>
+                      {campaignDraft.links.map((link, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">{idx + 1}</Badge>
+                          <Input value={link} onChange={(e) => { const u = [...campaignDraft.links]; u[idx] = e.target.value; setCampaignDraft({ ...campaignDraft, links: u }); }} placeholder={idx === 0 ? "https://x.com/... (primary)" : "https://x.com/... (optional)"} className="h-7 text-xs font-mono" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button size="sm" onClick={saveCampaignDraft} disabled={shillCopySaving} className="gap-1.5 text-xs"><Save className="h-3 w-3" />{editingCampaignId ? "Update" : "Create"}</Button>
+                      <Button size="sm" variant="ghost" onClick={cancelCampaignDraft} className="text-xs">Cancel</Button>
+                    </div>
+                  </div>
+                )}
+                {shillCampaigns.filter(c => c.team === "away").length === 0 && campaignDraft?.team !== "away" && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No away campaigns yet.</p>
+                )}
+                {shillCampaigns.filter(c => c.team === "away").map((c) => (
+                  <div key={c.id} className={`border rounded-lg p-3 flex items-start justify-between gap-3 ${c.active ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold truncate">{c.name || `$${c.ticker} Campaign`}</span>
+                        <Badge variant={c.active ? "default" : "secondary"} className="text-[9px]">{c.active ? "ACTIVE" : "INACTIVE"}</Badge>
+                        <Badge variant="outline" className="text-[8px]">✈️ AWAY</Badge>
+                      </div>
+                      <p className="text-xs font-mono text-muted-foreground">${c.ticker.replace(/^\$/, "")}</p>
+                      <p className="text-[10px] text-muted-foreground">{c.links.filter(l => l.trim()).length} link(s)</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {c.active ? (
+                        <Button size="sm" variant="outline" onClick={() => deactivateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1"><Pause className="h-3 w-3" /> Off</Button>
+                      ) : (
+                        <Button size="sm" variant="default" onClick={() => activateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1"><Play className="h-3 w-3" /> On</Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => startEditCampaign(c)} className="h-7 w-7 p-0"><Pencil className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteCampaign(c.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </div>
                 ))}
 
                 <p className="text-[10px] text-muted-foreground">
-                  🔄 The active campaign's links rotate 1 per "Get Shill Copy" click. If Upload-Post has a matching owned video post, it's mixed in too.
+                  🔄 The active campaign's links rotate 1 per "Get Shill Copy" click.
                 </p>
               </CardContent>
             </Card>
@@ -1125,60 +1203,81 @@ export default function XShill() {
             })()}
           </TabsContent>
 
-          {/* ═══ SHILL X ═══ */}
+          {/* ═══ AWAY COMM ═══ */}
           <TabsContent value="shill-x" className="space-y-4 mt-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  Shill X — Cross-Community Posting
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    Away Comm — Cross-Community Targets
+                  </CardTitle>
+                  <Badge variant={shillXConfig.communities.some(c => c.enabled) ? "default" : "secondary"} className="text-xs">
+                    {shillXConfig.communities.some(c => c.enabled) ? "🟢 ACTIVE" : "⏸ DISABLED"}
+                  </Badge>
+                </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Configure a target X community. Use <code>/shill2</code> in Telegram to post videos here. Accounts rotate automatically.
+                  Add multiple away communities. Only <strong>1 can be active</strong> at a time — the active one is used by <code>/shill2</code> in Telegram.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-24 shrink-0">Enabled</span>
-                  <Switch
-                    checked={shillXConfig.enabled}
-                    onCheckedChange={(v) => saveShillXConfig({ ...shillXConfig, enabled: v })}
-                  />
+                {/* Add new away community */}
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground">Community ID</label>
+                    <Input
+                      value={newAwayComm.community_id}
+                      onChange={(e) => setNewAwayComm({ ...newAwayComm, community_id: e.target.value })}
+                      placeholder="e.g. 2029596385180291485"
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground">Name</label>
+                    <Input
+                      value={newAwayComm.community_name}
+                      onChange={(e) => setNewAwayComm({ ...newAwayComm, community_name: e.target.value })}
+                      placeholder="e.g. $PEPE Community"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <Button size="sm" onClick={addAwayComm} disabled={shillXSaving} className="gap-1 text-xs h-8">
+                    <Plus className="h-3 w-3" /> Add
+                  </Button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-24 shrink-0">Community ID</span>
-                  <Input
-                    value={shillXConfig.community_id}
-                    onChange={(e) => setShillXConfig({ ...shillXConfig, community_id: e.target.value })}
-                    placeholder="e.g. 2029596385180291485"
-                    className="h-8 text-xs font-mono max-w-xs"
-                  />
+
+                {/* Community list */}
+                <div className="space-y-2">
+                  {shillXConfig.communities.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-6">No away communities configured. Add one above.</p>
+                  )}
+                  {shillXConfig.communities.map((c) => (
+                    <div key={c.id} className={`border rounded-lg p-3 flex items-center justify-between ${c.enabled ? "border-primary bg-primary/5" : "border-border"}`}>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold">{c.community_name}</span>
+                          <Badge variant={c.enabled ? "default" : "secondary"} className="text-[9px]">
+                            {c.enabled ? "ACTIVE" : "INACTIVE"}
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-mono">ID: {c.community_id}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={c.enabled} onCheckedChange={() => toggleAwayComm(c.id)} />
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteAwayComm(c.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-24 shrink-0">Name</span>
-                  <Input
-                    value={shillXConfig.community_name}
-                    onChange={(e) => setShillXConfig({ ...shillXConfig, community_name: e.target.value })}
-                    placeholder="e.g. $PEPE Community"
-                    className="h-8 text-xs max-w-xs"
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => saveShillXConfig(shillXConfig)}
-                  disabled={shillXSaving || !shillXConfig.community_id.trim()}
-                  className="gap-1.5 text-xs"
-                >
-                  <Save className="h-3 w-3" />
-                  {shillXSaving ? "Saving…" : "Save Config"}
-                </Button>
 
                 <Separator />
 
                 <div>
                   <h4 className="text-xs font-semibold mb-2">Rotation Accounts</h4>
                   <p className="text-[10px] text-muted-foreground mb-2">
-                    These are the same accounts from the Accounts tab. They will rotate when posting to this community via <code>/shill2</code>.
+                    These are the same accounts from the Accounts tab. They will rotate when posting via <code>/shill2</code>.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {rotationAccounts.filter(a => a.status === "active").map(a => (
@@ -1195,7 +1294,7 @@ export default function XShill() {
                 <Separator />
 
                 <div>
-                  <h4 className="text-xs font-semibold mb-2">Recent Shill X Posts</h4>
+                  <h4 className="text-xs font-semibold mb-2">Recent Away Comm Posts</h4>
                   {shillXPosts.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-4">No posts yet. Use <code>/shill2</code> in Telegram to get started.</p>
                   ) : (
@@ -1227,7 +1326,7 @@ export default function XShill() {
 
           <TabsContent value="communities" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Target Communities</h3>
+              <h3 className="text-sm font-semibold">🏠 Home Comm — Target Communities</h3>
               <Button size="sm" onClick={() => {
                 setEditTarget({ ...DEFAULT_TARGET, id: crypto.randomUUID() } as CommunityTarget);
                 setEditDialog(true);
