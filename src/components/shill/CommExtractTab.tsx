@@ -14,7 +14,6 @@ import { toast } from "sonner";
 
 interface Member {
   handle: string;
-  handle: string;
   name: string;
   verified: boolean;
   followers: number;
