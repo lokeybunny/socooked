@@ -993,6 +993,77 @@ export default function XShill() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Auto-populate from CRM outbound accounts */}
+            {(() => {
+              const rotationHandles = new Set(rotationAccounts.map(a => a.handle.toLowerCase()));
+              const missing = outboundXAccounts.filter(a => !rotationHandles.has(a.account_identifier.toLowerCase().replace(/^@/, '')));
+              if (missing.length === 0 && outboundXAccounts.length === 0) return null;
+              return (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-primary" />
+                      Auto-Import from CRM
+                    </CardTitle>
+                    <p className="text-[10px] text-muted-foreground">
+                      {missing.length > 0
+                        ? `${missing.length} X account${missing.length !== 1 ? 's' : ''} in your CRM not yet in the rotation pool.`
+                        : 'All CRM X accounts are already in the rotation pool.'}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    {missing.length > 0 ? (
+                      <div className="space-y-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full gap-2"
+                          onClick={async () => {
+                            const newAccounts = missing.map(a => ({
+                              id: crypto.randomUUID(),
+                              handle: a.account_identifier.replace(/^@/, ''),
+                              status: 'active' as const,
+                              posts_today: 0,
+                            }));
+                            await saveRotationAccounts([...rotationAccounts, ...newAccounts]);
+                            toast.success(`Added ${newAccounts.length} account${newAccounts.length !== 1 ? 's' : ''} to rotation pool`);
+                          }}
+                        >
+                          <Plus className="h-3 w-3" /> Add All ({missing.length})
+                        </Button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {missing.map(a => {
+                            const handle = a.account_identifier.replace(/^@/, '');
+                            return (
+                              <div key={a.id} className="flex items-center justify-between border rounded-md p-2.5">
+                                <div>
+                                  <p className="text-xs font-medium">@{handle}</p>
+                                  <p className="text-[10px] text-muted-foreground">{a.account_label}</p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 text-[10px]"
+                                  onClick={async () => {
+                                    const newAcc: RotationAccount = { id: crypto.randomUUID(), handle, status: 'active', posts_today: 0 };
+                                    await saveRotationAccounts([...rotationAccounts, newAcc]);
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" /> Add
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-emerald-500 text-center py-2">✓ All synced</p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
           </TabsContent>
 
 
