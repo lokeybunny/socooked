@@ -1101,7 +1101,7 @@ export default function XShill() {
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="text-right text-[10px] text-muted-foreground mr-2">
-                          <p>Account: @{t.x_account}</p>
+                          <p>Account: <XHandle handle={t.x_account} className="text-[10px] font-medium" /></p>
                           <p>${t.ticker} • WH: {t.whitehouse_interval_min}m / Other: {t.other_interval_min}m</p>
                         </div>
                         <Switch
