@@ -725,6 +725,42 @@ export type Database = {
           },
         ]
       }
+      comm_scrapes: {
+        Row: {
+          apify_run_id: string | null
+          community_url: string
+          created_at: string
+          id: string
+          member_count: number
+          members: Json
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          apify_run_id?: string | null
+          community_url: string
+          created_at?: string
+          id?: string
+          member_count?: number
+          members?: Json
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          apify_run_id?: string | null
+          community_url?: string
+          created_at?: string
+          id?: string
+          member_count?: number
+          members?: Json
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       communications: {
         Row: {
           body: string | null
