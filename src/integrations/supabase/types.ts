@@ -2408,6 +2408,38 @@ export type Database = {
         }
         Relationships: []
       }
+      signature_usage: {
+        Row: {
+          created_at: string
+          handle: string
+          id: string
+          post_id: string | null
+          used_at: string
+        }
+        Insert: {
+          created_at?: string
+          handle: string
+          id?: string
+          post_id?: string | null
+          used_at?: string
+        }
+        Update: {
+          created_at?: string
+          handle?: string
+          id?: string
+          post_id?: string | null
+          used_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_usage_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "shill_scheduled_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signatures: {
         Row: {
           category: string | null

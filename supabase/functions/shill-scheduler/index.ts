@@ -211,7 +211,78 @@ Deno.serve(async (req) => {
 
         // If hide_ticker is enabled, strip the ticker from the caption
         // (the ticker won't be auto-appended by the system)
-        const captionWithSig = resolvedCaption + (hideTickerFlag ? "" : CA_SIGNATURE);
+        let captionWithSig = resolvedCaption + (hideTickerFlag ? "" : CA_SIGNATURE);
+
+        // ── Signature injection: append @handles from comm scrapes ──
+        try {
+          const { data: sigCfgRow } = await supabase.from("site_configs")
+            .select("content").eq("site_id", "smm-auto-shill").eq("section", "shill-signature-config").maybeSingle();
+          const sigCfg = (sigCfgRow?.content as any) || {};
+
+          if (sigCfg.enabled && sigCfg.scrape_ids?.length > 0) {
+            // Load members from selected scrapes
+            const { data: scrapeRows } = await supabase.from("comm_scrapes")
+              .select("members").in("id", sigCfg.scrape_ids);
+
+            let allHandles: string[] = [];
+            for (const row of (scrapeRows || [])) {
+              const members = (row.members as any[]) || [];
+              for (const m of members) {
+                const handle = (m.username || m.handle || "").replace(/^@/, "").trim();
+                if (!handle) continue;
+                if (sigCfg.mode === "verified" && !m.verified) continue;
+                allHandles.push(handle);
+              }
+            }
+
+            // De-duplicate
+            allHandles = [...new Set(allHandles)];
+
+            // Remove handles on 5-day cooldown
+            const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString();
+            const { data: usedRows } = await supabase.from("signature_usage")
+              .select("handle").gte("used_at", fiveDaysAgo);
+            const cooldownSet = new Set((usedRows || []).map((r: any) => r.handle.toLowerCase()));
+            const available = allHandles.filter(h => !cooldownSet.has(h.toLowerCase()));
+
+            if (available.length > 0) {
+              // Shuffle
+              for (let i = available.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [available[i], available[j]] = [available[j], available[i]];
+              }
+
+              // Calculate max handles that fit within 280 chars
+              const sigPrefix = "\n\n⌈ ";
+              const sigSuffix = " ⌋";
+              const separator = " · ";
+              const currentLen = captionWithSig.length;
+              const overhead = sigPrefix.length + sigSuffix.length;
+              let remaining = 280 - currentLen - overhead;
+              const picked: string[] = [];
+
+              for (const h of available) {
+                const tag = `@${h}`;
+                const needed = picked.length === 0 ? tag.length : separator.length + tag.length;
+                if (remaining >= needed) {
+                  picked.push(h);
+                  remaining -= needed;
+                } else break;
+              }
+
+              if (picked.length > 0) {
+                captionWithSig += sigPrefix + picked.map(h => `@${h}`).join(separator) + sigSuffix;
+
+                // Record usage
+                const usageRows = picked.map(h => ({ handle: h, post_id: post.id }));
+                await supabase.from("signature_usage").insert(usageRows);
+                console.log(`[shill-scheduler] 🏷️ Signature: appended ${picked.length} handles`);
+              }
+            }
+          }
+        } catch (sigErr: any) {
+          console.error("[shill-scheduler] signature error (non-fatal):", sigErr.message);
+        }
 
         // Determine which account to use — try rotation pool first
         let accountToUse = post.x_account || "xslaves";
