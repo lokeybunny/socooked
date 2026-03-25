@@ -10,6 +10,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const QUIET_FAILURE_ACTIONS = new Set(['list-scheduled', 'list-profiles', 'upload-history', 'me']);
+const uploadProfileCache = new Map<string, string>();
 
 async function logSMMActivity(action: string, meta: Record<string, any>) {
   try {
