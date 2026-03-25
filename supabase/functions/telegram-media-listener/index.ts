@@ -3886,6 +3886,12 @@ Deno.serve(async (req) => {
 
               const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
               const X_COMMUNITY_ID = '2029596385180291485'
+
+              // Resolve $TICKER placeholder with home community name
+              let resolvedCaption = sp.caption || ''
+              const homeCommunityLabel = sp.community || '$whitehouse'
+              resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, homeCommunityLabel)
+
               const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
                 method: 'POST',
                 headers: {
@@ -3894,7 +3900,7 @@ Deno.serve(async (req) => {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                  title: sp.caption,
+                  title: resolvedCaption,
                   video: publicUrl,
                   'platform[]': ['x'],
                   user: 'xslaves',
