@@ -3697,15 +3697,15 @@ Deno.serve(async (req) => {
          if (sp.step === 'timing' && text) {
            const lower = text.toLowerCase()
            if (lower.includes('now')) {
-             await supabase.from('webhook_events').update({
-               payload: { ...sp, step: 'video', timing: 'now' },
-             }).eq('id', session.id)
-             await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Upload the video to post now.', parse_mode: 'HTML' })
-           } else if (lower.includes('schedule') || lower.includes('later')) {
-             await supabase.from('webhook_events').update({
-               payload: { ...sp, step: 'video', timing: 'schedule' },
-             }).eq('id', session.id)
-             await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Upload the video to schedule.', parse_mode: 'HTML' })
+              await supabase.from('webhook_events').update({
+                payload: { ...sp, step: 'video', timing: 'now' },
+              }).eq('id', session.id)
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Upload the video or image to post now.', parse_mode: 'HTML' })
+            } else if (lower.includes('schedule') || lower.includes('later')) {
+              await supabase.from('webhook_events').update({
+                payload: { ...sp, step: 'video', timing: 'schedule' },
+              }).eq('id', session.id)
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Upload the video or image to schedule.', parse_mode: 'HTML' })
            } else {
              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❓ Please choose "Post Now" or "Schedule".', parse_mode: 'HTML' })
            }
@@ -3713,7 +3713,8 @@ Deno.serve(async (req) => {
          }
 
         if (sp.step === 'video' && media) {
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📡 Downloading video from Telegram...' })
+           const isImage = media.type === 'image'
+           await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: isImage ? '📡 Downloading image from Telegram...' : '📡 Downloading video from Telegram...' })
           try {
             // Download video from Telegram
             const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
@@ -3734,9 +3735,10 @@ Deno.serve(async (req) => {
             const storagePath = `shill/${Date.now()}_${media.fileName}`
             const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
             const supa = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
-            const { error: uploadErr } = await supa.storage.from('content-uploads').upload(storagePath, fileBytes, {
-              contentType: media.type === 'video' ? 'video/mp4' : 'application/octet-stream',
-              upsert: false,
+             const contentType = media.type === 'video' ? 'video/mp4' : media.type === 'image' ? 'image/jpeg' : 'application/octet-stream'
+             const { error: uploadErr } = await supa.storage.from('content-uploads').upload(storagePath, fileBytes, {
+               contentType,
+               upsert: false,
             })
             if (uploadErr) throw new Error(`Storage upload failed: ${uploadErr.message}`)
             const { data: urlData } = supa.storage.from('content-uploads').getPublicUrl(storagePath)
@@ -3882,31 +3884,38 @@ Deno.serve(async (req) => {
               }
             } else {
               // ─── POST NOW PATH (existing logic) ───
-              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📤 Sending video to X community...' })
+               await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: isImage ? '📤 Posting image to X community...' : '📤 Sending video to X community...' })
 
-              const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
-              const X_COMMUNITY_ID = '2029596385180291485'
+               const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+               const X_COMMUNITY_ID = '2029596385180291485'
 
-              // Resolve $TICKER placeholder with home community name
-              let resolvedCaption = sp.caption || ''
-              const homeCommunityLabel = sp.community || '$whitehouse'
-              resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, homeCommunityLabel)
+               // Resolve $TICKER placeholder with home community name
+               let resolvedCaption = sp.caption || ''
+               const homeCommunityLabel = sp.community || '$whitehouse'
+               resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, homeCommunityLabel)
 
-              const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
-                method: 'POST',
-                headers: {
-                  'apikey': ANON_KEY,
-                  'Authorization': `Bearer ${ANON_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  title: resolvedCaption,
-                  video: publicUrl,
-                  'platform[]': ['x'],
-                  user: 'xslaves',
-                  community_id: X_COMMUNITY_ID,
-                }),
-              })
+               const uploadAction = isImage ? 'upload-photos' : 'upload-video'
+               const uploadBody: Record<string, any> = {
+                   title: resolvedCaption,
+                   'platform[]': ['x'],
+                   user: 'xslaves',
+                   community_id: X_COMMUNITY_ID,
+               }
+               if (isImage) {
+                 uploadBody['photos[]'] = [publicUrl]
+               } else {
+                 uploadBody.video = publicUrl
+               }
+
+               const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=${uploadAction}`, {
+                 method: 'POST',
+                 headers: {
+                   'apikey': ANON_KEY,
+                   'Authorization': `Bearer ${ANON_KEY}`,
+                   'Content-Type': 'application/json',
+                 },
+                 body: JSON.stringify(uploadBody),
+               })
               const postResult = await postRes.json()
 
               if (!postRes.ok || postResult?.error) {
@@ -3944,10 +3953,10 @@ Deno.serve(async (req) => {
                   }
                 }
 
-                if (statusLabel === 'failed') {
-                  await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Video processing failed on the provider side. Try again.' })
-                } else {
-                  let successMsg = `✅ <b>Video posted to $whitehouse community!</b>\n\n📝 Caption: <i>"${sp.caption}"</i>\n🆔 Request: <code>${requestId}</code>`
+                 if (statusLabel === 'failed') {
+                   await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Processing failed on the provider side. Try again.' })
+                 } else {
+                   let successMsg = `✅ <b>${isImage ? 'Image' : 'Video'} posted to $whitehouse community!</b>\n\n📝 Caption: <i>"${sp.caption}"</i>\n🆔 Request: <code>${requestId}</code>`
                   if (statusLabel === 'completed' && postUrl) {
                     successMsg += `\n\n🔗 <a href="${postUrl}">View Post on X</a>`
                   } else if (statusLabel === 'submitted') {
@@ -3972,9 +3981,9 @@ Deno.serve(async (req) => {
         }
 
         // If in video step but no media, remind
-        if (sp.step === 'video' && !media) {
-          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Please upload a video file to continue, or type /cancel to exit.' })
-          return new Response('ok')
+         if (sp.step === 'video' && !media) {
+           await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Please upload a video or image to continue, or type /cancel to exit.' })
+           return new Response('ok')
         }
 
         return new Response('ok')
