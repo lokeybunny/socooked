@@ -156,6 +156,55 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
         />
       </div>
 
+      {/* Auto-Connect X Accounts */}
+      {xAccounts.length > 0 && (
+        <div className="glass-card p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" /> Auto-Connect X Accounts
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {unconnectedXAccounts.length > 0
+              ? `${unconnectedXAccounts.length} X account${unconnectedXAccounts.length !== 1 ? 's' : ''} from your CRM ready to connect.`
+              : 'All X accounts from your CRM are already connected.'}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {xAccounts.map(account => {
+              const handle = account.account_identifier.replace(/^@/, '').toLowerCase();
+              const isConnected = connectedXHandles.has(handle);
+              const isLoading = connectingId === account.id;
+              return (
+                <div
+                  key={account.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                    isConnected ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border bg-muted/30'
+                  }`}
+                >
+                  {PLATFORM_META.twitter && <PLATFORM_META.twitter.icon className="h-4 w-4 text-muted-foreground shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">@{account.account_identifier.replace(/^@/, '')}</p>
+                    <p className="text-[10px] text-muted-foreground">{account.account_label}</p>
+                  </div>
+                  {isConnected ? (
+                    <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 gap-1.5 text-xs"
+                      disabled={isLoading}
+                      onClick={() => handleAutoConnect(account)}
+                    >
+                      {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2 className="h-3 w-3" />}
+                      Connect
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Grouped Accounts */}
       {grouped.length > 0 ? (
         <div className="space-y-5">
