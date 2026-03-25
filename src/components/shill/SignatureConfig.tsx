@@ -237,10 +237,14 @@ export default function SignatureConfig() {
               <div className="h-2 w-2 rounded-full bg-green-500" />
               <span className="text-muted-foreground">{totalMembers.toLocaleString()} total members</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <button
+              onClick={openCooldownModal}
+              className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer"
+            >
               <div className="h-2 w-2 rounded-full bg-amber-500" />
-              <span className="text-muted-foreground">{onCooldown.size} on cooldown</span>
-            </div>
+              <span className="text-muted-foreground underline decoration-dotted">{onCooldown.size} on cooldown</span>
+              <Timer className="h-3 w-3 text-muted-foreground" />
+            </button>
           </div>
         </CardContent>
       </Card>
