@@ -4152,6 +4152,8 @@ Deno.serve(async (req) => {
 
         return new Response('ok')
       }
+
+      if (media && (sessionType === 'banana_session' || sessionType === 'banana2_session' || sessionType === 'higgsfield_session')) {
         const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
