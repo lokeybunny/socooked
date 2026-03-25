@@ -211,25 +211,35 @@ export default function XShill() {
         setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
       }
 
-      // Load shill copy config (ticker + campaign_links for Get Shill Copy button)
-      const { data: shillCopyCfg } = await supabase
+      // Load shill campaign presets
+      const { data: campaignsCfg } = await supabase
         .from("site_configs")
         .select("content")
         .eq("site_id", "smm-auto-shill")
-        .eq("section", "NysonBlack")
+        .eq("section", "shill-copy-campaigns")
         .maybeSingle();
-      if (shillCopyCfg?.content) {
-        const c = shillCopyCfg.content as any;
-        setShillCopyTicker(c.ticker || "");
-        setShillCopyCampaignUrl(c.campaign_url || "");
-        const links = c.campaign_links || [];
-        setShillCopyCampaignLinks([
-          links[0] || c.campaign_url || "",
-          links[1] || "",
-          links[2] || "",
-          links[3] || "",
-          links[4] || "",
-        ]);
+      if (campaignsCfg?.content) {
+        setShillCampaigns((campaignsCfg.content as any).campaigns || []);
+      } else {
+        // Migrate from old single-config if it exists
+        const { data: oldCfg } = await supabase
+          .from("site_configs")
+          .select("content")
+          .eq("site_id", "smm-auto-shill")
+          .eq("section", "NysonBlack")
+          .maybeSingle();
+        if (oldCfg?.content) {
+          const c = oldCfg.content as any;
+          const migratedLinks = c.campaign_links || [c.campaign_url || "", "", "", "", ""];
+          const migrated: ShillCampaign = {
+            id: crypto.randomUUID(),
+            name: c.ticker ? `$${c.ticker.replace(/^\$/, "")} Campaign` : "Default Campaign",
+            ticker: c.ticker || "",
+            links: [migratedLinks[0] || "", migratedLinks[1] || "", migratedLinks[2] || "", migratedLinks[3] || "", migratedLinks[4] || ""],
+            active: true,
+          };
+          setShillCampaigns([migrated]);
+        }
       }
     } catch (e) {
       console.error("Load error:", e);
