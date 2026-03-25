@@ -136,6 +136,21 @@ export default function SignatureConfig() {
             </div>
           </div>
 
+          {/* Apply to Shill Copy Toggle */}
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-xs font-medium text-foreground">Apply to Get Shill Copy</span>
+              <p className="text-[10px] text-muted-foreground">
+                Also append @handle signatures to Discord "Get Shill Copy" output. Same cooldown rules apply.
+              </p>
+            </div>
+            <Switch
+              checked={config.apply_to_shill_copy}
+              onCheckedChange={v => save({ ...config, apply_to_shill_copy: v })}
+            />
+          </div>
+
           {/* Stats */}
           <div className="flex gap-4 text-xs">
             <div className="flex items-center gap-1.5">
