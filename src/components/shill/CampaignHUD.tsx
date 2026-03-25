@@ -152,7 +152,22 @@ export default function CampaignHUD() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const saveCampaigns = async (updated: CampaignConfig[]) => {
+  const saveListenerConfig = async (enabled: boolean, channelId: string) => {
+    setBotEnabled(enabled);
+    setActiveListenChannel(channelId);
+    await supabase.from("site_configs").upsert({
+      site_id: "smm-auto-shill",
+      section: "raid-community-source",
+      content: {
+        enabled,
+        discord_listen_channel_id: channelId,
+        discord_channel_id: channelId,
+      } as any,
+    } as any, { onConflict: "site_id,section" } as any);
+    const label = SHILL_NOW_CHANNELS.find(ch => ch.id === channelId);
+    toast.success(enabled ? `Listener ON → ${label?.label || channelId}` : "Listener OFF");
+  };
+
     setSaving(true);
     try {
       await supabase.from("site_configs").upsert({
