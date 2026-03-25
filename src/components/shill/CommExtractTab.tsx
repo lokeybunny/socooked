@@ -85,7 +85,7 @@ export default function CommExtractTab() {
     } catch (e: any) {
       console.error("Poll error:", e);
     }
-  }, [loadSavedScrapes]);
+  }, [loadSavedScrapes, communityUrl]);
 
   const startScrape = async () => {
     if (!communityUrl.trim()) {
