@@ -1705,6 +1705,11 @@ export default function XShill() {
             ))}
           </TabsContent>
 
+          {/* ═══ COMM EXTRACT ═══ */}
+          <TabsContent value="comm-extract">
+            <CommExtractTab />
+          </TabsContent>
+
           {/* ═══ LOGS ═══ */}
           <TabsContent value="logs" className="mt-4">
             <Card>
