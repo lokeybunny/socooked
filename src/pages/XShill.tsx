@@ -1172,60 +1172,81 @@ export default function XShill() {
             })()}
           </TabsContent>
 
-          {/* ═══ SHILL X ═══ */}
+          {/* ═══ AWAY COMM ═══ */}
           <TabsContent value="shill-x" className="space-y-4 mt-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  Shill X — Cross-Community Posting
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    Away Comm — Cross-Community Targets
+                  </CardTitle>
+                  <Badge variant={shillXConfig.communities.some(c => c.enabled) ? "default" : "secondary"} className="text-xs">
+                    {shillXConfig.communities.some(c => c.enabled) ? "🟢 ACTIVE" : "⏸ DISABLED"}
+                  </Badge>
+                </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Configure a target X community. Use <code>/shill2</code> in Telegram to post videos here. Accounts rotate automatically.
+                  Add multiple away communities. Only <strong>1 can be active</strong> at a time — the active one is used by <code>/shill2</code> in Telegram.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-24 shrink-0">Enabled</span>
-                  <Switch
-                    checked={shillXConfig.enabled}
-                    onCheckedChange={(v) => saveShillXConfig({ ...shillXConfig, enabled: v })}
-                  />
+                {/* Add new away community */}
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground">Community ID</label>
+                    <Input
+                      value={newAwayComm.community_id}
+                      onChange={(e) => setNewAwayComm({ ...newAwayComm, community_id: e.target.value })}
+                      placeholder="e.g. 2029596385180291485"
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[10px] text-muted-foreground">Name</label>
+                    <Input
+                      value={newAwayComm.community_name}
+                      onChange={(e) => setNewAwayComm({ ...newAwayComm, community_name: e.target.value })}
+                      placeholder="e.g. $PEPE Community"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <Button size="sm" onClick={addAwayComm} disabled={shillXSaving} className="gap-1 text-xs h-8">
+                    <Plus className="h-3 w-3" /> Add
+                  </Button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-24 shrink-0">Community ID</span>
-                  <Input
-                    value={shillXConfig.community_id}
-                    onChange={(e) => setShillXConfig({ ...shillXConfig, community_id: e.target.value })}
-                    placeholder="e.g. 2029596385180291485"
-                    className="h-8 text-xs font-mono max-w-xs"
-                  />
+
+                {/* Community list */}
+                <div className="space-y-2">
+                  {shillXConfig.communities.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-6">No away communities configured. Add one above.</p>
+                  )}
+                  {shillXConfig.communities.map((c) => (
+                    <div key={c.id} className={`border rounded-lg p-3 flex items-center justify-between ${c.enabled ? "border-primary bg-primary/5" : "border-border"}`}>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold">{c.community_name}</span>
+                          <Badge variant={c.enabled ? "default" : "secondary"} className="text-[9px]">
+                            {c.enabled ? "ACTIVE" : "INACTIVE"}
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground font-mono">ID: {c.community_id}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch checked={c.enabled} onCheckedChange={() => toggleAwayComm(c.id)} />
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deleteAwayComm(c.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground w-24 shrink-0">Name</span>
-                  <Input
-                    value={shillXConfig.community_name}
-                    onChange={(e) => setShillXConfig({ ...shillXConfig, community_name: e.target.value })}
-                    placeholder="e.g. $PEPE Community"
-                    className="h-8 text-xs max-w-xs"
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => saveShillXConfig(shillXConfig)}
-                  disabled={shillXSaving || !shillXConfig.community_id.trim()}
-                  className="gap-1.5 text-xs"
-                >
-                  <Save className="h-3 w-3" />
-                  {shillXSaving ? "Saving…" : "Save Config"}
-                </Button>
 
                 <Separator />
 
                 <div>
                   <h4 className="text-xs font-semibold mb-2">Rotation Accounts</h4>
                   <p className="text-[10px] text-muted-foreground mb-2">
-                    These are the same accounts from the Accounts tab. They will rotate when posting to this community via <code>/shill2</code>.
+                    These are the same accounts from the Accounts tab. They will rotate when posting via <code>/shill2</code>.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {rotationAccounts.filter(a => a.status === "active").map(a => (
@@ -1242,7 +1263,7 @@ export default function XShill() {
                 <Separator />
 
                 <div>
-                  <h4 className="text-xs font-semibold mb-2">Recent Shill X Posts</h4>
+                  <h4 className="text-xs font-semibold mb-2">Recent Away Comm Posts</h4>
                   {shillXPosts.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-4">No posts yet. Use <code>/shill2</code> in Telegram to get started.</p>
                   ) : (
