@@ -7,9 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Users, BadgeCheck, Shield, RefreshCw, Trash2 } from "lucide-react";
+import { Users, BadgeCheck, Shield, RefreshCw, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 
 interface SigConfig {
   enabled: boolean;
@@ -29,33 +29,49 @@ interface CommScrape {
 interface UsageEntry {
   handle: string;
   used_at: string;
+  source?: string;
 }
 
 const SITE_ID = "smm-auto-shill";
 const SECTION = "shill-signature-config";
+const PAGE_SIZE = 50;
 
 export default function SignatureConfig() {
   const [config, setConfig] = useState<SigConfig>({ enabled: false, mode: "all", scrape_ids: [], apply_to_shill_copy: false, shill_copy_mode: "all" });
   const [scrapes, setScrapes] = useState<CommScrape[]>([]);
   const [recentUsage, setRecentUsage] = useState<UsageEntry[]>([]);
+  const [totalUsage, setTotalUsage] = useState(0);
+  const [usagePage, setUsagePage] = useState(0);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const loadUsagePage = useCallback(async (page: number) => {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const { data, count } = await supabase
+      .from("signature_usage")
+      .select("handle, used_at, source", { count: "exact" })
+      .order("used_at", { ascending: false })
+      .range(from, to);
+    setRecentUsage((data as UsageEntry[]) || []);
+    setTotalUsage(count || 0);
+    setUsagePage(page);
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [cfgRes, scrapesRes, usageRes] = await Promise.all([
+    const [cfgRes, scrapesRes] = await Promise.all([
       supabase.from("site_configs").select("content").eq("site_id", SITE_ID).eq("section", SECTION).maybeSingle(),
       supabase.from("comm_scrapes").select("id, name, member_count, created_at").order("created_at", { ascending: false }),
-      supabase.from("signature_usage").select("handle, used_at").order("used_at", { ascending: false }).limit(50),
     ]);
     if (cfgRes.data?.content) {
       const c = cfgRes.data.content as any;
       setConfig({ enabled: !!c.enabled, mode: c.mode || "all", scrape_ids: c.scrape_ids || [], apply_to_shill_copy: !!c.apply_to_shill_copy, shill_copy_mode: c.shill_copy_mode || "all" });
     }
     setScrapes(scrapesRes.data || []);
-    setRecentUsage((usageRes.data as UsageEntry[]) || []);
+    await loadUsagePage(0);
     setLoading(false);
-  }, []);
+  }, [loadUsagePage]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -81,16 +97,24 @@ export default function SignatureConfig() {
   const clearUsageHistory = async () => {
     await supabase.from("signature_usage").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     setRecentUsage([]);
+    setTotalUsage(0);
+    setUsagePage(0);
     toast.success("Usage history cleared — all handles available again");
   };
 
-  // Count unique handles on cooldown (used in last 5 days)
   const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
   const onCooldown = new Set(recentUsage.filter(u => new Date(u.used_at) > fiveDaysAgo).map(u => u.handle));
 
-  // Count total available members from selected scrapes
   const selectedScrapes = scrapes.filter(s => config.scrape_ids.includes(s.id));
   const totalMembers = selectedScrapes.reduce((sum, s) => sum + s.member_count, 0);
+
+  const totalPages = Math.ceil(totalUsage / PAGE_SIZE);
+
+  const sourceLabel = (src?: string) => {
+    if (src === "shill_copy") return "📋 Copy";
+    if (src === "live_post") return "📡 Live";
+    return "—";
+  };
 
   if (loading) return <div className="text-center py-8 text-muted-foreground text-sm">Loading signature config…</div>;
 
@@ -233,16 +257,18 @@ export default function SignatureConfig() {
         </CardContent>
       </Card>
 
-      {/* Recent Usage / Cooldown */}
+      {/* Recent Usage / Cooldown with Pagination */}
       <Card className="border-border/50 bg-card/80">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Recent Handle Usage (5-Day Cooldown)</CardTitle>
+            <CardTitle className="text-sm">
+              Recent Handle Usage ({totalUsage.toLocaleString()} total)
+            </CardTitle>
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={load}>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => loadUsagePage(usagePage)}>
                 <RefreshCw className="h-3 w-3 mr-1" />Refresh
               </Button>
-              {recentUsage.length > 0 && (
+              {totalUsage > 0 && (
                 <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={clearUsageHistory}>
                   <Trash2 className="h-3 w-3 mr-1" />Clear All
                 </Button>
@@ -254,25 +280,56 @@ export default function SignatureConfig() {
           {recentUsage.length === 0 ? (
             <p className="text-xs text-muted-foreground py-4 text-center">No handles used yet.</p>
           ) : (
-            <ScrollArea className="max-h-[200px]">
-              <div className="flex flex-wrap gap-1.5">
-                {recentUsage.map((u, i) => {
-                  const isActive = new Date(u.used_at) > fiveDaysAgo;
-                  return (
-                    <Badge
-                      key={`${u.handle}-${i}`}
-                      variant={isActive ? "destructive" : "secondary"}
-                      className="text-[10px] font-mono"
+            <>
+              <ScrollArea className="max-h-[200px]">
+                <div className="flex flex-wrap gap-1.5">
+                  {recentUsage.map((u, i) => {
+                    const isActive = new Date(u.used_at) > fiveDaysAgo;
+                    return (
+                      <Badge
+                        key={`${u.handle}-${i}`}
+                        variant={isActive ? "destructive" : "secondary"}
+                        className="text-[10px] font-mono"
+                      >
+                        @{u.handle}
+                        <span className="ml-1 opacity-60">
+                          {sourceLabel(u.source)} · {formatDistanceToNow(new Date(u.used_at), { addSuffix: true })}
+                        </span>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                  <span className="text-[10px] text-muted-foreground">
+                    Page {usagePage + 1} of {totalPages}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-7 p-0"
+                      disabled={usagePage === 0}
+                      onClick={() => loadUsagePage(usagePage - 1)}
                     >
-                      @{u.handle}
-                      <span className="ml-1 opacity-60">
-                        {formatDistanceToNow(new Date(u.used_at), { addSuffix: true })}
-                      </span>
-                    </Badge>
-                  );
-                })}
-              </div>
-            </ScrollArea>
+                      <ChevronLeft className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-7 p-0"
+                      disabled={usagePage >= totalPages - 1}
+                      onClick={() => loadUsagePage(usagePage + 1)}
+                    >
+                      <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -291,7 +348,7 @@ export default function SignatureConfig() {
             </p>
           </div>
           <p className="text-[10px] text-muted-foreground mt-2">
-            Handles are selected randomly, respecting the 5-day cooldown. Max handles are calculated from remaining character space (280 char limit).
+            Handles are selected randomly, respecting the 5-day cooldown. Max handles are calculated from remaining character space (280 char limit). Source tracked as 📡 Live (scheduled posts) or 📋 Copy (Discord shill copy).
           </p>
         </CardContent>
       </Card>
