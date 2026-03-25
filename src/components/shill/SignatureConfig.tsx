@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Users, BadgeCheck, Shield, RefreshCw, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Users, BadgeCheck, Shield, RefreshCw, Trash2, ChevronLeft, ChevronRight, Timer } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -44,6 +45,11 @@ export default function SignatureConfig() {
   const [usagePage, setUsagePage] = useState(0);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [cooldownOpen, setCooldownOpen] = useState(false);
+  const [cooldownHandles, setCooldownHandles] = useState<UsageEntry[]>([]);
+  const [cooldownTotal, setCooldownTotal] = useState(0);
+  const [cooldownPage, setCooldownPage] = useState(0);
+  const COOLDOWN_PAGE_SIZE = 100;
 
   const loadUsagePage = useCallback(async (page: number) => {
     const from = page * PAGE_SIZE;
@@ -109,6 +115,27 @@ export default function SignatureConfig() {
   const totalMembers = selectedScrapes.reduce((sum, s) => sum + s.member_count, 0);
 
   const totalPages = Math.ceil(totalUsage / PAGE_SIZE);
+  const cooldownTotalPages = Math.ceil(cooldownTotal / COOLDOWN_PAGE_SIZE);
+
+  const loadCooldownPage = async (page: number) => {
+    const fiveDaysAgoISO = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+    const from = page * COOLDOWN_PAGE_SIZE;
+    const to = from + COOLDOWN_PAGE_SIZE - 1;
+    const { data, count } = await supabase
+      .from("signature_usage")
+      .select("handle, used_at, source", { count: "exact" })
+      .gte("used_at", fiveDaysAgoISO)
+      .order("used_at", { ascending: false })
+      .range(from, to);
+    setCooldownHandles((data as UsageEntry[]) || []);
+    setCooldownTotal(count || 0);
+    setCooldownPage(page);
+  };
+
+  const openCooldownModal = async () => {
+    setCooldownOpen(true);
+    await loadCooldownPage(0);
+  };
 
   const sourceLabel = (src?: string) => {
     if (src === "shill_copy") return "📋 Copy";
@@ -210,10 +237,14 @@ export default function SignatureConfig() {
               <div className="h-2 w-2 rounded-full bg-green-500" />
               <span className="text-muted-foreground">{totalMembers.toLocaleString()} total members</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <button
+              onClick={openCooldownModal}
+              className="flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer"
+            >
               <div className="h-2 w-2 rounded-full bg-amber-500" />
-              <span className="text-muted-foreground">{onCooldown.size} on cooldown</span>
-            </div>
+              <span className="text-muted-foreground underline decoration-dotted">{onCooldown.size} on cooldown</span>
+              <Timer className="h-3 w-3 text-muted-foreground" />
+            </button>
           </div>
         </CardContent>
       </Card>
@@ -352,6 +383,68 @@ export default function SignatureConfig() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Cooldown Modal */}
+      <Dialog open={cooldownOpen} onOpenChange={setCooldownOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Timer className="h-4 w-4 text-primary" />
+              Handles on 5-Day Cooldown ({cooldownTotal.toLocaleString()})
+            </DialogTitle>
+          </DialogHeader>
+          {cooldownHandles.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No handles currently on cooldown.</p>
+          ) : (
+            <div className="space-y-3">
+              <ScrollArea className="max-h-[400px]">
+                <div className="flex flex-wrap gap-1.5">
+                  {cooldownHandles.map((u, i) => (
+                    <Badge
+                      key={`cd-${u.handle}-${i}`}
+                      variant="destructive"
+                      className="text-[10px] font-mono"
+                    >
+                      @{u.handle}
+                      <span className="ml-1 opacity-60">
+                        {sourceLabel(u.source)} · {formatDistanceToNow(new Date(u.used_at), { addSuffix: true })}
+                      </span>
+                    </Badge>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              {cooldownTotalPages > 1 && (
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <span className="text-[10px] text-muted-foreground">
+                    Page {cooldownPage + 1} of {cooldownTotalPages}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-7 p-0"
+                      disabled={cooldownPage === 0}
+                      onClick={() => loadCooldownPage(cooldownPage - 1)}
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-7 p-0"
+                      disabled={cooldownPage >= cooldownTotalPages - 1}
+                      onClick={() => loadCooldownPage(cooldownPage + 1)}
+                    >
+                      <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
