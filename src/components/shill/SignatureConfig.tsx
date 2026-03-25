@@ -383,6 +383,68 @@ export default function SignatureConfig() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Cooldown Modal */}
+      <Dialog open={cooldownOpen} onOpenChange={setCooldownOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Timer className="h-4 w-4 text-primary" />
+              Handles on 5-Day Cooldown ({cooldownTotal.toLocaleString()})
+            </DialogTitle>
+          </DialogHeader>
+          {cooldownHandles.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">No handles currently on cooldown.</p>
+          ) : (
+            <div className="space-y-3">
+              <ScrollArea className="max-h-[400px]">
+                <div className="flex flex-wrap gap-1.5">
+                  {cooldownHandles.map((u, i) => (
+                    <Badge
+                      key={`cd-${u.handle}-${i}`}
+                      variant="destructive"
+                      className="text-[10px] font-mono"
+                    >
+                      @{u.handle}
+                      <span className="ml-1 opacity-60">
+                        {sourceLabel(u.source)} · {formatDistanceToNow(new Date(u.used_at), { addSuffix: true })}
+                      </span>
+                    </Badge>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              {cooldownTotalPages > 1 && (
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <span className="text-[10px] text-muted-foreground">
+                    Page {cooldownPage + 1} of {cooldownTotalPages}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-7 p-0"
+                      disabled={cooldownPage === 0}
+                      onClick={() => loadCooldownPage(cooldownPage - 1)}
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-7 p-0"
+                      disabled={cooldownPage >= cooldownTotalPages - 1}
+                      onClick={() => loadCooldownPage(cooldownPage + 1)}
+                    >
+                      <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
