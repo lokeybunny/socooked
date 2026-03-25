@@ -88,6 +88,9 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
     }
     setConnectingId(null);
   };
+
+  // Build grouped data: profile -> connected accounts
+  const grouped = useMemo(() => {
     const q = search.toLowerCase().trim();
     return profiles
       .map(p => {
