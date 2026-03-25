@@ -15,6 +15,7 @@ interface SigConfig {
   enabled: boolean;
   mode: "all" | "verified";
   scrape_ids: string[];
+  apply_to_shill_copy: boolean;
 }
 
 interface CommScrape {
@@ -33,7 +34,7 @@ const SITE_ID = "smm-auto-shill";
 const SECTION = "shill-signature-config";
 
 export default function SignatureConfig() {
-  const [config, setConfig] = useState<SigConfig>({ enabled: false, mode: "all", scrape_ids: [] });
+  const [config, setConfig] = useState<SigConfig>({ enabled: false, mode: "all", scrape_ids: [], apply_to_shill_copy: false });
   const [scrapes, setScrapes] = useState<CommScrape[]>([]);
   const [recentUsage, setRecentUsage] = useState<UsageEntry[]>([]);
   const [saving, setSaving] = useState(false);
@@ -48,7 +49,7 @@ export default function SignatureConfig() {
     ]);
     if (cfgRes.data?.content) {
       const c = cfgRes.data.content as any;
-      setConfig({ enabled: !!c.enabled, mode: c.mode || "all", scrape_ids: c.scrape_ids || [] });
+      setConfig({ enabled: !!c.enabled, mode: c.mode || "all", scrape_ids: c.scrape_ids || [], apply_to_shill_copy: !!c.apply_to_shill_copy });
     }
     setScrapes(scrapesRes.data || []);
     setRecentUsage((usageRes.data as UsageEntry[]) || []);
@@ -133,6 +134,21 @@ export default function SignatureConfig() {
                 </Button>
               ))}
             </div>
+          </div>
+
+          {/* Apply to Shill Copy Toggle */}
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-xs font-medium text-foreground">Apply to Get Shill Copy</span>
+              <p className="text-[10px] text-muted-foreground">
+                Also append @handle signatures to Discord "Get Shill Copy" output. Same cooldown rules apply.
+              </p>
+            </div>
+            <Switch
+              checked={config.apply_to_shill_copy}
+              onCheckedChange={v => save({ ...config, apply_to_shill_copy: v })}
+            />
           </div>
 
           {/* Stats */}

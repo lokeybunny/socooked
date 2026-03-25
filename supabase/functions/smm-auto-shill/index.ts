@@ -361,6 +361,73 @@ function verifyDiscordSignature(publicKeyHex: string, signature: string, timesta
   }
 }
 
+// ─── Signature injection for shill copy (same logic as shill-scheduler) ───
+async function appendSignatureHandles(supabase: any, copyText: string): Promise<string> {
+  try {
+    const { data: sigCfgRow } = await supabase.from("site_configs")
+      .select("content").eq("site_id", "smm-auto-shill").eq("section", "shill-signature-config").maybeSingle();
+    const sigCfg = (sigCfgRow?.content as any) || {};
+
+    if (!sigCfg.enabled || !sigCfg.apply_to_shill_copy || !sigCfg.scrape_ids?.length) return copyText;
+
+    const { data: scrapeRows } = await supabase.from("comm_scrapes")
+      .select("members").in("id", sigCfg.scrape_ids);
+
+    let allHandles: string[] = [];
+    for (const row of (scrapeRows || [])) {
+      const members = (row.members as any[]) || [];
+      for (const m of members) {
+        const handle = (m.username || m.handle || "").replace(/^@/, "").trim();
+        if (!handle) continue;
+        if (sigCfg.mode === "verified" && !m.verified) continue;
+        allHandles.push(handle);
+      }
+    }
+    allHandles = [...new Set(allHandles)];
+
+    const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: usedRows } = await supabase.from("signature_usage")
+      .select("handle").gte("used_at", fiveDaysAgo);
+    const cooldownSet = new Set((usedRows || []).map((r: any) => r.handle.toLowerCase()));
+    const available = allHandles.filter(h => !cooldownSet.has(h.toLowerCase()));
+
+    if (available.length === 0) return copyText;
+
+    // Shuffle
+    for (let i = available.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [available[i], available[j]] = [available[j], available[i]];
+    }
+
+    const sigPrefix = "\n\n⌈ ";
+    const sigSuffix = " ⌋";
+    const separator = " · ";
+    const overhead = sigPrefix.length + sigSuffix.length;
+    let remaining = 280 - copyText.length - overhead;
+    const picked: string[] = [];
+
+    for (const h of available) {
+      const tag = `@${h}`;
+      const needed = picked.length === 0 ? tag.length : separator.length + tag.length;
+      if (remaining >= needed) {
+        picked.push(h);
+        remaining -= needed;
+      } else break;
+    }
+
+    if (picked.length > 0) {
+      const usageRows = picked.map(h => ({ handle: h, post_id: "shill-copy-" + Date.now() }));
+      await supabase.from("signature_usage").insert(usageRows);
+      console.log(`[auto-shill] 🏷️ Shill copy signature: appended ${picked.length} handles`);
+      return copyText + sigPrefix + picked.map(h => `@${h}`).join(separator) + sigSuffix;
+    }
+    return copyText;
+  } catch (e: any) {
+    console.error("[auto-shill] shill copy signature error (non-fatal):", e.message);
+    return copyText;
+  }
+}
+
 // ─── Role-based access: check if member has admin, shill-team, or raid-team roles ───
 const TEAM_ROLE_IDS = [
   "1484998919816613989", // shill-team
@@ -2427,7 +2494,8 @@ serve(async (req) => {
           const insertIdx = Math.floor(Math.random() * (copyParts.length + 1));
           copyParts.splice(insertIdx, 0, raidHashtag);
 
-          const copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (raidFinalUrl ? `\n${raidFinalUrl}` : "");
+          let copyText = `${raidOpener}\n\n` + copyParts.join(" ") + (raidFinalUrl ? `\n${raidFinalUrl}` : "");
+          copyText = await appendSignatureHandles(supabase, copyText);
 
           sendCopyDM(discordUserId, copyText);
           return json({
@@ -2765,8 +2833,9 @@ serve(async (req) => {
 
         const caAddress = cfg?.ca_address || "7oXNE1dbpHUp6dn1JF8pRgCtzfCy4P2FuBneWjZHpump";
         const CA_SIGNATURE = `\n\nCA - ${caAddress}`;
-        const copyText = `${opener}\n\n${randomEmoji} ` + copyParts.join(" ") +
+        let copyText = `${opener}\n\n${randomEmoji} ` + copyParts.join(" ") +
           (finalUrl ? `\n${finalUrl}` : "") + CA_SIGNATURE;
+        copyText = await appendSignatureHandles(supabase, copyText);
 
         sendCopyDM(discordUserId, copyText);
         return json({
