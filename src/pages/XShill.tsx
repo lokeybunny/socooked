@@ -242,6 +242,13 @@ export default function XShill() {
           setShillCampaigns([migrated]);
         }
       }
+
+      // Load outbound X accounts for auto-populate
+      const { data: obAccounts } = await supabase
+        .from("outbound_accounts")
+        .select("id, account_label, account_identifier")
+        .eq("platform", "x");
+      if (obAccounts) setOutboundXAccounts(obAccounts);
     } catch (e) {
       console.error("Load error:", e);
     } finally {
