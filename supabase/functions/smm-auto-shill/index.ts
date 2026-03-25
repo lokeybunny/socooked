@@ -333,9 +333,12 @@ async function checkEarningsCap(
   const unpaid = (verifiedClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
   return { capped: unpaid >= EARNINGS_CAP, unpaid };
 }
-
-
-
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 // ─── Ed25519 signature verification for Discord Interactions ───
 function hexToUint8Array(hex: string): Uint8Array {
