@@ -198,6 +198,17 @@ Deno.serve(async (req) => {
           resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, tickerName);
         }
 
+        // ── Away Comm posting window: 10AM - 5PM PST only ──
+        const isAwayComm = !!matchedAway;
+        if (isAwayComm) {
+          if (pacificHour < 10 || pacificHour >= 17) {
+            // Outside Away Comm window — revert to scheduled and skip
+            await supabase.from("shill_scheduled_posts").update({ status: "scheduled" }).eq("id", post.id);
+            console.log(`[shill-scheduler] ⏳ Away Comm post ${post.id} skipped — ${pacificHour}h Pacific, allowed 10AM-5PM`);
+            continue;
+          }
+        }
+
         // If hide_ticker is enabled, strip the ticker from the caption
         // (the ticker won't be auto-appended by the system)
         const captionWithSig = resolvedCaption + (hideTickerFlag ? "" : CA_SIGNATURE);
