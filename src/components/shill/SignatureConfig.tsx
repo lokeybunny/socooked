@@ -115,6 +115,27 @@ export default function SignatureConfig() {
   const totalMembers = selectedScrapes.reduce((sum, s) => sum + s.member_count, 0);
 
   const totalPages = Math.ceil(totalUsage / PAGE_SIZE);
+  const cooldownTotalPages = Math.ceil(cooldownTotal / COOLDOWN_PAGE_SIZE);
+
+  const loadCooldownPage = async (page: number) => {
+    const fiveDaysAgoISO = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+    const from = page * COOLDOWN_PAGE_SIZE;
+    const to = from + COOLDOWN_PAGE_SIZE - 1;
+    const { data, count } = await supabase
+      .from("signature_usage")
+      .select("handle, used_at, source", { count: "exact" })
+      .gte("used_at", fiveDaysAgoISO)
+      .order("used_at", { ascending: false })
+      .range(from, to);
+    setCooldownHandles((data as UsageEntry[]) || []);
+    setCooldownTotal(count || 0);
+    setCooldownPage(page);
+  };
+
+  const openCooldownModal = async () => {
+    setCooldownOpen(true);
+    await loadCooldownPage(0);
+  };
 
   const sourceLabel = (src?: string) => {
     if (src === "shill_copy") return "📋 Copy";
