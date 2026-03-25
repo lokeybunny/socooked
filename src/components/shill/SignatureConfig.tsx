@@ -16,6 +16,7 @@ interface SigConfig {
   mode: "all" | "verified";
   scrape_ids: string[];
   apply_to_shill_copy: boolean;
+  shill_copy_mode: "all" | "verified";
 }
 
 interface CommScrape {
@@ -34,7 +35,7 @@ const SITE_ID = "smm-auto-shill";
 const SECTION = "shill-signature-config";
 
 export default function SignatureConfig() {
-  const [config, setConfig] = useState<SigConfig>({ enabled: false, mode: "all", scrape_ids: [], apply_to_shill_copy: false });
+  const [config, setConfig] = useState<SigConfig>({ enabled: false, mode: "all", scrape_ids: [], apply_to_shill_copy: false, shill_copy_mode: "all" });
   const [scrapes, setScrapes] = useState<CommScrape[]>([]);
   const [recentUsage, setRecentUsage] = useState<UsageEntry[]>([]);
   const [saving, setSaving] = useState(false);
@@ -49,7 +50,7 @@ export default function SignatureConfig() {
     ]);
     if (cfgRes.data?.content) {
       const c = cfgRes.data.content as any;
-      setConfig({ enabled: !!c.enabled, mode: c.mode || "all", scrape_ids: c.scrape_ids || [], apply_to_shill_copy: !!c.apply_to_shill_copy });
+      setConfig({ enabled: !!c.enabled, mode: c.mode || "all", scrape_ids: c.scrape_ids || [], apply_to_shill_copy: !!c.apply_to_shill_copy, shill_copy_mode: c.shill_copy_mode || "all" });
     }
     setScrapes(scrapesRes.data || []);
     setRecentUsage((usageRes.data as UsageEntry[]) || []);
@@ -150,6 +151,30 @@ export default function SignatureConfig() {
               onCheckedChange={v => save({ ...config, apply_to_shill_copy: v })}
             />
           </div>
+
+          {/* Shill Copy Mode Toggle */}
+          {config.apply_to_shill_copy && (
+            <div className="flex items-center gap-4 pl-1">
+              <span className="text-xs font-medium text-foreground">Shill Copy Source:</span>
+              <div className="flex gap-1">
+                {(["all", "verified"] as const).map(m => (
+                  <Button
+                    key={m}
+                    size="sm"
+                    variant={config.shill_copy_mode === m ? "default" : "outline"}
+                    className="text-xs h-7 px-3"
+                    onClick={() => save({ ...config, shill_copy_mode: m })}
+                  >
+                    {m === "all" ? (
+                      <><Users className="h-3 w-3 mr-1" />All Members</>
+                    ) : (
+                      <><BadgeCheck className="h-3 w-3 mr-1" />Verified Only</>
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Stats */}
           <div className="flex gap-4 text-xs">
