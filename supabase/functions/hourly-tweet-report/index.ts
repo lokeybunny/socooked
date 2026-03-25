@@ -129,12 +129,12 @@ Deno.serve(async (req) => {
       fields: [
         {
           name: "📊 This Hour",
-          value: `**${tweetsThisHour}** tweets detected`,
+          value: `**${tweetsThisHour}** tweets • **${clicksThisHour}** verified clicks`,
           inline: true,
         },
         {
-          name: "📈 Today's Average",
-          value: `**${hourlyAvg}** tweets/hour`,
+          name: "📈 Today's Stats",
+          value: `**${tweetsToday}** tweets (${hourlyAvg}/hr)\n**${totalClicksToday}** clicks (${clicksToday} verified)`,
           inline: true,
         },
         {
@@ -143,12 +143,12 @@ Deno.serve(async (req) => {
           inline: true,
         },
         {
-          name: "💰 Potential Passive Income",
+          name: "💰 Verified Earnings",
           value: [
-            `This Hour: **${tweetsThisHour}** links × $0.05 = **$${potentialEarnings.toFixed(2)}**`,
-            `Today: **${tweetsToday}** links × $0.05 = **$${dailyPotentialEarnings.toFixed(2)}**`,
+            `This Hour: **${clicksThisHour}** clicks × $0.05 = **$${hourlyEarnings.toFixed(2)}**`,
+            `Today: **${clicksToday}** clicks × $0.05 = **$${dailyEarnings.toFixed(2)}**`,
             ``,
-            `🤑 Every link is **$0.05** waiting to be claimed!`,
+            `🤑 Every verified click = **$0.05** earned!`,
           ].join("\n"),
           inline: false,
         },
