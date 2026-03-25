@@ -7,6 +7,7 @@ const corsHeaders = {
 
 const APIFY_TOKEN = Deno.env.get('APIFY_TOKEN_COMMUNITY')!;
 const ACTOR_ID = 'curious_coder~twitter-community-members-scraper';
+const TWITTER_COOKIE_JSON = Deno.env.get('TWITTER_COOKIE_JSON') || '[]';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
