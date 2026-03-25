@@ -1514,55 +1514,65 @@ serve(async (req) => {
           return json({ type: 4, data: { content: "❌ Usage: `/authorizeshiller user:<discord_user_id> account:<x_handle>`", flags: 64 } });
         }
 
-        const profileUsername = matchedProfile || "NysonBlack";
-        const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
-        const assignments: Record<string, string> = { ...(currentContent.discord_assignments || {}) };
+        const applicationId = interaction.application_id;
+        const interactionToken = interaction.token;
+        const _targetUserId = targetUserId;
+        const _xAccount = xAccount;
+        const _discordUsername = discordUsername;
+        const _resolvedUsers = interaction.data?.resolved?.users || {};
 
-        // Check if X account is already claimed by someone else
-        const existingClaimant = Object.entries(assignments).find(([, acc]) => acc === xAccount);
-        if (existingClaimant && existingClaimant[0] !== targetUserId) {
-          return json({ type: 4, data: { content: `❌ \`@${xAccount}\` is already assigned to <@${existingClaimant[0]}>. Unassign them first.`, flags: 64 } });
-        }
+        // Fire-and-forget async work
+        (async () => {
+          try {
+            const profileUsername = matchedProfile || "NysonBlack";
+            const { row: cfgRow, content: currentContent } = await loadShillConfig(supabase, profileUsername);
+            const assignments: Record<string, string> = { ...(currentContent.discord_assignments || {}) };
 
-        // Check if target user already has a different account
-        if (assignments[targetUserId] && assignments[targetUserId] !== xAccount) {
-          return json({ type: 4, data: { content: `⚠️ <@${targetUserId}> is already assigned to \`@${assignments[targetUserId]}\`. Overwriting...`, flags: 64 } });
-        }
+            // Check if X account is already claimed by someone else
+            const existingClaimant = Object.entries(assignments).find(([, acc]) => acc === _xAccount);
+            if (existingClaimant && existingClaimant[0] !== _targetUserId) {
+              await followUpInteraction(applicationId, interactionToken,
+                `❌ \`@${_xAccount}\` is already assigned to <@${existingClaimant[0]}>. Unassign them first.`);
+              return;
+            }
 
-        // Assign
-        assignments[targetUserId] = xAccount;
-        const discordUsernames: Record<string, string> = { ...(currentContent.discord_usernames || {}) };
+            // Assign (overwrites if user had a different account)
+            assignments[_targetUserId] = _xAccount;
+            const discordUsernames: Record<string, string> = { ...(currentContent.discord_usernames || {}) };
 
-        const resolvedUser = interaction.data?.resolved?.users?.[targetUserId];
-        const targetUsername = resolvedUser?.username || resolvedUser?.global_name || discordUsernames[targetUserId] || `user_${targetUserId}`;
-        discordUsernames[targetUserId] = targetUsername;
+            const resolvedUser = _resolvedUsers[_targetUserId];
+            const targetUsername = resolvedUser?.username || resolvedUser?.global_name || discordUsernames[_targetUserId] || `user_${_targetUserId}`;
+            discordUsernames[_targetUserId] = targetUsername;
 
-        await supabase.from("site_configs").upsert({
-          id: cfgRow?.id || undefined,
-          site_id: "smm-auto-shill",
-          section: profileUsername,
-          content: { ...currentContent, discord_assignments: assignments, discord_usernames: discordUsernames },
-        }, { onConflict: "id" });
+            await supabase.from("site_configs").upsert({
+              id: cfgRow?.id || undefined,
+              site_id: "smm-auto-shill",
+              section: profileUsername,
+              content: { ...currentContent, discord_assignments: assignments, discord_usernames: discordUsernames },
+            }, { onConflict: "id" });
 
-        await supabase.from("activity_log").insert({
-          entity_type: "shill-authorization",
-          action: "admin-authorized-shiller",
-          meta: {
-            name: `🔧 Admin authorized <@${targetUserId}> → @${xAccount}`,
-            admin_username: discordUsername,
-            target_user_id: targetUserId,
-            x_account: xAccount,
-            profile: profileUsername,
-          },
-        });
+            await supabase.from("activity_log").insert({
+              entity_type: "shill-authorization",
+              action: "admin-authorized-shiller",
+              meta: {
+                name: `🔧 Admin authorized <@${_targetUserId}> → @${_xAccount}`,
+                admin_username: _discordUsername,
+                target_user_id: _targetUserId,
+                x_account: _xAccount,
+                profile: profileUsername,
+              },
+            });
 
-        return json({
-          type: 4,
-          data: {
-            content: `✅ **Shiller authorized!**\n\n👤 <@${targetUserId}> → \`@${xAccount}\`\n\nThey can now use shill buttons and earn per verified click.`,
-            flags: 64,
-          },
-        });
+            await followUpInteraction(applicationId, interactionToken,
+              `✅ **Shiller authorized!**\n\n👤 <@${_targetUserId}> → \`@${_xAccount}\`\n\nThey can now use shill buttons and earn per verified click.`);
+          } catch (err) {
+            console.error("[auto-shill] Deferred authorizeshiller error:", err);
+            await followUpInteraction(applicationId, interactionToken, "❌ Something went wrong authorizing the shiller. Please try again.");
+          }
+        })();
+
+        // Return deferred response immediately (type 5 = DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE)
+        return json({ type: 5, data: { flags: 64 } });
       }
 
       // ─── /authorizeraider command — admin authorizes a user as a raider ───
