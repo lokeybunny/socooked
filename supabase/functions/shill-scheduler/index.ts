@@ -394,6 +394,7 @@ Deno.serve(async (req) => {
                   if (st === "completed" || st === "success" || st === "done") {
                     statusLabel = "completed";
                     postUrl = statusData?.post_url || statusData?.data?.post_url ||
+                      statusData?.results?.[0]?.url || statusData?.data?.results?.[0]?.url ||
                       statusData?.posts?.[0]?.post_url || statusData?.data?.posts?.[0]?.post_url || "";
                     break;
                   }
