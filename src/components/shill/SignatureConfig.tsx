@@ -15,6 +15,7 @@ interface SigConfig {
   enabled: boolean;
   mode: "all" | "verified";
   scrape_ids: string[];
+  apply_to_shill_copy: boolean;
 }
 
 interface CommScrape {
