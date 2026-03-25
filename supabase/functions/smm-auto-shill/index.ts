@@ -2370,13 +2370,7 @@ serve(async (req) => {
           .maybeSingle();
 
         if (raider && raider.status !== "active") {
-          return json({
-            type: 4,
-            data: {
-              content: `🚫 Your raider account is currently **${raider.status}**. Contact an admin.`,
-              flags: 64,
-            },
-          });
+          await followUpInteraction(applicationId, interactionToken, `🚫 Your raider account is currently **${raider.status}**. Contact an admin.`); return;
         }
 
         const raiderSecretCode = raider?.secret_code || null;
@@ -2391,13 +2385,7 @@ serve(async (req) => {
           const selfCheckMsg = await getTrackedBotMessage(supabase, selfRaidMsgId);
           const selfMeta = selfCheckMsg?.meta as any;
           if (selfMeta?.shiller_discord_user_id === discordUserId) {
-            return json({
-              type: 4,
-              data: {
-                content: "🚫 **You can't raid your own shill!** This tweet was verified by you. Let other raiders handle it.",
-                flags: 64,
-              },
-            });
+            await followUpInteraction(applicationId, interactionToken, "🚫 **You can't raid your own shill!** This tweet was verified by you. Let other raiders handle it."); return;
           }
         }
 
@@ -2408,7 +2396,7 @@ serve(async (req) => {
           const trackedMessage = await getTrackedBotMessage(supabase, discordMsgId);
           if (isBotMessageExpired(trackedMessage, interaction.message)) {
             await expireTrackedBotMessage(supabase, trackedMessage, DISCORD_BOT_TOKEN);
-            return json({ type: 4, data: { content: "⏰ This raid alert has expired — find a new post.", flags: 64 } });
+            await followUpInteraction(applicationId, interactionToken, "⏰ This raid alert has expired — find a new post."); return;
           }
 
           const cleanTweetUrl = (tweetUrl || "").replace(/[)\]}>]+$/, "");
@@ -2442,15 +2430,9 @@ serve(async (req) => {
           }
 
           const cleanTweetUrlDisplay = (tweetUrl || "").replace(/[)\]}>]+$/, "");
-          return json({
-            type: 4,
-            data: {
-              content: cleanTweetUrlDisplay
+          await followUpInteraction(applicationId, interactionToken, cleanTweetUrlDisplay
                 ? `⚔️ **Go raid this tweet now!**\n${cleanTweetUrlDisplay}\n\n💡 Use **📋 Get Shill Copy** for ready-to-paste text.`
-                : `⚔️ Raid logged for \`${discordUsername}\` — use 📋 Get Shill Copy for your post text.`,
-              flags: 64,
-            },
-          });
+                : `⚔️ Raid logged for \`${discordUsername}\` — use 📋 Get Shill Copy for your post text.`); return;
         }
 
         // ─── Get Raid Copy button ───
@@ -2460,7 +2442,7 @@ serve(async (req) => {
           const trackedCopy = await getTrackedBotMessage(supabase, discordMsgId);
           if (isBotMessageExpired(trackedCopy, interaction.message)) {
             await expireTrackedBotMessage(supabase, trackedCopy, DISCORD_BOT_TOKEN);
-            return json({ type: 4, data: { content: "⏰ This raid alert has expired — find a new post.", flags: 64 } });
+            await followUpInteraction(applicationId, interactionToken, "⏰ This raid alert has expired — find a new post."); return;
           }
 
           const cleanTweetUrl2 = (tweetUrl || "").replace(/[)\]}>]+$/, "");
@@ -2532,7 +2514,7 @@ serve(async (req) => {
           }
 
           if (!shillTicker) {
-            return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
+            await followUpInteraction(applicationId, interactionToken, "⚠️ No ticker configured in Auto Shill settings."); return;
           }
 
           const tickerClean = shillTicker.replace(/^\$/, "");
@@ -2554,44 +2536,9 @@ serve(async (req) => {
           copyText = await appendSignatureHandles(supabase, copyText);
 
           sendCopyDM(discordUserId, copyText);
-          return json({
-            type: 4,
-            data: {
-              content: `${copyText}`,
-              flags: 64,
-            },
-          });
+          await followUpInteraction(applicationId, interactionToken, `${copyText}`); return;
         }
 
-        // ─── Verify Raid button — show modal to enter raid URL ───
-        if (customId.startsWith("raid_verify_")) {
-          const discordMsgId = customId.replace("raid_verify_", "") || null;
-
-          return json({
-            type: 9,
-            data: {
-              custom_id: `raid_verify_submit_${discordMsgId || "unknown"}`,
-              title: "✅ Verify Your Raid",
-              components: [
-                {
-                  type: 1,
-                  components: [
-                    {
-                      type: 4,
-                      custom_id: "raid_url_input",
-                      label: "Paste your raid reply URL",
-                      style: 1,
-                      placeholder: "https://x.com/yourhandle/status/123456...",
-                      required: true,
-                      min_length: 10,
-                      max_length: 300,
-                    },
-                  ],
-                },
-              ],
-            },
-          });
-        }
 
         // ─── Bad Link button (raid room) — raider flags a bad shill URL ───
         if (customId.startsWith("bad_link_")) {
@@ -2623,7 +2570,7 @@ serve(async (req) => {
           });
         }
 
-        return json({ type: 4, data: { content: "❓ Unknown action.", flags: 64 } });
+        await followUpInteraction(applicationId, interactionToken, "❓ Unknown action."); return;
       }
 
       // ── Load config to check assignments (non-raid channels) ──
@@ -2640,13 +2587,7 @@ serve(async (req) => {
         const availText = available.length > 0
           ? `\n\n📋 Available accounts:\n${available.map(a => `• \`@${a}\``).join("\n")}\n\nUse \`/authorize account:<name>\` to claim one.`
           : "\n\n⚠️ No accounts available right now. Ask an admin.";
-        return json({
-          type: 4,
-          data: {
-            content: `🚫 You're not assigned to any X account yet.${availText}`,
-            flags: 64,
-          },
-        });
+        await followUpInteraction(applicationId, interactionToken, `🚫 You're not assigned to any X account yet.${availText}`); return;
       }
 
       // ─── SHILL NOW button — record click + give URL ───
@@ -2657,13 +2598,7 @@ serve(async (req) => {
         if (isBotMessageExpired(trackedMessage, interaction.message)) {
           await expireTrackedBotMessage(supabase, trackedMessage, DISCORD_BOT_TOKEN);
 
-          return json({
-            type: 4,
-            data: {
-              content: "⏰ This shill alert has expired — find a new post.",
-              flags: 64,
-            },
-          });
+          await followUpInteraction(applicationId, interactionToken, "⏰ This shill alert has expired — find a new post."); return;
         }
 
         const cleanTweetUrl = (tweetUrl || "").replace(/[)\]}>]+$/, "");
@@ -2685,15 +2620,9 @@ serve(async (req) => {
         }
 
         const cleanTweetUrlDisplay = (tweetUrl || "").replace(/[)\]}>]+$/, "");
-        return json({
-          type: 4,
-          data: {
-            content: cleanTweetUrlDisplay
+        await followUpInteraction(applicationId, interactionToken, cleanTweetUrlDisplay
               ? `🚀 **Go shill this tweet now!**\n${cleanTweetUrlDisplay}\n\n💡 Use **📋 Get Shill Copy** for ready-to-paste text.`
-              : `🚀 Click recorded! Use **📋 Get Shill Copy** for your post text.`,
-            flags: 64,
-          },
-        });
+              : `🚀 Click recorded! Use **📋 Get Shill Copy** for your post text.`); return;
       }
 
       // ─── Get Shill Copy button ───
@@ -2703,7 +2632,7 @@ serve(async (req) => {
         const trackedCopy = await getTrackedBotMessage(supabase, discordMsgId);
         if (isBotMessageExpired(trackedCopy, interaction.message)) {
           await expireTrackedBotMessage(supabase, trackedCopy, DISCORD_BOT_TOKEN);
-          return json({ type: 4, data: { content: "⏰ This shill alert has expired — find a new post.", flags: 64 } });
+          await followUpInteraction(applicationId, interactionToken, "⏰ This shill alert has expired — find a new post."); return;
         }
 
         const cleanTweetUrl2 = (tweetUrl || "").replace(/[)\]}>]+$/, "");
@@ -2730,7 +2659,7 @@ serve(async (req) => {
         const accountHashtags: Record<string, string> = cfg?.account_hashtags || {};
 
         if (!shillTicker) {
-          return json({ type: 4, data: { content: "⚠️ No ticker configured in Auto Shill settings.", flags: 64 } });
+          await followUpInteraction(applicationId, interactionToken, "⚠️ No ticker configured in Auto Shill settings."); return;
         }
 
         const tickerClean = shillTicker.replace(/^\$/, "");
@@ -2799,13 +2728,7 @@ serve(async (req) => {
           const randomComment = `${intro}${template} ${emojis}`;
 
           sendCopyDM(discordUserId, randomComment);
-          return json({
-            type: 4,
-            data: {
-              content: `${randomComment}`,
-              flags: 64,
-            },
-          });
+          await followUpInteraction(applicationId, interactionToken, `${randomComment}`); return;
         }
 
         // ── SHILL CHANNEL: randomized copy with hashtags + campaign link (rotation) ──
@@ -2898,13 +2821,7 @@ serve(async (req) => {
         copyText = await appendSignatureHandles(supabase, copyText);
 
         sendCopyDM(discordUserId, copyText);
-        return json({
-          type: 4,
-          data: {
-            content: `${copyText}`,
-            flags: 64,
-          },
-        });
+        await followUpInteraction(applicationId, interactionToken, `${copyText}`); return;
         }
 
         // ─── Verify button (shill room) — shiller submits their post URL ───
@@ -2921,7 +2838,7 @@ serve(async (req) => {
             .limit(1);
 
           if (!userClicks?.length) {
-            return json({ type: 4, data: { content: "❌ You need to click **🚀 SHILL NOW** or **📋 Get Shill Copy** first before verifying.", flags: 64 } });
+            await followUpInteraction(applicationId, interactionToken, "❌ You need to click **🚀 SHILL NOW** or **📋 Get Shill Copy** first before verifying."); return;
           }
 
           return json({
@@ -2950,7 +2867,7 @@ serve(async (req) => {
           });
         }
 
-        return json({ type: 4, data: { content: "❓ Unknown action.", flags: 64 } });
+        await followUpInteraction(applicationId, interactionToken, "❓ Unknown action."); return;
     }
 
     // ─── Modal submit (type 5) — raider secret code entry ───
