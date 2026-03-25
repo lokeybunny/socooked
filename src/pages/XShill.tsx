@@ -151,6 +151,7 @@ export default function XShill() {
   const [refreshing, setRefreshing] = useState(false);
   const [editTarget, setEditTarget] = useState<CommunityTarget | null>(null);
   const [editDialog, setEditDialog] = useState(false);
+  const [recyclePage, setRecyclePage] = useState(1);
   const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
   const [editPost, setEditPost] = useState<ScheduledPost | null>(null);
   const [editPostDialog, setEditPostDialog] = useState(false);
@@ -1909,7 +1910,22 @@ export default function XShill() {
                           </div>
                         ))}
                       </div>
-                    </ScrollArea>
+                      {recycleTotalPages > 1 && (
+                        <div className="flex items-center justify-between pt-2 border-t border-border">
+                          <p className="text-xs text-muted-foreground">
+                            Page {recyclePageClamped} of {recycleTotalPages} ({postedPosts.length} posts)
+                          </p>
+                          <div className="flex gap-1">
+                            <Button variant="outline" size="icon" className="h-7 w-7" disabled={recyclePageClamped <= 1} onClick={() => setRecyclePage(p => p - 1)}>
+                              <ChevronLeft className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="outline" size="icon" className="h-7 w-7" disabled={recyclePageClamped >= recycleTotalPages} onClick={() => setRecyclePage(p => p + 1)}>
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })()}
               </CardContent>
