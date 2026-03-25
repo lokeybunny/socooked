@@ -3961,6 +3961,9 @@ Deno.serve(async (req) => {
                const homeCommunityLabel = sp.community || '$whitehouse'
                resolvedCaption = resolvedCaption.replace(/\$TICKER/gi, homeCommunityLabel)
 
+               // Append signature handles
+               resolvedCaption = await appendSignatureToCaption(supa, resolvedCaption)
+
                const uploadAction = isImage ? 'upload-photos' : 'upload-video'
                const uploadBody: Record<string, any> = {
                    title: resolvedCaption,
