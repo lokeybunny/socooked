@@ -7,6 +7,7 @@ const corsHeaders = {
 
 const APIFY_TOKEN = Deno.env.get('APIFY_TOKEN_COMMUNITY')!;
 const ACTOR_ID = 'curious_coder~twitter-community-members-scraper';
+const TWITTER_COOKIE_JSON = Deno.env.get('TWITTER_COOKIE_JSON') || '[]';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -22,8 +23,20 @@ serve(async (req) => {
         });
       }
 
+      let cookie: any[];
+      try {
+        cookie = JSON.parse(TWITTER_COOKIE_JSON);
+      } catch {
+        return new Response(JSON.stringify({ error: 'TWITTER_COOKIE_JSON secret is not valid JSON' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       const input: Record<string, unknown> = {
         communityUrl,
+        cookie,
+        minDelay: 2,
+        maxDelay: 5,
       };
 
       const startUrl = `https://api.apify.com/v2/acts/${ACTOR_ID}/runs?token=${APIFY_TOKEN}`;
