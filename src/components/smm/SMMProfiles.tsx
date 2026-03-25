@@ -1,12 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { SMMProfile } from '@/lib/smm/types';
 import { smmApi } from '@/lib/smm/store';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ExternalLink, AlertTriangle, CheckCircle, Bell, Info, Search, ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { ExternalLink, AlertTriangle, CheckCircle, Bell, Info, Search, ChevronLeft, ChevronRight, User, Zap, Loader2, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PLATFORM_META } from '@/lib/smm/context';
+
+interface OutboundXAccount {
+  id: string;
+  account_label: string;
+  account_identifier: string;
+  is_authorized: boolean;
+}
 
 const PLATFORM_COLORS: Record<string, string> = {
   instagram: 'bg-pink-500/10 text-pink-500', facebook: 'bg-blue-500/10 text-blue-500',
@@ -28,10 +36,58 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [xAccounts, setXAccounts] = useState<OutboundXAccount[]>([]);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
 
   useEffect(() => {
     smmApi.getMe().then(setAccountInfo).catch(() => {});
+    supabase
+      .from('outbound_accounts')
+      .select('id, account_label, account_identifier, is_authorized')
+      .eq('platform', 'x')
+      .then(({ data }) => { if (data) setXAccounts(data); });
   }, []);
+
+  // Determine which X accounts are NOT yet connected in any profile
+  const connectedXHandles = useMemo(() => {
+    const handles = new Set<string>();
+    profiles.forEach(p =>
+      p.connected_platforms
+        .filter(cp => cp.connected && (cp.platform === 'twitter' || (cp.platform as string) === 'x'))
+        .forEach(cp => {
+          handles.add((cp.handle || cp.display_name).toLowerCase().replace(/^@/, ''));
+        })
+    );
+    return handles;
+  }, [profiles]);
+
+  const unconnectedXAccounts = useMemo(
+    () => xAccounts.filter(a => !connectedXHandles.has(a.account_identifier.toLowerCase().replace(/^@/, ''))),
+    [xAccounts, connectedXHandles]
+  );
+
+  const handleAutoConnect = async (account: OutboundXAccount) => {
+    setConnectingId(account.id);
+    try {
+      // Ensure a profile exists for this username
+      const profileUsername = account.account_identifier.replace(/^@/, '');
+      const existingProfile = profiles.find(p => p.username.toLowerCase() === profileUsername.toLowerCase());
+      if (!existingProfile) {
+        await smmApi.createProfile(profileUsername);
+      }
+      // Generate JWT connect URL
+      const { access_url } = await smmApi.generateConnectJWT(profileUsername);
+      if (access_url) {
+        window.open(access_url, '_blank');
+        toast.success(`Connect window opened for @${profileUsername}. Complete the auth flow, then refresh.`);
+      } else {
+        toast.error('Failed to generate connect URL');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to auto-connect');
+    }
+    setConnectingId(null);
+  };
 
   // Build grouped data: profile -> connected accounts
   const grouped = useMemo(() => {
@@ -99,6 +155,55 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
           className="pl-9"
         />
       </div>
+
+      {/* Auto-Connect X Accounts */}
+      {xAccounts.length > 0 && (
+        <div className="glass-card p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Zap className="h-4 w-4 text-primary" /> Auto-Connect X Accounts
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {unconnectedXAccounts.length > 0
+              ? `${unconnectedXAccounts.length} X account${unconnectedXAccounts.length !== 1 ? 's' : ''} from your CRM ready to connect.`
+              : 'All X accounts from your CRM are already connected.'}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {xAccounts.map(account => {
+              const handle = account.account_identifier.replace(/^@/, '').toLowerCase();
+              const isConnected = connectedXHandles.has(handle);
+              const isLoading = connectingId === account.id;
+              return (
+                <div
+                  key={account.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                    isConnected ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-border bg-muted/30'
+                  }`}
+                >
+                  {PLATFORM_META.twitter && <PLATFORM_META.twitter.icon className="h-4 w-4 text-muted-foreground shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">@{account.account_identifier.replace(/^@/, '')}</p>
+                    <p className="text-[10px] text-muted-foreground">{account.account_label}</p>
+                  </div>
+                  {isConnected ? (
+                    <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 gap-1.5 text-xs"
+                      disabled={isLoading}
+                      onClick={() => handleAutoConnect(account)}
+                    >
+                      {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2 className="h-3 w-3" />}
+                      Connect
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Grouped Accounts */}
       {grouped.length > 0 ? (
