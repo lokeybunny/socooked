@@ -223,8 +223,11 @@ export default function XShill() {
       if (rotCfg?.content) {
         setRotationAccounts((rotCfg.content as any).accounts || []);
       } else {
-        // Seed with current default account
-        setRotationAccounts([{ id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 }]);
+        // Seed with current default accounts
+        setRotationAccounts([
+          { id: crypto.randomUUID(), handle: "xslaves", status: "active", posts_today: 0 },
+          { id: crypto.randomUUID(), handle: "warrenguru", status: "active", posts_today: 0 },
+        ]);
       }
 
       // Load shill campaign presets
@@ -736,7 +739,7 @@ export default function XShill() {
                 <p>3. Any Trump/WhiteHouse/POTUS related content triggers a community post (10 min + random jitter cooldown)</p>
                 <p>4. Keywords detected: trump, whitehouse, white house, potus, oval office, executive order, mar-a-lago, maga, realdonaldtrump</p>
                 <p>5. All intervals are randomized to avoid X spam detection</p>
-                <p>6. Posts via <code className="text-foreground">@ctothispump</code> (xslaves) account</p>
+                <p>6. Posts via <code className="text-foreground">@ctothispump</code> (xslaves) and <code className="text-foreground">@warrenguru</code> accounts — auto-rotates</p>
               </CardContent>
             </Card>
           </TabsContent>

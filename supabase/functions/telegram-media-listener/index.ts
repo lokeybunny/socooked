@@ -86,6 +86,7 @@ function ensureBotCommandsBg(token: string) {
     { command: 'audit', description: '🔍 Audit a website + Instagram' },
     { command: 'gains', description: '⚡ Toggle TP10 gain alerts on/off' },
     { command: 'shill', description: '🚀 Shill video to X Community' },
+    { command: 'shill2', description: '🎯 Shill video to Shill X community' },
   ]
 
   // Fire-and-forget: register commands + ensure webhook accepts channel_post
@@ -2398,6 +2399,30 @@ Deno.serve(async (req) => {
         return new Response('ok')
       }
 
+      // ─── SHILL X TIMING callbacks ───
+      if (cbData === 'shill_x_timing_now' || cbData === 'shill_x_timing_schedule') {
+        const { data: sxSessions } = await supabase.from('webhook_events')
+          .select('id, payload')
+          .eq('source', 'telegram').eq('event_type', 'shill_x_session')
+          .filter('payload->>chat_id', 'eq', String(cbChatId))
+          .eq('processed', false).limit(1)
+        const sx = sxSessions?.[0]
+        if (sx) {
+          const sxp = sx.payload as any
+          const timing = cbData === 'shill_x_timing_now' ? 'now' : 'schedule'
+          await supabase.from('webhook_events').update({
+            payload: { ...sxp, step: 'video', timing },
+          }).eq('id', sx.id)
+          const label = timing === 'now' ? '🚀 Got it — posting immediately after upload.' : '📅 Got it — video will be scheduled.'
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: cbChatId,
+            text: `${label}\n\n📹 Now upload the video.`,
+            parse_mode: 'HTML',
+          })
+        }
+        return new Response('ok')
+      }
+
       // ─── SHILL NOW copy callback ───
       if (cbData === 'shill_copy') {
         const { data: shillConfigs } = await supabase
@@ -3917,6 +3942,209 @@ Deno.serve(async (req) => {
         }
 
         // If in video step but no media, remind
+        if (sp.step === 'video' && !media) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Please upload a video file to continue, or type /cancel to exit.' })
+          return new Response('ok')
+        }
+
+        return new Response('ok')
+      }
+
+      // ─── Shill X session handler (mirrors shill_session for cross-community) ───
+      if (sessionType === 'shill_x_session') {
+        if (sp.step === 'caption' && text) {
+          await supabase.from('webhook_events').update({
+            payload: { ...sp, step: 'timing', caption: text },
+          }).eq('id', session.id)
+          await tgPost(TG_TOKEN, 'sendMessage', {
+            chat_id: chatId,
+            text: `✅ Caption saved:\n<i>"${text}"</i>\n\n📡 Target: <b>${sp.community_name}</b>\n\n⏱ Post now or schedule?`,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🚀 Post Now', callback_data: 'shill_x_timing_now' }],
+                [{ text: '📅 Schedule', callback_data: 'shill_x_timing_schedule' }],
+              ],
+            },
+          })
+          return new Response('ok')
+        }
+
+        if (sp.step === 'timing' && text) {
+          const lower = text.toLowerCase()
+          if (lower.includes('now')) {
+            await supabase.from('webhook_events').update({
+              payload: { ...sp, step: 'video', timing: 'now' },
+            }).eq('id', session.id)
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Upload the video to post now.', parse_mode: 'HTML' })
+          } else if (lower.includes('schedule') || lower.includes('later')) {
+            await supabase.from('webhook_events').update({
+              payload: { ...sp, step: 'video', timing: 'schedule' },
+            }).eq('id', session.id)
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Upload the video to schedule.', parse_mode: 'HTML' })
+          } else {
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❓ Please choose "Post Now" or "Schedule".', parse_mode: 'HTML' })
+          }
+          return new Response('ok')
+        }
+
+        if (sp.step === 'video' && media) {
+          await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📡 Downloading video from Telegram...' })
+          try {
+            const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ file_id: media.fileId }),
+            })
+            const fileInfo = await fileInfoRes.json()
+            const filePath = fileInfo.result?.file_path
+            if (!filePath) throw new Error('Could not get file path from Telegram')
+
+            const fileUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
+            const fileRes = await fetch(fileUrl)
+            if (!fileRes.ok) throw new Error(`Failed to download file: ${fileRes.status}`)
+            const fileBytes = await fileRes.arrayBuffer()
+
+            const storagePath = `shill-x/${Date.now()}_${media.fileName}`
+            const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+            const supa = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+            const { error: uploadErr } = await supa.storage.from('content-uploads').upload(storagePath, fileBytes, {
+              contentType: media.type === 'video' ? 'video/mp4' : 'application/octet-stream',
+              upsert: false,
+            })
+            if (uploadErr) throw new Error(`Storage upload failed: ${uploadErr.message}`)
+            const { data: urlData } = supa.storage.from('content-uploads').getPublicUrl(storagePath)
+            const publicUrl = urlData.publicUrl
+
+            // Load rotation accounts
+            const { data: rotCfg } = await supa.from('site_configs')
+              .select('content')
+              .eq('site_id', 'smm-auto-shill')
+              .eq('section', 'shill-rotation-accounts')
+              .maybeSingle()
+            let rotAccounts = (rotCfg?.content as any)?.accounts || []
+            let activeAccounts = rotAccounts.filter((a: any) => a.status === 'active')
+            if (activeAccounts.length === 0) activeAccounts = [{ handle: 'xslaves' }]
+            // Round-robin: pick account based on total shill_x posts count
+            const { count: sxCount } = await supa.from('shill_scheduled_posts').select('id', { count: 'exact', head: true }).eq('community_id', sp.community_id)
+            const accountIdx = (sxCount || 0) % activeAccounts.length
+            const selectedAccount = activeAccounts[accountIdx].handle
+
+            const COMMUNITY_ID = sp.community_id
+            const COMMUNITY_NAME = sp.community_name || 'Shill X'
+
+            if (sp.timing === 'schedule') {
+              // Schedule with same burst-gap logic as /shill
+              const { data: existingPosts } = await supa.from('shill_scheduled_posts')
+                .select('scheduled_at')
+                .eq('community_id', COMMUNITY_ID)
+                .in('status', ['scheduled', 'processing'])
+                .order('scheduled_at', { ascending: true })
+              const existingTimes = (existingPosts || []).map((p: any) => new Date(p.scheduled_at).getTime())
+              existingTimes.sort((a: number, b: number) => a - b)
+              const MIN_GAP_MS = (30 + Math.floor(Math.random() * 45)) * 60 * 1000
+              const isFarEnough = (t: number) => existingTimes.every((e: number) => Math.abs(t - e) >= MIN_GAP_MS)
+
+              const now = new Date()
+              let earliestMs = now.getTime() + 30 * 60 * 1000
+              // Simple scheduling: find next available slot
+              let scheduledAt: Date | null = null
+              for (let h = 0; h < 168; h++) {
+                const hourStart = new Date(earliestMs)
+                hourStart.setMinutes(0, 0, 0)
+                hourStart.setHours(hourStart.getHours() + h)
+                for (let attempt = 0; attempt < 15; attempt++) {
+                  const randomMinute = 2 + Math.floor(Math.random() * 56)
+                  const candidate = new Date(hourStart)
+                  candidate.setMinutes(randomMinute, Math.floor(Math.random() * 30), 0)
+                  if (candidate.getTime() < earliestMs) continue
+                  if (!isFarEnough(candidate.getTime())) continue
+                  scheduledAt = candidate
+                  break
+                }
+                if (scheduledAt) break
+              }
+
+              if (!scheduledAt) {
+                await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ All slots full. Try posting now instead.' })
+              } else {
+                await supa.from('shill_scheduled_posts').insert({
+                  chat_id: chatId,
+                  caption: sp.caption,
+                  video_url: publicUrl,
+                  storage_path: storagePath,
+                  community_id: COMMUNITY_ID,
+                  x_account: selectedAccount,
+                  scheduled_at: scheduledAt.toISOString(),
+                  status: 'scheduled',
+                })
+                const timeStr = scheduledAt.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+                await tgPost(TG_TOKEN, 'sendMessage', {
+                  chat_id: chatId,
+                  text: `📅 <b>Shill X — Video scheduled!</b>\n\n📡 Community: <b>${COMMUNITY_NAME}</b>\n👤 Account: <b>@${selectedAccount}</b>\n📝 Caption: <i>"${sp.caption}"</i>\n🕐 Posting at: <b>${timeStr} PST</b>`,
+                  parse_mode: 'HTML',
+                })
+              }
+            } else {
+              // POST NOW
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `📤 Posting to ${COMMUNITY_NAME} via @${selectedAccount}...` })
+              const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
+              const postRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-video`, {
+                method: 'POST',
+                headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  title: sp.caption,
+                  video: publicUrl,
+                  'platform[]': ['x'],
+                  user: selectedAccount,
+                  community_id: COMMUNITY_ID,
+                }),
+              })
+              const postResult = await postRes.json()
+
+              if (!postRes.ok || postResult?.error) {
+                await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Upload failed: ${postResult?.error || postResult?.message || `HTTP ${postRes.status}`}` })
+              } else {
+                const requestId = postResult?.request_id || postResult?.data?.request_id || ''
+                let postUrl = '', statusLabel = 'submitted'
+                if (requestId) {
+                  await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⏳ Waiting for video to process...' })
+                  for (let poll = 0; poll < 12; poll++) {
+                    await new Promise(r => setTimeout(r, 5000))
+                    try {
+                      const statusRes = await fetch(`${SUPABASE_URL}/functions/v1/smm-api?action=upload-status&request_id=${requestId}`, {
+                        headers: { 'apikey': ANON_KEY, 'Authorization': `Bearer ${ANON_KEY}` },
+                      })
+                      const statusData = await statusRes.json()
+                      const st = statusData?.status || statusData?.data?.status || ''
+                      if (st === 'completed' || st === 'success' || st === 'done') {
+                        statusLabel = 'completed'
+                        postUrl = statusData?.post_url || statusData?.data?.post_url || statusData?.posts?.[0]?.post_url || ''
+                        break
+                      }
+                      if (st === 'failed' || st === 'error') { statusLabel = 'failed'; break }
+                    } catch {}
+                  }
+                }
+
+                if (statusLabel === 'failed') {
+                  await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '❌ Video processing failed. Try again.' })
+                } else {
+                  let successMsg = `✅ <b>Video posted to ${COMMUNITY_NAME}!</b>\n\n👤 Account: <b>@${selectedAccount}</b>\n📝 Caption: <i>"${sp.caption}"</i>\n🆔 Request: <code>${requestId}</code>`
+                  if (statusLabel === 'completed' && postUrl) successMsg += `\n\n🔗 <a href="${postUrl}">View Post on X</a>`
+                  else if (statusLabel === 'submitted') successMsg += `\n\n⏳ Video is still processing.`
+                  await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: successMsg, parse_mode: 'HTML', disable_web_page_preview: false })
+                }
+              }
+            }
+          } catch (e: any) {
+            console.error('[shill-x] error:', e)
+            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: `❌ Shill X failed: ${e.message}` })
+          }
+          await supabase.from('webhook_events').delete().eq('id', session.id)
+          return new Response('ok')
+        }
+
         if (sp.step === 'video' && !media) {
           await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '📹 Please upload a video file to continue, or type /cancel to exit.' })
           return new Response('ok')
