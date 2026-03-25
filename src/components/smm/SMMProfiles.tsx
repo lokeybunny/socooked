@@ -1,12 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { SMMProfile } from '@/lib/smm/types';
 import { smmApi } from '@/lib/smm/store';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ExternalLink, AlertTriangle, CheckCircle, Bell, Info, Search, ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { ExternalLink, AlertTriangle, CheckCircle, Bell, Info, Search, ChevronLeft, ChevronRight, User, Zap, Loader2, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PLATFORM_META } from '@/lib/smm/context';
+
+interface OutboundXAccount {
+  id: string;
+  account_label: string;
+  account_identifier: string;
+  is_authorized: boolean;
+}
 
 const PLATFORM_COLORS: Record<string, string> = {
   instagram: 'bg-pink-500/10 text-pink-500', facebook: 'bg-blue-500/10 text-blue-500',
