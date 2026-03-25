@@ -95,6 +95,7 @@ interface AwayComm {
   community_id: string;
   community_name: string;
   enabled: boolean;
+  hide_ticker?: boolean;
 }
 
 interface ShillXConfig {
