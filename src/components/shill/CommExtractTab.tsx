@@ -181,7 +181,7 @@ export default function CommExtractTab() {
               )}
             </Button>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
               <div className="flex rounded-md border border-border overflow-hidden text-[10px]">
                 {(["all", "verified", "unverified"] as const).map((mode) => (
                   <button
@@ -198,7 +198,6 @@ export default function CommExtractTab() {
                   </button>
                 ))}
               </div>
-            </div>
             {statusText && (
               <Badge variant={status === "error" ? "destructive" : status === "done" ? "default" : "secondary"} className="text-[10px]">
                 {status === "running" && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
