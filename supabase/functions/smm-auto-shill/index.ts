@@ -335,7 +335,7 @@ async function checkEarningsCap(
 }
 
 
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
 
 // ─── Ed25519 signature verification for Discord Interactions ───
 function hexToUint8Array(hex: string): Uint8Array {
