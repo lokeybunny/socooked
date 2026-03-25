@@ -38,6 +38,7 @@ export default function CommExtractTab() {
   const [communityUrl, setCommunityUrl] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(true);
   const [filterMode, setFilterMode] = useState<"all" | "verified" | "unverified">("all");
+  const [members, setMembers] = useState<Member[]>([]);
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [runId, setRunId] = useState<string | null>(null);
   const [statusText, setStatusText] = useState("");
