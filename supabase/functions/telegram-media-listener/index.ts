@@ -4086,19 +4086,42 @@ Deno.serve(async (req) => {
               const MIN_GAP_MS = (30 + Math.floor(Math.random() * 45)) * 60 * 1000
               const isFarEnough = (t: number) => existingTimes.every((e: number) => Math.abs(t - e) >= MIN_GAP_MS)
 
+              // ─── Away Comm PST window: 10AM - 5PM only ───
+              const getAwayPacificOffset = (d: Date): number => {
+                const year = d.getUTCFullYear()
+                const marStart = new Date(Date.UTC(year, 2, 8))
+                marStart.setUTCDate(marStart.getUTCDate() + (7 - marStart.getUTCDay()) % 7)
+                const novEnd = new Date(Date.UTC(year, 10, 1))
+                novEnd.setUTCDate(1 + (7 - novEnd.getUTCDay()) % 7)
+                return (d >= marStart && d < novEnd) ? -7 : -8
+              }
+              const AWAY_WINDOW_START = 10 // 10 AM Pacific
+              const AWAY_WINDOW_END = 17   // 5 PM Pacific
+              const isInAwayWindow = (utcMs: number): boolean => {
+                const d = new Date(utcMs)
+                const offset = getAwayPacificOffset(d)
+                const pacificHour = (d.getUTCHours() + offset + 24) % 24
+                return pacificHour >= AWAY_WINDOW_START && pacificHour < AWAY_WINDOW_END
+              }
+
               const now = new Date()
               let earliestMs = now.getTime() + 30 * 60 * 1000
-              // Simple scheduling: find next available slot
+              // Simple scheduling: find next available slot within 10AM-5PM PST
               let scheduledAt: Date | null = null
               for (let h = 0; h < 168; h++) {
                 const hourStart = new Date(earliestMs)
                 hourStart.setMinutes(0, 0, 0)
                 hourStart.setHours(hourStart.getHours() + h)
+
+                // Skip hours outside 10AM-5PM Pacific window
+                if (!isInAwayWindow(hourStart.getTime())) continue
+
                 for (let attempt = 0; attempt < 15; attempt++) {
                   const randomMinute = 2 + Math.floor(Math.random() * 56)
                   const candidate = new Date(hourStart)
                   candidate.setMinutes(randomMinute, Math.floor(Math.random() * 30), 0)
                   if (candidate.getTime() < earliestMs) continue
+                  if (!isInAwayWindow(candidate.getTime())) continue
                   if (!isFarEnough(candidate.getTime())) continue
                   scheduledAt = candidate
                   break
