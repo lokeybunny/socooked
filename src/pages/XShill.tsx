@@ -265,6 +265,29 @@ export default function XShill() {
         .eq("platform", "x")
         .eq("provider", "upload-post");
       if (obAccounts) setOutboundXAccounts(obAccounts);
+
+      // Load Shill X config
+      const { data: shillXCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "shill-x-config")
+        .maybeSingle();
+      if (shillXCfg?.content) {
+        setShillXConfig(shillXCfg.content as any);
+      }
+
+      // Load Shill X posts (community_id != default whitehouse community)
+      const shillXCommunityId = (shillXCfg?.content as any)?.community_id;
+      if (shillXCommunityId) {
+        const { data: sxPosts } = await supabase
+          .from("shill_scheduled_posts")
+          .select("*")
+          .eq("community_id", shillXCommunityId)
+          .order("scheduled_at", { ascending: false })
+          .limit(50);
+        setShillXPosts((sxPosts as any[]) || []);
+      }
     } catch (e) {
       console.error("Load error:", e);
     } finally {
