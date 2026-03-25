@@ -181,12 +181,23 @@ export default function CommExtractTab() {
               )}
             </Button>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Switch checked={verifiedOnly} onCheckedChange={setVerifiedOnly} />
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <BadgeCheck className="h-3.5 w-3.5 text-[#1d9bf0]" /> Verified only
-              </span>
+          <div className="flex items-center gap-2">
+              <div className="flex rounded-md border border-border overflow-hidden text-[10px]">
+                {(["all", "verified", "unverified"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setFilterMode(mode)}
+                    className={`px-2.5 py-1 capitalize transition-colors ${
+                      filterMode === mode
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {mode === "verified" && <BadgeCheck className="h-3 w-3 inline mr-0.5 text-[#1d9bf0]" />}
+                    {mode}
+                  </button>
+                ))}
+              </div>
             </div>
             {statusText && (
               <Badge variant={status === "error" ? "destructive" : status === "done" ? "default" : "secondary"} className="text-[10px]">
