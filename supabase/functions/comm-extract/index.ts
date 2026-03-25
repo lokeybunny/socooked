@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +9,13 @@ const corsHeaders = {
 const APIFY_TOKEN = Deno.env.get('APIFY_TOKEN_COMMUNITY')!;
 const ACTOR_ID = 'curious_coder~twitter-community-members-scraper';
 const TWITTER_COOKIE_JSON = Deno.env.get('TWITTER_COOKIE_JSON') || '[]';
+
+function getSupabase() {
+  return createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -71,11 +79,10 @@ serve(async (req) => {
         });
       }
 
-      // Check run status
       const statusUrl = `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`;
       const statusRes = await fetch(statusUrl);
       const statusData = await statusRes.json();
-      const runStatus = statusData?.data?.status; // READY, RUNNING, SUCCEEDED, FAILED, ABORTED, TIMED-OUT
+      const runStatus = statusData?.data?.status;
       const datasetId = statusData?.data?.defaultDatasetId;
 
       if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(runStatus)) {
@@ -84,8 +91,7 @@ serve(async (req) => {
         });
       }
 
-      // Fetch partial/complete results from dataset
-      let members: { handle: string; name: string; verified: boolean; followers: number; bio: string }[] = [];
+      let members: { handle: string; name: string; verified: boolean; followers: number; bio: string; role: string }[] = [];
       if (datasetId) {
         const dataUrl = `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=5000`;
         const dataRes = await fetch(dataUrl);
@@ -102,12 +108,37 @@ serve(async (req) => {
         }
       }
 
-      // Apply verified filter server-side if requested
       if (verifiedOnly) {
         members = members.filter(m => m.verified);
       }
 
       const done = runStatus === 'SUCCEEDED';
+
+      // Auto-save to comm_scrapes when done
+      if (done && members.length > 0) {
+        try {
+          const sb = getSupabase();
+          // Check if this run was already saved
+          const { data: existing } = await sb.from('comm_scrapes')
+            .select('id')
+            .eq('apify_run_id', runId)
+            .maybeSingle();
+
+          if (!existing) {
+            // Extract community URL from the run input if available
+            const inputUrl = statusData?.data?.options?.input?.communityUrl || '';
+            await sb.from('comm_scrapes').insert({
+              community_url: inputUrl,
+              apify_run_id: runId,
+              member_count: members.length,
+              members: members,
+              status: 'completed',
+            });
+          }
+        } catch (e) {
+          console.error('[comm-extract] Failed to save scrape:', e);
+        }
+      }
 
       return new Response(JSON.stringify({
         success: true,

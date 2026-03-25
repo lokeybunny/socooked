@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Search, Download, Copy, Loader2, BadgeCheck, Users, CheckCircle2 } from "lucide-react";
+import { Search, Download, Copy, Loader2, BadgeCheck, Users, CheckCircle2, Archive, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import SavedScrapesList from "./SavedScrapesList";
+import MemberTable from "./MemberTable";
 
 interface Member {
   handle: string;
@@ -21,6 +23,17 @@ interface Member {
   role: string;
 }
 
+export interface SavedScrape {
+  id: string;
+  name: string;
+  community_url: string;
+  apify_run_id: string | null;
+  member_count: number;
+  members: Member[];
+  status: string;
+  created_at: string;
+}
+
 export default function CommExtractTab() {
   const [communityUrl, setCommunityUrl] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(true);
@@ -29,6 +42,18 @@ export default function CommExtractTab() {
   const [runId, setRunId] = useState<string | null>(null);
   const [statusText, setStatusText] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [savedScrapes, setSavedScrapes] = useState<SavedScrape[]>([]);
+  const [activeScrapeName, setActiveScrapeName] = useState<string | null>(null);
+
+  const loadSavedScrapes = useCallback(async () => {
+    const { data } = await supabase
+      .from("comm_scrapes")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (data) setSavedScrapes(data as unknown as SavedScrape[]);
+  }, []);
+
+  useEffect(() => { loadSavedScrapes(); }, [loadSavedScrapes]);
 
   const stopPolling = () => {
     if (pollRef.current) {
@@ -51,6 +76,7 @@ export default function CommExtractTab() {
         setStatus("done");
         stopPolling();
         toast.success(`Scrape complete — ${data.total} members extracted`);
+        loadSavedScrapes(); // Refresh saved list
       } else if (['FAILED', 'ABORTED', 'TIMED-OUT'].includes(data.status)) {
         setStatus("error");
         stopPolling();
@@ -59,7 +85,7 @@ export default function CommExtractTab() {
     } catch (e: any) {
       console.error("Poll error:", e);
     }
-  }, []);
+  }, [loadSavedScrapes]);
 
   const startScrape = async () => {
     if (!communityUrl.trim()) {
@@ -68,6 +94,7 @@ export default function CommExtractTab() {
     }
     setStatus("running");
     setMembers([]);
+    setActiveScrapeName(null);
     setStatusText("Starting scraper...");
     stopPolling();
 
@@ -82,9 +109,7 @@ export default function CommExtractTab() {
       setRunId(rid);
       setStatusText("Scraper started — polling for results...");
 
-      // Poll every 5 seconds
       pollRef.current = setInterval(() => pollResults(rid, verifiedOnly), 5000);
-      // Also poll immediately after a short delay
       setTimeout(() => pollResults(rid, verifiedOnly), 3000);
     } catch (e: any) {
       setStatus("error");
@@ -93,21 +118,31 @@ export default function CommExtractTab() {
     }
   };
 
+  const loadScrape = (scrape: SavedScrape) => {
+    setMembers(scrape.members);
+    setActiveScrapeName(scrape.name);
+    setStatus("done");
+    setStatusText(`Loaded "${scrape.name}" — ${scrape.member_count} members`);
+    setCommunityUrl(scrape.community_url);
+  };
+
   const copyHandles = () => {
-    const handles = members.map(m => `@${m.handle}`).join("\n");
+    const list = displayMembers;
+    const handles = list.map(m => `@${m.handle}`).join("\n");
     navigator.clipboard.writeText(handles);
-    toast.success(`${members.length} handles copied`);
+    toast.success(`${list.length} handles copied`);
   };
 
   const downloadCsv = () => {
-    const rows = [["handle", "name", "verified", "followers", "bio"]];
-    members.forEach(m => rows.push([`@${m.handle}`, m.name, String(m.verified), String(m.followers), m.bio.replace(/"/g, '""')]));
+    const list = displayMembers;
+    const rows = [["handle", "name", "verified", "followers", "role"]];
+    list.forEach(m => rows.push([`@${m.handle}`, m.name, String(m.verified), String(m.followers), m.role]));
     const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `comm-members-${Date.now()}.csv`;
+    a.download = `comm-members-${activeScrapeName || Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV downloaded");
@@ -133,11 +168,7 @@ export default function CommExtractTab() {
               onChange={(e) => setCommunityUrl(e.target.value)}
               className="text-sm flex-1"
             />
-            <Button
-              onClick={startScrape}
-              disabled={status === "running"}
-              size="sm"
-            >
+            <Button onClick={startScrape} disabled={status === "running"} size="sm">
               {status === "running" ? (
                 <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Scraping...</>
               ) : (
@@ -163,6 +194,13 @@ export default function CommExtractTab() {
         </CardContent>
       </Card>
 
+      {/* Saved Scrapes */}
+      <SavedScrapesList
+        scrapes={savedScrapes}
+        onLoad={loadScrape}
+        onRefresh={loadSavedScrapes}
+      />
+
       {/* Results */}
       {displayMembers.length > 0 && (
         <Card>
@@ -170,7 +208,7 @@ export default function CommExtractTab() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" />
-                {displayMembers.length} Members
+                {activeScrapeName ? `${activeScrapeName} — ` : ""}{displayMembers.length} Members
               </CardTitle>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={copyHandles} className="text-xs">
@@ -183,40 +221,7 @@ export default function CommExtractTab() {
             </div>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[500px]">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs w-[180px]">Handle</TableHead>
-                    <TableHead className="text-xs w-[140px]">Name</TableHead>
-                    <TableHead className="text-xs w-[90px]">Role</TableHead>
-                    <TableHead className="text-xs w-[80px] text-right">Followers</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayMembers.map((m) => (
-                    <TableRow key={m.handle}>
-                      <TableCell className="text-xs font-mono">
-                        <a
-                          href={`https://x.com/${m.handle}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline inline-flex items-center gap-1"
-                        >
-                          @{m.handle}
-                          {m.verified && <BadgeCheck className="h-3 w-3 text-[#1d9bf0]" />}
-                        </a>
-                      </TableCell>
-                      <TableCell className="text-xs">{m.name}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{m.role}</TableCell>
-                      <TableCell className="text-xs text-right font-mono">
-                        {m.followers >= 1000 ? `${(m.followers / 1000).toFixed(1)}K` : m.followers}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
+            <MemberTable members={displayMembers} />
           </CardContent>
         </Card>
       )}
