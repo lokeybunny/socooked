@@ -18,6 +18,7 @@ interface Member {
   verified: boolean;
   followers: number;
   bio: string;
+  role: string;
 }
 
 export default function CommExtractTab() {
@@ -187,9 +188,9 @@ export default function CommExtractTab() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs w-[180px]">Handle</TableHead>
-                    <TableHead className="text-xs w-[160px]">Name</TableHead>
+                    <TableHead className="text-xs w-[140px]">Name</TableHead>
+                    <TableHead className="text-xs w-[90px]">Role</TableHead>
                     <TableHead className="text-xs w-[80px] text-right">Followers</TableHead>
-                    <TableHead className="text-xs">Bio</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -207,11 +208,9 @@ export default function CommExtractTab() {
                         </a>
                       </TableCell>
                       <TableCell className="text-xs">{m.name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{m.role}</TableCell>
                       <TableCell className="text-xs text-right font-mono">
                         {m.followers >= 1000 ? `${(m.followers / 1000).toFixed(1)}K` : m.followers}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate">
-                        {m.bio}
                       </TableCell>
                     </TableRow>
                   ))}
