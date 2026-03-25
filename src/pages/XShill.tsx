@@ -668,110 +668,141 @@ export default function XShill() {
               </Card>
             </div>
 
-            {/* Shill Campaign Presets */}
+            {/* ═══ HOME TEAM Campaigns ═══ */}
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <Target className="h-4 w-4 text-primary" />
-                    Shill Copy Campaigns
+                    <Shield className="h-4 w-4 text-primary" />
+                    🏠 HOME TEAM — Campaigns
                   </CardTitle>
-                  <Button size="sm" variant="outline" onClick={startNewCampaign} disabled={!!campaignDraft} className="gap-1.5 text-xs">
-                    <Plus className="h-3 w-3" /> New Campaign
+                  <Button size="sm" variant="outline" onClick={() => { setCampaignDraft({ id: crypto.randomUUID(), name: "", ticker: "", links: ["", "", "", "", ""], active: false, team: "home" }); setEditingCampaignId(null); }} disabled={!!campaignDraft} className="gap-1.5 text-xs">
+                    <Plus className="h-3 w-3" /> New Home Campaign
                   </Button>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  Create campaign presets with a ticker + 5 rotating links. Only <strong>1 campaign</strong> can be active at a time — the active one powers the <strong>📋 Get Shill Copy</strong> button in Discord.
+                  Campaigns targeting your <strong>Home Comm</strong> communities. Powers the <strong>📋 Get Shill Copy</strong> button in Discord + <code>/shill</code>.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
-                {/* Campaign Draft (new or edit) */}
-                {campaignDraft && (
+                {campaignDraft && (!campaignDraft.team || campaignDraft.team === "home") && (
                   <div className="border border-primary/30 rounded-lg p-3 space-y-3 bg-primary/5">
                     <div className="flex items-center gap-2">
-                      <Input
-                        value={campaignDraft.name}
-                        onChange={(e) => setCampaignDraft({ ...campaignDraft, name: e.target.value })}
-                        placeholder="Campaign name (e.g. $WHITEHOUSE Q2)"
-                        className="h-8 text-sm max-w-xs"
-                      />
-                      <Input
-                        value={campaignDraft.ticker}
-                        onChange={(e) => setCampaignDraft({ ...campaignDraft, ticker: e.target.value })}
-                        placeholder="Ticker e.g. WHITEHOUSE"
-                        className="h-8 text-sm font-mono max-w-[160px]"
-                      />
+                      <Input value={campaignDraft.name} onChange={(e) => setCampaignDraft({ ...campaignDraft, name: e.target.value })} placeholder="Campaign name" className="h-8 text-sm max-w-xs" />
+                      <Input value={campaignDraft.ticker} onChange={(e) => setCampaignDraft({ ...campaignDraft, ticker: e.target.value })} placeholder="Ticker" className="h-8 text-sm font-mono max-w-[160px]" />
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-medium text-muted-foreground">Rotation Links (up to 5)</label>
                       {campaignDraft.links.map((link, idx) => (
                         <div key={idx} className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">
-                            {idx + 1}
-                          </Badge>
-                          <Input
-                            value={link}
-                            onChange={(e) => {
-                              const updated = [...campaignDraft.links];
-                              updated[idx] = e.target.value;
-                              setCampaignDraft({ ...campaignDraft, links: updated });
-                            }}
-                            placeholder={idx === 0 ? "https://x.com/... (primary)" : "https://x.com/... (optional)"}
-                            className="h-7 text-xs font-mono"
-                          />
+                          <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">{idx + 1}</Badge>
+                          <Input value={link} onChange={(e) => { const u = [...campaignDraft.links]; u[idx] = e.target.value; setCampaignDraft({ ...campaignDraft, links: u }); }} placeholder={idx === 0 ? "https://x.com/... (primary)" : "https://x.com/... (optional)"} className="h-7 text-xs font-mono" />
                         </div>
                       ))}
                     </div>
                     <div className="flex items-center gap-2 pt-1">
-                      <Button size="sm" onClick={saveCampaignDraft} disabled={shillCopySaving} className="gap-1.5 text-xs">
-                        <Save className="h-3 w-3" />
-                        {editingCampaignId ? "Update" : "Create"}
-                      </Button>
+                      <Button size="sm" onClick={saveCampaignDraft} disabled={shillCopySaving} className="gap-1.5 text-xs"><Save className="h-3 w-3" />{editingCampaignId ? "Update" : "Create"}</Button>
                       <Button size="sm" variant="ghost" onClick={cancelCampaignDraft} className="text-xs">Cancel</Button>
                     </div>
                   </div>
                 )}
-
-                {/* Campaign List */}
-                {shillCampaigns.length === 0 && !campaignDraft && (
-                  <p className="text-sm text-muted-foreground text-center py-4">No campaigns yet. Create one to get started.</p>
+                {shillCampaigns.filter(c => !c.team || c.team === "home").length === 0 && !campaignDraft && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No home campaigns yet.</p>
                 )}
-                {shillCampaigns.map((c) => (
+                {shillCampaigns.filter(c => !c.team || c.team === "home").map((c) => (
                   <div key={c.id} className={`border rounded-lg p-3 flex items-start justify-between gap-3 ${c.active ? "border-primary bg-primary/5" : "border-border"}`}>
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold truncate">{c.name || `$${c.ticker} Campaign`}</span>
-                        <Badge variant={c.active ? "default" : "secondary"} className="text-[9px]">
-                          {c.active ? "ACTIVE" : "INACTIVE"}
-                        </Badge>
+                        <Badge variant={c.active ? "default" : "secondary"} className="text-[9px]">{c.active ? "ACTIVE" : "INACTIVE"}</Badge>
+                        <Badge variant="outline" className="text-[8px]">🏠 HOME</Badge>
                       </div>
                       <p className="text-xs font-mono text-muted-foreground">${c.ticker.replace(/^\$/, "")}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {c.links.filter(l => l.trim()).length} link(s) configured
-                      </p>
+                      <p className="text-[10px] text-muted-foreground">{c.links.filter(l => l.trim()).length} link(s)</p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {c.active ? (
-                        <Button size="sm" variant="outline" onClick={() => deactivateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1">
-                          <Pause className="h-3 w-3" /> Deactivate
-                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => deactivateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1"><Pause className="h-3 w-3" /> Off</Button>
                       ) : (
-                        <Button size="sm" variant="default" onClick={() => activateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1">
-                          <Play className="h-3 w-3" /> Activate
-                        </Button>
+                        <Button size="sm" variant="default" onClick={() => activateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1"><Play className="h-3 w-3" /> On</Button>
                       )}
-                      <Button size="sm" variant="ghost" onClick={() => startEditCampaign(c)} className="h-7 w-7 p-0">
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => deleteCampaign(c.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive">
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => startEditCampaign(c)} className="h-7 w-7 p-0"><Pencil className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteCampaign(c.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* ═══ AWAY TEAM Campaigns ═══ */}
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    ✈️ AWAY TEAM — Campaigns
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={() => { setCampaignDraft({ id: crypto.randomUUID(), name: "", ticker: "", links: ["", "", "", "", ""], active: false, team: "away" }); setEditingCampaignId(null); }} disabled={!!campaignDraft} className="gap-1.5 text-xs">
+                    <Plus className="h-3 w-3" /> New Away Campaign
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Campaigns targeting the active <strong>Away Comm</strong> community. Used by <code>/shill2</code> in Telegram.
+                  {shillXConfig.communities.find(c => c.enabled)
+                    ? <> Active target: <strong>{shillXConfig.communities.find(c => c.enabled)?.community_name}</strong></>
+                    : <span className="text-destructive"> ⚠ No active away community set.</span>}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {campaignDraft?.team === "away" && (
+                  <div className="border border-primary/30 rounded-lg p-3 space-y-3 bg-primary/5">
+                    <div className="flex items-center gap-2">
+                      <Input value={campaignDraft.name} onChange={(e) => setCampaignDraft({ ...campaignDraft, name: e.target.value })} placeholder="Campaign name" className="h-8 text-sm max-w-xs" />
+                      <Input value={campaignDraft.ticker} onChange={(e) => setCampaignDraft({ ...campaignDraft, ticker: e.target.value })} placeholder="Ticker" className="h-8 text-sm font-mono max-w-[160px]" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-medium text-muted-foreground">Rotation Links (up to 5)</label>
+                      {campaignDraft.links.map((link, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-[9px] w-5 h-5 flex items-center justify-center p-0 shrink-0">{idx + 1}</Badge>
+                          <Input value={link} onChange={(e) => { const u = [...campaignDraft.links]; u[idx] = e.target.value; setCampaignDraft({ ...campaignDraft, links: u }); }} placeholder={idx === 0 ? "https://x.com/... (primary)" : "https://x.com/... (optional)"} className="h-7 text-xs font-mono" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button size="sm" onClick={saveCampaignDraft} disabled={shillCopySaving} className="gap-1.5 text-xs"><Save className="h-3 w-3" />{editingCampaignId ? "Update" : "Create"}</Button>
+                      <Button size="sm" variant="ghost" onClick={cancelCampaignDraft} className="text-xs">Cancel</Button>
+                    </div>
+                  </div>
+                )}
+                {shillCampaigns.filter(c => c.team === "away").length === 0 && campaignDraft?.team !== "away" && (
+                  <p className="text-sm text-muted-foreground text-center py-4">No away campaigns yet.</p>
+                )}
+                {shillCampaigns.filter(c => c.team === "away").map((c) => (
+                  <div key={c.id} className={`border rounded-lg p-3 flex items-start justify-between gap-3 ${c.active ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold truncate">{c.name || `$${c.ticker} Campaign`}</span>
+                        <Badge variant={c.active ? "default" : "secondary"} className="text-[9px]">{c.active ? "ACTIVE" : "INACTIVE"}</Badge>
+                        <Badge variant="outline" className="text-[8px]">✈️ AWAY</Badge>
+                      </div>
+                      <p className="text-xs font-mono text-muted-foreground">${c.ticker.replace(/^\$/, "")}</p>
+                      <p className="text-[10px] text-muted-foreground">{c.links.filter(l => l.trim()).length} link(s)</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {c.active ? (
+                        <Button size="sm" variant="outline" onClick={() => deactivateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1"><Pause className="h-3 w-3" /> Off</Button>
+                      ) : (
+                        <Button size="sm" variant="default" onClick={() => activateCampaign(c.id)} className="text-[10px] h-7 px-2 gap-1"><Play className="h-3 w-3" /> On</Button>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => startEditCampaign(c)} className="h-7 w-7 p-0"><Pencil className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteCampaign(c.id)} className="h-7 w-7 p-0 text-destructive hover:text-destructive"><Trash2 className="h-3 w-3" /></Button>
                     </div>
                   </div>
                 ))}
 
                 <p className="text-[10px] text-muted-foreground">
-                  🔄 The active campaign's links rotate 1 per "Get Shill Copy" click. If Upload-Post has a matching owned video post, it's mixed in too.
+                  🔄 The active campaign's links rotate 1 per "Get Shill Copy" click.
                 </p>
               </CardContent>
             </Card>
