@@ -2414,6 +2414,7 @@ export type Database = {
           handle: string
           id: string
           post_id: string | null
+          source: string
           used_at: string
         }
         Insert: {
@@ -2421,6 +2422,7 @@ export type Database = {
           handle: string
           id?: string
           post_id?: string | null
+          source?: string
           used_at?: string
         }
         Update: {
@@ -2428,6 +2430,7 @@ export type Database = {
           handle?: string
           id?: string
           post_id?: string | null
+          source?: string
           used_at?: string
         }
         Relationships: [

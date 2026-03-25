@@ -1,0 +1,1 @@
+ALTER TABLE public.signature_usage ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'live_post';
