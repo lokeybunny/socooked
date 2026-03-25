@@ -100,6 +100,19 @@ export default function CampaignHUD() {
       }
       setCampaigns(loadedCampaigns);
 
+      // Load Discord listener source config
+      const { data: srcCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "raid-community-source")
+        .maybeSingle();
+      if (srcCfg?.content) {
+        const src = srcCfg.content as any;
+        setBotEnabled(!!src.enabled);
+        setActiveListenChannel(src.discord_listen_channel_id || SHILL_NOW_CHANNELS[0].id);
+      }
+
       // Load rotation accounts
       const { data: rotCfg } = await supabase
         .from("site_configs")
