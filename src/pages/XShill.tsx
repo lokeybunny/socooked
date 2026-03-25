@@ -553,8 +553,14 @@ export default function XShill() {
     setNewAwayComm({ community_id: "", community_name: "" });
   };
 
-    const deleteScheduledPost = async (id: string) => {
+  const deleteScheduledPost = async (id: string) => {
+    const { error } = await supabase.from("shill_scheduled_posts").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete: " + error.message);
+      return;
+    }
     setScheduledPosts((prev) => prev.filter((p) => p.id !== id));
+    setShillXPosts((prev) => prev.filter((p) => p.id !== id));
     toast.success("Scheduled post deleted");
   };
 
