@@ -21,8 +21,14 @@ import {
   RefreshCw, Zap, Plus, Trash2, Save, Activity, Settings,
   Radio, Globe, Clock, MessageSquare, Target, Shield, Pencil,
   Video, Play, Pause, ExternalLink, CalendarClock, RotateCcw,
-  Users,
+  Users, BadgeCheck,
 } from "lucide-react";
+
+const XHandle = ({ handle, className = "text-sm font-medium" }: { handle: string; className?: string }) => (
+  <span className={`inline-flex items-center gap-1 ${className}`}>
+    @{handle}<BadgeCheck className="h-3.5 w-3.5 text-[#1d9bf0] shrink-0" />
+  </span>
+);
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 
@@ -948,7 +954,7 @@ export default function XShill() {
                         <div className="flex items-center gap-3">
                           <Badge variant="outline" className="text-[9px] font-mono">#{idx + 1}</Badge>
                           <div>
-                            <p className="text-sm font-medium">@{acc.handle}</p>
+                            <XHandle handle={acc.handle} />
                             <p className="text-[10px] text-muted-foreground">
                               {acc.posts_today} posts today
                               {acc.capped_at && ` • Capped ${formatDistanceToNow(new Date(acc.capped_at), { addSuffix: true })}`}
@@ -1039,7 +1045,7 @@ export default function XShill() {
                             return (
                               <div key={a.id} className="flex items-center justify-between border rounded-md p-2.5">
                                 <div>
-                                  <p className="text-xs font-medium">@{handle}</p>
+                                  <XHandle handle={handle} className="text-xs font-medium" />
                                   <p className="text-[10px] text-muted-foreground">{a.account_label}</p>
                                 </div>
                                 <Button
@@ -1095,7 +1101,7 @@ export default function XShill() {
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="text-right text-[10px] text-muted-foreground mr-2">
-                          <p>Account: @{t.x_account}</p>
+                          <p>Account: <XHandle handle={t.x_account} className="text-[10px] font-medium" /></p>
                           <p>${t.ticker} • WH: {t.whitehouse_interval_min}m / Other: {t.other_interval_min}m</p>
                         </div>
                         <Switch
