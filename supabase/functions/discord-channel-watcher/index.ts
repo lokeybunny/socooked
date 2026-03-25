@@ -428,17 +428,22 @@ serve(async (req) => {
             const effectiveInterval = baseIntervalMs + jitterMs;
 
             if (elapsedMs >= effectiveInterval) {
-              const whMessages = [
-                `Just Detected New Post that could be Raided $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+              // Use different message sets depending on whether @whitehouse actually posted
+              const directWhMessages = [
                 `🚨 New @WhiteHouse post just dropped! Rally $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `Whitehouse just posted — time to raid $WHITEHOUSE 🏛️\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `Fresh @WhiteHouse tweet detected 🔥 Raid opportunity for $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `🏛️ New @WhiteHouse alert — $WHITEHOUSE raid incoming\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
                 `Spotted a new @WhiteHouse post! Lets go $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
-                `News about the White House just dropped — $WHITEHOUSE raid incoming!\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
               ];
-
-              const raidText = whMessages[Math.floor(Math.random() * whMessages.length)];
+              const relatedWhMessages = [
+                `Just Detected New Post that could be Raided $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+                `🔥 White House related post detected — Raid opportunity for $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+                `News about the White House just dropped — $WHITEHOUSE raid incoming!\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+                `🏛️ White House content spotted — time to raid $WHITEHOUSE\n\n${raidTargetUrl}\n\nCA: ${WHITEHOUSE_CA}`,
+              ];
+              const messagePool = isDirectWhitehouse ? directWhMessages : relatedWhMessages;
+              const raidText = messagePool[Math.floor(Math.random() * messagePool.length)];
 
               try {
                 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
