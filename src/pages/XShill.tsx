@@ -137,6 +137,7 @@ export default function XShill() {
   const [shillCopySaving, setShillCopySaving] = useState(false);
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   const [campaignDraft, setCampaignDraft] = useState<ShillCampaign | null>(null);
+  const [outboundXAccounts, setOutboundXAccounts] = useState<{ id: string; account_label: string; account_identifier: string }[]>([]);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
