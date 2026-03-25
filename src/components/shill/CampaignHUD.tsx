@@ -74,6 +74,8 @@ export default function CampaignHUD() {
   const [draft, setDraft] = useState<CampaignConfig | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [botEnabled, setBotEnabled] = useState(true);
+  const [activeListenChannel, setActiveListenChannel] = useState<string>(SHILL_NOW_CHANNELS[0].id);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -97,6 +99,19 @@ export default function CampaignHUD() {
         }));
       }
       setCampaigns(loadedCampaigns);
+
+      // Load Discord listener source config
+      const { data: srcCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "raid-community-source")
+        .maybeSingle();
+      if (srcCfg?.content) {
+        const src = srcCfg.content as any;
+        setBotEnabled(!!src.enabled);
+        setActiveListenChannel(src.discord_listen_channel_id || SHILL_NOW_CHANNELS[0].id);
+      }
 
       // Load rotation accounts
       const { data: rotCfg } = await supabase
@@ -136,6 +151,22 @@ export default function CampaignHUD() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const saveListenerConfig = async (enabled: boolean, channelId: string) => {
+    setBotEnabled(enabled);
+    setActiveListenChannel(channelId);
+    await supabase.from("site_configs").upsert({
+      site_id: "smm-auto-shill",
+      section: "raid-community-source",
+      content: {
+        enabled,
+        discord_listen_channel_id: channelId,
+        discord_channel_id: channelId,
+      } as any,
+    } as any, { onConflict: "site_id,section" } as any);
+    const label = SHILL_NOW_CHANNELS.find(ch => ch.id === channelId);
+    toast.success(enabled ? `Listener ON → ${label?.label || channelId}` : "Listener OFF");
+  };
 
   const saveCampaigns = async (updated: CampaignConfig[]) => {
     setSaving(true);
@@ -313,7 +344,76 @@ export default function CampaignHUD() {
         )}
       </Card>
 
-      {/* Stats Row */}
+      {/* Discord Listener Controls */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Radio className={`h-4 w-4 ${botEnabled ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
+              Discord Listener
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground">Bot Active</span>
+              <Switch checked={botEnabled} onCheckedChange={(v) => saveListenerConfig(v, activeListenChannel)} />
+              <Badge variant={botEnabled ? "default" : "secondary"} className="text-[9px]">
+                {botEnabled ? "🟢 LIVE" : "OFF"}
+              </Badge>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground">Select which Discord channel the bot listens to for tweet detection and auto-posting.</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {SHILL_NOW_CHANNELS.map((ch) => {
+              const isActive = activeListenChannel === ch.id && botEnabled;
+              return (
+                <div
+                  key={ch.id}
+                  className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                    isActive
+                      ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                      : "border-border hover:border-muted-foreground/40"
+                  }`}
+                  onClick={() => {
+                    if (!botEnabled) {
+                      saveListenerConfig(true, ch.id);
+                    } else {
+                      saveListenerConfig(true, ch.id);
+                    }
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold flex items-center gap-1.5">
+                        {ch.emoji} {ch.label}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-mono">ID: {ch.id}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isActive && (
+                        <Badge variant="default" className="text-[8px] gap-1">
+                          <Radio className="h-2.5 w-2.5 animate-pulse" /> Listening
+                        </Badge>
+                      )}
+                      <Switch
+                        checked={isActive}
+                        onCheckedChange={(v) => {
+                          if (v) {
+                            saveListenerConfig(true, ch.id);
+                          } else if (isActive) {
+                            saveListenerConfig(false, activeListenChannel);
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card>
           <CardContent className="p-4 text-center">
