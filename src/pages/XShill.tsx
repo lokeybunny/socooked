@@ -316,15 +316,16 @@ export default function XShill() {
         }
       }
 
-      // Load Shill X posts for the active away community
-      const activeAway = parsedCommunities.find(c => c.enabled);
-      if (activeAway) {
+      // Load Shill X posts for ALL active away communities
+      const activeAwayComms = parsedCommunities.filter(c => c.enabled);
+      if (activeAwayComms.length > 0) {
+        const communityIds = activeAwayComms.map(c => c.community_id);
         const { data: sxPosts } = await supabase
           .from("shill_scheduled_posts")
           .select("*")
-          .eq("community_id", activeAway.community_id)
+          .in("community_id", communityIds)
           .order("scheduled_at", { ascending: false })
-          .limit(50);
+          .limit(100);
         setShillXPosts((sxPosts as any[]) || []);
       }
     } catch (e) {
