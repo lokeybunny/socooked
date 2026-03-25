@@ -118,22 +118,20 @@ serve(async (req) => {
       if (done && members.length > 0) {
         try {
           const sb = getSupabase();
-          // Check if this run was already saved
           const { data: existing } = await sb.from('comm_scrapes')
             .select('id')
             .eq('apify_run_id', runId)
             .maybeSingle();
 
           if (!existing) {
-            // Extract community URL from the run input if available
-            const inputUrl = statusData?.data?.options?.input?.communityUrl || '';
             await sb.from('comm_scrapes').insert({
-              community_url: inputUrl,
+              community_url: communityUrl || '',
               apify_run_id: runId,
               member_count: members.length,
               members: members,
               status: 'completed',
             });
+            console.log(`[comm-extract] Saved scrape ${runId} with ${members.length} members`);
           }
         } catch (e) {
           console.error('[comm-extract] Failed to save scrape:', e);
