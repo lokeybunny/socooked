@@ -2293,14 +2293,54 @@ serve(async (req) => {
       const interactionToken = interaction.token;
       const interactionMessage = interaction.message;
 
-      // ── Buttons that show modals must respond synchronously (type 9) — no defer ──
-      if (customId.startsWith("raid_verify_") || customId.startsWith("shill_verify_") || customId.startsWith("bad_link_")) {
-        // These return modal responses (type 9) which must be immediate
-        // Fall through to existing handlers below
-      } else {
-        // ── ALL other button clicks: defer immediately, process async ──
-        const asyncProcess = (async () => {
-          try {
+      // ── FAST PATH: Modal buttons MUST respond synchronously (type 9) ──
+      // Raid channel verify
+      if (customId.startsWith("raid_verify_") && !customId.startsWith("raid_verify_submit_")) {
+        const discordMsgId = customId.replace("raid_verify_", "") || null;
+        return json({
+          type: 9,
+          data: {
+            custom_id: `raid_verify_submit_${discordMsgId || "unknown"}`,
+            title: "✅ Verify Your Raid",
+            components: [{ type: 1, components: [{ type: 4, custom_id: "raid_url_input", label: "Paste your raid reply URL", style: 1, placeholder: "https://x.com/yourhandle/status/123456...", required: true, min_length: 10, max_length: 300 }] }],
+          },
+        });
+      }
+      // Bad link button
+      if (customId.startsWith("bad_link_") && !customId.startsWith("bad_link_confirm_")) {
+        const discordMsgId = customId.replace("bad_link_", "") || null;
+        return json({
+          type: 9,
+          data: {
+            custom_id: `bad_link_confirm_${discordMsgId || "unknown"}`,
+            title: "🚫 Report Bad Link",
+            components: [{ type: 1, components: [{ type: 4, custom_id: "bad_link_confirm_input", label: "Type YES to confirm this is a bad link", style: 1, placeholder: "YES", required: true, min_length: 2, max_length: 10 }] }],
+          },
+        });
+      }
+      // Shill verify button — needs a quick DB check first, then modal
+      if (customId.startsWith("shill_verify_") && !customId.startsWith("shill_verify_submit_")) {
+        const discordMsgId = customId.replace("shill_verify_", "") || null;
+        const { data: userClicks } = await supabase
+          .from("shill_clicks").select("id")
+          .eq("discord_user_id", discordUserId).eq("discord_msg_id", discordMsgId)
+          .eq("status", "clicked").limit(1);
+        if (!userClicks?.length) {
+          return json({ type: 4, data: { content: "❌ You need to click **🚀 SHILL NOW** or **📋 Get Shill Copy** first before verifying.", flags: 64 } });
+        }
+        return json({
+          type: 9,
+          data: {
+            custom_id: `shill_verify_submit_${discordMsgId || "unknown"}`,
+            title: "✅ Verify Your Shill",
+            components: [{ type: 1, components: [{ type: 4, custom_id: "shill_verify_url_input", label: "Paste your reply tweet URL", style: 1, placeholder: "https://x.com/yourhandle/status/123456...", required: true, min_length: 10, max_length: 300 }] }],
+          },
+        });
+      }
+
+      // ── ALL other button clicks: DEFER immediately, then process async ──
+      const asyncProcess = (async () => {
+        try {
       // Extract tweet URL from the original message's embed
       let tweetUrl = "";
       const embeds = interactionMessage?.embeds || [];
