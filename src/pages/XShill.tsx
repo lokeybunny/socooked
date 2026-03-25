@@ -247,7 +247,8 @@ export default function XShill() {
       const { data: obAccounts } = await supabase
         .from("outbound_accounts")
         .select("id, account_label, account_identifier")
-        .eq("platform", "x");
+        .eq("platform", "x")
+        .eq("provider", "upload-post");
       if (obAccounts) setOutboundXAccounts(obAccounts);
     } catch (e) {
       console.error("Load error:", e);
