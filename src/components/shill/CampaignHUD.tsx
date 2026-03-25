@@ -168,6 +168,7 @@ export default function CampaignHUD() {
     toast.success(enabled ? `Listener ON → ${label?.label || channelId}` : "Listener OFF");
   };
 
+  const saveCampaigns = async (updated: CampaignConfig[]) => {
     setSaving(true);
     try {
       await supabase.from("site_configs").upsert({
