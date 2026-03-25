@@ -96,7 +96,9 @@ serve(async (req) => {
 
     // ── Potential earnings from tweet detections (shill-bot-msg in activity_log) ──
     // Each detected tweet = $0.05 potential if a shiller had claimed it
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const todayStart = todayMidnight.toISOString();
     const { count: totalDetectedToday } = await supabase
       .from("activity_log")
       .select("id", { count: "exact", head: true })
