@@ -528,7 +528,7 @@ export default function XShill() {
     const updated: ShillXConfig = {
       communities: shillXConfig.communities.map(c =>
         c.id === editingAwayComm.id
-          ? { ...c, community_id: editingAwayComm.community_id.trim(), community_name: editingAwayComm.community_name.trim() || c.community_name }
+          ? { ...c, community_id: editingAwayComm.community_id.trim(), community_name: editingAwayComm.community_name.trim() || c.community_name, hide_ticker: editingAwayComm.hide_ticker || false }
           : c
       ),
     };
