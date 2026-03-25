@@ -316,7 +316,25 @@ async function speedCheck(
   return null;
 }
 
-const json = (body: unknown, status = 200) =>
+/** Earnings cap: block verification if unpaid verified earnings >= $20.
+ *  "Unpaid" = status='verified' clicks (not yet paid out / processed). */
+const EARNINGS_CAP = 20;
+
+async function checkEarningsCap(
+  supabase: ReturnType<typeof createClient>,
+  discordUserId: string,
+): Promise<{ capped: boolean; unpaid: number }> {
+  const { data: verifiedClicks } = await supabase
+    .from("shill_clicks")
+    .select("rate")
+    .eq("discord_user_id", discordUserId)
+    .eq("status", "verified");
+
+  const unpaid = (verifiedClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
+  return { capped: unpaid >= EARNINGS_CAP, unpaid };
+}
+
+
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 // ─── Ed25519 signature verification for Discord Interactions ───
