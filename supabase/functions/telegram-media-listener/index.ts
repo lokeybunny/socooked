@@ -4108,14 +4108,23 @@ Deno.serve(async (req) => {
            const isImage = media.type === 'image'
            await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: isImage ? '📡 Downloading image from Telegram...' : '📡 Downloading video from Telegram...' })
           try {
-            const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ file_id: media.fileId }),
-            })
-            const fileInfo = await fileInfoRes.json()
-            const filePath = fileInfo.result?.file_path
-            if (!filePath) throw new Error('Could not get file path from Telegram')
+            let filePath: string | undefined
+            for (let attempt = 0; attempt < 3; attempt++) {
+              const fileInfoRes = await fetch(`${TG_API}${TG_TOKEN}/getFile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_id: media.fileId }),
+              })
+              const fileInfo = await fileInfoRes.json()
+              filePath = fileInfo.result?.file_path
+              if (filePath) break
+              console.warn(`[shill] getFile attempt ${attempt + 1}/3 failed:`, JSON.stringify(fileInfo))
+              if (attempt < 2) await new Promise(r => setTimeout(r, 1500))
+            }
+            if (!filePath) {
+              await tgPost(TG_TOKEN, 'sendMessage', { chat_id: chatId, text: '⚠️ Telegram could not process this file. Try re-uploading a smaller file (under 20MB) or a different format.', parse_mode: 'HTML' })
+              return new Response('ok')
+            }
 
             const fileUrl = `https://api.telegram.org/file/bot${TG_TOKEN}/${filePath}`
             const fileRes = await fetch(fileUrl)
