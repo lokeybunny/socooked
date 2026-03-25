@@ -45,15 +45,35 @@ Deno.serve(async (req) => {
     const pstOffsetMs = now.getTime() - pstNow.getTime();
     const startOfDayUTC = new Date(startOfDayPST.getTime() + pstOffsetMs);
 
-    // Count tweets in the last hour
-    const { count: hourlyCount } = await supabase
+    // Count tweets detected in the last hour
+    const { count: hourlyTweetCount } = await supabase
       .from("shill_post_analytics")
       .select("*", { count: "exact", head: true })
       .gte("created_at", oneHourAgo.toISOString());
 
-    // Count tweets since midnight PST (resets daily)
-    const { count: dailyCount } = await supabase
+    // Count tweets since midnight PST
+    const { count: dailyTweetCount } = await supabase
       .from("shill_post_analytics")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", startOfDayUTC.toISOString());
+
+    // Count verified clicks in the last hour
+    const { count: hourlyClickCount } = await supabase
+      .from("shill_clicks")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", oneHourAgo.toISOString())
+      .eq("status", "verified");
+
+    // Count verified clicks today
+    const { count: dailyClickCount } = await supabase
+      .from("shill_clicks")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", startOfDayUTC.toISOString())
+      .eq("status", "verified");
+
+    // Count ALL clicks today (any status)
+    const { count: dailyAllClicks } = await supabase
+      .from("shill_clicks")
       .select("*", { count: "exact", head: true })
       .gte("created_at", startOfDayUTC.toISOString());
 
@@ -78,15 +98,18 @@ Deno.serve(async (req) => {
       .select("*", { count: "exact", head: true })
       .eq("status", "active");
 
-    const tweetsThisHour = hourlyCount || 0;
-    const tweetsToday = dailyCount || 0;
+    const tweetsThisHour = hourlyTweetCount || 0;
+    const tweetsToday = dailyTweetCount || 0;
+    const clicksThisHour = hourlyClickCount || 0;
+    const clicksToday = dailyClickCount || 0;
+    const totalClicksToday = dailyAllClicks || 0;
     const hoursElapsed = Math.max(1, Math.floor((now.getTime() - startOfDayUTC.getTime()) / (60 * 60 * 1000)));
     const hourlyAvg = tweetsToday > 0 ? (tweetsToday / hoursElapsed).toFixed(1) : "0";
     const raiderCount = activeRaiders || 0;
 
-    // Simple: each tweet link = $0.05 potential click income
-    const potentialEarnings = tweetsThisHour * SHILLER_RATE;
-    const dailyPotentialEarnings = tweetsToday * SHILLER_RATE;
+    // Earnings based on verified clicks × rate
+    const hourlyEarnings = clicksThisHour * SHILLER_RATE;
+    const dailyEarnings = clicksToday * SHILLER_RATE;
 
     // Pick a random cheerful intro
     const intro = CHEERFUL_INTROS[Math.floor(Math.random() * CHEERFUL_INTROS.length)];
