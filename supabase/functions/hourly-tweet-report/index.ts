@@ -222,8 +222,10 @@ Deno.serve(async (req) => {
       JSON.stringify({
         ok: true,
         tweets_this_hour: tweetsThisHour,
+        clicks_this_hour: clicksThisHour,
+        clicks_today: clicksToday,
         hourly_avg: hourlyAvg,
-        potential_earnings: potentialEarnings.toFixed(2),
+        daily_earnings: dailyEarnings.toFixed(2),
         discord: discordResults,
         telegram: tgOk,
       }),
