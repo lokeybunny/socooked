@@ -457,8 +457,9 @@ serve(async (req) => {
                 // Filter to active accounts only
                 const activeAccounts = rotationAccounts.filter(a => a.status === "active");
                 if (activeAccounts.length === 0) {
-                  console.error("[discord-watcher] No active rotation accounts — falling back to xslaves");
-                  activeAccounts.push({ id: "fallback", handle: "xslaves", status: "active", posts_today: 0 });
+                  console.error("[discord-watcher] No active rotation accounts — falling back to xslaves + warrenguru");
+                  activeAccounts.push({ id: "fallback-1", handle: "xslaves", status: "active", posts_today: 0 });
+                  activeAccounts.push({ id: "fallback-2", handle: "warrenguru", status: "active", posts_today: 0 });
                 }
 
                 let posted = false;
