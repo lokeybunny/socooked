@@ -36,13 +36,58 @@ export default function SMMProfiles({ profiles, onRefresh }: { profiles: SMMProf
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [xAccounts, setXAccounts] = useState<OutboundXAccount[]>([]);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
 
   useEffect(() => {
     smmApi.getMe().then(setAccountInfo).catch(() => {});
+    supabase
+      .from('outbound_accounts')
+      .select('id, account_label, account_identifier, is_authorized')
+      .eq('platform', 'x')
+      .then(({ data }) => { if (data) setXAccounts(data); });
   }, []);
 
-  // Build grouped data: profile -> connected accounts
-  const grouped = useMemo(() => {
+  // Determine which X accounts are NOT yet connected in any profile
+  const connectedXHandles = useMemo(() => {
+    const handles = new Set<string>();
+    profiles.forEach(p =>
+      p.connected_platforms
+        .filter(cp => cp.connected && (cp.platform === 'twitter' || cp.platform === 'x'))
+        .forEach(cp => {
+          handles.add((cp.handle || cp.display_name).toLowerCase().replace(/^@/, ''));
+        })
+    );
+    return handles;
+  }, [profiles]);
+
+  const unconnectedXAccounts = useMemo(
+    () => xAccounts.filter(a => !connectedXHandles.has(a.account_identifier.toLowerCase().replace(/^@/, ''))),
+    [xAccounts, connectedXHandles]
+  );
+
+  const handleAutoConnect = async (account: OutboundXAccount) => {
+    setConnectingId(account.id);
+    try {
+      // Ensure a profile exists for this username
+      const profileUsername = account.account_identifier.replace(/^@/, '');
+      const existingProfile = profiles.find(p => p.username.toLowerCase() === profileUsername.toLowerCase());
+      if (!existingProfile) {
+        await smmApi.createProfile(profileUsername);
+      }
+      // Generate JWT connect URL
+      const { access_url } = await smmApi.generateConnectJWT(profileUsername);
+      if (access_url) {
+        window.open(access_url, '_blank');
+        toast.success(`Connect window opened for @${profileUsername}. Complete the auth flow, then refresh.`);
+      } else {
+        toast.error('Failed to generate connect URL');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to auto-connect');
+    }
+    setConnectingId(null);
+  };
     const q = search.toLowerCase().trim();
     return profiles
       .map(p => {
