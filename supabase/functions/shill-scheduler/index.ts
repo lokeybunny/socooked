@@ -11,8 +11,9 @@ const json = (body: unknown, status = 200) =>
 interface RotationAccount {
   id: string;
   handle: string;
-  status: "active" | "paused" | "capped";
+  status: "active" | "paused" | "capped" | "shadowbanned";
   capped_at?: string;
+  shadowbanned_at?: string;
   posts_today: number;
 }
 
@@ -119,6 +120,18 @@ Deno.serve(async (req) => {
         acc.posts_today = 0;
         acc.capped_at = undefined;
         rotationChanged = true;
+      }
+      // Auto-recover shadow banned accounts after 72 hours
+      if (acc.status === "shadowbanned" && acc.shadowbanned_at) {
+        const bannedMs = new Date(acc.shadowbanned_at).getTime();
+        const elapsed = now.getTime() - bannedMs;
+        if (elapsed >= 72 * 60 * 60 * 1000) {
+          acc.status = "active";
+          acc.shadowbanned_at = undefined;
+          acc.posts_today = 0;
+          rotationChanged = true;
+          console.log(`[shill-scheduler] 🔓 Shadow ban expired for @${acc.handle} — reactivated`);
+        }
       }
     }
     if (rotationChanged) {
