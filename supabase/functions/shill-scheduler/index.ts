@@ -267,31 +267,70 @@ Deno.serve(async (req) => {
                 [available[i], available[j]] = [available[j], available[i]];
               }
 
-              // Calculate max handles that fit within 280 chars
-              const sigPrefix = "\n\n⌈ ";
-              const sigSuffix = " ⌋";
-              const separator = " · ";
-              const currentLen = captionWithSig.length;
-              const overhead = sigPrefix.length + sigSuffix.length;
-              let remaining = 280 - currentLen - overhead;
-              const picked: string[] = [];
+              // Natural sentence templates — {0}, {1}, {2}, {3} are handle slots
+              const templates1 = [
+                "@{0} should definitely check this out 👀",
+                "@{0} needs to see this fr",
+                "@{0} would love this ngl",
+                "yo @{0} peep this real quick",
+                "@{0} this is right up your alley",
+                "tagging @{0} cuz they need to see this 🔥",
+                "@{0} you gotta check this out",
+                "someone show @{0} this asap",
+              ];
+              const templates2 = [
+                "@{0} and @{1} need to peep this 👀",
+                "@{0} @{1} yall seen this yet?",
+                "yo @{0} bring @{1} too, this is fire",
+                "@{0} should show @{1} this fr fr",
+                "@{0} & @{1} this ones for yall 🔥",
+                "tagging @{0} and @{1} they gotta see this",
+              ];
+              const templates3 = [
+                "@{0} should check this out, @{1} already knows whats up, @{2} needs to get in too",
+                "yo @{0} @{1} @{2} yall sleeping on this fr",
+                "@{0} put @{1} and @{2} on to this 🔥",
+                "@{0} @{1} and @{2} need to see whats happening here",
+                "if @{0} and @{1} are in, @{2} definitely needs to join",
+              ];
+              const templates4 = [
+                "@{0} should definitely check this out, @{1} already knows, @{2} and @{3} need to get in on this",
+                "yo @{0} @{1} bring @{2} and @{3} this is crazy 🔥",
+                "@{0} put @{1} on, and @{2} @{3} yall gotta see this too",
+                "@{0} @{1} @{2} @{3} none of yall should be sleeping on this",
+              ];
 
-              for (const h of available) {
-                const tag = `@${h}`;
-                const needed = picked.length === 0 ? tag.length : separator.length + tag.length;
-                if (remaining >= needed) {
-                  picked.push(h);
-                  remaining -= needed;
-                } else break;
+              // Pick template based on how many handles we can fit
+              const currentLen = captionWithSig.length;
+              const maxChars = 280 - currentLen - 2; // 2 for \n\n
+
+              // Try fitting 4, then 3, then 2, then 1
+              let sentence = "";
+              let picked: string[] = [];
+
+              for (const count of [4, 3, 2, 1]) {
+                if (available.length < count) continue;
+                const candidateHandles = available.slice(0, count);
+                const pool = count === 4 ? templates4 : count === 3 ? templates3 : count === 2 ? templates2 : templates1;
+                const tmpl = pool[Math.floor(Math.random() * pool.length)];
+                let filled = tmpl;
+                for (let i = 0; i < count; i++) {
+                  filled = filled.replace(`{${i}}`, candidateHandles[i]);
+                }
+                if (filled.length <= maxChars) {
+                  sentence = filled;
+                  picked = candidateHandles;
+                  break;
+                }
               }
 
-              if (picked.length > 0) {
-                captionWithSig += sigPrefix + picked.map(h => `@${h}`).join(separator) + sigSuffix;
+              if (picked.length > 0 && sentence) {
+                captionWithSig += "\n\n" + sentence;
 
                 // Record usage
                 const usageRows = picked.map(h => ({ handle: h, post_id: post.id, source: "live_post" }));
                 await supabase.from("signature_usage").insert(usageRows);
-                console.log(`[shill-scheduler] 🏷️ Signature: appended ${picked.length} handles`);
+                console.log(`[shill-scheduler] 🏷️ Organic mention: ${picked.length} handles woven in`);
               }
             }
           }
