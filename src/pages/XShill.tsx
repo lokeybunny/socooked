@@ -771,7 +771,9 @@ export default function XShill() {
                                           toast.error("Push failed: " + res.error.message);
                                         } else {
                                           toast.success("Post pushed live!");
+                                          setScheduledPosts((prev) => prev.filter((p) => p.id !== post.id));
                                         }
+                                        await new Promise(r => setTimeout(r, 2000));
                                         loadAll();
                                       } catch (e: any) {
                                         toast.error("Push error: " + e.message);
@@ -897,7 +899,9 @@ export default function XShill() {
                                         toast.error("Push failed: " + res.error.message);
                                       } else {
                                         toast.success("Post pushed live!");
+                                        setScheduledPosts((prev) => prev.filter((p) => p.id !== post.id));
                                       }
+                                      await new Promise(r => setTimeout(r, 2000));
                                       loadAll();
                                     } catch (e: any) {
                                       toast.error("Push error: " + e.message);
@@ -1027,14 +1031,10 @@ export default function XShill() {
                                         toast.error("Push failed: " + res.error.message);
                                       } else {
                                         toast.success("Post pushed immediately!");
-                                        // Refresh list
-                                        const { data } = await supabase
-                                          .from("shill_scheduled_posts")
-                                          .select("*")
-                                          .order("scheduled_at", { ascending: false })
-                                          .limit(100);
-                                        if (data) setScheduledPosts(data);
+                                        setScheduledPosts((prev) => prev.filter((p) => p.id !== post.id));
                                       }
+                                      await new Promise(r => setTimeout(r, 2000));
+                                      loadAll();
                                     } catch (e: any) {
                                       toast.error("Push error: " + e.message);
                                     }
@@ -1694,6 +1694,7 @@ export default function XShill() {
                                     } else {
                                       toast.success("♻️ Recycled post pushed live!");
                                     }
+                                    await new Promise(r => setTimeout(r, 2000));
                                     loadAll();
                                   } catch (e: any) {
                                     toast.error("Push error: " + e.message);
