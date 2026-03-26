@@ -51,6 +51,8 @@ interface CommunityTarget {
   ticker: string;
   whitehouse_templates: string[];
   other_templates: string[];
+  repost_mentions_enabled?: boolean;
+  repost_mentions_handle?: string;
 }
 
 interface RaidLog {
@@ -1922,6 +1924,24 @@ export default function XShill() {
                   <Input type="number" className="text-xs" value={editTarget.other_jitter_min}
                     onChange={(e) => setEditTarget({ ...editTarget, other_jitter_min: +e.target.value })} />
                 </div>
+              </div>
+              <Separator className="my-2" />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] text-muted-foreground font-semibold">Repost Mentions From</label>
+                  <Switch
+                    checked={editTarget.repost_mentions_enabled ?? false}
+                    onCheckedChange={(v) => setEditTarget({ ...editTarget, repost_mentions_enabled: v })}
+                  />
+                </div>
+                {editTarget.repost_mentions_enabled && (
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">X Handle (e.g. whitehouse)</label>
+                    <Input className="text-xs" placeholder="whitehouse"
+                      value={editTarget.repost_mentions_handle || ""}
+                      onChange={(e) => setEditTarget({ ...editTarget, repost_mentions_handle: e.target.value.replace(/^@/, "") })} />
+                  </div>
+                )}
               </div>
             </div>
           )}
