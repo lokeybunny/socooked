@@ -65,8 +65,9 @@ interface RaidLog {
 interface RotationAccount {
   id: string;
   handle: string;
-  status: "active" | "paused" | "capped";
+  status: "active" | "paused" | "capped" | "shadowbanned";
   capped_at?: string;
+  shadowbanned_at?: string;
   posts_today: number;
 }
 
@@ -411,6 +412,22 @@ export default function XShill() {
   const resetAccountCap = async (id: string) => {
     const updated = rotationAccounts.map(a => a.id === id ? { ...a, status: "active" as const, capped_at: undefined, posts_today: 0 } : a);
     await saveRotationAccounts(updated);
+  };
+
+  const markShadowBanned = async (id: string) => {
+    const updated = rotationAccounts.map(a =>
+      a.id === id ? { ...a, status: "shadowbanned" as const, shadowbanned_at: new Date().toISOString() } : a
+    );
+    await saveRotationAccounts(updated);
+    toast.success("Account marked as shadow banned — will auto-recover in 72 hours");
+  };
+
+  const clearShadowBan = async (id: string) => {
+    const updated = rotationAccounts.map(a =>
+      a.id === id ? { ...a, status: "active" as const, shadowbanned_at: undefined, posts_today: 0 } : a
+    );
+    await saveRotationAccounts(updated);
+    toast.success("Shadow ban cleared — account is active again");
   };
 
   const saveCampaigns = async (campaigns: ShillCampaign[]) => {
@@ -1076,25 +1093,41 @@ export default function XShill() {
                           <Badge variant="outline" className="text-[9px] font-mono">#{idx + 1}</Badge>
                           <div>
                             <XHandle handle={acc.handle} />
-                            <p className="text-[10px] text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground">
                               {acc.posts_today} posts today
                               {acc.capped_at && ` • Capped ${formatDistanceToNow(new Date(acc.capped_at), { addSuffix: true })}`}
+                              {acc.shadowbanned_at && ` • Banned ${formatDistanceToNow(new Date(acc.shadowbanned_at), { addSuffix: true })}`}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge
-                            variant={acc.status === "active" ? "default" : acc.status === "capped" ? "destructive" : "secondary"}
+                            variant={acc.status === "active" ? "default" : acc.status === "capped" ? "destructive" : acc.status === "shadowbanned" ? "destructive" : "secondary"}
                             className="text-[9px]"
                           >
-                            {acc.status === "active" ? "🟢 ACTIVE" : acc.status === "capped" ? "🔴 CAPPED" : "⏸ PAUSED"}
+                            {acc.status === "active" ? "🟢 ACTIVE" : acc.status === "capped" ? "🔴 CAPPED" : acc.status === "shadowbanned" ? "👻 SHADOW BANNED" : "⏸ PAUSED"}
                           </Badge>
+                          {acc.status === "shadowbanned" && acc.shadowbanned_at && (
+                            <span className="text-[9px] text-muted-foreground">
+                              Auto-recovers {formatDistanceToNow(new Date(new Date(acc.shadowbanned_at).getTime() + 72 * 60 * 60 * 1000), { addSuffix: true })}
+                            </span>
+                          )}
                           {acc.status === "capped" && (
                             <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => resetAccountCap(acc.id)}>
                               Reset Cap
                             </Button>
                           )}
-                          {acc.status !== "capped" && (
+                          {acc.status === "shadowbanned" && (
+                            <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => clearShadowBan(acc.id)}>
+                              Clear Ban
+                            </Button>
+                          )}
+                          {acc.status === "active" && (
+                            <Button size="sm" variant="ghost" className="h-6 text-[10px] text-orange-500" onClick={() => markShadowBanned(acc.id)}>
+                              <Shield className="h-3 w-3 mr-1" /> Shadow Ban
+                            </Button>
+                          )}
+                          {(acc.status === "active" || acc.status === "paused") && (
                             <Switch
                               checked={acc.status === "active"}
                               onCheckedChange={(v) => toggleAccountStatus(acc.id, v ? "active" : "paused")}
@@ -1118,6 +1151,7 @@ export default function XShill() {
                   <p>3. The system immediately retries with the next active account in the rotation</p>
                   <p>4. Capped accounts auto-reset at midnight UTC (or manually via "Reset Cap")</p>
                   <p>5. If all accounts are capped, posts are queued until an account is available</p>
+                  <p>6. Mark accounts as <strong>Shadow Banned</strong> — the system skips them and auto-recovers after <strong>72 hours</strong></p>
                 </div>
               </CardContent>
             </Card>
