@@ -400,27 +400,58 @@ async function appendSignatureHandles(supabase: any, copyText: string): Promise<
       [available[i], available[j]] = [available[j], available[i]];
     }
 
-    const sigPrefix = "\n\n⌈ ";
-    const sigSuffix = " ⌋";
-    const separator = " · ";
-    const overhead = sigPrefix.length + sigSuffix.length;
-    let remaining = 280 - copyText.length - overhead;
-    const picked: string[] = [];
+    // Natural sentence templates — {0}, {1}, {2}, {3} are handle slots
+    const templates1 = [
+      "@{0} should definitely check this out 👀",
+      "@{0} needs to see this fr",
+      "@{0} would love this ngl",
+      "yo @{0} peep this real quick",
+      "@{0} this is right up your alley",
+      "tagging @{0} cuz they need to see this 🔥",
+    ];
+    const templates2 = [
+      "@{0} and @{1} need to peep this 👀",
+      "@{0} @{1} yall seen this yet?",
+      "yo @{0} bring @{1} too, this is fire",
+      "@{0} should show @{1} this fr fr",
+      "@{0} & @{1} this ones for yall 🔥",
+    ];
+    const templates3 = [
+      "@{0} should check this out, @{1} already knows whats up, @{2} needs to get in too",
+      "yo @{0} @{1} @{2} yall sleeping on this fr",
+      "@{0} put @{1} and @{2} on to this 🔥",
+    ];
+    const templates4 = [
+      "@{0} should definitely check this out, @{1} already knows, @{2} and @{3} need to get in on this",
+      "yo @{0} @{1} bring @{2} and @{3} this is crazy 🔥",
+      "@{0} @{1} @{2} @{3} none of yall should be sleeping on this",
+    ];
 
-    for (const h of available) {
-      const tag = `@${h}`;
-      const needed = picked.length === 0 ? tag.length : separator.length + tag.length;
-      if (remaining >= needed) {
-        picked.push(h);
-        remaining -= needed;
-      } else break;
+    const maxChars = 280 - copyText.length - 2;
+    let sentence = "";
+    let picked: string[] = [];
+
+    for (const count of [4, 3, 2, 1]) {
+      if (available.length < count) continue;
+      const candidateHandles = available.slice(0, count);
+      const pool = count === 4 ? templates4 : count === 3 ? templates3 : count === 2 ? templates2 : templates1;
+      const tmpl = pool[Math.floor(Math.random() * pool.length)];
+      let filled = tmpl;
+      for (let i = 0; i < count; i++) {
+        filled = filled.replace(`{${i}}`, candidateHandles[i]);
+      }
+      if (filled.length <= maxChars) {
+        sentence = filled;
+        picked = candidateHandles;
+        break;
+      }
     }
 
-    if (picked.length > 0) {
+    if (picked.length > 0 && sentence) {
       const usageRows = picked.map(h => ({ handle: h, post_id: "shill-copy-" + Date.now(), source: "shill_copy" }));
       await supabase.from("signature_usage").insert(usageRows);
-      console.log(`[auto-shill] 🏷️ Shill copy signature: appended ${picked.length} handles`);
-      return copyText + sigPrefix + picked.map(h => `@${h}`).join(separator) + sigSuffix;
+      console.log(`[auto-shill] 🏷️ Organic mention: ${picked.length} handles woven in`);
+      return copyText + "\n\n" + sentence;
     }
     return copyText;
   } catch (e: any) {
