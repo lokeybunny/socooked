@@ -489,6 +489,70 @@ serve(async (req) => {
           continue;
         }
 
+        // ── Repost-mentions: auto-schedule posts for matching handles ──
+        try {
+          const { data: targetsCfg } = await supabase
+            .from("site_configs")
+            .select("content")
+            .eq("site_id", "smm-auto-shill")
+            .eq("section", "raid-community-targets")
+            .maybeSingle();
+
+          const repostTargets = ((targetsCfg?.content as any)?.targets || [])
+            .filter((t: any) => t.enabled && t.repost_mentions_enabled && t.repost_mentions_handle);
+
+          for (const target of repostTargets) {
+            const handle = target.repost_mentions_handle.toLowerCase().replace(/^@/, "");
+            const tweetAuthorMatch = tweetUrl.match(/(?:x\.com|twitter\.com)\/([^/]+)\//i);
+            const tweetAuthor = tweetAuthorMatch?.[1]?.toLowerCase() || "";
+
+            if (tweetAuthor === handle) {
+              // Check dedup: don't re-schedule same tweet URL
+              const { data: existingPost } = await supabase
+                .from("shill_scheduled_posts")
+                .select("id")
+                .eq("caption", tweetUrl)
+                .limit(1);
+
+              if (existingPost && existingPost.length > 0) {
+                console.log(`[discord-watcher] Repost already scheduled for ${tweetUrl}`);
+                continue;
+              }
+
+              // Schedule a repost via shill_scheduled_posts
+              const scheduledAt = new Date(Date.now() + 2 * 60 * 1000).toISOString(); // 2 min from now
+              const caption = `🔁 @${handle}\n\n${tweetUrl}`;
+
+              const { error: insertErr } = await supabase.from("shill_scheduled_posts").insert({
+                caption,
+                video_url: tweetUrl,
+                community_id: target.community_id,
+                x_account: target.x_account || "xslaves",
+                scheduled_at: scheduledAt,
+                status: "scheduled",
+                chat_id: TELEGRAM_CHAT_ID,
+              });
+
+              if (insertErr) {
+                console.error(`[discord-watcher] Failed to schedule repost for @${handle}:`, insertErr.message);
+              } else {
+                console.log(`[discord-watcher] 🔁 Auto-scheduled repost of @${handle} tweet to ${target.community_name}`);
+                // Notify via Telegram
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    chat_id: TELEGRAM_CHAT_ID,
+                    text: `🔁 Auto-repost scheduled!\n\n@${handle} tweeted — routing to ${target.community_name}\n\n🔗 ${tweetUrl}`,
+                  }),
+                });
+              }
+            }
+          }
+        } catch (repostErr) {
+          console.error("[discord-watcher] Repost-mentions error (non-fatal):", repostErr);
+        }
+
         // ── Payment verification for RT receipts in the raid channel ──
         // When a user posts their reply receipt via TweetShift, we match any
         // extracted URL against pending shill_clicks to confirm payment.
