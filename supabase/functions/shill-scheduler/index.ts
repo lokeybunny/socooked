@@ -299,11 +299,29 @@ Deno.serve(async (req) => {
           console.error("[shill-scheduler] signature error (non-fatal):", sigErr.message);
         }
 
-        // Determine which account to use — try rotation pool first
+        // Determine which account to use — try rotation pool first, never use shadowbanned
         let accountToUse = post.x_account || "xslaves";
         const activeAcc = getActiveAccount();
         if (activeAcc) {
           accountToUse = activeAcc.handle;
+        }
+        // Safety: if selected account is shadowbanned, force switch to any active one
+        const selectedIsBanned = rotationAccounts.find(
+          a => a.handle.toLowerCase() === accountToUse.toLowerCase() && (a.status === "shadowbanned" || a.status === "paused" || a.status === "capped")
+        );
+        if (selectedIsBanned) {
+          const fallback = rotationAccounts.find(a => a.status === "active");
+          if (fallback) {
+            console.log(`[shill-scheduler] ⚠️ Account @${accountToUse} is ${selectedIsBanned.status}, switching to @${fallback.handle}`);
+            accountToUse = fallback.handle;
+          } else {
+            console.log(`[shill-scheduler] ❌ All accounts are unavailable (shadow banned/paused/capped)`);
+            await supabase.from("shill_scheduled_posts").update({
+              status: "failed",
+              error: "All rotation accounts are shadowbanned, paused, or capped",
+            }).eq("id", post.id);
+            continue;
+          }
         }
 
         // ── Try posting, with account rotation on daily cap ──
