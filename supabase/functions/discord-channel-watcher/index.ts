@@ -501,52 +501,64 @@ serve(async (req) => {
           const repostTargets = ((targetsCfg?.content as any)?.targets || [])
             .filter((t: any) => t.enabled && t.repost_mentions_enabled && t.repost_mentions_handle);
 
+          // Extract tweet author from ALL discovered URLs (not just the selected tweetUrl)
           for (const target of repostTargets) {
             const handle = target.repost_mentions_handle.toLowerCase().replace(/^@/, "");
-            const tweetAuthorMatch = tweetUrl.match(/(?:x\.com|twitter\.com)\/([^/]+)\//i);
-            const tweetAuthor = tweetAuthorMatch?.[1]?.toLowerCase() || "";
 
-            if (tweetAuthor === handle) {
-              // Check dedup: don't re-schedule same tweet URL
-              const { data: existingPost } = await supabase
-                .from("shill_scheduled_posts")
-                .select("id")
-                .eq("caption", tweetUrl)
-                .limit(1);
-
-              if (existingPost && existingPost.length > 0) {
-                console.log(`[discord-watcher] Repost already scheduled for ${tweetUrl}`);
-                continue;
+            // Check ALL URLs in this message for a match (not just the first/selected one)
+            let matchedUrl = "";
+            for (const u of uniqueUrls) {
+              const authorMatch = u.match(/(?:x\.com|twitter\.com)\/([^/]+)\//i);
+              const author = authorMatch?.[1]?.toLowerCase() || "";
+              if (author === handle) {
+                matchedUrl = u;
+                break;
               }
+            }
 
-              // Schedule a repost via shill_scheduled_posts
-              const scheduledAt = new Date(Date.now() + 2 * 60 * 1000).toISOString(); // 2 min from now
-              const caption = `🔁 @${handle}\n\n${tweetUrl}`;
+            if (!matchedUrl) continue;
 
-              const { error: insertErr } = await supabase.from("shill_scheduled_posts").insert({
-                caption,
-                video_url: tweetUrl,
-                community_id: target.community_id,
-                x_account: target.x_account || "xslaves",
-                scheduled_at: scheduledAt,
-                status: "scheduled",
-                chat_id: TELEGRAM_CHAT_ID,
+            console.log(`[discord-watcher] 🔍 Repost match: @${handle} detected in ${matchedUrl}`);
+
+            // Check dedup: don't re-schedule same tweet URL (check video_url field)
+            const { data: existingPost } = await supabase
+              .from("shill_scheduled_posts")
+              .select("id")
+              .eq("video_url", matchedUrl)
+              .limit(1);
+
+            if (existingPost && existingPost.length > 0) {
+              console.log(`[discord-watcher] Repost already scheduled for ${matchedUrl}`);
+              continue;
+            }
+
+            // Schedule a repost via shill_scheduled_posts
+            const scheduledAt = new Date(Date.now() + 2 * 60 * 1000).toISOString(); // 2 min from now
+            const caption = `Heads up @${handle} has just dropped another post!\n\n${matchedUrl}`;
+
+            const { error: insertErr } = await supabase.from("shill_scheduled_posts").insert({
+              caption,
+              video_url: matchedUrl,
+              community_id: target.community_id,
+              x_account: target.x_account || "xslaves",
+              scheduled_at: scheduledAt,
+              status: "scheduled",
+              chat_id: TELEGRAM_CHAT_ID,
+            });
+
+            if (insertErr) {
+              console.error(`[discord-watcher] Failed to schedule repost for @${handle}:`, insertErr.message);
+            } else {
+              console.log(`[discord-watcher] 🔁 Auto-scheduled repost of @${handle} tweet to ${target.community_name}`);
+              // Notify via Telegram
+              await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  chat_id: TELEGRAM_CHAT_ID,
+                  text: `🔁 Auto-repost scheduled!\n\nHeads up @${handle} has just dropped another post!\n\nRouting to ${target.community_name}\n\n🔗 ${matchedUrl}`,
+                }),
               });
-
-              if (insertErr) {
-                console.error(`[discord-watcher] Failed to schedule repost for @${handle}:`, insertErr.message);
-              } else {
-                console.log(`[discord-watcher] 🔁 Auto-scheduled repost of @${handle} tweet to ${target.community_name}`);
-                // Notify via Telegram
-                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    chat_id: TELEGRAM_CHAT_ID,
-                    text: `🔁 Auto-repost scheduled!\n\n@${handle} tweeted — routing to ${target.community_name}\n\n🔗 ${tweetUrl}`,
-                  }),
-                });
-              }
             }
           }
         } catch (repostErr) {
