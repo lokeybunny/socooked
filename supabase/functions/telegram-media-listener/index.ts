@@ -4160,6 +4160,26 @@ Deno.serve(async (req) => {
               .eq('section', 'shill-rotation-accounts')
               .maybeSingle()
             let rotAccounts = (rotCfg?.content as any)?.accounts || []
+            // Auto-recover shadow banned accounts after 72 hours
+            const nowMs = Date.now()
+            let rotChanged = false
+            for (const ra of rotAccounts) {
+              if (ra.status === 'shadowbanned' && ra.shadowbanned_at) {
+                if (nowMs - new Date(ra.shadowbanned_at).getTime() >= 72 * 60 * 60 * 1000) {
+                  ra.status = 'active'
+                  ra.shadowbanned_at = undefined
+                  ra.posts_today = 0
+                  rotChanged = true
+                }
+              }
+            }
+            if (rotChanged) {
+              await supa.from('site_configs').upsert({
+                site_id: 'smm-auto-shill',
+                section: 'shill-rotation-accounts',
+                content: { accounts: rotAccounts },
+              } as any, { onConflict: 'site_id,section' } as any)
+            }
             let activeAccounts = rotAccounts.filter((a: any) => a.status === 'active')
             if (activeAccounts.length === 0) activeAccounts = [{ handle: 'xslaves' }]
             // Round-robin: pick account based on total shill_x posts count
