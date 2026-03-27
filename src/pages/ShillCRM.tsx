@@ -78,8 +78,17 @@ function PayoutDialog({ target, onClose, onPaid }: { target: PayoutTarget | null
   const { user } = useAuth();
   const [solanaAddress, setSolanaAddress] = useState(target?.solana_wallet || "");
   const [saving, setSaving] = useState(false);
+  const [solPrice, setSolPrice] = useState<number | null>(null);
 
   useEffect(() => { setSolanaAddress(target?.solana_wallet || ""); }, [target]);
+
+  useEffect(() => {
+    if (!target) return;
+    fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd")
+      .then(r => r.json())
+      .then(d => setSolPrice(d?.solana?.usd ?? null))
+      .catch(() => setSolPrice(null));
+  }, [target]);
 
   if (!target) return null;
 
