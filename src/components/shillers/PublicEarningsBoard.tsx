@@ -303,7 +303,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-border p-3 text-center">
           <Users className="h-4 w-4 mx-auto mb-1 text-primary" />
           <p className="text-2xl font-bold text-foreground">{rows.length}</p>
@@ -313,11 +313,6 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           <DollarSign className="h-4 w-4 mx-auto mb-1 text-green-500" />
           <p className="text-2xl font-bold text-green-500">${totalVerified.toFixed(2)}</p>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Verified</p>
-        </div>
-        <div className="rounded-lg border border-border p-3 text-center">
-          <DollarSign className="h-4 w-4 mx-auto mb-1 text-yellow-500" />
-          <p className="text-2xl font-bold text-yellow-500">${totalPending.toFixed(2)}</p>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Pending</p>
         </div>
       </div>
 
