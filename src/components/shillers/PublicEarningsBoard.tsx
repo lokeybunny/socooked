@@ -599,6 +599,47 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           </TableBody>
         </Table>
       </ScrollArea>
+
+      {/* Paid Out History */}
+      {allPayouts.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Paid Out History
+          </h3>
+          <ScrollArea className="h-[250px] rounded-lg border border-border">
+            <div className="p-3 space-y-1.5">
+              {allPayouts.map((p) => (
+                <div key={p.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm text-foreground">{maskUsername(p.discord_username)}</span>
+                      <Badge variant="outline" className="text-[9px] border-emerald-500/30 text-emerald-500">
+                        {p.payout_type}
+                      </Badge>
+                    </div>
+                    {p.solana_tx_address && (
+                      <a
+                        href={p.solana_tx_address}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline truncate block"
+                      >
+                        {p.solana_tx_address.replace(/https?:\/\/solscan\.io\/tx\//, "").slice(0, 24)}…
+                      </a>
+                    )}
+                  </div>
+                  <span className="font-mono text-sm font-semibold text-emerald-400 shrink-0">
+                    ${Number(p.amount).toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {format(new Date(p.created_at), "MMM d, yyyy")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
     </div>
   );
 }
