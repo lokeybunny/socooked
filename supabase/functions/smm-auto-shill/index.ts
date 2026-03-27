@@ -1929,9 +1929,9 @@ serve(async (req) => {
         const totalVerified = verifiedClicks?.length || 0;
         const totalOwed = (verifiedClicks || []).reduce((s: number, c: any) => s + Number(c.rate || 0), 0);
 
-        if (totalOwed <= 0) {
+        if (totalOwed < 5) {
           return json({ type: 4, data: {
-            content: `📊 You currently have **$0.00** in verified earnings.\n\n🔐 Wallet on file: \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n\nKeep shilling/raiding — once your work is verified, come back and use \`/payout\` to cash out!`,
+            content: `📊 You currently have **$${totalOwed.toFixed(2)}** in verified earnings.\n\n💡 **Minimum $5.00 required to withdraw.**\n🔐 Wallet on file: \`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}\`\n\nKeep shilling/raiding — once you hit $5.00 in verified earnings, come back and use \`/payout\` to cash out!`,
             flags: 64,
           }});
         }

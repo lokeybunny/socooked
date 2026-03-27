@@ -255,8 +255,8 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
 
     setPayoutSubmitting(true);
     try {
-      if (foundUser.verified_amount <= 0) {
-        toast.error("No verified earnings to request a payout for.");
+      if (foundUser.verified_amount < 5) {
+        toast.error("Minimum $5.00 in verified earnings required to withdraw.");
         setPayoutSubmitting(false);
         return;
       }
@@ -455,7 +455,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
             <div className="flex items-center gap-3 pt-1">
               <Button
                 onClick={handlePayoutRequest}
-                disabled={!isFriday() || payoutSubmitting || foundUser.verified_amount <= 0}
+                disabled={!isFriday() || payoutSubmitting || foundUser.verified_amount < 5}
                 size="sm"
                 className="gap-1.5"
               >
@@ -468,6 +468,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
                 <span className="text-xs text-muted-foreground">Payouts open on Fridays (UTC)</span>
               )}
             </div>
+            <p className="text-[10px] text-muted-foreground">Minimum $5.00 in verified earnings required to withdraw.</p>
 
             {/* Payment History */}
             {paymentHistory.length > 0 && (
