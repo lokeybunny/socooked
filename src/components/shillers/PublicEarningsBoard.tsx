@@ -468,6 +468,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
                 <span className="text-xs text-muted-foreground">Payouts open on Fridays (UTC)</span>
               )}
             </div>
+            <p className="text-[10px] text-muted-foreground">Minimum $5.00 in verified earnings required to withdraw.</p>
 
             {/* Payment History */}
             {paymentHistory.length > 0 && (
