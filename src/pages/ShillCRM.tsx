@@ -1161,7 +1161,9 @@ function PayoutRequestsTab() {
                     <TableCell><Badge variant="outline" className="text-xs">{r.user_type}</Badge></TableCell>
                     <TableCell className="text-right font-mono font-bold text-primary">${Number(r.amount_owed).toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono">{r.verified_clicks}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.solana_wallet?.slice(0, 6)}...{r.solana_wallet?.slice(-4)}</TableCell>
+                    <TableCell className="font-mono text-xs max-w-[200px] break-all">
+                      {user ? r.solana_wallet : `${r.solana_wallet?.slice(0, 6)}...${r.solana_wallet?.slice(-4)}`}
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
