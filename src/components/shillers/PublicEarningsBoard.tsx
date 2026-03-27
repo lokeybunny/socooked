@@ -364,22 +364,18 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
                 {foundUser.role === "both" ? "shiller + raider" : foundUser.role}
               </Badge>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div className="text-center">
                 <p className="text-lg font-bold text-green-500">${foundUser.verified_amount.toFixed(2)}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Total Verified</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Verified Earned</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-yellow-500">${foundUser.pending_amount.toFixed(2)}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Total Pending</p>
+                <p className="text-lg font-bold text-foreground">{foundUser.verified_clicks}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Verified Clicks</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-foreground">{foundUser.verified_clicks + foundUser.pending_clicks}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Total Clicks</p>
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-foreground">${(foundUser.verified_amount + foundUser.pending_amount).toFixed(2)}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">Grand Total</p>
+                <p className="text-lg font-bold text-foreground">{foundUser.pending_clicks}</p>
+                <p className="text-[10px] text-muted-foreground uppercase">Pending Clicks</p>
               </div>
             </div>
 
