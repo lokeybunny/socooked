@@ -176,6 +176,51 @@ async function cleanupExpiredMessages(supabase: any, botToken: string) {
   return deleted;
 }
 
+/** Force-clean leftover bot messages from a specific channel.
+ *  Fetches recent messages, deletes any sent by the bot that are older than 5 minutes. */
+async function forceCleanChannel(botToken: string, botUserId: string | null, channelId: string) {
+  if (!botUserId) return 0;
+
+  let deleted = 0;
+  const nowMs = Date.now();
+  const AGE_THRESHOLD_MS = 5 * 60 * 1000;
+
+  try {
+    const res = await fetch(
+      `${DISCORD_API}/channels/${channelId}/messages?limit=50`,
+      { headers: { Authorization: `Bot ${botToken}` } }
+    );
+    if (!res.ok) {
+      console.error(`[force-clean] Failed to fetch messages from ${channelId}: ${res.status}`);
+      return 0;
+    }
+    const messages: any[] = await res.json();
+
+    for (const msg of messages) {
+      if (msg.author?.id !== botUserId) continue;
+      const msgCreated = new Date(msg.timestamp).getTime();
+      if (!Number.isFinite(msgCreated)) continue;
+      if ((nowMs - msgCreated) >= AGE_THRESHOLD_MS) {
+        try {
+          const delRes = await fetch(
+            `${DISCORD_API}/channels/${channelId}/messages/${msg.id}`,
+            { method: "DELETE", headers: { Authorization: `Bot ${botToken}` } }
+          );
+          if (delRes.ok || delRes.status === 404) deleted++;
+          else console.error(`[force-clean] Delete ${msg.id} failed: ${delRes.status}`);
+          if (deleted % 3 === 0) await new Promise(r => setTimeout(r, 1000));
+        } catch (e) {
+          console.error(`[force-clean] Delete error for ${msg.id}:`, e);
+        }
+      }
+    }
+    if (deleted > 0) console.log(`[force-clean] Deleted ${deleted} leftover bot messages from ${channelId}`);
+  } catch (e) {
+    console.error(`[force-clean] Channel sweep error for ${channelId}:`, e);
+  }
+  return deleted;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
@@ -208,10 +253,17 @@ serve(async (req) => {
       console.error("[discord-watcher] Failed to fetch bot identity:", error);
     }
 
-    // ── Step 0: Cleanup expired bot messages ──
+    // ── Step 0: Cleanup expired bot messages (DB-tracked) ──
     const expiredCount = await cleanupExpiredMessages(supabase, DISCORD_BOT_TOKEN);
     if (expiredCount > 0) {
       console.log(`[discord-watcher] Cleaned up ${expiredCount} expired messages`);
+    }
+
+    // ── Step 0b: Force-clean leftover bot messages from shill reply channel ──
+    const FORCE_CLEAN_CHANNEL = "1484830617966481512";
+    const forceCleanCount = await forceCleanChannel(DISCORD_BOT_TOKEN, botUserId, FORCE_CLEAN_CHANNEL);
+    if (forceCleanCount > 0) {
+      console.log(`[discord-watcher] Force-cleaned ${forceCleanCount} leftover messages from ${FORCE_CLEAN_CHANNEL}`);
     }
 
     // Load all auto-shill configs
