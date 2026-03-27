@@ -173,6 +173,8 @@ export default function XShill() {
   const [shillXPosts, setShillXPosts] = useState<ScheduledPost[]>([]);
   const [newAwayComm, setNewAwayComm] = useState<{ community_id: string; community_name: string; hide_ticker?: boolean }>({ community_id: "", community_name: "" });
   const [editingAwayComm, setEditingAwayComm] = useState<{ id: string; community_id: string; community_name: string; hide_ticker?: boolean } | null>(null);
+  const [campaignPaused, setCampaignPaused] = useState(false);
+  const [campaignPauseToggling, setCampaignPauseToggling] = useState(false);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
