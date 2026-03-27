@@ -1162,7 +1162,13 @@ function PayoutRequestsTab() {
                     <TableCell className="text-right font-mono font-bold text-primary">${Number(r.amount_owed).toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono">{r.verified_clicks}</TableCell>
                     <TableCell className="font-mono text-xs max-w-[200px] break-all">
-                      {user ? r.solana_wallet : `${r.solana_wallet?.slice(0, 6)}...${r.solana_wallet?.slice(-4)}`}
+                      <button
+                        className="hover:text-primary transition-colors cursor-pointer text-left"
+                        onClick={() => { navigator.clipboard.writeText(r.solana_wallet || ""); toast.success("Wallet copied!"); }}
+                        title="Click to copy"
+                      >
+                        {user ? r.solana_wallet : `${r.solana_wallet?.slice(0, 6)}...${r.solana_wallet?.slice(-4)}`}
+                      </button>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</TableCell>
                     <TableCell className="text-right">
