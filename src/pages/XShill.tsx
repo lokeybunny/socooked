@@ -380,6 +380,26 @@ export default function XShill() {
     toast.success(enabled ? "Raid bot enabled" : "Raid bot disabled");
   };
 
+  const toggleCampaignPause = async () => {
+    setCampaignPauseToggling(true);
+    const newPaused = !campaignPaused;
+    try {
+      await supabase.from("site_configs").upsert({
+        site_id: "smm-auto-shill",
+        section: "campaign-pause",
+        content: { paused: newPaused, paused_at: newPaused ? new Date().toISOString() : null, last_notify_at: null } as any,
+      } as any, { onConflict: "site_id,section" } as any);
+      setCampaignPaused(newPaused);
+      if (newPaused) {
+        await supabase.functions.invoke("campaign-pause-notify", { body: { action: "notify" } });
+      }
+      toast.success(newPaused ? "Campaign PAUSED — workers notified" : "Campaign RESUMED — notifications stopped");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to toggle campaign pause");
+    }
+    setCampaignPauseToggling(false);
+  };
+
   const resetThrottle = async (section: string) => {
     await supabase.from("site_configs").upsert({
       site_id: "smm-auto-shill",
