@@ -338,6 +338,15 @@ export default function XShill() {
           .limit(100);
         setShillXPosts((sxPosts as any[]) || []);
       }
+
+      // Load campaign pause state
+      const { data: pauseCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "campaign-pause")
+        .maybeSingle();
+      setCampaignPaused(!!(pauseCfg?.content as any)?.paused);
     } catch (e) {
       console.error("Load error:", e);
     } finally {
