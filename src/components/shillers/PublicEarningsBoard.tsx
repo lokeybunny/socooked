@@ -532,7 +532,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
               <TableHead>Role</TableHead>
               <TableHead>Wallet</TableHead>
               <TableHead className="text-right">Verified</TableHead>
-              <TableHead className="text-right">Pending</TableHead>
+              
               <TableHead className="text-right">Total Clicks</TableHead>
             </TableRow>
           </TableHeader>
@@ -566,9 +566,6 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
                 <TableCell className="text-right font-mono text-green-500 font-semibold">
                   ${row.verified_amount.toFixed(2)}
                 </TableCell>
-                <TableCell className="text-right font-mono text-yellow-500">
-                  ${row.pending_amount.toFixed(2)}
-                </TableCell>
                 <TableCell className="text-right font-mono text-sm">
                   {row.verified_clicks + row.pending_clicks}
                 </TableCell>
@@ -576,7 +573,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
             ))}
             {rows.length === 0 && !loading && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   No earnings data yet.
                 </TableCell>
               </TableRow>
