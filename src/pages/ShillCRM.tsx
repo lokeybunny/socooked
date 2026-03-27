@@ -148,6 +148,9 @@ function PayoutDialog({ target, onClose, onPaid }: { target: PayoutTarget | null
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Type</span><Badge variant="outline">{target.payout_type}</Badge></div>
             <div className="flex justify-between text-sm"><span className="text-muted-foreground">Verified Clicks</span><span className="font-mono">{target.verified_clicks}</span></div>
             <div className="flex justify-between text-sm font-bold"><span className="text-muted-foreground">Amount Owed</span><span className="font-mono text-primary">${target.amount.toFixed(2)}</span></div>
+            {solPrice && (
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">≈ SOL</span><span className="font-mono text-emerald-500">{(target.amount / solPrice).toFixed(4)} SOL</span></div>
+            )}
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Solscan Transaction URL (receipt)</label>
