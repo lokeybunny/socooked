@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, Wallet, Users, RefreshCw, Send, Search, X, ExternalLink, Receipt, History } from "lucide-react";
+import { DollarSign, Wallet, Users, RefreshCw, Send, Search, X, ExternalLink, Receipt, History, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +64,7 @@ interface Props {
 export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const [rows, setRows] = useState<EarningsRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [allPayouts, setAllPayouts] = useState<any[]>([]);
 
   // Wallet lookup state
   const [walletSearch, setWalletSearch] = useState("");
@@ -196,6 +197,18 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
 
   const totalVerified = rows.reduce((s, r) => s + r.verified_amount, 0);
   const totalPending = rows.reduce((s, r) => s + r.pending_amount, 0);
+  const totalPaidOut = allPayouts.reduce((s, p) => s + Number(p.amount), 0);
+
+  const fetchAllPayouts = async () => {
+    const { data } = await supabase
+      .from("shill_payouts")
+      .select("id, discord_username, amount, payout_type, solana_tx_address, created_at")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    setAllPayouts(data || []);
+  };
+
+  useEffect(() => { fetchAllPayouts(); }, []);
 
   const handleWalletLookup = async () => {
     const query = walletSearch.trim();
@@ -303,7 +316,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-border p-3 text-center">
           <Users className="h-4 w-4 mx-auto mb-1 text-primary" />
           <p className="text-2xl font-bold text-foreground">{rows.length}</p>
@@ -313,6 +326,11 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           <DollarSign className="h-4 w-4 mx-auto mb-1 text-green-500" />
           <p className="text-2xl font-bold text-green-500">${totalVerified.toFixed(2)}</p>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Verified</p>
+        </div>
+        <div className="rounded-lg border border-border p-3 text-center">
+          <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-emerald-400" />
+          <p className="text-2xl font-bold text-emerald-400">${totalPaidOut.toFixed(2)}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Paid Out</p>
         </div>
       </div>
 
@@ -581,6 +599,47 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           </TableBody>
         </Table>
       </ScrollArea>
+
+      {/* Paid Out History */}
+      {allPayouts.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Paid Out History
+          </h3>
+          <ScrollArea className="h-[250px] rounded-lg border border-border">
+            <div className="p-3 space-y-1.5">
+              {allPayouts.map((p) => (
+                <div key={p.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm text-foreground">{maskUsername(p.discord_username)}</span>
+                      <Badge variant="outline" className="text-[9px] border-emerald-500/30 text-emerald-500">
+                        {p.payout_type}
+                      </Badge>
+                    </div>
+                    {p.solana_tx_address && (
+                      <a
+                        href={p.solana_tx_address}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline truncate block"
+                      >
+                        {p.solana_tx_address.replace(/https?:\/\/solscan\.io\/tx\//, "").slice(0, 24)}…
+                      </a>
+                    )}
+                  </div>
+                  <span className="font-mono text-sm font-semibold text-emerald-400 shrink-0">
+                    ${Number(p.amount).toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">
+                    {format(new Date(p.created_at), "MMM d, yyyy")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
     </div>
   );
 }
