@@ -678,6 +678,19 @@ export default function XShill() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant={campaignPaused ? "default" : "destructive"}
+              onClick={toggleCampaignPause}
+              disabled={campaignPauseToggling}
+              className="gap-1.5"
+            >
+              {campaignPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              {campaignPauseToggling ? "..." : campaignPaused ? "Resume Campaign" : "Stop Campaign"}
+            </Button>
+            {campaignPaused && (
+              <Badge variant="destructive" className="text-xs animate-pulse">PAUSED</Badge>
+            )}
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Bot Active</span>
               <Switch checked={sourceEnabled} onCheckedChange={toggleSource} />
