@@ -731,6 +731,22 @@ serve(async (req) => {
           }, { onConflict: "site_id,section" });
         }
 
+        // ── Campaign Pause Check — block output to shill/raid reply channels ──
+        const PAUSED_CHANNELS = ["1484830617966481512", "1485010551196090448"];
+        if (PAUSED_CHANNELS.includes(replyChannelId)) {
+          const { data: pauseCfg } = await supabase
+            .from("site_configs")
+            .select("content")
+            .eq("site_id", "smm-auto-shill")
+            .eq("section", "campaign-pause")
+            .maybeSingle();
+          if ((pauseCfg?.content as any)?.paused) {
+            console.log(`[discord-watcher] Campaign paused — skipping send to ${replyChannelId}`);
+            totalForwarded++;
+            continue;
+          }
+        }
+
         // ── 3) Send Discord reply to the REPLY channel ──
         // Skip shill notifications for verify/shill-lounge channel
         const SHILL_LOUNGE_CHANNEL = "1485050868838564030";

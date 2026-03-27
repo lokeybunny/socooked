@@ -173,6 +173,8 @@ export default function XShill() {
   const [shillXPosts, setShillXPosts] = useState<ScheduledPost[]>([]);
   const [newAwayComm, setNewAwayComm] = useState<{ community_id: string; community_name: string; hide_ticker?: boolean }>({ community_id: "", community_name: "" });
   const [editingAwayComm, setEditingAwayComm] = useState<{ id: string; community_id: string; community_name: string; hide_ticker?: boolean } | null>(null);
+  const [campaignPaused, setCampaignPaused] = useState(false);
+  const [campaignPauseToggling, setCampaignPauseToggling] = useState(false);
 
   const loadAll = useCallback(async () => {
     setRefreshing(true);
@@ -336,6 +338,15 @@ export default function XShill() {
           .limit(100);
         setShillXPosts((sxPosts as any[]) || []);
       }
+
+      // Load campaign pause state
+      const { data: pauseCfg } = await supabase
+        .from("site_configs")
+        .select("content")
+        .eq("site_id", "smm-auto-shill")
+        .eq("section", "campaign-pause")
+        .maybeSingle();
+      setCampaignPaused(!!(pauseCfg?.content as any)?.paused);
     } catch (e) {
       console.error("Load error:", e);
     } finally {
@@ -367,6 +378,26 @@ export default function XShill() {
       } as any,
     } as any, { onConflict: "site_id,section" } as any);
     toast.success(enabled ? "Raid bot enabled" : "Raid bot disabled");
+  };
+
+  const toggleCampaignPause = async () => {
+    setCampaignPauseToggling(true);
+    const newPaused = !campaignPaused;
+    try {
+      await supabase.from("site_configs").upsert({
+        site_id: "smm-auto-shill",
+        section: "campaign-pause",
+        content: { paused: newPaused, paused_at: newPaused ? new Date().toISOString() : null, last_notify_at: null } as any,
+      } as any, { onConflict: "site_id,section" } as any);
+      setCampaignPaused(newPaused);
+      if (newPaused) {
+        await supabase.functions.invoke("campaign-pause-notify", { body: { action: "notify" } });
+      }
+      toast.success(newPaused ? "Campaign PAUSED — workers notified" : "Campaign RESUMED — notifications stopped");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to toggle campaign pause");
+    }
+    setCampaignPauseToggling(false);
   };
 
   const resetThrottle = async (section: string) => {
@@ -647,6 +678,19 @@ export default function XShill() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant={campaignPaused ? "default" : "destructive"}
+              onClick={toggleCampaignPause}
+              disabled={campaignPauseToggling}
+              className="gap-1.5"
+            >
+              {campaignPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              {campaignPauseToggling ? "..." : campaignPaused ? "Resume Campaign" : "Stop Campaign"}
+            </Button>
+            {campaignPaused && (
+              <Badge variant="destructive" className="text-xs animate-pulse">PAUSED</Badge>
+            )}
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Bot Active</span>
               <Switch checked={sourceEnabled} onCheckedChange={toggleSource} />
