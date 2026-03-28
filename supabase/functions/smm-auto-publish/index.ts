@@ -539,10 +539,38 @@ Deno.serve(async (req) => {
         params.append("ig_post_type", "reels");
         params.append("share_to_feed", "true");
         const captionLower = caption.toLowerCase();
-        const tags: string[] = [];
-        if (captionLower.includes("lamb")) tags.push("@lamb.wavv");
-        if (captionLower.includes("oranj") || captionLower.includes("orang")) tags.push("@oranjgoodman");
-        if (tags.length > 0) params.append("user_tags", tags.join(", "));
+        const candidateTags: { tag: string; keyword: string }[] = [];
+        if (captionLower.includes("lamb")) candidateTags.push({ tag: "@lamb.wavv", keyword: "lamb" });
+        if (captionLower.includes("oranj") || captionLower.includes("orang")) candidateTags.push({ tag: "@oranjgoodman", keyword: "oranj" });
+
+        // 7-day @ mention cooldown: check published events for recent mentions
+        if (candidateTags.length > 0) {
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: recentPublished } = await supabase
+            .from("calendar_events")
+            .select("title, description")
+            .in("category", ["smm", "artist-campaign"])
+            .like("source_id", `${PUBLISHED_PREFIX}%`)
+            .gte("start_time", sevenDaysAgo)
+            .limit(500);
+
+          const recentText = (recentPublished || [])
+            .map((e: any) => `${e.title || ""} ${e.description || ""}`.toLowerCase())
+            .join(" ");
+
+          const filteredTags = candidateTags.filter(({ tag, keyword }) => {
+            const tagLower = tag.toLowerCase().replace("@", "");
+            const recentlyMentioned = recentText.includes(tag.toLowerCase()) || recentText.includes(tagLower);
+            if (recentlyMentioned) {
+              console.log(`[smm-auto-publish] Skipping ${tag} — mentioned in a post within the last 7 days`);
+            }
+            return !recentlyMentioned;
+          });
+
+          if (filteredTags.length > 0) {
+            params.append("user_tags", filteredTags.map(t => t.tag).join(", "));
+          }
+        }
       }
     } else {
       params.append("photos[]", mediaUrl);
@@ -909,11 +937,29 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Media URL dedup: track which media URLs have been published/queued ──
+    const publishedMediaUrls = new Set<string>();
+    for (const pe of (allPublished || [])) {
+      const mediaMatch = pe.description?.match(/Media URL:\s*(https?:\/\/\S+)/i);
+      if (mediaMatch?.[1]) publishedMediaUrls.add(mediaMatch[1].trim());
+    }
+    // Also add currently-publishing events' media URLs
+    for (const pe of (pendingEvents || [])) {
+      const mediaMatch = pe.description?.match(/Media URL:\s*(https?:\/\/\S+)/i);
+      if (mediaMatch?.[1]) publishedMediaUrls.add(mediaMatch[1].trim());
+    }
+
     /** Returns true if the event should be skipped due to rate-limit or duplicate */
     const shouldSkipEvent = (ev: any): { skip: boolean; reason?: string } => {
+      const evPayload = extractEventPayload(ev);
+
+      // Media URL dedup — never post the same video/image URL twice
+      if (evPayload.mediaUrl && publishedMediaUrls.has(evPayload.mediaUrl)) {
+        return { skip: true, reason: `duplicate media URL already published/queued: ${evPayload.mediaUrl.substring(0, 80)}` };
+      }
+
       // Duplicate check — per-platform title match against all previously published
       const normTitle = normalizeComparableText(ev.title);
-      const evPayload = extractEventPayload(ev);
       if (normTitle) {
         const allPlatsDuplicate = evPayload.platforms.every(
           (p: string) => publishedPlatformTitleSet.has(`${p}::${normTitle}`)
@@ -945,6 +991,8 @@ Deno.serve(async (req) => {
           publishedPlatformTitleSet.add(`${p}::${normTitle}`);
         }
       }
+      // Track media URL to prevent same video from being queued again in this batch
+      if (evPayload.mediaUrl) publishedMediaUrls.add(evPayload.mediaUrl);
     };
 
     const processReadyBatch = async (readyEvents: any[], label: string) => {
