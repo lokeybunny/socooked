@@ -58,9 +58,26 @@ Deno.serve(async (req) => {
           const dsRes = await fetch(
             `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=500`
           );
-          if (!dsRes.ok) { await dsRes.text(); continue; }
+          if (!dsRes.ok) {
+            const errText = await dsRes.text();
+            console.error(`[buyer-discovery] Dataset fetch failed for run ${runId}: ${errText}`);
+            await supabase.from("lw_buyer_ingestion_logs")
+              .update({ status: "error", error: `Dataset fetch failed: ${dsRes.status}` })
+              .eq("apify_run_id", runId);
+            results.push({ run_id: runId, status: "error", reason: "dataset_fetch_failed" });
+            continue;
+          }
           const records = await dsRes.json();
           console.log(`[buyer-discovery] Poll: got ${records.length} records for run ${runId}`);
+
+          if (records.length === 0) {
+            // No data — mark log as completed with 0 records
+            await supabase.from("lw_buyer_ingestion_logs")
+              .update({ status: "completed", records_received: 0, records_new: 0, records_skipped: 0 })
+              .eq("apify_run_id", runId);
+            results.push({ run_id: runId, status: "completed_empty", records: 0 });
+            continue;
+          }
 
           // Call buyer-ingest
           const ingestUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/buyer-ingest`;
@@ -80,6 +97,7 @@ Deno.serve(async (req) => {
             }),
           });
           const ingestResult = await ingestRes.json();
+          console.log(`[buyer-discovery] Ingest result:`, JSON.stringify(ingestResult));
           results.push({ run_id: runId, status: "ingested", ingest: ingestResult });
         } else if (status === "FAILED" || status === "ABORTED" || status === "TIMED-OUT") {
           await supabase.from("lw_buyer_ingestion_logs")

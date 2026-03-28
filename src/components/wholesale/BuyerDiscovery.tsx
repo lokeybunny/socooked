@@ -61,7 +61,12 @@ export default function BuyerDiscovery() {
   const [form, setForm] = useState(emptyForm);
   const [runningDiscovery, setRunningDiscovery] = useState(false);
 
-  useEffect(() => { loadBuyers(); }, []);
+  useEffect(() => {
+    loadBuyers();
+    // Auto-refresh every 10s to catch new ingested buyers
+    const interval = setInterval(loadBuyers, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadBuyers = async () => {
     setLoading(true);

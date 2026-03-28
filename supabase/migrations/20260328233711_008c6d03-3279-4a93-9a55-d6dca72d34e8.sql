@@ -1,0 +1,1 @@
+UPDATE lw_buyer_ingestion_logs SET status = 'completed', records_received = 0, records_new = 0 WHERE status = 'running' AND created_at < now() - interval '10 minutes';
