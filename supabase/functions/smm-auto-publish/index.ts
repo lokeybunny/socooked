@@ -963,6 +963,8 @@ Deno.serve(async (req) => {
           publishedPlatformTitleSet.add(`${p}::${normTitle}`);
         }
       }
+      // Track media URL to prevent same video from being queued again in this batch
+      if (evPayload.mediaUrl) publishedMediaUrls.add(evPayload.mediaUrl);
     };
 
     const processReadyBatch = async (readyEvents: any[], label: string) => {
