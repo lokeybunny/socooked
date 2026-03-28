@@ -51,8 +51,15 @@ Deno.serve(async (req) => {
     const autoCreateTasks = config.auto_create_tasks === true || config.auto_create_tasks === "true";
     const alertConfig = config.telegram_alerts || { enabled: true, min_score: 70 };
 
-    // Normalize records
-    const normalized = records.map((r: any) => normalizeRecord(r, platform));
+    // Normalize records, filter out placeholder/error records
+    const normalized = records
+      .filter((r: any) => {
+        // Skip Apify placeholder "No posts found" entries
+        if (r.title && r.title.startsWith("No posts found")) return false;
+        if (!r.url && !r.postUrl && !r.link && !r.email && !r.phone && !r.name && !r.full_name) return false;
+        return true;
+      })
+      .map((r: any) => normalizeRecord(r, platform));
 
     // Load existing buyers for dedup
     const emails = normalized.map((n: any) => n.email).filter(Boolean);
@@ -241,36 +248,50 @@ Deno.serve(async (req) => {
 
 // ── Normalize raw scraped record ──
 function normalizeRecord(raw: any, platform: string) {
-  const text = (raw.text || raw.body || raw.description || raw.content || raw.title || "").toLowerCase();
+  // For craigslist, the record has: title, url, category, datetime, id
+  // We need to use title as the primary text and derive a name from it
+  const rawTitle = raw.title || "";
+  const rawBody = raw.text || raw.body || raw.description || raw.content || "";
+  const fullText = (rawTitle + " " + rawBody).toLowerCase();
+
+  // For CL posts, use the post title as the buyer "name" since there's no author info
   const name =
     raw.full_name || raw.name || raw.author || raw.username || raw.displayName || raw.authorName || "";
-  const email = extractEmail(text + " " + (raw.email || ""));
-  const phone = extractPhone(text + " " + (raw.phone || ""));
+
+  const email = extractEmail(fullText + " " + (raw.email || ""));
+  const phone = extractPhone(fullText + " " + (raw.phone || ""));
+
+  // Extract location from URL subdomain (e.g. "mendocino.craigslist.org")
+  const urlStr = raw.url || raw.postUrl || raw.link || "";
+  let city = raw.city || raw.location || null;
+  if (!city && urlStr) {
+    const urlMatch = urlStr.match(/https?:\/\/(\w+)\.craigslist\.org/);
+    if (urlMatch) city = urlMatch[1];
+  }
 
   // Extract location signals
-  const states = extractStates(text);
-  const counties = extractCounties(text);
-  const city = raw.city || raw.location || extractCity(text);
+  const states = extractStates(fullText);
+  const counties = extractCounties(fullText);
 
   // Extract budget signals
-  const budgetMatch = text.match(/\$\s*([\d,]+)\s*[-–to]+\s*\$?\s*([\d,]+)/);
-  const singleBudget = text.match(/budget[:\s]*\$?\s*([\d,]+)/i);
+  const budgetMatch = fullText.match(/\$\s*([\d,]+)\s*[-–to]+\s*\$?\s*([\d,]+)/);
+  const singleBudget = fullText.match(/budget[:\s]*\$?\s*([\d,]+)/i);
 
   return {
-    full_name: name.trim() || null,
+    full_name: name.trim() || rawTitle.trim().slice(0, 100) || null,
     email,
     phone,
     company: raw.company || raw.organization || null,
     city: city || null,
-    source_url: raw.url || raw.postUrl || raw.link || null,
-    deal_type: detectDealType(text),
+    source_url: urlStr || null,
+    deal_type: detectDealType(fullText),
     states,
     counties,
     budget_min: budgetMatch ? parseInt(budgetMatch[1].replace(/,/g, "")) : singleBudget ? parseInt(singleBudget[1].replace(/,/g, "")) * 0.7 : null,
     budget_max: budgetMatch ? parseInt(budgetMatch[2].replace(/,/g, "")) : singleBudget ? parseInt(singleBudget[1].replace(/,/g, "")) : null,
-    acreage_min: extractAcreage(text, "min"),
-    acreage_max: extractAcreage(text, "max"),
-    text,
+    acreage_min: extractAcreage(fullText, "min"),
+    acreage_max: extractAcreage(fullText, "max"),
+    text: fullText,
     raw,
   };
 }
@@ -359,8 +380,7 @@ function findExisting(record: any, existingMap: Map<string, any>) {
     return existingMap.get(`phone:${record.phone}`);
   if (record.source_url && existingMap.has(`url:${record.source_url}`))
     return existingMap.get(`url:${record.source_url}`);
-  if (record.full_name && existingMap.has(`name:${record.full_name.toLowerCase()}`))
-    return existingMap.get(`name:${record.full_name.toLowerCase()}`);
+  // Skip name-based dedup — post titles aren't buyer names and cause false positives
   return null;
 }
 
