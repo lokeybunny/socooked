@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown } from 'lucide-react';
+import BuyerManager from '@/components/wholesale/BuyerManager';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home';
@@ -142,6 +143,7 @@ export default function Wholesale() {
           </TabsTrigger>
           <TabsTrigger value="pipeline">Deal Pipeline</TabsTrigger>
           <TabsTrigger value="demand">Demand Map</TabsTrigger>
+          <TabsTrigger value="buyers">Buyers</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Call List */}
@@ -340,6 +342,10 @@ export default function Wholesale() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        {/* Tab 4: Buyers */}
+        <TabsContent value="buyers" className="mt-4">
+          <BuyerManager />
         </TabsContent>
       </Tabs>
     </div>
