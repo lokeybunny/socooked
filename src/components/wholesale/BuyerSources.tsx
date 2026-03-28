@@ -49,7 +49,7 @@ export default function BuyerSources() {
       search_keywords: (s.search_keywords || []).join(', '),
       search_cities: ((s.meta?.cities) || []).join(', '),
       schedule_cron: s.schedule_cron || '0 6 * * *',
-      is_enabled: s.is_enabled, meta: JSON.stringify({ ...s.meta, cities: undefined } || {}, null, 2),
+      is_enabled: s.is_enabled, meta: JSON.stringify((() => { const { cities, ...rest } = (s.meta || {}); return rest; })(), null, 2),
     });
     setOpen(true);
   };
