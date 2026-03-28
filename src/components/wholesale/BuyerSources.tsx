@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 
 const emptySource = {
   name: '', platform: 'facebook', apify_actor_id: '',
-  search_keywords: '', search_urls: '', schedule_cron: '0 6 * * *',
+  search_keywords: '', search_cities: '', schedule_cron: '0 6 * * *',
   is_enabled: true, meta: '{}',
 };
 
@@ -47,9 +47,9 @@ export default function BuyerSources() {
     setForm({
       name: s.name, platform: s.platform, apify_actor_id: s.apify_actor_id || '',
       search_keywords: (s.search_keywords || []).join(', '),
-      search_urls: (s.search_urls || []).join('\n'),
+      search_cities: ((s.meta?.cities) || []).join(', '),
       schedule_cron: s.schedule_cron || '0 6 * * *',
-      is_enabled: s.is_enabled, meta: JSON.stringify(s.meta || {}, null, 2),
+      is_enabled: s.is_enabled, meta: JSON.stringify((() => { const { cities, ...rest } = (s.meta || {}); return rest; })(), null, 2),
     });
     setOpen(true);
   };
@@ -62,15 +62,18 @@ export default function BuyerSources() {
     let metaParsed: any = {};
     try { metaParsed = JSON.parse(form.meta || '{}'); } catch { toast.error('Invalid JSON in meta'); return; }
 
+    const cities = form.search_cities.split(',').map(s => s.trim()).filter(Boolean);
+    const keywords = form.search_keywords.split(',').map(s => s.trim()).filter(Boolean);
+
     const payload = {
       name: form.name.trim(),
       platform: form.platform,
       apify_actor_id: form.apify_actor_id.trim(),
-      search_keywords: form.search_keywords.split(',').map(s => s.trim()).filter(Boolean),
-      search_urls: form.search_urls.split('\n').map(s => s.trim()).filter(Boolean),
+      search_keywords: keywords,
+      search_urls: [] as string[],
       schedule_cron: form.schedule_cron,
       is_enabled: form.is_enabled,
-      meta: metaParsed,
+      meta: { ...metaParsed, cities },
     };
 
     if (editId) {
@@ -293,8 +296,8 @@ export default function BuyerSources() {
               <Input value={form.search_keywords} onChange={e => set('search_keywords', e.target.value)} placeholder="cash buyer, land investor, vacant land" />
             </div>
             <div className="space-y-1">
-              <Label>Search URLs <span className="text-muted-foreground text-xs">(one per line)</span></Label>
-              <Textarea value={form.search_urls} onChange={e => set('search_urls', e.target.value)} rows={3} placeholder="https://facebook.com/groups/landinvestors" />
+              <Label>Cities <span className="text-muted-foreground text-xs">(comma-separated — generates craigslist.org URLs per city)</span></Label>
+              <Input value={form.search_cities} onChange={e => set('search_cities', e.target.value)} placeholder="dallas, houston, austin, phoenix, tampa" />
             </div>
             <div className="space-y-1">
               <Label>Extra Config (JSON)</Label>

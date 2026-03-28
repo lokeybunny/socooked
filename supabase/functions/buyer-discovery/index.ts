@@ -143,14 +143,32 @@ function buildApifyInput(source: any) {
         sort: "Latest",
         ...meta.actor_input,
       };
-    case "craigslist":
+    case "craigslist": {
+      const cities: string[] = meta.cities || [];
+      const searchKeywords = keywords.length ? keywords : ["land"];
+      let generatedUrls: { url: string }[] = [];
+
+      if (cities.length > 0) {
+        for (const city of cities) {
+          const slug = city.toLowerCase().replace(/\s+/g, "");
+          for (const kw of searchKeywords) {
+            generatedUrls.push({
+              url: `https://${slug}.craigslist.org/search/hsw?query=${encodeURIComponent(kw)}`,
+            });
+          }
+        }
+      } else if (urls.length > 0) {
+        generatedUrls = urls.map((u: string) => ({ url: u }));
+      } else {
+        generatedUrls = [{ url: "https://craigslist.org/search/hsw?query=land" }];
+      }
+
       return {
-        urls: urls.length
-          ? urls.map((u: string) => ({ url: u }))
-          : [{ url: "https://craigslist.org/search/rea?query=land" }],
+        urls: generatedUrls,
         maxItems: meta.max_items || 100,
         ...meta.actor_input,
       };
+    }
     case "biggerpockets":
     case "directory":
     case "web":
