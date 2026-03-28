@@ -33,6 +33,7 @@ const navItems: NavItem[] = [
   { to: '/shillers/raiders', icon: Shield, label: 'Raiders', botIcon: true },
   { to: '/shill-crm', icon: Crosshair, label: 'Shill CRM', botIcon: true },
   { to: '/x-shill', icon: Target, label: 'X Shill', botIcon: true },
+  { to: '/wholesale', icon: Warehouse, label: 'Wholesale', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
 ];
 
