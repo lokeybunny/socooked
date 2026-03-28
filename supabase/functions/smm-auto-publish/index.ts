@@ -909,11 +909,29 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Media URL dedup: track which media URLs have been published/queued ──
+    const publishedMediaUrls = new Set<string>();
+    for (const pe of (allPublished || [])) {
+      const mediaMatch = pe.description?.match(/Media URL:\s*(https?:\/\/\S+)/i);
+      if (mediaMatch?.[1]) publishedMediaUrls.add(mediaMatch[1].trim());
+    }
+    // Also add currently-publishing events' media URLs
+    for (const pe of (pendingEvents || [])) {
+      const mediaMatch = pe.description?.match(/Media URL:\s*(https?:\/\/\S+)/i);
+      if (mediaMatch?.[1]) publishedMediaUrls.add(mediaMatch[1].trim());
+    }
+
     /** Returns true if the event should be skipped due to rate-limit or duplicate */
     const shouldSkipEvent = (ev: any): { skip: boolean; reason?: string } => {
+      const evPayload = extractEventPayload(ev);
+
+      // Media URL dedup — never post the same video/image URL twice
+      if (evPayload.mediaUrl && publishedMediaUrls.has(evPayload.mediaUrl)) {
+        return { skip: true, reason: `duplicate media URL already published/queued: ${evPayload.mediaUrl.substring(0, 80)}` };
+      }
+
       // Duplicate check — per-platform title match against all previously published
       const normTitle = normalizeComparableText(ev.title);
-      const evPayload = extractEventPayload(ev);
       if (normTitle) {
         const allPlatsDuplicate = evPayload.platforms.every(
           (p: string) => publishedPlatformTitleSet.has(`${p}::${normTitle}`)
