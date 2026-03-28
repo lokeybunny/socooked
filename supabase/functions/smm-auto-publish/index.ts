@@ -501,6 +501,64 @@ Deno.serve(async (req) => {
     await logActivity("auto_publish_queued", meta);
   };
 
+  const claimEventForUpload = async (event: any, originalSourceId: string) => {
+    const claimSourceId = buildStructuredSourceId(PUBLISHING_PREFIX, "claim", crypto.randomUUID(), originalSourceId);
+    let query = supabase
+      .from("calendar_events")
+      .update({ source_id: claimSourceId })
+      .eq("id", event.id)
+      .select("id")
+      .maybeSingle();
+
+    query = event.source_id == null ? query.is("source_id", null) : query.eq("source_id", event.source_id);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return { claimed: Boolean(data), claimSourceId };
+  };
+
+  const releaseClaim = async (eventId: string, claimSourceId: string, originalSourceId: string) => {
+    await supabase
+      .from("calendar_events")
+      .update({ source_id: originalSourceId })
+      .eq("id", eventId)
+      .eq("source_id", claimSourceId);
+  };
+
+  const findBlockingMediaDuplicate = async (
+    event: any,
+    mediaUrl: string,
+    profileUsername: string,
+    platforms: string[],
+  ) => {
+    const lookbackStart = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("calendar_events")
+      .select("id, title, source_id, description, start_time")
+      .in("category", ["smm", "artist-campaign"])
+      .neq("id", event.id)
+      .gte("start_time", lookbackStart)
+      .order("start_time", { ascending: false })
+      .limit(500);
+
+    if (error) {
+      console.warn("[smm-auto-publish] Live duplicate check failed:", error.message);
+      return null;
+    }
+
+    const profileKey = profileUsername.toLowerCase();
+    return (data || []).find((candidate: any) => {
+      const state = parsePublishState(candidate.source_id, candidate.id).state;
+      if (state !== "published" && state !== "publishing") return false;
+
+      const candidatePayload = extractEventPayload(candidate);
+      if (!candidatePayload.mediaUrl || candidatePayload.mediaUrl !== mediaUrl) return false;
+      if (candidatePayload.profileUsername.toLowerCase() !== profileKey) return false;
+      return candidatePayload.platforms.some((platform: string) => platforms.includes(platform));
+    }) || null;
+  };
+
   const failEvent = async (
     event: any,
     originalSourceId: string,
@@ -525,6 +583,29 @@ Deno.serve(async (req) => {
       console.log(`[smm-auto-publish] Skipping event ${event.id} — no media URL found`);
       await failEvent(event, originalSourceId, "event", event.id, event.title || event.id, "No media URL found in event description", { event_id: event.id });
       return json({ ok: false, published: 0, error: "No media URL found" }, 400);
+    }
+
+    const claim = await claimEventForUpload(event, originalSourceId);
+    if (!claim.claimed) {
+      console.log(`[smm-auto-publish] Lost claim for ${event.id} — another run already picked it up`);
+      return json({ ok: true, published: 0, skipped: true, reason: "event already claimed by another run" });
+    }
+
+    event.source_id = claim.claimSourceId;
+
+    const blockingDuplicate = await findBlockingMediaDuplicate(event, mediaUrl, profileUsername, platforms);
+    if (blockingDuplicate) {
+      await releaseClaim(event.id, claim.claimSourceId, originalSourceId);
+      await logActivity("auto_publish_duplicate_blocked", {
+        name: `🛑 Duplicate blocked: ${event.title}`,
+        event_id: event.id,
+        duplicate_event_id: blockingDuplicate.id,
+        duplicate_title: blockingDuplicate.title,
+        media_url: mediaUrl,
+        profile: profileUsername,
+        platforms,
+      });
+      return json({ ok: true, published: 0, skipped: true, reason: `duplicate media already active on event ${blockingDuplicate.id}` });
     }
 
     const params = new URLSearchParams();
@@ -600,6 +681,7 @@ Deno.serve(async (req) => {
 
       // Campaign posts bypass daily cap errors — treat as retryable
       if (RETRYABLE_HTTP_STATUSES.has(uploadRes.status) || (isCampaign && isDailyCapError)) {
+        await releaseClaim(event.id, claim.claimSourceId, originalSourceId);
         await logActivity("auto_publish_retry_pending", {
           name: `🔁 Auto-publish retry pending: ${event.title}`,
           event_id: event.id,
@@ -1005,9 +1087,11 @@ Deno.serve(async (req) => {
           continue;
         }
         try {
-          trackQueued(ev);
           const res = await queueUpload(ev);
           const body = await res.clone().json().catch(() => ({}));
+          if (!body?.skipped && (body?.pending || body?.published)) {
+            trackQueued(ev);
+          }
           results.push({ event_id: ev.id, ...body });
         } catch (uploadErr) {
           results.push({ event_id: ev.id, error: (uploadErr as Error).message });
