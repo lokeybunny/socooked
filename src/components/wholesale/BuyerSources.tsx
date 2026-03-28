@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 
 const emptySource = {
   name: '', platform: 'facebook', apify_actor_id: '',
-  search_keywords: '', search_urls: '', schedule_cron: '0 6 * * *',
+  search_keywords: '', search_cities: '', schedule_cron: '0 6 * * *',
   is_enabled: true, meta: '{}',
 };
 
