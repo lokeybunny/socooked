@@ -1453,6 +1453,450 @@ export type Database = {
           },
         ]
       }
+      lw_buyers: {
+        Row: {
+          acreage_max: number | null
+          acreage_min: number | null
+          activity_score: number
+          budget_max: number | null
+          budget_min: number | null
+          created_at: string
+          deal_type: string
+          email: string | null
+          entity_name: string | null
+          full_name: string
+          id: string
+          last_purchase_date: string | null
+          meta: Json
+          notes: string | null
+          phone: string | null
+          purchase_count: number | null
+          reapi_owner_id: string | null
+          source: string
+          status: string
+          tags: string[] | null
+          target_counties: string[]
+          target_states: string[]
+          target_zoning: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          acreage_max?: number | null
+          acreage_min?: number | null
+          activity_score?: number
+          budget_max?: number | null
+          budget_min?: number | null
+          created_at?: string
+          deal_type?: string
+          email?: string | null
+          entity_name?: string | null
+          full_name: string
+          id?: string
+          last_purchase_date?: string | null
+          meta?: Json
+          notes?: string | null
+          phone?: string | null
+          purchase_count?: number | null
+          reapi_owner_id?: string | null
+          source?: string
+          status?: string
+          tags?: string[] | null
+          target_counties?: string[]
+          target_states?: string[]
+          target_zoning?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          acreage_max?: number | null
+          acreage_min?: number | null
+          activity_score?: number
+          budget_max?: number | null
+          budget_min?: number | null
+          created_at?: string
+          deal_type?: string
+          email?: string | null
+          entity_name?: string | null
+          full_name?: string
+          id?: string
+          last_purchase_date?: string | null
+          meta?: Json
+          notes?: string | null
+          phone?: string | null
+          purchase_count?: number | null
+          reapi_owner_id?: string | null
+          source?: string
+          status?: string
+          tags?: string[] | null
+          target_counties?: string[]
+          target_states?: string[]
+          target_zoning?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lw_call_queue: {
+        Row: {
+          call_priority: number
+          called_at: string | null
+          created_at: string
+          deal_id: string | null
+          id: string
+          match_score: number | null
+          motivation_score: number | null
+          notes: string | null
+          outcome: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          property_address: string | null
+          queue_date: string
+          reason: string
+          seller_id: string
+          status: string
+        }
+        Insert: {
+          call_priority?: number
+          called_at?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          match_score?: number | null
+          motivation_score?: number | null
+          notes?: string | null
+          outcome?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          property_address?: string | null
+          queue_date?: string
+          reason: string
+          seller_id: string
+          status?: string
+        }
+        Update: {
+          call_priority?: number
+          called_at?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          match_score?: number | null
+          motivation_score?: number | null
+          notes?: string | null
+          outcome?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          property_address?: string | null
+          queue_date?: string
+          reason?: string
+          seller_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lw_call_queue_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "lw_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lw_call_queue_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "lw_sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lw_deals: {
+        Row: {
+          assigned_to: string | null
+          buyer_id: string | null
+          buyer_price: number | null
+          created_at: string
+          deal_type: string
+          id: string
+          match_score: number
+          meta: Json
+          notes: string | null
+          our_offer: number | null
+          priority: string
+          seller_ask: number | null
+          seller_id: string
+          spread: number | null
+          stage: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          buyer_id?: string | null
+          buyer_price?: number | null
+          created_at?: string
+          deal_type?: string
+          id?: string
+          match_score?: number
+          meta?: Json
+          notes?: string | null
+          our_offer?: number | null
+          priority?: string
+          seller_ask?: number | null
+          seller_id: string
+          spread?: number | null
+          stage?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          buyer_id?: string | null
+          buyer_price?: number | null
+          created_at?: string
+          deal_type?: string
+          id?: string
+          match_score?: number
+          meta?: Json
+          notes?: string | null
+          our_offer?: number | null
+          priority?: string
+          seller_ask?: number | null
+          seller_id?: string
+          spread?: number | null
+          stage?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lw_deals_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "lw_buyers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lw_deals_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "lw_sellers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lw_demand_signals: {
+        Row: {
+          avg_acreage_max: number | null
+          avg_acreage_min: number | null
+          avg_budget: number | null
+          buyer_count: number
+          county: string
+          created_at: string
+          deal_type: string
+          demand_rank: number | null
+          id: string
+          last_refreshed_at: string
+          state: string
+          zoning_demand: Json | null
+        }
+        Insert: {
+          avg_acreage_max?: number | null
+          avg_acreage_min?: number | null
+          avg_budget?: number | null
+          buyer_count?: number
+          county: string
+          created_at?: string
+          deal_type?: string
+          demand_rank?: number | null
+          id?: string
+          last_refreshed_at?: string
+          state: string
+          zoning_demand?: Json | null
+        }
+        Update: {
+          avg_acreage_max?: number | null
+          avg_acreage_min?: number | null
+          avg_budget?: number | null
+          buyer_count?: number
+          county?: string
+          created_at?: string
+          deal_type?: string
+          demand_rank?: number | null
+          id?: string
+          last_refreshed_at?: string
+          state?: string
+          zoning_demand?: Json | null
+        }
+        Relationships: []
+      }
+      lw_ingestion_runs: {
+        Row: {
+          created_at: string
+          credits_used: number | null
+          error: string | null
+          id: string
+          params: Json | null
+          records_fetched: number | null
+          records_new: number | null
+          run_type: string
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          credits_used?: number | null
+          error?: string | null
+          id?: string
+          params?: Json | null
+          records_fetched?: number | null
+          records_new?: number | null
+          run_type: string
+          source?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          credits_used?: number | null
+          error?: string | null
+          id?: string
+          params?: Json | null
+          records_fetched?: number | null
+          records_new?: number | null
+          run_type?: string
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      lw_sellers: {
+        Row: {
+          acreage: number | null
+          address_full: string | null
+          apn: string | null
+          asking_price: number | null
+          assessed_value: number | null
+          city: string | null
+          contacted_at: string | null
+          county: string | null
+          created_at: string
+          deal_type: string
+          estimated_offer: number | null
+          fips: string | null
+          has_tax_lien: boolean | null
+          id: string
+          is_absentee_owner: boolean | null
+          is_corporate_owned: boolean | null
+          is_out_of_state: boolean | null
+          is_pre_foreclosure: boolean | null
+          is_tax_delinquent: boolean | null
+          is_vacant: boolean | null
+          lot_sqft: number | null
+          market_value: number | null
+          meta: Json
+          motivation_score: number
+          notes: string | null
+          owner_email: string | null
+          owner_mailing_address: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          property_type: string | null
+          reapi_property_id: string | null
+          skip_traced_at: string | null
+          source: string
+          state: string | null
+          status: string
+          tags: string[] | null
+          tax_delinquent_year: string | null
+          updated_at: string
+          years_owned: number | null
+          zip: string | null
+          zoning: string | null
+        }
+        Insert: {
+          acreage?: number | null
+          address_full?: string | null
+          apn?: string | null
+          asking_price?: number | null
+          assessed_value?: number | null
+          city?: string | null
+          contacted_at?: string | null
+          county?: string | null
+          created_at?: string
+          deal_type?: string
+          estimated_offer?: number | null
+          fips?: string | null
+          has_tax_lien?: boolean | null
+          id?: string
+          is_absentee_owner?: boolean | null
+          is_corporate_owned?: boolean | null
+          is_out_of_state?: boolean | null
+          is_pre_foreclosure?: boolean | null
+          is_tax_delinquent?: boolean | null
+          is_vacant?: boolean | null
+          lot_sqft?: number | null
+          market_value?: number | null
+          meta?: Json
+          motivation_score?: number
+          notes?: string | null
+          owner_email?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          property_type?: string | null
+          reapi_property_id?: string | null
+          skip_traced_at?: string | null
+          source?: string
+          state?: string | null
+          status?: string
+          tags?: string[] | null
+          tax_delinquent_year?: string | null
+          updated_at?: string
+          years_owned?: number | null
+          zip?: string | null
+          zoning?: string | null
+        }
+        Update: {
+          acreage?: number | null
+          address_full?: string | null
+          apn?: string | null
+          asking_price?: number | null
+          assessed_value?: number | null
+          city?: string | null
+          contacted_at?: string | null
+          county?: string | null
+          created_at?: string
+          deal_type?: string
+          estimated_offer?: number | null
+          fips?: string | null
+          has_tax_lien?: boolean | null
+          id?: string
+          is_absentee_owner?: boolean | null
+          is_corporate_owned?: boolean | null
+          is_out_of_state?: boolean | null
+          is_pre_foreclosure?: boolean | null
+          is_tax_delinquent?: boolean | null
+          is_vacant?: boolean | null
+          lot_sqft?: number | null
+          market_value?: number | null
+          meta?: Json
+          motivation_score?: number
+          notes?: string | null
+          owner_email?: string | null
+          owner_mailing_address?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          property_type?: string | null
+          reapi_property_id?: string | null
+          skip_traced_at?: string | null
+          source?: string
+          state?: string | null
+          status?: string
+          tags?: string[] | null
+          tax_delinquent_year?: string | null
+          updated_at?: string
+          years_owned?: number | null
+          zip?: string | null
+          zoning?: string | null
+        }
+        Relationships: []
+      }
       market_cap_alerts: {
         Row: {
           audit_data: Json
