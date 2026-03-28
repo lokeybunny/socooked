@@ -100,11 +100,42 @@ export default function BuyerSources() {
     loadAll();
   };
 
+  const pollForResults = async () => {
+    try {
+      const { data } = await supabase.functions.invoke('buyer-discovery', { body: { action: 'poll' } });
+      if (data?.results) {
+        const ingested = data.results.filter((r: any) => r.status === 'ingested');
+        if (ingested.length > 0) {
+          const totalNew = ingested.reduce((s: number, r: any) => s + (r.ingest?.new || 0), 0);
+          toast.success(`Ingested ${totalNew} new buyers from ${ingested.length} run(s)`);
+          loadAll();
+          return true; // done
+        }
+        const stillRunning = data.results.filter((r: any) => r.status === 'still_running');
+        if (stillRunning.length > 0) return false; // keep polling
+      }
+      return true; // nothing to poll
+    } catch { return true; }
+  };
+
+  const startPolling = () => {
+    let attempts = 0;
+    const maxAttempts = 30; // ~150s
+    const interval = setInterval(async () => {
+      attempts++;
+      const done = await pollForResults();
+      if (done || attempts >= maxAttempts) {
+        clearInterval(interval);
+        if (attempts >= maxAttempts) toast.info('Scrape still running — check back in a minute');
+        loadAll();
+      }
+    }, 5000);
+  };
+
   const runSingle = async (sourceId: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('buyer-discovery', { body: { source_id: sourceId } });
       if (error) throw error;
-      // Check for function-level errors in response body
       if (data?.error) {
         toast.error(data.error);
         return;
@@ -113,7 +144,8 @@ export default function BuyerSources() {
         const failed = data.results.filter((r: any) => r.status === 'error' || r.status === 'skipped');
         const started = data.results.filter((r: any) => r.status === 'started');
         if (started.length > 0) {
-          toast.success(`Discovery run started for ${started.length} source(s)`);
+          toast.success(`Discovery run started — polling for results…`);
+          startPolling();
         }
         failed.forEach((r: any) => {
           toast.error(`${r.source}: ${r.error || r.reason || 'Failed'}`);
@@ -123,6 +155,7 @@ export default function BuyerSources() {
         }
       } else {
         toast.success('Discovery run started');
+        startPolling();
       }
       loadAll();
     } catch (err: any) {
