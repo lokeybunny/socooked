@@ -61,6 +61,40 @@ export default function BuyerDiscovery() {
   const [form, setForm] = useState(emptyForm);
   const [runningDiscovery, setRunningDiscovery] = useState(false);
 
+  const pollForResults = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('buyer-discovery', { body: { action: 'poll' } });
+      if (error) throw error;
+
+      const results = data?.results || [];
+      const ingested = results.filter((r: any) => r.status === 'ingested');
+      if (ingested.length > 0) {
+        await loadBuyers();
+        const totalNew = ingested.reduce((sum: number, r: any) => sum + Number(r.ingest?.new || 0), 0);
+        const totalUpdated = ingested.reduce((sum: number, r: any) => sum + Number(r.ingest?.updated || 0), 0);
+        toast.success(`Imported ${totalNew} new and ${totalUpdated} updated buyers`);
+        return true;
+      }
+
+      return !results.some((r: any) => r.status === 'still_running');
+    } catch {
+      return true;
+    }
+  };
+
+  const startPolling = () => {
+    let attempts = 0;
+    const maxAttempts = 36;
+    const interval = setInterval(async () => {
+      attempts += 1;
+      const done = await pollForResults();
+      if (done || attempts >= maxAttempts) {
+        clearInterval(interval);
+        if (attempts >= maxAttempts) toast.info('Scrape is still processing — check back shortly');
+      }
+    }, 5000);
+  };
+
   useEffect(() => {
     loadBuyers();
     // Auto-refresh every 10s to catch new ingested buyers
@@ -129,9 +163,15 @@ export default function BuyerDiscovery() {
   const runDiscovery = async () => {
     setRunningDiscovery(true);
     try {
-      const { error } = await supabase.functions.invoke('buyer-discovery', { body: {} });
+      const { data, error } = await supabase.functions.invoke('buyer-discovery', { body: {} });
       if (error) throw error;
-      toast.success('Discovery started — results will appear as scrapes complete');
+
+      const started = data?.results?.some((r: any) => r.status === 'started');
+      if (started) {
+        startPolling();
+      }
+
+      toast.success('Discovery started — importing results automatically');
     } catch (err: any) {
       toast.error(err.message || 'Discovery failed');
     }
