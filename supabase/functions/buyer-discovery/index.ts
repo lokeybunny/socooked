@@ -21,9 +21,8 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { source_id } = body; // optional: run specific source
+    const { source_id } = body;
 
-    // Load enabled sources
     let query = supabase.from("lw_buyer_discovery_sources").select("*").eq("is_enabled", true);
     if (source_id) query = query.eq("id", source_id);
     const { data: sources, error: srcErr } = await query;
@@ -34,12 +33,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/buyer-ingest`;
     const results: any[] = [];
 
     for (const source of sources) {
       try {
-        // Build Apify input based on platform
         const input = buildApifyInput(source);
         const actorId = (source.apify_actor_id || "").replace("/", "~");
         if (!actorId) {
@@ -65,31 +62,7 @@ Deno.serve(async (req) => {
 
         const runData = await runRes.json();
         const runId = runData?.data?.id;
-
-        // Register webhook for when run completes
-        if (runId) {
-          await fetch(
-            `https://api.apify.com/v2/actor-runs/${runId}/webhooks?token=${APIFY_TOKEN}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                eventTypes: ["ACTOR.RUN.SUCCEEDED"],
-                requestUrl: webhookUrl,
-                payloadTemplate: JSON.stringify({
-                  run_id: "{{runId}}",
-                  dataset_id: "{{defaultDatasetId}}",
-                  source_id: source.id,
-                  platform: source.platform,
-                }),
-                headersTemplate: JSON.stringify({
-                  "Content-Type": "application/json",
-                  apikey: Deno.env.get("SUPABASE_ANON_KEY") || "",
-                }),
-              }),
-            }
-          );
-        }
+        const datasetId = runData?.data?.defaultDatasetId;
 
         // Log the run
         await supabase.from("lw_buyer_ingestion_logs").insert({
@@ -106,7 +79,65 @@ Deno.serve(async (req) => {
           .update({ last_run_at: new Date().toISOString(), run_count: (source.run_count || 0) + 1 })
           .eq("id", source.id);
 
-        results.push({ source: source.name, status: "started", run_id: runId });
+        // Poll for completion (up to ~150s)
+        let finalStatus = "RUNNING";
+        for (let i = 0; i < 30; i++) {
+          await new Promise((r) => setTimeout(r, 5000));
+          const pollRes = await fetch(
+            `https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`
+          );
+          if (pollRes.ok) {
+            const pollData = await pollRes.json();
+            finalStatus = pollData?.data?.status;
+            if (finalStatus === "SUCCEEDED" || finalStatus === "FAILED" || finalStatus === "ABORTED" || finalStatus === "TIMED-OUT") {
+              break;
+            }
+          } else {
+            await pollRes.text(); // consume body
+          }
+        }
+
+        if (finalStatus === "SUCCEEDED" && datasetId) {
+          // Fetch dataset items
+          const dsRes = await fetch(
+            `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=500`
+          );
+          if (dsRes.ok) {
+            const records = await dsRes.json();
+            console.log(`[buyer-discovery] Got ${records.length} records from dataset ${datasetId}`);
+
+            // Call buyer-ingest internally
+            const ingestUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/buyer-ingest`;
+            const ingestRes = await fetch(ingestUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
+              },
+              body: JSON.stringify({
+                run_id: runId,
+                dataset_id: datasetId,
+                source_id: source.id,
+                platform: source.platform,
+                records, // pass records directly so ingest doesn't need to re-fetch
+              }),
+            });
+            const ingestResult = await ingestRes.json();
+            console.log(`[buyer-discovery] Ingest result:`, JSON.stringify(ingestResult));
+            results.push({ source: source.name, status: "completed", run_id: runId, ingest: ingestResult });
+          } else {
+            const errText = await dsRes.text();
+            results.push({ source: source.name, status: "error", error: `Dataset fetch failed: ${errText}` });
+            await supabase.from("lw_buyer_ingestion_logs").update({ status: "error", error: `Dataset fetch failed` }).eq("apify_run_id", runId);
+          }
+        } else if (finalStatus === "RUNNING") {
+          // Still running after timeout — leave as running, user can check later
+          results.push({ source: source.name, status: "timeout", run_id: runId, message: "Run still in progress after 150s" });
+        } else {
+          results.push({ source: source.name, status: "error", error: `Run ended with status: ${finalStatus}` });
+          await supabase.from("lw_buyer_ingestion_logs").update({ status: "error", error: `Apify run ${finalStatus}` }).eq("apify_run_id", runId);
+        }
       } catch (err) {
         results.push({ source: source.name, status: "error", error: String(err) });
       }
