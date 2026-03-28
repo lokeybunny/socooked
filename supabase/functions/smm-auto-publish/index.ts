@@ -503,16 +503,16 @@ Deno.serve(async (req) => {
 
   const claimEventForUpload = async (event: any, originalSourceId: string) => {
     const claimSourceId = buildStructuredSourceId(PUBLISHING_PREFIX, "claim", crypto.randomUUID(), originalSourceId);
-    let query = supabase
+    const baseQuery = supabase
       .from("calendar_events")
       .update({ source_id: claimSourceId })
-      .eq("id", event.id)
-      .select("id")
-      .maybeSingle();
+      .eq("id", event.id);
 
-    query = event.source_id == null ? query.is("source_id", null) : query.eq("source_id", event.source_id);
+    const filteredQuery = event.source_id == null
+      ? baseQuery.is("source_id", null)
+      : baseQuery.eq("source_id", event.source_id);
 
-    const { data, error } = await query;
+    const { data, error } = await filteredQuery.select("id").maybeSingle();
     if (error) throw error;
 
     return { claimed: Boolean(data), claimSourceId };
