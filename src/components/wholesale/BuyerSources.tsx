@@ -51,7 +51,7 @@ export default function BuyerSources() {
     setForm({
       name: s.name, platform: s.platform, apify_actor_id: s.apify_actor_id || '',
       search_keywords: (s.search_keywords || []).join(', '),
-      search_cities: ((s.meta?.cities) || []).join(', '),
+      search_cities: ((s.meta?.cities) || []).join(','),
       schedule_cron: s.schedule_cron || '0 6 * * *',
       is_enabled: s.is_enabled, meta: JSON.stringify((() => { const { cities, ...rest } = (s.meta || {}); return rest; })(), null, 2),
     });
