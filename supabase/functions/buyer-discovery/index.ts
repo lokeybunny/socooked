@@ -1,0 +1,167 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+  const APIFY_TOKEN = Deno.env.get("APIFY_TOKEN");
+  if (!APIFY_TOKEN) {
+    return new Response(JSON.stringify({ error: "APIFY_TOKEN not configured" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const body = await req.json().catch(() => ({}));
+    const { source_id } = body; // optional: run specific source
+
+    // Load enabled sources
+    let query = supabase.from("lw_buyer_discovery_sources").select("*").eq("is_enabled", true);
+    if (source_id) query = query.eq("id", source_id);
+    const { data: sources, error: srcErr } = await query;
+    if (srcErr) throw srcErr;
+    if (!sources?.length) {
+      return new Response(JSON.stringify({ message: "No enabled sources found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/buyer-ingest`;
+    const results: any[] = [];
+
+    for (const source of sources) {
+      try {
+        // Build Apify input based on platform
+        const input = buildApifyInput(source);
+        const actorId = source.apify_actor_id;
+        if (!actorId) {
+          results.push({ source: source.name, status: "skipped", reason: "no actor_id" });
+          continue;
+        }
+
+        // Start Apify run
+        const runRes = await fetch(
+          `https://api.apify.com/v2/acts/${actorId}/runs?token=${APIFY_TOKEN}&waitForFinish=0`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(input),
+          }
+        );
+
+        if (!runRes.ok) {
+          const errText = await runRes.text();
+          results.push({ source: source.name, status: "error", error: errText });
+          continue;
+        }
+
+        const runData = await runRes.json();
+        const runId = runData?.data?.id;
+
+        // Register webhook for when run completes
+        if (runId) {
+          await fetch(
+            `https://api.apify.com/v2/actor-runs/${runId}/webhooks?token=${APIFY_TOKEN}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                eventTypes: ["ACTOR.RUN.SUCCEEDED"],
+                requestUrl: webhookUrl,
+                payloadTemplate: JSON.stringify({
+                  run_id: "{{runId}}",
+                  dataset_id: "{{defaultDatasetId}}",
+                  source_id: source.id,
+                  platform: source.platform,
+                }),
+                headersTemplate: JSON.stringify({
+                  "Content-Type": "application/json",
+                  apikey: Deno.env.get("SUPABASE_ANON_KEY") || "",
+                }),
+              }),
+            }
+          );
+        }
+
+        // Log the run
+        await supabase.from("lw_buyer_ingestion_logs").insert({
+          source_id: source.id,
+          apify_run_id: runId,
+          platform: source.platform,
+          status: "running",
+          meta: { actor_id: actorId, input },
+        });
+
+        // Update source last_run
+        await supabase
+          .from("lw_buyer_discovery_sources")
+          .update({ last_run_at: new Date().toISOString(), run_count: (source.run_count || 0) + 1 })
+          .eq("id", source.id);
+
+        results.push({ source: source.name, status: "started", run_id: runId });
+      } catch (err) {
+        results.push({ source: source.name, status: "error", error: String(err) });
+      }
+    }
+
+    return new Response(JSON.stringify({ sources_processed: results.length, results }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
+
+function buildApifyInput(source: any) {
+  const keywords = source.search_keywords || [];
+  const urls = source.search_urls || [];
+  const platform = source.platform;
+  const meta = source.meta || {};
+
+  switch (platform) {
+    case "facebook":
+      return {
+        startUrls: urls.map((u: string) => ({ url: u })),
+        maxPosts: meta.max_posts || 100,
+        maxComments: meta.max_comments || 50,
+        ...meta.actor_input,
+      };
+    case "twitter":
+      return {
+        searchTerms: keywords,
+        maxTweets: meta.max_tweets || 200,
+        sort: "Latest",
+        ...meta.actor_input,
+      };
+    case "craigslist":
+      return {
+        startUrls: urls.length
+          ? urls.map((u: string) => ({ url: u }))
+          : keywords.map((kw: string) => ({
+              url: `https://craigslist.org/search/rea?query=${encodeURIComponent(kw)}`,
+            })),
+        maxItems: meta.max_items || 100,
+        ...meta.actor_input,
+      };
+    case "biggerpockets":
+    case "directory":
+    case "web":
+      return {
+        startUrls: urls.map((u: string) => ({ url: u })),
+        maxPages: meta.max_pages || 50,
+        ...meta.actor_input,
+      };
+    default:
+      return { startUrls: urls.map((u: string) => ({ url: u })), ...meta.actor_input };
+  }
+}

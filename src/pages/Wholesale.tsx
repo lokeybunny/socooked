@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown } from 'lucide-react';
-import BuyerManager from '@/components/wholesale/BuyerManager';
+import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
+import BuyerSources from '@/components/wholesale/BuyerSources';
+import BuyerSettings from '@/components/wholesale/BuyerSettings';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home';
@@ -144,6 +146,8 @@ export default function Wholesale() {
           <TabsTrigger value="pipeline">Deal Pipeline</TabsTrigger>
           <TabsTrigger value="demand">Demand Map</TabsTrigger>
           <TabsTrigger value="buyers">Buyers</TabsTrigger>
+          <TabsTrigger value="sources">Discovery</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Call List */}
@@ -345,7 +349,15 @@ export default function Wholesale() {
         </TabsContent>
         {/* Tab 4: Buyers */}
         <TabsContent value="buyers" className="mt-4">
-          <BuyerManager />
+          <BuyerDiscovery />
+        </TabsContent>
+        {/* Tab 5: Discovery Sources */}
+        <TabsContent value="sources" className="mt-4">
+          <BuyerSources />
+        </TabsContent>
+        {/* Tab 6: Settings */}
+        <TabsContent value="settings" className="mt-4">
+          <BuyerSettings />
         </TabsContent>
       </Tabs>
     </div>
