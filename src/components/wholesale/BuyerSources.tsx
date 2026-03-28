@@ -10,7 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Radar, Plus, Pencil, Trash2, Play, Clock, ScrollText } from 'lucide-react';
+import { Radar, Plus, Pencil, Trash2, Play, Clock, ScrollText, Search } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { CRAIGSLIST_CITIES, STATES, citiesByState } from '@/lib/craigslistCities';
 import { toast } from 'sonner';
 
 const emptySource = {
@@ -27,6 +30,7 @@ export default function BuyerSources() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptySource);
   const [showLogs, setShowLogs] = useState(false);
+  const [cityFilter, setCityFilter] = useState('');
 
   useEffect(() => { loadAll(); }, []);
 
@@ -41,13 +45,13 @@ export default function BuyerSources() {
     setLoading(false);
   };
 
-  const openAdd = () => { setEditId(null); setForm(emptySource); setOpen(true); };
+  const openAdd = () => { setEditId(null); setForm(emptySource); setCityFilter(''); setOpen(true); };
   const openEdit = (s: any) => {
     setEditId(s.id);
     setForm({
       name: s.name, platform: s.platform, apify_actor_id: s.apify_actor_id || '',
       search_keywords: (s.search_keywords || []).join(', '),
-      search_cities: ((s.meta?.cities) || []).join(', '),
+      search_cities: ((s.meta?.cities) || []).join(','),
       schedule_cron: s.schedule_cron || '0 6 * * *',
       is_enabled: s.is_enabled, meta: JSON.stringify((() => { const { cities, ...rest } = (s.meta || {}); return rest; })(), null, 2),
     });
@@ -295,10 +299,91 @@ export default function BuyerSources() {
               <Label>Search Keywords <span className="text-muted-foreground text-xs">(comma-separated)</span></Label>
               <Input value={form.search_keywords} onChange={e => set('search_keywords', e.target.value)} placeholder="cash buyer, land investor, vacant land" />
             </div>
-            <div className="space-y-1">
-              <Label>Cities <span className="text-muted-foreground text-xs">(comma-separated — generates craigslist.org URLs per city)</span></Label>
-              <Input value={form.search_cities} onChange={e => set('search_cities', e.target.value)} placeholder="dallas, houston, austin, phoenix, tampa" />
-            </div>
+            {form.platform === 'craigslist' && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Craigslist Cities</Label>
+                  <div className="flex gap-1">
+                    <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-2"
+                      onClick={() => set('search_cities', CRAIGSLIST_CITIES.map(c => c.subdomain).join(','))}>
+                      Select All
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] px-2"
+                      onClick={() => set('search_cities', '')}>
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    className="pl-7 h-8 text-xs"
+                    placeholder="Filter cities…"
+                    value={cityFilter}
+                    onChange={e => setCityFilter(e.target.value)}
+                  />
+                </div>
+                <ScrollArea className="h-48 rounded-md border p-2">
+                  {(() => {
+                    const selected = new Set((form.search_cities || '').split(',').filter(Boolean));
+                    const filter = cityFilter.toLowerCase();
+                    const toggle = (sub: string) => {
+                      const next = new Set(selected);
+                      next.has(sub) ? next.delete(sub) : next.add(sub);
+                      set('search_cities', [...next].join(','));
+                    };
+                    const toggleState = (state: string) => {
+                      const subs = citiesByState(state).map(c => c.subdomain);
+                      const allSelected = subs.every(s => selected.has(s));
+                      const next = new Set(selected);
+                      subs.forEach(s => allSelected ? next.delete(s) : next.add(s));
+                      set('search_cities', [...next].join(','));
+                    };
+                    return STATES.map(state => {
+                      const cities = citiesByState(state);
+                      const visible = filter
+                        ? cities.filter(c => c.label.toLowerCase().includes(filter) || c.state.toLowerCase().includes(filter) || c.subdomain.toLowerCase().includes(filter))
+                        : cities;
+                      if (visible.length === 0) return null;
+                      const stateAllSelected = cities.every(c => selected.has(c.subdomain));
+                      return (
+                        <div key={state} className="mb-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Checkbox
+                              checked={stateAllSelected}
+                              onCheckedChange={() => toggleState(state)}
+                            />
+                            <span className="text-xs font-semibold text-muted-foreground">{state}</span>
+                            <Badge variant="outline" className="text-[9px] ml-auto">{cities.filter(c => selected.has(c.subdomain)).length}/{cities.length}</Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 ml-5">
+                            {visible.map(c => (
+                              <label key={c.subdomain} className="flex items-center gap-1.5 cursor-pointer text-xs py-0.5 hover:bg-muted/50 rounded px-1">
+                                <Checkbox
+                                  checked={selected.has(c.subdomain)}
+                                  onCheckedChange={() => toggle(c.subdomain)}
+                                  className="h-3.5 w-3.5"
+                                />
+                                {c.label}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </ScrollArea>
+                <p className="text-[10px] text-muted-foreground">
+                  {(form.search_cities || '').split(',').filter(Boolean).length} cities selected
+                </p>
+              </div>
+            )}
+            {form.platform !== 'craigslist' && (
+              <div className="space-y-1">
+                <Label>Cities <span className="text-muted-foreground text-xs">(comma-separated)</span></Label>
+                <Input value={form.search_cities} onChange={e => set('search_cities', e.target.value)} placeholder="dallas, houston, austin, phoenix, tampa" />
+              </div>
+            )}
             <div className="space-y-1">
               <Label>Extra Config (JSON)</Label>
               <Textarea value={form.meta} onChange={e => set('meta', e.target.value)} rows={3} className="font-mono text-xs" />
