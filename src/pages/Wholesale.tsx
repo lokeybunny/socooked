@@ -59,7 +59,7 @@ export default function Wholesale() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
     const [buyersRes, sellersRes, dealsRes, runsRes, matchRes] = await Promise.all([
-      supabase.from('lw_buyers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('lw_buyers').select('id', { count: 'exact', head: true }).eq('pipeline_stage', 'active'),
       supabase.from('lw_sellers').select('id', { count: 'exact', head: true }),
       supabase.from('lw_deals').select('id', { count: 'exact', head: true }).gte('created_at', monthStart),
       supabase.from('lw_ingestion_runs').select('credits_used').gte('created_at', monthStart),
