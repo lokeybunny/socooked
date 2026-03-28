@@ -95,11 +95,31 @@ export default function BuyerSources() {
 
   const runSingle = async (sourceId: string) => {
     try {
-      const { error } = await supabase.functions.invoke('buyer-discovery', { body: { source_id: sourceId } });
+      const { data, error } = await supabase.functions.invoke('buyer-discovery', { body: { source_id: sourceId } });
       if (error) throw error;
-      toast.success('Discovery run started');
+      // Check for function-level errors in response body
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      if (data?.results) {
+        const failed = data.results.filter((r: any) => r.status === 'error' || r.status === 'skipped');
+        const started = data.results.filter((r: any) => r.status === 'started');
+        if (started.length > 0) {
+          toast.success(`Discovery run started for ${started.length} source(s)`);
+        }
+        failed.forEach((r: any) => {
+          toast.error(`${r.source}: ${r.error || r.reason || 'Failed'}`);
+        });
+        if (started.length === 0 && failed.length === 0) {
+          toast.warning(data.message || 'No sources processed');
+        }
+      } else {
+        toast.success('Discovery run started');
+      }
+      loadAll();
     } catch (err: any) {
-      toast.error(err.message || 'Failed');
+      toast.error(err.message || 'Failed to start discovery');
     }
   };
 
