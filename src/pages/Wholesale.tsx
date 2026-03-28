@@ -127,7 +127,7 @@ export default function Wholesale() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <StatCard icon={Users} label="Active Buyers" value={stats.buyers} color="text-green-500" />
+        <StatCard icon={Users} label="Active Buyers" value={stats.buyers} />
         <StatCard icon={MapPin} label="Seller Leads" value={stats.sellers} />
         <StatCard icon={Building2} label="Deals (Month)" value={stats.dealsMonth} />
         <StatCard icon={DollarSign} label="API Spend" value={`$${stats.apiSpend.toFixed(2)}`} />
