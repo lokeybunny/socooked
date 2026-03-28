@@ -616,40 +616,60 @@ Deno.serve(async (req) => {
 
     if (isVideo) {
       params.append("video", mediaUrl);
+
+      // Instagram-specific params
       if (platforms.includes("instagram")) {
         params.append("ig_post_type", "reels");
         params.append("share_to_feed", "true");
-        const captionLower = caption.toLowerCase();
-        const candidateTags: { tag: string; keyword: string }[] = [];
-        if (captionLower.includes("lamb")) candidateTags.push({ tag: "@lamb.wavv", keyword: "lamb" });
-        if (captionLower.includes("oranj") || captionLower.includes("orang")) candidateTags.push({ tag: "@oranjgoodman", keyword: "oranj" });
+      }
 
-        // 7-day @ mention cooldown: check published events for recent mentions
-        if (candidateTags.length > 0) {
-          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-          const { data: recentPublished } = await supabase
-            .from("calendar_events")
-            .select("title, description")
-            .in("category", ["smm", "artist-campaign"])
-            .like("source_id", `${PUBLISHED_PREFIX}%`)
-            .gte("start_time", sevenDaysAgo)
-            .limit(500);
+      // 7-day @ mention cooldown — applies to ALL platforms (Instagram user_tags + caption stripping for TikTok)
+      const captionLower = caption.toLowerCase();
+      const candidateTags: { tag: string; keyword: string }[] = [];
+      if (captionLower.includes("lamb")) candidateTags.push({ tag: "@lamb.wavv", keyword: "lamb" });
+      if (captionLower.includes("oranj") || captionLower.includes("orang")) candidateTags.push({ tag: "@oranjgoodman", keyword: "oranj" });
 
-          const recentText = (recentPublished || [])
-            .map((e: any) => `${e.title || ""} ${e.description || ""}`.toLowerCase())
-            .join(" ");
+      if (candidateTags.length > 0) {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data: recentPublished } = await supabase
+          .from("calendar_events")
+          .select("title, description")
+          .in("category", ["smm", "artist-campaign"])
+          .like("source_id", `${PUBLISHED_PREFIX}%`)
+          .gte("start_time", sevenDaysAgo)
+          .limit(500);
 
-          const filteredTags = candidateTags.filter(({ tag, keyword }) => {
-            const tagLower = tag.toLowerCase().replace("@", "");
-            const recentlyMentioned = recentText.includes(tag.toLowerCase()) || recentText.includes(tagLower);
-            if (recentlyMentioned) {
-              console.log(`[smm-auto-publish] Skipping ${tag} — mentioned in a post within the last 7 days`);
-            }
-            return !recentlyMentioned;
-          });
+        const recentText = (recentPublished || [])
+          .map((e: any) => `${e.title || ""} ${e.description || ""}`.toLowerCase())
+          .join(" ");
 
-          if (filteredTags.length > 0) {
-            params.append("user_tags", filteredTags.map(t => t.tag).join(", "));
+        const filteredTags = candidateTags.filter(({ tag }) => {
+          const tagLower = tag.toLowerCase().replace("@", "");
+          const recentlyMentioned = recentText.includes(tag.toLowerCase()) || recentText.includes(tagLower);
+          if (recentlyMentioned) {
+            console.log(`[smm-auto-publish] Skipping ${tag} — mentioned in a post within the last 7 days`);
+          }
+          return !recentlyMentioned;
+        });
+
+        // For Instagram: set user_tags param
+        if (filteredTags.length > 0 && platforms.includes("instagram")) {
+          params.append("user_tags", filteredTags.map(t => t.tag).join(", "));
+        }
+
+        // For TikTok (and all platforms): strip cooled-down @ mentions from the caption itself
+        const cooledDownTags = candidateTags.filter(t => !filteredTags.includes(t));
+        if (cooledDownTags.length > 0) {
+          let cleanedCaption = caption;
+          for (const { tag } of cooledDownTags) {
+            cleanedCaption = cleanedCaption.replace(new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '').trim();
+          }
+          cleanedCaption = cleanedCaption.replace(/\s{2,}/g, ' ').trim();
+          if (cleanedCaption !== caption) {
+            console.log(`[smm-auto-publish] Stripped cooled-down mentions from caption for TikTok/all platforms`);
+            caption = cleanedCaption;
+            // Update the title param with cleaned caption
+            params.set("title", caption);
           }
         }
       }
