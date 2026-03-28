@@ -1453,6 +1453,131 @@ export type Database = {
           },
         ]
       }
+      lw_buyer_config: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      lw_buyer_discovery_sources: {
+        Row: {
+          apify_actor_id: string | null
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          last_run_at: string | null
+          meta: Json | null
+          name: string
+          platform: string
+          run_count: number | null
+          schedule_cron: string | null
+          search_keywords: string[] | null
+          search_urls: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          apify_actor_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_run_at?: string | null
+          meta?: Json | null
+          name: string
+          platform: string
+          run_count?: number | null
+          schedule_cron?: string | null
+          search_keywords?: string[] | null
+          search_urls?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          apify_actor_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          last_run_at?: string | null
+          meta?: Json | null
+          name?: string
+          platform?: string
+          run_count?: number | null
+          schedule_cron?: string | null
+          search_keywords?: string[] | null
+          search_urls?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      lw_buyer_ingestion_logs: {
+        Row: {
+          apify_run_id: string | null
+          created_at: string | null
+          error: string | null
+          high_score_count: number | null
+          id: string
+          meta: Json | null
+          platform: string
+          records_new: number | null
+          records_received: number | null
+          records_skipped: number | null
+          records_updated: number | null
+          source_id: string | null
+          status: string | null
+        }
+        Insert: {
+          apify_run_id?: string | null
+          created_at?: string | null
+          error?: string | null
+          high_score_count?: number | null
+          id?: string
+          meta?: Json | null
+          platform: string
+          records_new?: number | null
+          records_received?: number | null
+          records_skipped?: number | null
+          records_updated?: number | null
+          source_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          apify_run_id?: string | null
+          created_at?: string | null
+          error?: string | null
+          high_score_count?: number | null
+          id?: string
+          meta?: Json | null
+          platform?: string
+          records_new?: number | null
+          records_received?: number | null
+          records_skipped?: number | null
+          records_updated?: number | null
+          source_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lw_buyer_ingestion_logs_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "lw_buyer_discovery_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lw_buyers: {
         Row: {
           acreage_max: number | null
@@ -1460,19 +1585,31 @@ export type Database = {
           activity_score: number
           budget_max: number | null
           budget_min: number | null
+          buyer_score: number | null
+          buyer_type: string | null
+          city: string | null
+          confidence_score: number | null
           created_at: string
           deal_type: string
           email: string | null
           entity_name: string | null
           full_name: string
           id: string
+          intent_level: string | null
+          intent_summary: string | null
           last_purchase_date: string | null
+          last_seen_signal: string | null
           meta: Json
           notes: string | null
           phone: string | null
+          pipeline_stage: string | null
+          property_type_interest: string[] | null
           purchase_count: number | null
+          raw_source_data: Json | null
           reapi_owner_id: string | null
           source: string
+          source_platform: string | null
+          source_url: string | null
           status: string
           tags: string[] | null
           target_counties: string[]
@@ -1486,19 +1623,31 @@ export type Database = {
           activity_score?: number
           budget_max?: number | null
           budget_min?: number | null
+          buyer_score?: number | null
+          buyer_type?: string | null
+          city?: string | null
+          confidence_score?: number | null
           created_at?: string
           deal_type?: string
           email?: string | null
           entity_name?: string | null
           full_name: string
           id?: string
+          intent_level?: string | null
+          intent_summary?: string | null
           last_purchase_date?: string | null
+          last_seen_signal?: string | null
           meta?: Json
           notes?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
+          property_type_interest?: string[] | null
           purchase_count?: number | null
+          raw_source_data?: Json | null
           reapi_owner_id?: string | null
           source?: string
+          source_platform?: string | null
+          source_url?: string | null
           status?: string
           tags?: string[] | null
           target_counties?: string[]
@@ -1512,19 +1661,31 @@ export type Database = {
           activity_score?: number
           budget_max?: number | null
           budget_min?: number | null
+          buyer_score?: number | null
+          buyer_type?: string | null
+          city?: string | null
+          confidence_score?: number | null
           created_at?: string
           deal_type?: string
           email?: string | null
           entity_name?: string | null
           full_name?: string
           id?: string
+          intent_level?: string | null
+          intent_summary?: string | null
           last_purchase_date?: string | null
+          last_seen_signal?: string | null
           meta?: Json
           notes?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
+          property_type_interest?: string[] | null
           purchase_count?: number | null
+          raw_source_data?: Json | null
           reapi_owner_id?: string | null
           source?: string
+          source_platform?: string | null
+          source_url?: string | null
           status?: string
           tags?: string[] | null
           target_counties?: string[]
