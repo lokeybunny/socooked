@@ -225,8 +225,10 @@ serve(async (req) => {
           }
 
           const platforms: string[] = reqBody['platform[]'] || reqBody['platforms'] || [];
-          const hasInstagram = (Array.isArray(platforms) ? platforms : [platforms])
-            .some((p: string) => String(p).toLowerCase() === 'instagram');
+          const platformList = Array.isArray(platforms) ? platforms : [platforms];
+          const hasInstagram = platformList.some((p: string) => String(p).toLowerCase() === 'instagram');
+          const hasTiktok = platformList.some((p: string) => String(p).toLowerCase() === 'tiktok');
+
           if (hasInstagram) {
             if (!reqBody.ig_post_type) {
               reqBody.ig_post_type = 'reels';
@@ -236,40 +238,56 @@ serve(async (req) => {
               reqBody.share_to_feed = 'true';
               console.log('[smm-api] Auto-set share_to_feed=true');
             }
+          }
 
-            if (!reqBody.user_tags) {
-              const caption = `${reqBody.title || ''} ${reqBody.description || ''}`.toLowerCase();
-              const candidateTags: { tag: string }[] = [];
-              if (caption.includes('lamb')) candidateTags.push({ tag: '@lamb.wavv' });
-              if (caption.includes('oranj') || caption.includes('orang')) candidateTags.push({ tag: '@oranjgoodman' });
+          // 7-day @ mention cooldown — applies to both Instagram and TikTok
+          if ((hasInstagram || hasTiktok) && !reqBody.user_tags) {
+            const caption = `${reqBody.title || ''} ${reqBody.description || ''}`.toLowerCase();
+            const candidateTags: { tag: string }[] = [];
+            if (caption.includes('lamb')) candidateTags.push({ tag: '@lamb.wavv' });
+            if (caption.includes('oranj') || caption.includes('orang')) candidateTags.push({ tag: '@oranjgoodman' });
 
-              if (candidateTags.length > 0) {
-                // 7-day @ mention cooldown check against published calendar events
-                try {
-                  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-                  const recentRes = await fetch(
-                    `${SUPABASE_URL}/rest/v1/calendar_events?category=in.(smm,artist-campaign)&source_id=like.published-%25&start_time=gte.${sevenDaysAgo}&select=title,description&limit=500`,
-                    { headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}` } }
-                  );
-                  const recentPublished: any[] = recentRes.ok ? await recentRes.json() : [];
-                  const recentText = recentPublished.map((e: any) => `${e.title || ''} ${e.description || ''}`).join(' ').toLowerCase();
+            if (candidateTags.length > 0) {
+              try {
+                const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+                const recentRes = await fetch(
+                  `${SUPABASE_URL}/rest/v1/calendar_events?category=in.(smm,artist-campaign)&source_id=like.published-%25&start_time=gte.${sevenDaysAgo}&select=title,description&limit=500`,
+                  { headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}` } }
+                );
+                const recentPublished: any[] = recentRes.ok ? await recentRes.json() : [];
+                const recentText = recentPublished.map((e: any) => `${e.title || ''} ${e.description || ''}`).join(' ').toLowerCase();
 
-                  const filteredTags = candidateTags.filter(({ tag }) => {
-                    const tagLower = tag.toLowerCase().replace('@', '');
-                    const recentlyMentioned = recentText.includes(tag.toLowerCase()) || recentText.includes(tagLower);
-                    if (recentlyMentioned) {
-                      console.log(`[smm-api] Skipping user_tag ${tag} — mentioned within last 7 days`);
-                    }
-                    return !recentlyMentioned;
-                  });
-
-                  if (filteredTags.length > 0) {
-                    reqBody.user_tags = filteredTags.map(t => t.tag).join(', ');
-                    console.log(`[smm-api] Auto-tagging Instagram user_tags: ${reqBody.user_tags}`);
+                const filteredTags = candidateTags.filter(({ tag }) => {
+                  const tagLower = tag.toLowerCase().replace('@', '');
+                  const recentlyMentioned = recentText.includes(tag.toLowerCase()) || recentText.includes(tagLower);
+                  if (recentlyMentioned) {
+                    console.log(`[smm-api] Skipping user_tag ${tag} — mentioned within last 7 days`);
                   }
-                } catch (cooldownErr) {
-                  // Fallback: apply tags without cooldown if check fails
-                  console.error('[smm-api] Mention cooldown check failed, applying tags:', cooldownErr);
+                  return !recentlyMentioned;
+                });
+
+                // Instagram: add user_tags param
+                if (filteredTags.length > 0 && hasInstagram) {
+                  reqBody.user_tags = filteredTags.map(t => t.tag).join(', ');
+                  console.log(`[smm-api] Auto-tagging Instagram user_tags: ${reqBody.user_tags}`);
+                }
+
+                // TikTok & all platforms: strip cooled-down @ mentions from caption
+                const cooledDownTags = candidateTags.filter(t => !filteredTags.includes(t));
+                if (cooledDownTags.length > 0 && reqBody.title) {
+                  let cleaned = reqBody.title;
+                  for (const { tag } of cooledDownTags) {
+                    cleaned = cleaned.replace(new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '').trim();
+                  }
+                  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+                  if (cleaned !== reqBody.title) {
+                    console.log(`[smm-api] Stripped cooled-down mentions from caption`);
+                    reqBody.title = cleaned;
+                  }
+                }
+              } catch (cooldownErr) {
+                console.error('[smm-api] Mention cooldown check failed, applying tags:', cooldownErr);
+                if (hasInstagram) {
                   reqBody.user_tags = candidateTags.map(t => t.tag).join(', ');
                 }
               }
