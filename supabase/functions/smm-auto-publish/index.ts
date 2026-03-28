@@ -747,10 +747,12 @@ Deno.serve(async (req) => {
         profileUsername,
         platforms,
         {
-          ...outcome,
           state: "success",
+          requestId: outcome.requestId,
+          jobId: outcome.jobId,
           postUrl: outcome.postUrl || historyConfirmation.proof.post_url,
           platformPostId: outcome.platformPostId || historyConfirmation.proof.platform_post_id,
+          rawStatus: outcome.rawStatus,
         },
         mediaUrl,
         {
