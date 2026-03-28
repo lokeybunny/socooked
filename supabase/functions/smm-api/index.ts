@@ -239,12 +239,39 @@ serve(async (req) => {
 
             if (!reqBody.user_tags) {
               const caption = `${reqBody.title || ''} ${reqBody.description || ''}`.toLowerCase();
-              const tags: string[] = [];
-              if (caption.includes('lamb')) tags.push('@lamb.wavv');
-              if (caption.includes('oranj') || caption.includes('orang')) tags.push('@oranjgoodman');
-              if (tags.length > 0) {
-                reqBody.user_tags = tags.join(', ');
-                console.log(`[smm-api] Auto-tagging Instagram user_tags: ${reqBody.user_tags}`);
+              const candidateTags: { tag: string }[] = [];
+              if (caption.includes('lamb')) candidateTags.push({ tag: '@lamb.wavv' });
+              if (caption.includes('oranj') || caption.includes('orang')) candidateTags.push({ tag: '@oranjgoodman' });
+
+              if (candidateTags.length > 0) {
+                // 7-day @ mention cooldown check against published calendar events
+                try {
+                  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+                  const recentRes = await fetch(
+                    `${SUPABASE_URL}/rest/v1/calendar_events?category=in.(smm,artist-campaign)&source_id=like.published-%25&start_time=gte.${sevenDaysAgo}&select=title,description&limit=500`,
+                    { headers: { 'apikey': SERVICE_ROLE_KEY, 'Authorization': `Bearer ${SERVICE_ROLE_KEY}` } }
+                  );
+                  const recentPublished: any[] = recentRes.ok ? await recentRes.json() : [];
+                  const recentText = recentPublished.map((e: any) => `${e.title || ''} ${e.description || ''}`).join(' ').toLowerCase();
+
+                  const filteredTags = candidateTags.filter(({ tag }) => {
+                    const tagLower = tag.toLowerCase().replace('@', '');
+                    const recentlyMentioned = recentText.includes(tag.toLowerCase()) || recentText.includes(tagLower);
+                    if (recentlyMentioned) {
+                      console.log(`[smm-api] Skipping user_tag ${tag} — mentioned within last 7 days`);
+                    }
+                    return !recentlyMentioned;
+                  });
+
+                  if (filteredTags.length > 0) {
+                    reqBody.user_tags = filteredTags.map(t => t.tag).join(', ');
+                    console.log(`[smm-api] Auto-tagging Instagram user_tags: ${reqBody.user_tags}`);
+                  }
+                } catch (cooldownErr) {
+                  // Fallback: apply tags without cooldown if check fails
+                  console.error('[smm-api] Mention cooldown check failed, applying tags:', cooldownErr);
+                  reqBody.user_tags = candidateTags.map(t => t.tag).join(', ');
+                }
               }
             }
           }
