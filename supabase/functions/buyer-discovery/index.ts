@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       try {
         // Build Apify input based on platform
         const input = buildApifyInput(source);
-        const actorId = source.apify_actor_id;
+        const actorId = (source.apify_actor_id || "").replace("/", "~");
         if (!actorId) {
           results.push({ source: source.name, status: "skipped", reason: "no actor_id" });
           continue;
