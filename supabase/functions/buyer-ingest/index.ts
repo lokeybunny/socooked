@@ -51,8 +51,15 @@ Deno.serve(async (req) => {
     const autoCreateTasks = config.auto_create_tasks === true || config.auto_create_tasks === "true";
     const alertConfig = config.telegram_alerts || { enabled: true, min_score: 70 };
 
-    // Normalize records
-    const normalized = records.map((r: any) => normalizeRecord(r, platform));
+    // Normalize records, filter out placeholder/error records
+    const normalized = records
+      .filter((r: any) => {
+        // Skip Apify placeholder "No posts found" entries
+        if (r.title && r.title.startsWith("No posts found")) return false;
+        if (!r.url && !r.postUrl && !r.link && !r.email && !r.phone && !r.name && !r.full_name) return false;
+        return true;
+      })
+      .map((r: any) => normalizeRecord(r, platform));
 
     // Load existing buyers for dedup
     const emails = normalized.map((n: any) => n.email).filter(Boolean);
@@ -373,8 +380,7 @@ function findExisting(record: any, existingMap: Map<string, any>) {
     return existingMap.get(`phone:${record.phone}`);
   if (record.source_url && existingMap.has(`url:${record.source_url}`))
     return existingMap.get(`url:${record.source_url}`);
-  if (record.full_name && existingMap.has(`name:${record.full_name.toLowerCase()}`))
-    return existingMap.get(`name:${record.full_name.toLowerCase()}`);
+  // Skip name-based dedup — post titles aren't buyer names and cause false positives
   return null;
 }
 
