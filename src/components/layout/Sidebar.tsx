@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, Handshake, FolderKanban, FileText,
   LogOut, ChevronLeft, Menu, MessageSquare, Receipt,
   Mail, Phone, Video, Bot, Link2, Sparkles, CalendarDays, CalendarClock, Layers, Share2, Search,
-  Target, HardHat, Crosshair, Shield,
+  Target, HardHat, Crosshair, Shield, Warehouse,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,7 @@ const navItems: NavItem[] = [
   { to: '/shillers/raiders', icon: Shield, label: 'Raiders', botIcon: true },
   { to: '/shill-crm', icon: Crosshair, label: 'Shill CRM', botIcon: true },
   { to: '/x-shill', icon: Target, label: 'X Shill', botIcon: true },
+  { to: '/wholesale', icon: Warehouse, label: 'Wholesale', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
 ];
 
