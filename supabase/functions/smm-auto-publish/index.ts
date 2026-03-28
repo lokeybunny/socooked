@@ -539,10 +539,38 @@ Deno.serve(async (req) => {
         params.append("ig_post_type", "reels");
         params.append("share_to_feed", "true");
         const captionLower = caption.toLowerCase();
-        const tags: string[] = [];
-        if (captionLower.includes("lamb")) tags.push("@lamb.wavv");
-        if (captionLower.includes("oranj") || captionLower.includes("orang")) tags.push("@oranjgoodman");
-        if (tags.length > 0) params.append("user_tags", tags.join(", "));
+        const candidateTags: { tag: string; keyword: string }[] = [];
+        if (captionLower.includes("lamb")) candidateTags.push({ tag: "@lamb.wavv", keyword: "lamb" });
+        if (captionLower.includes("oranj") || captionLower.includes("orang")) candidateTags.push({ tag: "@oranjgoodman", keyword: "oranj" });
+
+        // 7-day @ mention cooldown: check published events for recent mentions
+        if (candidateTags.length > 0) {
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: recentPublished } = await supabase
+            .from("calendar_events")
+            .select("title, description")
+            .in("category", ["smm", "artist-campaign"])
+            .like("source_id", `${PUBLISHED_PREFIX}%`)
+            .gte("start_time", sevenDaysAgo)
+            .limit(500);
+
+          const recentText = (recentPublished || [])
+            .map((e: any) => `${e.title || ""} ${e.description || ""}`.toLowerCase())
+            .join(" ");
+
+          const filteredTags = candidateTags.filter(({ tag, keyword }) => {
+            const tagLower = tag.toLowerCase().replace("@", "");
+            const recentlyMentioned = recentText.includes(tag.toLowerCase()) || recentText.includes(tagLower);
+            if (recentlyMentioned) {
+              console.log(`[smm-auto-publish] Skipping ${tag} — mentioned in a post within the last 7 days`);
+            }
+            return !recentlyMentioned;
+          });
+
+          if (filteredTags.length > 0) {
+            params.append("user_tags", filteredTags.map(t => t.tag).join(", "));
+          }
+        }
       }
     } else {
       params.append("photos[]", mediaUrl);
