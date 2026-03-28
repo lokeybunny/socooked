@@ -241,36 +241,50 @@ Deno.serve(async (req) => {
 
 // ── Normalize raw scraped record ──
 function normalizeRecord(raw: any, platform: string) {
-  const text = (raw.text || raw.body || raw.description || raw.content || raw.title || "").toLowerCase();
+  // For craigslist, the record has: title, url, category, datetime, id
+  // We need to use title as the primary text and derive a name from it
+  const rawTitle = raw.title || "";
+  const rawBody = raw.text || raw.body || raw.description || raw.content || "";
+  const fullText = (rawTitle + " " + rawBody).toLowerCase();
+
+  // For CL posts, use the post title as the buyer "name" since there's no author info
   const name =
     raw.full_name || raw.name || raw.author || raw.username || raw.displayName || raw.authorName || "";
-  const email = extractEmail(text + " " + (raw.email || ""));
-  const phone = extractPhone(text + " " + (raw.phone || ""));
+
+  const email = extractEmail(fullText + " " + (raw.email || ""));
+  const phone = extractPhone(fullText + " " + (raw.phone || ""));
+
+  // Extract location from URL subdomain (e.g. "mendocino.craigslist.org")
+  const urlStr = raw.url || raw.postUrl || raw.link || "";
+  let city = raw.city || raw.location || null;
+  if (!city && urlStr) {
+    const urlMatch = urlStr.match(/https?:\/\/(\w+)\.craigslist\.org/);
+    if (urlMatch) city = urlMatch[1];
+  }
 
   // Extract location signals
-  const states = extractStates(text);
-  const counties = extractCounties(text);
-  const city = raw.city || raw.location || extractCity(text);
+  const states = extractStates(fullText);
+  const counties = extractCounties(fullText);
 
   // Extract budget signals
-  const budgetMatch = text.match(/\$\s*([\d,]+)\s*[-–to]+\s*\$?\s*([\d,]+)/);
-  const singleBudget = text.match(/budget[:\s]*\$?\s*([\d,]+)/i);
+  const budgetMatch = fullText.match(/\$\s*([\d,]+)\s*[-–to]+\s*\$?\s*([\d,]+)/);
+  const singleBudget = fullText.match(/budget[:\s]*\$?\s*([\d,]+)/i);
 
   return {
-    full_name: name.trim() || null,
+    full_name: name.trim() || rawTitle.trim().slice(0, 100) || null,
     email,
     phone,
     company: raw.company || raw.organization || null,
     city: city || null,
-    source_url: raw.url || raw.postUrl || raw.link || null,
-    deal_type: detectDealType(text),
+    source_url: urlStr || null,
+    deal_type: detectDealType(fullText),
     states,
     counties,
     budget_min: budgetMatch ? parseInt(budgetMatch[1].replace(/,/g, "")) : singleBudget ? parseInt(singleBudget[1].replace(/,/g, "")) * 0.7 : null,
     budget_max: budgetMatch ? parseInt(budgetMatch[2].replace(/,/g, "")) : singleBudget ? parseInt(singleBudget[1].replace(/,/g, "")) : null,
-    acreage_min: extractAcreage(text, "min"),
-    acreage_max: extractAcreage(text, "max"),
-    text,
+    acreage_min: extractAcreage(fullText, "min"),
+    acreage_max: extractAcreage(fullText, "max"),
+    text: fullText,
     raw,
   };
 }
