@@ -145,11 +145,9 @@ function buildApifyInput(source: any) {
       };
     case "craigslist":
       return {
-        startUrls: urls.length
+        urls: urls.length
           ? urls.map((u: string) => ({ url: u }))
-          : keywords.map((kw: string) => ({
-              url: `https://craigslist.org/search/rea?query=${encodeURIComponent(kw)}`,
-            })),
+          : [{ url: "https://craigslist.org/search/rea?query=land" }],
         maxItems: meta.max_items || 100,
         ...meta.actor_input,
       };
