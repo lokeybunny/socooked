@@ -189,22 +189,22 @@ function buildApifyInput(source: any) {
       };
     case "craigslist": {
       const cities: string[] = meta.cities || [];
-      const searchKeywords = keywords.length ? keywords : ["land"];
+      // Category code: rew = "wanted: real estate" under housing
+      const categoryCode = meta.category_code || "rew";
       let generatedUrls: { url: string }[] = [];
 
       if (cities.length > 0) {
+        // One URL per city — scrape entire "wanted: real estate" category
         for (const city of cities) {
           const slug = city.toLowerCase().replace(/\s+/g, "");
-          for (const kw of searchKeywords) {
-            generatedUrls.push({
-              url: `https://${slug}.craigslist.org/search/hsw?query=${encodeURIComponent(kw)}`,
-            });
-          }
+          generatedUrls.push({
+            url: `https://${slug}.craigslist.org/search/${categoryCode}`,
+          });
         }
       } else if (urls.length > 0) {
         generatedUrls = urls.map((u: string) => ({ url: u }));
       } else {
-        generatedUrls = [{ url: "https://craigslist.org/search/hsw?query=land" }];
+        generatedUrls = [{ url: `https://craigslist.org/search/${categoryCode}` }];
       }
 
       return {
