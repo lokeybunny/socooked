@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerDetail from './BuyerDetail';
 
@@ -60,6 +61,8 @@ export default function BuyerDiscovery() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [runningDiscovery, setRunningDiscovery] = useState(false);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 25;
 
   const pollForResults = async () => {
     try {
@@ -154,6 +157,12 @@ export default function BuyerDiscovery() {
     });
     return list;
   }, [buyers, stageFilter, typeFilter, intentFilter, stateFilter, sourceFilter, search, sortField, sortAsc]);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [stageFilter, typeFilter, intentFilter, stateFilter, sourceFilter, search, sortField, sortAsc]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const toggleSort = (field: string) => {
     if (sortField === field) setSortAsc(!sortAsc);
@@ -336,6 +345,11 @@ export default function BuyerDiscovery() {
             <Users className="h-4 w-4" />
             Buyer Pipeline
             <Badge variant="outline" className="ml-auto">{filtered.length} buyers</Badge>
+            {totalPages > 1 && (
+              <span className="text-xs text-muted-foreground ml-2">
+                Page {page}/{totalPages}
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -372,7 +386,7 @@ export default function BuyerDiscovery() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map(b => (
+                  {paginated.map(b => (
                     <TableRow key={b.id} className="cursor-pointer" onClick={() => { setSelectedBuyer(b); setDetailOpen(true); }}>
                       <TableCell>
                         <div>
@@ -441,6 +455,43 @@ export default function BuyerDiscovery() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t mt-4">
+              <span className="text-xs text-muted-foreground">
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                  .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('...');
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    typeof p === 'string' ? (
+                      <span key={`e${i}`} className="px-1 text-xs text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={p === page ? 'default' : 'outline'}
+                        className="h-8 w-8 p-0 text-xs"
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  )}
+                <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
