@@ -45,7 +45,7 @@ export default function BuyerSources() {
     setLoading(false);
   };
 
-  const openAdd = () => { setEditId(null); setForm(emptySource); setOpen(true); };
+  const openAdd = () => { setEditId(null); setForm(emptySource); setCityFilter(''); setOpen(true); };
   const openEdit = (s: any) => {
     setEditId(s.id);
     setForm({
