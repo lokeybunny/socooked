@@ -349,7 +349,15 @@ export default function Wholesale() {
         </TabsContent>
         {/* Tab 4: Buyers */}
         <TabsContent value="buyers" className="mt-4">
-          <BuyerManager />
+          <BuyerDiscovery />
+        </TabsContent>
+        {/* Tab 5: Discovery Sources */}
+        <TabsContent value="sources" className="mt-4">
+          <BuyerSources />
+        </TabsContent>
+        {/* Tab 6: Settings */}
+        <TabsContent value="settings" className="mt-4">
+          <BuyerSettings />
         </TabsContent>
       </Tabs>
     </div>
