@@ -1290,21 +1290,23 @@ CONTRACT DATA:
 - Bathrooms: ${s.bathrooms || 'N/A'}
 - Purchase Price: $${Number(price).toLocaleString()}
 - Earnest Money Deposit: $${Math.min(500, Math.max(100, Math.round(Number(price) * 0.01))).toLocaleString()}
-- Contingency/Inspection Period: ${agreementDuration} days
+- Due Diligence Period: ${agreementDuration} days
 - Closing Date: ${closingDateStr}
 - Governing State Law: ${propState}
+- Transaction Type: ALL-CASH purchase — NO financing, NO mortgage contingency, NO appraisal contingency, NO inspection contingency.
 
 REQUIRED CLAUSES:
-1. Purchase price and payment terms with the exact dollar amount.
-2. Earnest money deposit amount and refund conditions during contingency.
-3. Inspection/contingency period of ${agreementDuration} days — Buyer may cancel for any reason with full refund of earnest money.
-4. Assignment clause: "This Agreement and all rights and obligations hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
-5. Closing date and location details.
-6. Title and clear deed requirements — Seller to provide marketable title.
-7. Default and remedies for both parties.
-8. Governing law for the state of ${propState}.
-9. Signature blocks for Seller (${sellerName}) and Buyer or Assignee, each with a printed name line and date line.
-10. Entire agreement / merger clause.
+1. Purchase price and payment terms — ALL CASH, exact dollar amount stated. No financing contingency.
+2. Earnest money deposit amount — non-refundable after due diligence period ends.
+3. Due diligence period of ${agreementDuration} days — Buyer may cancel for any reason with full refund of earnest money ONLY during this period.
+4. EXPLICITLY STATE: This is a cash transaction. Buyer waives all inspection contingencies, appraisal contingencies, and financing contingencies. Property is purchased AS-IS, WHERE-IS with no warranties regarding condition.
+5. Assignment clause: "This Agreement and all rights and obligations hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
+6. Closing date and location details — closing to occur at a title company in ${propCounty} County, ${propState}.
+7. Title and clear deed requirements — Seller to provide marketable title via warranty deed or special warranty deed.
+8. Default and remedies for both parties.
+9. Governing law for the state of ${propState}.
+10. Signature blocks for Seller (${sellerName}) and Buyer or Assignee, each with a printed name line and date line.
+11. Entire agreement / merger clause.
 
 Format with numbered sections and clear headings. Make this ready to print, sign, and execute immediately.`;
 
