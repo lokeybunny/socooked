@@ -1351,7 +1351,7 @@ Format the contract with clear section headings and numbered paragraphs.`;
     setDraftingEmail(false);
   };
 
-
+  const handleSaveEdits = async () => {
     setSaving(true);
     try {
       await supabase.from('lw_sellers').update({
