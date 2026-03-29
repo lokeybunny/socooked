@@ -30,6 +30,50 @@ export function getCraigslistCity(subdomain: string): CityEntry | undefined {
   return CRAIGSLIST_CITIES.find(c => c.subdomain === subdomain);
 }
 
+function normalizeLocationText(value: string | null | undefined): string {
+  return (value || '')
+    .toLowerCase()
+    .replace(/\b(county|parish|metro|metropolitan|area|region|city)\b/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function locationTextMatches(metroLabel: string, candidate: string | null | undefined): boolean {
+  const metro = normalizeLocationText(metroLabel);
+  const value = normalizeLocationText(candidate);
+
+  if (!metro || !value) return false;
+  if (metro === value) return true;
+  if (metro.includes(value) || value.includes(metro)) return true;
+
+  const metroTokens = new Set(metro.split(' ').filter(token => token.length > 2));
+  const valueTokens = value.split(' ').filter(token => token.length > 2);
+  const overlapCount = valueTokens.filter(token => metroTokens.has(token)).length;
+
+  return overlapCount >= Math.min(2, valueTokens.length);
+}
+
+/**
+ * Validate that the seller property location actually aligns with the Craigslist metro.
+ * This acts as a strict location gate before any buyer matching is shown.
+ */
+export function isSellerInCraigslistRegion(
+  sellerSubdomain: string,
+  seller: any
+): boolean {
+  const clCity = getCraigslistCity(sellerSubdomain);
+  if (!clCity) return false;
+
+  const sellerState = (seller.state || '').toUpperCase().trim();
+  if (sellerState && sellerState !== clCity.state.toUpperCase()) return false;
+
+  return (
+    locationTextMatches(clCity.label, seller.city) ||
+    locationTextMatches(clCity.label, seller.county)
+  );
+}
+
 /**
  * Check if a buyer is in the same Craigslist metro as a seller.
  * Compares by subdomain extracted from buyer.source_url, or by city/state match
@@ -43,24 +87,13 @@ export function isBuyerInCraigslistRegion(
   const buyerSubdomain = extractCraigslistSubdomain(buyer.source_url);
   if (buyerSubdomain === sellerSubdomain) return true;
 
-  // City-level match only — never match by state alone
+  // City/county-level match only — never match by state alone
   const clCity = getCraigslistCity(sellerSubdomain);
   if (clCity) {
-    const buyerCityLower = (buyer.city || '').toLowerCase().trim();
-    const clLabelLower = clCity.label.toLowerCase();
+    if (locationTextMatches(clCity.label, buyer.city)) return true;
 
-    // Exact city name match (e.g. buyer.city "Los Angeles" ↔ CL label "Los Angeles")
-    if (buyerCityLower && (
-      clLabelLower.includes(buyerCityLower) ||
-      buyerCityLower.includes(clLabelLower)
-    )) return true;
-
-    // Check buyer target_counties against the CL city label (county-level proxy)
     const buyerCounties: string[] = buyer.target_counties || [];
-    if (buyerCounties.some((c: string) => {
-      const cLower = c.toLowerCase().trim();
-      return clLabelLower.includes(cLower) || cLower.includes(clLabelLower);
-    })) return true;
+    if (buyerCounties.some((county: string) => locationTextMatches(clCity.label, county))) return true;
   }
 
   return false;
@@ -195,7 +228,7 @@ export function calculateBuyerMatchScore(seller: any, buyer: any): number {
   // Craigslist region match: +15 bonus
   // If seller came from a CL link, buyers from the same CL metro get a boost
   const sellerClSub = extractCraigslistSubdomain(seller.meta?.source_url || seller.meta?.craigslist_url);
-  if (sellerClSub) {
+  if (sellerClSub && isSellerInCraigslistRegion(sellerClSub, seller)) {
     if (isBuyerInCraigslistRegion(sellerClSub, buyer)) score += 15;
   }
 
