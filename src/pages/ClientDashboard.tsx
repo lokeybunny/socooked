@@ -245,11 +245,22 @@ export default function ClientDashboard() {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-white/40" />
             <span className="text-sm text-white/60">Filter:</span>
           </div>
+          <Select value={filterStage} onValueChange={setFilterStage}>
+            <SelectTrigger className="w-[180px] bg-white/5 border-white/10 text-white">
+              <SelectValue placeholder="All Stages" />
+            </SelectTrigger>
+            <SelectContent className="bg-neutral-900 border-white/10 text-white">
+              <SelectItem value="all">All Stages</SelectItem>
+              {PIPELINE_STAGES.map(s => (
+                <SelectItem key={s} value={s}>{STAGE_LABELS[s]} ({stageCounts[s] || 0})</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {landingPages.length > 1 && (
             <Select value={filterPage} onValueChange={setFilterPage}>
               <SelectTrigger className="w-[200px] bg-white/5 border-white/10 text-white">
