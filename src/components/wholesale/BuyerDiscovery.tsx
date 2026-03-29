@@ -217,6 +217,34 @@ export default function BuyerDiscovery() {
   const updateStage = async (id: string, stage: string) => {
     await supabase.from('lw_buyers').update({ pipeline_stage: stage }).eq('id', id);
     toast.success(`Moved to ${stage.replace(/_/g, ' ')}`);
+
+    // Auto-queue qualified buyers to daily call list
+    if (stage === 'qualified') {
+      const buyer = buyers.find(b => b.id === id);
+      if (buyer) {
+        const today = new Date().toISOString().split('T')[0];
+        // Check if already queued today
+        const { data: existing } = await supabase.from('lw_call_queue')
+          .select('id')
+          .eq('seller_id', id)
+          .eq('queue_date', today)
+          .limit(1);
+        if (!existing || existing.length === 0) {
+          await supabase.from('lw_call_queue').insert({
+            seller_id: id,
+            owner_name: buyer.full_name,
+            owner_phone: buyer.phone || null,
+            property_address: buyer.phone ? null : 'Phone # TBA',
+            reason: `Qualified buyer — ${buyer.source_platform || buyer.source || 'manual'}`,
+            queue_date: today,
+            call_priority: 1,
+            status: 'pending',
+          });
+          toast.success('Added to today\'s call list');
+        }
+      }
+    }
+
     loadBuyers();
   };
 
