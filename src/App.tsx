@@ -136,6 +136,7 @@ const App = () => (
             <Route path="/shillteam" element={<ShillTeam />} />
             <Route path="/x-shill" element={<RestrictedGate><AuthLayoutGate><XShill /></AuthLayoutGate></RestrictedGate>} />
             <Route path="/wholesale" element={<RestrictedGate><AuthLayoutGate><Wholesale /></AuthLayoutGate></RestrictedGate>} />
+            <Route path="/sell/:slug" element={<SellerLanding />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
