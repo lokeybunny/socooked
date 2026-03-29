@@ -182,6 +182,10 @@ export default function Wholesale() {
             <UserCheck className="h-3.5 w-3.5" />
             Leads
           </TabsTrigger>
+          <TabsTrigger value="vapi-spend" className="gap-1.5">
+            <DollarSign className="h-3.5 w-3.5" />
+            Vapi Spend
+          </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
