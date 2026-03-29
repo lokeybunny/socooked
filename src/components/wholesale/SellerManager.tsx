@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import DistressFilters, { EMPTY_DISTRESS_FILTERS, type DistressFilterState } from './DistressFilters';
 import CsvImport from './CsvImport';
@@ -175,6 +175,56 @@ export default function SellerManager() {
   const [fetchSize, setFetchSize] = useState('50');
   const [detailSeller, setDetailSeller] = useState<any>(null);
 
+  // Distress search mode
+  const [distressMode, setDistressMode] = useState(false);
+  const [fetchCity, setFetchCity] = useState('');
+  const [fetchZip, setFetchZip] = useState('');
+  const [fetchDistress, setFetchDistress] = useState({
+    absentee_owner: false,
+    vacant: false,
+    vacant_land: false,
+    tax_delinquent_year: '',
+    liens: false,
+    high_equity_percent: '',
+    free_and_clear: false,
+    pre_foreclosure: false,
+    foreclosure: false,
+    auction: false,
+    out_of_state: false,
+    years_owned_min: '',
+    property_type: '',
+    acreage_min: '',
+    acreage_max: '',
+    value_min: '',
+    value_max: '',
+  });
+
+  const DISTRESS_PRESETS = [
+    { label: '💰 Tax Del. Absentee', apply: { absentee_owner: true, tax_delinquent_year: String(new Date().getFullYear() - 1) } },
+    { label: '🏚️ Vacant Distress', apply: { vacant: true, absentee_owner: true } },
+    { label: '🏞️ Vacant Land Distress', apply: { vacant_land: true, absentee_owner: true } },
+    { label: '⚠️ Pre-Foreclosure', apply: { pre_foreclosure: true } },
+    { label: '⏳ Long-Term OOS', apply: { out_of_state: true, years_owned_min: '10', absentee_owner: true } },
+    { label: '🤝 Buyer-Matched', apply: { absentee_owner: true, vacant: true } },
+  ];
+
+  const applyDistressPreset = (preset: typeof DISTRESS_PRESETS[0]) => {
+    setDistressMode(true);
+    setFetchDistress(prev => ({ ...prev, ...Object.fromEntries(
+      Object.entries(preset.apply).map(([k, v]) => [k, v])
+    ) }));
+    toast.success(`Preset applied: ${preset.label}`);
+  };
+
+  const clearDistressSearch = () => {
+    setFetchDistress({
+      absentee_owner: false, vacant: false, vacant_land: false, tax_delinquent_year: '',
+      liens: false, high_equity_percent: '', free_and_clear: false, pre_foreclosure: false,
+      foreclosure: false, auction: false, out_of_state: false, years_owned_min: '',
+      property_type: '', acreage_min: '', acreage_max: '', value_min: '', value_max: '',
+    });
+  };
+
   useEffect(() => { loadSellers(); loadBuyers(); }, []);
 
   const loadBuyers = async () => {
@@ -199,6 +249,31 @@ export default function SellerManager() {
       const types = fetchDealType === 'both' ? ['land', 'home'] : [fetchDealType];
       let totalFetched = 0;
       let totalNew = 0;
+
+      // Build distress_filters payload
+      const df: Record<string, any> = {};
+      if (distressMode) {
+        if (fetchDistress.absentee_owner) df.absentee_owner = true;
+        if (fetchDistress.vacant) df.vacant = true;
+        if (fetchDistress.vacant_land) df.vacant_land = true;
+        if (fetchDistress.tax_delinquent_year) df.tax_delinquent_year = fetchDistress.tax_delinquent_year;
+        if (fetchDistress.liens) df.liens = true;
+        if (fetchDistress.high_equity_percent) df.high_equity_percent = Number(fetchDistress.high_equity_percent);
+        if (fetchDistress.free_and_clear) df.free_and_clear = true;
+        if (fetchDistress.pre_foreclosure) df.pre_foreclosure = true;
+        if (fetchDistress.foreclosure) df.foreclosure = true;
+        if (fetchDistress.auction) df.auction = true;
+        if (fetchDistress.out_of_state) df.out_of_state = true;
+        if (fetchDistress.years_owned_min) df.years_owned_min = Number(fetchDistress.years_owned_min);
+        if (fetchDistress.property_type) df.property_type = fetchDistress.property_type;
+        if (fetchDistress.acreage_min) df.acreage_min = Number(fetchDistress.acreage_min);
+        if (fetchDistress.acreage_max) df.acreage_max = Number(fetchDistress.acreage_max);
+        if (fetchDistress.value_min) df.value_min = Number(fetchDistress.value_min);
+        if (fetchDistress.value_max) df.value_max = Number(fetchDistress.value_max);
+        if (fetchCity.trim()) df.city = fetchCity.trim();
+        if (fetchZip.trim()) df.zip = fetchZip.trim();
+      }
+
       for (const dt of types) {
         const { data, error } = await supabase.functions.invoke('land-reapi-search', {
           body: {
@@ -206,6 +281,7 @@ export default function SellerManager() {
             state: fetchState.trim().toUpperCase(),
             deal_type: dt,
             size: Number(fetchSize) || 50,
+            ...(distressMode ? { distress_filters: df } : {}),
           },
         });
         if (error) throw error;
@@ -350,28 +426,56 @@ export default function SellerManager() {
           <CardTitle className="text-lg flex items-center gap-2">
             <Download className="h-4 w-4" />
             Fetch Seller Leads
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={distressMode ? 'default' : 'outline'}
+                className="text-xs gap-1.5 h-7"
+                onClick={() => setDistressMode(!distressMode)}
+              >
+                <Target className="h-3 w-3" />
+                {distressMode ? 'Distress Search ON' : 'Distress Search'}
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Distress Presets */}
+          {distressMode && (
+            <div className="flex flex-wrap gap-1.5">
+              {DISTRESS_PRESETS.map((p, i) => (
+                <Button key={i} size="sm" variant="outline" className="text-xs h-7 gap-1" onClick={() => applyDistressPreset(p)}>
+                  {p.label}
+                </Button>
+              ))}
+              <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 text-muted-foreground" onClick={clearDistressSearch}>
+                <X className="h-3 w-3" /> Clear
+              </Button>
+            </div>
+          )}
+
+          {/* Base location fields */}
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
               <Label className="text-xs">County *</Label>
-              <Input
-                placeholder="e.g. Maricopa"
-                value={fetchCounty}
-                onChange={e => setFetchCounty(e.target.value)}
-                className="w-[160px] h-9"
-              />
+              <Input placeholder="e.g. Maricopa" value={fetchCounty} onChange={e => setFetchCounty(e.target.value)} className="w-[160px] h-9" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">State *</Label>
-              <Input
-                placeholder="e.g. AZ"
-                value={fetchState}
-                onChange={e => setFetchState(e.target.value)}
-                className="w-[80px] h-9"
-              />
+              <Input placeholder="e.g. AZ" value={fetchState} onChange={e => setFetchState(e.target.value)} className="w-[80px] h-9" />
             </div>
+            {distressMode && (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs">City</Label>
+                  <Input placeholder="e.g. Phoenix" value={fetchCity} onChange={e => setFetchCity(e.target.value)} className="w-[130px] h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ZIP</Label>
+                  <Input placeholder="e.g. 85001" value={fetchZip} onChange={e => setFetchZip(e.target.value)} className="w-[90px] h-9" />
+                </div>
+              </>
+            )}
             <div className="space-y-1">
               <Label className="text-xs">Deal Type</Label>
               <Select value={fetchDealType} onValueChange={setFetchDealType}>
@@ -385,20 +489,131 @@ export default function SellerManager() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Max Results</Label>
-              <Input
-                type="number"
-                value={fetchSize}
-                onChange={e => setFetchSize(e.target.value)}
-                className="w-[80px] h-9"
-              />
+              <Input type="number" value={fetchSize} onChange={e => setFetchSize(e.target.value)} className="w-[80px] h-9" />
             </div>
             <Button onClick={fetchProperties} disabled={fetching} className="h-9">
-              {fetching ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Fetching…</> : <><Download className="h-3.5 w-3.5 mr-1" /> Fetch Properties</>}
+              {fetching ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Fetching…</> : <><Download className="h-3.5 w-3.5 mr-1" /> {distressMode ? 'Distress Search' : 'Fetch Properties'}</>}
             </Button>
             <Button variant="outline" className="h-9 gap-1.5" onClick={() => setCsvOpen(true)}>
               <FileSpreadsheet className="h-3.5 w-3.5" /> CSV Import
             </Button>
           </div>
+
+          {/* Distress Search Expandable Filter Groups */}
+          {distressMode && (
+            <div className="border rounded-lg bg-muted/30 p-3 space-y-3 mt-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Shield className="h-3 w-3" /> Distress Filters
+              </p>
+
+              {/* Ownership Signals */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Ownership</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.absentee_owner} onCheckedChange={v => setFetchDistress(p => ({...p, absentee_owner: !!v}))} />
+                    Absentee Owner
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.out_of_state} onCheckedChange={v => setFetchDistress(p => ({...p, out_of_state: !!v}))} />
+                    Out-of-State
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Years Owned ≥</Label>
+                    <Input type="number" placeholder="10" className="h-7 w-16 text-xs"
+                      value={fetchDistress.years_owned_min} onChange={e => setFetchDistress(p => ({...p, years_owned_min: e.target.value}))} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Signals */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Financial</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={!!fetchDistress.tax_delinquent_year} onCheckedChange={v => setFetchDistress(p => ({...p, tax_delinquent_year: v ? String(new Date().getFullYear() - 1) : ''}))} />
+                    Tax Delinquent
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.liens} onCheckedChange={v => setFetchDistress(p => ({...p, liens: !!v}))} />
+                    Liens
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.free_and_clear} onCheckedChange={v => setFetchDistress(p => ({...p, free_and_clear: !!v}))} />
+                    Free & Clear
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Equity ≥</Label>
+                    <Input type="number" placeholder="40%" className="h-7 w-16 text-xs"
+                      value={fetchDistress.high_equity_percent} onChange={e => setFetchDistress(p => ({...p, high_equity_percent: e.target.value}))} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Foreclosure / Legal */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Foreclosure & Legal</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.pre_foreclosure} onCheckedChange={v => setFetchDistress(p => ({...p, pre_foreclosure: !!v}))} />
+                    Pre-Foreclosure
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.foreclosure} onCheckedChange={v => setFetchDistress(p => ({...p, foreclosure: !!v}))} />
+                    Foreclosure
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.auction} onCheckedChange={v => setFetchDistress(p => ({...p, auction: !!v}))} />
+                    Auction
+                  </label>
+                </div>
+              </div>
+
+              {/* Property */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Property</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-end">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.vacant} onCheckedChange={v => setFetchDistress(p => ({...p, vacant: !!v}))} />
+                    Vacant
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.vacant_land} onCheckedChange={v => setFetchDistress(p => ({...p, vacant_land: !!v}))} />
+                    Vacant Land
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Type</Label>
+                    <Select value={fetchDistress.property_type || 'any'} onValueChange={v => setFetchDistress(p => ({...p, property_type: v === 'any' ? '' : v}))}>
+                      <SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="LAND">Land</SelectItem>
+                        <SelectItem value="SFR">SFR</SelectItem>
+                        <SelectItem value="MFR">Multi-Family</SelectItem>
+                        <SelectItem value="CONDO">Condo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Acres</Label>
+                    <Input type="number" step="0.1" placeholder="Min" className="h-7 w-16 text-xs"
+                      value={fetchDistress.acreage_min} onChange={e => setFetchDistress(p => ({...p, acreage_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" step="0.1" placeholder="Max" className="h-7 w-16 text-xs"
+                      value={fetchDistress.acreage_max} onChange={e => setFetchDistress(p => ({...p, acreage_max: e.target.value}))} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Value $</Label>
+                    <Input type="number" placeholder="Min" className="h-7 w-20 text-xs"
+                      value={fetchDistress.value_min} onChange={e => setFetchDistress(p => ({...p, value_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" placeholder="Max" className="h-7 w-20 text-xs"
+                      value={fetchDistress.value_max} onChange={e => setFetchDistress(p => ({...p, value_max: e.target.value}))} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -465,28 +680,29 @@ export default function SellerManager() {
                       Owner {sortField === 'owner_name' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
                     <TableHead>Address</TableHead>
-                    <TableHead>County</TableHead>
-                    <TableHead>State</TableHead>
+                    <TableHead>County/State</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('acreage')}>
                       Acres {sortField === 'acreage' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
-                    <TableHead>Bed/Bath</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => toggleSort('living_sqft')}>
-                      Sqft {sortField === 'living_sqft' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
-                    </TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('motivation_score')}>
-                      Motivation {sortField === 'motivation_score' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => toggleSort('market_value')}>
-                      Market Value {sortField === 'market_value' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
+                      Distress {sortField === 'motivation_score' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
                     <TableHead>Flags</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => toggleSort('equity_percent')}>
+                      Equity% {sortField === 'equity_percent' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => toggleSort('buyer_match_score')}>
+                      Buyer Match {sortField === 'buyer_match_score' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
+                    </TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginated.map(s => (
+                  {paginated.map(s => {
+                    const tempIcon = (s.lead_temperature || ((s.motivation_score || 0) >= 70 ? 'Hot' : (s.motivation_score || 0) >= 45 ? 'Warm' : 'Cold'));
+                    return (
                     <TableRow key={s.id}>
                       <TableCell className="text-center">
                         {(s.deal_type || 'land') === 'land'
@@ -506,31 +722,44 @@ export default function SellerManager() {
                         </div>
                       </TableCell>
                       <TableCell className="text-xs max-w-[200px] truncate">{s.address_full || '—'}</TableCell>
-                      <TableCell className="text-sm">{s.county || '—'}</TableCell>
-                      <TableCell className="text-sm">{s.state || '—'}</TableCell>
+                      <TableCell className="text-xs">
+                        <span>{s.county || '—'}</span>
+                        <span className="text-muted-foreground">, {s.state || '—'}</span>
+                      </TableCell>
                       <TableCell className="text-sm font-mono">{s.acreage ? Number(s.acreage).toFixed(2) : '—'}</TableCell>
-                      <TableCell className="text-sm font-mono">
-                        {s.bedrooms || s.bathrooms ? `${s.bedrooms ?? '—'}/${s.bathrooms ?? '—'}` : '—'}
-                      </TableCell>
-                      <TableCell className="text-sm font-mono">{s.living_sqft ? Number(s.living_sqft).toLocaleString() : '—'}</TableCell>
                       <TableCell>
-                        <span className={`font-mono text-sm font-semibold ${
-                          (s.motivation_score || 0) >= 60 ? 'text-green-500' :
-                          (s.motivation_score || 0) >= 30 ? 'text-yellow-500' : 'text-muted-foreground'
-                        }`}>{s.motivation_score || 0}</span>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {s.market_value ? `$${Number(s.market_value).toLocaleString()}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {s.is_tax_delinquent && <Badge variant="destructive" className="text-[9px] px-1">Tax Del.</Badge>}
-                          {s.is_absentee_owner && <Badge variant="outline" className="text-[9px] px-1">Absentee</Badge>}
-                          {s.is_vacant && <Badge variant="outline" className="text-[9px] px-1">Vacant</Badge>}
-                          {s.is_out_of_state && <Badge variant="outline" className="text-[9px] px-1">OOS</Badge>}
-                          {s.is_pre_foreclosure && <Badge variant="destructive" className="text-[9px] px-1">Pre-FC</Badge>}
-                          {s.has_tax_lien && <Badge variant="outline" className="text-[9px] px-1">Lien</Badge>}
+                        <div className="flex items-center gap-1.5">
+                          {tempIcon === 'Hot' && <Flame className="h-3 w-3 text-destructive" />}
+                          {tempIcon === 'Warm' && <Sun className="h-3 w-3 text-yellow-500" />}
+                          {tempIcon === 'Cold' && <Snowflake className="h-3 w-3 text-muted-foreground" />}
+                          <span className={`font-mono text-sm font-semibold ${
+                            (s.motivation_score || 0) >= 70 ? 'text-destructive' :
+                            (s.motivation_score || 0) >= 45 ? 'text-yellow-500' : 'text-muted-foreground'
+                          }`}>{s.motivation_score || 0}</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-0.5">
+                          {s.is_absentee_owner && <Badge variant="outline" className="text-[8px] px-1 py-0">ABS</Badge>}
+                          {s.is_vacant && <Badge variant="outline" className="text-[8px] px-1 py-0">VAC</Badge>}
+                          {s.is_tax_delinquent && <Badge variant="destructive" className="text-[8px] px-1 py-0">TAX</Badge>}
+                          {s.is_pre_foreclosure && <Badge variant="destructive" className="text-[8px] px-1 py-0">FC</Badge>}
+                          {s.is_out_of_state && <Badge variant="outline" className="text-[8px] px-1 py-0">OOS</Badge>}
+                          {s.has_tax_lien && <Badge variant="outline" className="text-[8px] px-1 py-0">LIEN</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm font-mono">
+                        {s.equity_percent ? `${Number(s.equity_percent).toFixed(0)}%` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {(s.buyer_match_score || 0) > 0 ? (
+                          <span className={`font-mono text-sm font-semibold ${
+                            (s.buyer_match_score || 0) >= 50 ? 'text-primary' : 'text-muted-foreground'
+                          }`}>{s.buyer_match_score}</span>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-[9px] px-1">{s.source || 'reapi'}</Badge>
                       </TableCell>
                       <TableCell>
                         {s.status === 'req_trace' ? (
@@ -545,7 +774,8 @@ export default function SellerManager() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                  })}
                 </TableBody>
               </Table>
             </div>
