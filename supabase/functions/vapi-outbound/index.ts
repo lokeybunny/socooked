@@ -78,6 +78,7 @@ IMPORTANT: At the end of the call, summarize your findings clearly.`,
             firstMessage: `Hi ${lead.full_name.split(" ")[0]}! This is a call from ${clientName}. I saw you just submitted a request about getting a cash offer for your property. Is now a good time to chat for a couple minutes?`,
             serverUrl: `${SUPABASE_URL}/functions/v1/vapi-webhook`,
           },
+          phoneNumberId: VAPI_PHONE_NUMBER_ID,
           customer: {
             number: (() => {
               let ph = (lead.phone || "").replace(/\D/g, "");
