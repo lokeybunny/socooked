@@ -716,10 +716,12 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           const clipBestName = (s.meta?.clipboard_trace?.bestName as string | undefined) || null;
           // Pick the one best traced name to show
           const displayTracedName = rawTracedName || clipBestName;
+          const displayName = s.owner_name || displayTracedName;
+          const nameIsGold = !!displayName && (isTraced || !!displayTracedName);
           return (
             <div className="divide-y divide-border">
-              <DetailRow label="Name" value={s.owner_name} />
-              {displayTracedName && displayTracedName !== s.owner_name && (
+              <DetailRow label="Name" value={displayName} copyable gold={nameIsGold} />
+              {displayTracedName && s.owner_name && displayTracedName !== s.owner_name && (
                 <DetailRow label="Traced Name" value={displayTracedName} copyable gold />
               )}
               <PhoneRow seller={s} />
