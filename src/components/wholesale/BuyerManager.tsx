@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -350,6 +351,17 @@ export default function BuyerManager() {
                 <div className="border-t border-border pt-4">
                   <h3 className="text-sm font-bold mb-3">🎯 Buyer Interests & Criteria</h3>
                   <BuyerInterests interests={interests} onChange={setInterests} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>How Fast Can You Close?</Label>
+                    <Input value={form.closing_speed} onChange={e => set('closing_speed', e.target.value)} placeholder="e.g. 7 days, 2 weeks" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Buyer's Website</Label>
+                    <Input value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://example.com" />
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
