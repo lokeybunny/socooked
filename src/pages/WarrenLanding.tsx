@@ -81,8 +81,15 @@ function DemoVideoSection() {
           variants={fade} custom={0}
           className="text-xs tracking-[0.4em] uppercase text-white/30 mb-5 text-center"
         >
-          See It In Action
+          How It Works
         </motion.p>
+        <motion.h2
+          initial="hidden" whileInView="visible" viewport={{ once: true }}
+          variants={fade} custom={1}
+          className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-center mb-12"
+        >
+          Your Entire Pipeline. Automated.
+        </motion.h2>
         <motion.div
           initial="hidden" whileInView="visible" viewport={{ once: true }}
           variants={fade} custom={1}
@@ -248,20 +255,6 @@ export default function WarrenLanding() {
       {/* ── How It Works ── */}
       <section id="how-it-works" className="py-24 px-6 border-t border-white/[0.04]">
         <div className="max-w-4xl mx-auto">
-          <motion.p
-            initial="hidden" whileInView="visible" viewport={{ once: true }}
-            variants={fade} custom={0}
-            className="text-xs tracking-[0.4em] uppercase text-white/30 mb-5 text-center"
-          >
-            How It Works
-          </motion.p>
-          <motion.h2
-            initial="hidden" whileInView="visible" viewport={{ once: true }}
-            variants={fade} custom={1}
-            className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-center mb-16"
-          >
-            Your Entire Pipeline. Automated.
-          </motion.h2>
 
           <div className="space-y-0">
             {steps.map((step, i) => (
