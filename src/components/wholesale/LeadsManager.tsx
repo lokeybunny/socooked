@@ -61,6 +61,7 @@ export default function LeadsManager() {
   const [landingPages, setLandingPages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterPageId, setFilterPageId] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [editing, setEditing] = useState(false);
@@ -96,11 +97,13 @@ export default function LeadsManager() {
     setLoading(false);
   };
 
-  const filtered = leads.filter(l =>
-    !search || l.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    l.property_address.toLowerCase().includes(search.toLowerCase()) ||
-    l.phone.includes(search)
-  );
+  const filtered = leads.filter(l => {
+    if (filterPageId !== 'all' && l.landing_page_id !== filterPageId) return false;
+    if (!search) return true;
+    return l.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      l.property_address.toLowerCase().includes(search.toLowerCase()) ||
+      l.phone.includes(search);
+  });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
