@@ -293,51 +293,90 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Unauthorized");
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const sb = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify user
-    const { data: { user }, error: userErr } = await sb.auth.getUser();
-    if (userErr || !user) throw new Error("Unauthorized");
-
-    const { lead_id } = await req.json();
+    const { lead_id, auto } = await req.json();
     if (!lead_id) throw new Error("lead_id required");
 
-    // Get lead
-    const { data: lead, error: leadErr } = await sb
-      .from("lw_landing_leads")
-      .select("*")
-      .eq("id", lead_id)
-      .single();
-    if (leadErr || !lead) throw new Error("Lead not found");
+    let recipientEmail: string;
+    let lead: any;
+    let pageName: string;
 
-    // Verify ownership: user must own the landing page
-    const { data: page } = await sb
-      .from("lw_landing_pages")
-      .select("id, slug, client_name, email")
-      .eq("id", lead.landing_page_id)
-      .eq("client_user_id", user.id)
-      .single();
-    if (!page) throw new Error("Unauthorized: not your lead");
+    if (auto) {
+      // Auto-send mode: called by DB trigger / internal — use service role
+      const sbAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    // Determine recipient email
-    const recipientEmail = page.email || user.email;
-    if (!recipientEmail) throw new Error("No email found for your account");
+      const { data: leadData, error: leadErr } = await sbAdmin
+        .from("lw_landing_leads")
+        .select("*")
+        .eq("id", lead_id)
+        .single();
+      if (leadErr || !leadData) throw new Error("Lead not found");
+      lead = leadData;
+
+      const { data: page } = await sbAdmin
+        .from("lw_landing_pages")
+        .select("id, slug, client_name, email, client_user_id")
+        .eq("id", lead.landing_page_id)
+        .single();
+      if (!page) throw new Error("Landing page not found");
+
+      // Get the client's auth email as fallback
+      let clientEmail = page.email;
+      if (!clientEmail && page.client_user_id) {
+        const { data: { user: clientUser } } = await sbAdmin.auth.admin.getUserById(page.client_user_id);
+        clientEmail = clientUser?.email || null;
+      }
+      recipientEmail = clientEmail || "";
+      if (!recipientEmail) {
+        console.log(`[auto-send] No email found for page ${page.slug}, skipping`);
+        return new Response(JSON.stringify({ skipped: true, reason: "no_email" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      pageName = `${page.client_name} (/${page.slug})`;
+    } else {
+      // Manual mode: user-authenticated
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) throw new Error("Unauthorized");
+
+      const sb = createClient(supabaseUrl, supabaseKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const { data: { user }, error: userErr } = await sb.auth.getUser();
+      if (userErr || !user) throw new Error("Unauthorized");
+
+      const { data: leadData, error: leadErr } = await sb
+        .from("lw_landing_leads")
+        .select("*")
+        .eq("id", lead_id)
+        .single();
+      if (leadErr || !leadData) throw new Error("Lead not found");
+      lead = leadData;
+
+      const { data: page } = await sb
+        .from("lw_landing_pages")
+        .select("id, slug, client_name, email")
+        .eq("id", lead.landing_page_id)
+        .eq("client_user_id", user.id)
+        .single();
+      if (!page) throw new Error("Unauthorized: not your lead");
+
+      recipientEmail = page.email || user.email;
+      if (!recipientEmail) throw new Error("No email found for your account");
+      pageName = `${page.client_name} (/${page.slug})`;
+    }
 
     // Build PDF
-    const pageName = `${page.client_name} (/${page.slug})`;
     const pdfBytes = buildLeadPdf(lead, pageName);
     const pdfBase64 = uint8ToBase64(pdfBytes);
 
     // Build MIME email with PDF attachment
     const leadName = lead.full_name || "Lead";
-    const subject = `Lead Report: ${leadName} — ${lead.property_address || "Property"}`;
+    const subject = `Lead Report: ${leadName} - ${lead.property_address || "Property"}`;
     const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
     const fileName = `lead-report-${leadName.replace(/\s+/g, "-").toLowerCase()}.pdf`;
 
@@ -396,6 +435,8 @@ serve(async (req) => {
       const errText = await gmailRes.text();
       throw new Error(`Gmail send failed: ${errText}`);
     }
+
+    console.log(`[lead-report-email] Sent to ${recipientEmail} for lead ${lead_id}${auto ? ' (auto)' : ''}`);
 
     return new Response(JSON.stringify({ success: true, sent_to: recipientEmail }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
