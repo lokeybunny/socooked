@@ -69,6 +69,7 @@ export default function BuyerDiscovery() {
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [interests, setInterests] = useState<InterestsData>(emptyInterests);
   const [runningDiscovery, setRunningDiscovery] = useState(false);
   const [page, setPage] = useState(1);
   const [hideDuplicates, setHideDuplicates] = useState(true);
