@@ -360,7 +360,12 @@ export default function SellerManager() {
                       <TableCell>
                         <div>
                           <span className="font-medium text-sm">{s.owner_name || '—'}</span>
-                          {s.owner_phone && <span className="text-xs text-muted-foreground block">{s.owner_phone}</span>}
+                          {s.owner_phone && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                              {s.owner_phone}
+                              <CopyText text={s.owner_phone} />
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-xs max-w-[200px] truncate">{s.address_full || '—'}</TableCell>
