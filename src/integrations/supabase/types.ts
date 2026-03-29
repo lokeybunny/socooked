@@ -1218,6 +1218,60 @@ export type Database = {
           },
         ]
       }
+      guru_subscriptions: {
+        Row: {
+          amount_cents: number
+          cancelled_at: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          meta: Json
+          plan: string
+          square_customer_id: string | null
+          square_order_id: string | null
+          square_payment_link_id: string | null
+          started_at: string | null
+          status: string
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents?: number
+          cancelled_at?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          meta?: Json
+          plan?: string
+          square_customer_id?: string | null
+          square_order_id?: string | null
+          square_payment_link_id?: string | null
+          started_at?: string | null
+          status?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          cancelled_at?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          meta?: Json
+          plan?: string
+          square_customer_id?: string | null
+          square_order_id?: string | null
+          square_payment_link_id?: string | null
+          started_at?: string | null
+          status?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hourly_meta_summary: {
         Row: {
           bullish_score: number
