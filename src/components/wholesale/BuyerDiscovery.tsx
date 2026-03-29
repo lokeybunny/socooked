@@ -217,6 +217,34 @@ export default function BuyerDiscovery() {
   const updateStage = async (id: string, stage: string) => {
     await supabase.from('lw_buyers').update({ pipeline_stage: stage }).eq('id', id);
     toast.success(`Moved to ${stage.replace(/_/g, ' ')}`);
+
+    // Auto-queue qualified buyers to daily call list
+    if (stage === 'qualified') {
+      const buyer = buyers.find(b => b.id === id);
+      if (buyer) {
+        const today = new Date().toISOString().split('T')[0];
+        // Check if already queued today
+        const { data: existing } = await supabase.from('lw_call_queue')
+          .select('id')
+          .eq('seller_id', id)
+          .eq('queue_date', today)
+          .limit(1);
+        if (!existing || existing.length === 0) {
+          await supabase.from('lw_call_queue').insert({
+            seller_id: id,
+            owner_name: buyer.full_name,
+            owner_phone: buyer.phone || null,
+            property_address: buyer.phone ? null : 'Phone # TBA',
+            reason: `Qualified buyer — ${buyer.source_platform || buyer.source || 'manual'}`,
+            queue_date: today,
+            call_priority: 1,
+            status: 'pending',
+          });
+          toast.success('Added to today\'s call list');
+        }
+      }
+    }
+
     loadBuyers();
   };
 
@@ -255,15 +283,38 @@ export default function BuyerDiscovery() {
       pipeline_stage: form.pipeline_stage, city: form.city.trim() || null,
       notes: form.notes.trim() || null, source: form.source, status: 'active',
     };
+    let savedId = editId;
     if (editId) {
       const { error } = await supabase.from('lw_buyers').update(payload).eq('id', editId);
       if (error) { toast.error(error.message); return; }
       toast.success('Buyer updated');
     } else {
-      const { error } = await supabase.from('lw_buyers').insert(payload);
+      const { data, error } = await supabase.from('lw_buyers').insert(payload).select('id').single();
       if (error) { toast.error(error.message); return; }
+      savedId = data?.id || null;
       toast.success('Buyer added');
     }
+
+    // Auto-queue if saved as qualified
+    if (payload.pipeline_stage === 'qualified' && savedId) {
+      const today = new Date().toISOString().split('T')[0];
+      const { data: existing } = await supabase.from('lw_call_queue')
+        .select('id').eq('seller_id', savedId).eq('queue_date', today).limit(1);
+      if (!existing || existing.length === 0) {
+        await supabase.from('lw_call_queue').insert({
+          seller_id: savedId,
+          owner_name: payload.full_name,
+          owner_phone: payload.phone || null,
+          property_address: payload.phone ? null : 'Phone # TBA',
+          reason: `Qualified buyer — ${payload.source || 'manual'}`,
+          queue_date: today,
+          call_priority: 1,
+          status: 'pending',
+        });
+        toast.success('Added to today\'s call list');
+      }
+    }
+
     setAddOpen(false);
     loadBuyers();
   };
