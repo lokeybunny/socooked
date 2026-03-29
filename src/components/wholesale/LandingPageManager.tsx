@@ -200,12 +200,22 @@ export default function LandingPageManager() {
         <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="info@company.com" className="mt-1" />
       </div>
       <div>
-        <Label className="text-xs">Photo URL</Label>
-        <Input value={form.photo_url} onChange={(e) => setForm({ ...form, photo_url: e.target.value })} placeholder="https://..." className="mt-1" />
+        <Label className="text-xs">Photo</Label>
+        <ImageUploadField
+          value={form.photo_url}
+          onChange={(url) => setForm({ ...form, photo_url: url })}
+          label="Upload Photo"
+          folder="photos"
+        />
       </div>
       <div>
-        <Label className="text-xs">Logo URL</Label>
-        <Input value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://..." className="mt-1" />
+        <Label className="text-xs">Logo</Label>
+        <ImageUploadField
+          value={form.logo_url}
+          onChange={(url) => setForm({ ...form, logo_url: url })}
+          label="Upload Logo"
+          folder="logos"
+        />
       </div>
     </div>
   );
