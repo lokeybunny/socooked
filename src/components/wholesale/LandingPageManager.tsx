@@ -162,6 +162,7 @@ export default function LandingPageManager() {
       accent_color: p.accent_color,
       phone: p.phone || '',
       email: p.email || '',
+      client_password: '',
     });
   };
 
