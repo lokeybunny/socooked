@@ -301,9 +301,17 @@ export default function Wholesale() {
         <TabsContent value="leads" className="mt-4">
           <LeadsManager />
         </TabsContent>
+        {/* Vapi Spend */}
+        <TabsContent value="vapi-spend" className="mt-4">
+          <VapiSpendDashboard />
+        </TabsContent>
         {/* Settings */}
         <TabsContent value="settings" className="mt-4">
           <BuyerSettings />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
         </TabsContent>
       </Tabs>
     </div>
