@@ -426,28 +426,56 @@ export default function SellerManager() {
           <CardTitle className="text-lg flex items-center gap-2">
             <Download className="h-4 w-4" />
             Fetch Seller Leads
+            <div className="ml-auto flex items-center gap-2">
+              <Button
+                size="sm"
+                variant={distressMode ? 'default' : 'outline'}
+                className="text-xs gap-1.5 h-7"
+                onClick={() => setDistressMode(!distressMode)}
+              >
+                <Target className="h-3 w-3" />
+                {distressMode ? 'Distress Search ON' : 'Distress Search'}
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Distress Presets */}
+          {distressMode && (
+            <div className="flex flex-wrap gap-1.5">
+              {DISTRESS_PRESETS.map((p, i) => (
+                <Button key={i} size="sm" variant="outline" className="text-xs h-7 gap-1" onClick={() => applyDistressPreset(p)}>
+                  {p.label}
+                </Button>
+              ))}
+              <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 text-muted-foreground" onClick={clearDistressSearch}>
+                <X className="h-3 w-3" /> Clear
+              </Button>
+            </div>
+          )}
+
+          {/* Base location fields */}
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
               <Label className="text-xs">County *</Label>
-              <Input
-                placeholder="e.g. Maricopa"
-                value={fetchCounty}
-                onChange={e => setFetchCounty(e.target.value)}
-                className="w-[160px] h-9"
-              />
+              <Input placeholder="e.g. Maricopa" value={fetchCounty} onChange={e => setFetchCounty(e.target.value)} className="w-[160px] h-9" />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">State *</Label>
-              <Input
-                placeholder="e.g. AZ"
-                value={fetchState}
-                onChange={e => setFetchState(e.target.value)}
-                className="w-[80px] h-9"
-              />
+              <Input placeholder="e.g. AZ" value={fetchState} onChange={e => setFetchState(e.target.value)} className="w-[80px] h-9" />
             </div>
+            {distressMode && (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs">City</Label>
+                  <Input placeholder="e.g. Phoenix" value={fetchCity} onChange={e => setFetchCity(e.target.value)} className="w-[130px] h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ZIP</Label>
+                  <Input placeholder="e.g. 85001" value={fetchZip} onChange={e => setFetchZip(e.target.value)} className="w-[90px] h-9" />
+                </div>
+              </>
+            )}
             <div className="space-y-1">
               <Label className="text-xs">Deal Type</Label>
               <Select value={fetchDealType} onValueChange={setFetchDealType}>
@@ -461,12 +489,7 @@ export default function SellerManager() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Max Results</Label>
-              <Input
-                type="number"
-                value={fetchSize}
-                onChange={e => setFetchSize(e.target.value)}
-                className="w-[80px] h-9"
-              />
+              <Input type="number" value={fetchSize} onChange={e => setFetchSize(e.target.value)} className="w-[80px] h-9" />
             </div>
             <Button onClick={fetchProperties} disabled={fetching} className="h-9">
               {fetching ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Fetching…</> : <><Download className="h-3.5 w-3.5 mr-1" /> Fetch Properties</>}
