@@ -305,6 +305,21 @@ export default function SellerManager() {
         if (fetchDistress.value_max) df.value_max = Number(fetchDistress.value_max);
         if (fetchCity.trim()) df.city = fetchCity.trim();
         if (fetchZip.trim()) df.zip = fetchZip.trim();
+        // Advanced building specs
+        if (fetchDistress.bedrooms_min) df.bedrooms_min = Number(fetchDistress.bedrooms_min);
+        if (fetchDistress.bedrooms_max) df.bedrooms_max = Number(fetchDistress.bedrooms_max);
+        if (fetchDistress.bathrooms_min) df.bathrooms_min = Number(fetchDistress.bathrooms_min);
+        if (fetchDistress.bathrooms_max) df.bathrooms_max = Number(fetchDistress.bathrooms_max);
+        if (fetchDistress.sqft_min) df.sqft_min = Number(fetchDistress.sqft_min);
+        if (fetchDistress.sqft_max) df.sqft_max = Number(fetchDistress.sqft_max);
+        if (fetchDistress.lot_sqft_min) df.lot_sqft_min = Number(fetchDistress.lot_sqft_min);
+        if (fetchDistress.lot_sqft_max) df.lot_sqft_max = Number(fetchDistress.lot_sqft_max);
+        if (fetchDistress.year_built_min) df.year_built_min = Number(fetchDistress.year_built_min);
+        if (fetchDistress.year_built_max) df.year_built_max = Number(fetchDistress.year_built_max);
+        if (fetchDistress.stories_min) df.stories_min = Number(fetchDistress.stories_min);
+        if (fetchDistress.stories_max) df.stories_max = Number(fetchDistress.stories_max);
+        if (fetchDistress.has_pool) df.has_pool = true;
+        if (fetchDistress.has_garage) df.has_garage = true;
       }
 
       for (const dt of types) {
