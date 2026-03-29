@@ -74,21 +74,20 @@ function RobotBody() {
             <boxGeometry args={[0.14, 0.08, 0.03]} />
             <meshStandardMaterial color="#c1121f" metalness={0.2} roughness={0.5} />
           </mesh>
+          {/* Shirt visible */}
           <mesh position={[0, 0.35, 0.275]}>
             <boxGeometry args={[0.15, 0.4, 0.01]} />
-            <meshStandardMaterial color="#f0f0f0" metalness={0.1} roughness={0.8} />
+            <meshStandardMaterial color={suitColor} metalness={0.3} roughness={0.7} />
           </mesh>
+          {/* Suit button 1 */}
           <mesh position={[0, -0.05, 0.29]}>
             <sphereGeometry args={[0.03, 12, 12]} />
-            <meshStandardMaterial color="#333" metalness={0.8} roughness={0.2} />
+            <meshStandardMaterial color={suitColor} metalness={0.8} roughness={0.2} />
           </mesh>
+          {/* Suit button 2 */}
           <mesh position={[0, -0.2, 0.29]}>
             <sphereGeometry args={[0.03, 12, 12]} />
-            <meshStandardMaterial color="#333" metalness={0.8} roughness={0.2} />
-          </mesh>
-          <mesh position={[-0.35, 0.35, 0.28]}>
-            <boxGeometry args={[0.12, 0.08, 0.02]} />
-            <meshStandardMaterial color="#f0f0f0" metalness={0.1} roughness={0.8} />
+            <meshStandardMaterial color={suitColor} metalness={0.8} roughness={0.2} />
           </mesh>
         </group>
 
