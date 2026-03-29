@@ -12,7 +12,9 @@ serve(async (req) => {
 
   try {
     const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
+    const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID");
     if (!VAPI_API_KEY) throw new Error("VAPI_API_KEY not configured");
+    if (!VAPI_PHONE_NUMBER_ID) throw new Error("VAPI_PHONE_NUMBER_ID not configured");
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -76,6 +78,7 @@ IMPORTANT: At the end of the call, summarize your findings clearly.`,
             firstMessage: `Hi ${lead.full_name.split(" ")[0]}! This is a call from ${clientName}. I saw you just submitted a request about getting a cash offer for your property. Is now a good time to chat for a couple minutes?`,
             serverUrl: `${SUPABASE_URL}/functions/v1/vapi-webhook`,
           },
+          phoneNumberId: VAPI_PHONE_NUMBER_ID,
           customer: {
             number: (() => {
               let ph = (lead.phone || "").replace(/\D/g, "");
