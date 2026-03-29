@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PAGE_SIZE = 25;
@@ -270,6 +272,7 @@ export default function SellerManager() {
                     </TableHead>
                     <TableHead>Flags</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -306,6 +309,11 @@ export default function SellerManager() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className="text-[10px]">{s.status}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDetailSeller(s)}>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
