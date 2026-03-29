@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, Suspense, lazy } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
@@ -7,6 +7,8 @@ import {
   ChevronDown, Shield, Clock, Users, TrendingUp
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
+
+const InvestorRobot = lazy(() => import('@/components/three/InvestorRobot'));
 
 const steps = [
   {
@@ -163,6 +165,18 @@ export default function WarrenLanding() {
               <div className="text-xs tracking-[0.2em] uppercase mt-1">Automated</div>
             </div>
           </div>
+
+          {/* 3D Investor Robot */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, delay: 0.5, ease: [0.23, 1, 0.32, 1] }}
+            className="mt-12"
+          >
+            <Suspense fallback={<div className="h-[45vh]" />}>
+              <InvestorRobot />
+            </Suspense>
+          </motion.div>
         </motion.div>
 
         <motion.div
