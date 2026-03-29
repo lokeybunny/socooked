@@ -52,6 +52,7 @@ export default function SellerManager() {
   const [fetchState, setFetchState] = useState('');
   const [fetchDealType, setFetchDealType] = useState('land');
   const [fetchSize, setFetchSize] = useState('50');
+  const [detailSeller, setDetailSeller] = useState<any>(null);
 
   useEffect(() => { loadSellers(); }, []);
 
@@ -354,6 +355,19 @@ export default function SellerManager() {
           )}
         </CardContent>
       </Card>
+
+      {/* Seller Detail Modal */}
+      <Dialog open={!!detailSeller} onOpenChange={(open) => !open && setDetailSeller(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              {detailSeller?.owner_name || 'Unknown Owner'}
+            </DialogTitle>
+          </DialogHeader>
+          {detailSeller && <SellerDetailContent seller={detailSeller} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
