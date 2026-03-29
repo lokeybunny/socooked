@@ -681,6 +681,14 @@ export default function ClientDashboard() {
                           </a>
                         ) : null;
                       })()}
+                      <button
+                        onClick={() => sendLeadReport(lead)}
+                        disabled={sendingLeadId === lead.id}
+                        className="inline-flex items-center gap-2 text-sm text-emerald-400/80 hover:text-emerald-300 font-medium transition-colors disabled:opacity-50"
+                      >
+                        {sendingLeadId === lead.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                        {sendingLeadId === lead.id ? 'Sending...' : 'Send Lead to Email'}
+                      </button>
                     </div>
                   </div>
                 )}
