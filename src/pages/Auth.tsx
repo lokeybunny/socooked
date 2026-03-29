@@ -49,22 +49,9 @@ export default function Auth() {
         if (error) throw error;
         toast.success('Check your email to confirm your account!');
       } else {
-        const { error, data } = await signIn(email, password);
+        const { error } = await signIn(email, password);
         if (error) throw error;
-
-        // Check if this user is a client
-        if (data?.user) {
-          const { data: pages } = await supabase
-            .from('lw_landing_pages')
-            .select('id')
-            .eq('client_user_id', data.user.id)
-            .limit(1);
-          if (pages && pages.length > 0) {
-            navigate('/client-dashboard');
-            return;
-          }
-        }
-        navigate('/dashboard');
+        // Redirect is handled by useEffect watching `user`
       }
     } catch (err: any) {
       toast.error(err.message || 'Authentication failed');
