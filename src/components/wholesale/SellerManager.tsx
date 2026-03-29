@@ -295,7 +295,7 @@ export default function SellerManager() {
     return list;
   }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters]);
 
-  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc]);
+  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -303,6 +303,25 @@ export default function SellerManager() {
   const toggleSort = (field: string) => {
     if (sortField === field) setSortAsc(!sortAsc);
     else { setSortField(field); setSortAsc(false); }
+  };
+
+  const handlePreset = (preset: SmartViewPreset) => {
+    const f = { ...EMPTY_DISTRESS_FILTERS };
+    const pf = preset.filters;
+    if (pf.minMotivation) f.minMotivation = pf.minMotivation;
+    if (pf.isVacant) f.isVacant = true;
+    if (pf.isAbsentee) f.isAbsentee = true;
+    if (pf.isPreForeclosure) f.isPreForeclosure = true;
+    if (pf.isTaxDelinquent) f.isTaxDelinquent = true;
+    if (pf.minBuyerMatch) f.minBuyerMatch = pf.minBuyerMatch;
+    if (pf.skipTraceStatus) f.skipTraceStatus = pf.skipTraceStatus;
+    if (pf.stage) f.stage = pf.stage;
+    if (pf.isOutOfState) f.isOutOfState = true;
+    if (pf.minYearsOwned) f.minYearsOwned = pf.minYearsOwned;
+    if (pf.dealType) setDealTypeFilter(pf.dealType);
+    setDistressFilters(f);
+    setStageFilter('all');
+    toast.success(`Applied: ${preset.label}`);
   };
 
   return (
