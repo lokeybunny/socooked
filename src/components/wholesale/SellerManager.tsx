@@ -1198,6 +1198,8 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [agreementText, setAgreementText] = useState('');
   const [generatingAgreement, setGeneratingAgreement] = useState(false);
   const [agreementDuration, setAgreementDuration] = useState('30');
+  const [agreementPrice, setAgreementPrice] = useState('');
+  const [agreementCloseDate, setAgreementCloseDate] = useState('');
   const [draftingEmail, setDraftingEmail] = useState(false);
 
   const handleSkipTrace = async () => {
