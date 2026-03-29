@@ -328,7 +328,11 @@ export default function ClientDashboard() {
         <div className="space-y-3">
           {filteredLeads.length === 0 && (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center">
-              <p className="text-white/40">No leads yet. They'll appear here automatically as your landing page gets traffic.</p>
+              <p className="text-white/40">
+                {activeSection === 'hot'
+                  ? "No leads yet. They'll appear here automatically from our API database upon request throughout the week."
+                  : "No leads yet. They'll appear here automatically as your landing page gets traffic."}
+              </p>
             </div>
           )}
           {filteredLeads.map(lead => {
@@ -556,18 +560,21 @@ export default function ClientDashboard() {
                           Download AI Transcript
                         </button>
                       )}
-                      {lead.vapi_recording_url && (
-                        <a
-                          href={lead.vapi_recording_url}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white font-medium transition-colors"
-                        >
-                          <Download className="h-4 w-4" />
-                          Download Call Recording
-                        </a>
-                      )}
+                      {(() => {
+                        const recUrl = lead.vapi_recording_url || (lead.meta as any)?.vapi_recording_url;
+                        return recUrl ? (
+                          <a
+                            href={recUrl}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white font-medium transition-colors"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download Call Recording
+                          </a>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 )}
