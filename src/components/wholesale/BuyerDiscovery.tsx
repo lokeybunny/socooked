@@ -279,22 +279,36 @@ export default function BuyerDiscovery() {
 
   return (
     <div className="space-y-4">
-      {/* Pipeline Stage Bar */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {STAGES.map(s => (
-          <Button
-            key={s.key}
-            size="sm"
-            variant={stageFilter === s.key ? 'default' : 'outline'}
-            className="text-xs whitespace-nowrap"
-            onClick={() => setStageFilter(s.key)}
-          >
-            {s.label}
-            <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
-              {stageCounts[s.key] || 0}
-            </Badge>
-          </Button>
-        ))}
+      {/* Pipeline Stage Bar + Hide Duplicates */}
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
+          {STAGES.map(s => (
+            <Button
+              key={s.key}
+              size="sm"
+              variant={stageFilter === s.key ? 'default' : 'outline'}
+              className="text-xs whitespace-nowrap"
+              onClick={() => setStageFilter(s.key)}
+            >
+              {s.label}
+              <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                {stageCounts[s.key] || 0}
+              </Badge>
+            </Button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 shrink-0 border-l pl-3 ml-2">
+          {realtimeCount > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-green-500 animate-pulse">
+              <Radio className="h-3 w-3" />
+              <span>+{realtimeCount} live</span>
+            </div>
+          )}
+          <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground whitespace-nowrap">
+            <Checkbox checked={hideDuplicates} onCheckedChange={(v) => setHideDuplicates(!!v)} />
+            Hide Duplicates
+          </label>
+        </div>
       </div>
 
       {/* Actions + Filters */}
