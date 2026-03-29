@@ -369,6 +369,14 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
 
           {selectedLead && (
             <div className="space-y-4 mt-2">
+              {/* Source Landing Page */}
+              <div className="rounded-lg border p-3 flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Source:</span>
+                <Badge variant="outline">
+                  {selectedLead.landing_page_id ? (landingPages[selectedLead.landing_page_id] || 'Unknown Page') : 'Direct Submission'}
+                </Badge>
+              </div>
               {/* Contact Info */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
