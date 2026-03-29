@@ -20,6 +20,7 @@ type DealType = 'all' | 'land' | 'home';
 
 export default function Wholesale() {
   const [dealTypeFilter, setDealTypeFilter] = useState<DealType>('all');
+  const [activeTab, setActiveTab] = useState('intelligence');
   const [callQueue, setCallQueue] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
   const [demandSignals, setDemandSignals] = useState<any[]>([]);
@@ -138,7 +139,7 @@ export default function Wholesale() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="intelligence" className="w-full">
+      <Tabs defaultValue="intelligence" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start flex-wrap">
           <TabsTrigger value="intelligence" className="gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" />
@@ -151,10 +152,21 @@ export default function Wholesale() {
             )}
           </TabsTrigger>
           <TabsTrigger value="pipeline">Deal Pipeline</TabsTrigger>
-          <TabsTrigger value="demand">Demand Map</TabsTrigger>
-          <TabsTrigger value="buyers">Buyers</TabsTrigger>
-          <TabsTrigger value="sellers">Sellers</TabsTrigger>
-          <TabsTrigger value="sources">Discovery</TabsTrigger>
+          <TabsTrigger value="demand" className="gap-1.5">
+            <Heart className="h-3.5 w-3.5 text-pink-500" />
+            Matches
+          </TabsTrigger>
+          <TabsTrigger value="buyers" className="gap-1.5 data-[state=active]:bg-green-500/15 data-[state=active]:text-green-600">
+            <Users className="h-3.5 w-3.5" />
+            Buyers
+          </TabsTrigger>
+          <TabsTrigger value="sellers" className="gap-1.5 data-[state=active]:bg-red-500/15 data-[state=active]:text-red-600">
+            <MapPin className="h-3.5 w-3.5" />
+            Sellers
+          </TabsTrigger>
+          {activeTab === 'buyers' && (
+            <TabsTrigger value="sources">Discovery</TabsTrigger>
+          )}
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
