@@ -186,14 +186,23 @@ export default function ClientDashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const filteredLeads = leads.filter(l => {
+  const isHotLead = (l: Lead) => {
+    const src = (l.meta as any)?.source || '';
+    return src === 'reapi_weekly_match' || src === 'seller_db_match';
+  };
+
+  const funnelLeads = leads.filter(l => !isHotLead(l));
+  const hotLeads = leads.filter(l => isHotLead(l));
+  const activeLeads = activeSection === 'funnel' ? funnelLeads : hotLeads;
+
+  const filteredLeads = activeLeads.filter(l => {
     if (filterPage !== 'all' && l.landing_page_id !== filterPage) return false;
     if (filterStage !== 'all' && l.status !== filterStage) return false;
     return true;
   });
 
   const stageCounts = PIPELINE_STAGES.reduce((acc, stage) => {
-    acc[stage] = leads.filter(l => l.status === stage).length;
+    acc[stage] = activeLeads.filter(l => l.status === stage).length;
     return acc;
   }, {} as Record<string, number>);
 
