@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a real estate wholesale contract attorney. Generate professional, legally-formatted wholesale purchase agreements. Output only the contract text with no commentary or preamble.',
+            content: 'You are a real estate wholesale contract attorney. Generate professional, legally-formatted wholesale purchase agreements. Output only the final contract text — no commentary, no preamble, no instructions. CRITICAL: Never use placeholder brackets like [NAME], [ADDRESS], [DATE], [AMOUNT], [BUYER], [SELLER], [STATE], or any bracket notation. Every field must contain actual data from the user prompt. If data is missing, write N/A as plain text. The contract must be ready to print and sign immediately.',
           },
           { role: 'user', content: prompt },
         ],
