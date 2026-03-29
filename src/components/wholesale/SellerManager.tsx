@@ -705,16 +705,17 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           const rawTracedName = traceResult?.name || traceResult?.fullName
             || (traceResult?.firstName && traceResult?.lastName ? `${traceResult.firstName} ${traceResult.lastName}` : null);
           const tracedName = rawTracedName && isHumanName(rawTracedName) ? rawTracedName : null;
-          const clipNames = ((s.meta?.clipboard_trace?.names as string[] | undefined) || []).filter((n: string) => isHumanName(n));
+          // Only show the single best name from clipboard trace
+          const clipBestName = s.meta?.clipboard_trace?.bestName as string | undefined;
+          const bestClipName = clipBestName && isHumanName(clipBestName) ? clipBestName : null;
+          // Pick the one best traced name to show
+          const displayTracedName = tracedName || bestClipName;
           return (
             <div className="divide-y divide-border">
               <DetailRow label="Name" value={s.owner_name} />
-              {tracedName && tracedName !== s.owner_name && (
-                <DetailRow label="Traced Name" value={tracedName} copyable gold />
+              {displayTracedName && displayTracedName !== s.owner_name && (
+                <DetailRow label="Traced Name" value={displayTracedName} copyable gold />
               )}
-              {clipNames.length > 0 && clipNames.filter((n: string) => n !== s.owner_name && n !== tracedName).map((name: string, i: number) => (
-                <DetailRow key={i} label={i === 0 ? 'Traced Name(s)' : ''} value={name} copyable gold />
-              ))}
               <PhoneRow seller={s} />
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
