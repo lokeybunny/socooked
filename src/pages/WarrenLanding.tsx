@@ -346,16 +346,41 @@ export default function WarrenLanding() {
             <p className="text-sm text-white/40 max-w-md mx-auto mb-8 leading-relaxed">
               Check out a live seller landing page — built, branded, and ready to capture leads on autopilot.
             </p>
-            <Link
-              to="/sell/joedoe"
+            <button
+              onClick={() => setShowFunnelModal(true)}
               className="group inline-flex items-center gap-3 px-10 py-4 border border-white/10 rounded-lg text-sm tracking-[0.2em] uppercase text-white/60 hover:text-white hover:border-white/30 hover:bg-white/[0.03] transition-all"
             >
               Funnel Leads
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            </button>
           </motion.div>
         </div>
       </section>
+
+      {/* Funnel iframe modal */}
+      {showFunnelModal && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+          onClick={() => setShowFunnelModal(false)}
+        >
+          <div
+            className="relative w-full max-w-4xl h-[80vh] rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowFunnelModal(false)}
+              className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/80 transition-colors"
+            >
+              ✕
+            </button>
+            <iframe
+              src="/sell/joedoe"
+              className="w-full h-full bg-white"
+              title="Funnel Landing Page Preview"
+            />
+          </div>
+        </div>
+      )}
 
       <section className="py-32 px-6 border-t border-white/[0.04] relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_rgba(255,255,255,0.02)_0%,_transparent_60%)]" />
