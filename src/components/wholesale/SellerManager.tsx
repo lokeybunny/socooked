@@ -90,10 +90,20 @@ export default function SellerManager() {
     return Array.from(states).sort();
   }, [sellers]);
 
+  // Pipeline stage counts
+  const stageCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: sellers.length };
+    sellers.forEach(s => {
+      const stage = s.status || 'new';
+      counts[stage] = (counts[stage] || 0) + 1;
+    });
+    return counts;
+  }, [sellers]);
+
   const filtered = useMemo(() => {
     let list = [...sellers];
     if (stateFilter !== 'all') list = list.filter(s => s.state === stateFilter);
-    if (statusFilter !== 'all') list = list.filter(s => s.status === statusFilter);
+    if (stageFilter !== 'all') list = list.filter(s => s.status === stageFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(s =>
@@ -110,9 +120,9 @@ export default function SellerManager() {
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [sellers, stateFilter, statusFilter, search, sortField, sortAsc]);
+  }, [sellers, stateFilter, stageFilter, search, sortField, sortAsc]);
 
-  useEffect(() => { setPage(1); }, [stateFilter, statusFilter, search, sortField, sortAsc]);
+  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, search, sortField, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -124,6 +134,24 @@ export default function SellerManager() {
 
   return (
     <div className="space-y-4">
+      {/* Pipeline Stage Bar */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {SELLER_STAGES.map(s => (
+          <Button
+            key={s.key}
+            size="sm"
+            variant={stageFilter === s.key ? 'default' : 'outline'}
+            className="text-xs whitespace-nowrap"
+            onClick={() => setStageFilter(s.key)}
+          >
+            {s.label}
+            <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+              {stageCounts[s.key] || 0}
+            </Badge>
+          </Button>
+        ))}
+      </div>
+
       {/* Fetch Properties Form */}
       <Card>
         <CardHeader className="pb-3">
@@ -195,19 +223,6 @@ export default function SellerManager() {
                 </SelectContent>
               </Select>
             )}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="skip_traced">Skip Traced</SelectItem>
-                <SelectItem value="contacted">Contacted</SelectItem>
-                <SelectItem value="offer_sent">Offer Sent</SelectItem>
-                <SelectItem value="under_contract">Under Contract</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-                <SelectItem value="dead">Dead</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
