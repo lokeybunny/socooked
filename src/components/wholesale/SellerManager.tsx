@@ -57,16 +57,28 @@ function CopyText({ text }: { text: string | null | undefined }) {
   );
 }
 
+// --- Business name detection ---
+const BUSINESS_KEYWORDS = /\b(llc|inc|corp|ltd|lp|trust|estate|holdings|properties|investments|ventures|realty|enterprise|company|co\b|group|associates|partners|management|capital|development|construction|services|solutions|fund|foundation|church|ministry|bank|credit union|revocable|irrevocable|living trust|family trust|land co|homeowners|hoa)\b/i;
+const BUSINESS_PATTERNS = /^(the\s+)?\d|&|,\s*(llc|inc)|^\w+\s+(of|and)\s+\w+$/i;
+
+function isHumanName(name: string): boolean {
+  if (!name || name.length < 4) return false;
+  if (BUSINESS_KEYWORDS.test(name)) return false;
+  if (BUSINESS_PATTERNS.test(name)) return false;
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2 || parts.length > 4) return false;
+  if (parts.some(p => p.length > 3 && p === p.toUpperCase())) return false;
+  return true;
+}
+
 // --- Parse pasted skip trace data ---
 function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; names: string[] } {
   const phones: string[] = [];
   const emails: string[] = [];
   const names: string[] = [];
 
-  // Phone patterns: (xxx) xxx-xxxx, xxx-xxx-xxxx, xxxxxxxxxx, +1xxxxxxxxxx
   const phoneRegex = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
   const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
-  // Name patterns: "Name: John Smith" or lines that look like full names
   const nameLineRegex = /(?:^|\n)\s*(?:name\s*[:\-]\s*)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gm;
 
   const phoneMatches = raw.match(phoneRegex);
@@ -87,7 +99,7 @@ function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; 
   const nameMatches = [...raw.matchAll(nameLineRegex)];
   nameMatches.forEach(m => {
     const name = m[1].trim();
-    if (name.length > 3 && !names.includes(name)) names.push(name);
+    if (isHumanName(name) && !names.includes(name)) names.push(name);
   });
 
   return { phones, emails, names };
