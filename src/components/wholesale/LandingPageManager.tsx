@@ -83,7 +83,8 @@ export default function LandingPageManager() {
     if (!form.client_name.trim()) { toast.error('Client name is required'); return; }
     const slug = form.slug.trim() || slugify(form.client_name);
     setCreating(true);
-    const { error } = await supabase.from('lw_landing_pages').insert({
+
+    const { data: insertedPage, error } = await supabase.from('lw_landing_pages').insert({
       slug,
       client_name: form.client_name.trim(),
       tagline: form.tagline,
@@ -94,16 +95,36 @@ export default function LandingPageManager() {
       accent_color: form.accent_color,
       phone: form.phone || null,
       email: form.email || null,
-    });
-    setCreating(false);
+    }).select('id').single();
+
     if (error) {
+      setCreating(false);
       toast.error(error.message.includes('duplicate') ? 'That slug is already taken' : error.message);
+      return;
+    }
+
+    // If email + password provided, create client account
+    if (form.email.trim() && form.client_password.trim() && insertedPage) {
+      const { data: result, error: fnErr } = await supabase.functions.invoke('create-client-account', {
+        body: {
+          email: form.email.trim(),
+          password: form.client_password.trim(),
+          landing_page_id: insertedPage.id,
+        },
+      });
+      if (fnErr) {
+        toast.error('Page created but client account failed: ' + fnErr.message);
+      } else {
+        toast.success('Landing page + client account created');
+      }
     } else {
       toast.success('Landing page created');
-      setShowCreate(false);
-      setForm({ ...EMPTY_PAGE });
-      load();
     }
+
+    setCreating(false);
+    setShowCreate(false);
+    setForm({ ...EMPTY_PAGE });
+    load();
   };
 
   const handleUpdate = async (id: string) => {
