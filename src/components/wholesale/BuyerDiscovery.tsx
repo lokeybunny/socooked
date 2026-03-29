@@ -656,19 +656,8 @@ export default function BuyerDiscovery() {
               <div className="space-y-1"><Label>Email</Label><Input type="email" value={form.email} onChange={e => set('email', e.target.value)} /></div>
               <div className="space-y-1"><Label>Phone</Label><Input value={form.phone} onChange={e => set('phone', e.target.value)} /></div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>City</Label><Input value={form.city} onChange={e => set('city', e.target.value)} /></div>
-              <div className="space-y-1">
-                <Label>Deal Type</Label>
-                <Select value={form.deal_type} onValueChange={v => set('deal_type', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="land">🏞️ Land</SelectItem>
-                    <SelectItem value="home">🏠 Homes</SelectItem>
-                    <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="space-y-1">
                 <Label>Pipeline Stage</Label>
                 <Select value={form.pipeline_stage} onValueChange={v => set('pipeline_stage', v)}>
@@ -679,6 +668,29 @@ export default function BuyerDiscovery() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Deal Types Interested In *</Label>
+              <div className="flex gap-4">
+                {DEAL_TYPES.map(dt => (
+                  <label key={dt.key} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                    <Checkbox
+                      checked={form.deal_types.includes(dt.key)}
+                      onCheckedChange={(checked) => {
+                        setForm(p => {
+                          const next = checked
+                            ? [...p.deal_types, dt.key]
+                            : p.deal_types.filter(t => t !== dt.key);
+                          return { ...p, deal_types: next.length ? next : p.deal_types };
+                        });
+                      }}
+                    />
+                    {dt.key === 'multi_home' ? (
+                      <span className="flex items-center gap-1"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span>
+                    ) : dt.label}
+                  </label>
+                ))}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -723,6 +735,27 @@ export default function BuyerDiscovery() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Acreage Min</Label><Input type="number" value={form.acreage_min} onChange={e => set('acreage_min', e.target.value)} /></div>
               <div className="space-y-1"><Label>Acreage Max</Label><Input type="number" value={form.acreage_max} onChange={e => set('acreage_max', e.target.value)} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>How Fast Can You Close?</Label>
+                <Input value={form.closing_speed} onChange={e => set('closing_speed', e.target.value)} placeholder="e.g. 7 days, 2 weeks" />
+              </div>
+              <div className="space-y-1">
+                <Label>Best Point of Contact</Label>
+                <Select value={form.contact_preference} onValueChange={v => set('contact_preference', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">📧 Email</SelectItem>
+                    <SelectItem value="text">💬 Text</SelectItem>
+                    <SelectItem value="phone">📞 Phone Call</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Buyer's Website</Label>
+              <Input value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://example.com" />
             </div>
             <div className="space-y-1">
               <Label>Notes</Label>
