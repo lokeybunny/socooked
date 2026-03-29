@@ -911,22 +911,22 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
               <PhoneRow seller={s} />
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
-              {s.address_full && (() => {
-                const searchQuery = encodeURIComponent(s.address_full);
-                return (
-                  <div className="pt-2 flex justify-center">
-                    <a
-                      href={`https://www.realtor.com/realestateandhomes-search/${searchQuery}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      🏠 View on Realtor.com
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                );
-              })()}
+              {s.address_full && (
+                <div className="pt-2 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(s.address_full || '');
+                      toast.success('Address copied – paste it in Realtor.com search');
+                      window.open('https://www.realtor.com/', '_blank', 'noopener');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer bg-transparent border-0 p-0"
+                  >
+                    🏠 Search on Realtor.com
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
             </div>
           );
         })()}
