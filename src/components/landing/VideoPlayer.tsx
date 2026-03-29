@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Play, Pause, X, Volume2, VolumeX, Maximize } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Player from '@vimeo/player';
+import robotThumb from '@/assets/landing/robot-thumbnail.jpg';
 
 const VIMEO_VIDEO_ID = '1165489263';
 
@@ -109,12 +110,12 @@ export default function VideoPlayer() {
           style={{ aspectRatio: '16/9' }}
           onClick={openTheater}
         >
-          <iframe
-            src={`https://player.vimeo.com/video/${VIMEO_VIDEO_ID}?background=1&muted=1&loop=1&autopause=0`}
-            className="w-full h-full object-cover grayscale contrast-125 pointer-events-none"
-            style={{ border: 'none' }}
-            allow="autoplay"
-            title="STU25 Preview"
+          <img
+            src={robotThumb}
+            alt="GURU Preview"
+            className="w-full h-full object-cover"
+            width={1280}
+            height={720}
           />
           <button className="absolute inset-0 flex items-center justify-center bg-black/10 transition-opacity duration-300">
             <div className="rounded-full bg-foreground/20 backdrop-blur-sm p-4 sm:p-5 transition-transform duration-300 hover:scale-110">
