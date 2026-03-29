@@ -11,6 +11,52 @@
  * admin-editable via the lw_buyer_config table (key: 'distress_weights').
  */
 
+import { CRAIGSLIST_CITIES, type CityEntry } from '@/lib/craigslistCities';
+
+/**
+ * Extract the Craigslist subdomain from a URL.
+ * e.g. "https://sfbay.craigslist.org/rew/d/..." → "sfbay"
+ */
+export function extractCraigslistSubdomain(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(/https?:\/\/([a-z0-9-]+)\.craigslist\.org/i);
+  return match ? match[1].toLowerCase() : null;
+}
+
+/**
+ * Look up the CityEntry for a given Craigslist subdomain.
+ */
+export function getCraigslistCity(subdomain: string): CityEntry | undefined {
+  return CRAIGSLIST_CITIES.find(c => c.subdomain === subdomain);
+}
+
+/**
+ * Check if a buyer is in the same Craigslist metro as a seller.
+ * Compares by subdomain extracted from buyer.source_url, or by city/state match
+ * from the CL city lookup against buyer.city / buyer.target_states.
+ */
+export function isBuyerInCraigslistRegion(
+  sellerSubdomain: string,
+  buyer: any
+): boolean {
+  // Direct subdomain match on buyer's source_url
+  const buyerSubdomain = extractCraigslistSubdomain(buyer.source_url);
+  if (buyerSubdomain === sellerSubdomain) return true;
+
+  // Fallback: match the CL city's state against buyer's target_states
+  const clCity = getCraigslistCity(sellerSubdomain);
+  if (clCity) {
+    const buyerStates: string[] = buyer.target_states || [];
+    if (buyerStates.includes(clCity.state)) return true;
+
+    // Check if buyer city name roughly matches the CL city label
+    const buyerCityLower = (buyer.city || '').toLowerCase();
+    if (buyerCityLower && clCity.label.toLowerCase().includes(buyerCityLower)) return true;
+  }
+
+  return false;
+}
+
 export interface DistressWeights {
   absentee_owner: number;
   vacant_flag: number;
@@ -135,6 +181,13 @@ export function calculateBuyerMatchScore(seller: any, buyer: any): number {
   if (buyerCounties.length > 0 &&
     buyerCounties.some((c: string) => c.toLowerCase() === (seller.county || '').toLowerCase())) {
     score += 30;
+  }
+
+  // Craigslist region match: +15 bonus
+  // If seller came from a CL link, buyers from the same CL metro get a boost
+  const sellerClSub = extractCraigslistSubdomain(seller.meta?.source_url || seller.meta?.craigslist_url);
+  if (sellerClSub) {
+    if (isBuyerInCraigslistRegion(sellerClSub, buyer)) score += 15;
   }
 
   // Budget compatibility: +20
