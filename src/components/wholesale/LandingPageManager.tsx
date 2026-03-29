@@ -239,8 +239,13 @@ export default function LandingPageManager() {
         <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 123-4567" className="mt-1" />
       </div>
       <div>
-        <Label className="text-xs">Email</Label>
+        <Label className="text-xs">Email (Client Login Username)</Label>
         <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="info@company.com" className="mt-1" />
+      </div>
+      <div>
+        <Label className="text-xs">Client Password</Label>
+        <Input type="password" value={form.client_password} onChange={(e) => setForm({ ...form, client_password: e.target.value })} placeholder="Set client portal password" className="mt-1" />
+        <p className="text-[10px] text-muted-foreground mt-0.5">Email + password give client access to /client-login portal</p>
       </div>
       <div>
         <Label className="text-xs">Photo</Label>
