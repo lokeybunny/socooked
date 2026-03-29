@@ -11,8 +11,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target } from 'lucide-react';
 import { toast } from 'sonner';
+import DistressFilters, { EMPTY_DISTRESS_FILTERS, type DistressFilterState } from './DistressFilters';
+import CsvImport from './CsvImport';
+import ScoreExplanation from './ScoreExplanation';
+import { calculateDistressScore, DEFAULT_DISTRESS_WEIGHTS } from '@/lib/wholesale/distressScoring';
+import type { SmartViewPreset } from '@/lib/wholesale/distressScoring';
 
 const PAGE_SIZE = 25;
 
