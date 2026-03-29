@@ -165,7 +165,7 @@ export default function LandingPageManager() {
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
-  const FormFields = () => (
+  const formFieldsJsx = (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="sm:col-span-2">
         <Label className="text-xs">Client / Brand Name *</Label>
