@@ -158,6 +158,10 @@ function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; 
 export default function SellerManager() {
   const [sellers, setSellers] = useState<any[]>([]);
   const [buyers, setBuyers] = useState<any[]>([]);
+  const [connectDealOpen, setConnectDealOpen] = useState(false);
+  const [connectBuyerId, setConnectBuyerId] = useState('');
+  const [connectingDeal, setConnectingDeal] = useState(false);
+  const [buyerSearch, setBuyerSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [search, setSearch] = useState('');
