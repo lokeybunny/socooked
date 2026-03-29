@@ -654,6 +654,12 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
         return;
       }
 
+      // Sanitise: only store short validated name strings, never raw blobs
+      const cleanNames = parsed.names.filter(n => n.length < 60 && isHumanName(n));
+      const safeBestName = parsed.bestName && parsed.bestName.length < 60 && isHumanName(parsed.bestName)
+        ? parsed.bestName
+        : pickBestName(cleanNames);
+
       const updateData: any = {
         skip_traced_at: new Date().toISOString(),
         status: parsed.phones.length > 0 ? 'skip_traced' : s.status,
@@ -662,8 +668,8 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           clipboard_trace: {
             phones: parsed.phones,
             emails: parsed.emails,
-            names: parsed.names,
-            bestName: parsed.bestName,
+            names: cleanNames,
+            bestName: safeBestName,
             traced_at: new Date().toISOString(),
           },
         },
@@ -671,9 +677,9 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
 
       if (parsed.phones.length > 0) updateData.owner_phone = parsed.phones[0];
       if (parsed.emails.length > 0) updateData.owner_email = parsed.emails[0];
-      // Always update owner_name if we found a best human name from clipboard
-      if (parsed.bestName) {
-        updateData.owner_name = parsed.bestName;
+      // Always update owner_name if we found a valid human name from clipboard
+      if (safeBestName) {
+        updateData.owner_name = safeBestName;
       }
 
       await supabase.from('lw_sellers').update(updateData).eq('id', s.id);
