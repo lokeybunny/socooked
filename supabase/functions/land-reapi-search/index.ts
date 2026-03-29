@@ -174,6 +174,13 @@ Deno.serve(async (req) => {
         const fips =
           prop.fips || prop.countyFips || address.fips || null;
 
+        // Extract building details (bed/bath/sqft)
+        const building = prop.building || prop.structure || {};
+        const summary = prop.summary || {};
+        const bedrooms = building.bedrooms || prop.bedrooms || summary.bedrooms || null;
+        const bathrooms = building.bathrooms || building.bathsFull || prop.bathrooms || summary.bathrooms || null;
+        const livingSqft = building.livingSquareFeet || building.squareFeet || prop.livingSquareFeet || prop.squareFeet || summary.livingSquareFeet || null;
+
         const sellerRow = {
           owner_name:
             owner.fullName ||
@@ -223,6 +230,9 @@ Deno.serve(async (req) => {
           assessed_value: tax.assessedValue || prop.assessedValue || null,
           market_value: prop.estimatedValue || prop.avm || tax.marketValue || null,
           motivation_score: motivationScore,
+          bedrooms: bedrooms ? Number(bedrooms) : null,
+          bathrooms: bathrooms ? Number(bathrooms) : null,
+          living_sqft: livingSqft ? Number(livingSqft) : null,
           source: "reapi",
           status: "new",
           meta: prop, // stash raw response

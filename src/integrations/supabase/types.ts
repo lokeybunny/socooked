@@ -1933,6 +1933,8 @@ export type Database = {
           apn: string | null
           asking_price: number | null
           assessed_value: number | null
+          bathrooms: number | null
+          bedrooms: number | null
           city: string | null
           contacted_at: string | null
           county: string | null
@@ -1948,6 +1950,7 @@ export type Database = {
           is_pre_foreclosure: boolean | null
           is_tax_delinquent: boolean | null
           is_vacant: boolean | null
+          living_sqft: number | null
           lot_sqft: number | null
           market_value: number | null
           meta: Json
@@ -1976,6 +1979,8 @@ export type Database = {
           apn?: string | null
           asking_price?: number | null
           assessed_value?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
           city?: string | null
           contacted_at?: string | null
           county?: string | null
@@ -1991,6 +1996,7 @@ export type Database = {
           is_pre_foreclosure?: boolean | null
           is_tax_delinquent?: boolean | null
           is_vacant?: boolean | null
+          living_sqft?: number | null
           lot_sqft?: number | null
           market_value?: number | null
           meta?: Json
@@ -2019,6 +2025,8 @@ export type Database = {
           apn?: string | null
           asking_price?: number | null
           assessed_value?: number | null
+          bathrooms?: number | null
+          bedrooms?: number | null
           city?: string | null
           contacted_at?: string | null
           county?: string | null
@@ -2034,6 +2042,7 @@ export type Database = {
           is_pre_foreclosure?: boolean | null
           is_tax_delinquent?: boolean | null
           is_vacant?: boolean | null
+          living_sqft?: number | null
           lot_sqft?: number | null
           market_value?: number | null
           meta?: Json
