@@ -287,7 +287,7 @@ export default function BuyerDiscovery() {
     loadBuyers();
   };
 
-  const openAdd = () => { setEditId(null); setForm(emptyForm); setAddOpen(true); };
+  const openAdd = () => { setEditId(null); setForm(emptyForm); setInterests(emptyInterests); setAddOpen(true); };
   const openEdit = (b: any) => {
     setEditId(b.id);
     setForm({
@@ -306,6 +306,7 @@ export default function BuyerDiscovery() {
       contact_preference: b.meta?.contact_preference || 'email',
       website: b.meta?.website || '',
     });
+    setInterests(b.meta?.interests || emptyInterests);
     setAddOpen(true);
   };
 
@@ -326,11 +327,13 @@ export default function BuyerDiscovery() {
       pipeline_stage: form.pipeline_stage, city: form.city.trim() || null,
       notes: form.notes.trim() || null, source: form.source, status: 'active',
       meta: {
+        interests,
         deal_types: form.deal_types,
         closing_speed: form.closing_speed || null,
         contact_preference: form.contact_preference,
         website: form.website.trim() || null,
       },
+      property_type_interest: interests.property_types,
     };
     let savedId = editId;
     if (editId) {
