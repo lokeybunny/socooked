@@ -228,6 +228,14 @@ export default function SellerManager() {
                 </SelectContent>
               </Select>
             )}
+            <Select value={dealTypeFilter} onValueChange={setDealTypeFilter}>
+              <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder="Deal Type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="land"><span className="flex items-center gap-1.5"><TreePine className="h-3.5 w-3.5" /> Land</span></SelectItem>
+                <SelectItem value="home"><span className="flex items-center gap-1.5"><Home className="h-3.5 w-3.5" /> Homes</span></SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -258,8 +266,10 @@ export default function SellerManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">Type</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('owner_name')}>
                       Owner {sortField === 'owner_name' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
+                    </TableHead>
                     </TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>County</TableHead>
@@ -291,6 +301,12 @@ export default function SellerManager() {
                       <TableCell className="text-sm">{s.county || '—'}</TableCell>
                       <TableCell className="text-sm">{s.state || '—'}</TableCell>
                       <TableCell className="text-sm font-mono">{s.acreage ? Number(s.acreage).toFixed(2) : '—'}</TableCell>
+                      <TableCell className="text-center">
+                        {(s.deal_type || 'land') === 'land'
+                          ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" title="Land" />
+                          : <Home className="h-4 w-4 text-blue-500 mx-auto" title="Home" />
+                        }
+                      </TableCell>
                       <TableCell>
                         <span className={`font-mono text-sm font-semibold ${
                           (s.motivation_score || 0) >= 60 ? 'text-green-500' :
