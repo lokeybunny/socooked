@@ -209,6 +209,21 @@ export default function SellerManager() {
     acreage_max: '',
     value_min: '',
     value_max: '',
+    // Advanced house filters (Zillow-style)
+    bedrooms_min: '',
+    bedrooms_max: '',
+    bathrooms_min: '',
+    bathrooms_max: '',
+    sqft_min: '',
+    sqft_max: '',
+    lot_sqft_min: '',
+    lot_sqft_max: '',
+    year_built_min: '',
+    year_built_max: '',
+    stories_min: '',
+    stories_max: '',
+    has_pool: false,
+    has_garage: false,
   });
 
   const DISTRESS_PRESETS = [
@@ -234,6 +249,10 @@ export default function SellerManager() {
       liens: false, high_equity_percent: '', free_and_clear: false, pre_foreclosure: false,
       foreclosure: false, auction: false, out_of_state: false, years_owned_min: '',
       property_type: '', acreage_min: '', acreage_max: '', value_min: '', value_max: '',
+      bedrooms_min: '', bedrooms_max: '', bathrooms_min: '', bathrooms_max: '',
+      sqft_min: '', sqft_max: '', lot_sqft_min: '', lot_sqft_max: '',
+      year_built_min: '', year_built_max: '', stories_min: '', stories_max: '',
+      has_pool: false, has_garage: false,
     });
   };
 
