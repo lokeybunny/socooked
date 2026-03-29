@@ -1267,12 +1267,15 @@ LOT SQFT: ${s.lot_sqft || 'N/A'}
 BEDROOMS: ${s.bedrooms || 'N/A'}, BATHROOMS: ${s.bathrooms || 'N/A'}
 ASSESSED VALUE: $${s.assessed_value || 'N/A'}
 MARKET VALUE: $${s.market_value || 'N/A'}
-OFFER PRICE: $${s.estimated_offer || s.asking_price || 'TBD'}
+OFFER PRICE: $${agreementPrice || s.estimated_offer || s.asking_price || 'TBD'}
 DATE: ${today}
+CLOSING DATE: ${agreementCloseDate || 'Within ' + agreementDuration + ' days of execution'}
 
 CRITICAL CONTRACT CLAUSES TO INCLUDE:
-1. Inspection contingency period of ${agreementDuration} days where BUYER may cancel for any reason and receive full earnest money refund.
-2. Assignment clause: "This Agreement and all rights hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
+1. PURCHASE PRICE of $${agreementPrice || s.estimated_offer || s.asking_price || 'TBD'} as agreed by both parties.
+2. CLOSING DATE: ${agreementCloseDate || agreementDuration + ' days from execution'}.
+3. Inspection contingency period of ${agreementDuration} days where BUYER may cancel for any reason and receive full earnest money refund.
+4. Assignment clause: "This Agreement and all rights hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
 3. Earnest money deposit terms (suggest $100-$500 refundable during contingency).
 4. Closing timeline of ${agreementDuration} days from execution.
 5. Title & clear deed requirements.
