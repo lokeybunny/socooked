@@ -1,4 +1,52 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://esm.sh/zod@3.23.8'
+
+// ─── Input Validation Schemas ────────────────────────────────
+const uuidSchema = z.string().uuid()
+
+const VALID_CUSTOMER_STATUSES = ['lead', 'prospect', 'prospect_emailed', 'active', 'monthly', 'won', 'inactive', 'churned'] as const
+const VALID_CATEGORIES = ['digital-services', 'brick-and-mortar', 'digital-ecommerce', 'food-and-beverage', 'mobile-services', 'telegram', 'other'] as const
+
+const customerCreateSchema = z.object({
+  id: uuidSchema.optional(),
+  full_name: z.string().min(1).max(200).trim(),
+  email: z.string().email().max(255).optional().nullable(),
+  phone: z.string().max(30).optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  company: z.string().max(200).optional().nullable(),
+  source: z.string().max(50).optional(),
+  status: z.enum(VALID_CUSTOMER_STATUSES).optional(),
+  notes: z.string().max(10000).optional().nullable(),
+  tags: z.array(z.string().max(50)).max(50).optional(),
+  category: z.enum(VALID_CATEGORIES).optional().nullable(),
+  meta: z.record(z.unknown()).optional(),
+  instagram_handle: z.string().max(100).optional().nullable(),
+})
+
+const dealCreateSchema = z.object({
+  id: uuidSchema.optional(),
+  title: z.string().min(1).max(300).trim(),
+  customer_id: uuidSchema,
+  deal_value: z.number().min(0).max(999999999).optional(),
+  stage: z.string().max(50).optional(),
+  status: z.enum(['open', 'won', 'lost']).optional(),
+  category: z.enum(VALID_CATEGORIES).optional().nullable(),
+  pipeline: z.string().max(50).optional(),
+  probability: z.number().min(0).max(100).optional(),
+  expected_close_date: z.string().max(20).optional().nullable(),
+  tags: z.array(z.string().max(50)).max(50).optional(),
+})
+
+// Helper to strip HTML tags from text fields
+function stripHtml(str: string): string {
+  return str.replace(/<[^>]*>/g, '')
+}
+
+function sanitizeTextField(val: unknown): string | null {
+  if (val === null || val === undefined) return null
+  const s = String(val)
+  return stripHtml(s).substring(0, 10000)
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
