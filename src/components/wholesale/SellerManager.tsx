@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PAGE_SIZE = 25;
@@ -43,6 +43,7 @@ export default function SellerManager() {
   const [search, setSearch] = useState('');
   const [stateFilter, setStateFilter] = useState('all');
   const [stageFilter, setStageFilter] = useState('all');
+  const [dealTypeFilter, setDealTypeFilter] = useState('all');
   const [sortField, setSortField] = useState('motivation_score');
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
@@ -107,6 +108,7 @@ export default function SellerManager() {
     let list = [...sellers];
     if (stateFilter !== 'all') list = list.filter(s => s.state === stateFilter);
     if (stageFilter !== 'all') list = list.filter(s => s.status === stageFilter);
+    if (dealTypeFilter !== 'all') list = list.filter(s => (s.deal_type || 'land') === dealTypeFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(s =>
@@ -123,9 +125,9 @@ export default function SellerManager() {
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [sellers, stateFilter, stageFilter, search, sortField, sortAsc]);
+  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc]);
 
-  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, search, sortField, sortAsc]);
+  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
