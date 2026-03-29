@@ -21,8 +21,8 @@ const STAGES = [
   { key: 'needs_review', label: 'Needs Review' },
   { key: 'qualified', label: 'Qualified' },
   { key: 'contacted', label: 'Contacted' },
-  { key: 'active', label: 'Active' },
   { key: 'warm', label: 'Warm' },
+  { key: 'active', label: 'Active' },
   { key: 'closed', label: 'Closed' },
   { key: 'inactive', label: 'Inactive' },
 ];
