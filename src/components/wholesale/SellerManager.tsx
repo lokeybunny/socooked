@@ -586,16 +586,36 @@ export default function SellerManager() {
 
       {/* Seller Detail Modal */}
       <Dialog open={!!detailSeller} onOpenChange={(open) => !open && setDetailSeller(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
               {detailSeller?.owner_name || 'Unknown Owner'}
             </DialogTitle>
           </DialogHeader>
-          {detailSeller && <SellerDetailContent seller={detailSeller} onSkipTraced={() => { setDetailSeller(null); loadSellers(); }} />}
+          {detailSeller && (
+            <div className="space-y-4">
+              {/* Score Explanation Panel */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-1.5">
+                    <Target className="h-3.5 w-3.5" />
+                    Distress Intelligence
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScoreExplanation seller={detailSeller} buyers={buyers} />
+                </CardContent>
+              </Card>
+              <Separator />
+              <SellerDetailContent seller={detailSeller} onSkipTraced={() => { setDetailSeller(null); loadSellers(); }} />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
+
+      {/* CSV Import */}
+      <CsvImport open={csvOpen} onOpenChange={setCsvOpen} onImported={loadSellers} dealType={dealTypeFilter !== 'all' ? dealTypeFilter : 'land'} />
     </div>
   );
 }
