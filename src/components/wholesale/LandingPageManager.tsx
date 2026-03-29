@@ -408,3 +408,67 @@ export default function LandingPageManager() {
     </div>
   );
 }
+
+function CreditTopUp({ pageId, currentBalance, onUpdated }: { pageId: string; currentBalance: number; onUpdated: () => void }) {
+  const [amount, setAmount] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const handleAdd = async () => {
+    const dollars = parseFloat(amount);
+    if (!dollars || dollars <= 0) { toast.error('Enter a valid dollar amount'); return; }
+    setSaving(true);
+    const addCents = Math.round(dollars * 100);
+    const { error } = await supabase
+      .from('lw_landing_pages')
+      .update({ vapi_credit_balance_cents: currentBalance + addCents } as any)
+      .eq('id', pageId);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`Added $${dollars.toFixed(2)} credit`);
+      setAmount('');
+      setOpen(false);
+      onUpdated();
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1">
+          <DollarSign className="h-3 w-3" /> Add Credit
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3" align="start">
+        <p className="text-xs font-medium mb-2">Add Phone Credit ($)</p>
+        <div className="flex gap-2">
+          <Input
+            type="number"
+            min="1"
+            step="1"
+            placeholder="20"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            className="h-8 text-sm"
+          />
+          <Button size="sm" className="h-8 px-3" onClick={handleAdd} disabled={saving}>
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+          </Button>
+        </div>
+        <div className="flex gap-1.5 mt-2">
+          {[10, 20, 50].map(v => (
+            <button
+              key={v}
+              onClick={() => setAmount(String(v))}
+              className="text-[10px] bg-muted px-2 py-1 rounded hover:bg-muted-foreground/20 transition-colors"
+            >
+              ${v}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
