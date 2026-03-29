@@ -60,6 +60,12 @@ Deno.serve(async (req) => {
         const isTerminalWithUsableDataset = ["SUCCEEDED", "ABORTED", "TIMED-OUT"].includes(status) && datasetId;
 
         if (isTerminalWithUsableDataset) {
+          // Mark as "ingesting" immediately to prevent duplicate poll processing
+          await supabase.from("lw_buyer_ingestion_logs")
+            .update({ status: "ingesting" })
+            .eq("apify_run_id", runId)
+            .eq("status", "running");
+
           const dsRes = await fetch(
             `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=500`
           );
