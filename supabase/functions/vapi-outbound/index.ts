@@ -20,15 +20,27 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { action, lead_id } = await req.json();
+    const { action, lead_id, phone, landing_page_id, full_name, property_address } = await req.json();
 
     if (action === "trigger_call") {
-      // Fetch lead with landing page
-      const { data: lead, error: leadErr } = await sb
+      // Fetch lead with landing page — support both lead_id lookup and phone+landing_page_id lookup
+      let leadQuery = sb
         .from("lw_landing_leads")
-        .select("*, lw_landing_pages!lw_landing_leads_landing_page_id_fkey(id, client_name, phone, email, vapi_credit_balance_cents, vapi_total_spent_cents)")
-        .eq("id", lead_id)
-        .single();
+        .select("*, lw_landing_pages!lw_landing_leads_landing_page_id_fkey(id, client_name, phone, email, vapi_credit_balance_cents, vapi_total_spent_cents)");
+
+      if (lead_id) {
+        leadQuery = leadQuery.eq("id", lead_id);
+      } else if (phone && landing_page_id) {
+        leadQuery = leadQuery.eq("phone", phone).eq("landing_page_id", landing_page_id).order("created_at", { ascending: false }).limit(1);
+      } else {
+        return new Response(JSON.stringify({ error: "lead_id or phone+landing_page_id required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: leadRows, error: leadErr } = await leadQuery;
+      const lead = leadRows?.[0] || null;
 
       if (leadErr || !lead) {
         return new Response(JSON.stringify({ error: "Lead not found" }), {
