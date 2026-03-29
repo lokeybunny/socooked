@@ -1197,7 +1197,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
               {s.address_full && (
-                <div className="pt-2 flex justify-center">
+                <div className="pt-2 flex flex-wrap justify-center gap-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -1208,6 +1208,18 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
                     className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline cursor-pointer bg-transparent border-0 p-0"
                   >
                     🏠 Search on Realtor.com
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(s.address_full || '');
+                      toast.success('Address copied – paste it in Redfin search');
+                      window.open('https://www.redfin.com/', '_blank', 'noopener');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:underline cursor-pointer bg-transparent border-0 p-0"
+                  >
+                    🔴 Search on Redfin.com
                     <ExternalLink className="h-3 w-3" />
                   </button>
                 </div>
