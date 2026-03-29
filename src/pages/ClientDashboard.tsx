@@ -379,6 +379,18 @@ export default function ClientDashboard() {
                     ) : (
                       <>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          {lead.email && (
+                            <div>
+                              <p className="text-xs text-white/40 mb-1">Email</p>
+                              <p className="text-sm font-medium text-white/80">{lead.email}</p>
+                            </div>
+                          )}
+                          {lead.property_condition && (
+                            <div>
+                              <p className="text-xs text-white/40 mb-1">Property Condition</p>
+                              <p className="text-sm font-medium text-white/80">{lead.property_condition}</p>
+                            </div>
+                          )}
                           {lead.motivation && (
                             <div>
                               <p className="text-xs text-white/40 mb-1">Motivation</p>
@@ -406,6 +418,70 @@ export default function ClientDashboard() {
                             </div>
                           )}
                         </div>
+
+                        {/* REAPI / Meta Data */}
+                        {lead.meta && Object.keys(lead.meta).length > 0 && (() => {
+                          const m = lead.meta!;
+                          const assessed = m.assessed_value ?? m.assessedValue;
+                          const acreage = m.acreage ?? m.lotAcreage;
+                          const distress = m.distress_flags || {};
+                          const source = m.source;
+                          const oppScore = m.opportunity_score;
+                          const vapiSummary = m.vapi_summary;
+                          const hasDistress = distress.tax_delinquent || distress.pre_foreclosure || distress.vacant;
+                          const hasReapiFields = assessed || acreage || hasDistress || oppScore;
+
+                          return (
+                            <div className="space-y-3">
+                              {hasReapiFields && (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                  {assessed != null && (
+                                    <div>
+                                      <p className="text-xs text-white/40 mb-1">Assessed Value</p>
+                                      <p className="text-sm font-medium text-white/80 flex items-center gap-1">
+                                        <DollarSign className="h-3 w-3" />{Number(assessed).toLocaleString()}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {acreage != null && (
+                                    <div>
+                                      <p className="text-xs text-white/40 mb-1">Acreage</p>
+                                      <p className="text-sm font-medium text-white/80">{acreage} acres</p>
+                                    </div>
+                                  )}
+                                  {oppScore != null && (
+                                    <div>
+                                      <p className="text-xs text-white/40 mb-1">Opportunity Score</p>
+                                      <p className="text-sm font-medium text-amber-400">{oppScore}</p>
+                                    </div>
+                                  )}
+                                  {source && (
+                                    <div>
+                                      <p className="text-xs text-white/40 mb-1">Source</p>
+                                      <p className="text-sm font-medium text-white/80">{String(source).replace(/_/g, ' ')}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {hasDistress && (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs text-white/40">Distress Flags:</span>
+                                  {distress.tax_delinquent && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">Tax Delinquent</span>}
+                                  {distress.pre_foreclosure && <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">Pre-Foreclosure</span>}
+                                  {distress.vacant && <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">Vacant</span>}
+                                </div>
+                              )}
+                              {vapiSummary && (
+                                <div>
+                                  <p className="text-xs text-white/40 mb-1">AI Call Summary</p>
+                                  <div className="text-sm text-white/60 bg-white/5 rounded-lg border border-white/10 p-3">
+                                    {vapiSummary}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <button
                           onClick={() => startEditing(lead)}
                           className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white transition-colors"
