@@ -158,8 +158,12 @@ export default function BuyerDiscovery() {
 
   const loadBuyers = async () => {
     setLoading(true);
-    const { data } = await supabase.from('lw_buyers').select('*').order('created_at', { ascending: false });
-    setBuyers(data || []);
+    const [buyersRes, sourcesRes] = await Promise.all([
+      supabase.from('lw_buyers').select('*').order('created_at', { ascending: false }),
+      supabase.from('lw_buyer_discovery_sources').select('id, name, platform, is_enabled').eq('is_enabled', true).order('name'),
+    ]);
+    setBuyers(buyersRes.data || []);
+    setDiscoverySources(sourcesRes.data || []);
     setLoading(false);
   };
 
@@ -242,7 +246,11 @@ export default function BuyerDiscovery() {
   const runDiscovery = async () => {
     setRunningDiscovery(true);
     try {
-      const { data, error } = await supabase.functions.invoke('buyer-discovery', { body: {} });
+      const payload: any = {};
+      if (selectedSourceIds.length > 0) {
+        payload.source_ids = selectedSourceIds;
+      }
+      const { data, error } = await supabase.functions.invoke('buyer-discovery', { body: payload });
       if (error) throw error;
 
       const started = data?.results?.some((r: any) => r.status === 'started');
@@ -250,7 +258,8 @@ export default function BuyerDiscovery() {
         startPolling();
       }
 
-      toast.success('Discovery started — importing results automatically');
+      const count = data?.results?.filter((r: any) => r.status === 'started').length || 0;
+      toast.success(`Discovery started — ${count} source${count !== 1 ? 's' : ''} running`);
     } catch (err: any) {
       toast.error(err.message || 'Discovery failed');
     }
