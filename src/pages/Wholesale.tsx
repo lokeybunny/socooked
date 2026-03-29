@@ -328,8 +328,8 @@ function DealPipeline({ deals, stageColors }: { deals: any[]; stageColors: Recor
         {authorizedDeals.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No authorized deals yet</p>
-            <p className="text-xs mt-1">Deals appear here once a buyer and seller are both linked</p>
+            <p>No deals in the pipeline yet</p>
+            <p className="text-xs mt-1">Move a seller to "Under Contract", then use the <span className="font-semibold text-foreground">Connect Deal</span> button in their detail popup to link a buyer and create a deal.</p>
           </div>
         ) : (
           <>
