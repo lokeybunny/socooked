@@ -29,6 +29,8 @@ interface LandingPageRow {
   meta: unknown;
   is_active: boolean;
   created_at: string;
+  vapi_credit_balance_cents: number;
+  vapi_total_spent_cents: number;
 }
 
 interface LeadRow {

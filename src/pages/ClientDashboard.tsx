@@ -37,6 +37,8 @@ interface LandingPage {
   id: string;
   slug: string;
   client_name: string;
+  vapi_credit_balance_cents: number;
+  vapi_total_spent_cents: number;
 }
 
 const PIPELINE_STAGES = ['new', 'contacted', 'qualified', 'under_contract', 'closed'] as const;
@@ -66,7 +68,7 @@ export default function ClientDashboard() {
 
     const { data: pages } = await supabase
       .from('lw_landing_pages')
-      .select('id, slug, client_name')
+      .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents')
       .eq('client_user_id', user.id);
 
     const clientPages = (pages || []) as LandingPage[];
@@ -235,6 +237,59 @@ export default function ClientDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        {/* Phone Spend Card */}
+        {(() => {
+          const totalSpent = landingPages.reduce((s, p) => s + (p.vapi_total_spent_cents || 0), 0);
+          const totalBalance = landingPages.reduce((s, p) => s + (p.vapi_credit_balance_cents || 0), 0);
+          const totalCredit = totalSpent + totalBalance;
+          const pctUsed = totalCredit > 0 ? Math.min(100, Math.round((totalSpent / totalCredit) * 100)) : 0;
+          const isExhausted = totalBalance <= 0 && totalSpent > 0;
+
+          return (
+            <div className="space-y-3">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Phone className="h-5 w-5" /> Phone Spend
+              </h2>
+              {isExhausted && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+                  <div className="h-8 w-8 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <X className="h-4 w-4 text-red-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-red-400">Phone Credits Exhausted</p>
+                    <p className="text-xs text-red-300/70 mt-1">
+                      Your AI callback credits have been used up. New leads will not receive automated calls.
+                      Please contact Warren at <a href="mailto:warren@stu25.com" className="underline">warren@stu25.com</a> to add more credits.
+                    </p>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+                  <p className="text-xs text-white/40">Total Spent</p>
+                  <p className="text-xl font-bold text-white">${(totalSpent / 100).toFixed(2)}</p>
+                </div>
+                <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+                  <p className="text-xs text-white/40">Remaining Credit</p>
+                  <p className={`text-xl font-bold ${isExhausted ? 'text-red-400' : 'text-emerald-400'}`}>
+                    ${(totalBalance / 100).toFixed(2)}
+                  </p>
+                </div>
+                <div className="bg-white/5 rounded-xl border border-white/10 p-4">
+                  <p className="text-xs text-white/40">Total Credit</p>
+                  <p className="text-xl font-bold text-white">${(totalCredit / 100).toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="bg-white/5 rounded-full h-3 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${isExhausted ? 'bg-red-500' : 'bg-emerald-500'}`}
+                  style={{ width: `${pctUsed}%` }}
+                />
+              </div>
+              <p className="text-xs text-white/30 text-right">{pctUsed}% used</p>
+            </div>
+          );
+        })()}
         {/* Section Tabs */}
         <div className="flex gap-3">
           <button
