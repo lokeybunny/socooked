@@ -155,6 +155,7 @@ function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; 
 
 export default function SellerManager() {
   const [sellers, setSellers] = useState<any[]>([]);
+  const [buyers, setBuyers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [search, setSearch] = useState('');
@@ -164,6 +165,8 @@ export default function SellerManager() {
   const [sortField, setSortField] = useState('motivation_score');
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
+  const [distressFilters, setDistressFilters] = useState<DistressFilterState>(EMPTY_DISTRESS_FILTERS);
+  const [csvOpen, setCsvOpen] = useState(false);
 
   // Fetch form
   const [fetchCounty, setFetchCounty] = useState('');
