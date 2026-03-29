@@ -1821,6 +1821,41 @@ export type Database = {
           },
         ]
       }
+      lw_client_lead_caps: {
+        Row: {
+          cap: number
+          created_at: string
+          id: string
+          landing_page_id: string
+          leads_delivered: number
+          week_start: string
+        }
+        Insert: {
+          cap?: number
+          created_at?: string
+          id?: string
+          landing_page_id: string
+          leads_delivered?: number
+          week_start: string
+        }
+        Update: {
+          cap?: number
+          created_at?: string
+          id?: string
+          landing_page_id?: string
+          leads_delivered?: number
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lw_client_lead_caps_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "lw_landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lw_deals: {
         Row: {
           assigned_to: string | null
@@ -2000,6 +2035,7 @@ export type Database = {
           timeline: string | null
           vapi_call_id: string | null
           vapi_call_status: string | null
+          vapi_recording_url: string | null
         }
         Insert: {
           ai_notes?: string | null
@@ -2020,6 +2056,7 @@ export type Database = {
           timeline?: string | null
           vapi_call_id?: string | null
           vapi_call_status?: string | null
+          vapi_recording_url?: string | null
         }
         Update: {
           ai_notes?: string | null
@@ -2040,6 +2077,7 @@ export type Database = {
           timeline?: string | null
           vapi_call_id?: string | null
           vapi_call_status?: string | null
+          vapi_recording_url?: string | null
         }
         Relationships: [
           {
@@ -2055,6 +2093,8 @@ export type Database = {
         Row: {
           accent_color: string
           client_name: string
+          client_password: string | null
+          client_user_id: string | null
           created_at: string
           email: string | null
           headline: string
@@ -2073,6 +2113,8 @@ export type Database = {
         Insert: {
           accent_color?: string
           client_name: string
+          client_password?: string | null
+          client_user_id?: string | null
           created_at?: string
           email?: string | null
           headline?: string
@@ -2091,6 +2133,8 @@ export type Database = {
         Update: {
           accent_color?: string
           client_name?: string
+          client_password?: string | null
+          client_user_id?: string | null
           created_at?: string
           email?: string | null
           headline?: string
