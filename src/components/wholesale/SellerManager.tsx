@@ -464,13 +464,13 @@ export default function SellerManager() {
 }
 
 // --- Copyable detail row for addresses ---
-function DetailRow({ label, value, copyable }: { label: string; value: React.ReactNode; copyable?: boolean }) {
+function DetailRow({ label, value, copyable, gold }: { label: string; value: React.ReactNode; copyable?: boolean; gold?: boolean }) {
   if (value === null || value === undefined || value === '' || value === '—') return null;
   const textValue = typeof value === 'string' ? value : null;
   return (
-    <div className="flex justify-between py-1.5 text-sm group">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right max-w-[60%] break-words flex items-center gap-1">
+    <div className={`flex justify-between py-1.5 text-sm group ${gold ? 'bg-yellow-500/10 px-2 -mx-2 rounded' : ''}`}>
+      <span className={gold ? 'text-yellow-600 dark:text-yellow-400 font-medium' : 'text-muted-foreground'}>{label}</span>
+      <span className={`font-medium text-right max-w-[60%] break-words flex items-center gap-1 ${gold ? 'text-yellow-600 dark:text-yellow-400' : ''}`}>
         {value}
         {copyable && textValue && <CopyText text={textValue} />}
       </span>
