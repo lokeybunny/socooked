@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { User, MapPin, DollarSign, Target, Clock, Link, FileText, Handshake } from 'lucide-react';
+import { User, MapPin, DollarSign, Target, Clock, Link, FileText, Handshake, Search, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface BuyerDetailProps {
   buyer: any;
