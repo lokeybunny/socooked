@@ -105,9 +105,7 @@ export default function Landing() {
   const heroScale = useTransform(scrollYProgress, [0, 0.18], [1, 0.92]);
   const heroY = useTransform(scrollYProgress, [0, 0.18], [0, -60]);
 
-  // Layer 2: Tagline — fades in 20-28%, holds, fades out 38-45%
-  const revealOpacity = useTransform(scrollYProgress, [0.20, 0.28, 0.38, 0.45], [0, 1, 1, 0]);
-  const revealY = useTransform(scrollYProgress, [0.20, 0.28, 0.38, 0.45], [40, 0, 0, -30]);
+  // (Layer 2 merged into Layer 1)
 
   // Layer 3: Services — fades in 47-55%, holds, fades out 65-72%
   const servicesOpacity = useTransform(scrollYProgress, [0.47, 0.55, 0.65, 0.72], [0, 1, 1, 0]);
