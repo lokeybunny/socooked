@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PAGE_SIZE = 25;
@@ -360,7 +360,12 @@ export default function SellerManager() {
                       <TableCell>
                         <div>
                           <span className="font-medium text-sm">{s.owner_name || '—'}</span>
-                          {s.owner_phone && <span className="text-xs text-muted-foreground block">{s.owner_phone}</span>}
+                          {s.owner_phone && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                              {s.owner_phone}
+                              <CopyText text={s.owner_phone} />
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-xs max-w-[200px] truncate">{s.address_full || '—'}</TableCell>
@@ -473,6 +478,73 @@ function DetailRow({ label, value, copyable }: { label: string; value: React.Rea
   );
 }
 
+// --- Phone row with "more" expand for multiple numbers ---
+function PhoneRow({ seller }: { seller: any }) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Collect all phones: from meta.all_phones, meta.clipboard_trace.phones, and owner_phone
+  const allPhones = useMemo(() => {
+    const phones = new Set<string>();
+    if (seller.owner_phone) phones.add(seller.owner_phone);
+    const metaPhones = seller.meta?.all_phones as string[] | undefined;
+    if (Array.isArray(metaPhones)) metaPhones.forEach((p: string) => phones.add(p));
+    const clipPhones = seller.meta?.clipboard_trace?.phones as string[] | undefined;
+    if (Array.isArray(clipPhones)) clipPhones.forEach((p: string) => phones.add(p));
+    return Array.from(phones);
+  }, [seller]);
+
+  if (allPhones.length === 0) return null;
+
+  const primary = allPhones[0];
+  const extras = allPhones.slice(1);
+
+  const copyAll = () => {
+    navigator.clipboard.writeText(allPhones.join('\n'));
+    toast.success(`Copied ${allPhones.length} phone number(s)`);
+  };
+
+  return (
+    <div className="py-1.5 text-sm">
+      <div className="flex justify-between items-center group">
+        <span className="text-muted-foreground">Phone</span>
+        <span className="font-medium flex items-center gap-1">
+          <a href={`tel:${primary}`} className="text-primary hover:underline">{primary}</a>
+          <CopyText text={primary} />
+          {extras.length > 0 && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="inline-flex items-center gap-0.5 ml-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              +{extras.length} more
+              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </button>
+          )}
+          {allPhones.length > 1 && (
+            <button
+              onClick={copyAll}
+              className="inline-flex items-center gap-0.5 ml-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+              title="Copy all phone numbers"
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+          )}
+        </span>
+      </div>
+      {expanded && extras.length > 0 && (
+        <div className="mt-1 ml-auto space-y-1 max-w-[60%]">
+          {extras.map((phone, i) => (
+            <div key={i} className="flex items-center gap-1 justify-end text-xs">
+              <Phone className="h-3 w-3 text-muted-foreground" />
+              <a href={`tel:${phone}`} className="text-primary hover:underline">{phone}</a>
+              <CopyText text={phone} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipTraced?: () => void }) {
   const [tracing, setTracing] = useState(false);
   const [clipboardOpen, setClipboardOpen] = useState(false);
@@ -574,7 +646,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Owner Information</h4>
         <div className="divide-y divide-border">
           <DetailRow label="Name" value={s.owner_name} />
-          <DetailRow label="Phone" value={s.owner_phone} copyable />
+          <PhoneRow seller={s} />
           <DetailRow label="Email" value={s.owner_email} copyable />
           <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable />
         </div>
