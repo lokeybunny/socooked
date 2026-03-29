@@ -44,12 +44,16 @@ export default function Auth() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      // Demo shortcut: "demo" / "test" maps to the demo account
+      const loginEmail = email.trim().toLowerCase() === 'demo' ? 'demo@warrenguru.com' : email.trim();
+      const loginPass = email.trim().toLowerCase() === 'demo' && password === 'test' ? 'test1234' : password;
+
       if (isSignUp) {
-        const { error } = await signUp(email, password, fullName);
+        const { error } = await signUp(loginEmail, loginPass, fullName);
         if (error) throw error;
         toast.success('Check your email to confirm your account!');
       } else {
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(loginEmail, loginPass);
         if (error) throw error;
         // Redirect is handled by useEffect watching `user`
       }
