@@ -14,6 +14,7 @@ import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio, Home
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerDetail from './BuyerDetail';
+import BuyerInterests, { emptyInterests, type InterestsData } from './BuyerInterests';
 
 const STAGES = [
   { key: 'all', label: 'All' },
@@ -68,6 +69,7 @@ export default function BuyerDiscovery() {
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [interests, setInterests] = useState<InterestsData>(emptyInterests);
   const [runningDiscovery, setRunningDiscovery] = useState(false);
   const [page, setPage] = useState(1);
   const [hideDuplicates, setHideDuplicates] = useState(true);
@@ -285,7 +287,7 @@ export default function BuyerDiscovery() {
     loadBuyers();
   };
 
-  const openAdd = () => { setEditId(null); setForm(emptyForm); setAddOpen(true); };
+  const openAdd = () => { setEditId(null); setForm(emptyForm); setInterests(emptyInterests); setAddOpen(true); };
   const openEdit = (b: any) => {
     setEditId(b.id);
     setForm({
@@ -304,6 +306,7 @@ export default function BuyerDiscovery() {
       contact_preference: b.meta?.contact_preference || 'email',
       website: b.meta?.website || '',
     });
+    setInterests(b.meta?.interests || emptyInterests);
     setAddOpen(true);
   };
 
@@ -324,11 +327,13 @@ export default function BuyerDiscovery() {
       pipeline_stage: form.pipeline_stage, city: form.city.trim() || null,
       notes: form.notes.trim() || null, source: form.source, status: 'active',
       meta: {
+        interests,
         deal_types: form.deal_types,
         closing_speed: form.closing_speed || null,
         contact_preference: form.contact_preference,
         website: form.website.trim() || null,
       },
+      property_type_interest: interests.property_types,
     };
     let savedId = editId;
     if (editId) {
@@ -643,7 +648,7 @@ export default function BuyerDiscovery() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editId ? 'Edit Buyer' : 'Add New Buyer'}</DialogTitle>
           </DialogHeader>
@@ -756,6 +761,11 @@ export default function BuyerDiscovery() {
             <div className="space-y-1">
               <Label>Buyer's Website</Label>
               <Input value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://example.com" />
+            </div>
+            {/* Buyer Interests & Property Specs */}
+            <div className="border-t border-border pt-4">
+              <h3 className="text-sm font-bold mb-3">🎯 Buyer Interests & Property Specs</h3>
+              <BuyerInterests interests={interests} onChange={setInterests} />
             </div>
             <div className="space-y-1">
               <Label>Notes</Label>
