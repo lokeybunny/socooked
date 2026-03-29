@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PAGE_SIZE = 25;
@@ -18,6 +19,7 @@ const PAGE_SIZE = 25;
 const SELLER_STAGES = [
   { key: 'all', label: 'All' },
   { key: 'new', label: 'New' },
+  { key: 'req_trace', label: 'Req. Trace' },
   { key: 'skip_traced', label: 'Skip Traced' },
   { key: 'contacted', label: 'Contacted' },
   { key: 'offer_sent', label: 'Offer Sent' },
@@ -28,6 +30,7 @@ const SELLER_STAGES = [
 
 const SELLER_STAGE_COLORS: Record<string, string> = {
   new: 'bg-blue-500/10 text-blue-500',
+  req_trace: 'bg-red-500/10 text-red-500',
   skip_traced: 'bg-cyan-500/10 text-cyan-500',
   contacted: 'bg-purple-500/10 text-purple-500',
   offer_sent: 'bg-amber-500/10 text-amber-500',
@@ -35,6 +38,60 @@ const SELLER_STAGE_COLORS: Record<string, string> = {
   closed: 'bg-muted text-muted-foreground',
   dead: 'bg-destructive/10 text-destructive',
 };
+
+// --- Clipboard copy helper ---
+function CopyText({ text }: { text: string | null | undefined }) {
+  if (!text) return null;
+  return (
+    <button
+      className="inline-flex items-center gap-1 hover:text-primary transition-colors group"
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        toast.success('Copied to clipboard');
+      }}
+      title="Copy to clipboard"
+    >
+      <Copy className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+    </button>
+  );
+}
+
+// --- Parse pasted skip trace data ---
+function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; names: string[] } {
+  const phones: string[] = [];
+  const emails: string[] = [];
+  const names: string[] = [];
+
+  // Phone patterns: (xxx) xxx-xxxx, xxx-xxx-xxxx, xxxxxxxxxx, +1xxxxxxxxxx
+  const phoneRegex = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+  const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+  // Name patterns: "Name: John Smith" or lines that look like full names
+  const nameLineRegex = /(?:^|\n)\s*(?:name\s*[:\-]\s*)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gm;
+
+  const phoneMatches = raw.match(phoneRegex);
+  if (phoneMatches) {
+    phoneMatches.forEach(p => {
+      const cleaned = p.replace(/[^\d+]/g, '');
+      if (!phones.includes(cleaned) && cleaned.length >= 10) phones.push(cleaned);
+    });
+  }
+
+  const emailMatches = raw.match(emailRegex);
+  if (emailMatches) {
+    emailMatches.forEach(e => {
+      if (!emails.includes(e.toLowerCase())) emails.push(e.toLowerCase());
+    });
+  }
+
+  const nameMatches = [...raw.matchAll(nameLineRegex)];
+  nameMatches.forEach(m => {
+    const name = m[1].trim();
+    if (name.length > 3 && !names.includes(name)) names.push(name);
+  });
+
+  return { phones, emails, names };
+}
 
 export default function SellerManager() {
   const [sellers, setSellers] = useState<any[]>([]);
@@ -146,7 +203,7 @@ export default function SellerManager() {
             key={s.key}
             size="sm"
             variant={stageFilter === s.key ? 'default' : 'outline'}
-            className="text-xs whitespace-nowrap"
+            className={`text-xs whitespace-nowrap ${s.key === 'req_trace' && stageFilter !== s.key ? 'border-red-500/50 text-red-500' : ''}`}
             onClick={() => setStageFilter(s.key)}
           >
             {s.label}
@@ -334,7 +391,11 @@ export default function SellerManager() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-[10px]">{s.status}</Badge>
+                        {s.status === 'req_trace' ? (
+                          <Badge variant="destructive" className="text-[10px]">Req. Trace</Badge>
+                        ) : (
+                          <Badge variant="outline" className={`text-[10px] ${SELLER_STAGE_COLORS[s.status] || ''}`}>{s.status}</Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDetailSeller(s)}>
@@ -397,18 +458,26 @@ export default function SellerManager() {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+// --- Copyable detail row for addresses ---
+function DetailRow({ label, value, copyable }: { label: string; value: React.ReactNode; copyable?: boolean }) {
   if (value === null || value === undefined || value === '' || value === '—') return null;
+  const textValue = typeof value === 'string' ? value : null;
   return (
-    <div className="flex justify-between py-1.5 text-sm">
+    <div className="flex justify-between py-1.5 text-sm group">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right max-w-[60%] break-words">{value}</span>
+      <span className="font-medium text-right max-w-[60%] break-words flex items-center gap-1">
+        {value}
+        {copyable && textValue && <CopyText text={textValue} />}
+      </span>
     </div>
   );
 }
 
 function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipTraced?: () => void }) {
   const [tracing, setTracing] = useState(false);
+  const [clipboardOpen, setClipboardOpen] = useState(false);
+  const [pasteData, setPasteData] = useState('');
+  const [parsing, setParsing] = useState(false);
 
   const handleSkipTrace = async () => {
     setTracing(true);
@@ -418,16 +487,66 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast.success(
-        data.phone
-          ? `Found phone: ${data.phone}${data.email ? `, email: ${data.email}` : ''}`
-          : 'Skip trace complete — no phone found'
-      );
+
+      if (data?.phone) {
+        toast.success(`Found phone: ${data.phone}${data.email ? `, email: ${data.email}` : ''}`);
+      } else {
+        // No phone data returned — mark as req_trace
+        await supabase.from('lw_sellers').update({ status: 'req_trace' }).eq('id', s.id);
+        toast.error('No phone data found — marked as "Req. Trace". Try a free lookup tool instead.', { duration: 5000 });
+      }
       onSkipTraced?.();
     } catch (err: any) {
       toast.error(err.message || 'Skip trace failed');
     }
     setTracing(false);
+  };
+
+  const handleClipboardSubmit = async () => {
+    if (!pasteData.trim()) {
+      toast.error('Please paste some data first');
+      return;
+    }
+    setParsing(true);
+    try {
+      const parsed = parseSkipTraceData(pasteData);
+
+      if (parsed.phones.length === 0 && parsed.emails.length === 0) {
+        toast.error('No phone numbers or emails found in pasted data', { duration: 5000 });
+        setParsing(false);
+        return;
+      }
+
+      const updateData: any = {
+        skip_traced_at: new Date().toISOString(),
+        status: parsed.phones.length > 0 ? 'skip_traced' : s.status,
+        meta: {
+          ...s.meta,
+          clipboard_trace: {
+            phones: parsed.phones,
+            emails: parsed.emails,
+            names: parsed.names,
+            traced_at: new Date().toISOString(),
+          },
+        },
+      };
+
+      if (parsed.phones.length > 0) updateData.owner_phone = parsed.phones[0];
+      if (parsed.emails.length > 0) updateData.owner_email = parsed.emails[0];
+
+      await supabase.from('lw_sellers').update(updateData).eq('id', s.id);
+
+      toast.success(
+        `Found ${parsed.phones.length} phone(s), ${parsed.emails.length} email(s)${parsed.names.length ? `, ${parsed.names.length} name(s)` : ''}`,
+        { duration: 4000 }
+      );
+      setClipboardOpen(false);
+      setPasteData('');
+      onSkipTraced?.();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to process pasted data');
+    }
+    setParsing(false);
   };
 
   const flags = [
@@ -442,14 +561,22 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
 
   return (
     <div className="space-y-4">
+      {/* Top action bar — Trace Clipboard */}
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setClipboardOpen(true)}>
+          <ClipboardPaste className="h-3.5 w-3.5" />
+          Trace Clipboard
+        </Button>
+      </div>
+
       {/* Owner Info */}
       <div>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Owner Information</h4>
         <div className="divide-y divide-border">
           <DetailRow label="Name" value={s.owner_name} />
-          <DetailRow label="Phone" value={s.owner_phone} />
-          <DetailRow label="Email" value={s.owner_email} />
-          <DetailRow label="Mailing Address" value={s.owner_mailing_address} />
+          <DetailRow label="Phone" value={s.owner_phone} copyable />
+          <DetailRow label="Email" value={s.owner_email} copyable />
+          <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable />
         </div>
       </div>
 
@@ -459,12 +586,12 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
       <div>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Property Details</h4>
         <div className="divide-y divide-border">
-          <DetailRow label="Address" value={s.address_full} />
+          <DetailRow label="Address" value={s.address_full} copyable />
           <DetailRow label="City" value={s.city} />
           <DetailRow label="County" value={s.county} />
           <DetailRow label="State" value={s.state} />
           <DetailRow label="ZIP" value={s.zip} />
-          <DetailRow label="APN" value={s.apn} />
+          <DetailRow label="APN" value={s.apn} copyable />
           <DetailRow label="FIPS" value={s.fips} />
           <DetailRow label="Property Type" value={s.property_type} />
           <DetailRow label="Zoning" value={s.zoning} />
@@ -523,7 +650,11 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
       <div>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Status & Timeline</h4>
         <div className="divide-y divide-border">
-          <DetailRow label="Status" value={<Badge variant="outline" className="text-[10px]">{s.status}</Badge>} />
+          <DetailRow label="Status" value={
+            s.status === 'req_trace'
+              ? <Badge variant="destructive" className="text-[10px]">Req. Trace</Badge>
+              : <Badge variant="outline" className="text-[10px]">{s.status}</Badge>
+          } />
           <DetailRow label="Source" value={s.source} />
           <DetailRow label="Skip Traced" value={s.skip_traced_at ? new Date(s.skip_traced_at).toLocaleDateString() : null} />
           <DetailRow label="Contacted" value={s.contacted_at ? new Date(s.contacted_at).toLocaleDateString() : null} />
@@ -563,6 +694,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           <DetailRow label="REAPI Property ID" value={<span className="font-mono text-xs">{s.reapi_property_id}</span>} />
         </>
       )}
+
       {/* Skip Trace Section */}
       <Separator />
       <div className="pt-2 space-y-3">
@@ -621,6 +753,46 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           </div>
         </div>
       </div>
+
+      {/* Trace Clipboard Modal */}
+      <Dialog open={clipboardOpen} onOpenChange={setClipboardOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardPaste className="h-4 w-4" />
+              Trace Clipboard
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Paste skip trace data from TruePeopleSearch, DataToLeads, or any lookup tool. Select all → copy the results page, then paste here. We'll extract phone numbers, emails, and names automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              placeholder="Paste skip trace results here…"
+              value={pasteData}
+              onChange={e => setPasteData(e.target.value)}
+              className="min-h-[200px] font-mono text-xs"
+            />
+            {pasteData.trim() && (() => {
+              const preview = parseSkipTraceData(pasteData);
+              return (
+                <div className="rounded-md border border-border p-3 space-y-1 text-xs bg-muted/50">
+                  <p className="font-semibold text-foreground">Preview — found:</p>
+                  <p>📞 Phones: {preview.phones.length > 0 ? preview.phones.join(', ') : <span className="text-muted-foreground">None</span>}</p>
+                  <p>📧 Emails: {preview.emails.length > 0 ? preview.emails.join(', ') : <span className="text-muted-foreground">None</span>}</p>
+                  <p>👤 Names: {preview.names.length > 0 ? preview.names.join(', ') : <span className="text-muted-foreground">None</span>}</p>
+                </div>
+              );
+            })()}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setClipboardOpen(false); setPasteData(''); }}>Cancel</Button>
+              <Button size="sm" onClick={handleClipboardSubmit} disabled={parsing || !pasteData.trim()}>
+                {parsing ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Processing…</> : 'Submit & Save'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
