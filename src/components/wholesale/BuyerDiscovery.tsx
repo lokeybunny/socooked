@@ -14,6 +14,7 @@ import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio, Home
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerDetail from './BuyerDetail';
+import BuyerInterests, { emptyInterests, type InterestsData } from './BuyerInterests';
 
 const STAGES = [
   { key: 'all', label: 'All' },
