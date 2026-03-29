@@ -390,7 +390,3 @@ function DealPipeline({ deals, stageColors }: { deals: any[]; stageColors: Recor
     </Card>
   );
 }
-  if (value == null) return <span className="text-muted-foreground text-xs">—</span>;
-  const color = value >= 70 ? 'text-green-500' : value >= 40 ? 'text-yellow-500' : 'text-muted-foreground';
-  return <span className={`font-mono text-sm font-semibold ${color}`}>{value}</span>;
-}
