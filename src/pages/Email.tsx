@@ -178,12 +178,23 @@ export default function EmailPage() {
     }
   }, []);
 
+  const loadCrmDrafts = useCallback(async () => {
+    const { data } = await supabase
+      .from('communications')
+      .select('*')
+      .eq('type', 'email')
+      .eq('status', 'draft')
+      .order('created_at', { ascending: false });
+    setCrmDrafts(data || []);
+  }, []);
+
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
   useEffect(() => {
     // "customers" and "read" tabs use inbox data filtered locally
     const gmailTab = (activeTab === 'customers' || activeTab === 'read') ? 'inbox' : activeTab;
     loadEmails(gmailTab);
-  }, [activeTab, loadEmails]);
+    if (activeTab === 'drafts') loadCrmDrafts();
+  }, [activeTab, loadEmails, loadCrmDrafts]);
 
   // Deep-link: open a specific email by ID from query params
   useEffect(() => {
