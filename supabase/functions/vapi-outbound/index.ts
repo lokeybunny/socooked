@@ -61,7 +61,7 @@ serve(async (req) => {
         await sb
           .from("lw_landing_leads")
           .update({ vapi_call_status: "credit_exhausted" })
-          .eq("id", lead_id);
+          .eq("id", lead.id);
 
         return new Response(JSON.stringify({
           error: "Phone credits exhausted",
