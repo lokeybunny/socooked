@@ -167,13 +167,22 @@ export default function BuyerDiscovery() {
         (b.tags || []).join(' ').toLowerCase().includes(q)
       );
     }
-    // Hide duplicates: deduplicate by normalized full_name + source_url
+    // Hide duplicates: deduplicate by normalized full_name + source_url, also by entity_name
     if (hideDuplicates) {
       const seen = new Set<string>();
+      const seenNames = new Set<string>();
       list = list.filter(b => {
-        const key = (b.full_name || '').toLowerCase().trim() + '|' + (b.source_url || '').toLowerCase().trim();
-        if (seen.has(key)) return false;
-        seen.add(key);
+        const nameKey = (b.full_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const urlKey = (b.source_url || '').toLowerCase().trim();
+        const entityKey = (b.entity_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const compositeKey = nameKey + '|' + urlKey;
+        // Dedup by composite key
+        if (compositeKey !== '|' && seen.has(compositeKey)) return false;
+        // Also dedup by name alone if identical
+        if (nameKey && seenNames.has(nameKey)) return false;
+        if (compositeKey !== '|') seen.add(compositeKey);
+        if (nameKey) seenNames.add(nameKey);
+        if (entityKey) seenNames.add(entityKey);
         return true;
       });
     }
