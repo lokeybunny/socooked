@@ -292,8 +292,8 @@ export default function SellerManager() {
                     <TableRow key={s.id}>
                       <TableCell className="text-center">
                         {(s.deal_type || 'land') === 'land'
-                          ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" title="Land" />
-                          : <Home className="h-4 w-4 text-blue-500 mx-auto" title="Home" />
+                          ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" />
+                          : <Home className="h-4 w-4 text-blue-500 mx-auto" />
                         }
                       </TableCell>
                       <TableCell>
@@ -306,12 +306,6 @@ export default function SellerManager() {
                       <TableCell className="text-sm">{s.county || '—'}</TableCell>
                       <TableCell className="text-sm">{s.state || '—'}</TableCell>
                       <TableCell className="text-sm font-mono">{s.acreage ? Number(s.acreage).toFixed(2) : '—'}</TableCell>
-                      <TableCell className="text-center">
-                        {(s.deal_type || 'land') === 'land'
-                          ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" title="Land" />
-                          : <Home className="h-4 w-4 text-blue-500 mx-auto" title="Home" />
-                        }
-                      </TableCell>
                       <TableCell>
                         <span className={`font-mono text-sm font-semibold ${
                           (s.motivation_score || 0) >= 60 ? 'text-green-500' :
