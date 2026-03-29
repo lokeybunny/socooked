@@ -270,7 +270,6 @@ export default function SellerManager() {
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('owner_name')}>
                       Owner {sortField === 'owner_name' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
-                    </TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>County</TableHead>
                     <TableHead>State</TableHead>
@@ -291,6 +290,12 @@ export default function SellerManager() {
                 <TableBody>
                   {paginated.map(s => (
                     <TableRow key={s.id}>
+                      <TableCell className="text-center">
+                        {(s.deal_type || 'land') === 'land'
+                          ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" title="Land" />
+                          : <Home className="h-4 w-4 text-blue-500 mx-auto" title="Home" />
+                        }
+                      </TableCell>
                       <TableCell>
                         <div>
                           <span className="font-medium text-sm">{s.owner_name || '—'}</span>
