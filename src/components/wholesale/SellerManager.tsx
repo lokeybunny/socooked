@@ -1198,6 +1198,8 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [agreementText, setAgreementText] = useState('');
   const [generatingAgreement, setGeneratingAgreement] = useState(false);
   const [agreementDuration, setAgreementDuration] = useState('30');
+  const [agreementPrice, setAgreementPrice] = useState('');
+  const [agreementCloseDate, setAgreementCloseDate] = useState('');
   const [draftingEmail, setDraftingEmail] = useState(false);
 
   const handleSkipTrace = async () => {
@@ -1265,12 +1267,15 @@ LOT SQFT: ${s.lot_sqft || 'N/A'}
 BEDROOMS: ${s.bedrooms || 'N/A'}, BATHROOMS: ${s.bathrooms || 'N/A'}
 ASSESSED VALUE: $${s.assessed_value || 'N/A'}
 MARKET VALUE: $${s.market_value || 'N/A'}
-OFFER PRICE: $${s.estimated_offer || s.asking_price || 'TBD'}
+OFFER PRICE: $${agreementPrice || s.estimated_offer || s.asking_price || 'TBD'}
 DATE: ${today}
+CLOSING DATE: ${agreementCloseDate || 'Within ' + agreementDuration + ' days of execution'}
 
 CRITICAL CONTRACT CLAUSES TO INCLUDE:
-1. Inspection contingency period of ${agreementDuration} days where BUYER may cancel for any reason and receive full earnest money refund.
-2. Assignment clause: "This Agreement and all rights hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
+1. PURCHASE PRICE of $${agreementPrice || s.estimated_offer || s.asking_price || 'TBD'} as agreed by both parties.
+2. CLOSING DATE: ${agreementCloseDate || agreementDuration + ' days from execution'}.
+3. Inspection contingency period of ${agreementDuration} days where BUYER may cancel for any reason and receive full earnest money refund.
+4. Assignment clause: "This Agreement and all rights hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
 3. Earnest money deposit terms (suggest $100-$500 refundable during contingency).
 4. Closing timeline of ${agreementDuration} days from execution.
 5. Title & clear deed requirements.
@@ -1567,19 +1572,23 @@ Format the contract with clear section headings and numbered paragraphs.`;
                     🔴 Search on Redfin.com
                     <ExternalLink className="h-3 w-3" />
                    </button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs gap-1.5 border-emerald-500/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-                    onClick={() => {
-                      setAgreementText('');
-                      setAgreementOpen(true);
-                    }}
-                  >
-                    📝 Submit Agreement
-                  </Button>
                 </div>
               )}
+              <div className="pt-2 flex justify-center">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs gap-1.5 border-emerald-500/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                  onClick={() => {
+                    setAgreementText('');
+                    setAgreementPrice(String(s.estimated_offer || s.asking_price || ''));
+                    setAgreementCloseDate('');
+                    setAgreementOpen(true);
+                  }}
+                >
+                  📝 Submit Agreement
+                </Button>
+              </div>
             </div>
           );
         })()}
@@ -1882,9 +1891,29 @@ Format the contract with clear section headings and numbered paragraphs.`;
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <Label className="text-xs">Contingency / Back-Out Period (days)</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Agreed Purchase Price ($)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 25000"
+                  value={agreementPrice}
+                  onChange={e => setAgreementPrice(e.target.value)}
+                  className="h-8 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Closing Date</Label>
+                <Input
+                  type="date"
+                  value={agreementCloseDate}
+                  onChange={e => setAgreementCloseDate(e.target.value)}
+                  className="h-8 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Back-Out / Contingency Period (days)</Label>
                 <Input
                   type="number"
                   min="7"
@@ -1894,14 +1923,16 @@ Format the contract with clear section headings and numbered paragraphs.`;
                   className="h-8 text-sm mt-1"
                 />
               </div>
-              <Button
-                size="sm"
-                onClick={generateAgreement}
-                disabled={generatingAgreement}
-                className="mt-5"
-              >
-                {generatingAgreement ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Generating…</> : 'Generate Agreement'}
-              </Button>
+              <div className="flex items-end">
+                <Button
+                  size="sm"
+                  onClick={generateAgreement}
+                  disabled={generatingAgreement || !agreementPrice}
+                  className="w-full"
+                >
+                  {generatingAgreement ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Generating…</> : 'Generate Agreement'}
+                </Button>
+              </div>
             </div>
 
             {agreementText && (
