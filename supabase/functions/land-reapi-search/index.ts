@@ -169,6 +169,21 @@ Deno.serve(async (req) => {
       if (distressFilters.acreage_max) searchBody.lot_size_max_acres = distressFilters.acreage_max;
       if (distressFilters.value_min) searchBody.assessed_value_min = distressFilters.value_min;
       if (distressFilters.value_max) searchBody.assessed_value_max = distressFilters.value_max;
+      // Building spec filters
+      if (distressFilters.bedrooms_min) searchBody.bedrooms_min = distressFilters.bedrooms_min;
+      if (distressFilters.bedrooms_max) searchBody.bedrooms_max = distressFilters.bedrooms_max;
+      if (distressFilters.bathrooms_min) searchBody.bathrooms_min = distressFilters.bathrooms_min;
+      if (distressFilters.bathrooms_max) searchBody.bathrooms_max = distressFilters.bathrooms_max;
+      if (distressFilters.sqft_min) searchBody.square_feet_min = distressFilters.sqft_min;
+      if (distressFilters.sqft_max) searchBody.square_feet_max = distressFilters.sqft_max;
+      if (distressFilters.lot_sqft_min) searchBody.lot_size_min_sqft = distressFilters.lot_sqft_min;
+      if (distressFilters.lot_sqft_max) searchBody.lot_size_max_sqft = distressFilters.lot_sqft_max;
+      if (distressFilters.year_built_min) searchBody.year_built_min = distressFilters.year_built_min;
+      if (distressFilters.year_built_max) searchBody.year_built_max = distressFilters.year_built_max;
+      if (distressFilters.stories_min) searchBody.stories_min = distressFilters.stories_min;
+      if (distressFilters.stories_max) searchBody.stories_max = distressFilters.stories_max;
+      if (distressFilters.has_pool) searchBody.pool = true;
+      if (distressFilters.has_garage) searchBody.garage = true;
 
       const resp = await fetch(`${REAPI_BASE}/PropertySearch`, {
         method: "POST",
