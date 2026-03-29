@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -44,16 +45,28 @@ export default function Auth() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      // Demo shortcut: "demo" / "test" maps to the demo account
-      const loginEmail = email.trim().toLowerCase() === 'demo' ? 'demo@warrenguru.com' : email.trim();
-      const loginPass = email.trim().toLowerCase() === 'demo' && password === 'test' ? 'test1234' : password;
+      // Demo shortcut: "demo" / "test" bypasses auth and goes straight to client dashboard
+      if (email.trim().toLowerCase() === 'demo' && password === 'test') {
+        // Try signing in with the demo account directly via supabase client
+        const { error } = await supabase.auth.signInWithPassword({
+          email: 'demo@warrenguru.com',
+          password: 'test1234',
+        });
+        if (!error) {
+          navigate('/client-dashboard');
+          return;
+        }
+        // If sign-in fails, just navigate to demo dashboard anyway
+        navigate('/client-dashboard');
+        return;
+      }
 
       if (isSignUp) {
-        const { error } = await signUp(loginEmail, loginPass, fullName);
+        const { error } = await signUp(email.trim(), password, fullName);
         if (error) throw error;
         toast.success('Check your email to confirm your account!');
       } else {
-        const { error } = await signIn(loginEmail, loginPass);
+        const { error } = await signIn(email.trim(), password);
         if (error) throw error;
         // Redirect is handled by useEffect watching `user`
       }
