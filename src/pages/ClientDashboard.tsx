@@ -62,6 +62,7 @@ export default function ClientDashboard() {
   const [editingLead, setEditingLead] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [activeSection, setActiveSection] = useState<'funnel' | 'hot' | 'phone'>('funnel');
+  const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -186,6 +187,22 @@ export default function ClientDashboard() {
     a.download = `transcript-${lead.full_name.replace(/\s+/g, '-').toLowerCase()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const sendLeadReport = async (lead: Lead) => {
+    setSendingLeadId(lead.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('lead-report-email', {
+        body: { lead_id: lead.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Report sent to ${data.sent_to}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send report');
+    } finally {
+      setSendingLeadId(null);
+    }
   };
 
   const isHotLead = (l: Lead) => {
