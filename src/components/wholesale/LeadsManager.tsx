@@ -57,6 +57,7 @@ const callStatusIcons: Record<string, JSX.Element> = {
 
 export default function LeadsManager() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [landingPages, setLandingPages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -83,11 +84,14 @@ export default function LeadsManager() {
 
   const loadLeads = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('lw_landing_leads')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setLeads((data as Lead[]) || []);
+    const [leadsRes, pagesRes] = await Promise.all([
+      supabase.from('lw_landing_leads').select('*').order('created_at', { ascending: false }),
+      supabase.from('lw_landing_pages').select('id, client_name, slug'),
+    ]);
+    setLeads((leadsRes.data as Lead[]) || []);
+    const pageMap: Record<string, string> = {};
+    (pagesRes.data || []).forEach((p: any) => { pageMap[p.id] = p.client_name || p.slug; });
+    setLandingPages(pageMap);
     setLoading(false);
   };
 
