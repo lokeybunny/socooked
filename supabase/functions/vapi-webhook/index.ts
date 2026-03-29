@@ -197,6 +197,66 @@ serve(async (req) => {
       const endedReason = message.endedReason || "unknown";
       const duration = message.call?.duration || 0;
 
+      // ─── Calculate call cost and deduct from credits ───
+      const costBreakdown = message.cost ?? message.costBreakdown?.total ?? 0;
+      const callCostCents = Math.round((typeof costBreakdown === 'number' ? costBreakdown : 0) * 100);
+
+      if (lead.landing_page_id && callCostCents > 0) {
+        // Fetch current balance
+        const { data: pageData } = await sb
+          .from("lw_landing_pages")
+          .select("vapi_credit_balance_cents, vapi_total_spent_cents, email, client_name")
+          .eq("id", lead.landing_page_id)
+          .single();
+
+        if (pageData) {
+          const newBalance = Math.max(0, (pageData.vapi_credit_balance_cents || 0) - callCostCents);
+          const newSpent = (pageData.vapi_total_spent_cents || 0) + callCostCents;
+
+          await sb
+            .from("lw_landing_pages")
+            .update({
+              vapi_credit_balance_cents: newBalance,
+              vapi_total_spent_cents: newSpent,
+            })
+            .eq("id", lead.landing_page_id);
+
+          console.log(`[vapi-webhook] Deducted ${callCostCents}¢ from page ${lead.landing_page_id}. Balance: ${newBalance}¢`);
+
+          // If credit exhausted, send notification email
+          if (newBalance <= 0 && pageData.email) {
+            const creditExhaustedHtml = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+  <h2 style="color: #dc2626;">⚠️ Phone Credits Exhausted</h2>
+  <p>Hi ${(pageData.client_name || 'there').split(' ')[0]},</p>
+  <p>Your <strong>$20.00</strong> phone credit balance has been fully used. As a result, <strong>new leads from your landing page will no longer receive automated AI callbacks</strong> until more credits are added.</p>
+  <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 16px 0;">
+    <p style="margin: 0; font-weight: 600; color: #991b1b;">Total Spent: $${(newSpent / 100).toFixed(2)}</p>
+    <p style="margin: 4px 0 0; color: #991b1b;">Remaining Balance: $0.00</p>
+  </div>
+  <p>To continue receiving AI-powered callbacks for your leads, please reach out to Warren to add more credits to your account.</p>
+  <p>You can still view all your leads in your <a href="https://socooked.lovable.app/client-login" style="color: #2563eb;">Client Dashboard</a>.</p>
+  <br/>
+  <p>Best regards,</p>
+  <p><strong>Warren A Thompson</strong><br/>
+  STU25 — Web &amp; Social Media Services<br/>
+  <a href="mailto:warren@stu25.com">warren@stu25.com</a></p>
+</div>`;
+
+            try {
+              await sendGmailNotification(
+                pageData.email,
+                '⚠️ Phone Credits Exhausted — Action Required',
+                creditExhaustedHtml,
+              );
+              console.log(`[vapi-webhook] Credit exhaustion email sent to ${pageData.email}`);
+            } catch (emailErr) {
+              console.error("[vapi-webhook] Failed to send credit exhaustion email:", emailErr);
+            }
+          }
+        }
+      }
+
       // Determine if AI actually connected with the seller
       const callFailed = [
         "assistant-error", "no-answer", "busy", "voicemail",
@@ -221,6 +281,7 @@ serve(async (req) => {
             vapi_recording_url: recordingUrl,
             vapi_ended_reason: endedReason,
             vapi_duration_seconds: duration,
+            vapi_cost_cents: callCostCents,
           },
         })
         .eq("id", lead.id);
