@@ -40,7 +40,7 @@ function RobotBody() {
 
   return (
     <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.4}>
-      <group ref={groupRef} position={[0, -1.2, 0]} scale={0.7}>
+      <group ref={groupRef} position={[0, 0.2, 0]} scale={0.7}>
         {/* Head */}
         <group position={[0, 2.4, 0]}>
           <mesh>
