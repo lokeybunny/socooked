@@ -50,7 +50,6 @@ export default function ClientDashboard() {
   const loadData = useCallback(async () => {
     if (!user) return;
 
-    // Get landing pages for this client
     const { data: pages } = await supabase
       .from('lw_landing_pages')
       .select('id, slug, client_name')
@@ -84,7 +83,6 @@ export default function ClientDashboard() {
     loadData();
   }, [user, authLoading, navigate, loadData]);
 
-  // Subscribe to realtime updates
   useEffect(() => {
     if (landingPages.length === 0) return;
     const pageIds = landingPages.map(p => p.id);
@@ -119,27 +117,27 @@ export default function ClientDashboard() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-white/50" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
+      <header className="bg-white/5 border-b border-white/10 px-6 py-4 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 text-white flex items-center justify-center">
               <Home className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-900">Wholesale Dashboard</h1>
-              <p className="text-xs text-slate-500">{user?.email}</p>
+              <h1 className="text-lg font-bold text-white">Wholesale Dashboard</h1>
+              <p className="text-xs text-white/40">{user?.email}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={signOut}>
+          <Button variant="outline" size="sm" onClick={signOut} className="border-white/10 text-white/70 hover:bg-white/10 hover:text-white">
             <LogOut className="h-4 w-4 mr-2" />Sign Out
           </Button>
         </div>
@@ -148,18 +146,18 @@ export default function ClientDashboard() {
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
         {/* Pipeline Overview */}
         <div>
-          <h2 className="text-xl font-bold text-slate-900 mb-4">CRM Pipeline</h2>
+          <h2 className="text-xl font-bold text-white mb-4">CRM Pipeline</h2>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {PIPELINE_STAGES.map(stage => (
               <div
                 key={stage}
-                className={`bg-white rounded-xl border p-4 cursor-pointer transition-colors ${
-                  filterStage === stage ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'
+                className={`bg-white/5 rounded-xl border p-4 cursor-pointer transition-colors ${
+                  filterStage === stage ? 'border-white/30 bg-white/10' : 'border-white/10 hover:border-white/20'
                 }`}
                 onClick={() => setFilterStage(filterStage === stage ? 'all' : stage)}
               >
                 <StatusBadge status={stage} />
-                <p className="text-2xl font-bold text-slate-900 mt-2">{stageCounts[stage] || 0}</p>
+                <p className="text-2xl font-bold text-white mt-2">{stageCounts[stage] || 0}</p>
               </div>
             ))}
           </div>
@@ -168,15 +166,15 @@ export default function ClientDashboard() {
         {/* Filters */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <span className="text-sm text-slate-600">Filter:</span>
+            <Filter className="h-4 w-4 text-white/40" />
+            <span className="text-sm text-white/60">Filter:</span>
           </div>
           {landingPages.length > 1 && (
             <Select value={filterPage} onValueChange={setFilterPage}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[200px] bg-white/5 border-white/10 text-white">
                 <SelectValue placeholder="All Landing Pages" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-neutral-900 border-white/10 text-white">
                 <SelectItem value="all">All Landing Pages</SelectItem>
                 {landingPages.map(p => (
                   <SelectItem key={p.id} value={p.id}>{p.client_name} ({p.slug})</SelectItem>
@@ -184,7 +182,7 @@ export default function ClientDashboard() {
               </SelectContent>
             </Select>
           )}
-          <p className="text-sm text-slate-500 ml-auto">
+          <p className="text-sm text-white/40 ml-auto">
             {filteredLeads.length} leads
           </p>
         </div>
@@ -192,67 +190,67 @@ export default function ClientDashboard() {
         {/* Leads List */}
         <div className="space-y-3">
           {filteredLeads.length === 0 && (
-            <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-              <p className="text-slate-500">No leads yet. They'll appear here automatically as your landing page gets traffic.</p>
+            <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center">
+              <p className="text-white/40">No leads yet. They'll appear here automatically as your landing page gets traffic.</p>
             </div>
           )}
           {filteredLeads.map(lead => {
             const isExpanded = expandedLead === lead.id;
             const pageName = landingPages.find(p => p.id === lead.landing_page_id)?.slug || '—';
             return (
-              <div key={lead.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div key={lead.id} className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
                 <div
-                  className="flex items-center gap-4 p-4 cursor-pointer hover:bg-slate-50 transition-colors"
+                  className="flex items-center gap-4 p-4 cursor-pointer hover:bg-white/[0.08] transition-colors"
                   onClick={() => setExpandedLead(isExpanded ? null : lead.id)}
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-slate-900 truncate">{lead.full_name}</span>
+                      <span className="font-semibold text-white truncate">{lead.full_name}</span>
                       <StatusBadge status={lead.status} />
                       {lead.lead_score != null && lead.lead_score > 0 && (
-                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                        <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium">
                           Score: {lead.lead_score}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-500">
+                    <div className="flex items-center gap-4 text-xs text-white/40">
                       <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{lead.property_address}</span>
                       <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>
                       <span>via /{pageName}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-400">{format(new Date(lead.created_at), 'MMM d, h:mm a')}</span>
-                    {isExpanded ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                    <span className="text-xs text-white/30">{format(new Date(lead.created_at), 'MMM d, h:mm a')}</span>
+                    {isExpanded ? <ChevronUp className="h-4 w-4 text-white/30" /> : <ChevronDown className="h-4 w-4 text-white/30" />}
                   </div>
                 </div>
 
                 {isExpanded && (
-                  <div className="border-t border-slate-100 p-4 bg-slate-50 space-y-4">
+                  <div className="border-t border-white/10 p-4 bg-white/[0.03] space-y-4">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {lead.motivation && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-1">Motivation</p>
-                          <p className="text-sm font-medium text-slate-900">{lead.motivation}</p>
+                          <p className="text-xs text-white/40 mb-1">Motivation</p>
+                          <p className="text-sm font-medium text-white/80">{lead.motivation}</p>
                         </div>
                       )}
                       {lead.timeline && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-1">Timeline</p>
-                          <p className="text-sm font-medium text-slate-900">{lead.timeline}</p>
+                          <p className="text-xs text-white/40 mb-1">Timeline</p>
+                          <p className="text-sm font-medium text-white/80">{lead.timeline}</p>
                         </div>
                       )}
                       {lead.asking_price != null && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-1">Asking Price</p>
-                          <p className="text-sm font-medium text-slate-900 flex items-center gap-1">
+                          <p className="text-xs text-white/40 mb-1">Asking Price</p>
+                          <p className="text-sm font-medium text-white/80 flex items-center gap-1">
                             <DollarSign className="h-3 w-3" />{Number(lead.asking_price).toLocaleString()}
                           </p>
                         </div>
                       )}
                       {lead.vapi_call_status && (
                         <div>
-                          <p className="text-xs text-slate-500 mb-1">AI Call Status</p>
+                          <p className="text-xs text-white/40 mb-1">AI Call Status</p>
                           <StatusBadge status={lead.vapi_call_status} />
                         </div>
                       )}
@@ -260,8 +258,8 @@ export default function ClientDashboard() {
 
                     {lead.ai_notes && (
                       <div>
-                        <p className="text-xs text-slate-500 mb-1">AI Notes</p>
-                        <div className="text-sm text-slate-700 bg-white rounded-lg border border-slate-200 p-3 whitespace-pre-wrap">
+                        <p className="text-xs text-white/40 mb-1">AI Notes</p>
+                        <div className="text-sm text-white/60 bg-white/5 rounded-lg border border-white/10 p-3 whitespace-pre-wrap">
                           {lead.ai_notes}
                         </div>
                       </div>
@@ -274,7 +272,7 @@ export default function ClientDashboard() {
                           download
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                          className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white font-medium transition-colors"
                         >
                           <Download className="h-4 w-4" />
                           Download Call Recording
