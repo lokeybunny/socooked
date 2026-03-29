@@ -101,19 +101,34 @@ function RobotBody() {
             </mesh>
           )}
 
-          {/* Smile - black curved line */}
-          <mesh position={[0, -0.15, 0.34]} rotation={[Math.PI + 0.25, 0, 0]}>
-            <torusGeometry args={[0.08, 0.012, 8, 16, Math.PI]} />
-            <meshStandardMaterial color="#111" metalness={0.2} roughness={0.8} />
+          {/* Upper lip */}
+          <mesh position={[0, -0.11, 0.34]}>
+            <boxGeometry args={[0.16, 0.025, 0.04]} />
+            <meshStandardMaterial color="#8b4553" metalness={0.1} roughness={0.7} />
           </mesh>
-          {/* Smile corners */}
-          <mesh position={[-0.07, -0.13, 0.33]} rotation={[Math.PI + 0.5, 0, 0.3]}>
-            <torusGeometry args={[0.02, 0.008, 6, 8, Math.PI]} />
-            <meshStandardMaterial color="#111" metalness={0.2} roughness={0.8} />
+          {/* Upper lip - cupid's bow center */}
+          <mesh position={[0, -0.095, 0.35]}>
+            <sphereGeometry args={[0.02, 12, 12]} />
+            <meshStandardMaterial color="#8b4553" metalness={0.1} roughness={0.7} />
           </mesh>
-          <mesh position={[0.07, -0.13, 0.33]} rotation={[Math.PI + 0.5, 0, -0.3]}>
-            <torusGeometry args={[0.02, 0.008, 6, 8, Math.PI]} />
-            <meshStandardMaterial color="#111" metalness={0.2} roughness={0.8} />
+          {/* Lower lip - slightly fuller */}
+          <mesh position={[0, -0.14, 0.34]}>
+            <boxGeometry args={[0.14, 0.03, 0.045]} />
+            <meshStandardMaterial color="#9e5060" metalness={0.1} roughness={0.6} />
+          </mesh>
+          {/* Lip part line */}
+          <mesh position={[0, -0.125, 0.365]}>
+            <boxGeometry args={[0.13, 0.005, 0.01]} />
+            <meshStandardMaterial color="#2a1015" metalness={0.1} roughness={0.9} />
+          </mesh>
+          {/* Smile curve - subtle upward corners */}
+          <mesh position={[-0.08, -0.12, 0.345]}>
+            <sphereGeometry args={[0.012, 8, 8]} />
+            <meshStandardMaterial color="#7a3d4a" metalness={0.1} roughness={0.7} />
+          </mesh>
+          <mesh position={[0.08, -0.12, 0.345]}>
+            <sphereGeometry args={[0.012, 8, 8]} />
+            <meshStandardMaterial color="#7a3d4a" metalness={0.1} roughness={0.7} />
           </mesh>
 
           {/* Mustache */}
