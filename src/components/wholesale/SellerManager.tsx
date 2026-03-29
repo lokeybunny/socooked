@@ -798,6 +798,10 @@ export default function SellerManager() {
                 <SelectItem value="multi_home"><span className="flex items-center gap-1.5">🏘️ Multi-Home</span></SelectItem>
               </SelectContent>
             </Select>
+            <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground whitespace-nowrap">
+              <Checkbox checked={hideDuplicates} onCheckedChange={(v) => setHideDuplicates(!!v)} />
+              Hide Duplicates
+            </label>
           </div>
 
           {/* Distress Intelligence Presets & Advanced Filters */}
