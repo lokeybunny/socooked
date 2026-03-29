@@ -448,10 +448,15 @@ export default function BuyerDiscovery() {
               </SelectContent>
             </Select>
             <div className="flex gap-1.5 ml-auto">
-              <Button size="sm" variant="outline" onClick={runDiscovery} disabled={runningDiscovery}>
-                <Zap className="h-3.5 w-3.5 mr-1" />
-                {runningDiscovery ? 'Running…' : 'Run Discovery'}
-              </Button>
+              {runningDiscovery ? (
+                <Button size="sm" variant="destructive" onClick={stopDiscovery}>
+                  <Square className="h-3 w-3 mr-1 fill-current" /> Stop
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={runDiscovery}>
+                  <Zap className="h-3.5 w-3.5 mr-1" /> Run Discovery
+                </Button>
+              )}
               <Button size="sm" onClick={openAdd}>
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add Buyer
               </Button>
