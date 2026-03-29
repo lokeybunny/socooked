@@ -1,26 +1,42 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
 function RobotBody() {
   const groupRef = useRef<THREE.Group>(null);
-  const [blinking, setBlinking] = useState(false);
+  const leftLidRef = useRef<THREE.Mesh>(null);
+  const rightLidRef = useRef<THREE.Mesh>(null);
+  const blinkTarget = useRef(0); // 0 = open, 1 = closed
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (groupRef.current) {
       groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.3) * 0.15;
     }
+    // Smooth eyelid animation
+    [leftLidRef, rightLidRef].forEach((ref) => {
+      if (ref.current) {
+        const target = blinkTarget.current;
+        const current = ref.current.scale.y;
+        ref.current.scale.y = THREE.MathUtils.lerp(current, target, delta * 25);
+      }
+    });
   });
 
   // Blink loop
   useEffect(() => {
     const blink = () => {
-      setBlinking(true);
-      setTimeout(() => setBlinking(false), 150);
+      blinkTarget.current = 1;
+      setTimeout(() => { blinkTarget.current = 0; }, 120);
     };
-    const interval = setInterval(blink, 3000 + Math.random() * 2000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => {
+      blink();
+      // Occasional double blink
+      if (Math.random() < 0.3) {
+        setTimeout(blink, 250);
+      }
+    }, 2500 + Math.random() * 2500);
+    return () => clearInterval(id);
   }, []);
 
   const suitColor = '#0a1a3a';
@@ -46,7 +62,7 @@ function RobotBody() {
           </mesh>
           <mesh position={[-0.14, 0.05, 0.345]}>
             <sphereGeometry args={[0.03, 16, 16]} />
-            <meshStandardMaterial color="#1565c0" emissive="#1565c0" emissiveIntensity={blinking ? 0 : 0.8} metalness={0.4} roughness={0.3} />
+            <meshStandardMaterial color="#1565c0" emissive="#1565c0" emissiveIntensity={0.8} metalness={0.4} roughness={0.3} />
           </mesh>
           <mesh position={[-0.14, 0.05, 0.36]}>
             <sphereGeometry args={[0.015, 12, 12]} />
@@ -62,13 +78,11 @@ function RobotBody() {
             <boxGeometry args={[0.09, 0.008, 0.02]} />
             <meshStandardMaterial color="#333" metalness={0.2} roughness={0.8} />
           </mesh>
-          {/* Left eyelid (blink) */}
-          {blinking && (
-            <mesh position={[-0.14, 0.05, 0.35]}>
-              <boxGeometry args={[0.12, 0.11, 0.02]} />
-              <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
-            </mesh>
-          )}
+          {/* Left eyelid - smooth animated */}
+          <mesh ref={leftLidRef} position={[-0.14, 0.05, 0.37]} scale={[1, 0, 1]}>
+            <boxGeometry args={[0.12, 0.12, 0.03]} />
+            <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
+          </mesh>
 
           {/* Right eye - darker iris */}
           <mesh position={[0.14, 0.05, 0.33]}>
@@ -77,7 +91,7 @@ function RobotBody() {
           </mesh>
           <mesh position={[0.14, 0.05, 0.345]}>
             <sphereGeometry args={[0.03, 16, 16]} />
-            <meshStandardMaterial color="#1565c0" emissive="#1565c0" emissiveIntensity={blinking ? 0 : 0.8} metalness={0.4} roughness={0.3} />
+            <meshStandardMaterial color="#1565c0" emissive="#1565c0" emissiveIntensity={0.8} metalness={0.4} roughness={0.3} />
           </mesh>
           <mesh position={[0.14, 0.05, 0.36]}>
             <sphereGeometry args={[0.015, 12, 12]} />
@@ -93,13 +107,11 @@ function RobotBody() {
             <boxGeometry args={[0.09, 0.008, 0.02]} />
             <meshStandardMaterial color="#333" metalness={0.2} roughness={0.8} />
           </mesh>
-          {/* Right eyelid (blink) */}
-          {blinking && (
-            <mesh position={[0.14, 0.05, 0.35]}>
-              <boxGeometry args={[0.12, 0.11, 0.02]} />
-              <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
-            </mesh>
-          )}
+          {/* Right eyelid - smooth animated */}
+          <mesh ref={rightLidRef} position={[0.14, 0.05, 0.37]} scale={[1, 0, 1]}>
+            <boxGeometry args={[0.12, 0.12, 0.03]} />
+            <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
+          </mesh>
 
           {/* Upper lip */}
           <mesh position={[0, -0.11, 0.34]}>
