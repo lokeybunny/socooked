@@ -1,4 +1,52 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { z } from 'https://esm.sh/zod@3.23.8'
+
+// ─── Input Validation Schemas ────────────────────────────────
+const uuidSchema = z.string().uuid()
+
+const VALID_CUSTOMER_STATUSES = ['lead', 'prospect', 'prospect_emailed', 'active', 'monthly', 'won', 'inactive', 'churned'] as const
+const VALID_CATEGORIES = ['digital-services', 'brick-and-mortar', 'digital-ecommerce', 'food-and-beverage', 'mobile-services', 'telegram', 'other'] as const
+
+const customerCreateSchema = z.object({
+  id: uuidSchema.optional(),
+  full_name: z.string().min(1).max(200).trim(),
+  email: z.string().email().max(255).optional().nullable(),
+  phone: z.string().max(30).optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  company: z.string().max(200).optional().nullable(),
+  source: z.string().max(50).optional(),
+  status: z.enum(VALID_CUSTOMER_STATUSES).optional(),
+  notes: z.string().max(10000).optional().nullable(),
+  tags: z.array(z.string().max(50)).max(50).optional(),
+  category: z.enum(VALID_CATEGORIES).optional().nullable(),
+  meta: z.record(z.unknown()).optional(),
+  instagram_handle: z.string().max(100).optional().nullable(),
+})
+
+const dealCreateSchema = z.object({
+  id: uuidSchema.optional(),
+  title: z.string().min(1).max(300).trim(),
+  customer_id: uuidSchema,
+  deal_value: z.number().min(0).max(999999999).optional(),
+  stage: z.string().max(50).optional(),
+  status: z.enum(['open', 'won', 'lost']).optional(),
+  category: z.enum(VALID_CATEGORIES).optional().nullable(),
+  pipeline: z.string().max(50).optional(),
+  probability: z.number().min(0).max(100).optional(),
+  expected_close_date: z.string().max(20).optional().nullable(),
+  tags: z.array(z.string().max(50)).max(50).optional(),
+})
+
+// Helper to strip HTML tags from text fields
+function stripHtml(str: string): string {
+  return str.replace(/<[^>]*>/g, '')
+}
+
+function sanitizeTextField(val: unknown): string | null {
+  if (val === null || val === undefined) return null
+  const s = String(val)
+  return stripHtml(s).substring(0, 10000)
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -115,11 +163,10 @@ Deno.serve(async (req) => {
     if (error || !user) return fail('Unauthorized', 401)
   }
 
-  // Valid category IDs matching the UI
-  const VALID_CATEGORIES = ['digital-services', 'brick-and-mortar', 'digital-ecommerce', 'food-and-beverage', 'mobile-services', 'telegram', 'other']
+  // Valid category IDs matching the UI (uses VALID_CATEGORIES from top-level schema)
   const normalizeCategory = (cat: string | null | undefined): string => {
     if (!cat) return 'other'
-    return VALID_CATEGORIES.includes(cat) ? cat : 'other'
+    return (VALID_CATEGORIES as readonly string[]).includes(cat) ? cat : 'other'
   }
 
   try {
@@ -174,41 +221,51 @@ Deno.serve(async (req) => {
     }
 
     if (path === 'customer' && req.method === 'POST') {
-      const { id, full_name, email, phone, address, company, source, status, notes, tags, category, meta } = body
-      if (id) {
-        const updates: Record<string, unknown> = {}
-        if (full_name !== undefined) updates.full_name = full_name
-        if (email !== undefined) updates.email = email
-        if (phone !== undefined) updates.phone = phone
-        if (address !== undefined) updates.address = address
-        if (company !== undefined) updates.company = company
-        if (source !== undefined) updates.source = source
-        if (status !== undefined) updates.status = status
-        if (notes !== undefined) updates.notes = notes
-        if (tags !== undefined) updates.tags = tags
-        if (category !== undefined) updates.category = normalizeCategory(category)
-        if (meta !== undefined) updates.meta = meta
-        if (Object.keys(updates).length === 0) return fail('No fields to update. Send at least one field besides id.')
-        const { data: updated, error } = await supabase.from('customers').update(updates).eq('id', id).select('id, full_name').maybeSingle()
-        if (error) return fail(error.message)
-        if (!updated) return fail(`Customer with id ${id} not found`, 404)
-        await logActivity(supabase, 'customer', id, 'updated', updated.full_name)
-        return ok({ action: 'updated', customer_id: id, updated_fields: Object.keys(updates), current_name: updated.full_name })
+      // Validate input
+      const parsed = customerCreateSchema.safeParse(body)
+      if (!parsed.success) {
+        return fail(`Validation error: ${parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`, 400)
       }
-      if (!full_name) return fail('full_name is required')
+      const v = parsed.data
+      // Sanitize text fields
+      const safeName = stripHtml(v.full_name)
+      const safeNotes = v.notes ? sanitizeTextField(v.notes) : null
+
+      if (v.id) {
+        const updates: Record<string, unknown> = {}
+        if (v.full_name !== undefined) updates.full_name = safeName
+        if (v.email !== undefined) updates.email = v.email
+        if (v.phone !== undefined) updates.phone = v.phone
+        if (v.address !== undefined) updates.address = v.address ? sanitizeTextField(v.address) : null
+        if (v.company !== undefined) updates.company = v.company ? sanitizeTextField(v.company) : null
+        if (v.source !== undefined) updates.source = v.source
+        if (v.status !== undefined) updates.status = v.status
+        if (v.notes !== undefined) updates.notes = safeNotes
+        if (v.tags !== undefined) updates.tags = v.tags
+        if (v.category !== undefined) updates.category = normalizeCategory(v.category)
+        if (v.meta !== undefined) updates.meta = v.meta
+        if (Object.keys(updates).length === 0) return fail('No fields to update. Send at least one field besides id.')
+        const { data: updated, error } = await supabase.from('customers').update(updates).eq('id', v.id).select('id, full_name').maybeSingle()
+        if (error) return fail(error.message)
+        if (!updated) return fail(`Customer with id ${v.id} not found`, 404)
+        await logActivity(supabase, 'customer', v.id, 'updated', updated.full_name)
+        return ok({ action: 'updated', customer_id: v.id, updated_fields: Object.keys(updates), current_name: updated.full_name })
+      }
       const { data, error } = await supabase.from('customers').insert({
-        full_name, email: email || null, phone: phone || null, address: address || null,
-        company: company || null, source: source || 'bot', status: status || 'lead',
-        notes: notes || null, tags: tags || [], category: normalizeCategory(category), meta: meta || {},
+        full_name: safeName, email: v.email || null, phone: v.phone || null, address: v.address ? sanitizeTextField(v.address) : null,
+        company: v.company ? sanitizeTextField(v.company) : null, source: v.source || 'bot', status: v.status || 'lead',
+        notes: safeNotes, tags: v.tags || [], category: normalizeCategory(v.category), meta: v.meta || {},
       }).select('id').single()
       if (error) return fail(error.message)
-      await logActivity(supabase, 'customer', data?.id, 'created', full_name)
+      await logActivity(supabase, 'customer', data?.id, 'created', safeName)
       return ok({ action: 'created', customer_id: data?.id })
     }
 
     if (path === 'customer' && req.method === 'DELETE') {
       const id = body.id || params.get('id')
       if (!id) return fail('id is required. Pass as JSON body {"id":"uuid"} or query param ?id=uuid')
+      const idParsed = uuidSchema.safeParse(id)
+      if (!idParsed.success) return fail('id must be a valid UUID', 400)
       // Unlink/delete ALL related records to avoid FK constraint errors
       await supabase.from('cards').update({ customer_id: null }).eq('customer_id', id)
       await supabase.from('deals').update({ customer_id: null as any }).eq('customer_id', id)
