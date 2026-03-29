@@ -644,12 +644,27 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
       {/* Owner Info */}
       <div>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Owner Information</h4>
-        <div className="divide-y divide-border">
-          <DetailRow label="Name" value={s.owner_name} />
-          <PhoneRow seller={s} />
-          <DetailRow label="Email" value={s.owner_email} copyable />
-          <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable />
-        </div>
+        {(() => {
+          const isTraced = !!s.skip_traced_at;
+          const traceResult = s.meta?.skip_trace_result;
+          const tracedName = traceResult?.name || traceResult?.fullName
+            || (traceResult?.firstName && traceResult?.lastName ? `${traceResult.firstName} ${traceResult.lastName}` : null);
+          const clipNames = s.meta?.clipboard_trace?.names as string[] | undefined;
+          return (
+            <div className="divide-y divide-border">
+              <DetailRow label="Name" value={s.owner_name} />
+              {tracedName && tracedName !== s.owner_name && (
+                <DetailRow label="Traced Name" value={tracedName} copyable gold />
+              )}
+              {clipNames && clipNames.length > 0 && clipNames.filter((n: string) => n !== s.owner_name && n !== tracedName).map((name: string, i: number) => (
+                <DetailRow key={i} label={i === 0 ? 'Traced Name(s)' : ''} value={name} copyable gold />
+              ))}
+              <PhoneRow seller={s} />
+              <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
+              <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
+            </div>
+          );
+        })()}
       </div>
 
       <Separator />
