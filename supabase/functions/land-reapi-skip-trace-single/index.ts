@@ -99,14 +99,40 @@ Deno.serve(async (req) => {
             .join(", ")
       : null;
 
+    // Collect all phone numbers and emails
+    const allPhones: string[] = [];
+    if (Array.isArray(phones)) {
+      phones.forEach((p: any) => {
+        const num = p?.number || p?.phone || (typeof p === "string" ? p : null);
+        if (num && !allPhones.includes(num)) allPhones.push(num);
+      });
+    } else if (phones) {
+      allPhones.push(String(phones));
+    }
+
+    const allEmails: string[] = [];
+    if (Array.isArray(emails)) {
+      emails.forEach((e: any) => {
+        const addr = e?.address || e?.email || (typeof e === "string" ? e : null);
+        if (addr && !allEmails.includes(addr)) allEmails.push(addr);
+      });
+    } else if (emails) {
+      allEmails.push(String(emails));
+    }
+
     // Update seller — only mark as skip_traced if we got a phone number
     const updateData: any = {
       skip_traced_at: new Date().toISOString(),
-      status: bestPhone ? "skip_traced" : "req_trace",
-      meta: { ...seller.meta, skip_trace_result: result },
+      status: allPhones.length > 0 ? "skip_traced" : "req_trace",
+      meta: {
+        ...seller.meta,
+        skip_trace_result: result,
+        all_phones: allPhones,
+        all_emails: allEmails,
+      },
     };
-    if (bestPhone) updateData.owner_phone = bestPhone;
-    if (bestEmail) updateData.owner_email = bestEmail;
+    if (allPhones.length > 0) updateData.owner_phone = allPhones[0];
+    if (allEmails.length > 0) updateData.owner_email = allEmails[0];
     if (mailingStr) updateData.owner_mailing_address = mailingStr;
 
     await supabase
@@ -128,8 +154,10 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         ok: true,
-        phone: bestPhone,
-        email: bestEmail,
+        phone: allPhones[0] || null,
+        phones: allPhones,
+        email: allEmails[0] || null,
+        emails: allEmails,
         mailing_address: mailingStr,
       }),
       { headers: corsHeaders }
