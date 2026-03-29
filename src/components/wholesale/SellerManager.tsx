@@ -57,22 +57,55 @@ function CopyText({ text }: { text: string | null | undefined }) {
   );
 }
 
-// --- Business name detection ---
+// --- Business/junk name detection ---
 const BUSINESS_KEYWORDS = /\b(llc|inc|corp|ltd|lp|trust|estate|holdings|properties|investments|ventures|realty|enterprise|company|co\b|group|associates|partners|management|capital|development|construction|services|solutions|fund|foundation|church|ministry|bank|credit union|revocable|irrevocable|living trust|family trust|land co|homeowners|hoa)\b/i;
 const BUSINESS_PATTERNS = /^(the\s+)?\d|&|,\s*(llc|inc)|^\w+\s+(of|and)\s+\w+$/i;
+// Words that are never part of a real first/last name (TruePeopleSearch noise)
+const JUNK_NAME_WORDS = /\b(age|phone|address|county|records|court|evictions|lookups|data|bankruptcies|square|feet|year|built|estimated|value|equity|sale|amount|date|property|class|residential|subdivision|lot|background|profile|frequently|asked|questions|disclaimers|information|people|francisco|skip|trace|sell|notice|important|includes|primary|last|reverse|public|current|possible|nationwide|connections|since|where)\b/i;
 
 function isHumanName(name: string): boolean {
   if (!name || name.length < 4) return false;
   if (BUSINESS_KEYWORDS.test(name)) return false;
   if (BUSINESS_PATTERNS.test(name)) return false;
+  if (JUNK_NAME_WORDS.test(name)) return false;
   const parts = name.trim().split(/\s+/);
   if (parts.length < 2 || parts.length > 4) return false;
   if (parts.some(p => p.length > 3 && p === p.toUpperCase())) return false;
+  // Each part should be alpha only
+  if (parts.some(p => !/^[A-Za-z'-]+$/.test(p))) return false;
   return true;
 }
 
+// Pick the most likely real name: the one whose first or last name appears most often
+function pickBestName(names: string[]): string | null {
+  if (names.length === 0) return null;
+  if (names.length === 1) return names[0];
+
+  // Count how often each individual word appears across all names
+  const wordCounts: Record<string, number> = {};
+  names.forEach(n => {
+    const parts = n.toLowerCase().split(/\s+/);
+    parts.forEach(w => { wordCounts[w] = (wordCounts[w] || 0) + 1; });
+  });
+
+  // Score each name by the sum of its word frequencies
+  let best = names[0];
+  let bestScore = 0;
+  names.forEach(n => {
+    const parts = n.toLowerCase().split(/\s+/);
+    const score = parts.reduce((sum, w) => sum + (wordCounts[w] || 0), 0);
+    // Prefer longer names (first + middle + last > first + last) at equal score
+    if (score > bestScore || (score === bestScore && n.split(/\s+/).length > best.split(/\s+/).length)) {
+      best = n;
+      bestScore = score;
+    }
+  });
+
+  return best;
+}
+
 // --- Parse pasted skip trace data ---
-function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; names: string[] } {
+function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; names: string[]; bestName: string | null } {
   const phones: string[] = [];
   const emails: string[] = [];
   const names: string[] = [];
@@ -102,7 +135,7 @@ function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; 
     if (isHumanName(name) && !names.includes(name)) names.push(name);
   });
 
-  return { phones, emails, names };
+  return { phones, emails, names, bestName: pickBestName(names) };
 }
 
 export default function SellerManager() {
