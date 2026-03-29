@@ -2109,6 +2109,8 @@ export type Database = {
           sub_headline: string | null
           tagline: string
           updated_at: string
+          vapi_credit_balance_cents: number
+          vapi_total_spent_cents: number
         }
         Insert: {
           accent_color?: string
@@ -2129,6 +2131,8 @@ export type Database = {
           sub_headline?: string | null
           tagline?: string
           updated_at?: string
+          vapi_credit_balance_cents?: number
+          vapi_total_spent_cents?: number
         }
         Update: {
           accent_color?: string
@@ -2149,6 +2153,8 @@ export type Database = {
           sub_headline?: string | null
           tagline?: string
           updated_at?: string
+          vapi_credit_balance_cents?: number
+          vapi_total_spent_cents?: number
         }
         Relationships: []
       }
