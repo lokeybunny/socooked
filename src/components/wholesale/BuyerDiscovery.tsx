@@ -290,7 +290,8 @@ export default function BuyerDiscovery() {
     setEditId(b.id);
     setForm({
       full_name: b.full_name || '', email: b.email || '', phone: b.phone || '',
-      entity_name: b.entity_name || '', deal_type: b.deal_type || 'land',
+      entity_name: b.entity_name || '',
+      deal_types: b.meta?.deal_types || [b.deal_type || 'land'],
       target_states: (b.target_states || []).join(', '),
       target_counties: (b.target_counties || []).join(', '),
       budget_min: b.budget_min?.toString() || '', budget_max: b.budget_max?.toString() || '',
@@ -299,6 +300,9 @@ export default function BuyerDiscovery() {
       buyer_type: b.buyer_type || 'unknown', intent_level: b.intent_level || 'low',
       pipeline_stage: b.pipeline_stage || 'new_scraped', city: b.city || '',
       notes: b.notes || '', source: b.source || 'manual',
+      closing_speed: b.meta?.closing_speed || '',
+      contact_preference: b.meta?.contact_preference || 'email',
+      website: b.meta?.website || '',
     });
     setAddOpen(true);
   };
@@ -308,7 +312,7 @@ export default function BuyerDiscovery() {
     const payload: any = {
       full_name: form.full_name.trim(),
       email: form.email.trim() || null, phone: form.phone.trim() || null,
-      entity_name: form.entity_name.trim() || null, deal_type: form.deal_type,
+      entity_name: form.entity_name.trim() || null, deal_type: form.deal_types[0] || 'land',
       target_states: form.target_states.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
       target_counties: form.target_counties.split(',').map(s => s.trim()).filter(Boolean),
       budget_min: form.budget_min ? Number(form.budget_min) : null,
@@ -319,6 +323,12 @@ export default function BuyerDiscovery() {
       buyer_type: form.buyer_type, intent_level: form.intent_level,
       pipeline_stage: form.pipeline_stage, city: form.city.trim() || null,
       notes: form.notes.trim() || null, source: form.source, status: 'active',
+      meta: {
+        deal_types: form.deal_types,
+        closing_speed: form.closing_speed || null,
+        contact_preference: form.contact_preference,
+        website: form.website.trim() || null,
+      },
     };
     let savedId = editId;
     if (editId) {
