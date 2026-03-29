@@ -176,16 +176,23 @@ export default function SellerManager() {
     }
     setFetching(true);
     try {
-      const { data, error } = await supabase.functions.invoke('land-reapi-search', {
-        body: {
-          county: fetchCounty.trim(),
-          state: fetchState.trim().toUpperCase(),
-          deal_type: fetchDealType,
-          size: Number(fetchSize) || 50,
-        },
-      });
-      if (error) throw error;
-      toast.success(`Fetched ${data?.records_fetched || 0} properties, ${data?.records_new || 0} new`);
+      const types = fetchDealType === 'both' ? ['land', 'home'] : [fetchDealType];
+      let totalFetched = 0;
+      let totalNew = 0;
+      for (const dt of types) {
+        const { data, error } = await supabase.functions.invoke('land-reapi-search', {
+          body: {
+            county: fetchCounty.trim(),
+            state: fetchState.trim().toUpperCase(),
+            deal_type: dt,
+            size: Number(fetchSize) || 50,
+          },
+        });
+        if (error) throw error;
+        totalFetched += data?.records_fetched || 0;
+        totalNew += data?.records_new || 0;
+      }
+      toast.success(`Fetched ${totalFetched} properties, ${totalNew} new`);
       await loadSellers();
     } catch (err: any) {
       toast.error(err.message || 'Fetch failed');
