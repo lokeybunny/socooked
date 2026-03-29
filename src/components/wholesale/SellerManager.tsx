@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowLeft, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import DistressFilters, { EMPTY_DISTRESS_FILTERS, type DistressFilterState } from './DistressFilters';
 import CsvImport from './CsvImport';
@@ -980,6 +980,15 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
     onSkipTraced?.();
   };
 
+  const handleRevertPipeline = async () => {
+    const idx = PIPELINE_ORDER.indexOf(s.status);
+    if (idx <= 0) return;
+    const prevStatus = PIPELINE_ORDER[idx - 1];
+    await supabase.from('lw_sellers').update({ status: prevStatus }).eq('id', s.id);
+    toast.success(`Moved back to "${SELLER_STAGES.find(st => st.key === prevStatus)?.label || prevStatus}"`);
+    onSkipTraced?.();
+  };
+
   const handleSaveEdits = async () => {
     setSaving(true);
     try {
@@ -1085,7 +1094,17 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
             Save
           </Button>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={handleRevertPipeline}
+            disabled={PIPELINE_ORDER.indexOf(s.status) <= 0}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Last Stage
+          </Button>
           <Button
             size="sm"
             variant="outline"
