@@ -1,26 +1,42 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
 function RobotBody() {
   const groupRef = useRef<THREE.Group>(null);
-  const [blinking, setBlinking] = useState(false);
+  const leftLidRef = useRef<THREE.Mesh>(null);
+  const rightLidRef = useRef<THREE.Mesh>(null);
+  const blinkTarget = useRef(0); // 0 = open, 1 = closed
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (groupRef.current) {
       groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.3) * 0.15;
     }
+    // Smooth eyelid animation
+    [leftLidRef, rightLidRef].forEach((ref) => {
+      if (ref.current) {
+        const target = blinkTarget.current;
+        const current = ref.current.scale.y;
+        ref.current.scale.y = THREE.MathUtils.lerp(current, target, delta * 25);
+      }
+    });
   });
 
   // Blink loop
   useEffect(() => {
     const blink = () => {
-      setBlinking(true);
-      setTimeout(() => setBlinking(false), 150);
+      blinkTarget.current = 1;
+      setTimeout(() => { blinkTarget.current = 0; }, 120);
     };
-    const interval = setInterval(blink, 3000 + Math.random() * 2000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => {
+      blink();
+      // Occasional double blink
+      if (Math.random() < 0.3) {
+        setTimeout(blink, 250);
+      }
+    }, 2500 + Math.random() * 2500);
+    return () => clearInterval(id);
   }, []);
 
   const suitColor = '#0a1a3a';
