@@ -503,12 +503,14 @@ function PhoneRow({ seller }: { seller: any }) {
     toast.success(`Copied ${allPhones.length} phone number(s)`);
   };
 
+  const isTraced = !!seller.skip_traced_at;
+
   return (
-    <div className="py-1.5 text-sm">
+    <div className={`py-1.5 text-sm ${isTraced ? 'bg-yellow-500/10 px-2 -mx-2 rounded' : ''}`}>
       <div className="flex justify-between items-center group">
-        <span className="text-muted-foreground">Phone</span>
+        <span className={isTraced ? 'text-yellow-600 dark:text-yellow-400 font-medium' : 'text-muted-foreground'}>Phone</span>
         <span className="font-medium flex items-center gap-1">
-          <a href={`tel:${primary}`} className="text-primary hover:underline">{primary}</a>
+          <a href={`tel:${primary}`} className={`hover:underline ${isTraced ? 'text-yellow-600 dark:text-yellow-400' : 'text-primary'}`}>{primary}</a>
           <CopyText text={primary} />
           {extras.length > 0 && (
             <button
@@ -534,8 +536,8 @@ function PhoneRow({ seller }: { seller: any }) {
         <div className="mt-1 ml-auto space-y-1 max-w-[60%]">
           {extras.map((phone, i) => (
             <div key={i} className="flex items-center gap-1 justify-end text-xs">
-              <Phone className="h-3 w-3 text-muted-foreground" />
-              <a href={`tel:${phone}`} className="text-primary hover:underline">{phone}</a>
+              <Phone className="h-3 w-3 text-yellow-500" />
+              <a href={`tel:${phone}`} className="text-yellow-600 dark:text-yellow-400 hover:underline">{phone}</a>
               <CopyText text={phone} />
             </div>
           ))}
