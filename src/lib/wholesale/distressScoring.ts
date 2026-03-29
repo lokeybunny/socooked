@@ -43,15 +43,24 @@ export function isBuyerInCraigslistRegion(
   const buyerSubdomain = extractCraigslistSubdomain(buyer.source_url);
   if (buyerSubdomain === sellerSubdomain) return true;
 
-  // Fallback: match the CL city's state against buyer's target_states
+  // City-level match only — never match by state alone
   const clCity = getCraigslistCity(sellerSubdomain);
   if (clCity) {
-    const buyerStates: string[] = buyer.target_states || [];
-    if (buyerStates.includes(clCity.state)) return true;
+    const buyerCityLower = (buyer.city || '').toLowerCase().trim();
+    const clLabelLower = clCity.label.toLowerCase();
 
-    // Check if buyer city name roughly matches the CL city label
-    const buyerCityLower = (buyer.city || '').toLowerCase();
-    if (buyerCityLower && clCity.label.toLowerCase().includes(buyerCityLower)) return true;
+    // Exact city name match (e.g. buyer.city "Los Angeles" ↔ CL label "Los Angeles")
+    if (buyerCityLower && (
+      clLabelLower.includes(buyerCityLower) ||
+      buyerCityLower.includes(clLabelLower)
+    )) return true;
+
+    // Check buyer target_counties against the CL city label (county-level proxy)
+    const buyerCounties: string[] = buyer.target_counties || [];
+    if (buyerCounties.some((c: string) => {
+      const cLower = c.toLowerCase().trim();
+      return clLabelLower.includes(cLower) || cLower.includes(clLabelLower);
+    })) return true;
   }
 
   return false;
