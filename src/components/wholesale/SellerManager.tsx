@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PAGE_SIZE = 25;
@@ -610,11 +610,20 @@ function PhoneRow({ seller }: { seller: any }) {
   );
 }
 
+const PIPELINE_ORDER = ['new', 'req_trace', 'skip_traced', 'contacted', 'offer_sent', 'under_contract', 'closed', 'dead'];
+
 function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipTraced?: () => void }) {
   const [tracing, setTracing] = useState(false);
   const [clipboardOpen, setClipboardOpen] = useState(false);
   const [pasteData, setPasteData] = useState('');
   const [parsing, setParsing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(s.owner_name || '');
+  const [editPhone, setEditPhone] = useState(s.owner_phone || '');
+  const [editEmail, setEditEmail] = useState(s.owner_email || '');
+  const [editMailing, setEditMailing] = useState(s.owner_mailing_address || '');
+  const [editNotes, setEditNotes] = useState(s.notes || '');
+  const [saving, setSaving] = useState(false);
 
   const handleSkipTrace = async () => {
     setTracing(true);
