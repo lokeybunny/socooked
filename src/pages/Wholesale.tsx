@@ -7,18 +7,20 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3 } from 'lucide-react';
+import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
 import SellerManager from '@/components/wholesale/SellerManager';
 import DistressDashboard from '@/components/wholesale/DistressDashboard';
+import BuyerSellerMatches from '@/components/wholesale/BuyerSellerMatches';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home';
 
 export default function Wholesale() {
   const [dealTypeFilter, setDealTypeFilter] = useState<DealType>('all');
+  const [activeTab, setActiveTab] = useState('intelligence');
   const [callQueue, setCallQueue] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
   const [demandSignals, setDemandSignals] = useState<any[]>([]);
@@ -137,7 +139,7 @@ export default function Wholesale() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="intelligence" className="w-full">
+      <Tabs defaultValue="intelligence" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full justify-start flex-wrap">
           <TabsTrigger value="intelligence" className="gap-1.5">
             <BarChart3 className="h-3.5 w-3.5" />
@@ -150,10 +152,21 @@ export default function Wholesale() {
             )}
           </TabsTrigger>
           <TabsTrigger value="pipeline">Deal Pipeline</TabsTrigger>
-          <TabsTrigger value="demand">Demand Map</TabsTrigger>
-          <TabsTrigger value="buyers">Buyers</TabsTrigger>
-          <TabsTrigger value="sellers">Sellers</TabsTrigger>
-          <TabsTrigger value="sources">Discovery</TabsTrigger>
+          <TabsTrigger value="demand" className="gap-1.5">
+            <Heart className="h-3.5 w-3.5 text-pink-500" />
+            Matches
+          </TabsTrigger>
+          <TabsTrigger value="buyers" className="gap-1.5 data-[state=active]:bg-green-500/15 data-[state=active]:text-green-600">
+            <Users className="h-3.5 w-3.5" />
+            Buyers
+          </TabsTrigger>
+          <TabsTrigger value="sellers" className="gap-1.5 data-[state=active]:bg-red-500/15 data-[state=active]:text-red-600">
+            <MapPin className="h-3.5 w-3.5" />
+            Sellers
+          </TabsTrigger>
+          {activeTab === 'buyers' && (
+            <TabsTrigger value="sources">Discovery</TabsTrigger>
+          )}
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -302,63 +315,8 @@ export default function Wholesale() {
           </Card>
         </TabsContent>
 
-        {/* Tab 3: Demand Map */}
         <TabsContent value="demand" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Buyer Demand by County
-                <Badge variant="outline" className="ml-auto">{demandSignals.length} counties</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {demandSignals.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No demand signals yet</p>
-                  <p className="text-xs mt-1">Demand is calculated from active buyer preferences</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Rank</TableHead>
-                      <TableHead>County</TableHead>
-                      <TableHead>State</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Active Buyers</TableHead>
-                      <TableHead>Avg Budget</TableHead>
-                      <TableHead>Acreage Range</TableHead>
-                      <TableHead>Last Refreshed</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {demandSignals.map((sig) => (
-                      <TableRow key={sig.id}>
-                        <TableCell className="font-mono text-sm font-bold">#{sig.demand_rank || '—'}</TableCell>
-                        <TableCell className="font-medium">{sig.county}</TableCell>
-                        <TableCell>{sig.state}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-[10px]">
-                            {sig.deal_type === 'land' ? '🏞️' : '🏠'} {sig.deal_type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-semibold">{sig.buyer_count}</TableCell>
-                        <TableCell>{sig.avg_budget ? `$${Number(sig.avg_budget).toLocaleString()}` : '—'}</TableCell>
-                        <TableCell className="text-sm">
-                          {sig.avg_acreage_min != null ? `${sig.avg_acreage_min}–${sig.avg_acreage_max || '∞'} ac` : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {sig.last_refreshed_at ? new Date(sig.last_refreshed_at).toLocaleDateString() : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          <BuyerSellerMatches />
         </TabsContent>
         {/* Tab 4: Buyers */}
         <TabsContent value="buyers" className="mt-4">

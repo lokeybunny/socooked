@@ -9,15 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Users, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Users, Pencil, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
-
-const US_STATES = [
-  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA',
-  'KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ',
-  'NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT',
-  'VA','WA','WV','WI','WY'
-];
+import BuyerInterests, { emptyInterests, type InterestsData } from './BuyerInterests';
 
 type Buyer = {
   id: string;
@@ -38,6 +32,7 @@ type Buyer = {
   source: string;
   notes: string | null;
   created_at: string;
+  meta: any;
 };
 
 const emptyForm = {
@@ -63,6 +58,8 @@ export default function BuyerManager() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [interests, setInterests] = useState<InterestsData>(emptyInterests);
+  const [findingSeller, setFindingSeller] = useState(false);
 
   useEffect(() => { loadBuyers(); }, []);
 
@@ -76,6 +73,7 @@ export default function BuyerManager() {
   const openAdd = () => {
     setEditId(null);
     setForm(emptyForm);
+    setInterests(emptyInterests);
     setOpen(true);
   };
 
@@ -97,6 +95,7 @@ export default function BuyerManager() {
       notes: b.notes || '',
       source: b.source,
     });
+    setInterests(b.meta?.interests || emptyInterests);
     setOpen(true);
   };
 
@@ -120,6 +119,8 @@ export default function BuyerManager() {
       notes: form.notes.trim() || null,
       source: form.source,
       status: 'active',
+      meta: { interests },
+      property_type_interest: interests.property_types,
     };
 
     if (editId) {
@@ -142,7 +143,67 @@ export default function BuyerManager() {
     loadBuyers();
   };
 
+  const handleFindSeller = async () => {
+    if (!form.target_states.trim()) { toast.error('Set target states first'); return; }
+    setFindingSeller(true);
+
+    try {
+      const states = form.target_states.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+      const counties = form.target_counties.split(',').map(s => s.trim()).filter(Boolean);
+
+      // Build property type filter from interests
+      const propTypes = interests.property_types;
+      let propertyType = 'LAND';
+      if (propTypes.includes('sfr')) propertyType = 'SFR';
+      else if (propTypes.includes('multi_family')) propertyType = 'MULTI_FAMILY';
+      else if (propTypes.includes('land')) propertyType = 'LAND';
+
+      const params: any = {
+        state: states[0] || 'TX',
+        property_type: propertyType,
+        limit: 25,
+      };
+      if (counties.length) params.county = counties[0];
+
+      // Add distress filters based on motivation flags
+      const motFlags = interests.motivation_flags || [];
+      if (motFlags.includes('absentee_owner')) params.absentee_owner = true;
+      if (motFlags.includes('pre_foreclosure')) params.pre_foreclosure = true;
+      if (motFlags.includes('tax_delinquent')) params.tax_delinquent = true;
+      if (motFlags.includes('vacant')) params.vacant = true;
+      if (motFlags.includes('free_clear')) params.free_and_clear = true;
+
+      // Price range
+      if (form.budget_max) params.max_value = Math.round(Number(form.budget_max) * 1.25); // 25% buffer
+      if (form.budget_min) params.min_value = Number(form.budget_min);
+
+      // Acreage
+      if (form.acreage_min) params.min_acres = Number(form.acreage_min);
+      if (form.acreage_max) params.max_acres = Number(form.acreage_max);
+
+      const res = await supabase.functions.invoke('land-reapi-search', {
+        body: { action: 'search', params },
+      });
+
+      if (res.error) throw res.error;
+      const result = res.data;
+      toast.success(`Found ${result?.records_fetched || 0} seller leads matching buyer criteria`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to search');
+    } finally {
+      setFindingSeller(false);
+    }
+  };
+
   const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
+
+  const interestSummary = (b: Buyer) => {
+    const int: InterestsData = b.meta?.interests || {};
+    const tags: string[] = [];
+    (int.property_types || []).forEach(pt => tags.push(pt.replace('_', ' ')));
+    (int.motivation_flags || []).slice(0, 2).forEach(mf => tags.push(mf.replace('_', ' ')));
+    return tags.length ? tags : null;
+  };
 
   return (
     <Card>
@@ -155,11 +216,12 @@ export default function BuyerManager() {
             <DialogTrigger asChild>
               <Button size="sm" onClick={openAdd}><Plus className="h-3.5 w-3.5 mr-1" /> Add Buyer</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editId ? 'Edit Buyer' : 'Add New Buyer'}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-2">
+                {/* Contact Info */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Full Name *</Label>
@@ -206,7 +268,7 @@ export default function BuyerManager() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Target States * <span className="text-muted-foreground text-xs">(comma-separated, e.g. TX, FL, AZ)</span></Label>
+                  <Label>Target States * <span className="text-muted-foreground text-xs">(comma-separated)</span></Label>
                   <Input value={form.target_states} onChange={e => set('target_states', e.target.value)} placeholder="TX, FL, AZ" />
                 </div>
                 <div className="space-y-1.5">
@@ -240,12 +302,31 @@ export default function BuyerManager() {
                   <Input type="number" min={0} max={100} value={form.activity_score} onChange={e => set('activity_score', e.target.value)} />
                 </div>
 
+                {/* Buyer Interests Section */}
+                <div className="border-t border-border pt-4">
+                  <h3 className="text-sm font-bold mb-3">🎯 Buyer Interests & Criteria</h3>
+                  <BuyerInterests interests={interests} onChange={setInterests} />
+                </div>
+
                 <div className="space-y-1.5">
                   <Label>Notes</Label>
                   <Textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} placeholder="Cash buyer, closes fast…" />
                 </div>
 
-                <Button className="w-full" onClick={handleSave}>{editId ? 'Update Buyer' : 'Add Buyer'}</Button>
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={handleSave}>{editId ? 'Update Buyer' : 'Add Buyer'}</Button>
+                  {editId && (
+                    <Button
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={handleFindSeller}
+                      disabled={findingSeller}
+                    >
+                      <Search className={`h-3.5 w-3.5 ${findingSeller ? 'animate-spin' : ''}`} />
+                      {findingSeller ? 'Searching…' : 'Find a Seller'}
+                    </Button>
+                  )}
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -266,60 +347,66 @@ export default function BuyerManager() {
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>States</TableHead>
-                <TableHead>Counties</TableHead>
                 <TableHead>Budget</TableHead>
-                <TableHead>Acreage</TableHead>
+                <TableHead>Interests</TableHead>
                 <TableHead>Score</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {buyers.map(b => (
-                <TableRow key={b.id}>
-                  <TableCell>
-                    <div>
-                      <span className="font-medium">{b.full_name}</span>
-                      {b.entity_name && <span className="text-xs text-muted-foreground block">{b.entity_name}</span>}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-[10px]">
-                      {b.deal_type === 'land' ? '🏞️' : '🏠'} {b.deal_type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs max-w-[120px] truncate">{b.target_states.join(', ')}</TableCell>
-                  <TableCell className="text-xs max-w-[150px] truncate">{b.target_counties.join(', ') || '—'}</TableCell>
-                  <TableCell className="text-sm">
-                    {b.budget_min || b.budget_max
-                      ? `$${(b.budget_min || 0).toLocaleString()}–$${(b.budget_max || 0).toLocaleString()}`
-                      : '—'}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {b.acreage_min || b.acreage_max
-                      ? `${b.acreage_min || 0}–${b.acreage_max || '∞'} ac`
-                      : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`font-mono text-sm font-semibold ${b.activity_score >= 70 ? 'text-green-500' : b.activity_score >= 40 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
-                      {b.activity_score}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={b.status === 'active' ? 'default' : 'secondary'} className="text-[10px]">{b.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-1 justify-end">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(b)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDelete(b.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {buyers.map(b => {
+                const tags = interestSummary(b);
+                return (
+                  <TableRow key={b.id}>
+                    <TableCell>
+                      <div>
+                        <span className="font-medium">{b.full_name}</span>
+                        {b.entity_name && <span className="text-xs text-muted-foreground block">{b.entity_name}</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px]">
+                        {b.deal_type === 'land' ? '🏞️' : '🏠'} {b.deal_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs max-w-[120px] truncate">{b.target_states.join(', ')}</TableCell>
+                    <TableCell className="text-sm">
+                      {b.budget_min || b.budget_max
+                        ? `$${(b.budget_min || 0).toLocaleString()}–$${(b.budget_max || 0).toLocaleString()}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {tags ? (
+                        <div className="flex flex-wrap gap-1 max-w-[150px]">
+                          {tags.slice(0, 3).map((t, i) => (
+                            <span key={i} className="text-[10px] bg-muted px-1.5 py-0.5 rounded capitalize">{t}</span>
+                          ))}
+                          {tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{tags.length - 3}</span>}
+                        </div>
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`font-mono text-sm font-semibold ${b.activity_score >= 70 ? 'text-green-500' : b.activity_score >= 40 ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+                        {b.activity_score}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={b.status === 'active' ? 'default' : 'secondary'} className="text-[10px]">{b.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-1 justify-end">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(b)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleDelete(b.id)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
