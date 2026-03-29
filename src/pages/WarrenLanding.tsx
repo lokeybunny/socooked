@@ -75,7 +75,7 @@ function DemoVideoSection() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   return (
-    <section className="py-20 px-6 border-t border-white/[0.04]">
+    <section id="see-it-in-action" className="py-20 px-6 border-t border-white/[0.04]">
       <div className="max-w-4xl mx-auto">
         <motion.p
           initial="hidden" whileInView="visible" viewport={{ once: true }}
@@ -209,18 +209,11 @@ export default function WarrenLanding() {
               Start Free Trial
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <Link
-              to="/sell/joedoe"
-              className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-white transition-colors border border-white/10 rounded-lg hover:border-white/20"
-            >
-              See Live Example
-              <ArrowRight className="h-4 w-4" />
-            </Link>
             <a
-              href="#how-it-works"
+              href="#see-it-in-action"
               className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-white transition-colors"
             >
-              See How It Works
+              See It In Action
               <ChevronDown className="h-4 w-4" />
             </a>
           </div>
