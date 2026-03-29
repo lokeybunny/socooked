@@ -664,8 +664,8 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
 
       if (parsed.phones.length > 0) updateData.owner_phone = parsed.phones[0];
       if (parsed.emails.length > 0) updateData.owner_email = parsed.emails[0];
-      // Update owner_name if we found a best human name and current name looks like a business
-      if (parsed.bestName && !isHumanName(s.owner_name || '')) {
+      // Always update owner_name if we found a best human name from clipboard
+      if (parsed.bestName) {
         updateData.owner_name = parsed.bestName;
       }
 
@@ -712,12 +712,10 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           const traceResult = s.meta?.skip_trace_result;
           const rawTracedName = traceResult?.name || traceResult?.fullName
             || (traceResult?.firstName && traceResult?.lastName ? `${traceResult.firstName} ${traceResult.lastName}` : null);
-          const tracedName = rawTracedName && isHumanName(rawTracedName) ? rawTracedName : null;
-          // Only show the single best name from clipboard trace
-          const clipBestName = s.meta?.clipboard_trace?.bestName as string | undefined;
-          const bestClipName = clipBestName && isHumanName(clipBestName) ? clipBestName : null;
+          // Trust the bestName from clipboard trace — it was already validated at parse time
+          const clipBestName = (s.meta?.clipboard_trace?.bestName as string | undefined) || null;
           // Pick the one best traced name to show
-          const displayTracedName = tracedName || bestClipName;
+          const displayTracedName = rawTracedName || clipBestName;
           return (
             <div className="divide-y divide-border">
               <DetailRow label="Name" value={s.owner_name} />
