@@ -1872,6 +1872,69 @@ Format the contract with clear section headings and numbered paragraphs.`;
         </div>
       </div>
 
+      {/* Agreement Generator Modal */}
+      <Dialog open={agreementOpen} onOpenChange={setAgreementOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">📝 Wholesale Purchase Agreement</DialogTitle>
+            <DialogDescription className="text-xs">
+              Generate a wholesale contract for {s.address_full || 'this property'}. Includes assignability clause and contingency back-out period.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <Label className="text-xs">Contingency / Back-Out Period (days)</Label>
+                <Input
+                  type="number"
+                  min="7"
+                  max="120"
+                  value={agreementDuration}
+                  onChange={e => setAgreementDuration(e.target.value)}
+                  className="h-8 text-sm mt-1"
+                />
+              </div>
+              <Button
+                size="sm"
+                onClick={generateAgreement}
+                disabled={generatingAgreement}
+                className="mt-5"
+              >
+                {generatingAgreement ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Generating…</> : 'Generate Agreement'}
+              </Button>
+            </div>
+
+            {agreementText && (
+              <>
+                <div className="rounded-md border border-border bg-muted/30 p-4 max-h-[50vh] overflow-y-auto">
+                  <pre className="whitespace-pre-wrap text-xs font-mono leading-relaxed text-foreground">{agreementText}</pre>
+                </div>
+                <div className="flex justify-between items-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(agreementText);
+                      toast.success('Agreement copied to clipboard');
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleDraftEmail}
+                    disabled={draftingEmail}
+                    className="gap-1.5"
+                  >
+                    {draftingEmail ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</> : '✉️ Draft Email'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Trace Clipboard Modal */}
       <Dialog open={clipboardOpen} onOpenChange={setClipboardOpen}>
         <DialogContent className="max-w-lg">
