@@ -31,11 +31,7 @@ function RobotBody() {
     };
     const id = setInterval(() => {
       blink();
-      // Occasional double blink
-      if (Math.random() < 0.3) {
-        setTimeout(blink, 250);
-      }
-    }, 2500 + Math.random() * 2500);
+    }, 14000);
     return () => clearInterval(id);
   }, []);
 
@@ -296,12 +292,12 @@ function RobotBody() {
 
 export default function InvestorRobot() {
   return (
-    <div className="w-full h-[45vh] sm:h-[50vh] md:h-[55vh]">
+    <div className="w-full h-[45vh] sm:h-[50vh] md:h-[55vh] bg-black rounded-lg">
       <Canvas
         camera={{ position: [0, 1, 5], fov: 40 }}
-        gl={{ alpha: true, antialias: true }}
-        style={{ background: 'transparent' }}
+        gl={{ alpha: false, antialias: true }}
       >
+        <color attach="background" args={['#000000']} />
         <ambientLight intensity={0.3} />
         <directionalLight position={[3, 5, 4]} intensity={1.2} color="#ffffff" />
         <directionalLight position={[-2, 3, -2]} intensity={0.4} color="#00e5ff" />
