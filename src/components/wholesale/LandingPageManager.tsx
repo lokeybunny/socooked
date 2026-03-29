@@ -222,7 +222,7 @@ export default function LandingPageManager() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Create Landing Page</DialogTitle></DialogHeader>
-            <FormFields />
+            {formFieldsJsx}
             <Button onClick={handleCreate} disabled={creating} className="mt-2 w-full">
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Page'}
             </Button>
@@ -246,7 +246,7 @@ export default function LandingPageManager() {
           <div key={p.id} className="glass-card p-4 space-y-3">
             {isEditing ? (
               <>
-                <FormFields />
+                {formFieldsJsx}
                 <div className="flex gap-2 justify-end">
                   <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-3.5 w-3.5 mr-1" /> Cancel</Button>
                   <Button size="sm" onClick={() => handleUpdate(p.id)}><Save className="h-3.5 w-3.5 mr-1" /> Save</Button>
