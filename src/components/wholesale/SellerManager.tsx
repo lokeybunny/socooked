@@ -574,7 +574,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Owner Information</h4>
         <div className="divide-y divide-border">
           <DetailRow label="Name" value={s.owner_name} />
-          <DetailRow label="Phone" value={s.owner_phone} copyable />
+          <PhoneRow seller={s} />
           <DetailRow label="Email" value={s.owner_email} copyable />
           <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable />
         </div>
