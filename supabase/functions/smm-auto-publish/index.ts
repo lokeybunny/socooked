@@ -1183,10 +1183,12 @@ Deno.serve(async (req) => {
         if (overdueUnpublished.length > 0) {
           console.log(`[smm-auto-publish] Found ${overdueUnpublished.length} overdue events from today — auto catch-up`);
           const results = await processReadyBatch(overdueUnpublished, "overdue");
+          await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock");
           return json({ ok: true, batch: true, count: overdueUnpublished.length, results });
         }
       }
       console.log("[smm-auto-publish] No events due in window");
+      await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock");
       return json({ ok: true, published: 0, message: "No events due" });
     }
 
@@ -1194,6 +1196,7 @@ Deno.serve(async (req) => {
 
     if (unpublished.length === 0) {
       console.log("[smm-auto-publish] All due events already processed or pending");
+      await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock");
       return json({ ok: true, published: 0, message: "All already processed or pending" });
     }
 
