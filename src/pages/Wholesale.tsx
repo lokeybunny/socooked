@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
@@ -24,7 +24,7 @@ export default function Wholesale() {
   const [callQueue, setCallQueue] = useState<any[]>([]);
   const [deals, setDeals] = useState<any[]>([]);
   const [demandSignals, setDemandSignals] = useState<any[]>([]);
-  const [stats, setStats] = useState({ buyers: 0, sellers: 0, dealsMonth: 0, apiSpend: 0, avgMatch: 0 });
+  const [stats, setStats] = useState({ buyers: 0, sellers: 0, sellersUnderContract: 0, dealsMonth: 0, apiSpend: 0, avgMatch: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,9 +62,10 @@ export default function Wholesale() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [buyersRes, sellersRes, dealsRes, runsRes, matchRes] = await Promise.all([
+    const [buyersRes, sellersRes, sellersUCRes, dealsRes, runsRes, matchRes] = await Promise.all([
       supabase.from('lw_buyers').select('id', { count: 'exact', head: true }).eq('pipeline_stage', 'active'),
       supabase.from('lw_sellers').select('id', { count: 'exact', head: true }),
+      supabase.from('lw_sellers').select('id', { count: 'exact', head: true }).eq('status', 'under_contract'),
       supabase.from('lw_deals').select('id', { count: 'exact', head: true }).gte('created_at', monthStart),
       supabase.from('lw_ingestion_runs').select('credits_used').gte('created_at', monthStart),
       supabase.from('lw_deals').select('match_score'),
@@ -77,6 +78,7 @@ export default function Wholesale() {
     setStats({
       buyers: buyersRes.count || 0,
       sellers: sellersRes.count || 0,
+      sellersUnderContract: sellersUCRes.count || 0,
       dealsMonth: dealsRes.count || 0,
       apiSpend,
       avgMatch,
@@ -130,9 +132,10 @@ export default function Wholesale() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <StatCard icon={Users} label="Active Buyers" value={stats.buyers} />
         <StatCard icon={MapPin} label="Seller Leads" value={stats.sellers} />
+        <StatCard icon={FileSignature} label="Sellers Under Contract" value={stats.sellersUnderContract} />
         <StatCard icon={Building2} label="Deals (Month)" value={stats.dealsMonth} />
         <StatCard icon={DollarSign} label="API Spend" value={`$${stats.apiSpend.toFixed(2)}`} />
         <StatCard icon={TrendingUp} label="Avg Match" value={stats.avgMatch} />
