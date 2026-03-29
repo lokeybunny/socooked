@@ -52,6 +52,7 @@ const EMPTY_PAGE = {
   accent_color: '#2563eb',
   phone: '',
   email: '',
+  client_password: '',
 };
 
 export default function LandingPageManager() {
