@@ -680,28 +680,29 @@ export default function SellerManager() {
                       Owner {sortField === 'owner_name' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
                     <TableHead>Address</TableHead>
-                    <TableHead>County</TableHead>
-                    <TableHead>State</TableHead>
+                    <TableHead>County/State</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('acreage')}>
                       Acres {sortField === 'acreage' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
-                    <TableHead>Bed/Bath</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => toggleSort('living_sqft')}>
-                      Sqft {sortField === 'living_sqft' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
-                    </TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('motivation_score')}>
-                      Motivation {sortField === 'motivation_score' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
-                    </TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => toggleSort('market_value')}>
-                      Market Value {sortField === 'market_value' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
+                      Distress {sortField === 'motivation_score' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
                     <TableHead>Flags</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => toggleSort('equity_percent')}>
+                      Equity% {sortField === 'equity_percent' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
+                    </TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => toggleSort('buyer_match_score')}>
+                      Buyer Match {sortField === 'buyer_match_score' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
+                    </TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginated.map(s => (
+                  {paginated.map(s => {
+                    const tempIcon = (s.lead_temperature || ((s.motivation_score || 0) >= 70 ? 'Hot' : (s.motivation_score || 0) >= 45 ? 'Warm' : 'Cold'));
+                    return (
                     <TableRow key={s.id}>
                       <TableCell className="text-center">
                         {(s.deal_type || 'land') === 'land'
@@ -721,31 +722,44 @@ export default function SellerManager() {
                         </div>
                       </TableCell>
                       <TableCell className="text-xs max-w-[200px] truncate">{s.address_full || '—'}</TableCell>
-                      <TableCell className="text-sm">{s.county || '—'}</TableCell>
-                      <TableCell className="text-sm">{s.state || '—'}</TableCell>
+                      <TableCell className="text-xs">
+                        <span>{s.county || '—'}</span>
+                        <span className="text-muted-foreground">, {s.state || '—'}</span>
+                      </TableCell>
                       <TableCell className="text-sm font-mono">{s.acreage ? Number(s.acreage).toFixed(2) : '—'}</TableCell>
-                      <TableCell className="text-sm font-mono">
-                        {s.bedrooms || s.bathrooms ? `${s.bedrooms ?? '—'}/${s.bathrooms ?? '—'}` : '—'}
-                      </TableCell>
-                      <TableCell className="text-sm font-mono">{s.living_sqft ? Number(s.living_sqft).toLocaleString() : '—'}</TableCell>
                       <TableCell>
-                        <span className={`font-mono text-sm font-semibold ${
-                          (s.motivation_score || 0) >= 60 ? 'text-green-500' :
-                          (s.motivation_score || 0) >= 30 ? 'text-yellow-500' : 'text-muted-foreground'
-                        }`}>{s.motivation_score || 0}</span>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {s.market_value ? `$${Number(s.market_value).toLocaleString()}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {s.is_tax_delinquent && <Badge variant="destructive" className="text-[9px] px-1">Tax Del.</Badge>}
-                          {s.is_absentee_owner && <Badge variant="outline" className="text-[9px] px-1">Absentee</Badge>}
-                          {s.is_vacant && <Badge variant="outline" className="text-[9px] px-1">Vacant</Badge>}
-                          {s.is_out_of_state && <Badge variant="outline" className="text-[9px] px-1">OOS</Badge>}
-                          {s.is_pre_foreclosure && <Badge variant="destructive" className="text-[9px] px-1">Pre-FC</Badge>}
-                          {s.has_tax_lien && <Badge variant="outline" className="text-[9px] px-1">Lien</Badge>}
+                        <div className="flex items-center gap-1.5">
+                          {tempIcon === 'Hot' && <Flame className="h-3 w-3 text-destructive" />}
+                          {tempIcon === 'Warm' && <Sun className="h-3 w-3 text-yellow-500" />}
+                          {tempIcon === 'Cold' && <Snowflake className="h-3 w-3 text-muted-foreground" />}
+                          <span className={`font-mono text-sm font-semibold ${
+                            (s.motivation_score || 0) >= 70 ? 'text-destructive' :
+                            (s.motivation_score || 0) >= 45 ? 'text-yellow-500' : 'text-muted-foreground'
+                          }`}>{s.motivation_score || 0}</span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-0.5">
+                          {s.is_absentee_owner && <Badge variant="outline" className="text-[8px] px-1 py-0">ABS</Badge>}
+                          {s.is_vacant && <Badge variant="outline" className="text-[8px] px-1 py-0">VAC</Badge>}
+                          {s.is_tax_delinquent && <Badge variant="destructive" className="text-[8px] px-1 py-0">TAX</Badge>}
+                          {s.is_pre_foreclosure && <Badge variant="destructive" className="text-[8px] px-1 py-0">FC</Badge>}
+                          {s.is_out_of_state && <Badge variant="outline" className="text-[8px] px-1 py-0">OOS</Badge>}
+                          {s.has_tax_lien && <Badge variant="outline" className="text-[8px] px-1 py-0">LIEN</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm font-mono">
+                        {s.equity_percent ? `${Number(s.equity_percent).toFixed(0)}%` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {(s.buyer_match_score || 0) > 0 ? (
+                          <span className={`font-mono text-sm font-semibold ${
+                            (s.buyer_match_score || 0) >= 50 ? 'text-primary' : 'text-muted-foreground'
+                          }`}>{s.buyer_match_score}</span>
+                        ) : <span className="text-muted-foreground text-xs">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-[9px] px-1">{s.source || 'reapi'}</Badge>
                       </TableCell>
                       <TableCell>
                         {s.status === 'req_trace' ? (
@@ -760,7 +774,8 @@ export default function SellerManager() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                  })}
                 </TableBody>
               </Table>
             </div>
