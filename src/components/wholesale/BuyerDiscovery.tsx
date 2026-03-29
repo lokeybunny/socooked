@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio } from 'lucide-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerDetail from './BuyerDetail';
@@ -62,6 +63,8 @@ export default function BuyerDiscovery() {
   const [form, setForm] = useState(emptyForm);
   const [runningDiscovery, setRunningDiscovery] = useState(false);
   const [page, setPage] = useState(1);
+  const [hideDuplicates, setHideDuplicates] = useState(false);
+  const [realtimeCount, setRealtimeCount] = useState(0);
   const PAGE_SIZE = 25;
 
   const pollForResults = async () => {
@@ -100,9 +103,23 @@ export default function BuyerDiscovery() {
 
   useEffect(() => {
     loadBuyers();
-    // Auto-refresh every 10s to catch new ingested buyers
-    const interval = setInterval(loadBuyers, 10000);
-    return () => clearInterval(interval);
+
+    // Supabase Realtime: live feed as buyers are ingested
+    const channel = supabase
+      .channel('lw_buyers_realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lw_buyers' }, (payload) => {
+        setBuyers(prev => [payload.new as any, ...prev]);
+        setRealtimeCount(c => c + 1);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lw_buyers' }, (payload) => {
+        setBuyers(prev => prev.map(b => b.id === (payload.new as any).id ? payload.new as any : b));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'lw_buyers' }, (payload) => {
+        setBuyers(prev => prev.filter(b => b.id !== (payload.old as any).id));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const loadBuyers = async () => {
