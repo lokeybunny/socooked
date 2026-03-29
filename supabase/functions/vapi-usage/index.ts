@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,11 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const sb = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
 
     // Fetch recent calls from Vapi (last 100)
     const url = new URL("https://api.vapi.ai/call");
@@ -39,7 +45,29 @@ serve(async (req) => {
 
     const calls = await res.json();
 
-    // Map to simplified call records with cost info
+    // Build phone-to-landing-page lookup from lw_landing_leads
+    const { data: leads } = await sb
+      .from("lw_landing_leads")
+      .select("phone, landing_page_id, full_name, vapi_call_id");
+
+    const { data: pages } = await sb
+      .from("lw_landing_pages")
+      .select("id, client_name, slug");
+
+    const pageMap = new Map((pages || []).map((p: any) => [p.id, p]));
+
+    // Build lookup by phone (normalized) and by vapi_call_id
+    const callIdToLead = new Map<string, any>();
+    const phoneToLead = new Map<string, any>();
+    for (const lead of (leads || [])) {
+      if (lead.vapi_call_id) callIdToLead.set(lead.vapi_call_id, lead);
+      if (lead.phone) {
+        const normalized = lead.phone.replace(/\D/g, '').slice(-10);
+        phoneToLead.set(normalized, lead);
+      }
+    }
+
+    // Map to simplified call records with cost info + landing page
     const records = (Array.isArray(calls) ? calls : []).map((call: any) => {
       const cost = call.cost ?? call.costBreakdown?.total ?? 0;
       const transportCost = call.costBreakdown?.transport ?? 0;
@@ -54,11 +82,33 @@ serve(async (req) => {
         ? Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000)
         : 0;
 
+      const customerNumber = call.customer?.number || null;
+
+      // Match call to landing page via vapi_call_id or phone number
+      let landingPageName: string | null = null;
+      let landingPageSlug: string | null = null;
+      let leadName: string | null = null;
+
+      let matchedLead = callIdToLead.get(call.id);
+      if (!matchedLead && customerNumber) {
+        const norm = customerNumber.replace(/\D/g, '').slice(-10);
+        matchedLead = phoneToLead.get(norm);
+      }
+
+      if (matchedLead) {
+        leadName = matchedLead.full_name || null;
+        const page = matchedLead.landing_page_id ? pageMap.get(matchedLead.landing_page_id) : null;
+        if (page) {
+          landingPageName = page.client_name;
+          landingPageSlug = page.slug;
+        }
+      }
+
       return {
         id: call.id,
         type: call.type || "unknown",
         status: call.status || call.endedReason || "unknown",
-        customerNumber: call.customer?.number || null,
+        customerNumber,
         startedAt,
         endedAt,
         durationSec,
@@ -69,8 +119,27 @@ serve(async (req) => {
         voiceCost,
         analysisCost,
         endedReason: call.endedReason || null,
+        landingPageName,
+        landingPageSlug,
+        leadName,
       };
     });
+
+    // Build per-landing-page summary
+    const pageGroups: Record<string, { name: string; slug: string; totalCost: number; callCount: number }> = {};
+    for (const r of records) {
+      const key = r.landingPageSlug || '__unmatched__';
+      if (!pageGroups[key]) {
+        pageGroups[key] = {
+          name: r.landingPageName || 'Unmatched',
+          slug: key,
+          totalCost: 0,
+          callCount: 0,
+        };
+      }
+      pageGroups[key].totalCost += r.cost || 0;
+      pageGroups[key].callCount += 1;
+    }
 
     // Compute summary
     const totalCost = records.reduce((sum: number, r: any) => sum + (r.cost || 0), 0);
@@ -91,6 +160,10 @@ serve(async (req) => {
           avgCostPerCall: Math.round(avgCostPerCall * 100) / 100,
         },
         calls: records,
+        pageBreakdown: Object.values(pageGroups).map(g => ({
+          ...g,
+          totalCost: Math.round(g.totalCost * 100) / 100,
+        })),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
