@@ -1200,6 +1200,8 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [agreementDuration, setAgreementDuration] = useState('30');
   const [agreementPrice, setAgreementPrice] = useState('');
   const [agreementCloseDate, setAgreementCloseDate] = useState('');
+  const [agreementBuyerName, setAgreementBuyerName] = useState('');
+  const [agreementCompanyName, setAgreementCompanyName] = useState('');
   const [draftingEmail, setDraftingEmail] = useState(false);
 
   const handleSkipTrace = async () => {
@@ -1269,10 +1271,13 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
 
       const prompt = `Generate a professional, ready-to-sign real estate wholesale purchase agreement. Output ONLY the final contract text — no commentary, no instructions, no preamble.
 
-ABSOLUTE RULE: Do NOT use any placeholder brackets like [NAME], [ADDRESS], [DATE], [AMOUNT], [BUYER], [SELLER], [STATE], [BLANK], [TBD], or any similar bracket notation anywhere in the document. Every field must be filled in with the actual data provided below. If data is unavailable, write "N/A" as plain text — never in brackets. The Buyer name should be listed as "Buyer or Assignee" since this is a wholesale contract where assignment is permitted.
+ABSOLUTE RULE: Do NOT use any placeholder brackets like [NAME], [ADDRESS], [DATE], [AMOUNT], [BUYER], [SELLER], [STATE], [BLANK], [TBD], or any similar bracket notation anywhere in the document. Every field must be filled in with the actual data provided below. If data is unavailable, write "N/A" as plain text — never in brackets.
 
 CONTRACT DATA:
 - Effective Date: ${today}
+- Buyer Full Name: ${agreementBuyerName || 'Buyer'}
+- Buyer Company: ${agreementCompanyName || 'N/A'}
+- Buyer Designation in Contract: "${agreementBuyerName || 'Buyer'}${agreementCompanyName ? ', on behalf of ' + agreementCompanyName : ''}, and/or assigns"
 - Seller Full Name: ${sellerName}
 - Seller Mailing Address: ${sellerAddr}
 - Property Address: ${propAddr}, ${propCity}, ${propState} ${propZip}
@@ -1911,6 +1916,24 @@ Format with numbered sections and clear headings. Make this ready to print, sign
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
+                <Label className="text-xs">Your Name (Buyer)</Label>
+                <Input
+                  placeholder="e.g. Warren Smith"
+                  value={agreementBuyerName}
+                  onChange={e => setAgreementBuyerName(e.target.value)}
+                  className="h-8 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Company Name</Label>
+                <Input
+                  placeholder="e.g. Smith Holdings LLC"
+                  value={agreementCompanyName}
+                  onChange={e => setAgreementCompanyName(e.target.value)}
+                  className="h-8 text-sm mt-1"
+                />
+              </div>
+              <div>
                 <Label className="text-xs">Agreed Purchase Price ($)</Label>
                 <Input
                   type="number"
@@ -1931,7 +1954,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                 />
               </div>
               <div>
-                <Label className="text-xs">Back-Out / Contingency Period (days)</Label>
+                <Label className="text-xs">Back-Out / Contingency (days)</Label>
                 <Input
                   type="number"
                   min="7"
@@ -1945,7 +1968,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                 <Button
                   size="sm"
                   onClick={generateAgreement}
-                  disabled={generatingAgreement || !agreementPrice}
+                  disabled={generatingAgreement || !agreementPrice || !agreementBuyerName.trim()}
                   className="w-full"
                 >
                   {generatingAgreement ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Generating…</> : 'Generate Agreement'}
