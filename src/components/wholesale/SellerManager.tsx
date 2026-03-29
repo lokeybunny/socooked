@@ -1193,6 +1193,13 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [saving, setSaving] = useState(false);
   const [pendingStageChange, setPendingStageChange] = useState<{ direction: 'next' | 'prev'; targetKey: string; targetLabel: string } | null>(null);
 
+  // Agreement generator state
+  const [agreementOpen, setAgreementOpen] = useState(false);
+  const [agreementText, setAgreementText] = useState('');
+  const [generatingAgreement, setGeneratingAgreement] = useState(false);
+  const [agreementDuration, setAgreementDuration] = useState('30');
+  const [draftingEmail, setDraftingEmail] = useState(false);
+
   const handleSkipTrace = async () => {
     setTracing(true);
     try {
