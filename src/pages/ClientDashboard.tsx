@@ -328,7 +328,11 @@ export default function ClientDashboard() {
         <div className="space-y-3">
           {filteredLeads.length === 0 && (
             <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center">
-              <p className="text-white/40">No leads yet. They'll appear here automatically as your landing page gets traffic.</p>
+              <p className="text-white/40">
+                {activeSection === 'hot'
+                  ? "No leads yet. They'll appear here automatically from our API database upon request throughout the week."
+                  : "No leads yet. They'll appear here automatically as your landing page gets traffic."}
+              </p>
             </div>
           )}
           {filteredLeads.map(lead => {
