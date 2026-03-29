@@ -1144,7 +1144,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
             size="sm"
             variant="outline"
             className="gap-1.5"
-            onClick={handleRevertPipeline}
+            onClick={requestRevertPipeline}
             disabled={PIPELINE_ORDER.indexOf(s.status) <= 0}
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -1154,7 +1154,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
             size="sm"
             variant="outline"
             className="gap-1.5"
-            onClick={handleAdvancePipeline}
+            onClick={requestAdvancePipeline}
             disabled={PIPELINE_ORDER.indexOf(s.status) >= PIPELINE_ORDER.length - 1}
           >
             Next Stage
@@ -1162,6 +1162,24 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           </Button>
         </div>
       </div>
+
+      {/* Pipeline Stage Confirmation Dialog */}
+      <AlertDialog open={!!pendingStageChange} onOpenChange={(open) => { if (!open) setPendingStageChange(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingStageChange?.direction === 'next' ? 'Advance Pipeline Stage' : 'Revert Pipeline Stage'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Move this lead from <strong>{SELLER_STAGES.find(st => st.key === s.status)?.label || s.status}</strong> → <strong>{pendingStageChange?.targetLabel}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmStageChange}>OK, Move</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Owner Info */}
       <div>
