@@ -1254,36 +1254,54 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
     try {
       const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
       const m = (s.meta || {}) as Record<string, any>;
-      const prompt = `Generate a professional real estate wholesale purchase agreement contract with the following details. Output the full contract text only, no commentary.
+      const closingDateStr = agreementCloseDate
+        ? new Date(agreementCloseDate + 'T00:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        : `within ${agreementDuration} days of the execution of this Agreement`;
+      const price = agreementPrice || String(s.estimated_offer || s.asking_price || '0');
+      const sellerName = s.owner_name || 'Property Owner';
+      const sellerAddr = s.owner_mailing_address || s.address_full || 'On File';
+      const propAddr = s.address_full || 'On File';
+      const propCity = s.city || 'N/A';
+      const propState = s.state || 'N/A';
+      const propZip = s.zip || 'N/A';
+      const propCounty = s.county || 'N/A';
+      const propApn = s.apn || 'N/A';
 
-SELLER: ${s.owner_name || 'OWNER NAME'}
-SELLER ADDRESS: ${s.owner_mailing_address || 'N/A'}
-PROPERTY ADDRESS: ${s.address_full || 'N/A'}
-CITY: ${s.city || ''}, STATE: ${s.state || ''}, ZIP: ${s.zip || ''}
-COUNTY: ${s.county || ''}, APN: ${s.apn || 'N/A'}
-PROPERTY TYPE: ${s.property_type || 'N/A'}
-ACREAGE: ${s.acreage || 'N/A'}
-LOT SQFT: ${s.lot_sqft || 'N/A'}
-BEDROOMS: ${s.bedrooms || 'N/A'}, BATHROOMS: ${s.bathrooms || 'N/A'}
-ASSESSED VALUE: $${s.assessed_value || 'N/A'}
-MARKET VALUE: $${s.market_value || 'N/A'}
-OFFER PRICE: $${agreementPrice || s.estimated_offer || s.asking_price || 'TBD'}
-DATE: ${today}
-CLOSING DATE: ${agreementCloseDate || 'Within ' + agreementDuration + ' days of execution'}
+      const prompt = `Generate a professional, ready-to-sign real estate wholesale purchase agreement. Output ONLY the final contract text — no commentary, no instructions, no preamble.
 
-CRITICAL CONTRACT CLAUSES TO INCLUDE:
-1. PURCHASE PRICE of $${agreementPrice || s.estimated_offer || s.asking_price || 'TBD'} as agreed by both parties.
-2. CLOSING DATE: ${agreementCloseDate || agreementDuration + ' days from execution'}.
-3. Inspection contingency period of ${agreementDuration} days where BUYER may cancel for any reason and receive full earnest money refund.
-4. Assignment clause: "This Agreement and all rights hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
-3. Earnest money deposit terms (suggest $100-$500 refundable during contingency).
-4. Closing timeline of ${agreementDuration} days from execution.
-5. Title & clear deed requirements.
-6. Default and remedies for both parties.
-7. Governing law clause for ${s.state || 'applicable state'}.
-8. Signature blocks for Buyer and Seller with date lines.
+ABSOLUTE RULE: Do NOT use any placeholder brackets like [NAME], [ADDRESS], [DATE], [AMOUNT], [BUYER], [SELLER], [STATE], [BLANK], [TBD], or any similar bracket notation anywhere in the document. Every field must be filled in with the actual data provided below. If data is unavailable, write "N/A" as plain text — never in brackets. The Buyer name should be listed as "Buyer or Assignee" since this is a wholesale contract where assignment is permitted.
 
-Format the contract with clear section headings and numbered paragraphs.`;
+CONTRACT DATA:
+- Effective Date: ${today}
+- Seller Full Name: ${sellerName}
+- Seller Mailing Address: ${sellerAddr}
+- Property Address: ${propAddr}, ${propCity}, ${propState} ${propZip}
+- County: ${propCounty}
+- APN/Parcel Number: ${propApn}
+- Property Type: ${s.property_type || 'Real Property'}
+- Acreage: ${s.acreage ? Number(s.acreage).toFixed(2) + ' acres' : 'N/A'}
+- Lot Size: ${s.lot_sqft ? Number(s.lot_sqft).toLocaleString() + ' sq ft' : 'N/A'}
+- Bedrooms: ${s.bedrooms || 'N/A'}
+- Bathrooms: ${s.bathrooms || 'N/A'}
+- Purchase Price: $${Number(price).toLocaleString()}
+- Earnest Money Deposit: $${Math.min(500, Math.max(100, Math.round(Number(price) * 0.01))).toLocaleString()}
+- Contingency/Inspection Period: ${agreementDuration} days
+- Closing Date: ${closingDateStr}
+- Governing State Law: ${propState}
+
+REQUIRED CLAUSES:
+1. Purchase price and payment terms with the exact dollar amount.
+2. Earnest money deposit amount and refund conditions during contingency.
+3. Inspection/contingency period of ${agreementDuration} days — Buyer may cancel for any reason with full refund of earnest money.
+4. Assignment clause: "This Agreement and all rights and obligations hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
+5. Closing date and location details.
+6. Title and clear deed requirements — Seller to provide marketable title.
+7. Default and remedies for both parties.
+8. Governing law for the state of ${propState}.
+9. Signature blocks for Seller (${sellerName}) and Buyer or Assignee, each with a printed name line and date line.
+10. Entire agreement / merger clause.
+
+Format with numbered sections and clear headings. Make this ready to print, sign, and execute immediately.`;
 
       const { data, error } = await supabase.functions.invoke('wholesale-agreement', {
         body: { prompt },
