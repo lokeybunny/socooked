@@ -645,6 +645,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
             phones: parsed.phones,
             emails: parsed.emails,
             names: parsed.names,
+            bestName: parsed.bestName,
             traced_at: new Date().toISOString(),
           },
         },
@@ -652,6 +653,10 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
 
       if (parsed.phones.length > 0) updateData.owner_phone = parsed.phones[0];
       if (parsed.emails.length > 0) updateData.owner_email = parsed.emails[0];
+      // Update owner_name if we found a best human name and current name looks like a business
+      if (parsed.bestName && !isHumanName(s.owner_name || '')) {
+        updateData.owner_name = parsed.bestName;
+      }
 
       await supabase.from('lw_sellers').update(updateData).eq('id', s.id);
 
