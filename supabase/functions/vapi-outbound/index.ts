@@ -130,7 +130,7 @@ IMPORTANT: At the end of the call, summarize your findings clearly.`,
         await sb
           .from("lw_landing_leads")
           .update({ vapi_call_status: "failed" })
-          .eq("id", lead_id);
+          .eq("id", lead.id);
 
         return new Response(JSON.stringify({ error: "Vapi call failed", details: vapiData }), {
           status: 500,
@@ -145,7 +145,7 @@ IMPORTANT: At the end of the call, summarize your findings clearly.`,
           vapi_call_id: vapiData.id,
           vapi_call_status: "calling",
         })
-        .eq("id", lead_id);
+        .eq("id", lead.id);
 
       return new Response(JSON.stringify({ success: true, call_id: vapiData.id }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
