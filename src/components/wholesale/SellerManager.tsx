@@ -1270,30 +1270,135 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           <DetailRow label="APN" value={s.apn} copyable />
           <DetailRow label="FIPS" value={s.fips} />
           <DetailRow label="Property Type" value={s.property_type} />
+          <DetailRow label="Property Use" value={m.propertyUse || m.landUse || null} />
           <DetailRow label="Zoning" value={s.zoning} />
           <DetailRow label="Acreage" value={s.acreage ? `${Number(s.acreage).toFixed(2)} acres` : null} />
           <DetailRow label="Lot Sqft" value={s.lot_sqft ? Number(s.lot_sqft).toLocaleString() : null} />
+          <DetailRow label="Living Sqft" value={s.living_sqft ? Number(s.living_sqft).toLocaleString() : null} />
+          <DetailRow label="Building Sqft" value={m.squareFeet ? Number(m.squareFeet).toLocaleString() : null} />
           <DetailRow label="Bedrooms" value={s.bedrooms} />
           <DetailRow label="Bathrooms" value={s.bathrooms} />
-          <DetailRow label="Living Sqft" value={s.living_sqft ? Number(s.living_sqft).toLocaleString() : null} />
+          <DetailRow label="Rooms" value={m.roomsCount || null} />
+          <DetailRow label="Stories" value={m.stories || null} />
+          <DetailRow label="Year Built" value={m.yearBuilt || null} />
           <DetailRow label="Deal Type" value={s.deal_type} />
+          {m.latitude && m.longitude && (
+            <DetailRow label="Coordinates" value={`${Number(m.latitude).toFixed(5)}, ${Number(m.longitude).toFixed(5)}`} copyable />
+          )}
         </div>
       </div>
 
       <Separator />
+
+      {/* Building Features */}
+      {(m.garage || m.pool || m.basement || m.airConditioningAvailable || m.hoa || m.deck || m.patio) && (
+        <>
+          <div>
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Building Features</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {m.garage && <Badge variant="secondary" className="text-[10px]">🚗 Garage</Badge>}
+              {m.pool && <Badge variant="secondary" className="text-[10px]">🏊 Pool</Badge>}
+              {m.basement && <Badge variant="secondary" className="text-[10px]">🏠 Basement</Badge>}
+              {m.airConditioningAvailable && <Badge variant="secondary" className="text-[10px]">❄️ A/C</Badge>}
+              {m.hoa && <Badge variant="secondary" className="text-[10px]">🏘️ HOA</Badge>}
+              {m.deck && <Badge variant="secondary" className="text-[10px]">🪵 Deck</Badge>}
+              {m.patio && <Badge variant="secondary" className="text-[10px]">🌿 Patio</Badge>}
+              {m.floodZone && <Badge variant="destructive" className="text-[10px]">🌊 Flood Zone</Badge>}
+            </div>
+          </div>
+          <Separator />
+        </>
+      )}
 
       {/* Financial Info */}
       <div>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Financials</h4>
         <div className="divide-y divide-border">
+          <DetailRow label="Estimated Value (AVM)" value={m.estimatedValue ? `$${Number(m.estimatedValue).toLocaleString()}` : null} />
           <DetailRow label="Market Value" value={s.market_value ? `$${Number(s.market_value).toLocaleString()}` : null} />
           <DetailRow label="Assessed Value" value={s.assessed_value ? `$${Number(s.assessed_value).toLocaleString()}` : null} />
+          <DetailRow label="Assessed Land Value" value={m.assessedLandValue ? `$${Number(m.assessedLandValue).toLocaleString()}` : null} />
+          <DetailRow label="Assessed Improvement" value={m.assessedImprovementValue ? `$${Number(m.assessedImprovementValue).toLocaleString()}` : null} />
           <DetailRow label="Asking Price" value={s.asking_price ? `$${Number(s.asking_price).toLocaleString()}` : null} />
           <DetailRow label="Estimated Offer" value={s.estimated_offer ? `$${Number(s.estimated_offer).toLocaleString()}` : null} />
+          <DetailRow label="Price / Sqft" value={m.pricePerSquareFoot ? `$${Number(m.pricePerSquareFoot).toLocaleString()}` : null} />
+          <DetailRow label="Estimated Equity" value={m.estimatedEquity ? `$${Number(m.estimatedEquity).toLocaleString()}` : null} />
+          <DetailRow label="Equity %" value={s.equity_percent ? `${Number(s.equity_percent)}%` : null} />
+          <DetailRow label="Suggested Rent" value={m.suggestedRent ? `$${Number(m.suggestedRent).toLocaleString()}/mo` : null} />
         </div>
       </div>
 
       <Separator />
+
+      {/* Sale History */}
+      {(m.lastSaleAmount || m.lastSaleDate || m.priorSaleAmount) && (
+        <>
+          <div>
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Sale History</h4>
+            <div className="divide-y divide-border">
+              <DetailRow label="Last Sale Amount" value={m.lastSaleAmount ? `$${Number(m.lastSaleAmount).toLocaleString()}` : null} />
+              <DetailRow label="Last Sale Date" value={m.lastSaleDate || m.mlsLastSaleDate || null} />
+              <DetailRow label="Document Type" value={m.documentType || null} />
+              <DetailRow label="Prior Sale Amount" value={m.priorSaleAmount ? `$${Number(m.priorSaleAmount).toLocaleString()}` : null} />
+              <DetailRow label="Prior Sale Date" value={m.priorSaleDate || null} />
+              <DetailRow label="Prior Owner" value={m.priorOwner || null} />
+              <DetailRow label="Arms Length" value={m.lastSaleArmsLength === true ? 'Yes' : m.lastSaleArmsLength === false ? 'No' : null} />
+            </div>
+          </div>
+          <Separator />
+        </>
+      )}
+
+      {/* Mortgage & Lending */}
+      {(m.lenderName || m.openMortgageBalance !== undefined || m.lastMortgage1Amount) && (
+        <>
+          <div>
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Mortgage & Lending</h4>
+            <div className="divide-y divide-border">
+              <DetailRow label="Lender" value={m.lenderName || null} />
+              <DetailRow label="Open Mortgage Bal." value={m.openMortgageBalance != null && m.openMortgageBalance > 0 ? `$${Number(m.openMortgageBalance).toLocaleString()}` : m.openMortgageBalance === 0 ? '$0 (Free & Clear)' : null} />
+              <DetailRow label="Last Mortgage Amount" value={m.lastMortgage1Amount ? `$${Number(m.lastMortgage1Amount).toLocaleString()}` : null} />
+              <DetailRow label="Free & Clear" value={s.free_and_clear ? 'Yes ✅' : s.free_and_clear === false ? 'No' : null} />
+            </div>
+          </div>
+          <Separator />
+        </>
+      )}
+
+      {/* Owner Portfolio */}
+      {(m.totalPropertiesOwned || m.totalPortfolioValue) && (
+        <>
+          <div>
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Owner Portfolio</h4>
+            <div className="divide-y divide-border">
+              <DetailRow label="Properties Owned" value={m.totalPropertiesOwned || null} />
+              <DetailRow label="Portfolio Value" value={m.totalPortfolioValue ? `$${Number(m.totalPortfolioValue).toLocaleString()}` : null} />
+              <DetailRow label="Portfolio Equity" value={m.totalPortfolioEquity ? `$${Number(m.totalPortfolioEquity).toLocaleString()}` : null} />
+              <DetailRow label="Investor Buyer" value={m.investorBuyer === true ? 'Yes' : m.investorBuyer === false ? 'No' : null} />
+              <DetailRow label="Cash Buyer" value={m.cashBuyer === true ? 'Yes' : m.cashBuyer === false ? 'No' : null} />
+            </div>
+          </div>
+          <Separator />
+        </>
+      )}
+
+      {/* Listing Status */}
+      {(m.mlsActive || m.forSale || m.listingAmount) && (
+        <>
+          <div>
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Listing Status</h4>
+            <div className="divide-y divide-border">
+              <DetailRow label="For Sale" value={m.forSale === true ? 'Yes' : m.forSale === false ? 'No' : null} />
+              <DetailRow label="MLS Active" value={m.mlsActive === true ? 'Yes' : m.mlsActive === false ? 'No' : null} />
+              <DetailRow label="Listing Price" value={m.listingAmount ? `$${Number(m.listingAmount).toLocaleString()}` : null} />
+              <DetailRow label="MLS Status" value={
+                m.mlsPending ? 'Pending' : m.mlsSold ? 'Sold' : m.mlsCancelled ? 'Cancelled' : m.mlsFailed ? 'Failed' : null
+              } />
+            </div>
+          </div>
+          <Separator />
+        </>
+      )}
 
       {/* Motivation & Flags */}
       <div>
@@ -1336,6 +1441,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           <DetailRow label="Contacted" value={s.contacted_at ? new Date(s.contacted_at).toLocaleDateString() : null} />
           <DetailRow label="Created" value={new Date(s.created_at).toLocaleDateString()} />
           <DetailRow label="Updated" value={new Date(s.updated_at).toLocaleDateString()} />
+          <DetailRow label="Last REAPI Update" value={m.lastUpdateDate || null} />
         </div>
       </div>
 
