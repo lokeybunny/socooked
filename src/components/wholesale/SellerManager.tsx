@@ -169,6 +169,7 @@ export default function SellerManager() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [lastFetchAt, setLastFetchAt] = useState<string | null>(null);
   const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const isNewlyFetched = useCallback((createdAt: string) => {
     if (!lastFetchAt) return false;
@@ -254,6 +255,8 @@ export default function SellerManager() {
       toast.error('County and State are required');
       return;
     }
+    const controller = new AbortController();
+    abortRef.current = controller;
     setFetching(true);
     try {
       const types = fetchDealType === 'both' ? ['land', 'home'] : [fetchDealType];
@@ -285,6 +288,7 @@ export default function SellerManager() {
       }
 
       for (const dt of types) {
+        if (controller.signal.aborted) break;
         const { data, error } = await supabase.functions.invoke('land-reapi-search', {
           body: {
             county: fetchCounty.trim(),
@@ -294,11 +298,16 @@ export default function SellerManager() {
             ...(distressMode ? { distress_filters: df } : {}),
           },
         });
+        if (controller.signal.aborted) break;
         if (error) throw error;
         totalFetched += data?.records_fetched || 0;
         totalNew += data?.records_new || 0;
       }
-      toast.success(`Fetched ${totalFetched} properties, ${totalNew} new`);
+      if (controller.signal.aborted) {
+        toast.info('Search stopped');
+      } else {
+        toast.success(`Fetched ${totalFetched} properties, ${totalNew} new`);
+      }
       // Mark fetch timestamp for green highlight (auto-clears after 5 min)
       const now = new Date().toISOString();
       setLastFetchAt(now);
@@ -308,7 +317,14 @@ export default function SellerManager() {
     } catch (err: any) {
       toast.error(err.message || 'Fetch failed');
     }
+    abortRef.current = null;
     setFetching(false);
+  };
+
+  const stopFetch = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
   };
 
   const availableStates = useMemo(() => {
@@ -509,6 +525,11 @@ export default function SellerManager() {
             <Button onClick={fetchProperties} disabled={fetching} className="h-9">
               {fetching ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Fetching…</> : <><Download className="h-3.5 w-3.5 mr-1" /> {distressMode ? 'Distress Search' : 'Fetch Properties'}</>}
             </Button>
+            {fetching && (
+              <Button variant="destructive" onClick={stopFetch} className="h-9 gap-1.5">
+                <X className="h-3.5 w-3.5" /> Stop
+              </Button>
+            )}
             <Button variant="outline" className="h-9 gap-1.5" onClick={() => setCsvOpen(true)}>
               <FileSpreadsheet className="h-3.5 w-3.5" /> CSV Import
             </Button>
