@@ -34,30 +34,30 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Check if user already exists
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existing = existingUsers?.users?.find(u => u.email === email);
-
+    // Try creating the user first — if email exists, it will fail
     let userId: string;
 
-    if (existing) {
-      userId = existing.id;
-      // Update password
-      await supabaseAdmin.auth.admin.updateUserById(userId, { password });
-    } else {
-      // Create new user with auto-confirm
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { full_name: email.split('@')[0], role: 'client' },
-      });
-      if (createError) {
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: email.split('@')[0], role: 'client' },
+    });
+
+    if (createError) {
+      // User likely already exists — find and update password
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const existing = listData?.users?.find(u => u.email === email);
+      if (existing) {
+        await supabaseAdmin.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
+        userId = existing.id;
+      } else {
         return new Response(JSON.stringify({ error: createError.message }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+    } else {
       userId = newUser.user.id;
     }
 

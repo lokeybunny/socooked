@@ -133,26 +133,32 @@ async function createClientAccountAndEmail(
 
   console.log(`[client-account] Creating account for ${buyerEmail}`);
 
-  // Check if user already exists
-  const { data: existingUsers } = await sb.auth.admin.listUsers();
-  const existing = existingUsers?.users?.find((u: any) => u.email === buyerEmail);
-
+  // Check if user already exists using email filter (avoids pagination issues)
   let userId: string;
-  if (existing) {
-    userId = existing.id;
-    await sb.auth.admin.updateUserById(userId, { password });
-    console.log(`[client-account] Updated existing user ${userId}`);
-  } else {
-    const { data: newUser, error: createError } = await sb.auth.admin.createUser({
-      email: buyerEmail,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: displayName, role: 'client' },
-    });
-    if (createError) {
-      console.error(`[client-account] Create user error: ${createError.message}`);
+  let existingUserId: string | null = null;
+
+  // Try to find existing user by creating — if email exists, createUser will fail
+  const { data: newUser, error: createError } = await sb.auth.admin.createUser({
+    email: buyerEmail,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: displayName, role: 'client' },
+  });
+
+  if (createError) {
+    // User likely already exists — find them via admin API with per_page filter
+    const { data: listData } = await sb.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const existing = listData?.users?.find((u: any) => u.email === buyerEmail);
+    if (existing) {
+      existingUserId = existing.id;
+      await sb.auth.admin.updateUserById(existing.id, { password, email_confirm: true });
+      userId = existing.id;
+      console.log(`[client-account] Updated existing user ${userId}`);
+    } else {
+      console.error(`[client-account] Create user error and user not found: ${createError.message}`);
       return;
     }
+  } else {
     userId = newUser.user.id;
     console.log(`[client-account] Created new user ${userId}`);
   }
@@ -176,7 +182,7 @@ async function createClientAccountAndEmail(
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-  const loginUrl = 'https://socooked.lovable.app/client-login';
+  const loginUrl = 'https://socooked.lovable.app/auth';
   const emailHtml = `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
   <h2 style="color: #0f172a;">Welcome to Your Client Dashboard 🎉</h2>
