@@ -163,11 +163,10 @@ Deno.serve(async (req) => {
     if (error || !user) return fail('Unauthorized', 401)
   }
 
-  // Valid category IDs matching the UI
-  const VALID_CATEGORIES = ['digital-services', 'brick-and-mortar', 'digital-ecommerce', 'food-and-beverage', 'mobile-services', 'telegram', 'other']
+  // Valid category IDs matching the UI (uses VALID_CATEGORIES from top-level schema)
   const normalizeCategory = (cat: string | null | undefined): string => {
     if (!cat) return 'other'
-    return VALID_CATEGORIES.includes(cat) ? cat : 'other'
+    return (VALID_CATEGORIES as readonly string[]).includes(cat) ? cat : 'other'
   }
 
   try {
