@@ -762,6 +762,11 @@ export default function BuyerDiscovery() {
               <Label>Buyer's Website</Label>
               <Input value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://example.com" />
             </div>
+            {/* Buyer Interests & Property Specs */}
+            <div className="border-t border-border pt-4">
+              <h3 className="text-sm font-bold mb-3">🎯 Buyer Interests & Property Specs</h3>
+              <BuyerInterests interests={interests} onChange={setInterests} />
+            </div>
             <div className="space-y-1">
               <Label>Notes</Label>
               <Textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2} />
