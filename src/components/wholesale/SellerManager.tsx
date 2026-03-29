@@ -563,21 +563,63 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           <DetailRow label="REAPI Property ID" value={<span className="font-mono text-xs">{s.reapi_property_id}</span>} />
         </>
       )}
-      {/* Skip Trace Button */}
+      {/* Skip Trace Section */}
       <Separator />
-      <div className="pt-2">
+      <div className="pt-2 space-y-3">
+        <p className="text-xs font-medium text-foreground">Skip Trace</p>
+        {/* REAPI Skip Trace */}
         {s.skip_traced_at ? (
           <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Skip traced on {new Date(s.skip_traced_at).toLocaleDateString()}</span>
+            <span className="text-xs text-muted-foreground">REAPI traced {new Date(s.skip_traced_at).toLocaleDateString()}</span>
             <Button size="sm" variant="outline" onClick={handleSkipTrace} disabled={tracing}>
               {tracing ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Re-tracing…</> : 'Re-trace'}
             </Button>
           </div>
         ) : (
           <Button className="w-full" onClick={handleSkipTrace} disabled={tracing}>
-            {tracing ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Skip Tracing…</> : <><Search className="h-3.5 w-3.5 mr-1.5" /> Skip Trace</>}
+            {tracing ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Skip Tracing…</> : <><Search className="h-3.5 w-3.5 mr-1.5" /> Skip Trace (REAPI)</>}
           </Button>
         )}
+
+        {/* External free skip trace shortcuts */}
+        <div className="space-y-1.5">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Free lookup shortcuts</p>
+          <div className="grid grid-cols-1 gap-1.5">
+            <a
+              href={`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(s.owner_name || '')}&citystatezip=${encodeURIComponent([s.city, s.state].filter(Boolean).join(', '))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs hover:bg-accent transition-colors"
+            >
+              <span>📞</span>
+              <span className="flex-1">TruePeopleSearch</span>
+              <span className="text-[10px] text-muted-foreground">Phone · Address · Relatives</span>
+              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            </a>
+            <a
+              href="https://www.datatoleads.com/free-tools"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs hover:bg-accent transition-colors"
+            >
+              <span>📬</span>
+              <span className="flex-1">DataToLeads</span>
+              <span className="text-[10px] text-muted-foreground">Reverse phone · Email · Address</span>
+              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            </a>
+            <a
+              href="https://www.propstream.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs hover:bg-accent transition-colors"
+            >
+              <span>🏠</span>
+              <span className="flex-1">PropStream</span>
+              <span className="text-[10px] text-muted-foreground">Owner phone · Email · Free trial</span>
+              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );
