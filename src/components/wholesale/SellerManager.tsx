@@ -1271,10 +1271,13 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
 
       const prompt = `Generate a professional, ready-to-sign real estate wholesale purchase agreement. Output ONLY the final contract text — no commentary, no instructions, no preamble.
 
-ABSOLUTE RULE: Do NOT use any placeholder brackets like [NAME], [ADDRESS], [DATE], [AMOUNT], [BUYER], [SELLER], [STATE], [BLANK], [TBD], or any similar bracket notation anywhere in the document. Every field must be filled in with the actual data provided below. If data is unavailable, write "N/A" as plain text — never in brackets. The Buyer name should be listed as "Buyer or Assignee" since this is a wholesale contract where assignment is permitted.
+ABSOLUTE RULE: Do NOT use any placeholder brackets like [NAME], [ADDRESS], [DATE], [AMOUNT], [BUYER], [SELLER], [STATE], [BLANK], [TBD], or any similar bracket notation anywhere in the document. Every field must be filled in with the actual data provided below. If data is unavailable, write "N/A" as plain text — never in brackets.
 
 CONTRACT DATA:
 - Effective Date: ${today}
+- Buyer Full Name: ${agreementBuyerName || 'Buyer'}
+- Buyer Company: ${agreementCompanyName || 'N/A'}
+- Buyer Designation in Contract: "${agreementBuyerName || 'Buyer'}${agreementCompanyName ? ', on behalf of ' + agreementCompanyName : ''}, and/or assigns"
 - Seller Full Name: ${sellerName}
 - Seller Mailing Address: ${sellerAddr}
 - Property Address: ${propAddr}, ${propCity}, ${propState} ${propZip}
