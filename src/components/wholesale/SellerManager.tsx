@@ -58,21 +58,24 @@ function CopyText({ text }: { text: string | null | undefined }) {
 }
 
 // --- Business/junk name detection ---
-const BUSINESS_KEYWORDS = /\b(llc|inc|corp|ltd|lp|trust|estate|holdings|properties|investments|ventures|realty|enterprise|company|co\b|group|associates|partners|management|capital|development|construction|services|solutions|fund|foundation|church|ministry|bank|credit union|revocable|irrevocable|living trust|family trust|land co|homeowners|hoa)\b/i;
+const BUSINESS_KEYWORDS = /\b(llc|inc|corp|ltd|lp|trust|estate|holdings|properties|investments|ventures|realty|enterprise|company|co\b|group|associates|partners|management|capital|development|construction|services|solutions|fund|foundation|church|ministry|bank|credit union|revocable|irrevocable|living trust|family trust|land co|homeowners|hoa|auto|motors|electric|plumbing|roofing|landscaping|cleaning|consulting|logistics|supply|warehouse|dental|medical|legal|law|accounting|insurance|wholesale|retail)\b/i;
 const BUSINESS_PATTERNS = /^(the\s+)?\d|&|,\s*(llc|inc)|^\w+\s+(of|and)\s+\w+$/i;
-// Words that are never part of a real first/last name (TruePeopleSearch noise)
-const JUNK_NAME_WORDS = /\b(age|phone|address|county|records|court|evictions|lookups|data|bankruptcies|square|feet|year|built|estimated|value|equity|sale|amount|date|property|class|residential|subdivision|lot|background|profile|frequently|asked|questions|disclaimers|information|people|francisco|skip|trace|sell|notice|important|includes|primary|last|reverse|public|current|possible|nationwide|connections|since|where)\b/i;
+// Exhaustive junk word list — UI labels, locations, categories from TruePeopleSearch / DataToLeads
+const JUNK_NAME_WORDS = /\b(age|phone|address|county|records|court|evictions|lookups|data|bankruptcies|square|feet|year|built|estimated|value|equity|sale|amount|date|property|class|residential|subdivision|lot|background|profile|frequently|asked|questions|disclaimers|information|people|francisco|skip|trace|sell|notice|important|includes|primary|last|reverse|public|current|possible|nationwide|connections|since|where|wireless|network|tandem|heights|hills|vegas|angeles|springs|beach|creek|valley|lake|city|north|south|east|west|san|los|las|new|york|chicago|miami|dallas|houston|phoenix|portland|seattle|denver|austin|tampa|orlando|atlanta|boston|detroit|mesa|mesa|chino|rowland|hacienda|neutral|peerless|verizon|sprint|mobile|cellular|landline|voip|carrier|lookup|search|results|view|details|report|summary|related|associated|known|also|possible|numbers|addresses|emails|relatives|neighbors|history|owner|owners|recent|previous|full|more|show|hide|see|all|best|click|here|free|premium|sign|log|register|account|welcome|home|about|contact|privacy|policy|terms|conditions|copyright|rights|reserved|powered)\b/i;
 
 function isHumanName(name: string): boolean {
   if (!name || name.length < 4) return false;
   if (BUSINESS_KEYWORDS.test(name)) return false;
   if (BUSINESS_PATTERNS.test(name)) return false;
-  if (JUNK_NAME_WORDS.test(name)) return false;
+  // Test each word individually against junk list
   const parts = name.trim().split(/\s+/);
   if (parts.length < 2 || parts.length > 4) return false;
+  // Any single junk word disqualifies
+  if (parts.some(p => JUNK_NAME_WORDS.test(p))) return false;
   if (parts.some(p => p.length > 3 && p === p.toUpperCase())) return false;
-  // Each part should be alpha only
   if (parts.some(p => !/^[A-Za-z'-]+$/.test(p))) return false;
+  // Single-char parts are only OK as middle initials
+  if (parts[0].length < 2 || parts[parts.length - 1].length < 2) return false;
   return true;
 }
 
@@ -702,16 +705,17 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           const rawTracedName = traceResult?.name || traceResult?.fullName
             || (traceResult?.firstName && traceResult?.lastName ? `${traceResult.firstName} ${traceResult.lastName}` : null);
           const tracedName = rawTracedName && isHumanName(rawTracedName) ? rawTracedName : null;
-          const clipNames = ((s.meta?.clipboard_trace?.names as string[] | undefined) || []).filter((n: string) => isHumanName(n));
+          // Only show the single best name from clipboard trace
+          const clipBestName = s.meta?.clipboard_trace?.bestName as string | undefined;
+          const bestClipName = clipBestName && isHumanName(clipBestName) ? clipBestName : null;
+          // Pick the one best traced name to show
+          const displayTracedName = tracedName || bestClipName;
           return (
             <div className="divide-y divide-border">
               <DetailRow label="Name" value={s.owner_name} />
-              {tracedName && tracedName !== s.owner_name && (
-                <DetailRow label="Traced Name" value={tracedName} copyable gold />
+              {displayTracedName && displayTracedName !== s.owner_name && (
+                <DetailRow label="Traced Name" value={displayTracedName} copyable gold />
               )}
-              {clipNames.length > 0 && clipNames.filter((n: string) => n !== s.owner_name && n !== tracedName).map((name: string, i: number) => (
-                <DetailRow key={i} label={i === 0 ? 'Traced Name(s)' : ''} value={name} copyable gold />
-              ))}
               <PhoneRow seller={s} />
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
