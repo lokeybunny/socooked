@@ -9,6 +9,7 @@ import {
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { Play } from 'lucide-react';
 import aiTechThumb from '@/assets/landing/ai-tech-thumbnail.jpg';
+import dashboardPreview from '@/assets/landing/client-dashboard-preview.jpg';
 
 const InvestorRobot = lazy(() => import('@/components/three/InvestorRobot'));
 
@@ -301,6 +302,24 @@ export default function WarrenLanding() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── Dashboard Preview ── */}
+      <section className="py-20 px-6 border-t border-white/[0.04]">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial="hidden" whileInView="visible" viewport={{ once: true }}
+            variants={fade} custom={0}
+            className="flex justify-center"
+          >
+            <img
+              src={dashboardPreview}
+              alt="Wholesale Dashboard preview showing CRM pipeline and lead management"
+              className="w-full max-w-3xl rounded-3xl border border-white/10 shadow-2xl shadow-white/[0.03]"
+              loading="lazy"
+            />
+          </motion.div>
         </div>
       </section>
 
