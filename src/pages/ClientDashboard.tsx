@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
-  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText
+  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText, Flame, Globe
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
