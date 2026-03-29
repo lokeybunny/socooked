@@ -101,10 +101,49 @@ function RobotBody() {
             </mesh>
           )}
 
-          {/* Smile - flipped right-side up */}
-          <mesh position={[0, -0.15, 0.33]} rotation={[Math.PI + 0.3, 0, 0]}>
-            <torusGeometry args={[0.1, 0.015, 8, 16, Math.PI]} />
-            <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1} metalness={0.9} roughness={0.1} />
+          {/* Smile - black curved line */}
+          <mesh position={[0, -0.15, 0.34]} rotation={[Math.PI + 0.25, 0, 0]}>
+            <torusGeometry args={[0.08, 0.012, 8, 16, Math.PI]} />
+            <meshStandardMaterial color="#111" metalness={0.2} roughness={0.8} />
+          </mesh>
+          {/* Smile corners */}
+          <mesh position={[-0.07, -0.13, 0.33]} rotation={[Math.PI + 0.5, 0, 0.3]}>
+            <torusGeometry args={[0.02, 0.008, 6, 8, Math.PI]} />
+            <meshStandardMaterial color="#111" metalness={0.2} roughness={0.8} />
+          </mesh>
+          <mesh position={[0.07, -0.13, 0.33]} rotation={[Math.PI + 0.5, 0, -0.3]}>
+            <torusGeometry args={[0.02, 0.008, 6, 8, Math.PI]} />
+            <meshStandardMaterial color="#111" metalness={0.2} roughness={0.8} />
+          </mesh>
+
+          {/* Mustache */}
+          <mesh position={[-0.06, -0.08, 0.34]} rotation={[0.1, 0, 0.25]}>
+            <boxGeometry args={[0.12, 0.03, 0.03]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.15} roughness={0.9} />
+          </mesh>
+          <mesh position={[0.06, -0.08, 0.34]} rotation={[0.1, 0, -0.25]}>
+            <boxGeometry args={[0.12, 0.03, 0.03]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.15} roughness={0.9} />
+          </mesh>
+
+          {/* Beard - chin area */}
+          <mesh position={[0, -0.25, 0.25]}>
+            <boxGeometry args={[0.32, 0.2, 0.2]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.15} roughness={0.9} />
+          </mesh>
+          {/* Beard - jaw sides */}
+          <mesh position={[-0.2, -0.18, 0.18]}>
+            <boxGeometry args={[0.12, 0.22, 0.18]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.15} roughness={0.9} />
+          </mesh>
+          <mesh position={[0.2, -0.18, 0.18]}>
+            <boxGeometry args={[0.12, 0.22, 0.18]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.15} roughness={0.9} />
+          </mesh>
+          {/* Beard - chin point */}
+          <mesh position={[0, -0.32, 0.22]}>
+            <boxGeometry args={[0.2, 0.1, 0.15]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.15} roughness={0.9} />
           </mesh>
           {/* Antenna */}
           <mesh position={[0, 0.5, 0]}>
