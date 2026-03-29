@@ -276,6 +276,10 @@ export default function SellerManager() {
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('acreage')}>
                       Acres {sortField === 'acreage' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
+                    <TableHead>Bed/Bath</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => toggleSort('living_sqft')}>
+                      Sqft {sortField === 'living_sqft' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
+                    </TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('motivation_score')}>
                       Motivation {sortField === 'motivation_score' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
@@ -306,6 +310,10 @@ export default function SellerManager() {
                       <TableCell className="text-sm">{s.county || '—'}</TableCell>
                       <TableCell className="text-sm">{s.state || '—'}</TableCell>
                       <TableCell className="text-sm font-mono">{s.acreage ? Number(s.acreage).toFixed(2) : '—'}</TableCell>
+                      <TableCell className="text-sm font-mono">
+                        {s.bedrooms || s.bathrooms ? `${s.bedrooms ?? '—'}/${s.bathrooms ?? '—'}` : '—'}
+                      </TableCell>
+                      <TableCell className="text-sm font-mono">{s.living_sqft ? Number(s.living_sqft).toLocaleString() : '—'}</TableCell>
                       <TableCell>
                         <span className={`font-mono text-sm font-semibold ${
                           (s.motivation_score || 0) >= 60 ? 'text-green-500' :
@@ -440,6 +448,9 @@ function SellerDetailContent({ seller: s }: { seller: any }) {
           <DetailRow label="Zoning" value={s.zoning} />
           <DetailRow label="Acreage" value={s.acreage ? `${Number(s.acreage).toFixed(2)} acres` : null} />
           <DetailRow label="Lot Sqft" value={s.lot_sqft ? Number(s.lot_sqft).toLocaleString() : null} />
+          <DetailRow label="Bedrooms" value={s.bedrooms} />
+          <DetailRow label="Bathrooms" value={s.bathrooms} />
+          <DetailRow label="Living Sqft" value={s.living_sqft ? Number(s.living_sqft).toLocaleString() : null} />
           <DetailRow label="Deal Type" value={s.deal_type} />
         </div>
       </div>
