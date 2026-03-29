@@ -99,10 +99,10 @@ Deno.serve(async (req) => {
             .join(", ")
       : null;
 
-    // Update seller
+    // Update seller — only mark as skip_traced if we got a phone number
     const updateData: any = {
       skip_traced_at: new Date().toISOString(),
-      status: bestPhone ? "skip_traced" : seller.status,
+      status: bestPhone ? "skip_traced" : "req_trace",
       meta: { ...seller.meta, skip_trace_result: result },
     };
     if (bestPhone) updateData.owner_phone = bestPhone;
