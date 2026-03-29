@@ -111,11 +111,11 @@ function pickBestName(names: string[]): string | null {
 function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; names: string[]; bestName: string | null } {
   const phones: string[] = [];
   const emails: string[] = [];
-  const names: string[] = [];
+  const candidateNames: string[] = [];
 
   const phoneRegex = /(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
   const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
-  const nameLineRegex = /(?:^|\n)\s*(?:name\s*[:\-]\s*)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/gm;
+  const inlineNameRegex = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/g;
 
   const phoneMatches = raw.match(phoneRegex);
   if (phoneMatches) {
@@ -132,13 +132,20 @@ function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; 
     });
   }
 
-  const nameMatches = [...raw.matchAll(nameLineRegex)];
-  nameMatches.forEach(m => {
-    const name = m[1].trim();
-    if (isHumanName(name) && !names.includes(name)) names.push(name);
-  });
+  raw
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .forEach(line => {
+      const matches = [...line.matchAll(inlineNameRegex)];
+      matches.forEach(match => {
+        const name = match[1].trim();
+        if (isHumanName(name) && !candidateNames.includes(name)) candidateNames.push(name);
+      });
+    });
 
-  return { phones, emails, names, bestName: pickBestName(names) };
+  const bestName = pickBestName(candidateNames);
+  return { phones, emails, names: candidateNames, bestName };
 }
 
 export default function SellerManager() {
@@ -712,8 +719,10 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
           const traceResult = s.meta?.skip_trace_result;
           const rawTracedName = traceResult?.name || traceResult?.fullName
             || (traceResult?.firstName && traceResult?.lastName ? `${traceResult.firstName} ${traceResult.lastName}` : null);
-          // Trust the bestName from clipboard trace — it was already validated at parse time
-          const clipBestName = (s.meta?.clipboard_trace?.bestName as string | undefined) || null;
+          // Trust the bestName from clipboard trace when available, otherwise recover from older raw blobs
+          const clipTrace = s.meta?.clipboard_trace as { bestName?: string; names?: string[] } | undefined;
+          const legacyRawNames = Array.isArray(clipTrace?.names) ? clipTrace.names.join('\n') : '';
+          const clipBestName = clipTrace?.bestName || (legacyRawNames ? parseSkipTraceData(legacyRawNames).bestName : null);
           // Pick the one best traced name to show
           const displayTracedName = rawTracedName || clipBestName;
           const displayName = s.owner_name || displayTracedName;
