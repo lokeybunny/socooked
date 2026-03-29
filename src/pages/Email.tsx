@@ -638,7 +638,7 @@ export default function EmailPage() {
               <p className="text-sm text-muted-foreground py-8 text-center">No new customer emails found at this time.</p>
             ) : renderEmailList(customerOnlyEmails)}
           </TabsContent>
-          {['inbox', 'sent', 'drafts'].map((tab) => (
+          {['inbox', 'sent'].map((tab) => (
             <TabsContent key={tab} value={tab}>
               {loading ? (
                 <div className="flex items-center justify-center py-12">
@@ -648,6 +648,60 @@ export default function EmailPage() {
               ) : renderEmailList(filteredEmails)}
             </TabsContent>
           ))}
+          <TabsContent value="drafts">
+            {/* CRM-generated drafts (wholesale agreements, etc.) */}
+            {crmDrafts.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-xs font-semibold uppercase text-muted-foreground mb-2 px-1">Generated Drafts</h3>
+                <div className="space-y-1">
+                  {crmDrafts.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3 cursor-pointer hover:bg-muted/60 transition-colors"
+                      onClick={() => {
+                        setForm({
+                          to: d.to_address || '',
+                          subject: d.subject || '',
+                          body: d.body || '',
+                          customer_id: '',
+                        });
+                        setComposeOpen(true);
+                      }}
+                    >
+                      <FileEdit className="h-4 w-4 mt-0.5 text-emerald-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate text-foreground">{d.subject || '(No subject)'}</p>
+                        <p className="text-xs text-muted-foreground truncate">To: {d.to_address || 'No recipient'}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {d.provider === 'wholesale-agreement' ? '📝 Wholesale Agreement' : 'Draft'} · {format(new Date(d.created_at), 'MMM d, yyyy h:mm a')}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="shrink-0 text-destructive hover:text-destructive h-7 w-7 p-0"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await supabase.from('communications').delete().eq('id', d.id);
+                          setCrmDrafts(prev => prev.filter(x => x.id !== d.id));
+                          toast.success('Draft deleted');
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Gmail drafts */}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading emails...</span>
+              </div>
+            ) : renderEmailList(filteredEmails)}
+          </TabsContent>
           <TabsContent value="read">
             {readEmails.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">No read emails yet.</p>
