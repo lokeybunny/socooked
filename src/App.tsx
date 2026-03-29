@@ -9,11 +9,7 @@ import { Suspense } from 'react';
 import DomainLanding from "./components/DomainLanding";
 import { AuthLayoutGate } from "./components/layout/AuthLayoutGate";
 
-// Redirect /warren-landing to warren.guru
-function WarrenRedirect() {
-  window.location.href = 'https://warren.guru';
-  return null;
-}
+// /warren-landing renders the Warren landing page directly
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Customers from "./pages/Customers";
@@ -126,7 +122,7 @@ const App = () => (
             <Route path="/shared/:token" element={<SharedContent />} />
             <Route path="/research" element={<Research />} />
             <Route path="/thankyou" element={<ThankYou />} />
-            <Route path="/warren-landing" element={<WarrenRedirect />} />
+            <Route path="/warren-landing" element={<WarrenLanding />} />
             <Route path="/bundler-docs" element={<BundlerDocs />} />
             <Route path="/bundler-docs/:slug" element={<BundlerDocs />} />
             <Route path="/vanities" element={<Vanities />} />
