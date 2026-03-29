@@ -292,10 +292,10 @@ function RobotBody() {
 
 export default function InvestorRobot() {
   return (
-    <div className="w-full h-[45vh] sm:h-[50vh] md:h-[55vh] bg-black rounded-lg">
+    <div className="w-full h-[45vh] sm:h-[50vh] md:h-[55vh]">
       <Canvas
         camera={{ position: [0, 0.8, 9.6], fov: 36 }}
-        gl={{ alpha: false, antialias: true }}
+        gl={{ alpha: true, antialias: true }}
       >
         <color attach="background" args={['#000000']} />
         <ambientLight intensity={0.3} />
