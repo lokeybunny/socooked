@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
   Home, Phone, Star, Shield, Clock, CheckCircle, ArrowRight, Loader2,
-  MapPin, Users, DollarSign, Handshake, Quote, ArrowDown, Heart
+  MapPin, Users, DollarSign, Handshake, Quote, ArrowDown, Heart, Play
 } from 'lucide-react';
+
+import aiTechThumb from '@/assets/landing/ai-tech-thumbnail.jpg';
 
 import heroHomeImg from '@/assets/landing/hero-home.jpg';
 import happyFamilyImg from '@/assets/landing/happy-family.jpg';
