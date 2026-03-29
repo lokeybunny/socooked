@@ -376,10 +376,7 @@ serve(async (req) => {
     const sa = JSON.parse(saJson);
     const accessToken = await getAccessToken(sa, "https://www.googleapis.com/auth/gmail.modify");
 
-    const rawMessage = btoa(unescape(encodeURIComponent(mimeBody)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+    const rawMessage = stringToBase64url(mimeBody);
 
     const gmailRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
       method: "POST",
