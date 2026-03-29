@@ -65,7 +65,21 @@ export default function LeadsManager() {
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [analyzing, setAnalyzing] = useState<string | null>(null);
 
-  useEffect(() => { loadLeads(); }, []);
+  useEffect(() => {
+    loadLeads();
+
+    // Subscribe to realtime changes so webhook updates appear automatically
+    const channel = supabase
+      .channel('lw_landing_leads_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'lw_landing_leads' },
+        () => { loadLeads(); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const loadLeads = async () => {
     setLoading(true);
