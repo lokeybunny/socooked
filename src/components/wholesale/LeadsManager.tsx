@@ -546,6 +546,22 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
                 )}
               </div>
 
+              {/* Call Recording Download */}
+              {selectedLead.vapi_recording_url && (
+                <div>
+                  <a
+                    href={selectedLead.vapi_recording_url}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium"
+                  >
+                    <Phone className="h-4 w-4" />
+                    Download Call Recording
+                  </a>
+                </div>
+              )}
+
               {/* Manual Notes */}
               <div>
                 <Label className="text-xs text-muted-foreground">Notes</Label>
