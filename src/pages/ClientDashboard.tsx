@@ -94,7 +94,7 @@ export default function ClientDashboard() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/client-login');
+      navigate('/auth');
       return;
     }
     loadData();
