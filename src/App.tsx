@@ -57,6 +57,8 @@ import ShillTeam from "./pages/ShillTeam";
 import XShill from "./pages/XShill";
 import Wholesale from "./pages/Wholesale";
 import SellerLanding from "./pages/SellerLanding";
+import Pricing from "./pages/Pricing";
+import Terms from "./pages/Terms";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
