@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -65,6 +65,7 @@ export default function BuyerDiscovery() {
   const [page, setPage] = useState(1);
   const [hideDuplicates, setHideDuplicates] = useState(true);
   const [realtimeCount, setRealtimeCount] = useState(0);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const PAGE_SIZE = 25;
 
   const pollForResults = async () => {
@@ -91,14 +92,34 @@ export default function BuyerDiscovery() {
   const startPolling = () => {
     let attempts = 0;
     const maxAttempts = 36;
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     const interval = setInterval(async () => {
       attempts += 1;
       const done = await pollForResults();
       if (done || attempts >= maxAttempts) {
         clearInterval(interval);
+        pollIntervalRef.current = null;
+        setRunningDiscovery(false);
         if (attempts >= maxAttempts) toast.info('Scrape is still processing — check back shortly');
       }
     }, 5000);
+    pollIntervalRef.current = interval;
+  };
+
+  const stopDiscovery = async () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    setRunningDiscovery(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('buyer-discovery', { body: { action: 'abort' } });
+      if (error) throw error;
+      toast.success(`Stopped ${data?.aborted || 0} running scrape(s)`);
+      await loadBuyers();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to stop');
+    }
   };
 
   useEffect(() => {
