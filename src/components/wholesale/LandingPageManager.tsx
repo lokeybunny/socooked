@@ -146,11 +146,31 @@ export default function LandingPageManager() {
     }).eq('id', id);
     if (error) {
       toast.error(error.message);
-    } else {
-      toast.success('Updated');
-      setEditingId(null);
-      load();
+      return;
     }
+
+    // If email + password provided, create/update client auth account
+    if (form.email.trim() && form.client_password.trim()) {
+      const { error: fnErr } = await supabase.functions.invoke('create-client-account', {
+        body: {
+          email: form.email.trim(),
+          password: form.client_password.trim(),
+          landing_page_id: id,
+        },
+      });
+      if (fnErr) {
+        toast.error('Page updated but client account failed: ' + fnErr.message);
+      } else {
+        toast.success('Updated + client credentials synced');
+        setEditingId(null);
+        load();
+        return;
+      }
+    }
+
+    toast.success('Updated');
+    setEditingId(null);
+    load();
   };
 
   const toggleActive = async (p: LandingPageRow) => {
