@@ -560,18 +560,21 @@ export default function ClientDashboard() {
                           Download AI Transcript
                         </button>
                       )}
-                      {lead.vapi_recording_url && (
-                        <a
-                          href={lead.vapi_recording_url}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white font-medium transition-colors"
-                        >
-                          <Download className="h-4 w-4" />
-                          Download Call Recording
-                        </a>
-                      )}
+                      {(() => {
+                        const recUrl = lead.vapi_recording_url || (lead.meta as any)?.vapi_recording_url;
+                        return recUrl ? (
+                          <a
+                            href={recUrl}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white font-medium transition-colors"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download Call Recording
+                          </a>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 )}
