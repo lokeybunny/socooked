@@ -183,6 +183,13 @@ export function calculateBuyerMatchScore(seller: any, buyer: any): number {
     score += 30;
   }
 
+  // Craigslist region match: +15 bonus
+  // If seller came from a CL link, buyers from the same CL metro get a boost
+  const sellerClSub = extractCraigslistSubdomain(seller.meta?.source_url || seller.meta?.craigslist_url);
+  if (sellerClSub) {
+    if (isBuyerInCraigslistRegion(sellerClSub, buyer)) score += 15;
+  }
+
   // Budget compatibility: +20
   if (seller.market_value || seller.asking_price) {
     const price = seller.asking_price || seller.market_value;
