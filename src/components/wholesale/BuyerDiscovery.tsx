@@ -63,7 +63,7 @@ export default function BuyerDiscovery() {
   const [form, setForm] = useState(emptyForm);
   const [runningDiscovery, setRunningDiscovery] = useState(false);
   const [page, setPage] = useState(1);
-  const [hideDuplicates, setHideDuplicates] = useState(false);
+  const [hideDuplicates, setHideDuplicates] = useState(true);
   const [realtimeCount, setRealtimeCount] = useState(0);
   const PAGE_SIZE = 25;
 
