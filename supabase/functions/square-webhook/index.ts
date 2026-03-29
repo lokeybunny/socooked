@@ -47,12 +47,7 @@ async function squareGet(path: string, token: string) {
   return data;
 }
 
-/**
- * Ensure a Warren Guru subscription plan exists in the Square catalog.
- * Returns the plan variation ID.
- */
 async function ensureSubscriptionPlan(token: string): Promise<{ planId: string; variationId: string }> {
-  // Search for existing plan
   const searchRes = await squareFetch("/catalog/search", token, {
     object_types: ["SUBSCRIPTION_PLAN"],
     query: {
@@ -72,10 +67,6 @@ async function ensureSubscriptionPlan(token: string): Promise<{ planId: string; 
     }
   }
 
-  // Create the plan with phases:
-  // Phase 1: 1 day trial at $0
-  // Phase 2: $599/mo for 3 months (intro)
-  // Phase 3: $799/mo ongoing
   const idempotencyKey = crypto.randomUUID();
   const createRes = await squareFetch("/catalog/object", token, {
     idempotency_key: idempotencyKey,
@@ -121,6 +112,140 @@ async function ensureSubscriptionPlan(token: string): Promise<{ planId: string; 
   };
 }
 
+/** Generate a random 12-char password */
+function generatePassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$';
+  let pw = '';
+  const arr = new Uint8Array(12);
+  crypto.getRandomValues(arr);
+  for (const b of arr) pw += chars[b % chars.length];
+  return pw;
+}
+
+/** Create auth account & email credentials via Gmail API */
+async function createClientAccountAndEmail(
+  sb: any,
+  buyerEmail: string,
+  buyerName: string | null,
+) {
+  const password = generatePassword();
+  const displayName = buyerName || buyerEmail.split('@')[0];
+
+  console.log(`[client-account] Creating account for ${buyerEmail}`);
+
+  // Check if user already exists
+  const { data: existingUsers } = await sb.auth.admin.listUsers();
+  const existing = existingUsers?.users?.find((u: any) => u.email === buyerEmail);
+
+  let userId: string;
+  if (existing) {
+    userId = existing.id;
+    await sb.auth.admin.updateUserById(userId, { password });
+    console.log(`[client-account] Updated existing user ${userId}`);
+  } else {
+    const { data: newUser, error: createError } = await sb.auth.admin.createUser({
+      email: buyerEmail,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: displayName, role: 'client' },
+    });
+    if (createError) {
+      console.error(`[client-account] Create user error: ${createError.message}`);
+      return;
+    }
+    userId = newUser.user.id;
+    console.log(`[client-account] Created new user ${userId}`);
+  }
+
+  // Find landing page linked to this email and store password + user id
+  const { data: pages } = await sb
+    .from('lw_landing_pages')
+    .select('id, client_name')
+    .eq('email', buyerEmail)
+    .limit(1);
+
+  if (pages && pages.length > 0) {
+    await sb
+      .from('lw_landing_pages')
+      .update({ client_user_id: userId, client_password: password })
+      .eq('id', pages[0].id);
+    console.log(`[client-account] Linked user to landing page ${pages[0].id}`);
+  }
+
+  // Send login credentials email via Gmail API
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+  const loginUrl = 'https://socooked.lovable.app/client-login';
+  const emailHtml = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+  <h2 style="color: #0f172a;">Welcome to Your Client Dashboard 🎉</h2>
+  
+  <p>Hi ${displayName},</p>
+  
+  <p>Thank you for your payment! Your client dashboard is now ready. Here are your login credentials:</p>
+  
+  <div style="background: #f1f5f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+    <p style="margin: 4px 0;"><strong>Login URL:</strong> <a href="${loginUrl}">${loginUrl}</a></p>
+    <p style="margin: 4px 0;"><strong>Email:</strong> ${buyerEmail}</p>
+    <p style="margin: 4px 0;"><strong>Password:</strong> ${password}</p>
+  </div>
+  
+  <p>From your dashboard you can:</p>
+  <ul>
+    <li>View and manage your incoming leads</li>
+    <li>Download call recordings</li>
+    <li>Track your lead pipeline</li>
+  </ul>
+  
+  <p>We recommend changing your password after your first login.</p>
+  
+  <br/>
+  <p>Best regards,</p>
+  <p><strong>Warren A Thompson</strong><br/>
+  STU25 — Web &amp; Social Media Services<br/>
+  <a href="mailto:warren@stu25.com">warren@stu25.com</a></p>
+</div>`;
+
+  try {
+    const gmailRes = await fetch(
+      `${SUPABASE_URL}/functions/v1/gmail-api?action=send`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${serviceKey}`,
+        },
+        body: JSON.stringify({
+          to: buyerEmail,
+          subject: 'Your Client Dashboard Login Credentials',
+          body: emailHtml,
+        }),
+      }
+    );
+    const gmailData = await gmailRes.json();
+    if (!gmailRes.ok) {
+      console.error('[client-account] Gmail send error:', JSON.stringify(gmailData));
+    } else {
+      console.log(`[client-account] ✅ Credentials emailed to ${buyerEmail}`);
+    }
+
+    // Log communication
+    await sb.from('communications').insert({
+      type: 'email',
+      direction: 'outbound',
+      to_address: buyerEmail,
+      subject: 'Client Dashboard Login Credentials',
+      body: emailHtml,
+      status: 'sent',
+      provider: 'square-payment-account-create',
+      metadata: { source: 'square-webhook', user_id: userId },
+    });
+  } catch (emailErr) {
+    console.error('[client-account] Email send failed:', emailErr);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -152,7 +277,6 @@ serve(async (req) => {
 
         const orderId = payment.order_id;
         const customerId = payment.customer_id;
-        const cardId = payment.card_details?.card?.id;
         const buyerEmail = payment.buyer_email_address;
         const sourceCardId = payment.source_type === "CARD" ? payment.card_details?.card?.id : null;
 
@@ -176,6 +300,20 @@ serve(async (req) => {
             .eq("square_order_id", orderId);
         }
 
+        // ─── Auto-create client dashboard account ───
+        if (buyerEmail) {
+          // Resolve buyer name from Square customer if available
+          let buyerName: string | null = null;
+          if (customerId) {
+            try {
+              const custData = await squareGet(`/customers/${customerId}`, SQUARE_ACCESS_TOKEN);
+              const c = custData.customer;
+              if (c) buyerName = [c.given_name, c.family_name].filter(Boolean).join(' ') || null;
+            } catch { /* ignore */ }
+          }
+          await createClientAccountAndEmail(sb, buyerEmail, buyerName);
+        }
+
         // If we have a customer and card, create the subscription
         if (customerId && sourceCardId) {
           try {
@@ -184,7 +322,6 @@ serve(async (req) => {
             const locationId = locationRes.locations?.[0]?.id;
 
             if (locationId && variationId) {
-              // Store card on file
               const cardRes = await squareFetch("/cards", SQUARE_ACCESS_TOKEN, {
                 idempotency_key: crypto.randomUUID(),
                 source_id: payment.id,
@@ -198,7 +335,6 @@ serve(async (req) => {
 
               const storedCardId = cardRes?.card?.id || sourceCardId;
 
-              // Create subscription
               const subRes = await squareFetch("/subscriptions", SQUARE_ACCESS_TOKEN, {
                 idempotency_key: crypto.randomUUID(),
                 location_id: locationId,
