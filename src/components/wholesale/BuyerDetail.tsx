@@ -18,6 +18,7 @@ interface BuyerDetailProps {
 export default function BuyerDetail({ buyer, open, onOpenChange, onUpdate }: BuyerDetailProps) {
   const [activity, setActivity] = useState<any[]>([]);
   const [matchedSellers, setMatchedSellers] = useState<any[]>([]);
+  const [findingSeller, setFindingSeller] = useState(false);
 
   useEffect(() => {
     if (open && buyer) {
@@ -38,7 +39,6 @@ export default function BuyerDetail({ buyer, open, onOpenChange, onUpdate }: Buy
   };
 
   const loadSellerMatches = async () => {
-    // Find sellers in overlapping states/counties
     const states = buyer.target_states || [];
     const counties = buyer.target_counties || [];
     if (!states.length && !counties.length) return;
@@ -47,7 +47,6 @@ export default function BuyerDetail({ buyer, open, onOpenChange, onUpdate }: Buy
     if (states.length) query = query.in('state', states);
     const { data } = await query;
 
-    // Score matches
     const scored = (data || []).map((seller: any) => {
       let score = 0;
       if (states.includes(seller.state)) score += 30;
@@ -59,6 +58,98 @@ export default function BuyerDetail({ buyer, open, onOpenChange, onUpdate }: Buy
     }).filter((s: any) => s.match_score > 0).sort((a: any, b: any) => b.match_score - a.match_score);
 
     setMatchedSellers(scored);
+  };
+
+  const findSeller = async () => {
+    setFindingSeller(true);
+    try {
+      const states = buyer.target_states || [];
+      const counties = buyer.target_counties || [];
+      const dealType = buyer.deal_type || 'land';
+      const meta = buyer.meta || {};
+      const interests = meta.interests || {};
+
+      if (!states.length && !counties.length) {
+        toast.error('Buyer has no target states or counties set');
+        setFindingSeller(false);
+        return;
+      }
+
+      // Build distress filters from buyer preferences
+      const distressFilters: Record<string, any> = {};
+
+      // Property type mapping from buyer interests
+      const propTypes = interests.property_types || buyer.property_type_interest || [];
+      if (propTypes.includes('sfr')) distressFilters.property_type = 'SFR';
+      else if (propTypes.includes('multi_family') || dealType === 'multi_home') distressFilters.property_type = 'MFR';
+      else if (propTypes.includes('land') || dealType === 'land') distressFilters.property_type = 'LAND';
+
+      // Acreage
+      if (buyer.acreage_min) distressFilters.acreage_min = buyer.acreage_min;
+      if (buyer.acreage_max) distressFilters.acreage_max = buyer.acreage_max;
+
+      // Value/budget range
+      if (buyer.budget_min) distressFilters.value_min = buyer.budget_min;
+      if (buyer.budget_max) distressFilters.value_max = buyer.budget_max;
+
+      // Motivation flags from interests
+      const motFlags = interests.motivation_flags || [];
+      if (motFlags.includes('distressed')) distressFilters.absentee_owner = true;
+      if (motFlags.includes('pre_foreclosure')) distressFilters.pre_foreclosure = true;
+      if (motFlags.includes('tax_delinquent')) distressFilters.tax_delinquent_year = '2023';
+      if (motFlags.includes('absentee_owner')) distressFilters.absentee_owner = true;
+      if (motFlags.includes('vacant')) distressFilters.vacant = true;
+      if (motFlags.includes('free_clear')) distressFilters.free_and_clear = true;
+
+      // Building specs from interests
+      const beds = interests.bedrooms;
+      if (beds && beds !== 'any') distressFilters.bedrooms_min = parseInt(beds);
+      const baths = interests.bathrooms;
+      if (baths && baths !== 'any') distressFilters.bathrooms_min = parseInt(baths);
+      if (interests.sqft_min) distressFilters.sqft_min = interests.sqft_min;
+      if (interests.sqft_max) distressFilters.sqft_max = interests.sqft_max;
+
+      // City filter
+      if (buyer.city) distressFilters.city = buyer.city;
+
+      // Search each target county
+      const targetCounty = counties[0];
+      const targetState = states[0];
+
+      toast.loading(`Searching REAPI for sellers matching ${buyer.full_name}...`, { id: 'find-seller' });
+
+      const res = await supabase.functions.invoke('land-reapi-search', {
+        body: {
+          county: targetCounty,
+          state: targetState,
+          deal_type: dealType,
+          size: 50,
+          distress_filters: distressFilters,
+          buyer_id: buyer.id,
+        },
+      });
+
+      if (res.error) throw res.error;
+
+      const result = res.data;
+      if (result.skipped) {
+        toast.error(result.reason || 'Search skipped', { id: 'find-seller' });
+        return;
+      }
+
+      const newCount = result.records_new || result.records || 0;
+      const totalCount = result.records_fetched || result.records || 0;
+
+      toast.success(`Found ${totalCount} properties, ${newCount} new sellers imported!`, { id: 'find-seller' });
+
+      // Reload seller matches
+      await loadSellerMatches();
+      onUpdate();
+    } catch (err: any) {
+      toast.error('Search failed: ' + (err.message || 'Unknown error'), { id: 'find-seller' });
+    } finally {
+      setFindingSeller(false);
+    }
   };
 
   if (!buyer) return null;
@@ -173,13 +264,28 @@ export default function BuyerDetail({ buyer, open, onOpenChange, onUpdate }: Buy
 
           <Separator />
 
+          {/* Find Seller Button */}
+          <Button
+            onClick={findSeller}
+            disabled={findingSeller}
+            className="w-full gap-2"
+            variant="default"
+          >
+            {findingSeller ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+            {findingSeller ? 'Searching REAPI...' : 'Find Seller'}
+          </Button>
+
           {/* Seller Match Suggestions */}
           <div>
             <h4 className="text-sm font-semibold flex items-center gap-1.5 mb-2">
               <Handshake className="h-4 w-4" /> Seller Matches ({matchedSellers.length})
             </h4>
             {matchedSellers.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No matching seller leads found</p>
+              <p className="text-xs text-muted-foreground">No matching seller leads found. Use "Find Seller" to search REAPI.</p>
             ) : (
               <div className="space-y-2">
                 {matchedSellers.slice(0, 5).map(s => (
