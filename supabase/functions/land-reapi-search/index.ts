@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const searchCounty = body.county;
     const searchState = body.state;
     const dealType = body.deal_type || "land";
-    const propertyType = dealType === "land" ? "VACANT" : "SFR";
+    const propertyType = dealType === "land" ? "LAND" : "SFR";
     const pageSize = Math.min(body.size || 50, 100);
 
     // If no county specified, pull from top demand signals
