@@ -249,6 +249,31 @@ export default function SellerManager() {
       const types = fetchDealType === 'both' ? ['land', 'home'] : [fetchDealType];
       let totalFetched = 0;
       let totalNew = 0;
+
+      // Build distress_filters payload
+      const df: Record<string, any> = {};
+      if (distressMode) {
+        if (fetchDistress.absentee_owner) df.absentee_owner = true;
+        if (fetchDistress.vacant) df.vacant = true;
+        if (fetchDistress.vacant_land) df.vacant_land = true;
+        if (fetchDistress.tax_delinquent_year) df.tax_delinquent_year = fetchDistress.tax_delinquent_year;
+        if (fetchDistress.liens) df.liens = true;
+        if (fetchDistress.high_equity_percent) df.high_equity_percent = Number(fetchDistress.high_equity_percent);
+        if (fetchDistress.free_and_clear) df.free_and_clear = true;
+        if (fetchDistress.pre_foreclosure) df.pre_foreclosure = true;
+        if (fetchDistress.foreclosure) df.foreclosure = true;
+        if (fetchDistress.auction) df.auction = true;
+        if (fetchDistress.out_of_state) df.out_of_state = true;
+        if (fetchDistress.years_owned_min) df.years_owned_min = Number(fetchDistress.years_owned_min);
+        if (fetchDistress.property_type) df.property_type = fetchDistress.property_type;
+        if (fetchDistress.acreage_min) df.acreage_min = Number(fetchDistress.acreage_min);
+        if (fetchDistress.acreage_max) df.acreage_max = Number(fetchDistress.acreage_max);
+        if (fetchDistress.value_min) df.value_min = Number(fetchDistress.value_min);
+        if (fetchDistress.value_max) df.value_max = Number(fetchDistress.value_max);
+        if (fetchCity.trim()) df.city = fetchCity.trim();
+        if (fetchZip.trim()) df.zip = fetchZip.trim();
+      }
+
       for (const dt of types) {
         const { data, error } = await supabase.functions.invoke('land-reapi-search', {
           body: {
@@ -256,6 +281,7 @@ export default function SellerManager() {
             state: fetchState.trim().toUpperCase(),
             deal_type: dt,
             size: Number(fetchSize) || 50,
+            ...(distressMode ? { distress_filters: df } : {}),
           },
         });
         if (error) throw error;
