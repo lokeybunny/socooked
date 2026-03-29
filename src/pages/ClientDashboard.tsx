@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
-  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText, Flame, Globe
+  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText, Flame, Globe, Mail
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -62,6 +62,7 @@ export default function ClientDashboard() {
   const [editingLead, setEditingLead] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [activeSection, setActiveSection] = useState<'funnel' | 'hot' | 'phone'>('funnel');
+  const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -186,6 +187,22 @@ export default function ClientDashboard() {
     a.download = `transcript-${lead.full_name.replace(/\s+/g, '-').toLowerCase()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const sendLeadReport = async (lead: Lead) => {
+    setSendingLeadId(lead.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('lead-report-email', {
+        body: { lead_id: lead.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Report sent to ${data.sent_to}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send report');
+    } finally {
+      setSendingLeadId(null);
+    }
   };
 
   const isHotLead = (l: Lead) => {
@@ -664,6 +681,14 @@ export default function ClientDashboard() {
                           </a>
                         ) : null;
                       })()}
+                      <button
+                        onClick={() => sendLeadReport(lead)}
+                        disabled={sendingLeadId === lead.id}
+                        className="inline-flex items-center gap-2 text-sm text-emerald-400/80 hover:text-emerald-300 font-medium transition-colors disabled:opacity-50"
+                      >
+                        {sendingLeadId === lead.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                        {sendingLeadId === lead.id ? 'Sending...' : 'Send Lead to Email'}
+                      </button>
                     </div>
                   </div>
                 )}
