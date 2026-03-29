@@ -407,7 +407,29 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-function SellerDetailContent({ seller: s }: { seller: any }) {
+function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipTraced?: () => void }) {
+  const [tracing, setTracing] = useState(false);
+
+  const handleSkipTrace = async () => {
+    setTracing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('land-reapi-skip-trace-single', {
+        body: { seller_id: s.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(
+        data.phone
+          ? `Found phone: ${data.phone}${data.email ? `, email: ${data.email}` : ''}`
+          : 'Skip trace complete — no phone found'
+      );
+      onSkipTraced?.();
+    } catch (err: any) {
+      toast.error(err.message || 'Skip trace failed');
+    }
+    setTracing(false);
+  };
+
   const flags = [
     s.is_tax_delinquent && 'Tax Delinquent',
     s.is_absentee_owner && 'Absentee Owner',
