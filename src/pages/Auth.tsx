@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Navigate, useNavigate, Link } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,11 +15,30 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [redirectTarget, setRedirectTarget] = useState<string | null>(null);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
 
+  // When user is already logged in, determine where to send them
+  useEffect(() => {
+    if (!user) return;
+    const checkRole = async () => {
+      const { data } = await supabase
+        .from('lw_landing_pages')
+        .select('id')
+        .eq('client_user_id', user.id)
+        .limit(1);
+      if (data && data.length > 0) {
+        setRedirectTarget('/client-dashboard');
+      } else {
+        setRedirectTarget('/dashboard');
+      }
+    };
+    checkRole();
+  }, [user]);
+
   if (loading) return <div className="flex items-center justify-center min-h-screen bg-background"><div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" /></div>;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user && redirectTarget) return <Navigate to={redirectTarget} replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,8 +49,22 @@ export default function Auth() {
         if (error) throw error;
         toast.success('Check your email to confirm your account!');
       } else {
-        const { error } = await signIn(email, password);
+        const { error, data } = await signIn(email, password);
         if (error) throw error;
+
+        // Check if this user is a client
+        if (data?.user) {
+          const { data: pages } = await supabase
+            .from('lw_landing_pages')
+            .select('id')
+            .eq('client_user_id', data.user.id)
+            .limit(1);
+          if (pages && pages.length > 0) {
+            navigate('/client-dashboard');
+            return;
+          }
+        }
+        navigate('/dashboard');
       }
     } catch (err: any) {
       toast.error(err.message || 'Authentication failed');

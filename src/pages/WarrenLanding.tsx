@@ -252,39 +252,7 @@ export default function WarrenLanding() {
         </motion.div>
       </section>
 
-      {/* ── Problem ── */}
-      <section className="py-24 px-6 border-t border-white/[0.04]">
-        <div className="max-w-3xl mx-auto text-center">
-          <motion.p
-            initial="hidden" whileInView="visible" viewport={{ once: true }}
-            variants={fade} custom={0}
-            className="text-xs tracking-[0.4em] uppercase text-white/30 mb-5"
-          >
-            The Problem
-          </motion.p>
-          <motion.h2
-            initial="hidden" whileInView="visible" viewport={{ once: true }}
-            variants={fade} custom={1}
-            className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight"
-          >
-            You're leaving deals on the table.
-          </motion.h2>
-          <motion.p
-            initial="hidden" whileInView="visible" viewport={{ once: true }}
-            variants={fade} custom={2}
-            className="mt-6 text-base sm:text-lg text-white/35 leading-relaxed max-w-xl mx-auto"
-          >
-            Cold calling for hours. Manually tracking sellers in spreadsheets. Missing hot leads because you can't call back fast enough. The wholesale game is brutal when you're doing everything by hand.
-          </motion.p>
-          <motion.p
-            initial="hidden" whileInView="visible" viewport={{ once: true }}
-            variants={fade} custom={3}
-            className="mt-5 text-base text-white/50 font-medium"
-          >
-            Warren Guru replaces the grind with a system.
-          </motion.p>
-        </div>
-      </section>
+      {/* Problem section removed */}
 
       {/* ── Demo Video ── */}
       <DemoVideoSection />
