@@ -70,6 +70,68 @@ const fade = {
   }),
 };
 
+function DemoVideoSection() {
+  const [playing, setPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  return (
+    <section className="py-20 px-6 border-t border-white/[0.04]">
+      <div className="max-w-4xl mx-auto">
+        <motion.p
+          initial="hidden" whileInView="visible" viewport={{ once: true }}
+          variants={fade} custom={0}
+          className="text-xs tracking-[0.4em] uppercase text-white/30 mb-5 text-center"
+        >
+          See It In Action
+        </motion.p>
+        <motion.div
+          initial="hidden" whileInView="visible" viewport={{ once: true }}
+          variants={fade} custom={1}
+          className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-cyan-500/5 group"
+        >
+          {!playing ? (
+            <div className="relative cursor-pointer" onClick={() => setPlaying(true)}>
+              <img
+                src={aiTechThumb}
+                alt="AI-powered wholesale automation demo"
+                className="w-full aspect-video object-cover"
+                loading="lazy"
+                width={1920}
+                height={1080}
+              />
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/30 transition-colors">
+                <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Play className="h-8 w-8 text-white ml-1" fill="white" />
+                </div>
+              </div>
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-full w-0 bg-cyan-400 rounded-full" />
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-[10px] text-white/40">0:00</span>
+                  <span className="text-[10px] text-white/40">2:34</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <video
+              ref={videoRef}
+              className="w-full aspect-video object-cover"
+              controls
+              autoPlay
+              playsInline
+              poster={aiTechThumb}
+            >
+              <source src="" type="video/mp4" />
+            </video>
+          )}
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
 export default function WarrenLanding() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
