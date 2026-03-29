@@ -617,12 +617,9 @@ export default function SellerManager() {
         </CardContent>
       </Card>
 
-      {/* Distress Intelligence Filters */}
-      <DistressFilters filters={distressFilters} onChange={setDistressFilters} onPreset={handlePreset} />
-
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -646,6 +643,9 @@ export default function SellerManager() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Distress Intelligence Presets & Advanced Filters */}
+          <DistressFilters filters={distressFilters} onChange={setDistressFilters} onPreset={handlePreset} />
         </CardContent>
       </Card>
 
