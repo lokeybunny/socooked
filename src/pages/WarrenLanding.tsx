@@ -154,11 +154,6 @@ export default function WarrenLanding() {
 
           <div className="mt-16 flex items-center justify-center gap-10 text-white/20">
             <div className="text-center">
-              <div className="text-3xl font-bold text-white/60">$599</div>
-              <div className="text-xs tracking-[0.2em] uppercase mt-1">/month to start</div>
-            </div>
-            <div className="w-px h-12 bg-white/10" />
-            <div className="text-center">
               <div className="text-3xl font-bold text-white/60">24hr</div>
               <div className="text-xs tracking-[0.2em] uppercase mt-1">Free Trial</div>
             </div>
