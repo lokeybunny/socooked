@@ -1111,6 +1111,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
     setParsing(false);
   };
 
+  const m: any = s.meta || {};
   const flags = [
     s.is_tax_delinquent && 'Tax Delinquent',
     s.is_absentee_owner && 'Absentee Owner',
