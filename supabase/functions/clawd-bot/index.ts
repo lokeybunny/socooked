@@ -264,6 +264,8 @@ Deno.serve(async (req) => {
     if (path === 'customer' && req.method === 'DELETE') {
       const id = body.id || params.get('id')
       if (!id) return fail('id is required. Pass as JSON body {"id":"uuid"} or query param ?id=uuid')
+      const idParsed = uuidSchema.safeParse(id)
+      if (!idParsed.success) return fail('id must be a valid UUID', 400)
       // Unlink/delete ALL related records to avoid FK constraint errors
       await supabase.from('cards').update({ customer_id: null }).eq('customer_id', id)
       await supabase.from('deals').update({ customer_id: null as any }).eq('customer_id', id)
