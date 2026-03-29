@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio, Home } from 'lucide-react';
+import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio, Home, Square } from 'lucide-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerDetail from './BuyerDetail';
@@ -65,6 +65,7 @@ export default function BuyerDiscovery() {
   const [page, setPage] = useState(1);
   const [hideDuplicates, setHideDuplicates] = useState(true);
   const [realtimeCount, setRealtimeCount] = useState(0);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const PAGE_SIZE = 25;
 
   const pollForResults = async () => {
@@ -91,14 +92,34 @@ export default function BuyerDiscovery() {
   const startPolling = () => {
     let attempts = 0;
     const maxAttempts = 36;
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     const interval = setInterval(async () => {
       attempts += 1;
       const done = await pollForResults();
       if (done || attempts >= maxAttempts) {
         clearInterval(interval);
+        pollIntervalRef.current = null;
+        setRunningDiscovery(false);
         if (attempts >= maxAttempts) toast.info('Scrape is still processing — check back shortly');
       }
     }, 5000);
+    pollIntervalRef.current = interval;
+  };
+
+  const stopDiscovery = async () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    setRunningDiscovery(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('buyer-discovery', { body: { action: 'abort' } });
+      if (error) throw error;
+      toast.success(`Stopped ${data?.aborted || 0} running scrape(s)`);
+      await loadBuyers();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to stop');
+    }
   };
 
   useEffect(() => {
@@ -427,10 +448,15 @@ export default function BuyerDiscovery() {
               </SelectContent>
             </Select>
             <div className="flex gap-1.5 ml-auto">
-              <Button size="sm" variant="outline" onClick={runDiscovery} disabled={runningDiscovery}>
-                <Zap className="h-3.5 w-3.5 mr-1" />
-                {runningDiscovery ? 'Running…' : 'Run Discovery'}
-              </Button>
+              {runningDiscovery ? (
+                <Button size="sm" variant="destructive" onClick={stopDiscovery}>
+                  <Square className="h-3 w-3 mr-1 fill-current" /> Stop
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={runDiscovery}>
+                  <Zap className="h-3.5 w-3.5 mr-1" /> Run Discovery
+                </Button>
+              )}
               <Button size="sm" onClick={openAdd}>
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add Buyer
               </Button>

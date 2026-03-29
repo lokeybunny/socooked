@@ -21,7 +21,45 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const action = body.action || "start"; // "start" | "poll"
+    const action = body.action || "start"; // "start" | "poll" | "abort"
+
+    // ── ABORT: kill all running Apify runs ──
+    if (action === "abort") {
+      const { data: runningLogs } = await supabase
+        .from("lw_buyer_ingestion_logs")
+        .select("*")
+        .eq("status", "running")
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (!runningLogs?.length) {
+        return new Response(JSON.stringify({ message: "No running jobs to abort", aborted: 0 }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const aborted: string[] = [];
+      for (const log of runningLogs) {
+        const runId = log.apify_run_id;
+        if (!runId) continue;
+        try {
+          await fetch(
+            `https://api.apify.com/v2/actor-runs/${runId}/abort?token=${APIFY_TOKEN}`,
+            { method: "POST" }
+          );
+          await supabase.from("lw_buyer_ingestion_logs")
+            .update({ status: "aborted", error: "User aborted" })
+            .eq("apify_run_id", runId);
+          aborted.push(runId);
+        } catch (err) {
+          console.error(`[buyer-discovery] Failed to abort ${runId}:`, err);
+        }
+      }
+
+      return new Response(JSON.stringify({ aborted: aborted.length, run_ids: aborted }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // ── POLL: check running logs and ingest completed ones ──
     if (action === "poll") {
