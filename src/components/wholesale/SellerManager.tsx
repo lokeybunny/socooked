@@ -745,12 +745,34 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
 
   return (
     <div className="space-y-4">
-      {/* Top action bar — Trace Clipboard */}
+      {/* Top action bar — Pipeline advance + Trace Clipboard + Edit */}
       <div className="flex items-center gap-2">
         <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setClipboardOpen(true)}>
           <ClipboardPaste className="h-3.5 w-3.5" />
           Trace Clipboard
         </Button>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditing(!editing)}>
+          <Pencil className="h-3.5 w-3.5" />
+          {editing ? 'Cancel Edit' : 'Edit'}
+        </Button>
+        {editing && (
+          <Button size="sm" className="gap-1.5" onClick={handleSaveEdits} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Save
+          </Button>
+        )}
+        <div className="ml-auto">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={handleAdvancePipeline}
+            disabled={PIPELINE_ORDER.indexOf(s.status) >= PIPELINE_ORDER.length - 1}
+          >
+            Next Stage
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {/* Owner Info */}
