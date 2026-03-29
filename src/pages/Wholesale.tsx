@@ -16,6 +16,7 @@ import SellerManager from '@/components/wholesale/SellerManager';
 import DistressDashboard from '@/components/wholesale/DistressDashboard';
 import BuyerSellerMatches from '@/components/wholesale/BuyerSellerMatches';
 import LeadsManager from '@/components/wholesale/LeadsManager';
+import VapiSpendDashboard from '@/components/wholesale/VapiSpendDashboard';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home' | 'multi_home';
