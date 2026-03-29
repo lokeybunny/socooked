@@ -209,6 +209,13 @@ export default function WarrenLanding() {
               Start Free Trial
               <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </Link>
+            <Link
+              to="/sell/joedoe"
+              className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-white transition-colors border border-white/10 rounded-lg hover:border-white/20"
+            >
+              See Live Example
+              <ArrowRight className="h-4 w-4" />
+            </Link>
             <a
               href="#how-it-works"
               className="flex items-center gap-2 px-8 py-4 text-sm tracking-[0.2em] uppercase text-white/40 hover:text-white transition-colors"
