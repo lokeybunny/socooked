@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import DistressFilters, { EMPTY_DISTRESS_FILTERS, type DistressFilterState } from './DistressFilters';
 import CsvImport from './CsvImport';
@@ -492,12 +492,128 @@ export default function SellerManager() {
               <Input type="number" value={fetchSize} onChange={e => setFetchSize(e.target.value)} className="w-[80px] h-9" />
             </div>
             <Button onClick={fetchProperties} disabled={fetching} className="h-9">
-              {fetching ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Fetching…</> : <><Download className="h-3.5 w-3.5 mr-1" /> Fetch Properties</>}
+              {fetching ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Fetching…</> : <><Download className="h-3.5 w-3.5 mr-1" /> {distressMode ? 'Distress Search' : 'Fetch Properties'}</>}
             </Button>
             <Button variant="outline" className="h-9 gap-1.5" onClick={() => setCsvOpen(true)}>
               <FileSpreadsheet className="h-3.5 w-3.5" /> CSV Import
             </Button>
           </div>
+
+          {/* Distress Search Expandable Filter Groups */}
+          {distressMode && (
+            <div className="border rounded-lg bg-muted/30 p-3 space-y-3 mt-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <Shield className="h-3 w-3" /> Distress Filters
+              </p>
+
+              {/* Ownership Signals */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Ownership</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.absentee_owner} onCheckedChange={v => setFetchDistress(p => ({...p, absentee_owner: !!v}))} />
+                    Absentee Owner
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.out_of_state} onCheckedChange={v => setFetchDistress(p => ({...p, out_of_state: !!v}))} />
+                    Out-of-State
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Years Owned ≥</Label>
+                    <Input type="number" placeholder="10" className="h-7 w-16 text-xs"
+                      value={fetchDistress.years_owned_min} onChange={e => setFetchDistress(p => ({...p, years_owned_min: e.target.value}))} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial Signals */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Financial</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={!!fetchDistress.tax_delinquent_year} onCheckedChange={v => setFetchDistress(p => ({...p, tax_delinquent_year: v ? String(new Date().getFullYear() - 1) : ''}))} />
+                    Tax Delinquent
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.liens} onCheckedChange={v => setFetchDistress(p => ({...p, liens: !!v}))} />
+                    Liens
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.free_and_clear} onCheckedChange={v => setFetchDistress(p => ({...p, free_and_clear: !!v}))} />
+                    Free & Clear
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Equity ≥</Label>
+                    <Input type="number" placeholder="40%" className="h-7 w-16 text-xs"
+                      value={fetchDistress.high_equity_percent} onChange={e => setFetchDistress(p => ({...p, high_equity_percent: e.target.value}))} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Foreclosure / Legal */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Foreclosure & Legal</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.pre_foreclosure} onCheckedChange={v => setFetchDistress(p => ({...p, pre_foreclosure: !!v}))} />
+                    Pre-Foreclosure
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.foreclosure} onCheckedChange={v => setFetchDistress(p => ({...p, foreclosure: !!v}))} />
+                    Foreclosure
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.auction} onCheckedChange={v => setFetchDistress(p => ({...p, auction: !!v}))} />
+                    Auction
+                  </label>
+                </div>
+              </div>
+
+              {/* Property */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Property</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-end">
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.vacant} onCheckedChange={v => setFetchDistress(p => ({...p, vacant: !!v}))} />
+                    Vacant
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.vacant_land} onCheckedChange={v => setFetchDistress(p => ({...p, vacant_land: !!v}))} />
+                    Vacant Land
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Type</Label>
+                    <Select value={fetchDistress.property_type || 'any'} onValueChange={v => setFetchDistress(p => ({...p, property_type: v === 'any' ? '' : v}))}>
+                      <SelectTrigger className="h-7 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any</SelectItem>
+                        <SelectItem value="LAND">Land</SelectItem>
+                        <SelectItem value="SFR">SFR</SelectItem>
+                        <SelectItem value="MFR">Multi-Family</SelectItem>
+                        <SelectItem value="CONDO">Condo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Acres</Label>
+                    <Input type="number" step="0.1" placeholder="Min" className="h-7 w-16 text-xs"
+                      value={fetchDistress.acreage_min} onChange={e => setFetchDistress(p => ({...p, acreage_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" step="0.1" placeholder="Max" className="h-7 w-16 text-xs"
+                      value={fetchDistress.acreage_max} onChange={e => setFetchDistress(p => ({...p, acreage_max: e.target.value}))} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Value $</Label>
+                    <Input type="number" placeholder="Min" className="h-7 w-20 text-xs"
+                      value={fetchDistress.value_min} onChange={e => setFetchDistress(p => ({...p, value_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" placeholder="Max" className="h-7 w-20 text-xs"
+                      value={fetchDistress.value_max} onChange={e => setFetchDistress(p => ({...p, value_max: e.target.value}))} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
