@@ -482,15 +482,72 @@ export default function BuyerDiscovery() {
                 <SelectItem value="craigslist">Craigslist</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex gap-1.5 ml-auto">
+            <div className="flex gap-1.5 ml-auto items-center">
               {runningDiscovery ? (
                 <Button size="sm" variant="destructive" onClick={stopDiscovery}>
                   <Square className="h-3 w-3 mr-1 fill-current" /> Stop
                 </Button>
               ) : (
-                <Button size="sm" variant="outline" onClick={runDiscovery}>
-                  <Zap className="h-3.5 w-3.5 mr-1" /> Run Discovery
-                </Button>
+                <div className="flex items-center">
+                  <Button size="sm" variant="outline" onClick={runDiscovery} className="rounded-r-none">
+                    <Zap className="h-3.5 w-3.5 mr-1" />
+                    {selectedSourceIds.length > 0 ? `Run ${selectedSourceIds.length} Source${selectedSourceIds.length > 1 ? 's' : ''}` : 'Run All'}
+                  </Button>
+                  <Popover open={sourcePickerOpen} onOpenChange={setSourcePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button size="sm" variant="outline" className="rounded-l-none border-l-0 px-1.5">
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-3" align="end">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold">Select Sources</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 text-xs px-2"
+                            onClick={() => setSelectedSourceIds([])}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">Leave empty to run all enabled sources</p>
+                        {discoverySources.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2">No discovery sources configured</p>
+                        ) : (
+                          <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                            {discoverySources.map(src => (
+                              <label key={src.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-1.5 py-1">
+                                <Checkbox
+                                  checked={selectedSourceIds.includes(src.id)}
+                                  onCheckedChange={(checked) => {
+                                    setSelectedSourceIds(prev =>
+                                      checked
+                                        ? [...prev, src.id]
+                                        : prev.filter(id => id !== src.id)
+                                    );
+                                  }}
+                                />
+                                <span className="truncate flex-1">{src.name}</span>
+                                <Badge variant="outline" className="text-[9px] shrink-0">{src.platform}</Badge>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                        <Button
+                          size="sm"
+                          className="w-full mt-1"
+                          disabled={discoverySources.length === 0}
+                          onClick={() => { setSourcePickerOpen(false); runDiscovery(); }}
+                        >
+                          <Zap className="h-3.5 w-3.5 mr-1" />
+                          {selectedSourceIds.length > 0 ? `Run ${selectedSourceIds.length} Selected` : 'Run All Sources'}
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               )}
               <Button size="sm" onClick={openAdd}>
                 <Plus className="h-3.5 w-3.5 mr-1" /> Add Buyer
