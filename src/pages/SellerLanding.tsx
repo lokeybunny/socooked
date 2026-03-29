@@ -78,12 +78,12 @@ export default function SellerLanding() {
       return;
     }
     setSubmitting(true);
-    const { data: insertedLead, error } = await supabase.from('lw_landing_leads').insert({
+    const { error } = await supabase.from('lw_landing_leads').insert({
       landing_page_id: page.id,
       full_name: name.trim(),
       phone: phone.trim(),
       property_address: address.trim(),
-    }).select('id').single();
+    });
     setSubmitting(false);
     if (error) {
       console.error('Landing lead insert error:', error.message, error.details, error.code);
