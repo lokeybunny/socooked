@@ -647,8 +647,35 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
     }
     setTracing(false);
   };
+  const handleAdvancePipeline = async () => {
+    const idx = PIPELINE_ORDER.indexOf(s.status);
+    if (idx < 0 || idx >= PIPELINE_ORDER.length - 1) return;
+    const nextStatus = PIPELINE_ORDER[idx + 1];
+    await supabase.from('lw_sellers').update({ status: nextStatus }).eq('id', s.id);
+    toast.success(`Moved to "${SELLER_STAGES.find(st => st.key === nextStatus)?.label || nextStatus}"`);
+    onSkipTraced?.();
+  };
 
-  const handleClipboardSubmit = async () => {
+  const handleSaveEdits = async () => {
+    setSaving(true);
+    try {
+      await supabase.from('lw_sellers').update({
+        owner_name: editName || null,
+        owner_phone: editPhone || null,
+        owner_email: editEmail || null,
+        owner_mailing_address: editMailing || null,
+        notes: editNotes || null,
+      }).eq('id', s.id);
+      toast.success('Saved');
+      setEditing(false);
+      onSkipTraced?.();
+    } catch (err: any) {
+      toast.error(err.message || 'Save failed');
+    }
+    setSaving(false);
+  };
+
+
     if (!pasteData.trim()) {
       toast.error('Please paste some data first');
       return;
