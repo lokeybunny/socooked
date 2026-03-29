@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
           acreage: lot.acres || lot.acreage || (lot.sqft ? lot.sqft / 43560 : null),
           lot_sqft: lot.sqft || lot.lotSqft || null,
           zoning: prop.zoning || null,
-          property_type: prop.propertyType || (dealType === "land" ? "VAC" : "SFR"),
+          property_type: prop.propertyType || (dealType === "land" ? "VAC" : dealType === "multi_home" ? "MFR" : "SFR"),
           is_absentee_owner: isAbsentee,
           is_out_of_state: isOutOfState,
           is_tax_delinquent: isTaxDelinquent,
