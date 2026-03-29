@@ -73,9 +73,13 @@ export default function SellerLanding() {
       toast.error('Please fill in all fields');
       return;
     }
+    if (!page?.id) {
+      toast.error('Landing page not loaded. Please refresh and try again.');
+      return;
+    }
     setSubmitting(true);
     const { data: insertedLead, error } = await supabase.from('lw_landing_leads').insert({
-      landing_page_id: page?.id,
+      landing_page_id: page.id,
       full_name: name.trim(),
       phone: phone.trim(),
       property_address: address.trim(),
