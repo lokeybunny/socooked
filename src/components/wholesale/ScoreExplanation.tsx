@@ -4,12 +4,16 @@
  * Visual breakdown of a seller's distress score, buyer match score,
  * and opportunity score. Shows which factors contributed and their weights.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { calculateDistressScore, calculateBuyerMatchScore, calculateOpportunityScore, DEFAULT_DISTRESS_WEIGHTS, type DistressWeights } from '@/lib/wholesale/distressScoring';
-import { Flame, Snowflake, Sun, Target, TrendingUp, CheckCircle, XCircle } from 'lucide-react';
+import { Flame, Snowflake, Sun, Target, TrendingUp, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import BuyerDetail from './BuyerDetail';
+
+const BUYERS_PER_PAGE = 5;
 
 interface ScoreExplanationProps {
   seller: any;
@@ -22,17 +26,21 @@ export default function ScoreExplanation({ seller, buyers = [], weights, buyerDe
   const w = weights || DEFAULT_DISTRESS_WEIGHTS;
   const result = useMemo(() => calculateDistressScore(seller, w, buyerDemandCounties), [seller, w, buyerDemandCounties]);
 
-  // Top buyer matches
   const buyerMatches = useMemo(() => {
     return buyers
       .map(b => ({ ...b, matchScore: calculateBuyerMatchScore(seller, b) }))
       .filter(b => b.matchScore > 0)
-      .sort((a, b) => b.matchScore - a.matchScore)
-      .slice(0, 5);
+      .sort((a, b) => b.matchScore - a.matchScore);
   }, [seller, buyers]);
 
   const bestBuyerMatch = buyerMatches.length > 0 ? buyerMatches[0].matchScore : 0;
   const opportunityScore = calculateOpportunityScore(result.score, bestBuyerMatch);
+
+  const [buyerPage, setBuyerPage] = useState(0);
+  const totalPages = Math.ceil(buyerMatches.length / BUYERS_PER_PAGE);
+  const pagedBuyers = buyerMatches.slice(buyerPage * BUYERS_PER_PAGE, (buyerPage + 1) * BUYERS_PER_PAGE);
+
+  const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
 
   const TempIcon = result.temperature === 'Hot' ? Flame :
     result.temperature === 'Warm' ? Sun : Snowflake;
@@ -114,10 +122,15 @@ export default function ScoreExplanation({ seller, buyers = [], weights, buyerDe
               Matched Buyers ({buyerMatches.length})
             </h5>
             <div className="space-y-2">
-              {buyerMatches.map(b => (
-                <div key={b.id} className="flex items-center justify-between py-1.5 px-2 rounded border text-xs">
+              {pagedBuyers.map(b => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setSelectedBuyer(b)}
+                  className="w-full flex items-center justify-between py-1.5 px-2 rounded border text-xs hover:bg-accent transition-colors cursor-pointer text-left"
+                >
                   <div>
-                    <span className="font-medium">{b.full_name}</span>
+                    <span className="font-medium text-primary">{b.full_name}</span>
                     <span className="text-muted-foreground ml-2">
                       {(b.target_counties || []).slice(0, 2).join(', ')}
                       {b.budget_max ? ` · ≤$${Number(b.budget_max).toLocaleString()}` : ''}
@@ -127,12 +140,36 @@ export default function ScoreExplanation({ seller, buyers = [], weights, buyerDe
                     <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
                     {b.matchScore}
                   </Badge>
-                </div>
+                </button>
               ))}
             </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-[10px] text-muted-foreground">
+                  Page {buyerPage + 1} of {totalPages}
+                </span>
+                <div className="flex gap-1">
+                  <Button size="icon" variant="ghost" className="h-6 w-6" disabled={buyerPage === 0} onClick={() => setBuyerPage(p => p - 1)}>
+                    <ChevronLeft className="h-3 w-3" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-6 w-6" disabled={buyerPage >= totalPages - 1} onClick={() => setBuyerPage(p => p + 1)}>
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
+
+      {/* Buyer Detail Modal */}
+      <BuyerDetail
+        buyer={selectedBuyer}
+        open={!!selectedBuyer}
+        onOpenChange={(open) => { if (!open) setSelectedBuyer(null); }}
+        onUpdate={() => {}}
+      />
     </div>
   );
 }
