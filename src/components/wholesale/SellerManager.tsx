@@ -175,7 +175,12 @@ export default function SellerManager() {
   const [fetchSize, setFetchSize] = useState('50');
   const [detailSeller, setDetailSeller] = useState<any>(null);
 
-  useEffect(() => { loadSellers(); }, []);
+  useEffect(() => { loadSellers(); loadBuyers(); }, []);
+
+  const loadBuyers = async () => {
+    const { data } = await supabase.from('lw_buyers').select('*').eq('status', 'active').limit(200);
+    setBuyers(data || []);
+  };
 
   const loadSellers = async () => {
     setLoading(true);
