@@ -38,11 +38,18 @@ const STAGE_COLORS: Record<string, string> = {
   inactive: 'bg-destructive/10 text-destructive',
 };
 
+const DEAL_TYPES = [
+  { key: 'land', label: '🏞️ Land' },
+  { key: 'home', label: '🏠 Homes' },
+  { key: 'multi_home', label: 'Multi-Home' },
+];
+
 const emptyForm = {
-  full_name: '', email: '', phone: '', entity_name: '', deal_type: 'land',
+  full_name: '', email: '', phone: '', entity_name: '', deal_types: ['land'] as string[],
   target_states: '', target_counties: '', budget_min: '', budget_max: '',
   acreage_min: '', acreage_max: '', activity_score: '50', buyer_type: 'unknown',
   intent_level: 'low', pipeline_stage: 'new_scraped', city: '', notes: '', source: 'manual',
+  closing_speed: '', contact_preference: 'email', website: '',
 };
 
 export default function BuyerDiscovery() {
@@ -283,7 +290,8 @@ export default function BuyerDiscovery() {
     setEditId(b.id);
     setForm({
       full_name: b.full_name || '', email: b.email || '', phone: b.phone || '',
-      entity_name: b.entity_name || '', deal_type: b.deal_type || 'land',
+      entity_name: b.entity_name || '',
+      deal_types: b.meta?.deal_types || [b.deal_type || 'land'],
       target_states: (b.target_states || []).join(', '),
       target_counties: (b.target_counties || []).join(', '),
       budget_min: b.budget_min?.toString() || '', budget_max: b.budget_max?.toString() || '',
@@ -292,6 +300,9 @@ export default function BuyerDiscovery() {
       buyer_type: b.buyer_type || 'unknown', intent_level: b.intent_level || 'low',
       pipeline_stage: b.pipeline_stage || 'new_scraped', city: b.city || '',
       notes: b.notes || '', source: b.source || 'manual',
+      closing_speed: b.meta?.closing_speed || '',
+      contact_preference: b.meta?.contact_preference || 'email',
+      website: b.meta?.website || '',
     });
     setAddOpen(true);
   };
@@ -301,7 +312,7 @@ export default function BuyerDiscovery() {
     const payload: any = {
       full_name: form.full_name.trim(),
       email: form.email.trim() || null, phone: form.phone.trim() || null,
-      entity_name: form.entity_name.trim() || null, deal_type: form.deal_type,
+      entity_name: form.entity_name.trim() || null, deal_type: form.deal_types[0] || 'land',
       target_states: form.target_states.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
       target_counties: form.target_counties.split(',').map(s => s.trim()).filter(Boolean),
       budget_min: form.budget_min ? Number(form.budget_min) : null,
@@ -312,6 +323,12 @@ export default function BuyerDiscovery() {
       buyer_type: form.buyer_type, intent_level: form.intent_level,
       pipeline_stage: form.pipeline_stage, city: form.city.trim() || null,
       notes: form.notes.trim() || null, source: form.source, status: 'active',
+      meta: {
+        deal_types: form.deal_types,
+        closing_speed: form.closing_speed || null,
+        contact_preference: form.contact_preference,
+        website: form.website.trim() || null,
+      },
     };
     let savedId = editId;
     if (editId) {
@@ -639,19 +656,8 @@ export default function BuyerDiscovery() {
               <div className="space-y-1"><Label>Email</Label><Input type="email" value={form.email} onChange={e => set('email', e.target.value)} /></div>
               <div className="space-y-1"><Label>Phone</Label><Input value={form.phone} onChange={e => set('phone', e.target.value)} /></div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>City</Label><Input value={form.city} onChange={e => set('city', e.target.value)} /></div>
-              <div className="space-y-1">
-                <Label>Deal Type</Label>
-                <Select value={form.deal_type} onValueChange={v => set('deal_type', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="land">🏞️ Land</SelectItem>
-                    <SelectItem value="home">🏠 Homes</SelectItem>
-                    <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div className="space-y-1">
                 <Label>Pipeline Stage</Label>
                 <Select value={form.pipeline_stage} onValueChange={v => set('pipeline_stage', v)}>
@@ -662,6 +668,29 @@ export default function BuyerDiscovery() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Deal Types Interested In *</Label>
+              <div className="flex gap-4">
+                {DEAL_TYPES.map(dt => (
+                  <label key={dt.key} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                    <Checkbox
+                      checked={form.deal_types.includes(dt.key)}
+                      onCheckedChange={(checked) => {
+                        setForm(p => {
+                          const next = checked
+                            ? [...p.deal_types, dt.key]
+                            : p.deal_types.filter(t => t !== dt.key);
+                          return { ...p, deal_types: next.length ? next : p.deal_types };
+                        });
+                      }}
+                    />
+                    {dt.key === 'multi_home' ? (
+                      <span className="flex items-center gap-1"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span>
+                    ) : dt.label}
+                  </label>
+                ))}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -706,6 +735,27 @@ export default function BuyerDiscovery() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1"><Label>Acreage Min</Label><Input type="number" value={form.acreage_min} onChange={e => set('acreage_min', e.target.value)} /></div>
               <div className="space-y-1"><Label>Acreage Max</Label><Input type="number" value={form.acreage_max} onChange={e => set('acreage_max', e.target.value)} /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>How Fast Can You Close?</Label>
+                <Input value={form.closing_speed} onChange={e => set('closing_speed', e.target.value)} placeholder="e.g. 7 days, 2 weeks" />
+              </div>
+              <div className="space-y-1">
+                <Label>Best Point of Contact</Label>
+                <Select value={form.contact_preference} onValueChange={v => set('contact_preference', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">📧 Email</SelectItem>
+                    <SelectItem value="text">💬 Text</SelectItem>
+                    <SelectItem value="phone">📞 Phone Call</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Buyer's Website</Label>
+              <Input value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://example.com" />
             </div>
             <div className="space-y-1">
               <Label>Notes</Label>

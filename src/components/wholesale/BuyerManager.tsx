@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,12 +36,18 @@ type Buyer = {
   meta: any;
 };
 
+const DEAL_TYPES = [
+  { key: 'land', label: '🏞️ Land' },
+  { key: 'home', label: '🏠 Homes' },
+  { key: 'multi_home', label: 'Multi-Home' },
+];
+
 const emptyForm = {
   full_name: '',
   email: '',
   phone: '',
   entity_name: '',
-  deal_type: 'land',
+  deal_types: ['land'] as string[],
   target_states: '',
   target_counties: '',
   budget_min: '',
@@ -50,6 +57,9 @@ const emptyForm = {
   activity_score: '50',
   notes: '',
   source: 'manual',
+  closing_speed: '',
+  contact_preference: 'email',
+  website: '',
 };
 
 export default function BuyerManager() {
@@ -84,7 +94,7 @@ export default function BuyerManager() {
       email: b.email || '',
       phone: b.phone || '',
       entity_name: b.entity_name || '',
-      deal_type: b.deal_type,
+      deal_types: b.meta?.deal_types || [b.deal_type || 'land'],
       target_states: b.target_states.join(', '),
       target_counties: b.target_counties.join(', '),
       budget_min: b.budget_min?.toString() || '',
@@ -94,6 +104,9 @@ export default function BuyerManager() {
       activity_score: b.activity_score.toString(),
       notes: b.notes || '',
       source: b.source,
+      closing_speed: b.meta?.closing_speed || '',
+      contact_preference: b.meta?.contact_preference || 'email',
+      website: b.meta?.website || '',
     });
     setInterests(b.meta?.interests || emptyInterests);
     setOpen(true);
@@ -110,7 +123,7 @@ export default function BuyerManager() {
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       entity_name: form.entity_name.trim() || null,
-      deal_type: form.deal_type,
+      deal_type: form.deal_types[0] || 'land',
       target_states: form.target_states.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
       target_counties: form.target_counties.split(',').map(s => s.trim()).filter(Boolean),
       budget_min: form.budget_min ? Number(form.budget_min) : null,
@@ -121,7 +134,13 @@ export default function BuyerManager() {
       notes: form.notes.trim() || null,
       source: form.source,
       status: 'active',
-      meta: { interests },
+      meta: {
+        interests,
+        deal_types: form.deal_types,
+        closing_speed: form.closing_speed || null,
+        contact_preference: form.contact_preference,
+        website: form.website.trim() || null,
+      },
       property_type_interest: interests.property_types,
     };
 
@@ -244,18 +263,30 @@ export default function BuyerManager() {
                     <Input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+15551234567" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Deal Type</Label>
-                    <Select value={form.deal_type} onValueChange={v => set('deal_type', v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="land">🏞️ Land</SelectItem>
-                        <SelectItem value="home">🏠 Homes</SelectItem>
-                        <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-1.5">
+                  <Label>Deal Types Interested In *</Label>
+                  <div className="flex gap-4">
+                    {DEAL_TYPES.map(dt => (
+                      <label key={dt.key} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <Checkbox
+                          checked={form.deal_types.includes(dt.key)}
+                          onCheckedChange={(checked) => {
+                            setForm(p => {
+                              const next = checked
+                                ? [...p.deal_types, dt.key]
+                                : p.deal_types.filter(t => t !== dt.key);
+                              return { ...p, deal_types: next.length ? next : p.deal_types };
+                            });
+                          }}
+                        />
+                        {dt.key === 'multi_home' ? (
+                          <span className="flex items-center gap-1"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span>
+                        ) : dt.label}
+                      </label>
+                    ))}
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Source</Label>
                     <Select value={form.source} onValueChange={v => set('source', v)}>
@@ -265,6 +296,17 @@ export default function BuyerManager() {
                         <SelectItem value="reapi">REAPI</SelectItem>
                         <SelectItem value="referral">Referral</SelectItem>
                         <SelectItem value="facebook">Facebook</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Best Point of Contact</Label>
+                    <Select value={form.contact_preference} onValueChange={v => set('contact_preference', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="email">📧 Email</SelectItem>
+                        <SelectItem value="text">💬 Text</SelectItem>
+                        <SelectItem value="phone">📞 Phone Call</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -309,6 +351,17 @@ export default function BuyerManager() {
                 <div className="border-t border-border pt-4">
                   <h3 className="text-sm font-bold mb-3">🎯 Buyer Interests & Criteria</h3>
                   <BuyerInterests interests={interests} onChange={setInterests} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>How Fast Can You Close?</Label>
+                    <Input value={form.closing_speed} onChange={e => set('closing_speed', e.target.value)} placeholder="e.g. 7 days, 2 weeks" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Buyer's Website</Label>
+                    <Input value={form.website} onChange={e => set('website', e.target.value)} placeholder="https://example.com" />
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">

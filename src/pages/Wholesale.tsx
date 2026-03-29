@@ -169,7 +169,7 @@ export default function Wholesale() {
             Sellers
           </TabsTrigger>
           {activeTab === 'buyers' && (
-            <TabsTrigger value="sources">Discovery</TabsTrigger>
+            <TabsTrigger value="sources" className="bg-sky-300/20 text-sky-600 data-[state=active]:bg-sky-400/25 data-[state=active]:text-sky-500">Discovery</TabsTrigger>
           )}
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
