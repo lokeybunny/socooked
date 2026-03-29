@@ -55,6 +55,7 @@ const CRAIGSLIST_METRO_COORDINATES: Partial<Record<string, { lat: number; lng: n
 };
 
 const CRAIGSLIST_RADIUS_MILES = 50;
+const BUYER_LOCATION_RADIUS_MILES = 30;
 
 function toFiniteNumber(value: unknown): number | null {
   const parsed = typeof value === 'number' ? value : Number(value);
@@ -101,6 +102,73 @@ function locationTextMatches(metroLabel: string, candidate: string | null | unde
   const overlapCount = valueTokens.filter(token => metroTokens.has(token)).length;
 
   return overlapCount >= Math.min(2, valueTokens.length);
+}
+
+function hasSellerLocationContext(seller: any): boolean {
+  return Boolean(
+    seller?.city ||
+    seller?.county ||
+    seller?.state ||
+    toFiniteNumber(seller?.latitude) !== null ||
+    toFiniteNumber(seller?.longitude) !== null
+  );
+}
+
+/**
+ * Strict locality gate for matched buyers.
+ * Buyers must align to the seller's property city/state area, using a 30 mile radius
+ * when both sides can be anchored to Craigslist metro coordinates.
+ */
+export function isBuyerNearSellerLocation(
+  seller: any,
+  buyer: any,
+  radiusMiles: number = BUYER_LOCATION_RADIUS_MILES
+): boolean {
+  if (!hasSellerLocationContext(seller)) return true;
+
+  const sellerState = (seller.state || '').toUpperCase().trim();
+  const sellerLat = toFiniteNumber(seller.latitude);
+  const sellerLng = toFiniteNumber(seller.longitude);
+
+  const buyerSubdomain = extractCraigslistSubdomain(buyer.source_url);
+  const buyerCraigslistCity = buyerSubdomain ? getCraigslistCity(buyerSubdomain) : null;
+  const buyerMetroCenter = buyerSubdomain ? CRAIGSLIST_METRO_COORDINATES[buyerSubdomain] : null;
+
+  if (buyerCraigslistCity) {
+    if (sellerState && buyerCraigslistCity.state.toUpperCase() !== sellerState) return false;
+
+    if (sellerLat !== null && sellerLng !== null && buyerMetroCenter) {
+      return calculateMilesBetweenCoordinates(
+        sellerLat,
+        sellerLng,
+        buyerMetroCenter.lat,
+        buyerMetroCenter.lng
+      ) <= radiusMiles;
+    }
+
+    return (
+      locationTextMatches(buyerCraigslistCity.label, seller.city) ||
+      locationTextMatches(buyerCraigslistCity.label, seller.county)
+    );
+  }
+
+  const buyerStates = (buyer.target_states || [])
+    .map((state: string) => state.toUpperCase().trim())
+    .filter(Boolean);
+
+  if (buyerStates.length > 0 && sellerState && !buyerStates.includes(sellerState)) {
+    return false;
+  }
+
+  if (locationTextMatches(seller.city, buyer.city) || locationTextMatches(seller.county, buyer.city)) {
+    return true;
+  }
+
+  const buyerCounties: string[] = buyer.target_counties || [];
+  return buyerCounties.some((county: string) => (
+    locationTextMatches(seller.county, county) ||
+    locationTextMatches(seller.city, county)
+  ));
 }
 
 /**
@@ -273,6 +341,10 @@ export function calculateDistressScore(
  * Returns 0–100.
  */
 export function calculateBuyerMatchScore(seller: any, buyer: any): number {
+  if (hasSellerLocationContext(seller) && !isBuyerNearSellerLocation(seller, buyer)) {
+    return 0;
+  }
+
   let score = 0;
   const maxScore = 100;
 
