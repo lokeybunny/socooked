@@ -390,7 +390,7 @@ export default function SellerManager() {
               {detailSeller?.owner_name || 'Unknown Owner'}
             </DialogTitle>
           </DialogHeader>
-          {detailSeller && <SellerDetailContent seller={detailSeller} />}
+          {detailSeller && <SellerDetailContent seller={detailSeller} onSkipTraced={() => { setDetailSeller(null); loadSellers(); }} />}
         </DialogContent>
       </Dialog>
     </div>
@@ -407,7 +407,29 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-function SellerDetailContent({ seller: s }: { seller: any }) {
+function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipTraced?: () => void }) {
+  const [tracing, setTracing] = useState(false);
+
+  const handleSkipTrace = async () => {
+    setTracing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('land-reapi-skip-trace-single', {
+        body: { seller_id: s.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(
+        data.phone
+          ? `Found phone: ${data.phone}${data.email ? `, email: ${data.email}` : ''}`
+          : 'Skip trace complete — no phone found'
+      );
+      onSkipTraced?.();
+    } catch (err: any) {
+      toast.error(err.message || 'Skip trace failed');
+    }
+    setTracing(false);
+  };
+
   const flags = [
     s.is_tax_delinquent && 'Tax Delinquent',
     s.is_absentee_owner && 'Absentee Owner',
@@ -541,6 +563,22 @@ function SellerDetailContent({ seller: s }: { seller: any }) {
           <DetailRow label="REAPI Property ID" value={<span className="font-mono text-xs">{s.reapi_property_id}</span>} />
         </>
       )}
+      {/* Skip Trace Button */}
+      <Separator />
+      <div className="pt-2">
+        {s.skip_traced_at ? (
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Skip traced on {new Date(s.skip_traced_at).toLocaleDateString()}</span>
+            <Button size="sm" variant="outline" onClick={handleSkipTrace} disabled={tracing}>
+              {tracing ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Re-tracing…</> : 'Re-trace'}
+            </Button>
+          </div>
+        ) : (
+          <Button className="w-full" onClick={handleSkipTrace} disabled={tracing}>
+            {tracing ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Skip Tracing…</> : <><Search className="h-3.5 w-3.5 mr-1.5" /> Skip Trace</>}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
