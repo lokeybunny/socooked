@@ -525,6 +525,11 @@ export default function SellerManager() {
             <Button onClick={fetchProperties} disabled={fetching} className="h-9">
               {fetching ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Fetching…</> : <><Download className="h-3.5 w-3.5 mr-1" /> {distressMode ? 'Distress Search' : 'Fetch Properties'}</>}
             </Button>
+            {fetching && (
+              <Button variant="destructive" onClick={stopFetch} className="h-9 gap-1.5">
+                <X className="h-3.5 w-3.5" /> Stop
+              </Button>
+            )}
             <Button variant="outline" className="h-9 gap-1.5" onClick={() => setCsvOpen(true)}>
               <FileSpreadsheet className="h-3.5 w-3.5" /> CSV Import
             </Button>
