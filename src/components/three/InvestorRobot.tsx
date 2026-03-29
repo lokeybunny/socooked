@@ -39,14 +39,36 @@ function RobotBody() {
             <boxGeometry args={[0.55, 0.18, 0.02]} />
             <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1.5} metalness={0.9} roughness={0.1} />
           </mesh>
+          {/* Left eye */}
           <mesh position={[-0.14, 0.05, 0.34]}>
             <sphereGeometry args={[0.04, 16, 16]} />
-            <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={2} />
+            <meshStandardMaterial color="#2196f3" emissive="#2196f3" emissiveIntensity={blinking ? 0 : 2} />
           </mesh>
+          {/* Left eyelid (blink) */}
+          {blinking && (
+            <mesh position={[-0.14, 0.05, 0.345]}>
+              <boxGeometry args={[0.1, 0.1, 0.01]} />
+              <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
+            </mesh>
+          )}
+          {/* Right eye */}
           <mesh position={[0.14, 0.05, 0.34]}>
             <sphereGeometry args={[0.04, 16, 16]} />
-            <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={2} />
+            <meshStandardMaterial color="#2196f3" emissive="#2196f3" emissiveIntensity={blinking ? 0 : 2} />
           </mesh>
+          {/* Right eyelid (blink) */}
+          {blinking && (
+            <mesh position={[0.14, 0.05, 0.345]}>
+              <boxGeometry args={[0.1, 0.1, 0.01]} />
+              <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
+            </mesh>
+          )}
+          {/* Smile */}
+          <mesh position={[0, -0.12, 0.33]} rotation={[0.3, 0, 0]}>
+            <torusGeometry args={[0.1, 0.015, 8, 16, Math.PI]} />
+            <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1} metalness={0.9} roughness={0.1} />
+          </mesh>
+          {/* Antenna */}
           <mesh position={[0, 0.5, 0]}>
             <cylinderGeometry args={[0.02, 0.02, 0.2, 8]} />
             <meshStandardMaterial color="#888" metalness={0.9} roughness={0.1} />
