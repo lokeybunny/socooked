@@ -93,7 +93,7 @@ export default function BuyerManager() {
       email: b.email || '',
       phone: b.phone || '',
       entity_name: b.entity_name || '',
-      deal_type: b.deal_type,
+      deal_types: b.meta?.deal_types || [b.deal_type || 'land'],
       target_states: b.target_states.join(', '),
       target_counties: b.target_counties.join(', '),
       budget_min: b.budget_min?.toString() || '',
@@ -103,6 +103,9 @@ export default function BuyerManager() {
       activity_score: b.activity_score.toString(),
       notes: b.notes || '',
       source: b.source,
+      closing_speed: b.meta?.closing_speed || '',
+      contact_preference: b.meta?.contact_preference || 'email',
+      website: b.meta?.website || '',
     });
     setInterests(b.meta?.interests || emptyInterests);
     setOpen(true);
@@ -119,7 +122,7 @@ export default function BuyerManager() {
       email: form.email.trim() || null,
       phone: form.phone.trim() || null,
       entity_name: form.entity_name.trim() || null,
-      deal_type: form.deal_type,
+      deal_type: form.deal_types[0] || 'land',
       target_states: form.target_states.split(',').map(s => s.trim().toUpperCase()).filter(Boolean),
       target_counties: form.target_counties.split(',').map(s => s.trim()).filter(Boolean),
       budget_min: form.budget_min ? Number(form.budget_min) : null,
@@ -130,7 +133,13 @@ export default function BuyerManager() {
       notes: form.notes.trim() || null,
       source: form.source,
       status: 'active',
-      meta: { interests },
+      meta: {
+        interests,
+        deal_types: form.deal_types,
+        closing_speed: form.closing_speed || null,
+        contact_preference: form.contact_preference,
+        website: form.website.trim() || null,
+      },
       property_type_interest: interests.property_types,
     };
 
