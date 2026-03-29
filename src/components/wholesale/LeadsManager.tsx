@@ -248,6 +248,20 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
                 className="pl-9"
               />
             </div>
+            {Object.keys(landingPages).length > 1 && (
+              <Select value={filterPageId} onValueChange={v => { setFilterPageId(v); setPage(1); }}>
+                <SelectTrigger className="w-[200px]">
+                  <Globe className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="All Pages" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Landing Pages</SelectItem>
+                  {Object.entries(landingPages).map(([id, name]) => (
+                    <SelectItem key={id} value={id}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {loading ? (
