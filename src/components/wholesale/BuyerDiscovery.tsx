@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio, Home } from 'lucide-react';
+import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio, Home, Square } from 'lucide-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerDetail from './BuyerDetail';
