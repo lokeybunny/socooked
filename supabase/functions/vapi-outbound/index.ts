@@ -23,10 +23,10 @@ serve(async (req) => {
     const { action, lead_id } = await req.json();
 
     if (action === "trigger_call") {
-      // Fetch lead
+      // Fetch lead with landing page
       const { data: lead, error: leadErr } = await sb
         .from("lw_landing_leads")
-        .select("*, lw_landing_pages!lw_landing_leads_landing_page_id_fkey(client_name, phone)")
+        .select("*, lw_landing_pages!lw_landing_leads_landing_page_id_fkey(id, client_name, phone, email, vapi_credit_balance_cents, vapi_total_spent_cents)")
         .eq("id", lead_id)
         .single();
 
@@ -37,7 +37,29 @@ serve(async (req) => {
         });
       }
 
-      const clientName = (lead as any).lw_landing_pages?.client_name || "our team";
+      const landingPage = (lead as any).lw_landing_pages;
+      const clientName = landingPage?.client_name || "our team";
+
+      // ─── Credit check ───
+      const creditBalance = landingPage?.vapi_credit_balance_cents ?? 2000;
+      if (creditBalance <= 0) {
+        console.log(`[vapi-outbound] Credit exhausted for landing page ${landingPage?.id}, skipping call`);
+
+        // Update lead status
+        await sb
+          .from("lw_landing_leads")
+          .update({ vapi_call_status: "credit_exhausted" })
+          .eq("id", lead_id);
+
+        return new Response(JSON.stringify({
+          error: "Phone credits exhausted",
+          credit_exhausted: true,
+          message: "Your phone credits have been used up. Please contact Warren for more credits.",
+        }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // Create Vapi call
       const vapiRes = await fetch("https://api.vapi.ai/call/phone", {

@@ -9,9 +9,10 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Plus, ExternalLink, Trash2, Loader2, Copy, Globe, Eye, Pencil, X, Save,
-  ChevronDown, ChevronUp, Upload, ImageIcon
+  ChevronDown, ChevronUp, Upload, ImageIcon, DollarSign
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface LandingPageRow {
   id: string;
@@ -29,6 +30,8 @@ interface LandingPageRow {
   meta: unknown;
   is_active: boolean;
   created_at: string;
+  vapi_credit_balance_cents: number;
+  vapi_total_spent_cents: number;
 }
 
 interface LeadRow {
@@ -351,7 +354,24 @@ export default function LandingPageManager() {
                   </div>
                 </div>
 
-                {/* Leads section */}
+                {/* Credits + Leads section */}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">Phone Credit:</span>
+                    <span className={`font-bold ${(p.vapi_credit_balance_cents || 0) <= 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                      ${((p.vapi_credit_balance_cents || 0) / 100).toFixed(2)}
+                    </span>
+                    <span className="text-muted-foreground">|</span>
+                    <span className="text-muted-foreground">Spent:</span>
+                    <span className="font-medium text-foreground">${((p.vapi_total_spent_cents || 0) / 100).toFixed(2)}</span>
+                  </div>
+                  <CreditTopUp
+                    pageId={p.id}
+                    currentBalance={p.vapi_credit_balance_cents || 0}
+                    onUpdated={load}
+                  />
+                </div>
+
                 <button onClick={() => setExpandedLeads(isLeadsExpanded ? null : p.id)} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition w-full">
                   {isLeadsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   <span className="font-medium">{pLeads.length} lead{pLeads.length !== 1 ? 's' : ''}</span>
@@ -386,5 +406,69 @@ export default function LandingPageManager() {
         );
       })}
     </div>
+  );
+}
+
+function CreditTopUp({ pageId, currentBalance, onUpdated }: { pageId: string; currentBalance: number; onUpdated: () => void }) {
+  const [amount, setAmount] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const handleAdd = async () => {
+    const dollars = parseFloat(amount);
+    if (!dollars || dollars <= 0) { toast.error('Enter a valid dollar amount'); return; }
+    setSaving(true);
+    const addCents = Math.round(dollars * 100);
+    const { error } = await supabase
+      .from('lw_landing_pages')
+      .update({ vapi_credit_balance_cents: currentBalance + addCents } as any)
+      .eq('id', pageId);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`Added $${dollars.toFixed(2)} credit`);
+      setAmount('');
+      setOpen(false);
+      onUpdated();
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1">
+          <DollarSign className="h-3 w-3" /> Add Credit
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3" align="start">
+        <p className="text-xs font-medium mb-2">Add Phone Credit ($)</p>
+        <div className="flex gap-2">
+          <Input
+            type="number"
+            min="1"
+            step="1"
+            placeholder="20"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            className="h-8 text-sm"
+          />
+          <Button size="sm" className="h-8 px-3" onClick={handleAdd} disabled={saving}>
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+          </Button>
+        </div>
+        <div className="flex gap-1.5 mt-2">
+          {[10, 20, 50].map(v => (
+            <button
+              key={v}
+              onClick={() => setAmount(String(v))}
+              className="text-[10px] bg-muted px-2 py-1 rounded hover:bg-muted-foreground/20 transition-colors"
+            >
+              ${v}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
