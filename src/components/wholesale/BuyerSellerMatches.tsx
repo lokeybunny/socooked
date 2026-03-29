@@ -142,7 +142,7 @@ export default function BuyerSellerMatches() {
       const hasStates = (buyer.target_states || []).length > 0;
       const hasCounties = (buyer.target_counties || []).length > 0;
       const hasBudget = buyer.budget_min != null || buyer.budget_max != null;
-      const hasPropTypes = ((buyer.meta?.interests?.property_types) || buyer.property_type_interest || []).length > 0;
+      const hasPropTypes = (((buyer.meta as any)?.interests?.property_types) || buyer.property_type_interest || []).length > 0;
       
       if (!hasStates || !hasBudget || !hasPropTypes) continue;
       
