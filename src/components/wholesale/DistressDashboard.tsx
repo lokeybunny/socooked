@@ -129,54 +129,6 @@ export default function DistressDashboard() {
         <MetricCard icon={MapPin} label="Demand Overlap" value={`${demandOverlap}/${countyData.length}`} />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* County Distribution */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Top Counties by Lead Volume</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {countyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={countyData} layout="vertical" margin={{ left: 10, right: 10, top: 5, bottom: 5 }}>
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center py-8 text-sm text-muted-foreground">No county data yet</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Source Breakdown */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Leads by Source</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {sourceData.length > 0 ? (
-              <div className="flex items-center justify-center">
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie data={sourceData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, value }) => `${name}: ${value}`}>
-                      {sourceData.map((_, i) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-center py-8 text-sm text-muted-foreground">No source data yet</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Skip Trace Funnel */}
       <Card>
