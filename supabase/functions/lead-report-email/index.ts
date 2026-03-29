@@ -341,7 +341,7 @@ serve(async (req) => {
     const boundary = "boundary_" + crypto.randomUUID().replace(/-/g, "");
     const fileName = `lead-report-${leadName.replace(/\s+/g, "-").toLowerCase()}.pdf`;
 
-    const mimeBody = [
+    const mimeParts = [
       `From: ${IMPERSONATE_EMAIL}`,
       `To: ${recipientEmail}`,
       `Subject: =?UTF-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`,
@@ -357,7 +357,11 @@ serve(async (req) => {
       `<table style="width:100%;border-collapse:collapse;margin:16px 0;">`,
       `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;color:#888;font-size:13px;">Phone</td><td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;">${lead.phone || 'N/A'}</td></tr>`,
       `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;color:#888;font-size:13px;">Status</td><td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;">${lead.status}</td></tr>`,
-      lead.asking_price ? `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;color:#888;font-size:13px;">Asking Price</td><td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;">$${Number(lead.asking_price).toLocaleString()}</td></tr>` : '',
+    ];
+    if (lead.asking_price) {
+      mimeParts.push(`<tr><td style="padding:6px 12px;border-bottom:1px solid #eee;color:#888;font-size:13px;">Asking Price</td><td style="padding:6px 12px;border-bottom:1px solid #eee;font-size:13px;">$${Number(lead.asking_price).toLocaleString()}</td></tr>`);
+    }
+    mimeParts.push(
       `</table>`,
       `<p style="color:#999;font-size:12px;">— Warren Guru Wholesale CRM</p>`,
       `</div>`,
@@ -366,9 +370,10 @@ serve(async (req) => {
       `Content-Disposition: attachment; filename="${fileName}"`,
       `Content-Transfer-Encoding: base64`,
       ``,
-      pdfBase64.match(/.{1,76}/g)!.join("\n"),
+      pdfBase64.match(/.{1,76}/g)!.join("\r\n"),
       `--${boundary}--`,
-    ].filter(Boolean).join("\r\n");
+    );
+    const mimeBody = mimeParts.join("\r\n");
 
     // Send via Gmail
     const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
@@ -376,7 +381,8 @@ serve(async (req) => {
     const sa = JSON.parse(saJson);
     const accessToken = await getAccessToken(sa, "https://www.googleapis.com/auth/gmail.modify");
 
-    const rawMessage = stringToBase64url(mimeBody);
+    // MIME body is ASCII-safe (PDF already base64-encoded inside), so direct btoa works
+    const rawMessage = btoa(mimeBody).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
     const gmailRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
       method: "POST",
