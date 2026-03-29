@@ -156,11 +156,11 @@ export default function Wholesale() {
             <Heart className="h-3.5 w-3.5 text-pink-500" />
             Matches
           </TabsTrigger>
-          <TabsTrigger value="buyers" className="gap-1.5 data-[state=active]:bg-green-500/15 data-[state=active]:text-green-600">
+          <TabsTrigger value="buyers" className="gap-1.5 bg-green-500/10 text-green-600 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-500">
             <Users className="h-3.5 w-3.5" />
             Buyers
           </TabsTrigger>
-          <TabsTrigger value="sellers" className="gap-1.5 data-[state=active]:bg-red-500/15 data-[state=active]:text-red-600">
+          <TabsTrigger value="sellers" className="gap-1.5 bg-red-500/10 text-red-600 data-[state=active]:bg-red-500/20 data-[state=active]:text-red-500">
             <MapPin className="h-3.5 w-3.5" />
             Sellers
           </TabsTrigger>
@@ -256,63 +256,7 @@ export default function Wholesale() {
 
         {/* Tab 2: Deal Pipeline */}
         <TabsContent value="pipeline" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Deal Pipeline
-                <Badge variant="outline" className="ml-auto">{deals.length} deals</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {deals.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No deals yet</p>
-                  <p className="text-xs mt-1">Deals are created when buyers are matched with seller leads</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Deal</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Stage</TableHead>
-                      <TableHead>Match Score</TableHead>
-                      <TableHead>Seller Ask</TableHead>
-                      <TableHead>Our Offer</TableHead>
-                      <TableHead>Buyer Price</TableHead>
-                      <TableHead>Spread</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {deals.map((deal) => (
-                      <TableRow key={deal.id}>
-                        <TableCell className="font-medium">{deal.title}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-[10px]">
-                            {deal.deal_type === 'land' ? '🏞️' : '🏠'} {deal.deal_type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`text-[10px] ${stageColors[deal.stage] || ''}`}>
-                            {deal.stage.replace(/_/g, ' ')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell><ScoreBadge value={deal.match_score} /></TableCell>
-                        <TableCell className="text-sm">{deal.seller_ask ? `$${Number(deal.seller_ask).toLocaleString()}` : '—'}</TableCell>
-                        <TableCell className="text-sm">{deal.our_offer ? `$${Number(deal.our_offer).toLocaleString()}` : '—'}</TableCell>
-                        <TableCell className="text-sm">{deal.buyer_price ? `$${Number(deal.buyer_price).toLocaleString()}` : '—'}</TableCell>
-                        <TableCell className="font-mono text-sm font-semibold text-green-500">
-                          {deal.spread ? `$${Number(deal.spread).toLocaleString()}` : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          <DealPipeline deals={deals} stageColors={stageColors} />
         </TabsContent>
 
         <TabsContent value="demand" className="mt-4">
