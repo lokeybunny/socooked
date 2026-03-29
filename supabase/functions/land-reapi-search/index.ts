@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const searchCounty = body.county;
     const searchState = body.state;
     const dealType = body.deal_type || "land";
-    const propertyTypes = dealType === "land" ? ["VAC"] : ["SFR", "MFR"];
+    const propertyType = dealType === "land" ? "VACANT" : "SFR";
     const pageSize = Math.min(body.size || 50, 100);
 
     // If no county specified, pull from top demand signals
@@ -88,11 +88,11 @@ Deno.serve(async (req) => {
     let totalCredits = 0;
 
     for (const { county, state } of counties) {
-      // Build REAPI search body
+      // Build REAPI search body per their v2 API spec
       const searchBody: any = {
         county,
         state,
-        property_type: propertyTypes,
+        property_type: propertyType,
         size: pageSize,
         resultIndex: 0,
       };
@@ -113,8 +113,9 @@ Deno.serve(async (req) => {
       });
 
       if (!resp.ok) {
+        const errBody = await resp.text();
         console.error(
-          `REAPI search failed for ${county}, ${state}: ${resp.status}`
+          `REAPI search failed for ${county}, ${state}: ${resp.status} — ${errBody}`
         );
         continue;
       }
