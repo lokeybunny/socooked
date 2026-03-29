@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Plus, ExternalLink, Trash2, Loader2, Copy, Globe, Eye, Pencil, X, Save,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, Upload, ImageIcon
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
