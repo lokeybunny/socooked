@@ -11,6 +11,7 @@ import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, 
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
+import SellerManager from '@/components/wholesale/SellerManager';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home';
@@ -146,6 +147,7 @@ export default function Wholesale() {
           <TabsTrigger value="pipeline">Deal Pipeline</TabsTrigger>
           <TabsTrigger value="demand">Demand Map</TabsTrigger>
           <TabsTrigger value="buyers">Buyers</TabsTrigger>
+          <TabsTrigger value="sellers">Sellers</TabsTrigger>
           <TabsTrigger value="sources">Discovery</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -351,7 +353,11 @@ export default function Wholesale() {
         <TabsContent value="buyers" className="mt-4">
           <BuyerDiscovery />
         </TabsContent>
-        {/* Tab 5: Discovery Sources */}
+        {/* Tab 5: Sellers */}
+        <TabsContent value="sellers" className="mt-4">
+          <SellerManager />
+        </TabsContent>
+        {/* Tab 6: Discovery Sources */}
         <TabsContent value="sources" className="mt-4">
           <BuyerSources />
         </TabsContent>

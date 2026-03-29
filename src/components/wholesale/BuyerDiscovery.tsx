@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio } from 'lucide-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerDetail from './BuyerDetail';
@@ -62,6 +63,8 @@ export default function BuyerDiscovery() {
   const [form, setForm] = useState(emptyForm);
   const [runningDiscovery, setRunningDiscovery] = useState(false);
   const [page, setPage] = useState(1);
+  const [hideDuplicates, setHideDuplicates] = useState(false);
+  const [realtimeCount, setRealtimeCount] = useState(0);
   const PAGE_SIZE = 25;
 
   const pollForResults = async () => {
@@ -100,9 +103,23 @@ export default function BuyerDiscovery() {
 
   useEffect(() => {
     loadBuyers();
-    // Auto-refresh every 10s to catch new ingested buyers
-    const interval = setInterval(loadBuyers, 10000);
-    return () => clearInterval(interval);
+
+    // Supabase Realtime: live feed as buyers are ingested
+    const channel = supabase
+      .channel('lw_buyers_realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'lw_buyers' }, (payload) => {
+        setBuyers(prev => [payload.new as any, ...prev]);
+        setRealtimeCount(c => c + 1);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lw_buyers' }, (payload) => {
+        setBuyers(prev => prev.map(b => b.id === (payload.new as any).id ? payload.new as any : b));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'lw_buyers' }, (payload) => {
+        setBuyers(prev => prev.filter(b => b.id !== (payload.old as any).id));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const loadBuyers = async () => {
@@ -150,13 +167,23 @@ export default function BuyerDiscovery() {
         (b.tags || []).join(' ').toLowerCase().includes(q)
       );
     }
+    // Hide duplicates: deduplicate by normalized full_name + source_url
+    if (hideDuplicates) {
+      const seen = new Set<string>();
+      list = list.filter(b => {
+        const key = (b.full_name || '').toLowerCase().trim() + '|' + (b.source_url || '').toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
     list.sort((a, b) => {
       const av = a[sortField] ?? 0;
       const bv = b[sortField] ?? 0;
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [buyers, stageFilter, typeFilter, intentFilter, stateFilter, sourceFilter, search, sortField, sortAsc]);
+  }, [buyers, stageFilter, typeFilter, intentFilter, stateFilter, sourceFilter, search, sortField, sortAsc, hideDuplicates]);
 
   // Reset page when filters change
   useEffect(() => { setPage(1); }, [stageFilter, typeFilter, intentFilter, stateFilter, sourceFilter, search, sortField, sortAsc]);
@@ -252,22 +279,36 @@ export default function BuyerDiscovery() {
 
   return (
     <div className="space-y-4">
-      {/* Pipeline Stage Bar */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {STAGES.map(s => (
-          <Button
-            key={s.key}
-            size="sm"
-            variant={stageFilter === s.key ? 'default' : 'outline'}
-            className="text-xs whitespace-nowrap"
-            onClick={() => setStageFilter(s.key)}
-          >
-            {s.label}
-            <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
-              {stageCounts[s.key] || 0}
-            </Badge>
-          </Button>
-        ))}
+      {/* Pipeline Stage Bar + Hide Duplicates */}
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 flex-1">
+          {STAGES.map(s => (
+            <Button
+              key={s.key}
+              size="sm"
+              variant={stageFilter === s.key ? 'default' : 'outline'}
+              className="text-xs whitespace-nowrap"
+              onClick={() => setStageFilter(s.key)}
+            >
+              {s.label}
+              <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                {stageCounts[s.key] || 0}
+              </Badge>
+            </Button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 shrink-0 border-l pl-3 ml-2">
+          {realtimeCount > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-green-500 animate-pulse">
+              <Radio className="h-3 w-3" />
+              <span>+{realtimeCount} live</span>
+            </div>
+          )}
+          <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground whitespace-nowrap">
+            <Checkbox checked={hideDuplicates} onCheckedChange={(v) => setHideDuplicates(!!v)} />
+            Hide Duplicates
+          </label>
+        </div>
       </div>
 
       {/* Actions + Filters */}
