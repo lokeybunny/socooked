@@ -312,10 +312,6 @@ export default function Wholesale() {
       </Tabs>
     </div>
   );
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
 }
 
 function StatCard({ icon: Icon, label, value }: { icon: any; label: string; value: string | number }) {
