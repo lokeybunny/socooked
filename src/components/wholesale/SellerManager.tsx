@@ -175,6 +175,56 @@ export default function SellerManager() {
   const [fetchSize, setFetchSize] = useState('50');
   const [detailSeller, setDetailSeller] = useState<any>(null);
 
+  // Distress search mode
+  const [distressMode, setDistressMode] = useState(false);
+  const [fetchCity, setFetchCity] = useState('');
+  const [fetchZip, setFetchZip] = useState('');
+  const [fetchDistress, setFetchDistress] = useState({
+    absentee_owner: false,
+    vacant: false,
+    vacant_land: false,
+    tax_delinquent_year: '',
+    liens: false,
+    high_equity_percent: '',
+    free_and_clear: false,
+    pre_foreclosure: false,
+    foreclosure: false,
+    auction: false,
+    out_of_state: false,
+    years_owned_min: '',
+    property_type: '',
+    acreage_min: '',
+    acreage_max: '',
+    value_min: '',
+    value_max: '',
+  });
+
+  const DISTRESS_PRESETS = [
+    { label: '💰 Tax Del. Absentee', apply: { absentee_owner: true, tax_delinquent_year: String(new Date().getFullYear() - 1) } },
+    { label: '🏚️ Vacant Distress', apply: { vacant: true, absentee_owner: true } },
+    { label: '🏞️ Vacant Land Distress', apply: { vacant_land: true, absentee_owner: true } },
+    { label: '⚠️ Pre-Foreclosure', apply: { pre_foreclosure: true } },
+    { label: '⏳ Long-Term OOS', apply: { out_of_state: true, years_owned_min: '10', absentee_owner: true } },
+    { label: '🤝 Buyer-Matched', apply: { absentee_owner: true, vacant: true } },
+  ];
+
+  const applyDistressPreset = (preset: typeof DISTRESS_PRESETS[0]) => {
+    setDistressMode(true);
+    setFetchDistress(prev => ({ ...prev, ...Object.fromEntries(
+      Object.entries(preset.apply).map(([k, v]) => [k, v])
+    ) }));
+    toast.success(`Preset applied: ${preset.label}`);
+  };
+
+  const clearDistressSearch = () => {
+    setFetchDistress({
+      absentee_owner: false, vacant: false, vacant_land: false, tax_delinquent_year: '',
+      liens: false, high_equity_percent: '', free_and_clear: false, pre_foreclosure: false,
+      foreclosure: false, auction: false, out_of_state: false, years_owned_min: '',
+      property_type: '', acreage_min: '', acreage_max: '', value_min: '', value_max: '',
+    });
+  };
+
   useEffect(() => { loadSellers(); loadBuyers(); }, []);
 
   const loadBuyers = async () => {
