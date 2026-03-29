@@ -103,7 +103,7 @@ export default function Auth() {
             )}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-center block">Email</Label>
-              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required className="h-11 text-center" />
+              <Input id="email" type="text" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required className="h-11 text-center" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password" className="text-xs font-medium text-muted-foreground uppercase tracking-wider text-center block">Password</Label>
