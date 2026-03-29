@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowLeft, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, Building2, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowLeft, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import DistressFilters, { EMPTY_DISTRESS_FILTERS, type DistressFilterState } from './DistressFilters';
 import CsvImport from './CsvImport';
@@ -570,7 +570,7 @@ export default function SellerManager() {
                   <SelectItem value="both">🔄 All</SelectItem>
                   <SelectItem value="land">🏞️ Land</SelectItem>
                   <SelectItem value="home">🏠 Homes</SelectItem>
-                  <SelectItem value="multi_home">🏘️ Multi-Home</SelectItem>
+                  <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -795,7 +795,7 @@ export default function SellerManager() {
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="land"><span className="flex items-center gap-1.5"><TreePine className="h-3.5 w-3.5" /> Land</span></SelectItem>
                 <SelectItem value="home"><span className="flex items-center gap-1.5"><Home className="h-3.5 w-3.5" /> Homes</span></SelectItem>
-                <SelectItem value="multi_home"><span className="flex items-center gap-1.5">🏘️ Multi-Home</span></SelectItem>
+                <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
               </SelectContent>
             </Select>
             <label className="flex items-center gap-1.5 cursor-pointer text-xs text-muted-foreground whitespace-nowrap">
@@ -867,7 +867,9 @@ export default function SellerManager() {
                       <TableCell className="text-center">
                         {(s.deal_type || 'land') === 'land'
                           ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" />
-                          : <Home className="h-4 w-4 text-blue-500 mx-auto" />
+                          : (s.deal_type || 'land') === 'multi_home'
+                            ? <span className="relative mx-auto flex items-center justify-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span>
+                            : <Home className="h-4 w-4 text-blue-500 mx-auto" />
                         }
                       </TableCell>
                       <TableCell>
