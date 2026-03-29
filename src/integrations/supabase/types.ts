@@ -1926,6 +1926,107 @@ export type Database = {
         }
         Relationships: []
       }
+      lw_landing_leads: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          landing_page_id: string | null
+          meta: Json
+          notes: string | null
+          phone: string
+          property_address: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: string
+          landing_page_id?: string | null
+          meta?: Json
+          notes?: string | null
+          phone: string
+          property_address: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          landing_page_id?: string | null
+          meta?: Json
+          notes?: string | null
+          phone?: string
+          property_address?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lw_landing_leads_landing_page_id_fkey"
+            columns: ["landing_page_id"]
+            isOneToOne: false
+            referencedRelation: "lw_landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lw_landing_pages: {
+        Row: {
+          accent_color: string
+          client_name: string
+          created_at: string
+          email: string | null
+          headline: string
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          meta: Json
+          phone: string | null
+          photo_url: string | null
+          reviews: Json
+          slug: string
+          sub_headline: string | null
+          tagline: string
+          updated_at: string
+        }
+        Insert: {
+          accent_color?: string
+          client_name: string
+          created_at?: string
+          email?: string | null
+          headline?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          meta?: Json
+          phone?: string | null
+          photo_url?: string | null
+          reviews?: Json
+          slug: string
+          sub_headline?: string | null
+          tagline?: string
+          updated_at?: string
+        }
+        Update: {
+          accent_color?: string
+          client_name?: string
+          created_at?: string
+          email?: string | null
+          headline?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          meta?: Json
+          phone?: string | null
+          photo_url?: string | null
+          reviews?: Json
+          slug?: string
+          sub_headline?: string | null
+          tagline?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       lw_sellers: {
         Row: {
           acreage: number | null
