@@ -61,7 +61,7 @@ function CopyText({ text }: { text: string | null | undefined }) {
 const BUSINESS_KEYWORDS = /\b(llc|inc|corp|ltd|lp|trust|estate|holdings|properties|investments|ventures|realty|enterprise|company|co\b|group|associates|partners|management|capital|development|construction|services|solutions|fund|foundation|church|ministry|bank|credit union|revocable|irrevocable|living trust|family trust|land co|homeowners|hoa|auto|motors|electric|plumbing|roofing|landscaping|cleaning|consulting|logistics|supply|warehouse|dental|medical|legal|law|accounting|insurance|wholesale|retail)\b/i;
 const BUSINESS_PATTERNS = /^(the\s+)?\d|&|,\s*(llc|inc)|^\w+\s+(of|and)\s+\w+$/i;
 // Exhaustive junk word list — UI labels, locations, categories from TruePeopleSearch / DataToLeads
-const JUNK_NAME_WORDS = /\b(age|phone|address|county|records|court|evictions|lookups|data|bankruptcies|square|feet|year|built|estimated|value|equity|sale|amount|date|property|class|residential|subdivision|lot|background|profile|frequently|asked|questions|disclaimers|information|people|francisco|skip|trace|sell|notice|important|includes|primary|last|reverse|public|current|possible|nationwide|connections|since|where|wireless|network|tandem|heights|hills|vegas|angeles|springs|beach|creek|valley|lake|city|north|south|east|west|san|los|las|new|york|chicago|miami|dallas|houston|phoenix|portland|seattle|denver|austin|tampa|orlando|atlanta|boston|detroit|mesa|mesa|chino|rowland|hacienda|neutral|peerless|verizon|sprint|mobile|cellular|landline|voip|carrier|lookup|search|results|view|details|report|summary|related|associated|known|also|possible|numbers|addresses|emails|relatives|neighbors|history|owner|owners|recent|previous|full|more|show|hide|see|all|best|click|here|free|premium|sign|log|register|account|welcome|home|about|contact|privacy|policy|terms|conditions|copyright|rights|reserved|powered)\b/i;
+const JUNK_NAME_WORDS = /\b(age|phone|address|county|records|court|evictions|lookups|data|bankruptcies|square|feet|year|built|estimated|value|equity|sale|amount|date|property|class|residential|subdivision|lot|background|profile|frequently|asked|questions|disclaimers|information|people|francisco|skip|trace|sell|notice|important|includes|primary|reverse|public|current|possible|nationwide|connections|since|where|wireless|network|tandem|heights|hills|vegas|angeles|springs|beach|creek|valley|lake|city|north|south|east|west|san|los|las|york|chicago|miami|dallas|houston|phoenix|portland|seattle|denver|austin|tampa|orlando|atlanta|boston|detroit|mesa|chino|rowland|hacienda|neutral|peerless|verizon|sprint|mobile|cellular|landline|voip|carrier|lookup|search|results|view|details|report|summary|related|associated|known|also|numbers|addresses|emails|relatives|neighbors|history|recent|previous|full|more|show|hide|see|best|click|here|free|premium|sign|log|register|account|welcome|home|about|contact|privacy|policy|terms|conditions|copyright|rights|reserved|powered)\b/i;
 
 function isHumanName(name: string): boolean {
   if (!name || name.length < 4) return false;
@@ -156,7 +156,7 @@ export default function SellerManager() {
   // Fetch form
   const [fetchCounty, setFetchCounty] = useState('');
   const [fetchState, setFetchState] = useState('');
-  const [fetchDealType, setFetchDealType] = useState('land');
+  const [fetchDealType, setFetchDealType] = useState('both');
   const [fetchSize, setFetchSize] = useState('50');
   const [detailSeller, setDetailSeller] = useState<any>(null);
 
@@ -176,16 +176,23 @@ export default function SellerManager() {
     }
     setFetching(true);
     try {
-      const { data, error } = await supabase.functions.invoke('land-reapi-search', {
-        body: {
-          county: fetchCounty.trim(),
-          state: fetchState.trim().toUpperCase(),
-          deal_type: fetchDealType,
-          size: Number(fetchSize) || 50,
-        },
-      });
-      if (error) throw error;
-      toast.success(`Fetched ${data?.records_fetched || 0} properties, ${data?.records_new || 0} new`);
+      const types = fetchDealType === 'both' ? ['land', 'home'] : [fetchDealType];
+      let totalFetched = 0;
+      let totalNew = 0;
+      for (const dt of types) {
+        const { data, error } = await supabase.functions.invoke('land-reapi-search', {
+          body: {
+            county: fetchCounty.trim(),
+            state: fetchState.trim().toUpperCase(),
+            deal_type: dt,
+            size: Number(fetchSize) || 50,
+          },
+        });
+        if (error) throw error;
+        totalFetched += data?.records_fetched || 0;
+        totalNew += data?.records_new || 0;
+      }
+      toast.success(`Fetched ${totalFetched} properties, ${totalNew} new`);
       await loadSellers();
     } catch (err: any) {
       toast.error(err.message || 'Fetch failed');
@@ -267,7 +274,7 @@ export default function SellerManager() {
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Download className="h-4 w-4" />
-            Fetch Seller Leads (REAPI)
+            Fetch Seller Leads
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -295,6 +302,7 @@ export default function SellerManager() {
               <Select value={fetchDealType} onValueChange={setFetchDealType}>
                 <SelectTrigger className="w-[120px] h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="both">🔄 Both</SelectItem>
                   <SelectItem value="land">🏞️ Land</SelectItem>
                   <SelectItem value="home">🏠 Homes</SelectItem>
                 </SelectContent>
