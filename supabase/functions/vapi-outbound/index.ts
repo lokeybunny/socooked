@@ -12,7 +12,9 @@ serve(async (req) => {
 
   try {
     const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
+    const VAPI_PHONE_NUMBER_ID = Deno.env.get("VAPI_PHONE_NUMBER_ID");
     if (!VAPI_API_KEY) throw new Error("VAPI_API_KEY not configured");
+    if (!VAPI_PHONE_NUMBER_ID) throw new Error("VAPI_PHONE_NUMBER_ID not configured");
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
