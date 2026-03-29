@@ -88,16 +88,16 @@ Deno.serve(async (req) => {
     let newCount = 0, updatedCount = 0, skippedCount = 0, highScoreCount = 0;
     const highScoreBuyers: any[] = [];
 
+    // Prepare batch arrays
+    const newBuyerRows: any[] = [];
+    const updateOps: { id: string; updates: any }[] = [];
+
     for (const record of normalized) {
       try {
-        // Score the record
         const scored = scoreRecord(record, keywords, thresholds);
-
-        // Dedup check
         const existing = findExisting(record, existingMap);
 
         if (existing) {
-          // Update existing buyer
           const updates: any = {
             last_seen_signal: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -106,26 +106,10 @@ Deno.serve(async (req) => {
           if (scored.intent_level !== "low") updates.intent_level = scored.intent_level;
           if (scored.buyer_type !== "unknown") updates.buyer_type = scored.buyer_type;
           if (scored.intent_summary) updates.intent_summary = scored.intent_summary;
-
-          await supabase.from("lw_buyers").update(updates).eq("id", existing.id);
-
-          // Log activity
-          await supabase.from("activity_log").insert({
-            entity_type: "lw_buyer",
-            entity_id: existing.id,
-            action: "discovery_update",
-            meta: {
-              name: existing.full_name,
-              platform,
-              source_url: record.source_url,
-              new_score: scored.buyer_score,
-            },
-          });
-
+          updateOps.push({ id: existing.id, updates });
           updatedCount++;
         } else {
-          // Insert new buyer
-          const buyerData = {
+          newBuyerRows.push({
             full_name: record.full_name || "Unknown Buyer",
             email: record.email,
             phone: record.phone,
@@ -152,37 +136,7 @@ Deno.serve(async (req) => {
             last_seen_signal: new Date().toISOString(),
             tags: scored.tags,
             notes: `Discovered via ${platform}. ${scored.intent_summary || ""}`,
-          };
-
-          const { data: inserted } = await supabase.from("lw_buyers").insert(buyerData).select("id").single();
-
-          if (inserted) {
-            // Log activity
-            await supabase.from("activity_log").insert({
-              entity_type: "lw_buyer",
-              entity_id: inserted.id,
-              action: "discovery_created",
-              meta: {
-                name: buyerData.full_name,
-                platform,
-                score: scored.buyer_score,
-                type: scored.buyer_type,
-              },
-            });
-
-            // Auto-create follow-up task if enabled
-            if (autoCreateTasks && scored.buyer_score >= thresholds.medium_intent) {
-              await supabase.from("bot_tasks").insert({
-                title: `Review new ${scored.buyer_type}: ${buyerData.full_name}`,
-                description: `Buyer discovered via ${platform} with score ${scored.buyer_score}. ${scored.intent_summary || ""}`,
-                bot_agent: "buyer-discovery",
-                priority: scored.buyer_score >= thresholds.high_intent ? "high" : "medium",
-                status: "queued",
-                meta: { buyer_id: inserted.id, platform, score: scored.buyer_score },
-              });
-            }
-          }
-
+          });
           newCount++;
         }
 
@@ -194,6 +148,40 @@ Deno.serve(async (req) => {
         console.error("Record processing error:", err);
         skippedCount++;
       }
+    }
+
+    // Batch insert new buyers
+    if (newBuyerRows.length > 0) {
+      const { data: inserted, error: insertErr } = await supabase
+        .from("lw_buyers")
+        .insert(newBuyerRows)
+        .select("id, full_name, buyer_score, buyer_type");
+      if (insertErr) {
+        console.error("Batch insert error:", insertErr);
+        // Fallback: try one-by-one for dedup conflicts
+        for (const row of newBuyerRows) {
+          const { error: singleErr } = await supabase.from("lw_buyers").insert(row);
+          if (singleErr) { skippedCount++; newCount--; }
+        }
+      } else if (inserted) {
+        // Batch insert activity logs
+        const activityRows = inserted.map((b: any) => ({
+          entity_type: "lw_buyer",
+          entity_id: b.id,
+          action: "discovery_created",
+          meta: { name: b.full_name, platform, score: b.buyer_score, type: b.buyer_type },
+        }));
+        await supabase.from("activity_log").insert(activityRows);
+      }
+    }
+
+    // Batch updates (parallel, max 10 concurrent)
+    const UPDATE_BATCH = 10;
+    for (let i = 0; i < updateOps.length; i += UPDATE_BATCH) {
+      const batch = updateOps.slice(i, i + UPDATE_BATCH);
+      await Promise.all(batch.map(op =>
+        supabase.from("lw_buyers").update(op.updates).eq("id", op.id)
+      ));
     }
 
     // Update ingestion log
