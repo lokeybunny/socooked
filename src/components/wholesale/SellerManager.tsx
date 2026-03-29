@@ -168,6 +168,7 @@ export default function SellerManager() {
   const [stateFilter, setStateFilter] = useState('all');
   const [stageFilter, setStageFilter] = useState('all');
   const [dealTypeFilter, setDealTypeFilter] = useState('all');
+  const [hideDuplicates, setHideDuplicates] = useState(true);
   const [sortField, setSortField] = useState('motivation_score');
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
