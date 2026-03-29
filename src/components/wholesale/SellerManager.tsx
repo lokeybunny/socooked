@@ -918,9 +918,12 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
               return (
                 <div className="rounded-md border border-border p-3 space-y-1 text-xs bg-muted/50">
                   <p className="font-semibold text-foreground">Preview — found:</p>
+                  {preview.bestName && (
+                    <p className="text-yellow-600 dark:text-yellow-400 font-semibold">⭐ Best Name: {preview.bestName}</p>
+                  )}
                   <p>📞 Phones: {preview.phones.length > 0 ? preview.phones.join(', ') : <span className="text-muted-foreground">None</span>}</p>
                   <p>📧 Emails: {preview.emails.length > 0 ? preview.emails.join(', ') : <span className="text-muted-foreground">None</span>}</p>
-                  <p>👤 Names: {preview.names.length > 0 ? preview.names.join(', ') : <span className="text-muted-foreground">None</span>}</p>
+                  <p>👤 All Names: {preview.names.length > 0 ? preview.names.join(', ') : <span className="text-muted-foreground">None</span>}</p>
                 </div>
               );
             })()}
