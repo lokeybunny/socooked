@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home, Globe } from 'lucide-react';
+import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home, Globe, UserCheck } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
@@ -15,6 +15,7 @@ import LandingPageManager from '@/components/wholesale/LandingPageManager';
 import SellerManager from '@/components/wholesale/SellerManager';
 import DistressDashboard from '@/components/wholesale/DistressDashboard';
 import BuyerSellerMatches from '@/components/wholesale/BuyerSellerMatches';
+import LeadsManager from '@/components/wholesale/LeadsManager';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home' | 'multi_home';
@@ -176,6 +177,10 @@ export default function Wholesale() {
             <Globe className="h-3.5 w-3.5" />
             Landing Pages
           </TabsTrigger>
+          <TabsTrigger value="leads" className="gap-1.5 bg-amber-500/10 text-amber-600 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-500">
+            <UserCheck className="h-3.5 w-3.5" />
+            Leads
+          </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -287,7 +292,11 @@ export default function Wholesale() {
         <TabsContent value="landing" className="mt-4">
           <LandingPageManager />
         </TabsContent>
-        {/* Tab 6: Settings */}
+        {/* Leads */}
+        <TabsContent value="leads" className="mt-4">
+          <LeadsManager />
+        </TabsContent>
+        {/* Settings */}
         <TabsContent value="settings" className="mt-4">
           <BuyerSettings />
         </TabsContent>
