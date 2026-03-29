@@ -294,7 +294,7 @@ export default function InvestorRobot() {
   return (
     <div className="w-full h-[45vh] sm:h-[50vh] md:h-[55vh] bg-black rounded-lg">
       <Canvas
-        camera={{ position: [0, 0.8, 8], fov: 36 }}
+        camera={{ position: [0, 0.8, 9.6], fov: 36 }}
         gl={{ alpha: false, antialias: true }}
       >
         <color attach="background" args={['#000000']} />
