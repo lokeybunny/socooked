@@ -1,4 +1,4 @@
-import { useRef, useState, Suspense, lazy } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
@@ -8,10 +8,8 @@ import {
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { Play } from 'lucide-react';
-import aiTechThumb from '@/assets/landing/ai-tech-thumbnail.jpg';
+import robotThumb from '@/assets/landing/robot-thumbnail.jpg';
 import dashboardPreview from '@/assets/landing/client-dashboard-preview.jpg';
-
-const InvestorRobot = lazy(() => import('@/components/three/InvestorRobot'));
 
 const steps = [
   {
@@ -93,12 +91,11 @@ function DemoVideoSection() {
           {!playing ? (
             <div className="relative cursor-pointer" onClick={() => setPlaying(true)}>
               <img
-                src={aiTechThumb}
+                src={robotThumb}
                 alt="AI-powered wholesale automation demo"
                 className="w-full aspect-video object-cover"
-                loading="lazy"
-                width={1920}
-                height={1080}
+                width={1280}
+                height={720}
               />
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/30 transition-colors">
                 <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -122,7 +119,7 @@ function DemoVideoSection() {
               controls
               autoPlay
               playsInline
-              poster={aiTechThumb}
+              poster={robotThumb}
             >
               <source src="" type="video/mp4" />
             </video>
@@ -232,17 +229,6 @@ export default function WarrenLanding() {
             </div>
           </div>
 
-          {/* 3D Investor Robot */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.5, ease: [0.23, 1, 0.32, 1] }}
-            className="mt-12"
-          >
-            <Suspense fallback={<div className="h-[45vh]" />}>
-              <InvestorRobot />
-            </Suspense>
-          </motion.div>
         </motion.div>
 
         <motion.div
