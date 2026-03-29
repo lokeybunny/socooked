@@ -66,7 +66,7 @@ export default function Wholesale() {
       supabase.from('lw_buyers').select('id', { count: 'exact', head: true }).eq('pipeline_stage', 'active'),
       supabase.from('lw_sellers').select('id', { count: 'exact', head: true }),
       supabase.from('lw_sellers').select('id', { count: 'exact', head: true }).eq('status', 'under_contract'),
-      supabase.from('lw_deals').select('id', { count: 'exact', head: true }).gte('created_at', monthStart),
+      supabase.from('lw_deals').select('id', { count: 'exact', head: true }).gte('created_at', monthStart).neq('stage', 'matched'),
       supabase.from('lw_ingestion_runs').select('credits_used').gte('created_at', monthStart),
       supabase.from('lw_deals').select('match_score'),
     ]);
