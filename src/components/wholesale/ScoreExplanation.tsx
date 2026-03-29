@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { calculateDistressScore, calculateBuyerMatchScore, calculateOpportunityScore, DEFAULT_DISTRESS_WEIGHTS, extractCraigslistSubdomain, isBuyerInCraigslistRegion, getCraigslistCity, type DistressWeights } from '@/lib/wholesale/distressScoring';
+import { calculateDistressScore, calculateBuyerMatchScore, calculateOpportunityScore, DEFAULT_DISTRESS_WEIGHTS, extractCraigslistSubdomain, isBuyerInCraigslistRegion, isSellerInCraigslistRegion, getCraigslistCity, type DistressWeights } from '@/lib/wholesale/distressScoring';
 import { Flame, Snowflake, Sun, Target, TrendingUp, CheckCircle, XCircle, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import BuyerDetail from './BuyerDetail';
 
@@ -38,22 +38,26 @@ export default function ScoreExplanation({ seller, buyers = [], weights, buyerDe
   }, [seller]);
 
   const clCity = useMemo(() => sellerClSubdomain ? getCraigslistCity(sellerClSubdomain) : null, [sellerClSubdomain]);
+  const sellerMatchesCraigslistRegion = useMemo(
+    () => !sellerClSubdomain || isSellerInCraigslistRegion(sellerClSubdomain, seller),
+    [sellerClSubdomain, seller]
+  );
 
   const buyerMatches = useMemo(() => {
+    if (sellerClSubdomain && !sellerMatchesCraigslistRegion) return [];
+
     let pool = buyers;
 
     // If seller is from Craigslist, filter buyers to same region
     if (sellerClSubdomain) {
-      const regionBuyers = pool.filter(b => isBuyerInCraigslistRegion(sellerClSubdomain, b));
-      // Only apply filter if it yields results; otherwise fall back to all
-      if (regionBuyers.length > 0) pool = regionBuyers;
+      pool = pool.filter(b => isBuyerInCraigslistRegion(sellerClSubdomain, b));
     }
 
     return pool
       .map(b => ({ ...b, matchScore: calculateBuyerMatchScore(seller, b) }))
       .filter(b => b.matchScore > 0)
       .sort((a, b) => b.matchScore - a.matchScore);
-  }, [seller, buyers, sellerClSubdomain]);
+  }, [seller, buyers, sellerClSubdomain, sellerMatchesCraigslistRegion]);
 
   const bestBuyerMatch = buyerMatches.length > 0 ? buyerMatches[0].matchScore : 0;
   const opportunityScore = calculateOpportunityScore(result.score, bestBuyerMatch);
