@@ -60,6 +60,12 @@ Deno.serve(async (req) => {
         const isTerminalWithUsableDataset = ["SUCCEEDED", "ABORTED", "TIMED-OUT"].includes(status) && datasetId;
 
         if (isTerminalWithUsableDataset) {
+          // Mark as "ingesting" immediately to prevent duplicate poll processing
+          await supabase.from("lw_buyer_ingestion_logs")
+            .update({ status: "ingesting" })
+            .eq("apify_run_id", runId)
+            .eq("status", "running");
+
           const dsRes = await fetch(
             `https://api.apify.com/v2/datasets/${datasetId}/items?token=${APIFY_TOKEN}&limit=500`
           );
@@ -90,40 +96,72 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          const ingestUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/buyer-ingest`;
-          const ingestRes = await fetch(ingestUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
-              "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
-            },
-            body: JSON.stringify({
-              run_id: runId,
-              dataset_id: datasetId,
-              source_id: log.source_id,
-              platform: log.platform,
-              records,
-            }),
-          });
-          const ingestResult = await ingestRes.json().catch(() => ({}));
-
-          if (!ingestRes.ok || ingestResult?.error) {
-            const ingestError = ingestResult?.error || `Ingest failed: ${ingestRes.status}`;
-            await supabase.from("lw_buyer_ingestion_logs")
-              .update({ status: "error", error: String(ingestError) })
-              .eq("apify_run_id", runId);
-            results.push({ run_id: runId, status: "error", apify_status: status, reason: String(ingestError) });
-            continue;
+          // Batch records into chunks of 50 to avoid edge function timeouts
+          const CHUNK_SIZE = 50;
+          const chunks: any[][] = [];
+          for (let i = 0; i < records.length; i += CHUNK_SIZE) {
+            chunks.push(records.slice(i, i + CHUNK_SIZE));
           }
 
-          console.log(`[buyer-discovery] Ingest result:`, JSON.stringify(ingestResult));
+          const ingestUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/buyer-ingest`;
+          const headers = {
+            "Content-Type": "application/json",
+            "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
+          };
+
+          let totalNew = 0, totalUpdated = 0, totalSkipped = 0, chunkErrors = 0;
+
+          for (let ci = 0; ci < chunks.length; ci++) {
+            const chunk = chunks[ci];
+            console.log(`[buyer-discovery] Ingesting chunk ${ci + 1}/${chunks.length} (${chunk.length} records) for run ${runId}`);
+            try {
+              const ingestRes = await fetch(ingestUrl, {
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                  run_id: runId,
+                  dataset_id: datasetId,
+                  source_id: log.source_id,
+                  platform: log.platform,
+                  records: chunk,
+                  skip_log_update: true,
+                }),
+              });
+              const ingestResult = await ingestRes.json().catch(() => ({}));
+              if (ingestRes.ok && !ingestResult?.error) {
+                totalNew += Number(ingestResult?.new || 0);
+                totalUpdated += Number(ingestResult?.updated || 0);
+                totalSkipped += Number(ingestResult?.skipped || 0);
+              } else {
+                console.error(`[buyer-discovery] Chunk ${ci + 1} failed:`, ingestResult?.error || ingestRes.status);
+                chunkErrors++;
+              }
+            } catch (err) {
+              console.error(`[buyer-discovery] Chunk ${ci + 1} exception:`, err);
+              chunkErrors++;
+            }
+          }
+
+          // Update log with totals
+          await supabase.from("lw_buyer_ingestion_logs")
+            .update({
+              status: chunkErrors === chunks.length ? "error" : "completed",
+              records_received: records.length,
+              records_new: totalNew,
+              records_updated: totalUpdated,
+              records_skipped: totalSkipped,
+              error: chunkErrors > 0 ? `${chunkErrors}/${chunks.length} chunks failed` : null,
+            })
+            .eq("apify_run_id", runId);
+
+          console.log(`[buyer-discovery] Ingest complete for ${runId}: new=${totalNew} updated=${totalUpdated} skipped=${totalSkipped} errors=${chunkErrors}`);
           results.push({
             run_id: runId,
             status: "ingested",
             apify_status: status,
             partial: status !== "SUCCEEDED",
-            ingest: ingestResult,
+            ingest: { new: totalNew, updated: totalUpdated, skipped: totalSkipped, chunk_errors: chunkErrors },
           });
         } else if (status === "FAILED" || status === "ABORTED" || status === "TIMED-OUT") {
           await supabase.from("lw_buyer_ingestion_logs")
