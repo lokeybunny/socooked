@@ -156,7 +156,7 @@ export default function SellerManager() {
   // Fetch form
   const [fetchCounty, setFetchCounty] = useState('');
   const [fetchState, setFetchState] = useState('');
-  const [fetchDealType, setFetchDealType] = useState('land');
+  const [fetchDealType, setFetchDealType] = useState('both');
   const [fetchSize, setFetchSize] = useState('50');
   const [detailSeller, setDetailSeller] = useState<any>(null);
 
