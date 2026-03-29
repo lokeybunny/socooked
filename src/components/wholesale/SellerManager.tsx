@@ -683,6 +683,69 @@ export default function SellerManager() {
                   </div>
                 </div>
               </div>
+
+              {/* Building Specs (Zillow-style) */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase">Building Specs</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 items-end">
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Beds</Label>
+                    <Input type="number" placeholder="Min" className="h-7 w-14 text-xs"
+                      value={fetchDistress.bedrooms_min} onChange={e => setFetchDistress(p => ({...p, bedrooms_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" placeholder="Max" className="h-7 w-14 text-xs"
+                      value={fetchDistress.bedrooms_max} onChange={e => setFetchDistress(p => ({...p, bedrooms_max: e.target.value}))} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Baths</Label>
+                    <Input type="number" placeholder="Min" className="h-7 w-14 text-xs"
+                      value={fetchDistress.bathrooms_min} onChange={e => setFetchDistress(p => ({...p, bathrooms_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" placeholder="Max" className="h-7 w-14 text-xs"
+                      value={fetchDistress.bathrooms_max} onChange={e => setFetchDistress(p => ({...p, bathrooms_max: e.target.value}))} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Sqft</Label>
+                    <Input type="number" placeholder="Min" className="h-7 w-20 text-xs"
+                      value={fetchDistress.sqft_min} onChange={e => setFetchDistress(p => ({...p, sqft_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" placeholder="Max" className="h-7 w-20 text-xs"
+                      value={fetchDistress.sqft_max} onChange={e => setFetchDistress(p => ({...p, sqft_max: e.target.value}))} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Lot Sqft</Label>
+                    <Input type="number" placeholder="Min" className="h-7 w-20 text-xs"
+                      value={fetchDistress.lot_sqft_min} onChange={e => setFetchDistress(p => ({...p, lot_sqft_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" placeholder="Max" className="h-7 w-20 text-xs"
+                      value={fetchDistress.lot_sqft_max} onChange={e => setFetchDistress(p => ({...p, lot_sqft_max: e.target.value}))} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Yr Built</Label>
+                    <Input type="number" placeholder="Min" className="h-7 w-16 text-xs"
+                      value={fetchDistress.year_built_min} onChange={e => setFetchDistress(p => ({...p, year_built_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" placeholder="Max" className="h-7 w-16 text-xs"
+                      value={fetchDistress.year_built_max} onChange={e => setFetchDistress(p => ({...p, year_built_max: e.target.value}))} />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-xs whitespace-nowrap">Stories</Label>
+                    <Input type="number" placeholder="Min" className="h-7 w-14 text-xs"
+                      value={fetchDistress.stories_min} onChange={e => setFetchDistress(p => ({...p, stories_min: e.target.value}))} />
+                    <span className="text-xs text-muted-foreground">–</span>
+                    <Input type="number" placeholder="Max" className="h-7 w-14 text-xs"
+                      value={fetchDistress.stories_max} onChange={e => setFetchDistress(p => ({...p, stories_max: e.target.value}))} />
+                  </div>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.has_pool} onCheckedChange={v => setFetchDistress(p => ({...p, has_pool: !!v}))} />
+                    Pool
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <Checkbox checked={fetchDistress.has_garage} onCheckedChange={v => setFetchDistress(p => ({...p, has_garage: !!v}))} />
+                    Garage
+                  </label>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
