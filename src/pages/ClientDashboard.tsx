@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
-  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText
+  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText, Flame, Globe
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -59,6 +59,7 @@ export default function ClientDashboard() {
   const [filterStage, setFilterStage] = useState<string>('all');
   const [editingLead, setEditingLead] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
+  const [activeSection, setActiveSection] = useState<'funnel' | 'hot'>('funnel');
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -185,14 +186,23 @@ export default function ClientDashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const filteredLeads = leads.filter(l => {
+  const isHotLead = (l: Lead) => {
+    const src = (l.meta as any)?.source || '';
+    return src === 'reapi_weekly_match' || src === 'seller_db_match';
+  };
+
+  const funnelLeads = leads.filter(l => !isHotLead(l));
+  const hotLeads = leads.filter(l => isHotLead(l));
+  const activeLeads = activeSection === 'funnel' ? funnelLeads : hotLeads;
+
+  const filteredLeads = activeLeads.filter(l => {
     if (filterPage !== 'all' && l.landing_page_id !== filterPage) return false;
     if (filterStage !== 'all' && l.status !== filterStage) return false;
     return true;
   });
 
   const stageCounts = PIPELINE_STAGES.reduce((acc, stage) => {
-    acc[stage] = leads.filter(l => l.status === stage).length;
+    acc[stage] = activeLeads.filter(l => l.status === stage).length;
     return acc;
   }, {} as Record<string, number>);
 
@@ -225,6 +235,41 @@ export default function ClientDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        {/* Section Tabs */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => { setActiveSection('funnel'); setFilterStage('all'); }}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+              activeSection === 'funnel'
+                ? 'bg-white/10 border-white/30 text-white'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/20'
+            }`}
+          >
+            <Globe className="h-4 w-4" />
+            Lead Funnel Page
+            <span className="ml-1 text-xs bg-white/10 px-2 py-0.5 rounded-full">{funnelLeads.length}</span>
+          </button>
+          <button
+            onClick={() => { setActiveSection('hot'); setFilterStage('all'); }}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+              activeSection === 'hot'
+                ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-orange-300 hover:border-orange-500/20'
+            }`}
+          >
+            <Flame className="h-4 w-4" />
+            Hot Leads
+            <span className="ml-1 text-xs bg-white/10 px-2 py-0.5 rounded-full">{hotLeads.length}</span>
+          </button>
+        </div>
+
+        {/* Section Description */}
+        <p className="text-xs text-white/40 -mt-4">
+          {activeSection === 'funnel'
+            ? 'Leads submitted through your landing page funnel.'
+            : 'Matched distressed property leads from the Realtor API — delivered weekly.'}
+        </p>
+
         {/* Pipeline Overview */}
         <div>
           <h2 className="text-xl font-bold text-white mb-4">CRM Pipeline</h2>
