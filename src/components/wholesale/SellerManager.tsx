@@ -13,13 +13,34 @@ import { toast } from 'sonner';
 
 const PAGE_SIZE = 25;
 
+const SELLER_STAGES = [
+  { key: 'all', label: 'All' },
+  { key: 'new', label: 'New' },
+  { key: 'skip_traced', label: 'Skip Traced' },
+  { key: 'contacted', label: 'Contacted' },
+  { key: 'offer_sent', label: 'Offer Sent' },
+  { key: 'under_contract', label: 'Under Contract' },
+  { key: 'closed', label: 'Closed' },
+  { key: 'dead', label: 'Dead' },
+];
+
+const SELLER_STAGE_COLORS: Record<string, string> = {
+  new: 'bg-blue-500/10 text-blue-500',
+  skip_traced: 'bg-cyan-500/10 text-cyan-500',
+  contacted: 'bg-purple-500/10 text-purple-500',
+  offer_sent: 'bg-amber-500/10 text-amber-500',
+  under_contract: 'bg-emerald-500/10 text-emerald-500',
+  closed: 'bg-muted text-muted-foreground',
+  dead: 'bg-destructive/10 text-destructive',
+};
+
 export default function SellerManager() {
   const [sellers, setSellers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [search, setSearch] = useState('');
   const [stateFilter, setStateFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [stageFilter, setStageFilter] = useState('all');
   const [sortField, setSortField] = useState('motivation_score');
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
