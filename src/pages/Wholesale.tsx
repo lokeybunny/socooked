@@ -221,7 +221,7 @@ export default function Wholesale() {
                             <a href={`tel:${call.owner_phone}`} className="text-primary hover:underline text-sm">
                               {call.owner_phone}
                             </a>
-                          ) : '—'}
+                          ) : <span className="text-amber-500 text-xs font-medium">Phone # TBA</span>}
                         </TableCell>
                         <TableCell className="text-sm max-w-[200px] truncate">{call.property_address || '—'}</TableCell>
                         <TableCell>
