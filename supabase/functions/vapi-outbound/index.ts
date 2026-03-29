@@ -71,14 +71,18 @@ IMPORTANT: At the end of the call, summarize your findings clearly.`,
             },
             voice: {
               provider: "11labs",
-              voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel - warm professional voice
+              voiceId: "21m00Tcm4TlvDq8ikWAM",
             },
             firstMessage: `Hi ${lead.full_name.split(" ")[0]}! This is a call from ${clientName}. I saw you just submitted a request about getting a cash offer for your property. Is now a good time to chat for a couple minutes?`,
+            serverUrl: `${SUPABASE_URL}/functions/v1/vapi-webhook`,
           },
           customer: {
-            number: lead.phone,
+            number: (() => {
+              let ph = (lead.phone || "").replace(/\D/g, "");
+              if (!ph.startsWith("1") && ph.length === 10) ph = "1" + ph;
+              return "+" + ph;
+            })(),
           },
-          serverUrl: `${SUPABASE_URL}/functions/v1/vapi-webhook`,
         }),
       });
 
