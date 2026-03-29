@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Heart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -157,6 +158,10 @@ function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; 
 export default function SellerManager() {
   const [sellers, setSellers] = useState<any[]>([]);
   const [buyers, setBuyers] = useState<any[]>([]);
+  const [connectDealOpen, setConnectDealOpen] = useState(false);
+  const [connectBuyerId, setConnectBuyerId] = useState('');
+  const [connectingDeal, setConnectingDeal] = useState(false);
+  const [buyerSearch, setBuyerSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [search, setSearch] = useState('');
@@ -959,6 +964,17 @@ export default function SellerManager() {
           </DialogHeader>
           {detailSeller && (
             <div className="space-y-4">
+              {/* Connect Deal — only for under_contract sellers */}
+              {detailSeller.status === 'under_contract' && (
+                <Button
+                  className="w-full gap-2"
+                  variant="default"
+                  onClick={() => { setConnectDealOpen(true); setConnectBuyerId(''); setBuyerSearch(''); }}
+                >
+                  <Heart className="h-4 w-4" />
+                  Connect Deal
+                </Button>
+              )}
               {/* Score Explanation Panel */}
               <Card>
                 <CardHeader className="pb-2">
@@ -975,6 +991,76 @@ export default function SellerManager() {
               <SellerDetailContent seller={detailSeller} onSkipTraced={() => { setDetailSeller(null); loadSellers(); }} />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Connect Deal — Buyer Picker Dialog */}
+      <Dialog open={connectDealOpen} onOpenChange={setConnectDealOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Heart className="h-4 w-4 text-pink-500" />
+              Connect Buyer to Deal
+            </DialogTitle>
+            <DialogDescription>
+              Select a buyer to connect with <span className="font-semibold">{detailSeller?.owner_name || 'this property'}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Search buyers..."
+              value={buyerSearch}
+              onChange={e => setBuyerSearch(e.target.value)}
+            />
+            <div className="max-h-[300px] overflow-y-auto space-y-1">
+              {buyers
+                .filter(b => !buyerSearch || b.full_name?.toLowerCase().includes(buyerSearch.toLowerCase()) || b.email?.toLowerCase().includes(buyerSearch.toLowerCase()))
+                .map(b => (
+                  <button
+                    key={b.id}
+                    onClick={() => setConnectBuyerId(b.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${connectBuyerId === b.id ? 'bg-primary/15 border border-primary/30' : 'hover:bg-accent'}`}
+                  >
+                    <p className="font-medium text-foreground">{b.full_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {b.target_states?.join(', ') || '—'} · Budget: {b.budget_max ? `$${Number(b.budget_max).toLocaleString()}` : '—'}
+                    </p>
+                  </button>
+                ))}
+              {buyers.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No buyers found. Add buyers first.</p>
+              )}
+            </div>
+            <Button
+              className="w-full"
+              disabled={!connectBuyerId || connectingDeal}
+              onClick={async () => {
+                if (!detailSeller || !connectBuyerId) return;
+                setConnectingDeal(true);
+                const buyer = buyers.find(b => b.id === connectBuyerId);
+                const { error } = await supabase.from('lw_deals').insert({
+                  title: `${detailSeller.owner_name || detailSeller.address_full || 'Deal'} ↔ ${buyer?.full_name || 'Buyer'}`,
+                  seller_id: detailSeller.id,
+                  buyer_id: connectBuyerId,
+                  deal_type: detailSeller.deal_type || 'land',
+                  stage: 'under_contract',
+                  match_score: detailSeller.buyer_match_score || 0,
+                  seller_ask: detailSeller.asking_price || detailSeller.market_value || null,
+                  buyer_price: buyer?.budget_max || null,
+                });
+                setConnectingDeal(false);
+                if (error) {
+                  toast.error(error.message);
+                } else {
+                  toast.success('Deal connected! It will now appear in the pipeline.');
+                  setConnectDealOpen(false);
+                  setDetailSeller(null);
+                }
+              }}
+            >
+              {connectingDeal ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm & Create Deal'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
