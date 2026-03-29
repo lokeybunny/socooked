@@ -985,6 +985,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [editMailing, setEditMailing] = useState(s.owner_mailing_address || '');
   const [editNotes, setEditNotes] = useState(s.notes || '');
   const [saving, setSaving] = useState(false);
+  const [pendingStageChange, setPendingStageChange] = useState<{ direction: 'next' | 'prev'; targetKey: string; targetLabel: string } | null>(null);
 
   const handleSkipTrace = async () => {
     setTracing(true);
@@ -998,7 +999,6 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
       if (data?.phone) {
         toast.success(`Found phone: ${data.phone}${data.email ? `, email: ${data.email}` : ''}`);
       } else {
-        // No phone data returned — mark as req_trace
         await supabase.from('lw_sellers').update({ status: 'req_trace' }).eq('id', s.id);
         toast.error('No phone data found — marked as "Req. Trace". Try a free lookup tool instead.', { duration: 5000 });
       }
@@ -1008,21 +1008,29 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
     }
     setTracing(false);
   };
-  const handleAdvancePipeline = async () => {
+
+  const requestAdvancePipeline = () => {
     const idx = PIPELINE_ORDER.indexOf(s.status);
     if (idx < 0 || idx >= PIPELINE_ORDER.length - 1) return;
-    const nextStatus = PIPELINE_ORDER[idx + 1];
-    await supabase.from('lw_sellers').update({ status: nextStatus }).eq('id', s.id);
-    toast.success(`Moved to "${SELLER_STAGES.find(st => st.key === nextStatus)?.label || nextStatus}"`);
-    onSkipTraced?.();
+    const nextKey = PIPELINE_ORDER[idx + 1];
+    const nextLabel = SELLER_STAGES.find(st => st.key === nextKey)?.label || nextKey;
+    setPendingStageChange({ direction: 'next', targetKey: nextKey, targetLabel: nextLabel });
   };
 
-  const handleRevertPipeline = async () => {
+  const requestRevertPipeline = () => {
     const idx = PIPELINE_ORDER.indexOf(s.status);
     if (idx <= 0) return;
-    const prevStatus = PIPELINE_ORDER[idx - 1];
-    await supabase.from('lw_sellers').update({ status: prevStatus }).eq('id', s.id);
-    toast.success(`Moved back to "${SELLER_STAGES.find(st => st.key === prevStatus)?.label || prevStatus}"`);
+    const prevKey = PIPELINE_ORDER[idx - 1];
+    const prevLabel = SELLER_STAGES.find(st => st.key === prevKey)?.label || prevKey;
+    setPendingStageChange({ direction: 'prev', targetKey: prevKey, targetLabel: prevLabel });
+  };
+
+  const confirmStageChange = async () => {
+    if (!pendingStageChange) return;
+    const { direction, targetKey, targetLabel } = pendingStageChange;
+    await supabase.from('lw_sellers').update({ status: targetKey }).eq('id', s.id);
+    toast.success(`${direction === 'next' ? 'Advanced' : 'Moved back'} to "${targetLabel}"`);
+    setPendingStageChange(null);
     onSkipTraced?.();
   };
 
