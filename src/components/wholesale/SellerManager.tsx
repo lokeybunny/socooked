@@ -464,13 +464,13 @@ export default function SellerManager() {
 }
 
 // --- Copyable detail row for addresses ---
-function DetailRow({ label, value, copyable }: { label: string; value: React.ReactNode; copyable?: boolean }) {
+function DetailRow({ label, value, copyable, gold }: { label: string; value: React.ReactNode; copyable?: boolean; gold?: boolean }) {
   if (value === null || value === undefined || value === '' || value === '—') return null;
   const textValue = typeof value === 'string' ? value : null;
   return (
-    <div className="flex justify-between py-1.5 text-sm group">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-right max-w-[60%] break-words flex items-center gap-1">
+    <div className={`flex justify-between py-1.5 text-sm group ${gold ? 'bg-yellow-500/10 px-2 -mx-2 rounded' : ''}`}>
+      <span className={gold ? 'text-yellow-600 dark:text-yellow-400 font-medium' : 'text-muted-foreground'}>{label}</span>
+      <span className={`font-medium text-right max-w-[60%] break-words flex items-center gap-1 ${gold ? 'text-yellow-600 dark:text-yellow-400' : ''}`}>
         {value}
         {copyable && textValue && <CopyText text={textValue} />}
       </span>
@@ -503,12 +503,14 @@ function PhoneRow({ seller }: { seller: any }) {
     toast.success(`Copied ${allPhones.length} phone number(s)`);
   };
 
+  const isTraced = !!seller.skip_traced_at;
+
   return (
-    <div className="py-1.5 text-sm">
+    <div className={`py-1.5 text-sm ${isTraced ? 'bg-yellow-500/10 px-2 -mx-2 rounded' : ''}`}>
       <div className="flex justify-between items-center group">
-        <span className="text-muted-foreground">Phone</span>
+        <span className={isTraced ? 'text-yellow-600 dark:text-yellow-400 font-medium' : 'text-muted-foreground'}>Phone</span>
         <span className="font-medium flex items-center gap-1">
-          <a href={`tel:${primary}`} className="text-primary hover:underline">{primary}</a>
+          <a href={`tel:${primary}`} className={`hover:underline ${isTraced ? 'text-yellow-600 dark:text-yellow-400' : 'text-primary'}`}>{primary}</a>
           <CopyText text={primary} />
           {extras.length > 0 && (
             <button
@@ -534,8 +536,8 @@ function PhoneRow({ seller }: { seller: any }) {
         <div className="mt-1 ml-auto space-y-1 max-w-[60%]">
           {extras.map((phone, i) => (
             <div key={i} className="flex items-center gap-1 justify-end text-xs">
-              <Phone className="h-3 w-3 text-muted-foreground" />
-              <a href={`tel:${phone}`} className="text-primary hover:underline">{phone}</a>
+              <Phone className="h-3 w-3 text-yellow-500" />
+              <a href={`tel:${phone}`} className="text-yellow-600 dark:text-yellow-400 hover:underline">{phone}</a>
               <CopyText text={phone} />
             </div>
           ))}
@@ -644,12 +646,27 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
       {/* Owner Info */}
       <div>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Owner Information</h4>
-        <div className="divide-y divide-border">
-          <DetailRow label="Name" value={s.owner_name} />
-          <PhoneRow seller={s} />
-          <DetailRow label="Email" value={s.owner_email} copyable />
-          <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable />
-        </div>
+        {(() => {
+          const isTraced = !!s.skip_traced_at;
+          const traceResult = s.meta?.skip_trace_result;
+          const tracedName = traceResult?.name || traceResult?.fullName
+            || (traceResult?.firstName && traceResult?.lastName ? `${traceResult.firstName} ${traceResult.lastName}` : null);
+          const clipNames = s.meta?.clipboard_trace?.names as string[] | undefined;
+          return (
+            <div className="divide-y divide-border">
+              <DetailRow label="Name" value={s.owner_name} />
+              {tracedName && tracedName !== s.owner_name && (
+                <DetailRow label="Traced Name" value={tracedName} copyable gold />
+              )}
+              {clipNames && clipNames.length > 0 && clipNames.filter((n: string) => n !== s.owner_name && n !== tracedName).map((name: string, i: number) => (
+                <DetailRow key={i} label={i === 0 ? 'Traced Name(s)' : ''} value={name} copyable gold />
+              ))}
+              <PhoneRow seller={s} />
+              <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
+              <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
+            </div>
+          );
+        })()}
       </div>
 
       <Separator />
