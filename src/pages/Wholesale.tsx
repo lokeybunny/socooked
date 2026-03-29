@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart } from 'lucide-react';
+import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
@@ -156,11 +156,11 @@ export default function Wholesale() {
             <Heart className="h-3.5 w-3.5 text-pink-500" />
             Matches
           </TabsTrigger>
-          <TabsTrigger value="buyers" className="gap-1.5 data-[state=active]:bg-green-500/15 data-[state=active]:text-green-600">
+          <TabsTrigger value="buyers" className="gap-1.5 bg-green-500/10 text-green-600 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-500">
             <Users className="h-3.5 w-3.5" />
             Buyers
           </TabsTrigger>
-          <TabsTrigger value="sellers" className="gap-1.5 data-[state=active]:bg-red-500/15 data-[state=active]:text-red-600">
+          <TabsTrigger value="sellers" className="gap-1.5 bg-red-500/10 text-red-600 data-[state=active]:bg-red-500/20 data-[state=active]:text-red-500">
             <MapPin className="h-3.5 w-3.5" />
             Sellers
           </TabsTrigger>
@@ -256,63 +256,7 @@ export default function Wholesale() {
 
         {/* Tab 2: Deal Pipeline */}
         <TabsContent value="pipeline" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Deal Pipeline
-                <Badge variant="outline" className="ml-auto">{deals.length} deals</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {deals.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No deals yet</p>
-                  <p className="text-xs mt-1">Deals are created when buyers are matched with seller leads</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Deal</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Stage</TableHead>
-                      <TableHead>Match Score</TableHead>
-                      <TableHead>Seller Ask</TableHead>
-                      <TableHead>Our Offer</TableHead>
-                      <TableHead>Buyer Price</TableHead>
-                      <TableHead>Spread</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {deals.map((deal) => (
-                      <TableRow key={deal.id}>
-                        <TableCell className="font-medium">{deal.title}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-[10px]">
-                            {deal.deal_type === 'land' ? '🏞️' : '🏠'} {deal.deal_type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={`text-[10px] ${stageColors[deal.stage] || ''}`}>
-                            {deal.stage.replace(/_/g, ' ')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell><ScoreBadge value={deal.match_score} /></TableCell>
-                        <TableCell className="text-sm">{deal.seller_ask ? `$${Number(deal.seller_ask).toLocaleString()}` : '—'}</TableCell>
-                        <TableCell className="text-sm">{deal.our_offer ? `$${Number(deal.our_offer).toLocaleString()}` : '—'}</TableCell>
-                        <TableCell className="text-sm">{deal.buyer_price ? `$${Number(deal.buyer_price).toLocaleString()}` : '—'}</TableCell>
-                        <TableCell className="font-mono text-sm font-semibold text-green-500">
-                          {deal.spread ? `$${Number(deal.spread).toLocaleString()}` : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          <DealPipeline deals={deals} stageColors={stageColors} />
         </TabsContent>
 
         <TabsContent value="demand" className="mt-4">
@@ -359,4 +303,90 @@ function ScoreBadge({ value }: { value: number | null }) {
   if (value == null) return <span className="text-muted-foreground text-xs">—</span>;
   const color = value >= 70 ? 'text-green-500' : value >= 40 ? 'text-yellow-500' : 'text-muted-foreground';
   return <span className={`font-mono text-sm font-semibold ${color}`}>{value}</span>;
+}
+
+const PIPELINE_PAGE_SIZE = 25;
+
+function DealPipeline({ deals, stageColors }: { deals: any[]; stageColors: Record<string, string> }) {
+  const [page, setPage] = useState(1);
+
+  // Only show deals that have both a buyer and a seller linked
+  const authorizedDeals = deals.filter(d => d.buyer_id && d.seller_id);
+  const totalPages = Math.max(1, Math.ceil(authorizedDeals.length / PIPELINE_PAGE_SIZE));
+  const paginated = authorizedDeals.slice((page - 1) * PIPELINE_PAGE_SIZE, page * PIPELINE_PAGE_SIZE);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          Deal Pipeline
+          <Badge variant="outline" className="ml-auto">{authorizedDeals.length} deals</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {authorizedDeals.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p>No authorized deals yet</p>
+            <p className="text-xs mt-1">Deals appear here once a buyer and seller are both linked</p>
+          </div>
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Deal</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Stage</TableHead>
+                  <TableHead>Match Score</TableHead>
+                  <TableHead>Seller Ask</TableHead>
+                  <TableHead>Our Offer</TableHead>
+                  <TableHead>Buyer Price</TableHead>
+                  <TableHead>Spread</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginated.map((deal) => (
+                  <TableRow key={deal.id}>
+                    <TableCell className="font-medium">{deal.title}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px]">
+                        {deal.deal_type === 'land' ? '🏞️' : '🏠'} {deal.deal_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`text-[10px] ${stageColors[deal.stage] || ''}`}>
+                        {deal.stage.replace(/_/g, ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell><ScoreBadge value={deal.match_score} /></TableCell>
+                    <TableCell className="text-sm">{deal.seller_ask ? `$${Number(deal.seller_ask).toLocaleString()}` : '—'}</TableCell>
+                    <TableCell className="text-sm">{deal.our_offer ? `$${Number(deal.our_offer).toLocaleString()}` : '—'}</TableCell>
+                    <TableCell className="text-sm">{deal.buyer_price ? `$${Number(deal.buyer_price).toLocaleString()}` : '—'}</TableCell>
+                    <TableCell className="font-mono text-sm font-semibold text-green-500">
+                      {deal.spread ? `$${Number(deal.spread).toLocaleString()}` : '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-xs text-muted-foreground">Page {page} of {totalPages}</p>
+                <div className="flex gap-1">
+                  <Button size="icon" variant="outline" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="icon" variant="outline" className="h-7 w-7" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 }

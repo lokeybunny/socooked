@@ -102,6 +102,8 @@ export default function BuyerManager() {
   const handleSave = async () => {
     if (!form.full_name.trim()) { toast.error('Name is required'); return; }
     if (!form.target_states.trim()) { toast.error('At least one target state is required'); return; }
+    if (!form.budget_min && !form.budget_max) { toast.error('Budget (min or max) is required for matching'); return; }
+    if (interests.property_types.length === 0) { toast.error('Select at least one property type'); return; }
 
     const payload = {
       full_name: form.full_name.trim(),
