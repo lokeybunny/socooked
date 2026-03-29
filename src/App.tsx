@@ -55,6 +55,8 @@ import Wholesale from "./pages/Wholesale";
 import SellerLanding from "./pages/SellerLanding";
 import Pricing from "./pages/Pricing";
 import Terms from "./pages/Terms";
+import ClientLogin from "./pages/ClientLogin";
+import ClientDashboard from "./pages/ClientDashboard";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
@@ -138,6 +140,8 @@ const App = () => (
             <Route path="/sell/:slug" element={<SellerLanding />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/terms" element={<Terms />} />
+            <Route path="/client-login" element={<ClientLogin />} />
+            <Route path="/client-dashboard" element={<ClientDashboard />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
