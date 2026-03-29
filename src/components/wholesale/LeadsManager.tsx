@@ -258,22 +258,28 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
             <>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Call</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
+                   <TableRow>
+                     <TableHead>Name</TableHead>
+                     <TableHead>Source</TableHead>
+                     <TableHead>Phone</TableHead>
+                     <TableHead>Property</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead>Call</TableHead>
+                     <TableHead>Score</TableHead>
+                     <TableHead>Date</TableHead>
+                     <TableHead className="text-right">Actions</TableHead>
+                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginated.map(lead => (
                     <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openDetail(lead)}>
-                      <TableCell className="font-medium">{lead.full_name}</TableCell>
-                      <TableCell>
+                     <TableCell className="font-medium">{lead.full_name}</TableCell>
+                     <TableCell>
+                       <Badge variant="outline" className="text-[10px] max-w-[120px] truncate">
+                         {lead.landing_page_id ? (landingPages[lead.landing_page_id] || 'Unknown') : 'Direct'}
+                       </Badge>
+                     </TableCell>
+                     <TableCell>
                         <a href={`tel:${lead.phone}`} className="text-primary hover:underline text-sm" onClick={e => e.stopPropagation()}>
                           {lead.phone}
                         </a>
