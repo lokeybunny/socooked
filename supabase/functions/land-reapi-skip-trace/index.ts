@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
             owner_email: bestEmail,
             owner_mailing_address: mailingStr || seller.owner_mailing_address,
             skip_traced_at: new Date().toISOString(),
-            status: bestPhone ? "skip_traced" : seller.status,
+            status: bestPhone ? "skip_traced" : "req_trace",
             meta: { ...seller.meta, skip_trace_result: result },
           })
           .eq("id", seller.id);
