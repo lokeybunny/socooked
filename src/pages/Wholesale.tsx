@@ -7,12 +7,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3 } from 'lucide-react';
+import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
 import SellerManager from '@/components/wholesale/SellerManager';
 import DistressDashboard from '@/components/wholesale/DistressDashboard';
+import BuyerSellerMatches from '@/components/wholesale/BuyerSellerMatches';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home';
