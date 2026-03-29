@@ -28,6 +28,9 @@ interface Lead {
   vapi_call_status: string | null;
   vapi_recording_url: string | null;
   landing_page_id: string | null;
+  email: string | null;
+  property_condition: string | null;
+  meta: Record<string, any> | null;
 }
 
 interface LandingPage {
