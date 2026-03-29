@@ -249,15 +249,6 @@ export default function LandingPageManager() {
           folder="photos"
         />
       </div>
-      <div>
-        <Label className="text-xs">Logo</Label>
-        <ImageUploadField
-          value={form.logo_url}
-          onChange={(url) => setForm({ ...form, logo_url: url })}
-          label="Upload Logo"
-          folder="logos"
-        />
-      </div>
     </div>
   );
 

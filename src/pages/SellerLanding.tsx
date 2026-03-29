@@ -141,13 +141,9 @@ export default function SellerLanding() {
       <nav className="bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {page.logo_url ? (
-              <img src={page.logo_url} alt={page.client_name} className="h-9 w-auto" />
-            ) : (
-              <div className="h-9 w-9 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ background: accent }}>
-                {page.client_name.charAt(0)}
-              </div>
-            )}
+            <div className="h-9 w-9 rounded-lg flex items-center justify-center text-white" style={{ background: accent }}>
+              <Home className="h-5 w-5" />
+            </div>
             <span className="text-lg font-semibold text-slate-800">{page.client_name}</span>
           </div>
           <div className="flex items-center gap-3">
