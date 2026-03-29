@@ -18,6 +18,27 @@ function base64url(data: Uint8Array): string {
     .replace(/=+$/, "");
 }
 
+/** Chunk-safe Uint8Array → base64 (avoids call stack overflow) */
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    for (let j = 0; j < chunk.length; j++) {
+      binary += String.fromCharCode(chunk[j]);
+    }
+  }
+  return btoa(binary);
+}
+
+/** Chunk-safe string → base64url for Gmail raw message */
+function stringToBase64url(str: string): string {
+  // Encode string to UTF-8 bytes first
+  const bytes = new TextEncoder().encode(str);
+  const b64 = uint8ToBase64(bytes);
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 async function getAccessToken(sa: any, scope: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
@@ -312,7 +333,7 @@ serve(async (req) => {
     // Build PDF
     const pageName = `${page.client_name} (/${page.slug})`;
     const pdfBytes = buildLeadPdf(lead, pageName);
-    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+    const pdfBase64 = uint8ToBase64(pdfBytes);
 
     // Build MIME email with PDF attachment
     const leadName = lead.full_name || "Lead";
@@ -355,10 +376,7 @@ serve(async (req) => {
     const sa = JSON.parse(saJson);
     const accessToken = await getAccessToken(sa, "https://www.googleapis.com/auth/gmail.modify");
 
-    const rawMessage = btoa(unescape(encodeURIComponent(mimeBody)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+    const rawMessage = stringToBase64url(mimeBody);
 
     const gmailRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
       method: "POST",
