@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -167,6 +167,16 @@ export default function SellerManager() {
   const [page, setPage] = useState(1);
   const [distressFilters, setDistressFilters] = useState<DistressFilterState>(EMPTY_DISTRESS_FILTERS);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [lastFetchAt, setLastFetchAt] = useState<string | null>(null);
+  const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isNewlyFetched = useCallback((createdAt: string) => {
+    if (!lastFetchAt) return false;
+    const fetchTime = new Date(lastFetchAt).getTime();
+    const created = new Date(createdAt).getTime();
+    // Highlight if created within 2 minutes before the fetch (to account for slight timing)
+    return created >= fetchTime - 120000;
+  }, [lastFetchAt]);
 
   // Fetch form
   const [fetchCounty, setFetchCounty] = useState('');
@@ -289,6 +299,11 @@ export default function SellerManager() {
         totalNew += data?.records_new || 0;
       }
       toast.success(`Fetched ${totalFetched} properties, ${totalNew} new`);
+      // Mark fetch timestamp for green highlight (auto-clears after 5 min)
+      const now = new Date().toISOString();
+      setLastFetchAt(now);
+      if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
+      fetchTimerRef.current = setTimeout(() => setLastFetchAt(null), 5 * 60 * 1000);
       await loadSellers();
     } catch (err: any) {
       toast.error(err.message || 'Fetch failed');
@@ -703,7 +718,7 @@ export default function SellerManager() {
                   {paginated.map(s => {
                     const tempIcon = (s.lead_temperature || ((s.motivation_score || 0) >= 70 ? 'Hot' : (s.motivation_score || 0) >= 45 ? 'Warm' : 'Cold'));
                     return (
-                    <TableRow key={s.id}>
+                    <TableRow key={s.id} className={isNewlyFetched(s.created_at) ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500 animate-in fade-in duration-500' : ''}>
                       <TableCell className="text-center">
                         {(s.deal_type || 'land') === 'land'
                           ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" />
