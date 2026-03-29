@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PAGE_SIZE = 25;
@@ -610,11 +610,20 @@ function PhoneRow({ seller }: { seller: any }) {
   );
 }
 
+const PIPELINE_ORDER = ['new', 'req_trace', 'skip_traced', 'contacted', 'offer_sent', 'under_contract', 'closed', 'dead'];
+
 function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipTraced?: () => void }) {
   const [tracing, setTracing] = useState(false);
   const [clipboardOpen, setClipboardOpen] = useState(false);
   const [pasteData, setPasteData] = useState('');
   const [parsing, setParsing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(s.owner_name || '');
+  const [editPhone, setEditPhone] = useState(s.owner_phone || '');
+  const [editEmail, setEditEmail] = useState(s.owner_email || '');
+  const [editMailing, setEditMailing] = useState(s.owner_mailing_address || '');
+  const [editNotes, setEditNotes] = useState(s.notes || '');
+  const [saving, setSaving] = useState(false);
 
   const handleSkipTrace = async () => {
     setTracing(true);
@@ -638,8 +647,35 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
     }
     setTracing(false);
   };
+  const handleAdvancePipeline = async () => {
+    const idx = PIPELINE_ORDER.indexOf(s.status);
+    if (idx < 0 || idx >= PIPELINE_ORDER.length - 1) return;
+    const nextStatus = PIPELINE_ORDER[idx + 1];
+    await supabase.from('lw_sellers').update({ status: nextStatus }).eq('id', s.id);
+    toast.success(`Moved to "${SELLER_STAGES.find(st => st.key === nextStatus)?.label || nextStatus}"`);
+    onSkipTraced?.();
+  };
 
-  const handleClipboardSubmit = async () => {
+  const handleSaveEdits = async () => {
+    setSaving(true);
+    try {
+      await supabase.from('lw_sellers').update({
+        owner_name: editName || null,
+        owner_phone: editPhone || null,
+        owner_email: editEmail || null,
+        owner_mailing_address: editMailing || null,
+        notes: editNotes || null,
+      }).eq('id', s.id);
+      toast.success('Saved');
+      setEditing(false);
+      onSkipTraced?.();
+    } catch (err: any) {
+      toast.error(err.message || 'Save failed');
+    }
+    setSaving(false);
+  };
+
+
     if (!pasteData.trim()) {
       toast.error('Please paste some data first');
       return;
@@ -709,27 +745,66 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
 
   return (
     <div className="space-y-4">
-      {/* Top action bar — Trace Clipboard */}
+      {/* Top action bar — Pipeline advance + Trace Clipboard + Edit */}
       <div className="flex items-center gap-2">
         <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setClipboardOpen(true)}>
           <ClipboardPaste className="h-3.5 w-3.5" />
           Trace Clipboard
         </Button>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditing(!editing)}>
+          <Pencil className="h-3.5 w-3.5" />
+          {editing ? 'Cancel Edit' : 'Edit'}
+        </Button>
+        {editing && (
+          <Button size="sm" className="gap-1.5" onClick={handleSaveEdits} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Save
+          </Button>
+        )}
+        <div className="ml-auto">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={handleAdvancePipeline}
+            disabled={PIPELINE_ORDER.indexOf(s.status) >= PIPELINE_ORDER.length - 1}
+          >
+            Next Stage
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {/* Owner Info */}
       <div>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Owner Information</h4>
-        {(() => {
+        {editing ? (
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs text-muted-foreground">Name</label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Phone</label>
+              <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Email</label>
+              <Input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Mailing Address</label>
+              <Input value={editMailing} onChange={e => setEditMailing(e.target.value)} className="h-8 text-sm" />
+            </div>
+          </div>
+        ) : (() => {
           const isTraced = !!s.skip_traced_at;
           const traceResult = s.meta?.skip_trace_result;
           const rawTracedName = traceResult?.name || traceResult?.fullName
             || (traceResult?.firstName && traceResult?.lastName ? `${traceResult.firstName} ${traceResult.lastName}` : null);
-          // Trust the bestName from clipboard trace when available, otherwise recover from older raw blobs
           const clipTrace = s.meta?.clipboard_trace as { bestName?: string; names?: string[] } | undefined;
           const legacyRawNames = Array.isArray(clipTrace?.names) ? clipTrace.names.join('\n') : '';
           const clipBestName = clipTrace?.bestName || (legacyRawNames ? parseSkipTraceData(legacyRawNames).bestName : null);
-          // Pick the one best traced name to show
           const displayTracedName = rawTracedName || clipBestName;
           const displayName = s.owner_name || displayTracedName;
           const nameIsGold = !!displayName && (isTraced || !!displayTracedName);
@@ -743,18 +818,11 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
               {s.address_full && (() => {
-                // Build realtor.com style slug: "7481-W-Dewey-Dr_Las-Vegas_NV_89113"
-                const parts = s.address_full.split(',').map((p: string) => p.trim());
-                const street = (parts[0] || '').replace(/\s+/g, '-');
-                const city = (parts[1] || '').replace(/\s+/g, '-');
-                const stateZip = (parts[2] || '').trim().split(/\s+/);
-                const st = stateZip[0] || '';
-                const zip = stateZip[1] || '';
-                const slug = `${street}_${city}_${st}_${zip}`;
+                const searchQuery = encodeURIComponent(s.address_full);
                 return (
-                  <div className="pt-2">
+                  <div className="pt-2 flex justify-center">
                     <a
-                      href={`https://www.realtor.com/realestateandhomes-detail/${slug}`}
+                      href={`https://www.realtor.com/realestateandhomes-search/${searchQuery}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
@@ -853,16 +921,23 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
         </div>
       </div>
 
-      {/* Notes */}
-      {s.notes && (
-        <>
-          <Separator />
-          <div>
-            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Notes</h4>
-            <p className="text-sm whitespace-pre-wrap">{s.notes}</p>
-          </div>
-        </>
-      )}
+      {/* Notes — always visible, editable */}
+      <Separator />
+      <div>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Internal Notes</h4>
+        {editing ? (
+          <Textarea
+            value={editNotes}
+            onChange={e => setEditNotes(e.target.value)}
+            placeholder="Add internal notes about this seller…"
+            className="min-h-[80px] text-sm"
+          />
+        ) : (
+          <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+            {s.notes || 'No notes yet — click Edit to add.'}
+          </p>
+        )}
+      </div>
 
       {/* Tags */}
       {s.tags && s.tags.length > 0 && (
