@@ -1199,8 +1199,14 @@ Deno.serve(async (req) => {
 
     console.log(`[smm-auto-publish] Found ${unpublished.length} ready events in window — processing with rate limits`);
     const results = await processReadyBatch(unpublished, "window");
+
+    // Release lock
+    await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock");
+
     return json({ ok: true, batch: true, count: unpublished.length, results });
   } catch (err) {
+    // Release lock on error
+    await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock").catch(() => {});
     console.error("[smm-auto-publish] Fatal error:", err);
     return json({ error: (err as Error).message }, 500);
   }
