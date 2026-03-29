@@ -1247,7 +1247,111 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
     onSkipTraced?.();
   };
 
-  const handleSaveEdits = async () => {
+  const generateAgreement = async () => {
+    setGeneratingAgreement(true);
+    try {
+      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const m = (s.meta || {}) as Record<string, any>;
+      const prompt = `Generate a professional real estate wholesale purchase agreement contract with the following details. Output the full contract text only, no commentary.
+
+SELLER: ${s.owner_name || 'OWNER NAME'}
+SELLER ADDRESS: ${s.owner_mailing_address || 'N/A'}
+PROPERTY ADDRESS: ${s.address_full || 'N/A'}
+CITY: ${s.city || ''}, STATE: ${s.state || ''}, ZIP: ${s.zip || ''}
+COUNTY: ${s.county || ''}, APN: ${s.apn || 'N/A'}
+PROPERTY TYPE: ${s.property_type || 'N/A'}
+ACREAGE: ${s.acreage || 'N/A'}
+LOT SQFT: ${s.lot_sqft || 'N/A'}
+BEDROOMS: ${s.bedrooms || 'N/A'}, BATHROOMS: ${s.bathrooms || 'N/A'}
+ASSESSED VALUE: $${s.assessed_value || 'N/A'}
+MARKET VALUE: $${s.market_value || 'N/A'}
+OFFER PRICE: $${s.estimated_offer || s.asking_price || 'TBD'}
+DATE: ${today}
+
+CRITICAL CONTRACT CLAUSES TO INCLUDE:
+1. Inspection contingency period of ${agreementDuration} days where BUYER may cancel for any reason and receive full earnest money refund.
+2. Assignment clause: "This Agreement and all rights hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
+3. Earnest money deposit terms (suggest $100-$500 refundable during contingency).
+4. Closing timeline of ${agreementDuration} days from execution.
+5. Title & clear deed requirements.
+6. Default and remedies for both parties.
+7. Governing law clause for ${s.state || 'applicable state'}.
+8. Signature blocks for Buyer and Seller with date lines.
+
+Format the contract with clear section headings and numbered paragraphs.`;
+
+      const { data, error } = await supabase.functions.invoke('ai-assistant', {
+        body: { prompt, model: 'google/gemini-2.5-flash' },
+      });
+      if (error) throw error;
+      setAgreementText(data?.text || data?.content || data?.response || 'Agreement generation failed — please try again.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate agreement');
+      setAgreementText('');
+    }
+    setGeneratingAgreement(false);
+  };
+
+  const handleDraftEmail = async () => {
+    if (!agreementText.trim()) return;
+    setDraftingEmail(true);
+    try {
+      const sellerName = s.owner_name || 'Property Owner';
+      const sellerEmail = s.owner_email || '';
+      const subject = `Wholesale Purchase Agreement — ${s.address_full || 'Property'}`;
+      const bodyHtml = `<p>Dear ${sellerName},</p>
+<p>Please find the purchase agreement for the property located at <strong>${s.address_full || 'the referenced address'}</strong>.</p>
+<hr/>
+<pre style="white-space:pre-wrap;font-family:inherit;">${agreementText}</pre>
+<hr/>
+<p>Please review and let us know if you have any questions.</p>
+<p>Best regards</p>`;
+
+      // Save as draft in communications table
+      await supabase.from('communications').insert({
+        type: 'email',
+        direction: 'outbound',
+        status: 'draft',
+        subject,
+        body: bodyHtml,
+        to_address: sellerEmail || null,
+        from_address: null,
+        provider: 'wholesale-agreement',
+        metadata: { seller_id: s.id, address: s.address_full, agreement_type: 'wholesale_purchase' },
+      });
+
+      // Sync seller as CRM customer if not already there
+      const ownerName = s.owner_name || `Owner — ${s.address_full || 'Unknown'}`;
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .or(`email.eq.${sellerEmail || '___none___'},phone.eq.${s.owner_phone || '___none___'},full_name.eq.${ownerName}`)
+        .limit(1);
+
+      if (!existing?.length) {
+        await supabase.from('customers').insert({
+          full_name: ownerName,
+          email: sellerEmail || null,
+          phone: s.owner_phone || null,
+          address: s.owner_mailing_address || s.address_full || null,
+          source: 'wholesale',
+          status: 'lead',
+          category: 'wholesale',
+          tags: ['wholesale', 'seller'],
+          meta: { seller_id: s.id, property_address: s.address_full },
+        });
+        toast.success('Seller added to CRM as a client');
+      }
+
+      toast.success('Agreement saved as email draft — check Email → Drafts');
+      setAgreementOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save draft');
+    }
+    setDraftingEmail(false);
+  };
+
+
     setSaving(true);
     try {
       await supabase.from('lw_sellers').update({
