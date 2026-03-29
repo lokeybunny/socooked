@@ -61,7 +61,7 @@ export default function ClientDashboard() {
   const [filterStage, setFilterStage] = useState<string>('all');
   const [editingLead, setEditingLead] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
-  const [activeSection, setActiveSection] = useState<'funnel' | 'hot'>('funnel');
+  const [activeSection, setActiveSection] = useState<'funnel' | 'hot' | 'phone'>('funnel');
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -237,8 +237,47 @@ export default function ClientDashboard() {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Phone Spend Card */}
-        {(() => {
+        {/* Section Tabs */}
+        <div className="flex gap-3 flex-wrap">
+          <button
+            onClick={() => { setActiveSection('funnel'); setFilterStage('all'); }}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+              activeSection === 'funnel'
+                ? 'bg-white/10 border-white/30 text-white'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/20'
+            }`}
+          >
+            <Globe className="h-4 w-4" />
+            Lead Funnel Page
+            <span className="ml-1 text-xs bg-white/10 px-2 py-0.5 rounded-full">{funnelLeads.length}</span>
+          </button>
+          <button
+            onClick={() => { setActiveSection('hot'); setFilterStage('all'); }}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+              activeSection === 'hot'
+                ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-orange-300 hover:border-orange-500/20'
+            }`}
+          >
+            <Flame className="h-4 w-4" />
+            Hot Leads
+            <span className="ml-1 text-xs bg-white/10 px-2 py-0.5 rounded-full">{hotLeads.length}</span>
+          </button>
+          <button
+            onClick={() => setActiveSection('phone')}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+              activeSection === 'phone'
+                ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-emerald-300 hover:border-emerald-500/20'
+            }`}
+          >
+            <Phone className="h-4 w-4" />
+            Phone Spend
+          </button>
+        </div>
+
+        {/* Phone Spend View */}
+        {activeSection === 'phone' && (() => {
           const totalSpent = landingPages.reduce((s, p) => s + (p.vapi_total_spent_cents || 0), 0);
           const totalBalance = landingPages.reduce((s, p) => s + (p.vapi_credit_balance_cents || 0), 0);
           const totalCredit = totalSpent + totalBalance;
@@ -246,10 +285,7 @@ export default function ClientDashboard() {
           const isExhausted = totalBalance <= 0 && totalSpent > 0;
 
           return (
-            <div className="space-y-3">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Phone className="h-5 w-5" /> Phone Spend
-              </h2>
+            <div className="space-y-6">
               {isExhausted && (
                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
                   <div className="h-8 w-8 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -287,38 +323,36 @@ export default function ClientDashboard() {
                 />
               </div>
               <p className="text-xs text-white/30 text-right">{pctUsed}% used</p>
+
+              {/* Per-page breakdown */}
+              {landingPages.length > 1 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-white/70">Breakdown by Landing Page</h3>
+                  {landingPages.map(p => {
+                    const spent = (p.vapi_total_spent_cents || 0);
+                    const bal = (p.vapi_credit_balance_cents || 0);
+                    const cred = spent + bal;
+                    const pct = cred > 0 ? Math.min(100, Math.round((spent / cred) * 100)) : 0;
+                    return (
+                      <div key={p.id} className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-white">{p.client_name} <span className="text-white/30">/{p.slug}</span></span>
+                          <span className="text-sm font-bold text-white">${(spent / 100).toFixed(2)} <span className="text-white/40 font-normal">/ ${(cred / 100).toFixed(2)}</span></span>
+                        </div>
+                        <div className="bg-white/5 rounded-full h-2 overflow-hidden">
+                          <div className={`h-full rounded-full ${bal <= 0 ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })()}
-        {/* Section Tabs */}
-        <div className="flex gap-3">
-          <button
-            onClick={() => { setActiveSection('funnel'); setFilterStage('all'); }}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
-              activeSection === 'funnel'
-                ? 'bg-white/10 border-white/30 text-white'
-                : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:border-white/20'
-            }`}
-          >
-            <Globe className="h-4 w-4" />
-            Lead Funnel Page
-            <span className="ml-1 text-xs bg-white/10 px-2 py-0.5 rounded-full">{funnelLeads.length}</span>
-          </button>
-          <button
-            onClick={() => { setActiveSection('hot'); setFilterStage('all'); }}
-            className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
-              activeSection === 'hot'
-                ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
-                : 'bg-white/5 border-white/10 text-white/50 hover:text-orange-300 hover:border-orange-500/20'
-            }`}
-          >
-            <Flame className="h-4 w-4" />
-            Hot Leads
-            <span className="ml-1 text-xs bg-white/10 px-2 py-0.5 rounded-full">{hotLeads.length}</span>
-          </button>
-        </div>
 
         {/* Section Description */}
+        {activeSection !== 'phone' && <>
         <p className="text-xs text-white/40 -mt-4">
           {activeSection === 'funnel'
             ? 'Leads submitted through your landing page funnel.'
@@ -637,6 +671,7 @@ export default function ClientDashboard() {
             );
           })}
         </div>
+        </>}
       </div>
     </div>
   );
