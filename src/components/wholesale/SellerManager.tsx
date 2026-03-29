@@ -371,3 +371,148 @@ export default function SellerManager() {
     </div>
   );
 }
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (value === null || value === undefined || value === '' || value === '—') return null;
+  return (
+    <div className="flex justify-between py-1.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-right max-w-[60%] break-words">{value}</span>
+    </div>
+  );
+}
+
+function SellerDetailContent({ seller: s }: { seller: any }) {
+  const flags = [
+    s.is_tax_delinquent && 'Tax Delinquent',
+    s.is_absentee_owner && 'Absentee Owner',
+    s.is_vacant && 'Vacant',
+    s.is_out_of_state && 'Out of State',
+    s.is_pre_foreclosure && 'Pre-Foreclosure',
+    s.has_tax_lien && 'Tax Lien',
+    s.is_corporate_owned && 'Corporate Owned',
+  ].filter(Boolean);
+
+  return (
+    <div className="space-y-4">
+      {/* Owner Info */}
+      <div>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Owner Information</h4>
+        <div className="divide-y divide-border">
+          <DetailRow label="Name" value={s.owner_name} />
+          <DetailRow label="Phone" value={s.owner_phone} />
+          <DetailRow label="Email" value={s.owner_email} />
+          <DetailRow label="Mailing Address" value={s.owner_mailing_address} />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Property Info */}
+      <div>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Property Details</h4>
+        <div className="divide-y divide-border">
+          <DetailRow label="Address" value={s.address_full} />
+          <DetailRow label="City" value={s.city} />
+          <DetailRow label="County" value={s.county} />
+          <DetailRow label="State" value={s.state} />
+          <DetailRow label="ZIP" value={s.zip} />
+          <DetailRow label="APN" value={s.apn} />
+          <DetailRow label="FIPS" value={s.fips} />
+          <DetailRow label="Property Type" value={s.property_type} />
+          <DetailRow label="Zoning" value={s.zoning} />
+          <DetailRow label="Acreage" value={s.acreage ? `${Number(s.acreage).toFixed(2)} acres` : null} />
+          <DetailRow label="Lot Sqft" value={s.lot_sqft ? Number(s.lot_sqft).toLocaleString() : null} />
+          <DetailRow label="Deal Type" value={s.deal_type} />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Financial Info */}
+      <div>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Financials</h4>
+        <div className="divide-y divide-border">
+          <DetailRow label="Market Value" value={s.market_value ? `$${Number(s.market_value).toLocaleString()}` : null} />
+          <DetailRow label="Assessed Value" value={s.assessed_value ? `$${Number(s.assessed_value).toLocaleString()}` : null} />
+          <DetailRow label="Asking Price" value={s.asking_price ? `$${Number(s.asking_price).toLocaleString()}` : null} />
+          <DetailRow label="Estimated Offer" value={s.estimated_offer ? `$${Number(s.estimated_offer).toLocaleString()}` : null} />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Motivation & Flags */}
+      <div>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Motivation & Flags</h4>
+        <div className="divide-y divide-border">
+          <DetailRow label="Motivation Score" value={
+            <span className={`font-mono font-semibold ${
+              (s.motivation_score || 0) >= 60 ? 'text-green-500' :
+              (s.motivation_score || 0) >= 30 ? 'text-yellow-500' : 'text-muted-foreground'
+            }`}>{s.motivation_score || 0}</span>
+          } />
+          <DetailRow label="Years Owned" value={s.years_owned} />
+          <DetailRow label="Tax Delinquent Year" value={s.tax_delinquent_year} />
+          {flags.length > 0 && (
+            <div className="flex justify-between py-1.5 text-sm">
+              <span className="text-muted-foreground">Flags</span>
+              <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+                {flags.map(f => (
+                  <Badge key={f as string} variant="outline" className="text-[10px]">{f}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Status & Dates */}
+      <div>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Status & Timeline</h4>
+        <div className="divide-y divide-border">
+          <DetailRow label="Status" value={<Badge variant="outline" className="text-[10px]">{s.status}</Badge>} />
+          <DetailRow label="Source" value={s.source} />
+          <DetailRow label="Skip Traced" value={s.skip_traced_at ? new Date(s.skip_traced_at).toLocaleDateString() : null} />
+          <DetailRow label="Contacted" value={s.contacted_at ? new Date(s.contacted_at).toLocaleDateString() : null} />
+          <DetailRow label="Created" value={new Date(s.created_at).toLocaleDateString()} />
+          <DetailRow label="Updated" value={new Date(s.updated_at).toLocaleDateString()} />
+        </div>
+      </div>
+
+      {/* Notes */}
+      {s.notes && (
+        <>
+          <Separator />
+          <div>
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Notes</h4>
+            <p className="text-sm whitespace-pre-wrap">{s.notes}</p>
+          </div>
+        </>
+      )}
+
+      {/* Tags */}
+      {s.tags && s.tags.length > 0 && (
+        <>
+          <Separator />
+          <div>
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Tags</h4>
+            <div className="flex flex-wrap gap-1">
+              {s.tags.map((t: string) => <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>)}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* REAPI ID */}
+      {s.reapi_property_id && (
+        <>
+          <Separator />
+          <DetailRow label="REAPI Property ID" value={<span className="font-mono text-xs">{s.reapi_property_id}</span>} />
+        </>
+      )}
+    </div>
+  );
+}
