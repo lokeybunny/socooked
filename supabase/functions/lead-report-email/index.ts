@@ -333,7 +333,7 @@ serve(async (req) => {
     // Build PDF
     const pageName = `${page.client_name} (/${page.slug})`;
     const pdfBytes = buildLeadPdf(lead, pageName);
-    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
+    const pdfBase64 = uint8ToBase64(pdfBytes);
 
     // Build MIME email with PDF attachment
     const leadName = lead.full_name || "Lead";
