@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uploadToStorage } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Plus, ExternalLink, Trash2, Loader2, Copy, Globe, Eye, Pencil, X, Save,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, Upload, ImageIcon
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
@@ -164,6 +165,47 @@ export default function LandingPageManager() {
   };
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  const ImageUploadField = ({ value, onChange, label, folder }: { value: string; onChange: (url: string) => void; label: string; folder: string }) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
+
+    const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return; }
+      setUploading(true);
+      try {
+        const url = await uploadToStorage(file, { category: 'landing-pages', customerName: folder, source: 'admin' });
+        onChange(url);
+        toast.success('Uploaded');
+      } catch (err: any) {
+        toast.error(err.message || 'Upload failed');
+      }
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    };
+
+    return (
+      <div className="mt-1 space-y-2">
+        {value && (
+          <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-border bg-muted">
+            <img src={value} alt={label} className="w-full h-full object-cover" />
+            <button onClick={() => onChange('')} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5 hover:bg-black/80">
+              <X className="h-3 w-3 text-white" />
+            </button>
+          </div>
+        )}
+        <div className="flex gap-2">
+          <Button type="button" size="sm" variant="outline" className="gap-1.5 text-xs" disabled={uploading} onClick={() => inputRef.current?.click()}>
+            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            {label}
+          </Button>
+          <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        </div>
+        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="...or paste URL" className="text-xs h-8" />
+      </div>
+    );
+  };
 
   const formFieldsJsx = (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -199,12 +241,22 @@ export default function LandingPageManager() {
         <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="info@company.com" className="mt-1" />
       </div>
       <div>
-        <Label className="text-xs">Photo URL</Label>
-        <Input value={form.photo_url} onChange={(e) => setForm({ ...form, photo_url: e.target.value })} placeholder="https://..." className="mt-1" />
+        <Label className="text-xs">Photo</Label>
+        <ImageUploadField
+          value={form.photo_url}
+          onChange={(url) => setForm({ ...form, photo_url: url })}
+          label="Upload Photo"
+          folder="photos"
+        />
       </div>
       <div>
-        <Label className="text-xs">Logo URL</Label>
-        <Input value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://..." className="mt-1" />
+        <Label className="text-xs">Logo</Label>
+        <ImageUploadField
+          value={form.logo_url}
+          onChange={(url) => setForm({ ...form, logo_url: url })}
+          label="Upload Logo"
+          folder="logos"
+        />
       </div>
     </div>
   );
