@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio, Home, Square } from 'lucide-react';
+import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio, Home, Square, ChevronDown } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerDetail from './BuyerDetail';
@@ -75,6 +76,9 @@ export default function BuyerDiscovery() {
   const [hideDuplicates, setHideDuplicates] = useState(true);
   const [realtimeCount, setRealtimeCount] = useState(0);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [discoverySources, setDiscoverySources] = useState<any[]>([]);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
   const PAGE_SIZE = 25;
 
   const pollForResults = async () => {
