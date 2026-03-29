@@ -169,6 +169,7 @@ export default function SellerManager() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [lastFetchAt, setLastFetchAt] = useState<string | null>(null);
   const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const isNewlyFetched = useCallback((createdAt: string) => {
     if (!lastFetchAt) return false;
