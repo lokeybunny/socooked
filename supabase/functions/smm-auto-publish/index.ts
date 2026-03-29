@@ -550,7 +550,8 @@ Deno.serve(async (req) => {
     const profileKey = profileUsername.toLowerCase();
     return (data || []).find((candidate: any) => {
       const state = parsePublishState(candidate.source_id, candidate.id).state;
-      if (state !== "published" && state !== "publishing") return false;
+      // Block if ANY non-ready state (published, publishing, OR claimed by another run)
+      if (state === "ready") return false;
 
       const candidatePayload = extractEventPayload(candidate);
       if (!candidatePayload.mediaUrl || candidatePayload.mediaUrl !== mediaUrl) return false;
@@ -913,6 +914,31 @@ Deno.serve(async (req) => {
     const forceAllToday = reqBody.force_all_today === true;
     const pushEventIds: string[] = Array.isArray(reqBody.push_event_ids) ? reqBody.push_event_ids : [];
 
+    // ── Global concurrency lock: prevent overlapping cron runs ──
+    if (!pushEventIds.length) {
+      const LOCK_KEY = "smm-auto-publish-lock";
+      const LOCK_TTL_MS = 90_000; // 90 seconds
+      const { data: lockRow } = await supabase
+        .from("lw_buyer_config")
+        .select("value, updated_at")
+        .eq("key", LOCK_KEY)
+        .maybeSingle();
+
+      const lockAge = lockRow?.updated_at
+        ? Date.now() - new Date(lockRow.updated_at).getTime()
+        : Infinity;
+
+      if (lockRow && lockAge < LOCK_TTL_MS) {
+        console.log(`[smm-auto-publish] Skipping — another run holds the lock (age: ${Math.round(lockAge / 1000)}s)`);
+        return json({ ok: true, published: 0, message: "Another run is in progress" });
+      }
+
+      // Acquire lock (upsert)
+      await supabase
+        .from("lw_buyer_config")
+        .upsert({ key: LOCK_KEY, value: { locked_at: new Date().toISOString(), run_id: crypto.randomUUID() }, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    }
+
     // --- Manual force-push specific events (bypasses all scheduling logic) ---
     if (pushEventIds.length > 0) {
       const results: any[] = [];
@@ -1101,7 +1127,8 @@ Deno.serve(async (req) => {
 
     const processReadyBatch = async (readyEvents: any[], label: string) => {
       const results: any[] = [];
-      for (const ev of readyEvents) {
+      for (let i = 0; i < readyEvents.length; i++) {
+        const ev = readyEvents[i];
         const check = shouldSkipEvent(ev);
         if (check.skip) {
           console.log(`[smm-auto-publish] Skipping "${ev.title?.substring(0, 50)}" — ${check.reason}`);
@@ -1115,6 +1142,10 @@ Deno.serve(async (req) => {
             trackQueued(ev);
           }
           results.push({ event_id: ev.id, ...body });
+          // Inter-upload delay: prevent race conditions between consecutive uploads
+          if (i < readyEvents.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+          }
         } catch (uploadErr) {
           results.push({ event_id: ev.id, error: (uploadErr as Error).message });
           await notifyFailure(ev.title || ev.id, (uploadErr as Error).message, { event_id: ev.id });
@@ -1152,10 +1183,12 @@ Deno.serve(async (req) => {
         if (overdueUnpublished.length > 0) {
           console.log(`[smm-auto-publish] Found ${overdueUnpublished.length} overdue events from today — auto catch-up`);
           const results = await processReadyBatch(overdueUnpublished, "overdue");
+          await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock");
           return json({ ok: true, batch: true, count: overdueUnpublished.length, results });
         }
       }
       console.log("[smm-auto-publish] No events due in window");
+      await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock");
       return json({ ok: true, published: 0, message: "No events due" });
     }
 
@@ -1163,13 +1196,20 @@ Deno.serve(async (req) => {
 
     if (unpublished.length === 0) {
       console.log("[smm-auto-publish] All due events already processed or pending");
+      await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock");
       return json({ ok: true, published: 0, message: "All already processed or pending" });
     }
 
     console.log(`[smm-auto-publish] Found ${unpublished.length} ready events in window — processing with rate limits`);
     const results = await processReadyBatch(unpublished, "window");
+
+    // Release lock
+    await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock");
+
     return json({ ok: true, batch: true, count: unpublished.length, results });
   } catch (err) {
+    // Release lock on error
+    await supabase.from("lw_buyer_config").delete().eq("key", "smm-auto-publish-lock").catch(() => {});
     console.error("[smm-auto-publish] Fatal error:", err);
     return json({ error: (err as Error).message }, 500);
   }
