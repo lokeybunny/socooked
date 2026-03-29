@@ -57,6 +57,8 @@ import ShillTeam from "./pages/ShillTeam";
 import XShill from "./pages/XShill";
 import Wholesale from "./pages/Wholesale";
 import SellerLanding from "./pages/SellerLanding";
+import Pricing from "./pages/Pricing";
+import Terms from "./pages/Terms";
 
 import { ResearchLoopProvider } from "./hooks/useResearchLoop";
 import { LeadLoopProvider } from "./hooks/useLeadLoop";
@@ -137,6 +139,8 @@ const App = () => (
             <Route path="/x-shill" element={<RestrictedGate><AuthLayoutGate><XShill /></AuthLayoutGate></RestrictedGate>} />
             <Route path="/wholesale" element={<RestrictedGate><AuthLayoutGate><Wholesale /></AuthLayoutGate></RestrictedGate>} />
             <Route path="/sell/:slug" element={<SellerLanding />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/terms" element={<Terms />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
