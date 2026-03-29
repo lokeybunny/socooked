@@ -63,28 +63,28 @@ export default function Pricing() {
     <div className="bg-black text-white min-h-screen selection:bg-white/20">
       {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-md bg-black/80 border-b border-white/[0.04]">
-        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 text-white/40 hover:text-white transition-colors">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="text-[10px] tracking-[0.2em] uppercase">Back</span>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="text-sm tracking-[0.2em] uppercase">Back</span>
           </Link>
           <div className="flex flex-col leading-none items-center">
-            <span className="text-white/30 font-light text-[8px] tracking-[0.3em] uppercase">Warren</span>
-            <span className="text-white/80 font-medium text-sm tracking-[0.15em] uppercase -mt-0.5">GURU</span>
+            <span className="text-white/30 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
+            <span className="text-white/80 font-medium text-base tracking-[0.15em] uppercase -mt-0.5">GURU</span>
           </div>
-          <div className="w-16" />
+          <div className="w-20" />
         </div>
       </header>
 
       <main className="pt-28 pb-24 px-6">
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-xl mx-auto">
           {/* Title */}
-          <motion.div initial="hidden" animate="visible" variants={fade} custom={0} className="text-center mb-12">
-            <p className="text-[10px] tracking-[0.4em] uppercase text-white/30 mb-3">Pricing</p>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+          <motion.div initial="hidden" animate="visible" variants={fade} custom={0} className="text-center mb-14">
+            <p className="text-xs tracking-[0.4em] uppercase text-white/30 mb-4">Pricing</p>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
               Simple. No surprises.
             </h1>
-            <p className="mt-3 text-sm text-white/35 max-w-sm mx-auto">
+            <p className="mt-4 text-base text-white/35 max-w-md mx-auto">
               Everything you need to run a fully automated wholesale operation.
             </p>
           </motion.div>
@@ -97,15 +97,15 @@ export default function Pricing() {
             {/* Price */}
             <div className="text-center mb-8">
               <div className="flex items-baseline justify-center gap-1">
-                <span className="text-5xl sm:text-6xl font-bold">$599</span>
-                <span className="text-white/30 text-sm">/mo</span>
+                <span className="text-6xl sm:text-7xl font-bold">$599</span>
+                <span className="text-white/30 text-lg">/mo</span>
               </div>
-              <p className="mt-2 text-xs text-white/30">
+              <p className="mt-3 text-sm text-white/30">
                 Introductory rate for the first 90 days — then <span className="text-white/50 font-medium">$799/mo</span>
               </p>
-              <div className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span className="text-[10px] tracking-[0.2em] uppercase text-emerald-400/80">24-Hour Free Trial</span>
+              <div className="mt-5 inline-flex items-center gap-2.5 px-5 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="text-xs tracking-[0.2em] uppercase text-emerald-400/80">24-Hour Free Trial</span>
               </div>
             </div>
 
@@ -113,16 +113,16 @@ export default function Pricing() {
             <div className="h-px bg-white/[0.06] my-8" />
 
             {/* Included */}
-            <div className="space-y-3">
-              <p className="text-[10px] tracking-[0.3em] uppercase text-white/30 mb-4">What's Included</p>
+            <div className="space-y-4">
+              <p className="text-xs tracking-[0.3em] uppercase text-white/30 mb-5">What's Included</p>
               {included.map((item, i) => (
                 <motion.div
                   key={item}
                   initial="hidden" animate="visible" variants={fade} custom={i + 2}
                   className="flex items-start gap-3"
                 >
-                  <Check className="h-3.5 w-3.5 mt-0.5 text-white/30 flex-shrink-0" />
-                  <span className="text-xs text-white/50">{item}</span>
+                  <Check className="h-4 w-4 mt-0.5 text-white/30 flex-shrink-0" />
+                  <span className="text-sm text-white/50">{item}</span>
                 </motion.div>
               ))}
             </div>
@@ -131,26 +131,26 @@ export default function Pricing() {
             <div className="h-px bg-white/[0.06] my-8" />
 
             {/* Email & Name inputs */}
-            <div className="space-y-3 mb-6">
+            <div className="space-y-4 mb-6">
               <div>
-                <label className="text-[10px] tracking-[0.2em] uppercase text-white/30 mb-1.5 block">Full Name</label>
+                <label className="text-xs tracking-[0.2em] uppercase text-white/30 mb-2 block">Full Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Smith"
-                  className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
+                  className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-base text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
                 />
               </div>
               <div>
-                <label className="text-[10px] tracking-[0.2em] uppercase text-white/30 mb-1.5 block">Email <span className="text-white/50">*</span></label>
+                <label className="text-xs tracking-[0.2em] uppercase text-white/30 mb-2 block">Email <span className="text-white/50">*</span></label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
+                  className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-base text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
                 />
               </div>
             </div>
@@ -158,16 +158,16 @@ export default function Pricing() {
             {/* Terms Checkbox */}
             <label className="flex items-start gap-3 cursor-pointer group">
               <div
-                className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all ${
+                className={`mt-0.5 w-5 h-5 rounded border flex-shrink-0 flex items-center justify-center transition-all ${
                   agreed
                     ? 'bg-white border-white'
                     : 'border-white/20 group-hover:border-white/40'
                 }`}
                 onClick={() => setAgreed(!agreed)}
               >
-                {agreed && <Check className="h-2.5 w-2.5 text-black" />}
+                {agreed && <Check className="h-3 w-3 text-black" />}
               </div>
-              <span className="text-[11px] text-white/35 leading-relaxed">
+              <span className="text-sm text-white/35 leading-relaxed">
                 I agree to the{' '}
                 <Link to="/terms" className="text-white/60 underline underline-offset-2 hover:text-white transition-colors">
                   Terms & Conditions
@@ -180,45 +180,45 @@ export default function Pricing() {
             <button
               onClick={handleSubscribe}
               disabled={!agreed || loading}
-              className={`mt-6 w-full flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-lg text-xs tracking-[0.2em] uppercase font-medium transition-all ${
+              className={`mt-8 w-full flex items-center justify-center gap-3 px-8 py-4 rounded-lg text-sm tracking-[0.2em] uppercase font-medium transition-all ${
                 agreed && !loading
                   ? 'bg-white text-black hover:bg-white/90 cursor-pointer'
                   : 'bg-white/10 text-white/20 cursor-not-allowed'
               }`}
             >
               {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <>
-                  <Shield className="h-3.5 w-3.5" />
+                  <Shield className="h-4 w-4" />
                   Start Free Trial
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
 
-            <p className="mt-4 text-center text-[10px] text-white/20">
+            <p className="mt-5 text-center text-xs text-white/20">
               Secure checkout powered by Square. Cancel anytime.
             </p>
           </motion.div>
 
           {/* FAQ */}
-          <motion.div initial="hidden" animate="visible" variants={fade} custom={8} className="mt-12 space-y-6">
+          <motion.div initial="hidden" animate="visible" variants={fade} custom={8} className="mt-14 space-y-8">
             <div>
-              <h3 className="text-xs font-medium text-white/50 mb-1">How does the trial work?</h3>
-              <p className="text-[11px] text-white/25 leading-relaxed">
+              <h3 className="text-base font-medium text-white/50 mb-2">How does the trial work?</h3>
+              <p className="text-sm text-white/25 leading-relaxed">
                 Your card is authorized during signup but not charged. You have 24 hours to explore the full platform. If you don't cancel, your subscription begins at $599/mo.
               </p>
             </div>
             <div>
-              <h3 className="text-xs font-medium text-white/50 mb-1">What happens after 90 days?</h3>
-              <p className="text-[11px] text-white/25 leading-relaxed">
+              <h3 className="text-base font-medium text-white/50 mb-2">What happens after 90 days?</h3>
+              <p className="text-sm text-white/25 leading-relaxed">
                 Your rate adjusts to $799/mo — reflecting the full value of the platform. You'll be notified before the change takes effect.
               </p>
             </div>
             <div>
-              <h3 className="text-xs font-medium text-white/50 mb-1">Can I cancel?</h3>
-              <p className="text-[11px] text-white/25 leading-relaxed">
+              <h3 className="text-base font-medium text-white/50 mb-2">Can I cancel?</h3>
+              <p className="text-sm text-white/25 leading-relaxed">
                 Yes. Cancel anytime from your dashboard. No cancellation fees, no lock-in contracts.
               </p>
             </div>
@@ -230,12 +230,12 @@ export default function Pricing() {
       <footer className="border-t border-white/[0.04] py-8 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex flex-col leading-none">
-            <span className="text-white/20 font-light text-[8px] tracking-[0.3em] uppercase">Warren</span>
-            <span className="text-white/40 font-medium text-xs tracking-[0.15em] uppercase -mt-0.5">GURU</span>
+            <span className="text-white/20 font-light text-[10px] tracking-[0.3em] uppercase">Warren</span>
+            <span className="text-white/40 font-medium text-sm tracking-[0.15em] uppercase -mt-0.5">GURU</span>
           </div>
           <div className="flex items-center gap-6">
-            <Link to="/terms" className="text-[10px] tracking-wider uppercase text-white/20 hover:text-white/50 transition-colors">Terms</Link>
-            <Link to="/" className="text-[10px] tracking-wider uppercase text-white/20 hover:text-white/50 transition-colors">Home</Link>
+            <Link to="/terms" className="text-xs tracking-wider uppercase text-white/20 hover:text-white/50 transition-colors">Terms</Link>
+            <Link to="/" className="text-xs tracking-wider uppercase text-white/20 hover:text-white/50 transition-colors">Home</Link>
           </div>
         </div>
       </footer>
