@@ -1566,7 +1566,18 @@ Format the contract with clear section headings and numbered paragraphs.`;
                   >
                     🔴 Search on Redfin.com
                     <ExternalLink className="h-3 w-3" />
-                  </button>
+                   </button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs gap-1.5 border-emerald-500/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                    onClick={() => {
+                      setAgreementText('');
+                      setAgreementOpen(true);
+                    }}
+                  >
+                    📝 Submit Agreement
+                  </Button>
                 </div>
               )}
             </div>
