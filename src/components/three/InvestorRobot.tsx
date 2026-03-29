@@ -31,11 +31,7 @@ function RobotBody() {
     };
     const id = setInterval(() => {
       blink();
-      // Occasional double blink
-      if (Math.random() < 0.3) {
-        setTimeout(blink, 250);
-      }
-    }, 2500 + Math.random() * 2500);
+    }, 14000);
     return () => clearInterval(id);
   }, []);
 
