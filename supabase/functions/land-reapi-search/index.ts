@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     const searchCounty = body.county;
     const searchState = body.state;
     const dealType = body.deal_type || "land";
-    const propertyType = dealType === "land" ? "LAND" : "SFR";
+    const propertyType = dealType === "land" ? "LAND" : dealType === "multi_home" ? "MFR" : "SFR";
     const pageSize = Math.min(body.size || 50, 100);
 
     // Distress search filters from client
