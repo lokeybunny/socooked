@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import {
   Phone, Users, Search, Loader2, Eye, Pencil, Save, X, Sparkles, PhoneCall,
-  Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Bot
+  Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Bot, Globe
 } from 'lucide-react';
 
 interface Lead {
