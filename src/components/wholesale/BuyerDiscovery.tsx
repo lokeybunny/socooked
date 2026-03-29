@@ -613,6 +613,7 @@ export default function BuyerDiscovery() {
                   <SelectContent>
                     <SelectItem value="land">🏞️ Land</SelectItem>
                     <SelectItem value="home">🏠 Homes</SelectItem>
+                    <SelectItem value="multi_home">🏘️ Multi-Home</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -16,7 +16,7 @@ import DistressDashboard from '@/components/wholesale/DistressDashboard';
 import BuyerSellerMatches from '@/components/wholesale/BuyerSellerMatches';
 import { toast } from 'sonner';
 
-type DealType = 'all' | 'land' | 'home';
+type DealType = 'all' | 'land' | 'home' | 'multi_home';
 
 export default function Wholesale() {
   const [dealTypeFilter, setDealTypeFilter] = useState<DealType>('all');
@@ -126,6 +126,7 @@ export default function Wholesale() {
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="land">🏞️ Land</SelectItem>
               <SelectItem value="home">🏠 Homes</SelectItem>
+              <SelectItem value="multi_home">🏘️ Multi-Home</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -314,7 +315,7 @@ function DealPipeline({ deals, stageColors }: { deals: any[]; stageColors: Recor
   const [page, setPage] = useState(1);
 
   // Only show deals that have both a buyer and a seller linked
-  const authorizedDeals = deals.filter(d => d.buyer_id && d.seller_id);
+  const authorizedDeals = deals.filter(d => d.buyer_id && d.seller_id && d.stage !== 'matched');
   const totalPages = Math.max(1, Math.ceil(authorizedDeals.length / PIPELINE_PAGE_SIZE));
   const paginated = authorizedDeals.slice((page - 1) * PIPELINE_PAGE_SIZE, page * PIPELINE_PAGE_SIZE);
 
@@ -355,7 +356,7 @@ function DealPipeline({ deals, stageColors }: { deals: any[]; stageColors: Recor
                     <TableCell className="font-medium">{deal.title}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[10px]">
-                        {deal.deal_type === 'land' ? '🏞️' : '🏠'} {deal.deal_type}
+                        {deal.deal_type === 'land' ? '🏞️' : deal.deal_type === 'multi_home' ? '🏘️' : '🏠'} {deal.deal_type === 'multi_home' ? 'multi-home' : deal.deal_type}
                       </Badge>
                     </TableCell>
                     <TableCell>
