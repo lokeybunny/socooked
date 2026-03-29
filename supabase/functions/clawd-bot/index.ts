@@ -221,35 +221,43 @@ Deno.serve(async (req) => {
     }
 
     if (path === 'customer' && req.method === 'POST') {
-      const { id, full_name, email, phone, address, company, source, status, notes, tags, category, meta } = body
-      if (id) {
-        const updates: Record<string, unknown> = {}
-        if (full_name !== undefined) updates.full_name = full_name
-        if (email !== undefined) updates.email = email
-        if (phone !== undefined) updates.phone = phone
-        if (address !== undefined) updates.address = address
-        if (company !== undefined) updates.company = company
-        if (source !== undefined) updates.source = source
-        if (status !== undefined) updates.status = status
-        if (notes !== undefined) updates.notes = notes
-        if (tags !== undefined) updates.tags = tags
-        if (category !== undefined) updates.category = normalizeCategory(category)
-        if (meta !== undefined) updates.meta = meta
-        if (Object.keys(updates).length === 0) return fail('No fields to update. Send at least one field besides id.')
-        const { data: updated, error } = await supabase.from('customers').update(updates).eq('id', id).select('id, full_name').maybeSingle()
-        if (error) return fail(error.message)
-        if (!updated) return fail(`Customer with id ${id} not found`, 404)
-        await logActivity(supabase, 'customer', id, 'updated', updated.full_name)
-        return ok({ action: 'updated', customer_id: id, updated_fields: Object.keys(updates), current_name: updated.full_name })
+      // Validate input
+      const parsed = customerCreateSchema.safeParse(body)
+      if (!parsed.success) {
+        return fail(`Validation error: ${parsed.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`, 400)
       }
-      if (!full_name) return fail('full_name is required')
+      const v = parsed.data
+      // Sanitize text fields
+      const safeName = stripHtml(v.full_name)
+      const safeNotes = v.notes ? sanitizeTextField(v.notes) : null
+
+      if (v.id) {
+        const updates: Record<string, unknown> = {}
+        if (v.full_name !== undefined) updates.full_name = safeName
+        if (v.email !== undefined) updates.email = v.email
+        if (v.phone !== undefined) updates.phone = v.phone
+        if (v.address !== undefined) updates.address = v.address ? sanitizeTextField(v.address) : null
+        if (v.company !== undefined) updates.company = v.company ? sanitizeTextField(v.company) : null
+        if (v.source !== undefined) updates.source = v.source
+        if (v.status !== undefined) updates.status = v.status
+        if (v.notes !== undefined) updates.notes = safeNotes
+        if (v.tags !== undefined) updates.tags = v.tags
+        if (v.category !== undefined) updates.category = normalizeCategory(v.category)
+        if (v.meta !== undefined) updates.meta = v.meta
+        if (Object.keys(updates).length === 0) return fail('No fields to update. Send at least one field besides id.')
+        const { data: updated, error } = await supabase.from('customers').update(updates).eq('id', v.id).select('id, full_name').maybeSingle()
+        if (error) return fail(error.message)
+        if (!updated) return fail(`Customer with id ${v.id} not found`, 404)
+        await logActivity(supabase, 'customer', v.id, 'updated', updated.full_name)
+        return ok({ action: 'updated', customer_id: v.id, updated_fields: Object.keys(updates), current_name: updated.full_name })
+      }
       const { data, error } = await supabase.from('customers').insert({
-        full_name, email: email || null, phone: phone || null, address: address || null,
-        company: company || null, source: source || 'bot', status: status || 'lead',
-        notes: notes || null, tags: tags || [], category: normalizeCategory(category), meta: meta || {},
+        full_name: safeName, email: v.email || null, phone: v.phone || null, address: v.address ? sanitizeTextField(v.address) : null,
+        company: v.company ? sanitizeTextField(v.company) : null, source: v.source || 'bot', status: v.status || 'lead',
+        notes: safeNotes, tags: v.tags || [], category: normalizeCategory(v.category), meta: v.meta || {},
       }).select('id').single()
       if (error) return fail(error.message)
-      await logActivity(supabase, 'customer', data?.id, 'created', full_name)
+      await logActivity(supabase, 'customer', data?.id, 'created', safeName)
       return ok({ action: 'created', customer_id: data?.id })
     }
 
