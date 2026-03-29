@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PAGE_SIZE = 25;
@@ -43,6 +43,7 @@ export default function SellerManager() {
   const [search, setSearch] = useState('');
   const [stateFilter, setStateFilter] = useState('all');
   const [stageFilter, setStageFilter] = useState('all');
+  const [dealTypeFilter, setDealTypeFilter] = useState('all');
   const [sortField, setSortField] = useState('motivation_score');
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
@@ -107,6 +108,7 @@ export default function SellerManager() {
     let list = [...sellers];
     if (stateFilter !== 'all') list = list.filter(s => s.state === stateFilter);
     if (stageFilter !== 'all') list = list.filter(s => s.status === stageFilter);
+    if (dealTypeFilter !== 'all') list = list.filter(s => (s.deal_type || 'land') === dealTypeFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(s =>
@@ -123,9 +125,9 @@ export default function SellerManager() {
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [sellers, stateFilter, stageFilter, search, sortField, sortAsc]);
+  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc]);
 
-  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, search, sortField, sortAsc]);
+  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -226,6 +228,14 @@ export default function SellerManager() {
                 </SelectContent>
               </Select>
             )}
+            <Select value={dealTypeFilter} onValueChange={setDealTypeFilter}>
+              <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder="Deal Type" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="land"><span className="flex items-center gap-1.5"><TreePine className="h-3.5 w-3.5" /> Land</span></SelectItem>
+                <SelectItem value="home"><span className="flex items-center gap-1.5"><Home className="h-3.5 w-3.5" /> Homes</span></SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -256,6 +266,7 @@ export default function SellerManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">Type</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('owner_name')}>
                       Owner {sortField === 'owner_name' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
                     </TableHead>
@@ -279,6 +290,12 @@ export default function SellerManager() {
                 <TableBody>
                   {paginated.map(s => (
                     <TableRow key={s.id}>
+                      <TableCell className="text-center">
+                        {(s.deal_type || 'land') === 'land'
+                          ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" />
+                          : <Home className="h-4 w-4 text-blue-500 mx-auto" />
+                        }
+                      </TableCell>
                       <TableCell>
                         <div>
                           <span className="font-medium text-sm">{s.owner_name || '—'}</span>
