@@ -742,19 +742,29 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
               <PhoneRow seller={s} />
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
-              {s.address_full && (
-                <div className="pt-2">
-                  <a
-                    href={`https://www.zillow.com/homes/${encodeURIComponent(s.address_full)}_rb/`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    🏠 View on Zillow
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
+              {s.address_full && (() => {
+                // Build realtor.com style slug: "7481-W-Dewey-Dr_Las-Vegas_NV_89113"
+                const parts = s.address_full.split(',').map((p: string) => p.trim());
+                const street = (parts[0] || '').replace(/\s+/g, '-');
+                const city = (parts[1] || '').replace(/\s+/g, '-');
+                const stateZip = (parts[2] || '').trim().split(/\s+/);
+                const st = stateZip[0] || '';
+                const zip = stateZip[1] || '';
+                const slug = `${street}_${city}_${st}_${zip}`;
+                return (
+                  <div className="pt-2">
+                    <a
+                      href={`https://www.realtor.com/realestateandhomes-detail/${slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      🏠 View on Realtor.com
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                );
+              })()}
             </div>
           );
         })()}
