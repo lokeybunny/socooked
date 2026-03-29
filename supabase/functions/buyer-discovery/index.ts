@@ -217,9 +217,13 @@ Deno.serve(async (req) => {
     }
 
     // ── START: kick off Apify runs ──
-    const { source_id } = body;
+    const { source_id, source_ids } = body;
     let query = supabase.from("lw_buyer_discovery_sources").select("*").eq("is_enabled", true);
-    if (source_id) query = query.eq("id", source_id);
+    if (source_ids && Array.isArray(source_ids) && source_ids.length > 0) {
+      query = query.in("id", source_ids);
+    } else if (source_id) {
+      query = query.eq("id", source_id);
+    }
     const { data: sources, error: srcErr } = await query;
     if (srcErr) throw srcErr;
     if (!sources?.length) {
