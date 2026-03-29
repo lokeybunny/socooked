@@ -675,8 +675,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
     setSaving(false);
   };
 
-
-    if (!pasteData.trim()) {
+  const handleClipboardSubmit = async () => {
       toast.error('Please paste some data first');
       return;
     }
