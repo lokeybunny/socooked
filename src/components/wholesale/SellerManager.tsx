@@ -742,6 +742,19 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
               <PhoneRow seller={s} />
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
+              {s.address_full && (
+                <div className="pt-2">
+                  <a
+                    href={`https://www.zillow.com/homes/${encodeURIComponent(s.address_full)}_rb/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    🏠 View on Zillow
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
             </div>
           );
         })()}
