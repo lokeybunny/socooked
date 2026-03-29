@@ -82,6 +82,7 @@ export default function SellerLanding() {
     }).select('id').single();
     setSubmitting(false);
     if (error) {
+      console.error('Landing lead insert error:', error.message, error.details, error.code);
       toast.error('Something went wrong. Please try again.');
     } else {
       setSubmitted(true);
