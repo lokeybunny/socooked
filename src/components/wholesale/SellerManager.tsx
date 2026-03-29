@@ -435,13 +435,27 @@ export default function SellerManager() {
     if (df.auctionStatus && df.auctionStatus !== 'none') list = list.filter(s => s.auction_status === df.auctionStatus);
     else if (df.auctionStatus === 'none') list = list.filter(s => !s.auction_status);
 
+    // Hide duplicates: deduplicate by normalized address_full OR owner_name
+    if (hideDuplicates) {
+      const seen = new Set<string>();
+      list = list.filter(s => {
+        const addrKey = (s.address_full || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const nameKey = (s.owner_name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const key = addrKey + '|' + nameKey;
+        if (key === '|') return true; // keep if both empty
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
     list.sort((a, b) => {
       const av = a[sortField] ?? 0;
       const bv = b[sortField] ?? 0;
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters]);
+  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters, hideDuplicates]);
 
   useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters]);
 
