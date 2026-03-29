@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import {
   Phone, Users, Search, Loader2, Eye, Pencil, Save, X, Sparkles, PhoneCall,
-  Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Bot
+  Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Bot, Globe
 } from 'lucide-react';
 
 interface Lead {
@@ -57,6 +57,7 @@ const callStatusIcons: Record<string, JSX.Element> = {
 
 export default function LeadsManager() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [landingPages, setLandingPages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -83,11 +84,14 @@ export default function LeadsManager() {
 
   const loadLeads = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('lw_landing_leads')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setLeads((data as Lead[]) || []);
+    const [leadsRes, pagesRes] = await Promise.all([
+      supabase.from('lw_landing_leads').select('*').order('created_at', { ascending: false }),
+      supabase.from('lw_landing_pages').select('id, client_name, slug'),
+    ]);
+    setLeads((leadsRes.data as Lead[]) || []);
+    const pageMap: Record<string, string> = {};
+    (pagesRes.data || []).forEach((p: any) => { pageMap[p.id] = p.client_name || p.slug; });
+    setLandingPages(pageMap);
     setLoading(false);
   };
 
@@ -254,22 +258,28 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
             <>
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Call</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
+                   <TableRow>
+                     <TableHead>Name</TableHead>
+                     <TableHead>Source</TableHead>
+                     <TableHead>Phone</TableHead>
+                     <TableHead>Property</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead>Call</TableHead>
+                     <TableHead>Score</TableHead>
+                     <TableHead>Date</TableHead>
+                     <TableHead className="text-right">Actions</TableHead>
+                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginated.map(lead => (
                     <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openDetail(lead)}>
-                      <TableCell className="font-medium">{lead.full_name}</TableCell>
-                      <TableCell>
+                     <TableCell className="font-medium">{lead.full_name}</TableCell>
+                     <TableCell>
+                       <Badge variant="outline" className="text-[10px] max-w-[120px] truncate">
+                         {lead.landing_page_id ? (landingPages[lead.landing_page_id] || 'Unknown') : 'Direct'}
+                       </Badge>
+                     </TableCell>
+                     <TableCell>
                         <a href={`tel:${lead.phone}`} className="text-primary hover:underline text-sm" onClick={e => e.stopPropagation()}>
                           {lead.phone}
                         </a>
@@ -359,6 +369,14 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
 
           {selectedLead && (
             <div className="space-y-4 mt-2">
+              {/* Source Landing Page */}
+              <div className="rounded-lg border p-3 flex items-center gap-2">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Source:</span>
+                <Badge variant="outline">
+                  {selectedLead.landing_page_id ? (landingPages[selectedLead.landing_page_id] || 'Unknown Page') : 'Direct Submission'}
+                </Badge>
+              </div>
               {/* Contact Info */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>

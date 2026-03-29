@@ -171,16 +171,16 @@ export default function Wholesale() {
             <MapPin className="h-3.5 w-3.5" />
             Sellers
           </TabsTrigger>
+          <TabsTrigger value="leads" className="gap-1.5 bg-amber-500/10 text-amber-600 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-500">
+            <UserCheck className="h-3.5 w-3.5" />
+            Leads
+          </TabsTrigger>
           {activeTab === 'buyers' && (
             <TabsTrigger value="sources" className="bg-sky-300/20 text-sky-600 data-[state=active]:bg-sky-400/25 data-[state=active]:text-sky-500">Discovery</TabsTrigger>
           )}
           <TabsTrigger value="landing" className="gap-1.5">
             <Globe className="h-3.5 w-3.5" />
             Landing Pages
-          </TabsTrigger>
-          <TabsTrigger value="leads" className="gap-1.5 bg-amber-500/10 text-amber-600 data-[state=active]:bg-amber-500/20 data-[state=active]:text-amber-500">
-            <UserCheck className="h-3.5 w-3.5" />
-            Leads
           </TabsTrigger>
           <TabsTrigger value="vapi-spend" className="gap-1.5">
             <DollarSign className="h-3.5 w-3.5" />
