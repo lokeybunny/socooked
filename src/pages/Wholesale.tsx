@@ -283,6 +283,10 @@ export default function Wholesale() {
         <TabsContent value="sources" className="mt-4">
           <BuyerSources />
         </TabsContent>
+        {/* Landing Pages */}
+        <TabsContent value="landing" className="mt-4">
+          <LandingPageManager />
+        </TabsContent>
         {/* Tab 6: Settings */}
         <TabsContent value="settings" className="mt-4">
           <BuyerSettings />
