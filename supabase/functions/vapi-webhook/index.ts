@@ -214,6 +214,7 @@ serve(async (req) => {
         .update({
           vapi_call_status: callFailed ? "no_answer" : "completed",
           ai_notes: aiNotes,
+          vapi_recording_url: recordingUrl,
           meta: {
             vapi_transcript: transcript,
             vapi_summary: summary,
