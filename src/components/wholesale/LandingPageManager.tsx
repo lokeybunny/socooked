@@ -52,6 +52,7 @@ const EMPTY_PAGE = {
   accent_color: '#2563eb',
   phone: '',
   email: '',
+  client_password: '',
 };
 
 export default function LandingPageManager() {
@@ -82,7 +83,8 @@ export default function LandingPageManager() {
     if (!form.client_name.trim()) { toast.error('Client name is required'); return; }
     const slug = form.slug.trim() || slugify(form.client_name);
     setCreating(true);
-    const { error } = await supabase.from('lw_landing_pages').insert({
+
+    const { data: insertedPage, error } = await supabase.from('lw_landing_pages').insert({
       slug,
       client_name: form.client_name.trim(),
       tagline: form.tagline,
@@ -93,16 +95,36 @@ export default function LandingPageManager() {
       accent_color: form.accent_color,
       phone: form.phone || null,
       email: form.email || null,
-    });
-    setCreating(false);
+    }).select('id').single();
+
     if (error) {
+      setCreating(false);
       toast.error(error.message.includes('duplicate') ? 'That slug is already taken' : error.message);
+      return;
+    }
+
+    // If email + password provided, create client account
+    if (form.email.trim() && form.client_password.trim() && insertedPage) {
+      const { data: result, error: fnErr } = await supabase.functions.invoke('create-client-account', {
+        body: {
+          email: form.email.trim(),
+          password: form.client_password.trim(),
+          landing_page_id: insertedPage.id,
+        },
+      });
+      if (fnErr) {
+        toast.error('Page created but client account failed: ' + fnErr.message);
+      } else {
+        toast.success('Landing page + client account created');
+      }
     } else {
       toast.success('Landing page created');
-      setShowCreate(false);
-      setForm({ ...EMPTY_PAGE });
-      load();
     }
+
+    setCreating(false);
+    setShowCreate(false);
+    setForm({ ...EMPTY_PAGE });
+    load();
   };
 
   const handleUpdate = async (id: string) => {
@@ -161,6 +183,7 @@ export default function LandingPageManager() {
       accent_color: p.accent_color,
       phone: p.phone || '',
       email: p.email || '',
+      client_password: '',
     });
   };
 
@@ -237,8 +260,13 @@ export default function LandingPageManager() {
         <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="(555) 123-4567" className="mt-1" />
       </div>
       <div>
-        <Label className="text-xs">Email</Label>
+        <Label className="text-xs">Email (Client Login Username)</Label>
         <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="info@company.com" className="mt-1" />
+      </div>
+      <div>
+        <Label className="text-xs">Client Password</Label>
+        <Input type="password" value={form.client_password} onChange={(e) => setForm({ ...form, client_password: e.target.value })} placeholder="Set client portal password" className="mt-1" />
+        <p className="text-[10px] text-muted-foreground mt-0.5">Email + password give client access to /client-login portal</p>
       </div>
       <div>
         <Label className="text-xs">Photo</Label>

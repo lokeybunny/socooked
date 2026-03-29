@@ -31,6 +31,7 @@ interface Lead {
   ai_notes: string | null;
   vapi_call_id: string | null;
   vapi_call_status: string | null;
+  vapi_recording_url: string | null;
   notes: string | null;
   meta: Record<string, unknown>;
   created_at: string;
@@ -60,6 +61,7 @@ export default function LeadsManager() {
   const [landingPages, setLandingPages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterPageId, setFilterPageId] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [editing, setEditing] = useState(false);
@@ -95,11 +97,13 @@ export default function LeadsManager() {
     setLoading(false);
   };
 
-  const filtered = leads.filter(l =>
-    !search || l.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    l.property_address.toLowerCase().includes(search.toLowerCase()) ||
-    l.phone.includes(search)
-  );
+  const filtered = leads.filter(l => {
+    if (filterPageId !== 'all' && l.landing_page_id !== filterPageId) return false;
+    if (!search) return true;
+    return l.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      l.property_address.toLowerCase().includes(search.toLowerCase()) ||
+      l.phone.includes(search);
+  });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -244,6 +248,20 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
                 className="pl-9"
               />
             </div>
+            {Object.keys(landingPages).length > 1 && (
+              <Select value={filterPageId} onValueChange={v => { setFilterPageId(v); setPage(1); }}>
+                <SelectTrigger className="w-[200px]">
+                  <Globe className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="All Pages" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Landing Pages</SelectItem>
+                  {Object.entries(landingPages).map(([id, name]) => (
+                    <SelectItem key={id} value={id}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {loading ? (
@@ -527,6 +545,22 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
                   </pre>
                 )}
               </div>
+
+              {/* Call Recording Download */}
+              {selectedLead.vapi_recording_url && (
+                <div>
+                  <a
+                    href={selectedLead.vapi_recording_url}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium"
+                  >
+                    <Phone className="h-4 w-4" />
+                    Download Call Recording
+                  </a>
+                </div>
+              )}
 
               {/* Manual Notes */}
               <div>

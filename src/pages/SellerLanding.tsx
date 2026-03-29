@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
   Home, Phone, Star, Shield, Clock, CheckCircle, ArrowRight, Loader2,
-  MapPin, Users, DollarSign, Handshake, Quote, ArrowDown, Heart
+  MapPin, Users, DollarSign, Handshake, Quote, ArrowDown, Heart, Play
 } from 'lucide-react';
+
+import aiTechThumb from '@/assets/landing/ai-tech-thumbnail.jpg';
 
 import heroHomeImg from '@/assets/landing/hero-home.jpg';
 import happyFamilyImg from '@/assets/landing/happy-family.jpg';
@@ -42,6 +44,8 @@ export default function SellerLanding() {
   const [address, setAddress] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -290,6 +294,55 @@ export default function SellerLanding() {
             </div>
           </div>
           <div className="hidden md:block" />
+        </div>
+      </section>
+
+      {/* ═══════════ Demo Video ═══════════ */}
+      <section className="bg-white py-20">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center space-y-3 mb-10">
+            <p className="text-sm font-semibold uppercase tracking-widest" style={{ color: accent }}>See It In Action</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-800">Watch How We Work</h2>
+          </div>
+          <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-xl group">
+            {!videoPlaying ? (
+              <div className="relative cursor-pointer" onClick={() => setVideoPlaying(true)}>
+                <img
+                  src={aiTechThumb}
+                  alt="See how our process works"
+                  className="w-full aspect-video object-cover"
+                  loading="lazy"
+                  width={1920}
+                  height={1080}
+                />
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/20 transition-colors">
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform" style={{ backgroundColor: accent + 'dd' }}>
+                    <Play className="h-8 w-8 text-white ml-1" fill="white" />
+                  </div>
+                </div>
+                <div className="absolute bottom-4 left-4 right-4">
+                  <div className="h-1 bg-black/10 rounded-full overflow-hidden">
+                    <div className="h-full w-0 rounded-full" style={{ backgroundColor: accent }} />
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] text-white/60">0:00</span>
+                    <span className="text-[10px] text-white/60">2:34</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <video
+                ref={videoRef}
+                className="w-full aspect-video object-cover"
+                controls
+                autoPlay
+                playsInline
+                poster={aiTechThumb}
+              >
+                <source src="" type="video/mp4" />
+              </video>
+            )}
+          </div>
         </div>
       </section>
 
