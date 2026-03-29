@@ -185,7 +185,8 @@ Deno.serve(async (req) => {
     }
 
     // Update ingestion log
-    if (runId || sourceId) {
+    const skipLogUpdate = body.skip_log_update === true;
+    if (!skipLogUpdate && (runId || sourceId)) {
       const logUpdate: any = {
         status: "completed",
         records_received: records.length,

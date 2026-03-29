@@ -119,6 +119,7 @@ Deno.serve(async (req) => {
                   source_id: log.source_id,
                   platform: log.platform,
                   records: chunk,
+                  skip_log_update: true,
                 }),
               });
               const ingestResult = await ingestRes.json().catch(() => ({}));
