@@ -1891,9 +1891,29 @@ Format the contract with clear section headings and numbered paragraphs.`;
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex-1">
-                <Label className="text-xs">Contingency / Back-Out Period (days)</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Agreed Purchase Price ($)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 25000"
+                  value={agreementPrice}
+                  onChange={e => setAgreementPrice(e.target.value)}
+                  className="h-8 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Closing Date</Label>
+                <Input
+                  type="date"
+                  value={agreementCloseDate}
+                  onChange={e => setAgreementCloseDate(e.target.value)}
+                  className="h-8 text-sm mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Back-Out / Contingency Period (days)</Label>
                 <Input
                   type="number"
                   min="7"
@@ -1903,14 +1923,16 @@ Format the contract with clear section headings and numbered paragraphs.`;
                   className="h-8 text-sm mt-1"
                 />
               </div>
-              <Button
-                size="sm"
-                onClick={generateAgreement}
-                disabled={generatingAgreement}
-                className="mt-5"
-              >
-                {generatingAgreement ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Generating…</> : 'Generate Agreement'}
-              </Button>
+              <div className="flex items-end">
+                <Button
+                  size="sm"
+                  onClick={generateAgreement}
+                  disabled={generatingAgreement || !agreementPrice}
+                  className="w-full"
+                >
+                  {generatingAgreement ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Generating…</> : 'Generate Agreement'}
+                </Button>
+              </div>
             </div>
 
             {agreementText && (
