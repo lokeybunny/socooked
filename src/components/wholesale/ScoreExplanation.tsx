@@ -9,8 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { calculateDistressScore, calculateBuyerMatchScore, calculateOpportunityScore, DEFAULT_DISTRESS_WEIGHTS, type DistressWeights } from '@/lib/wholesale/distressScoring';
-import { Flame, Snowflake, Sun, Target, TrendingUp, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { calculateDistressScore, calculateBuyerMatchScore, calculateOpportunityScore, DEFAULT_DISTRESS_WEIGHTS, extractCraigslistSubdomain, isBuyerInCraigslistRegion, getCraigslistCity, type DistressWeights } from '@/lib/wholesale/distressScoring';
+import { Flame, Snowflake, Sun, Target, TrendingUp, CheckCircle, XCircle, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import BuyerDetail from './BuyerDetail';
 
 const BUYERS_PER_PAGE = 5;
@@ -26,12 +26,34 @@ export default function ScoreExplanation({ seller, buyers = [], weights, buyerDe
   const w = weights || DEFAULT_DISTRESS_WEIGHTS;
   const result = useMemo(() => calculateDistressScore(seller, w, buyerDemandCounties), [seller, w, buyerDemandCounties]);
 
+  /**
+   * Craigslist-aware buyer filtering:
+   * If the seller's source is linked to a Craigslist URL (via meta.source_url or address pattern),
+   * only show buyers from the same Craigslist metro region.
+   */
+  const sellerClSubdomain = useMemo(() => {
+    // Check seller meta for source_url or the source field
+    const sourceUrl = seller.meta?.source_url || seller.meta?.craigslist_url || null;
+    return extractCraigslistSubdomain(sourceUrl);
+  }, [seller]);
+
+  const clCity = useMemo(() => sellerClSubdomain ? getCraigslistCity(sellerClSubdomain) : null, [sellerClSubdomain]);
+
   const buyerMatches = useMemo(() => {
-    return buyers
+    let pool = buyers;
+
+    // If seller is from Craigslist, filter buyers to same region
+    if (sellerClSubdomain) {
+      const regionBuyers = pool.filter(b => isBuyerInCraigslistRegion(sellerClSubdomain, b));
+      // Only apply filter if it yields results; otherwise fall back to all
+      if (regionBuyers.length > 0) pool = regionBuyers;
+    }
+
+    return pool
       .map(b => ({ ...b, matchScore: calculateBuyerMatchScore(seller, b) }))
       .filter(b => b.matchScore > 0)
       .sort((a, b) => b.matchScore - a.matchScore);
-  }, [seller, buyers]);
+  }, [seller, buyers, sellerClSubdomain]);
 
   const bestBuyerMatch = buyerMatches.length > 0 ? buyerMatches[0].matchScore : 0;
   const opportunityScore = calculateOpportunityScore(result.score, bestBuyerMatch);
