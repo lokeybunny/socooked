@@ -39,32 +39,70 @@ function RobotBody() {
             <boxGeometry args={[0.55, 0.18, 0.02]} />
             <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1.5} metalness={0.9} roughness={0.1} />
           </mesh>
-          {/* Left eye */}
-          <mesh position={[-0.14, 0.05, 0.34]}>
-            <sphereGeometry args={[0.04, 16, 16]} />
-            <meshStandardMaterial color="#2196f3" emissive="#2196f3" emissiveIntensity={blinking ? 0 : 2} />
+          {/* Left eye - darker iris */}
+          <mesh position={[-0.14, 0.05, 0.33]}>
+            <sphereGeometry args={[0.05, 16, 16]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.3} roughness={0.6} />
+          </mesh>
+          <mesh position={[-0.14, 0.05, 0.345]}>
+            <sphereGeometry args={[0.03, 16, 16]} />
+            <meshStandardMaterial color="#1565c0" emissive="#1565c0" emissiveIntensity={blinking ? 0 : 0.8} metalness={0.4} roughness={0.3} />
+          </mesh>
+          <mesh position={[-0.14, 0.05, 0.36]}>
+            <sphereGeometry args={[0.015, 12, 12]} />
+            <meshStandardMaterial color="#0a0a0a" metalness={0.1} roughness={0.9} />
+          </mesh>
+          {/* Left upper lash */}
+          <mesh position={[-0.14, 0.09, 0.34]} rotation={[0.3, 0, 0]}>
+            <boxGeometry args={[0.11, 0.015, 0.025]} />
+            <meshStandardMaterial color="#222" metalness={0.2} roughness={0.8} />
+          </mesh>
+          {/* Left lower lash */}
+          <mesh position={[-0.14, 0.01, 0.34]} rotation={[-0.2, 0, 0]}>
+            <boxGeometry args={[0.09, 0.008, 0.02]} />
+            <meshStandardMaterial color="#333" metalness={0.2} roughness={0.8} />
           </mesh>
           {/* Left eyelid (blink) */}
           {blinking && (
-            <mesh position={[-0.14, 0.05, 0.345]}>
-              <boxGeometry args={[0.1, 0.1, 0.01]} />
+            <mesh position={[-0.14, 0.05, 0.35]}>
+              <boxGeometry args={[0.12, 0.11, 0.02]} />
               <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
             </mesh>
           )}
-          {/* Right eye */}
-          <mesh position={[0.14, 0.05, 0.34]}>
-            <sphereGeometry args={[0.04, 16, 16]} />
-            <meshStandardMaterial color="#2196f3" emissive="#2196f3" emissiveIntensity={blinking ? 0 : 2} />
+
+          {/* Right eye - darker iris */}
+          <mesh position={[0.14, 0.05, 0.33]}>
+            <sphereGeometry args={[0.05, 16, 16]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.3} roughness={0.6} />
+          </mesh>
+          <mesh position={[0.14, 0.05, 0.345]}>
+            <sphereGeometry args={[0.03, 16, 16]} />
+            <meshStandardMaterial color="#1565c0" emissive="#1565c0" emissiveIntensity={blinking ? 0 : 0.8} metalness={0.4} roughness={0.3} />
+          </mesh>
+          <mesh position={[0.14, 0.05, 0.36]}>
+            <sphereGeometry args={[0.015, 12, 12]} />
+            <meshStandardMaterial color="#0a0a0a" metalness={0.1} roughness={0.9} />
+          </mesh>
+          {/* Right upper lash */}
+          <mesh position={[0.14, 0.09, 0.34]} rotation={[0.3, 0, 0]}>
+            <boxGeometry args={[0.11, 0.015, 0.025]} />
+            <meshStandardMaterial color="#222" metalness={0.2} roughness={0.8} />
+          </mesh>
+          {/* Right lower lash */}
+          <mesh position={[0.14, 0.01, 0.34]} rotation={[-0.2, 0, 0]}>
+            <boxGeometry args={[0.09, 0.008, 0.02]} />
+            <meshStandardMaterial color="#333" metalness={0.2} roughness={0.8} />
           </mesh>
           {/* Right eyelid (blink) */}
           {blinking && (
-            <mesh position={[0.14, 0.05, 0.345]}>
-              <boxGeometry args={[0.1, 0.1, 0.01]} />
+            <mesh position={[0.14, 0.05, 0.35]}>
+              <boxGeometry args={[0.12, 0.11, 0.02]} />
               <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
             </mesh>
           )}
-          {/* Smile */}
-          <mesh position={[0, -0.12, 0.33]} rotation={[0.3, 0, 0]}>
+
+          {/* Smile - flipped right-side up */}
+          <mesh position={[0, -0.15, 0.33]} rotation={[Math.PI + 0.3, 0, 0]}>
             <torusGeometry args={[0.1, 0.015, 8, 16, Math.PI]} />
             <meshStandardMaterial color="#00e5ff" emissive="#00e5ff" emissiveIntensity={1} metalness={0.9} roughness={0.1} />
           </mesh>
