@@ -1280,11 +1280,11 @@ CRITICAL CONTRACT CLAUSES TO INCLUDE:
 
 Format the contract with clear section headings and numbered paragraphs.`;
 
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: { prompt, model: 'google/gemini-2.5-flash' },
+      const { data, error } = await supabase.functions.invoke('wholesale-agreement', {
+        body: { prompt },
       });
       if (error) throw error;
-      setAgreementText(data?.text || data?.content || data?.response || 'Agreement generation failed — please try again.');
+      setAgreementText(data?.text || 'Agreement generation failed — please try again.');
     } catch (err: any) {
       toast.error(err.message || 'Failed to generate agreement');
       setAgreementText('');
