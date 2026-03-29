@@ -38,11 +38,18 @@ const STAGE_COLORS: Record<string, string> = {
   inactive: 'bg-destructive/10 text-destructive',
 };
 
+const DEAL_TYPES = [
+  { key: 'land', label: '🏞️ Land' },
+  { key: 'home', label: '🏠 Homes' },
+  { key: 'multi_home', label: 'Multi-Home' },
+];
+
 const emptyForm = {
-  full_name: '', email: '', phone: '', entity_name: '', deal_type: 'land',
+  full_name: '', email: '', phone: '', entity_name: '', deal_types: ['land'] as string[],
   target_states: '', target_counties: '', budget_min: '', budget_max: '',
   acreage_min: '', acreage_max: '', activity_score: '50', buyer_type: 'unknown',
   intent_level: 'low', pipeline_stage: 'new_scraped', city: '', notes: '', source: 'manual',
+  closing_speed: '', contact_preference: 'email', website: '',
 };
 
 export default function BuyerDiscovery() {
