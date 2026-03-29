@@ -284,7 +284,7 @@ export default function SellerManager() {
     abortRef.current = controller;
     setFetching(true);
     try {
-      const types = fetchDealType === 'both' ? ['land', 'home'] : [fetchDealType];
+      const types = fetchDealType === 'both' ? ['land', 'home', 'multi_home'] : [fetchDealType];
       let totalFetched = 0;
       let totalNew = 0;
 
@@ -552,9 +552,10 @@ export default function SellerManager() {
               <Select value={fetchDealType} onValueChange={setFetchDealType}>
                 <SelectTrigger className="w-[120px] h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="both">🔄 Both</SelectItem>
+                  <SelectItem value="both">🔄 All</SelectItem>
                   <SelectItem value="land">🏞️ Land</SelectItem>
                   <SelectItem value="home">🏠 Homes</SelectItem>
+                  <SelectItem value="multi_home">🏘️ Multi-Home</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -779,6 +780,7 @@ export default function SellerManager() {
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="land"><span className="flex items-center gap-1.5"><TreePine className="h-3.5 w-3.5" /> Land</span></SelectItem>
                 <SelectItem value="home"><span className="flex items-center gap-1.5"><Home className="h-3.5 w-3.5" /> Homes</span></SelectItem>
+                <SelectItem value="multi_home"><span className="flex items-center gap-1.5">🏘️ Multi-Home</span></SelectItem>
               </SelectContent>
             </Select>
           </div>
