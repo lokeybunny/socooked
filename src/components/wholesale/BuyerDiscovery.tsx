@@ -167,13 +167,23 @@ export default function BuyerDiscovery() {
         (b.tags || []).join(' ').toLowerCase().includes(q)
       );
     }
+    // Hide duplicates: deduplicate by normalized full_name + source_url
+    if (hideDuplicates) {
+      const seen = new Set<string>();
+      list = list.filter(b => {
+        const key = (b.full_name || '').toLowerCase().trim() + '|' + (b.source_url || '').toLowerCase().trim();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
     list.sort((a, b) => {
       const av = a[sortField] ?? 0;
       const bv = b[sortField] ?? 0;
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [buyers, stageFilter, typeFilter, intentFilter, stateFilter, sourceFilter, search, sortField, sortAsc]);
+  }, [buyers, stageFilter, typeFilter, intentFilter, stateFilter, sourceFilter, search, sortField, sortAsc, hideDuplicates]);
 
   // Reset page when filters change
   useEffect(() => { setPage(1); }, [stageFilter, typeFilter, intentFilter, stateFilter, sourceFilter, search, sortField, sortAsc]);
