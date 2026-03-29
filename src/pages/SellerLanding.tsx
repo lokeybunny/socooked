@@ -90,18 +90,6 @@ export default function SellerLanding() {
       toast.error('Something went wrong. Please try again.');
     } else {
       setSubmitted(true);
-      // Trigger Vapi AI call after 3 seconds
-      if (insertedLead?.id) {
-        setTimeout(async () => {
-          try {
-            await supabase.functions.invoke('vapi-outbound', {
-              body: { action: 'trigger_call', lead_id: insertedLead.id },
-            });
-          } catch (err) {
-            console.error('Vapi call trigger failed:', err);
-          }
-        }, 3000);
-      }
     }
   };
 
