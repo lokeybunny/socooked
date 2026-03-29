@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature } from 'lucide-react';
+import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
@@ -126,7 +126,7 @@ export default function Wholesale() {
               <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="land">🏞️ Land</SelectItem>
               <SelectItem value="home">🏠 Homes</SelectItem>
-              <SelectItem value="multi_home">🏘️ Multi-Home</SelectItem>
+              <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -356,7 +356,7 @@ function DealPipeline({ deals, stageColors }: { deals: any[]; stageColors: Recor
                     <TableCell className="font-medium">{deal.title}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[10px]">
-                        {deal.deal_type === 'land' ? '🏞️' : deal.deal_type === 'multi_home' ? '🏘️' : '🏠'} {deal.deal_type === 'multi_home' ? 'multi-home' : deal.deal_type}
+                        {deal.deal_type === 'land' ? '🏞️' : deal.deal_type === 'multi_home' ? <span className="relative inline-flex items-center w-5 h-4 mr-1"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> : '🏠'} {deal.deal_type === 'multi_home' ? 'multi-home' : deal.deal_type}
                       </Badge>
                     </TableCell>
                     <TableCell>

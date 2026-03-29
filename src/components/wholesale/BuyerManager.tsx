@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Users, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Users, Pencil, Trash2, Search, Home } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerInterests, { emptyInterests, type InterestsData } from './BuyerInterests';
 
@@ -252,7 +252,7 @@ export default function BuyerManager() {
                       <SelectContent>
                         <SelectItem value="land">🏞️ Land</SelectItem>
                         <SelectItem value="home">🏠 Homes</SelectItem>
-                        <SelectItem value="multi_home">🏘️ Multi-Home</SelectItem>
+                        <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

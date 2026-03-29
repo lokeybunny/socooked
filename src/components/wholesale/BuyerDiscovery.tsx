@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio } from 'lucide-react';
+import { Search, Users, Plus, Zap, Eye, Pencil, Trash2, ArrowUpDown, Radio, Home } from 'lucide-react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import BuyerDetail from './BuyerDetail';
@@ -622,7 +622,7 @@ export default function BuyerDiscovery() {
                   <SelectContent>
                     <SelectItem value="land">🏞️ Land</SelectItem>
                     <SelectItem value="home">🏠 Homes</SelectItem>
-                    <SelectItem value="multi_home">🏘️ Multi-Home</SelectItem>
+                    <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
                   </SelectContent>
                 </Select>
               </div>
