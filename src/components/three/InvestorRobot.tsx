@@ -29,8 +29,8 @@ function RobotBody() {
             <meshStandardMaterial color="#c8c8c8" metalness={0.6} roughness={0.25} />
           </mesh>
           {/* Visor strip */}
-          <mesh position={[0, 0.04, 0.34]}>
-            <capsuleGeometry args={[0.06, 0.32, 8, 16]} rotation={[0, 0, Math.PI / 2]} />
+          <mesh position={[0, 0.04, 0.34]} rotation={[0, 0, Math.PI / 2]}>
+            <capsuleGeometry args={[0.06, 0.32, 8, 16]} />
             <meshStandardMaterial color="#00d4ff" emissive="#00d4ff" emissiveIntensity={1.2} metalness={0.9} roughness={0.1} transparent opacity={0.9} />
           </mesh>
           {/* Left eye */}
