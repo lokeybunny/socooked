@@ -31,6 +31,7 @@ interface Lead {
   ai_notes: string | null;
   vapi_call_id: string | null;
   vapi_call_status: string | null;
+  vapi_recording_url: string | null;
   notes: string | null;
   meta: Record<string, unknown>;
   created_at: string;
