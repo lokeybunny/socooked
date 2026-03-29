@@ -381,8 +381,7 @@ serve(async (req) => {
     const sa = JSON.parse(saJson);
     const accessToken = await getAccessToken(sa, "https://www.googleapis.com/auth/gmail.modify");
 
-    // MIME body is ASCII-safe (PDF already base64-encoded inside), so direct btoa works
-    const rawMessage = btoa(mimeBody).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    const rawMessage = stringToBase64url(mimeBody);
 
     const gmailRes = await fetch(`${GMAIL_API}/users/me/messages/send`, {
       method: "POST",
