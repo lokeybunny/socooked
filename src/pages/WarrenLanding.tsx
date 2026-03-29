@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, Suspense, lazy } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
@@ -7,6 +7,8 @@ import {
   ChevronDown, Shield, Clock, Users, TrendingUp
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
+
+const InvestorRobot = lazy(() => import('@/components/three/InvestorRobot'));
 
 const steps = [
   {
