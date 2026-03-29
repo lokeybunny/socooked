@@ -73,27 +73,31 @@ serve(async (req) => {
 
     // 2. Create payment link for $599 first month
     const idempotencyKey = crypto.randomUUID();
+    const linkBody: Record<string, unknown> = {
+      idempotency_key: idempotencyKey,
+      quick_pay: {
+        name: "Warren Guru — Pro Subscription (Month 1)",
+        price_money: {
+          amount: 59900,
+          currency: "USD",
+        },
+        location_id: locationId,
+      },
+      checkout_options: {
+        redirect_url: "https://warren.guru/thankyou?subscribed=true",
+        ask_for_shipping_address: false,
+      },
+    };
+
+    // Only pre-populate email if it looks like a real address
+    if (email && email.includes("@") && !email.includes("example")) {
+      linkBody.pre_populated_data = { buyer_email: email };
+    }
+
     const linkResult = await squareFetch(
       "/online-checkout/payment-links",
       SQUARE_ACCESS_TOKEN,
-      {
-        idempotency_key: idempotencyKey,
-        quick_pay: {
-          name: "Warren Guru — Pro Subscription (Month 1)",
-          price_money: {
-            amount: 59900,
-            currency: "USD",
-          },
-          location_id: locationId,
-        },
-        checkout_options: {
-          redirect_url: "https://warren.guru/thankyou?subscribed=true",
-          ask_for_shipping_address: false,
-        },
-        pre_populated_data: {
-          buyer_email: email || undefined,
-        },
-      }
+      linkBody
     );
 
     const paymentLink = linkResult.payment_link;
