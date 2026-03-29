@@ -3,8 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Phone, Clock, BarChart3, Loader2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import { DollarSign, Phone, Clock, BarChart3, Loader2, RefreshCw, CheckCircle, XCircle, Globe, Filter } from 'lucide-react';
 
 interface VapiCallRecord {
   id: string;
@@ -21,6 +22,9 @@ interface VapiCallRecord {
   voiceCost: number;
   analysisCost: number;
   endedReason: string | null;
+  landingPageName: string | null;
+  landingPageSlug: string | null;
+  leadName: string | null;
 }
 
 interface VapiSummary {
@@ -31,11 +35,20 @@ interface VapiSummary {
   avgCostPerCall: number;
 }
 
+interface PageBreakdown {
+  name: string;
+  slug: string;
+  totalCost: number;
+  callCount: number;
+}
+
 export default function VapiSpendDashboard() {
   const [summary, setSummary] = useState<VapiSummary | null>(null);
   const [calls, setCalls] = useState<VapiCallRecord[]>([]);
+  const [pageBreakdown, setPageBreakdown] = useState<PageBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pageFilter, setPageFilter] = useState<string>('all');
 
   const loadData = async () => {
     setLoading(true);
@@ -45,6 +58,7 @@ export default function VapiSpendDashboard() {
       if (res.error) throw res.error;
       setSummary(res.data.summary);
       setCalls(res.data.calls || []);
+      setPageBreakdown(res.data.pageBreakdown || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load Vapi usage data');
     } finally {
@@ -53,6 +67,26 @@ export default function VapiSpendDashboard() {
   };
 
   useEffect(() => { loadData(); }, []);
+
+  const filteredCalls = pageFilter === 'all'
+    ? calls
+    : pageFilter === '__unmatched__'
+      ? calls.filter(c => !c.landingPageSlug)
+      : calls.filter(c => c.landingPageSlug === pageFilter);
+
+  const filteredSummary: VapiSummary = pageFilter === 'all' && summary
+    ? summary
+    : {
+        totalCost: Math.round(filteredCalls.reduce((s, c) => s + c.cost, 0) * 100) / 100,
+        totalCalls: filteredCalls.length,
+        completedCalls: filteredCalls.filter(c =>
+          c.status === 'ended' || c.endedReason === 'assistant-forward' || c.endedReason === 'customer-ended-call' || c.endedReason === 'assistant-ended-call'
+        ).length,
+        totalDurationMin: Math.round(filteredCalls.reduce((s, c) => s + c.durationSec, 0) / 60 * 10) / 10,
+        avgCostPerCall: filteredCalls.length > 0
+          ? Math.round(filteredCalls.reduce((s, c) => s + c.cost, 0) / filteredCalls.length * 100) / 100
+          : 0,
+      };
 
   const formatDuration = (sec: number) => {
     if (sec < 60) return `${sec}s`;
@@ -91,15 +125,73 @@ export default function VapiSpendDashboard() {
     );
   }
 
+  const uniquePages = pageBreakdown.filter(p => p.slug !== '__unmatched__');
+  const hasUnmatched = pageBreakdown.some(p => p.slug === '__unmatched__');
+
   return (
     <div className="space-y-4">
+      {/* Filter Bar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Filter className="h-4 w-4" />
+          <span>Landing Page:</span>
+        </div>
+        <Select value={pageFilter} onValueChange={setPageFilter}>
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="All Landing Pages" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Landing Pages</SelectItem>
+            {uniquePages.map(p => (
+              <SelectItem key={p.slug} value={p.slug}>
+                {p.name} ({p.callCount} calls · ${p.totalCost.toFixed(2)})
+              </SelectItem>
+            ))}
+            {hasUnmatched && (
+              <SelectItem value="__unmatched__">
+                Unmatched ({pageBreakdown.find(p => p.slug === '__unmatched__')?.callCount || 0} calls)
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+        {pageFilter !== 'all' && (
+          <Button size="sm" variant="ghost" onClick={() => setPageFilter('all')}>
+            Clear filter
+          </Button>
+        )}
+      </div>
+
+      {/* Per-Page Breakdown Cards */}
+      {pageFilter === 'all' && uniquePages.length > 1 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {uniquePages.map(p => (
+            <Card
+              key={p.slug}
+              className="cursor-pointer hover:border-primary/40 transition-colors"
+              onClick={() => setPageFilter(p.slug)}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                  <p className="text-sm font-medium truncate">{p.name}</p>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-lg font-bold text-primary">${p.totalCost.toFixed(2)}</span>
+                  <span className="text-xs text-muted-foreground">{p.callCount} calls</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <SummaryCard icon={DollarSign} label="Total Spend" value={`$${(summary?.totalCost ?? 0).toFixed(2)}`} accent />
-        <SummaryCard icon={Phone} label="Total Calls" value={summary?.totalCalls ?? 0} />
-        <SummaryCard icon={CheckCircle} label="Completed" value={summary?.completedCalls ?? 0} />
-        <SummaryCard icon={Clock} label="Total Minutes" value={`${(summary?.totalDurationMin ?? 0).toFixed(1)}`} />
-        <SummaryCard icon={BarChart3} label="Avg Cost / Call" value={`$${(summary?.avgCostPerCall ?? 0).toFixed(2)}`} />
+        <SummaryCard icon={DollarSign} label="Total Spend" value={`$${(filteredSummary.totalCost ?? 0).toFixed(2)}`} accent />
+        <SummaryCard icon={Phone} label="Total Calls" value={filteredSummary.totalCalls ?? 0} />
+        <SummaryCard icon={CheckCircle} label="Completed" value={filteredSummary.completedCalls ?? 0} />
+        <SummaryCard icon={Clock} label="Total Minutes" value={`${(filteredSummary.totalDurationMin ?? 0).toFixed(1)}`} />
+        <SummaryCard icon={BarChart3} label="Avg Cost / Call" value={`$${(filteredSummary.avgCostPerCall ?? 0).toFixed(2)}`} />
       </div>
 
       {/* Call Log Table */}
@@ -108,17 +200,17 @@ export default function VapiSpendDashboard() {
           <CardTitle className="text-lg flex items-center gap-2">
             <Phone className="h-4 w-4" />
             Call Log
-            <Badge variant="outline" className="ml-auto">{calls.length} calls</Badge>
+            <Badge variant="outline" className="ml-auto">{filteredCalls.length} calls</Badge>
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={loadData}>
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {calls.length === 0 ? (
+          {filteredCalls.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Phone className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No Vapi calls found</p>
+              <p>No Vapi calls found{pageFilter !== 'all' ? ' for this landing page' : ''}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -126,6 +218,8 @@ export default function VapiSpendDashboard() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
+                    <TableHead>Landing Page</TableHead>
+                    <TableHead>Lead</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Duration</TableHead>
                     <TableHead>Outcome</TableHead>
@@ -137,10 +231,23 @@ export default function VapiSpendDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {calls.map(call => (
+                  {filteredCalls.map(call => (
                     <TableRow key={call.id}>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {call.startedAt ? new Date(call.startedAt).toLocaleString() : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {call.landingPageName ? (
+                          <Badge variant="secondary" className="text-[10px] gap-1">
+                            <Globe className="h-2.5 w-2.5" />
+                            {call.landingPageName}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {call.leadName || '—'}
                       </TableCell>
                       <TableCell className="text-sm font-mono">
                         {call.customerNumber || '—'}
