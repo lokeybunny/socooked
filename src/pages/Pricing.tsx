@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Shield } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Shield, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const included = [
   'Branded Seller Landing Page',
@@ -26,11 +28,35 @@ const fade = {
 
 export default function Pricing() {
   const [agreed, setAgreed] = useState(false);
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubscribe = () => {
+  const handleSubscribe = async () => {
     if (!agreed) return;
-    // TODO: Redirect to Square checkout
-    window.open('https://warren.guru/auth', '_self');
+    if (!email.trim()) {
+      toast.error('Please enter your email address');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('square-subscribe', {
+        body: { email: email.trim(), name: name.trim() || undefined },
+      });
+
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (err: any) {
+      console.error('Subscribe error:', err);
+      toast.error(err.message || 'Failed to create checkout. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -104,6 +130,31 @@ export default function Pricing() {
             {/* Divider */}
             <div className="h-px bg-white/[0.06] my-8" />
 
+            {/* Email & Name inputs */}
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="text-[10px] tracking-[0.2em] uppercase text-white/30 mb-1.5 block">Full Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="John Smith"
+                  className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] tracking-[0.2em] uppercase text-white/30 mb-1.5 block">Email <span className="text-white/50">*</span></label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  className="w-full px-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 transition-colors"
+                />
+              </div>
+            </div>
+
             {/* Terms Checkbox */}
             <label className="flex items-start gap-3 cursor-pointer group">
               <div
@@ -128,16 +179,22 @@ export default function Pricing() {
             {/* Subscribe Button */}
             <button
               onClick={handleSubscribe}
-              disabled={!agreed}
+              disabled={!agreed || loading}
               className={`mt-6 w-full flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-lg text-xs tracking-[0.2em] uppercase font-medium transition-all ${
-                agreed
+                agreed && !loading
                   ? 'bg-white text-black hover:bg-white/90 cursor-pointer'
                   : 'bg-white/10 text-white/20 cursor-not-allowed'
               }`}
             >
-              <Shield className="h-3.5 w-3.5" />
-              Start Free Trial
-              <ArrowRight className="h-3.5 w-3.5" />
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Shield className="h-3.5 w-3.5" />
+                  Start Free Trial
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </>
+              )}
             </button>
 
             <p className="mt-4 text-center text-[10px] text-white/20">
@@ -145,7 +202,7 @@ export default function Pricing() {
             </p>
           </motion.div>
 
-          {/* FAQ-style notes */}
+          {/* FAQ */}
           <motion.div initial="hidden" animate="visible" variants={fade} custom={8} className="mt-12 space-y-6">
             <div>
               <h3 className="text-xs font-medium text-white/50 mb-1">How does the trial work?</h3>
