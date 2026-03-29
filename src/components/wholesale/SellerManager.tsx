@@ -1300,7 +1300,11 @@ REQUIRED CLAUSES:
 2. Earnest money deposit amount — non-refundable after due diligence period ends.
 3. Due diligence period of ${agreementDuration} days — Buyer may cancel for any reason with full refund of earnest money ONLY during this period.
 4. EXPLICITLY STATE: This is a cash transaction. Buyer waives all inspection contingencies, appraisal contingencies, and financing contingencies. Property is purchased AS-IS, WHERE-IS with no warranties regarding condition.
-5. Assignment clause: "This Agreement and all rights and obligations hereunder are freely assignable by Buyer to any third party without the prior written consent of Seller."
+5. ASSIGNMENT AND ASSIGNMENT FEE CLAUSE (CRITICAL — include verbatim):
+   a. "This Agreement and all rights and obligations hereunder are freely assignable by Buyer to any third party, investor, or wholesaler at any time without the prior written consent of Seller."
+   b. "Buyer shall have the right to collect an Assignment Fee from any assignee as compensation for assigning this contract. The Assignment Fee shall be paid to Buyer (or Buyer's designated entity) directly at closing through the title company or settlement agent, and shall appear on the closing/settlement statement as a separate line item."
+   c. "Seller acknowledges and agrees that Buyer may assign this contract one or more times, and Seller's obligations under this Agreement shall remain unchanged regardless of any assignment. No assignment shall release the original Buyer from liability unless the assignee expressly assumes all obligations."
+   d. "Upon assignment, the assignee shall assume all rights, obligations, and benefits of Buyer under this Agreement and shall be bound by all terms herein."
 6. Closing date and location details — closing to occur at a title company in ${propCounty} County, ${propState}.
 7. Title and clear deed requirements — Seller to provide marketable title via warranty deed or special warranty deed.
 8. Default and remedies for both parties.
