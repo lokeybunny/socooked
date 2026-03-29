@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { calculateDistressScore, calculateBuyerMatchScore, calculateOpportunityScore, DEFAULT_DISTRESS_WEIGHTS, extractCraigslistSubdomain, isBuyerInCraigslistRegion, isSellerInCraigslistRegion, getCraigslistCity, type DistressWeights } from '@/lib/wholesale/distressScoring';
+import { calculateDistressScore, calculateBuyerMatchScore, calculateOpportunityScore, DEFAULT_DISTRESS_WEIGHTS, extractCraigslistSubdomain, isBuyerInCraigslistRegion, isBuyerNearSellerLocation, isSellerInCraigslistRegion, getCraigslistCity, type DistressWeights } from '@/lib/wholesale/distressScoring';
 import { Flame, Snowflake, Sun, Target, TrendingUp, CheckCircle, XCircle, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import BuyerDetail from './BuyerDetail';
 
@@ -47,6 +47,8 @@ export default function ScoreExplanation({ seller, buyers = [], weights, buyerDe
     if (sellerClSubdomain && !sellerMatchesCraigslistRegion) return [];
 
     let pool = buyers;
+
+    pool = pool.filter(b => isBuyerNearSellerLocation(seller, b));
 
     // If seller is from Craigslist, filter buyers to same region
     if (sellerClSubdomain) {
