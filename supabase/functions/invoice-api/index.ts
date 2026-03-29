@@ -593,8 +593,15 @@ Deno.serve(async (req) => {
       if (botSecret !== expectedSecret) return fail('Invalid bot secret', 401)
       authorized = true
     } else if (authHeader?.startsWith('Bearer ')) {
-      // Internal admin tool — accept any bearer token (apikey or user JWT)
-      // RLS is permissive; this just prevents completely unauthenticated calls
+      // Validate JWT — must be a real authenticated user
+      const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } }
+      })
+      const token = authHeader.replace('Bearer ', '')
+      const { data: claimsData, error: claimsErr } = await anonClient.auth.getClaims(token)
+      if (claimsErr || !claimsData?.claims) {
+        return fail('Invalid or expired token', 401)
+      }
       authorized = true
     }
 
