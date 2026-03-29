@@ -30,6 +30,55 @@ export function getCraigslistCity(subdomain: string): CityEntry | undefined {
   return CRAIGSLIST_CITIES.find(c => c.subdomain === subdomain);
 }
 
+const CRAIGSLIST_METRO_COORDINATES: Partial<Record<string, { lat: number; lng: number }>> = {
+  bakersfield: { lat: 35.3733, lng: -119.0187 },
+  chico: { lat: 39.7285, lng: -121.8375 },
+  fresno: { lat: 36.7378, lng: -119.7871 },
+  inlandempire: { lat: 34.1083, lng: -117.2898 },
+  lasvegas: { lat: 36.1699, lng: -115.1398 },
+  losangeles: { lat: 34.0522, lng: -118.2437 },
+  modesto: { lat: 37.6391, lng: -120.9969 },
+  monterey: { lat: 36.6002, lng: -121.8947 },
+  orangecounty: { lat: 33.7175, lng: -117.8311 },
+  phoenix: { lat: 33.4484, lng: -112.074 },
+  redding: { lat: 40.5865, lng: -122.3917 },
+  reno: { lat: 39.5296, lng: -119.8138 },
+  sacramento: { lat: 38.5816, lng: -121.4944 },
+  sandiego: { lat: 32.7157, lng: -117.1611 },
+  santabarbara: { lat: 34.4208, lng: -119.6982 },
+  sfbay: { lat: 37.7749, lng: -122.4194 },
+  slo: { lat: 35.2828, lng: -120.6596 },
+  stockton: { lat: 37.9577, lng: -121.2908 },
+  tucson: { lat: 32.2226, lng: -110.9747 },
+  ventura: { lat: 34.2746, lng: -119.229 },
+  visalia: { lat: 36.3302, lng: -119.2921 },
+};
+
+const CRAIGSLIST_RADIUS_MILES = 50;
+
+function toFiniteNumber(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function calculateMilesBetweenCoordinates(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const earthRadiusMiles = 3958.8;
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+  return 2 * earthRadiusMiles * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 function normalizeLocationText(value: string | null | undefined): string {
   return (value || '')
     .toLowerCase()
@@ -67,6 +116,19 @@ export function isSellerInCraigslistRegion(
 
   const sellerState = (seller.state || '').toUpperCase().trim();
   if (sellerState && sellerState !== clCity.state.toUpperCase()) return false;
+
+  const metroCenter = CRAIGSLIST_METRO_COORDINATES[sellerSubdomain];
+  const sellerLatitude = toFiniteNumber(seller.latitude);
+  const sellerLongitude = toFiniteNumber(seller.longitude);
+
+  if (metroCenter && sellerLatitude !== null && sellerLongitude !== null) {
+    return calculateMilesBetweenCoordinates(
+      sellerLatitude,
+      sellerLongitude,
+      metroCenter.lat,
+      metroCenter.lng
+    ) <= CRAIGSLIST_RADIUS_MILES;
+  }
 
   return (
     locationTextMatches(clCity.label, seller.city) ||
