@@ -550,7 +550,8 @@ Deno.serve(async (req) => {
     const profileKey = profileUsername.toLowerCase();
     return (data || []).find((candidate: any) => {
       const state = parsePublishState(candidate.source_id, candidate.id).state;
-      if (state !== "published" && state !== "publishing") return false;
+      // Block if ANY non-ready state (published, publishing, OR claimed by another run)
+      if (state === "ready") return false;
 
       const candidatePayload = extractEventPayload(candidate);
       if (!candidatePayload.mediaUrl || candidatePayload.mediaUrl !== mediaUrl) return false;
