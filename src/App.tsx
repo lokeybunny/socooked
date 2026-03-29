@@ -140,7 +140,7 @@ const App = () => (
             <Route path="/sell/:slug" element={<SellerLanding />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/terms" element={<Terms />} />
-            <Route path="/client-login" element={<ClientLogin />} />
+            <Route path="/client-login" element={<Navigate to="/auth" replace />} />
             <Route path="/client-dashboard" element={<ClientDashboard />} />
             
             <Route path="*" element={<NotFound />} />
