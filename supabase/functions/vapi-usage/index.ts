@@ -21,7 +21,6 @@ serve(async (req) => {
     // Fetch recent calls from Vapi (last 100)
     const url = new URL("https://api.vapi.ai/call");
     url.searchParams.set("limit", "100");
-    url.searchParams.set("sortOrder", "DESC");
 
     const res = await fetch(url.toString(), {
       headers: {
