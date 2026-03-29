@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown } from 'lucide-react';
+import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3 } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
 import SellerManager from '@/components/wholesale/SellerManager';
+import DistressDashboard from '@/components/wholesale/DistressDashboard';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home';
@@ -136,8 +137,12 @@ export default function Wholesale() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="calls" className="w-full">
-        <TabsList className="w-full justify-start">
+      <Tabs defaultValue="intelligence" className="w-full">
+        <TabsList className="w-full justify-start flex-wrap">
+          <TabsTrigger value="intelligence" className="gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Intelligence
+          </TabsTrigger>
           <TabsTrigger value="calls" className="relative">
             Daily Call List
             {pendingCalls > 0 && (
@@ -151,6 +156,12 @@ export default function Wholesale() {
           <TabsTrigger value="sources">Discovery</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
+
+        {/* Tab 1: Call List */}
+        {/* Tab 0: Intelligence Dashboard */}
+        <TabsContent value="intelligence" className="mt-4">
+          <DistressDashboard />
+        </TabsContent>
 
         {/* Tab 1: Call List */}
         <TabsContent value="calls" className="mt-4">

@@ -1933,41 +1933,67 @@ export type Database = {
           apn: string | null
           asking_price: number | null
           assessed_value: number | null
+          auction_status: string | null
           bathrooms: number | null
           bedrooms: number | null
+          best_contact_confidence: number | null
+          buyer_match_score: number | null
           city: string | null
+          condition_notes: string | null
+          contact_quality_grade: string | null
           contacted_at: string | null
           county: string | null
           created_at: string
           deal_type: string
+          distress_grade: string | null
+          emails_found_count: number | null
+          equity_percent: number | null
           estimated_offer: number | null
           fips: string | null
+          foreclosure_status: string | null
+          free_and_clear: boolean | null
           has_tax_lien: boolean | null
           id: string
+          import_batch_id: string | null
+          inherited_flag: boolean | null
           is_absentee_owner: boolean | null
           is_corporate_owned: boolean | null
           is_out_of_state: boolean | null
           is_pre_foreclosure: boolean | null
           is_tax_delinquent: boolean | null
           is_vacant: boolean | null
+          latitude: number | null
+          lead_temperature: string | null
+          lien_count: number | null
           living_sqft: number | null
+          longitude: number | null
           lot_sqft: number | null
           market_value: number | null
           meta: Json
           motivation_score: number
           notes: string | null
+          opportunity_score: number | null
           owner_email: string | null
           owner_mailing_address: string | null
           owner_name: string | null
+          owner_occupied: boolean | null
           owner_phone: string | null
+          phones_found_count: number | null
+          probate_flag: boolean | null
           property_type: string | null
           reapi_property_id: string | null
+          skip_trace_completed_at: string | null
+          skip_trace_status: string | null
+          skip_trace_submitted_at: string | null
+          skip_trace_vendor: string | null
           skip_traced_at: string | null
           source: string
+          source_record_id: string | null
           state: string | null
           status: string
           tags: string[] | null
           tax_delinquent_year: string | null
+          trust_owned: boolean | null
           updated_at: string
           years_owned: number | null
           zip: string | null
@@ -1979,41 +2005,67 @@ export type Database = {
           apn?: string | null
           asking_price?: number | null
           assessed_value?: number | null
+          auction_status?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
+          best_contact_confidence?: number | null
+          buyer_match_score?: number | null
           city?: string | null
+          condition_notes?: string | null
+          contact_quality_grade?: string | null
           contacted_at?: string | null
           county?: string | null
           created_at?: string
           deal_type?: string
+          distress_grade?: string | null
+          emails_found_count?: number | null
+          equity_percent?: number | null
           estimated_offer?: number | null
           fips?: string | null
+          foreclosure_status?: string | null
+          free_and_clear?: boolean | null
           has_tax_lien?: boolean | null
           id?: string
+          import_batch_id?: string | null
+          inherited_flag?: boolean | null
           is_absentee_owner?: boolean | null
           is_corporate_owned?: boolean | null
           is_out_of_state?: boolean | null
           is_pre_foreclosure?: boolean | null
           is_tax_delinquent?: boolean | null
           is_vacant?: boolean | null
+          latitude?: number | null
+          lead_temperature?: string | null
+          lien_count?: number | null
           living_sqft?: number | null
+          longitude?: number | null
           lot_sqft?: number | null
           market_value?: number | null
           meta?: Json
           motivation_score?: number
           notes?: string | null
+          opportunity_score?: number | null
           owner_email?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
+          owner_occupied?: boolean | null
           owner_phone?: string | null
+          phones_found_count?: number | null
+          probate_flag?: boolean | null
           property_type?: string | null
           reapi_property_id?: string | null
+          skip_trace_completed_at?: string | null
+          skip_trace_status?: string | null
+          skip_trace_submitted_at?: string | null
+          skip_trace_vendor?: string | null
           skip_traced_at?: string | null
           source?: string
+          source_record_id?: string | null
           state?: string | null
           status?: string
           tags?: string[] | null
           tax_delinquent_year?: string | null
+          trust_owned?: boolean | null
           updated_at?: string
           years_owned?: number | null
           zip?: string | null
@@ -2025,41 +2077,67 @@ export type Database = {
           apn?: string | null
           asking_price?: number | null
           assessed_value?: number | null
+          auction_status?: string | null
           bathrooms?: number | null
           bedrooms?: number | null
+          best_contact_confidence?: number | null
+          buyer_match_score?: number | null
           city?: string | null
+          condition_notes?: string | null
+          contact_quality_grade?: string | null
           contacted_at?: string | null
           county?: string | null
           created_at?: string
           deal_type?: string
+          distress_grade?: string | null
+          emails_found_count?: number | null
+          equity_percent?: number | null
           estimated_offer?: number | null
           fips?: string | null
+          foreclosure_status?: string | null
+          free_and_clear?: boolean | null
           has_tax_lien?: boolean | null
           id?: string
+          import_batch_id?: string | null
+          inherited_flag?: boolean | null
           is_absentee_owner?: boolean | null
           is_corporate_owned?: boolean | null
           is_out_of_state?: boolean | null
           is_pre_foreclosure?: boolean | null
           is_tax_delinquent?: boolean | null
           is_vacant?: boolean | null
+          latitude?: number | null
+          lead_temperature?: string | null
+          lien_count?: number | null
           living_sqft?: number | null
+          longitude?: number | null
           lot_sqft?: number | null
           market_value?: number | null
           meta?: Json
           motivation_score?: number
           notes?: string | null
+          opportunity_score?: number | null
           owner_email?: string | null
           owner_mailing_address?: string | null
           owner_name?: string | null
+          owner_occupied?: boolean | null
           owner_phone?: string | null
+          phones_found_count?: number | null
+          probate_flag?: boolean | null
           property_type?: string | null
           reapi_property_id?: string | null
+          skip_trace_completed_at?: string | null
+          skip_trace_status?: string | null
+          skip_trace_submitted_at?: string | null
+          skip_trace_vendor?: string | null
           skip_traced_at?: string | null
           source?: string
+          source_record_id?: string | null
           state?: string | null
           status?: string
           tags?: string[] | null
           tax_delinquent_year?: string | null
+          trust_owned?: boolean | null
           updated_at?: string
           years_owned?: number | null
           zip?: string | null

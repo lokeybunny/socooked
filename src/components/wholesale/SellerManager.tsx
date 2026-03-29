@@ -11,8 +11,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target } from 'lucide-react';
 import { toast } from 'sonner';
+import DistressFilters, { EMPTY_DISTRESS_FILTERS, type DistressFilterState } from './DistressFilters';
+import CsvImport from './CsvImport';
+import ScoreExplanation from './ScoreExplanation';
+import { calculateDistressScore, DEFAULT_DISTRESS_WEIGHTS } from '@/lib/wholesale/distressScoring';
+import type { SmartViewPreset } from '@/lib/wholesale/distressScoring';
 
 const PAGE_SIZE = 25;
 
@@ -150,6 +155,7 @@ function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; 
 
 export default function SellerManager() {
   const [sellers, setSellers] = useState<any[]>([]);
+  const [buyers, setBuyers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
   const [search, setSearch] = useState('');
@@ -159,6 +165,8 @@ export default function SellerManager() {
   const [sortField, setSortField] = useState('motivation_score');
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
+  const [distressFilters, setDistressFilters] = useState<DistressFilterState>(EMPTY_DISTRESS_FILTERS);
+  const [csvOpen, setCsvOpen] = useState(false);
 
   // Fetch form
   const [fetchCounty, setFetchCounty] = useState('');
@@ -167,7 +175,12 @@ export default function SellerManager() {
   const [fetchSize, setFetchSize] = useState('50');
   const [detailSeller, setDetailSeller] = useState<any>(null);
 
-  useEffect(() => { loadSellers(); }, []);
+  useEffect(() => { loadSellers(); loadBuyers(); }, []);
+
+  const loadBuyers = async () => {
+    const { data } = await supabase.from('lw_buyers').select('*').eq('status', 'active').limit(200);
+    setBuyers(data || []);
+  };
 
   const loadSellers = async () => {
     setLoading(true);
@@ -238,15 +251,51 @@ export default function SellerManager() {
         (s.apn || '').toLowerCase().includes(q)
       );
     }
+    // Advanced distress filters
+    const df = distressFilters;
+    if (df.isAbsentee) list = list.filter(s => s.is_absentee_owner);
+    if (df.isOutOfState) list = list.filter(s => s.is_out_of_state);
+    if (df.isCorporate) list = list.filter(s => s.is_corporate_owned);
+    if (df.isTrustOwned) list = list.filter(s => s.trust_owned);
+    if (df.isTaxDelinquent) list = list.filter(s => s.is_tax_delinquent);
+    if (df.hasTaxLien) list = list.filter(s => s.has_tax_lien);
+    if (df.isFreeAndClear) list = list.filter(s => s.free_and_clear);
+    if (df.isPreForeclosure) list = list.filter(s => s.is_pre_foreclosure);
+    if (df.isProbate) list = list.filter(s => s.probate_flag);
+    if (df.isInherited) list = list.filter(s => s.inherited_flag);
+    if (df.isVacant) list = list.filter(s => s.is_vacant);
+    if (df.minYearsOwned != null) list = list.filter(s => (s.years_owned || 0) >= df.minYearsOwned!);
+    if (df.maxYearsOwned != null) list = list.filter(s => (s.years_owned || 0) <= df.maxYearsOwned!);
+    if (df.minEquity != null) list = list.filter(s => (s.equity_percent || 0) >= df.minEquity!);
+    if (df.minLienCount != null) list = list.filter(s => (s.lien_count || 0) >= df.minLienCount!);
+    if (df.minAcreage != null) list = list.filter(s => (s.acreage || 0) >= df.minAcreage!);
+    if (df.maxAcreage != null) list = list.filter(s => (s.acreage || 0) <= df.maxAcreage!);
+    if (df.minMotivation != null) list = list.filter(s => (s.motivation_score || 0) >= df.minMotivation!);
+    if (df.minBuyerMatch != null) list = list.filter(s => (s.buyer_match_score || 0) >= df.minBuyerMatch!);
+    if (df.minOpportunity != null) list = list.filter(s => (s.opportunity_score || 0) >= df.minOpportunity!);
+    if (df.leadTemperature) {
+      list = list.filter(s => {
+        const score = s.motivation_score || 0;
+        if (df.leadTemperature === 'Hot') return score >= 70;
+        if (df.leadTemperature === 'Warm') return score >= 45 && score < 70;
+        return score < 45;
+      });
+    }
+    if (df.skipTraceStatus) list = list.filter(s => (s.skip_trace_status || 'not_ready') === df.skipTraceStatus);
+    if (df.stage) list = list.filter(s => s.status === df.stage);
+    if (df.dealType) list = list.filter(s => (s.deal_type || 'land') === df.dealType);
+    if (df.auctionStatus && df.auctionStatus !== 'none') list = list.filter(s => s.auction_status === df.auctionStatus);
+    else if (df.auctionStatus === 'none') list = list.filter(s => !s.auction_status);
+
     list.sort((a, b) => {
       const av = a[sortField] ?? 0;
       const bv = b[sortField] ?? 0;
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc]);
+  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters]);
 
-  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc]);
+  useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -254,6 +303,25 @@ export default function SellerManager() {
   const toggleSort = (field: string) => {
     if (sortField === field) setSortAsc(!sortAsc);
     else { setSortField(field); setSortAsc(false); }
+  };
+
+  const handlePreset = (preset: SmartViewPreset) => {
+    const f = { ...EMPTY_DISTRESS_FILTERS };
+    const pf = preset.filters;
+    if (pf.minMotivation) f.minMotivation = pf.minMotivation;
+    if (pf.isVacant) f.isVacant = true;
+    if (pf.isAbsentee) f.isAbsentee = true;
+    if (pf.isPreForeclosure) f.isPreForeclosure = true;
+    if (pf.isTaxDelinquent) f.isTaxDelinquent = true;
+    if (pf.minBuyerMatch) f.minBuyerMatch = pf.minBuyerMatch;
+    if (pf.skipTraceStatus) f.skipTraceStatus = pf.skipTraceStatus;
+    if (pf.stage) f.stage = pf.stage;
+    if (pf.isOutOfState) f.isOutOfState = true;
+    if (pf.minYearsOwned) f.minYearsOwned = pf.minYearsOwned;
+    if (pf.dealType) setDealTypeFilter(pf.dealType);
+    setDistressFilters(f);
+    setStageFilter('all');
+    toast.success(`Applied: ${preset.label}`);
   };
 
   return (
@@ -327,9 +395,15 @@ export default function SellerManager() {
             <Button onClick={fetchProperties} disabled={fetching} className="h-9">
               {fetching ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Fetching…</> : <><Download className="h-3.5 w-3.5 mr-1" /> Fetch Properties</>}
             </Button>
+            <Button variant="outline" className="h-9 gap-1.5" onClick={() => setCsvOpen(true)}>
+              <FileSpreadsheet className="h-3.5 w-3.5" /> CSV Import
+            </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Distress Intelligence Filters */}
+      <DistressFilters filters={distressFilters} onChange={setDistressFilters} onPreset={handlePreset} />
 
       {/* Filters */}
       <Card>
@@ -512,16 +586,36 @@ export default function SellerManager() {
 
       {/* Seller Detail Modal */}
       <Dialog open={!!detailSeller} onOpenChange={(open) => !open && setDetailSeller(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
               {detailSeller?.owner_name || 'Unknown Owner'}
             </DialogTitle>
           </DialogHeader>
-          {detailSeller && <SellerDetailContent seller={detailSeller} onSkipTraced={() => { setDetailSeller(null); loadSellers(); }} />}
+          {detailSeller && (
+            <div className="space-y-4">
+              {/* Score Explanation Panel */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-1.5">
+                    <Target className="h-3.5 w-3.5" />
+                    Distress Intelligence
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ScoreExplanation seller={detailSeller} buyers={buyers} />
+                </CardContent>
+              </Card>
+              <Separator />
+              <SellerDetailContent seller={detailSeller} onSkipTraced={() => { setDetailSeller(null); loadSellers(); }} />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
+
+      {/* CSV Import */}
+      <CsvImport open={csvOpen} onOpenChange={setCsvOpen} onImported={loadSellers} dealType={dealTypeFilter !== 'all' ? dealTypeFilter : 'land'} />
     </div>
   );
 }

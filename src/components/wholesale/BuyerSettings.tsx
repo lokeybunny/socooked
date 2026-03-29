@@ -6,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Settings, Save } from 'lucide-react';
+import { Settings, Save, Flame, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { DEFAULT_DISTRESS_WEIGHTS } from '@/lib/wholesale/distressScoring';
 
 export default function BuyerSettings() {
   const [config, setConfig] = useState<Record<string, any>>({});
@@ -43,8 +44,58 @@ export default function BuyerSettings() {
   const autoTasks = getVal('auto_create_tasks', true);
   const intentKeywords = getVal('intent_keywords', { high: [], medium: [], low: [] });
 
+  const distressWeights = getVal('distress_weights', DEFAULT_DISTRESS_WEIGHTS);
+  const [recalculating, setRecalculating] = useState(false);
+
+  const handleRecalc = async () => {
+    setRecalculating(true);
+    try {
+      const { error } = await supabase.functions.invoke('distress-score-recalc', { body: {} });
+      if (error) throw error;
+      toast.success('Distress scores recalculated');
+    } catch (err: any) { toast.error(err.message || 'Recalc failed'); }
+    setRecalculating(false);
+  };
+
+  const WEIGHT_LABELS: Record<string, string> = {
+    absentee_owner: 'Absentee Owner', vacant_flag: 'Vacant Property', tax_delinquent: 'Tax Delinquent',
+    high_equity: 'High Equity (≥40%)', free_and_clear: 'Free & Clear', pre_foreclosure: 'Pre-Foreclosure',
+    auction_status: 'Auction', out_of_state_owner: 'Out-of-State', years_owned_10plus: 'Long Ownership (10+ yrs)',
+    lien_count_2plus: 'Multiple Liens (2+)', probate_flag: 'Probate/Estate', vacant_land: 'Vacant Land',
+    corporate_owned: 'Corporate Owned', trust_owned: 'Trust Owned', inherited_flag: 'Inherited',
+    tax_lien: 'Tax Lien', county_buyer_match: 'County Buyer Match',
+  };
+
   return (
     <div className="space-y-4">
+      {/* Distress Score Weights */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Flame className="h-4 w-4" /> Distress Score Weights
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">Configure how much each distress factor contributes to the total score (0–100 cap).</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {Object.entries(WEIGHT_LABELS).map(([key, label]) => (
+              <div key={key} className="space-y-1">
+                <Label className="text-xs">{label}</Label>
+                <Input
+                  type="number"
+                  className="h-8 text-sm"
+                  value={distressWeights[key] ?? DEFAULT_DISTRESS_WEIGHTS[key as keyof typeof DEFAULT_DISTRESS_WEIGHTS] ?? 0}
+                  onChange={e => saveKey('distress_weights', { ...distressWeights, [key]: Number(e.target.value) })}
+                />
+              </div>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" onClick={handleRecalc} disabled={recalculating} className="mt-2">
+            {recalculating ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Recalculating…</> : 'Recalculate All Scores'}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Scoring Thresholds */}
       <Card>
         <CardHeader className="pb-3">
