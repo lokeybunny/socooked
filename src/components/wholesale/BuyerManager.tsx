@@ -262,18 +262,30 @@ export default function BuyerManager() {
                     <Input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+15551234567" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Deal Type</Label>
-                    <Select value={form.deal_type} onValueChange={v => set('deal_type', v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="land">🏞️ Land</SelectItem>
-                        <SelectItem value="home">🏠 Homes</SelectItem>
-                        <SelectItem value="multi_home"><span className="flex items-center gap-1.5"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span></SelectItem>
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-1.5">
+                  <Label>Deal Types Interested In *</Label>
+                  <div className="flex gap-4">
+                    {DEAL_TYPES.map(dt => (
+                      <label key={dt.key} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <Checkbox
+                          checked={form.deal_types.includes(dt.key)}
+                          onCheckedChange={(checked) => {
+                            setForm(p => {
+                              const next = checked
+                                ? [...p.deal_types, dt.key]
+                                : p.deal_types.filter(t => t !== dt.key);
+                              return { ...p, deal_types: next.length ? next : p.deal_types };
+                            });
+                          }}
+                        />
+                        {dt.key === 'multi_home' ? (
+                          <span className="flex items-center gap-1"><span className="relative flex items-center w-5 h-4"><Home className="h-3.5 w-3.5 text-purple-500 absolute left-0" /><Home className="h-3.5 w-3.5 text-purple-400 absolute left-1.5" /></span> Multi-Home</span>
+                        ) : dt.label}
+                      </label>
+                    ))}
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Source</Label>
                     <Select value={form.source} onValueChange={v => set('source', v)}>
@@ -283,6 +295,17 @@ export default function BuyerManager() {
                         <SelectItem value="reapi">REAPI</SelectItem>
                         <SelectItem value="referral">Referral</SelectItem>
                         <SelectItem value="facebook">Facebook</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Best Point of Contact</Label>
+                    <Select value={form.contact_preference} onValueChange={v => set('contact_preference', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="email">📧 Email</SelectItem>
+                        <SelectItem value="text">💬 Text</SelectItem>
+                        <SelectItem value="phone">📞 Phone Call</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
