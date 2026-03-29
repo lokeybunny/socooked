@@ -78,18 +78,29 @@ export default function SellerLanding() {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from('lw_landing_leads').insert({
+    const insertPayload = {
       landing_page_id: page.id,
       full_name: name.trim(),
       phone: phone.trim(),
       property_address: address.trim(),
-    });
+    };
+    const { error } = await supabase.from('lw_landing_leads').insert(insertPayload);
     setSubmitting(false);
     if (error) {
       console.error('Landing lead insert error:', error.message, error.details, error.code);
       toast.error('Something went wrong. Please try again.');
     } else {
       setSubmitted(true);
+      // Trigger Vapi AI call after 3 seconds via edge function (fire-and-forget)
+      setTimeout(async () => {
+        try {
+          await supabase.functions.invoke('vapi-outbound', {
+            body: { action: 'trigger_call', phone: insertPayload.phone, landing_page_id: page.id, full_name: insertPayload.full_name, property_address: insertPayload.property_address },
+          });
+        } catch (err) {
+          console.error('Vapi call trigger failed:', err);
+        }
+      }, 3000);
     }
   };
 
