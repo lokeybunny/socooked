@@ -297,7 +297,7 @@ export default function InvestorRobot() {
         camera={{ position: [0, 0.8, 9.6], fov: 36 }}
         gl={{ alpha: true, antialias: true }}
       >
-        <color attach="background" args={['#000000']} />
+        
         <ambientLight intensity={0.3} />
         <directionalLight position={[3, 5, 4]} intensity={1.2} color="#ffffff" />
         <directionalLight position={[-2, 3, -2]} intensity={0.4} color="#00e5ff" />
