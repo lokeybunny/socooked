@@ -136,6 +136,7 @@ export default function WarrenLanding() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showFunnelModal, setShowFunnelModal] = useState(false);
   const { scrollYProgress } = useScroll({ target: containerRef });
   const headerBg = useTransform(scrollYProgress, [0, 0.05], ['rgba(0,0,0,0)', 'rgba(0,0,0,0.8)']);
 

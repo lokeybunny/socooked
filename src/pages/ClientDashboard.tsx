@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
-  Home, LogOut, Phone, MapPin, Calendar, User, Download,
-  ChevronDown, ChevronUp, DollarSign, Loader2, Filter
+  Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
+  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -36,6 +37,13 @@ interface LandingPage {
 }
 
 const PIPELINE_STAGES = ['new', 'contacted', 'qualified', 'under_contract', 'closed'] as const;
+const STAGE_LABELS: Record<string, string> = {
+  new: 'New',
+  contacted: 'Contacted',
+  qualified: 'Qualified',
+  under_contract: 'Under Contract',
+  closed: 'Closed',
+};
 
 export default function ClientDashboard() {
   const { user, signOut, loading: authLoading } = useAuth();
@@ -46,6 +54,8 @@ export default function ClientDashboard() {
   const [expandedLead, setExpandedLead] = useState<string | null>(null);
   const [filterPage, setFilterPage] = useState<string>('all');
   const [filterStage, setFilterStage] = useState<string>('all');
+  const [editingLead, setEditingLead] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Lead>>({});
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -103,6 +113,74 @@ export default function ClientDashboard() {
 
     return () => { supabase.removeChannel(channel); };
   }, [landingPages, loadData]);
+
+  const updateLeadStatus = async (leadId: string, newStatus: string) => {
+    const { error } = await supabase
+      .from('lw_landing_leads')
+      .update({ status: newStatus })
+      .eq('id', leadId);
+    if (error) {
+      toast.error('Failed to update status');
+      return;
+    }
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: newStatus } : l));
+    toast.success(`Moved to ${STAGE_LABELS[newStatus]}`);
+  };
+
+  const startEditing = (lead: Lead) => {
+    setEditingLead(lead.id);
+    setEditForm({
+      full_name: lead.full_name,
+      phone: lead.phone,
+      property_address: lead.property_address,
+      motivation: lead.motivation || '',
+      timeline: lead.timeline || '',
+      asking_price: lead.asking_price,
+    });
+  };
+
+  const saveEdit = async (leadId: string) => {
+    const { error } = await supabase
+      .from('lw_landing_leads')
+      .update({
+        full_name: editForm.full_name,
+        phone: editForm.phone,
+        property_address: editForm.property_address,
+        motivation: editForm.motivation || null,
+        timeline: editForm.timeline || null,
+        asking_price: editForm.asking_price,
+      })
+      .eq('id', leadId);
+    if (error) {
+      toast.error('Failed to save changes');
+      return;
+    }
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...editForm } : l));
+    setEditingLead(null);
+    toast.success('Lead updated');
+  };
+
+  const downloadTranscript = (lead: Lead) => {
+    const content = [
+      `Lead: ${lead.full_name}`,
+      `Phone: ${lead.phone}`,
+      `Property: ${lead.property_address}`,
+      `Status: ${STAGE_LABELS[lead.status] || lead.status}`,
+      `Date: ${format(new Date(lead.created_at), 'MMM d, yyyy h:mm a')}`,
+      '',
+      '--- AI Conversation Notes ---',
+      '',
+      lead.ai_notes || '(No AI notes recorded)',
+    ].join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transcript-${lead.full_name.replace(/\s+/g, '-').toLowerCase()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const filteredLeads = leads.filter(l => {
     if (filterPage !== 'all' && l.landing_page_id !== filterPage) return false;
@@ -196,6 +274,7 @@ export default function ClientDashboard() {
           )}
           {filteredLeads.map(lead => {
             const isExpanded = expandedLead === lead.id;
+            const isEditing = editingLead === lead.id;
             const pageName = landingPages.find(p => p.id === lead.landing_page_id)?.slug || '—';
             return (
               <div key={lead.id} className="bg-white/5 rounded-xl border border-white/10 overflow-hidden">
@@ -227,34 +306,100 @@ export default function ClientDashboard() {
 
                 {isExpanded && (
                   <div className="border-t border-white/10 p-4 bg-white/[0.03] space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      {lead.motivation && (
-                        <div>
-                          <p className="text-xs text-white/40 mb-1">Motivation</p>
-                          <p className="text-sm font-medium text-white/80">{lead.motivation}</p>
-                        </div>
-                      )}
-                      {lead.timeline && (
-                        <div>
-                          <p className="text-xs text-white/40 mb-1">Timeline</p>
-                          <p className="text-sm font-medium text-white/80">{lead.timeline}</p>
-                        </div>
-                      )}
-                      {lead.asking_price != null && (
-                        <div>
-                          <p className="text-xs text-white/40 mb-1">Asking Price</p>
-                          <p className="text-sm font-medium text-white/80 flex items-center gap-1">
-                            <DollarSign className="h-3 w-3" />{Number(lead.asking_price).toLocaleString()}
-                          </p>
-                        </div>
-                      )}
-                      {lead.vapi_call_status && (
-                        <div>
-                          <p className="text-xs text-white/40 mb-1">AI Call Status</p>
-                          <StatusBadge status={lead.vapi_call_status} />
-                        </div>
-                      )}
+                    {/* Move pipeline stage */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-white/40 mr-1">Move to:</span>
+                      {PIPELINE_STAGES.map(stage => (
+                        <button
+                          key={stage}
+                          onClick={() => updateLeadStatus(lead.id, stage)}
+                          className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                            lead.status === stage
+                              ? 'bg-white/15 border-white/30 text-white'
+                              : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:border-white/20'
+                          }`}
+                        >
+                          {STAGE_LABELS[stage]}
+                        </button>
+                      ))}
                     </div>
+
+                    {/* Editable fields */}
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs text-white/40">Name</label>
+                            <Input value={editForm.full_name || ''} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} className="bg-white/5 border-white/10 text-white h-8 text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-white/40">Phone</label>
+                            <Input value={editForm.phone || ''} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} className="bg-white/5 border-white/10 text-white h-8 text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-white/40">Address</label>
+                            <Input value={editForm.property_address || ''} onChange={e => setEditForm(f => ({ ...f, property_address: e.target.value }))} className="bg-white/5 border-white/10 text-white h-8 text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-white/40">Motivation</label>
+                            <Input value={editForm.motivation || ''} onChange={e => setEditForm(f => ({ ...f, motivation: e.target.value }))} className="bg-white/5 border-white/10 text-white h-8 text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-white/40">Timeline</label>
+                            <Input value={editForm.timeline || ''} onChange={e => setEditForm(f => ({ ...f, timeline: e.target.value }))} className="bg-white/5 border-white/10 text-white h-8 text-sm" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-white/40">Asking Price</label>
+                            <Input type="number" value={editForm.asking_price ?? ''} onChange={e => setEditForm(f => ({ ...f, asking_price: e.target.value ? Number(e.target.value) : null }))} className="bg-white/5 border-white/10 text-white h-8 text-sm" />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => saveEdit(lead.id)} className="bg-white text-black hover:bg-white/90 h-7 text-xs">
+                            <Save className="h-3 w-3 mr-1" />Save
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditingLead(null)} className="text-white/40 hover:text-white h-7 text-xs">
+                            <X className="h-3 w-3 mr-1" />Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          {lead.motivation && (
+                            <div>
+                              <p className="text-xs text-white/40 mb-1">Motivation</p>
+                              <p className="text-sm font-medium text-white/80">{lead.motivation}</p>
+                            </div>
+                          )}
+                          {lead.timeline && (
+                            <div>
+                              <p className="text-xs text-white/40 mb-1">Timeline</p>
+                              <p className="text-sm font-medium text-white/80">{lead.timeline}</p>
+                            </div>
+                          )}
+                          {lead.asking_price != null && (
+                            <div>
+                              <p className="text-xs text-white/40 mb-1">Asking Price</p>
+                              <p className="text-sm font-medium text-white/80 flex items-center gap-1">
+                                <DollarSign className="h-3 w-3" />{Number(lead.asking_price).toLocaleString()}
+                              </p>
+                            </div>
+                          )}
+                          {lead.vapi_call_status && (
+                            <div>
+                              <p className="text-xs text-white/40 mb-1">AI Call Status</p>
+                              <StatusBadge status={lead.vapi_call_status} />
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => startEditing(lead)}
+                          className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white transition-colors"
+                        >
+                          <Edit2 className="h-3 w-3" />Edit Lead
+                        </button>
+                      </>
+                    )}
 
                     {lead.ai_notes && (
                       <div>
@@ -265,8 +410,18 @@ export default function ClientDashboard() {
                       </div>
                     )}
 
-                    {lead.vapi_recording_url && (
-                      <div>
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {lead.ai_notes && (
+                        <button
+                          onClick={() => downloadTranscript(lead)}
+                          className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white font-medium transition-colors"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Download AI Transcript
+                        </button>
+                      )}
+                      {lead.vapi_recording_url && (
                         <a
                           href={lead.vapi_recording_url}
                           download
@@ -277,8 +432,8 @@ export default function ClientDashboard() {
                           <Download className="h-4 w-4" />
                           Download Call Recording
                         </a>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
