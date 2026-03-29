@@ -1127,7 +1127,8 @@ Deno.serve(async (req) => {
 
     const processReadyBatch = async (readyEvents: any[], label: string) => {
       const results: any[] = [];
-      for (const ev of readyEvents) {
+      for (let i = 0; i < readyEvents.length; i++) {
+        const ev = readyEvents[i];
         const check = shouldSkipEvent(ev);
         if (check.skip) {
           console.log(`[smm-auto-publish] Skipping "${ev.title?.substring(0, 50)}" — ${check.reason}`);
@@ -1141,6 +1142,10 @@ Deno.serve(async (req) => {
             trackQueued(ev);
           }
           results.push({ event_id: ev.id, ...body });
+          // Inter-upload delay: prevent race conditions between consecutive uploads
+          if (i < readyEvents.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+          }
         } catch (uploadErr) {
           results.push({ event_id: ev.id, error: (uploadErr as Error).message });
           await notifyFailure(ev.title || ev.id, (uploadErr as Error).message, { event_id: ev.id });
