@@ -352,6 +352,7 @@ export default function ClientDashboard() {
         })()}
 
         {/* Section Description */}
+        {activeSection !== 'phone' && <>
         <p className="text-xs text-white/40 -mt-4">
           {activeSection === 'funnel'
             ? 'Leads submitted through your landing page funnel.'
