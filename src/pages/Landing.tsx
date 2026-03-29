@@ -1,15 +1,12 @@
-import { Suspense, lazy, useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
-import { ArrowRight, ArrowLeft, Globe, BarChart3, Sparkles, Layers, Monitor, DollarSign, X, DoorOpen, ChevronLeft, ChevronRight, ArrowUp } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ArrowRight, Globe, BarChart3, Sparkles, Layers, Monitor, DollarSign, X, DoorOpen, ChevronLeft, ChevronRight, ArrowUp } from 'lucide-react';
 
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import VideoPlayer from '@/components/landing/VideoPlayer';
 import PortfolioModal from '@/components/landing/PortfolioModal';
-
-const STU25Scene = lazy(() => import('@/components/three/STU25Scene'));
 
 const services = [
   {
@@ -50,8 +47,8 @@ export default function Landing() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeService, setActiveService] = useState<number | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [sceneReady, setSceneReady] = useState(false);
-  const [scrollEnabled, setScrollEnabled] = useState(false);
+  const [sceneReady, setSceneReady] = useState(true);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   const { scrollYProgress } = useScroll({ target: containerRef });
 
   // Only track scroll progress AFTER scroll has been enabled (post-load)
@@ -188,36 +185,10 @@ export default function Landing() {
         {/* Stacked layers — all position absolute, controlled by scroll */}
         <div className="flex-1 relative overflow-hidden">
 
-          {/* Layer 1: 3D Hero */}
-          <motion.div
-            className="absolute inset-0 flex flex-col items-center justify-center"
-            style={{ opacity: heroOpacity, scale: heroScale, y: heroY, pointerEvents: scrollProgress < 0.18 ? 'auto' : 'none' }}
-          >
-            <div className="w-full h-[40vh] sm:h-[50vh] md:h-[55vh] max-w-4xl px-4">
-              <Suspense fallback={<div className="h-full" />}>
-                <STU25Scene onReady={() => setSceneReady(true)} />
-              </Suspense>
-            </div>
-            {/* Scroll hint */}
-            <motion.div
-              className="absolute bottom-8 sm:bottom-12 flex flex-col items-center gap-2"
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <div className="w-px h-8 sm:h-10 bg-gradient-to-b from-transparent to-muted-foreground/70" />
-              <span className="text-[10px] sm:text-xs tracking-[0.3em] uppercase text-muted-foreground/70">Scroll</span>
-            </motion.div>
-          </motion.div>
-
-          {/* Layer 2: Tagline reveal */}
+          {/* Layer 1: Video Hero */}
           <motion.div
             className="absolute inset-0 flex flex-col items-center justify-center px-4 sm:px-6"
-            style={{ 
-              opacity: revealOpacity, 
-              y: revealY, 
-              pointerEvents: (scrollProgress > 0.20 && scrollProgress < 0.45) ? 'auto' : 'none',
-              visibility: (scrollProgress > 0.15 && scrollProgress < 0.50) ? 'visible' : 'hidden',
-            }}
+            style={{ opacity: heroOpacity, scale: heroScale, y: heroY, pointerEvents: scrollProgress < 0.18 ? 'auto' : 'none' }}
           >
             <p className="text-[9px] sm:text-[10px] md:text-xs tracking-[0.3em] sm:tracking-[0.4em] uppercase text-muted-foreground/60 mb-3 sm:mb-4">
               Web3 Brand Studio
@@ -228,6 +199,15 @@ export default function Landing() {
               <span className="text-muted-foreground">Launch It on Solana.</span>
             </h2>
             <VideoPlayer />
+            {/* Scroll hint */}
+            <motion.div
+              className="absolute bottom-8 sm:bottom-12 flex flex-col items-center gap-2"
+              animate={{ y: [0, 8, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <div className="w-px h-8 sm:h-10 bg-gradient-to-b from-transparent to-muted-foreground/70" />
+              <span className="text-[10px] sm:text-xs tracking-[0.3em] uppercase text-muted-foreground/70">Scroll</span>
+            </motion.div>
           </motion.div>
 
           {/* Layer 3: Services grid */}
