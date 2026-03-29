@@ -1,4 +1,4 @@
-import { useRef, Suspense, lazy } from 'react';
+import { useRef, useState, Suspense, lazy } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Navigate } from 'react-router-dom';
@@ -7,6 +7,8 @@ import {
   ChevronDown, Shield, Clock, Users, TrendingUp
 } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
+import { Play } from 'lucide-react';
+import aiTechThumb from '@/assets/landing/ai-tech-thumbnail.jpg';
 
 const InvestorRobot = lazy(() => import('@/components/three/InvestorRobot'));
 
@@ -221,6 +223,9 @@ export default function WarrenLanding() {
           </motion.p>
         </div>
       </section>
+
+      {/* ── Demo Video ── */}
+      <DemoVideoSection />
 
       {/* ── How It Works ── */}
       <section id="how-it-works" className="py-24 px-6 border-t border-white/[0.04]">
