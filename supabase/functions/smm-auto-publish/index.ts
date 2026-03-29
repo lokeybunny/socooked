@@ -914,6 +914,31 @@ Deno.serve(async (req) => {
     const forceAllToday = reqBody.force_all_today === true;
     const pushEventIds: string[] = Array.isArray(reqBody.push_event_ids) ? reqBody.push_event_ids : [];
 
+    // ── Global concurrency lock: prevent overlapping cron runs ──
+    if (!pushEventIds.length) {
+      const LOCK_KEY = "smm-auto-publish-lock";
+      const LOCK_TTL_MS = 90_000; // 90 seconds
+      const { data: lockRow } = await supabase
+        .from("lw_buyer_config")
+        .select("value, updated_at")
+        .eq("key", LOCK_KEY)
+        .maybeSingle();
+
+      const lockAge = lockRow?.updated_at
+        ? Date.now() - new Date(lockRow.updated_at).getTime()
+        : Infinity;
+
+      if (lockRow && lockAge < LOCK_TTL_MS) {
+        console.log(`[smm-auto-publish] Skipping — another run holds the lock (age: ${Math.round(lockAge / 1000)}s)`);
+        return json({ ok: true, published: 0, message: "Another run is in progress" });
+      }
+
+      // Acquire lock (upsert)
+      await supabase
+        .from("lw_buyer_config")
+        .upsert({ key: LOCK_KEY, value: { locked_at: new Date().toISOString(), run_id: crypto.randomUUID() }, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    }
+
     // --- Manual force-push specific events (bypasses all scheduling logic) ---
     if (pushEventIds.length > 0) {
       const results: any[] = [];
