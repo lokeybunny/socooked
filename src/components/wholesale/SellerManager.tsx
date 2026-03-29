@@ -778,16 +778,33 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
       {/* Owner Info */}
       <div>
         <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Owner Information</h4>
-        {(() => {
+        {editing ? (
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs text-muted-foreground">Name</label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Phone</label>
+              <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Email</label>
+              <Input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="h-8 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Mailing Address</label>
+              <Input value={editMailing} onChange={e => setEditMailing(e.target.value)} className="h-8 text-sm" />
+            </div>
+          </div>
+        ) : (() => {
           const isTraced = !!s.skip_traced_at;
           const traceResult = s.meta?.skip_trace_result;
           const rawTracedName = traceResult?.name || traceResult?.fullName
             || (traceResult?.firstName && traceResult?.lastName ? `${traceResult.firstName} ${traceResult.lastName}` : null);
-          // Trust the bestName from clipboard trace when available, otherwise recover from older raw blobs
           const clipTrace = s.meta?.clipboard_trace as { bestName?: string; names?: string[] } | undefined;
           const legacyRawNames = Array.isArray(clipTrace?.names) ? clipTrace.names.join('\n') : '';
           const clipBestName = clipTrace?.bestName || (legacyRawNames ? parseSkipTraceData(legacyRawNames).bestName : null);
-          // Pick the one best traced name to show
           const displayTracedName = rawTracedName || clipBestName;
           const displayName = s.owner_name || displayTracedName;
           const nameIsGold = !!displayName && (isTraced || !!displayTracedName);
@@ -801,18 +818,11 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
               {s.address_full && (() => {
-                // Build realtor.com style slug: "7481-W-Dewey-Dr_Las-Vegas_NV_89113"
-                const parts = s.address_full.split(',').map((p: string) => p.trim());
-                const street = (parts[0] || '').replace(/\s+/g, '-');
-                const city = (parts[1] || '').replace(/\s+/g, '-');
-                const stateZip = (parts[2] || '').trim().split(/\s+/);
-                const st = stateZip[0] || '';
-                const zip = stateZip[1] || '';
-                const slug = `${street}_${city}_${st}_${zip}`;
+                const searchQuery = encodeURIComponent(s.address_full);
                 return (
-                  <div className="pt-2">
+                  <div className="pt-2 flex justify-center">
                     <a
-                      href={`https://www.realtor.com/realestateandhomes-detail/${slug}`}
+                      href={`https://www.realtor.com/realestateandhomes-search/${searchQuery}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
@@ -911,16 +921,23 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
         </div>
       </div>
 
-      {/* Notes */}
-      {s.notes && (
-        <>
-          <Separator />
-          <div>
-            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Notes</h4>
-            <p className="text-sm whitespace-pre-wrap">{s.notes}</p>
-          </div>
-        </>
-      )}
+      {/* Notes — always visible, editable */}
+      <Separator />
+      <div>
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Internal Notes</h4>
+        {editing ? (
+          <Textarea
+            value={editNotes}
+            onChange={e => setEditNotes(e.target.value)}
+            placeholder="Add internal notes about this seller…"
+            className="min-h-[80px] text-sm"
+          />
+        ) : (
+          <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+            {s.notes || 'No notes yet — click Edit to add.'}
+          </p>
+        )}
+      </div>
 
       {/* Tags */}
       {s.tags && s.tags.length > 0 && (
