@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home } from 'lucide-react';
+import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home, Globe } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
+import LandingPageManager from '@/components/wholesale/LandingPageManager';
 import SellerManager from '@/components/wholesale/SellerManager';
 import DistressDashboard from '@/components/wholesale/DistressDashboard';
 import BuyerSellerMatches from '@/components/wholesale/BuyerSellerMatches';
@@ -171,6 +172,10 @@ export default function Wholesale() {
           {activeTab === 'buyers' && (
             <TabsTrigger value="sources" className="bg-sky-300/20 text-sky-600 data-[state=active]:bg-sky-400/25 data-[state=active]:text-sky-500">Discovery</TabsTrigger>
           )}
+          <TabsTrigger value="landing" className="gap-1.5">
+            <Globe className="h-3.5 w-3.5" />
+            Landing Pages
+          </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
