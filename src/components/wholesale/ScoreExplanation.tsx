@@ -142,6 +142,12 @@ export default function ScoreExplanation({ seller, buyers = [], weights, buyerDe
             <h5 className="text-xs font-semibold uppercase text-muted-foreground mb-2 flex items-center gap-1.5">
               <Target className="h-3.5 w-3.5" />
               Matched Buyers ({buyerMatches.length})
+              {clCity && (
+                <Badge variant="secondary" className="text-[10px] ml-1 gap-0.5">
+                  <MapPin className="h-2.5 w-2.5" />
+                  {clCity.label}, {clCity.state}
+                </Badge>
+              )}
             </h5>
             <div className="space-y-2">
               {pagedBuyers.map(b => (
