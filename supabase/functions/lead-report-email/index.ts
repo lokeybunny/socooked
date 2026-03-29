@@ -18,6 +18,27 @@ function base64url(data: Uint8Array): string {
     .replace(/=+$/, "");
 }
 
+/** Chunk-safe Uint8Array → base64 (avoids call stack overflow) */
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    for (let j = 0; j < chunk.length; j++) {
+      binary += String.fromCharCode(chunk[j]);
+    }
+  }
+  return btoa(binary);
+}
+
+/** Chunk-safe string → base64url for Gmail raw message */
+function stringToBase64url(str: string): string {
+  // Encode string to UTF-8 bytes first
+  const bytes = new TextEncoder().encode(str);
+  const b64 = uint8ToBase64(bytes);
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 async function getAccessToken(sa: any, scope: string): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(new TextEncoder().encode(JSON.stringify({ alg: "RS256", typ: "JWT" })));
