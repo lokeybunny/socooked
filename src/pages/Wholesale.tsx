@@ -315,63 +315,8 @@ export default function Wholesale() {
           </Card>
         </TabsContent>
 
-        {/* Tab 3: Demand Map */}
         <TabsContent value="demand" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Buyer Demand by County
-                <Badge variant="outline" className="ml-auto">{demandSignals.length} counties</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {demandSignals.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No demand signals yet</p>
-                  <p className="text-xs mt-1">Demand is calculated from active buyer preferences</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Rank</TableHead>
-                      <TableHead>County</TableHead>
-                      <TableHead>State</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Active Buyers</TableHead>
-                      <TableHead>Avg Budget</TableHead>
-                      <TableHead>Acreage Range</TableHead>
-                      <TableHead>Last Refreshed</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {demandSignals.map((sig) => (
-                      <TableRow key={sig.id}>
-                        <TableCell className="font-mono text-sm font-bold">#{sig.demand_rank || '—'}</TableCell>
-                        <TableCell className="font-medium">{sig.county}</TableCell>
-                        <TableCell>{sig.state}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-[10px]">
-                            {sig.deal_type === 'land' ? '🏞️' : '🏠'} {sig.deal_type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-semibold">{sig.buyer_count}</TableCell>
-                        <TableCell>{sig.avg_budget ? `$${Number(sig.avg_budget).toLocaleString()}` : '—'}</TableCell>
-                        <TableCell className="text-sm">
-                          {sig.avg_acreage_min != null ? `${sig.avg_acreage_min}–${sig.avg_acreage_max || '∞'} ac` : '—'}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {sig.last_refreshed_at ? new Date(sig.last_refreshed_at).toLocaleDateString() : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+          <BuyerSellerMatches />
         </TabsContent>
         {/* Tab 4: Buyers */}
         <TabsContent value="buyers" className="mt-4">
