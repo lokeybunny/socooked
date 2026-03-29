@@ -1,16 +1,27 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Float, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 
 function RobotBody() {
   const groupRef = useRef<THREE.Group>(null);
+  const [blinking, setBlinking] = useState(false);
 
   useFrame((state) => {
     if (groupRef.current) {
       groupRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.3) * 0.15;
     }
   });
+
+  // Blink loop
+  useEffect(() => {
+    const blink = () => {
+      setBlinking(true);
+      setTimeout(() => setBlinking(false), 150);
+    };
+    const interval = setInterval(blink, 3000 + Math.random() * 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   const suitColor = '#0a1a3a';
   const suitLight = '#0e2250';
