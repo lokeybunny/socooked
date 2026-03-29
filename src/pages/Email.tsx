@@ -93,6 +93,7 @@ export default function EmailPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [emails, setEmails] = useState<GmailEmail[]>([]);
+  const [crmDrafts, setCrmDrafts] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
