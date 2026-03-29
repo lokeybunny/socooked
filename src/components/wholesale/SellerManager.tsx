@@ -255,6 +255,8 @@ export default function SellerManager() {
       toast.error('County and State are required');
       return;
     }
+    const controller = new AbortController();
+    abortRef.current = controller;
     setFetching(true);
     try {
       const types = fetchDealType === 'both' ? ['land', 'home'] : [fetchDealType];
@@ -286,6 +288,7 @@ export default function SellerManager() {
       }
 
       for (const dt of types) {
+        if (controller.signal.aborted) break;
         const { data, error } = await supabase.functions.invoke('land-reapi-search', {
           body: {
             county: fetchCounty.trim(),
@@ -295,11 +298,16 @@ export default function SellerManager() {
             ...(distressMode ? { distress_filters: df } : {}),
           },
         });
+        if (controller.signal.aborted) break;
         if (error) throw error;
         totalFetched += data?.records_fetched || 0;
         totalNew += data?.records_new || 0;
       }
-      toast.success(`Fetched ${totalFetched} properties, ${totalNew} new`);
+      if (controller.signal.aborted) {
+        toast.info('Search stopped');
+      } else {
+        toast.success(`Fetched ${totalFetched} properties, ${totalNew} new`);
+      }
       // Mark fetch timestamp for green highlight (auto-clears after 5 min)
       const now = new Date().toISOString();
       setLastFetchAt(now);
@@ -309,7 +317,14 @@ export default function SellerManager() {
     } catch (err: any) {
       toast.error(err.message || 'Fetch failed');
     }
+    abortRef.current = null;
     setFetching(false);
+  };
+
+  const stopFetch = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
   };
 
   const availableStates = useMemo(() => {
