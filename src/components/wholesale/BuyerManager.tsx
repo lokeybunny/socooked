@@ -35,12 +35,18 @@ type Buyer = {
   meta: any;
 };
 
+const DEAL_TYPES = [
+  { key: 'land', label: '🏞️ Land' },
+  { key: 'home', label: '🏠 Homes' },
+  { key: 'multi_home', label: 'Multi-Home' },
+];
+
 const emptyForm = {
   full_name: '',
   email: '',
   phone: '',
   entity_name: '',
-  deal_type: 'land',
+  deal_types: ['land'] as string[],
   target_states: '',
   target_counties: '',
   budget_min: '',
@@ -50,6 +56,9 @@ const emptyForm = {
   activity_score: '50',
   notes: '',
   source: 'manual',
+  closing_speed: '',
+  contact_preference: 'email',
+  website: '',
 };
 
 export default function BuyerManager() {
