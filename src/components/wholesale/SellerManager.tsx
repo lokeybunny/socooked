@@ -251,13 +251,49 @@ export default function SellerManager() {
         (s.apn || '').toLowerCase().includes(q)
       );
     }
+    // Advanced distress filters
+    const df = distressFilters;
+    if (df.isAbsentee) list = list.filter(s => s.is_absentee_owner);
+    if (df.isOutOfState) list = list.filter(s => s.is_out_of_state);
+    if (df.isCorporate) list = list.filter(s => s.is_corporate_owned);
+    if (df.isTrustOwned) list = list.filter(s => s.trust_owned);
+    if (df.isTaxDelinquent) list = list.filter(s => s.is_tax_delinquent);
+    if (df.hasTaxLien) list = list.filter(s => s.has_tax_lien);
+    if (df.isFreeAndClear) list = list.filter(s => s.free_and_clear);
+    if (df.isPreForeclosure) list = list.filter(s => s.is_pre_foreclosure);
+    if (df.isProbate) list = list.filter(s => s.probate_flag);
+    if (df.isInherited) list = list.filter(s => s.inherited_flag);
+    if (df.isVacant) list = list.filter(s => s.is_vacant);
+    if (df.minYearsOwned != null) list = list.filter(s => (s.years_owned || 0) >= df.minYearsOwned!);
+    if (df.maxYearsOwned != null) list = list.filter(s => (s.years_owned || 0) <= df.maxYearsOwned!);
+    if (df.minEquity != null) list = list.filter(s => (s.equity_percent || 0) >= df.minEquity!);
+    if (df.minLienCount != null) list = list.filter(s => (s.lien_count || 0) >= df.minLienCount!);
+    if (df.minAcreage != null) list = list.filter(s => (s.acreage || 0) >= df.minAcreage!);
+    if (df.maxAcreage != null) list = list.filter(s => (s.acreage || 0) <= df.maxAcreage!);
+    if (df.minMotivation != null) list = list.filter(s => (s.motivation_score || 0) >= df.minMotivation!);
+    if (df.minBuyerMatch != null) list = list.filter(s => (s.buyer_match_score || 0) >= df.minBuyerMatch!);
+    if (df.minOpportunity != null) list = list.filter(s => (s.opportunity_score || 0) >= df.minOpportunity!);
+    if (df.leadTemperature) {
+      list = list.filter(s => {
+        const score = s.motivation_score || 0;
+        if (df.leadTemperature === 'Hot') return score >= 70;
+        if (df.leadTemperature === 'Warm') return score >= 45 && score < 70;
+        return score < 45;
+      });
+    }
+    if (df.skipTraceStatus) list = list.filter(s => (s.skip_trace_status || 'not_ready') === df.skipTraceStatus);
+    if (df.stage) list = list.filter(s => s.status === df.stage);
+    if (df.dealType) list = list.filter(s => (s.deal_type || 'land') === df.dealType);
+    if (df.auctionStatus && df.auctionStatus !== 'none') list = list.filter(s => s.auction_status === df.auctionStatus);
+    else if (df.auctionStatus === 'none') list = list.filter(s => !s.auction_status);
+
     list.sort((a, b) => {
       const av = a[sortField] ?? 0;
       const bv = b[sortField] ?? 0;
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
     });
     return list;
-  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc]);
+  }, [sellers, stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc, distressFilters]);
 
   useEffect(() => { setPage(1); }, [stateFilter, stageFilter, dealTypeFilter, search, sortField, sortAsc]);
 
