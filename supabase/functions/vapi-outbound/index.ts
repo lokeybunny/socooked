@@ -200,7 +200,14 @@ IMPORTANT: At the end of the call, summarize your findings clearly.`,
       const transcript = call.transcript || call.artifact?.transcript || "";
       const summary = call.summary || call.artifact?.summary || call.analysis?.summary || "";
       const recordingUrl = call.recordingUrl || call.artifact?.recordingUrl || null;
-      const duration = call.duration || call.costBreakdown?.duration || 0;
+      // Compute duration: prefer explicit field, fall back to timestamp diff
+      let duration = call.duration || call.costBreakdown?.duration || 0;
+      if (!duration && call.startedAt && call.endedAt) {
+        duration = (new Date(call.endedAt).getTime() - new Date(call.startedAt).getTime()) / 1000;
+      }
+      if (!duration && call.artifact?.duration) {
+        duration = call.artifact.duration;
+      }
       const costCents = Math.round((call.cost || 0) * 100);
 
       const callEnded = status === "ended";

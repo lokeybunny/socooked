@@ -195,7 +195,14 @@ serve(async (req) => {
       const summary = message.summary || "";
       const recordingUrl = message.recordingUrl || null;
       const endedReason = message.endedReason || "unknown";
-      const duration = message.call?.duration || 0;
+      // Compute duration: prefer explicit field, fall back to timestamp diff
+      let duration = message.call?.duration || message.duration || 0;
+      if (!duration && message.startedAt && message.endedAt) {
+        duration = (new Date(message.endedAt).getTime() - new Date(message.startedAt).getTime()) / 1000;
+      }
+      if (!duration && message.call?.startedAt && message.call?.endedAt) {
+        duration = (new Date(message.call.endedAt).getTime() - new Date(message.call.startedAt).getTime()) / 1000;
+      }
 
       // ─── Calculate call cost and deduct from credits ───
       const costBreakdown = message.cost ?? message.costBreakdown?.total ?? 0;
