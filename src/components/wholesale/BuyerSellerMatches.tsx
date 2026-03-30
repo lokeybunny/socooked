@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Heart, Users, RefreshCw } from 'lucide-react';
+import { Heart, Users, RefreshCw, Phone, Mail, MapPin, Home, DollarSign, Calendar, Building2, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -119,10 +120,254 @@ function computeMatchScore(buyer: any, seller: any): { score: number; reasons: s
   return { score, reasons };
 }
 
+/* ─── Detail helpers ─── */
+const CopyBtn = ({ text }: { text: string }) => (
+  <button
+    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(text); toast.success('Copied'); }}
+    className="ml-1 inline-flex text-muted-foreground hover:text-foreground"
+  >
+    <Copy className="h-3 w-3" />
+  </button>
+);
+
+const Row = ({ icon: Icon, label, value, copyable }: { icon?: any; label: string; value: any; copyable?: boolean }) => {
+  if (value == null || value === '' || value === 'N/A') return null;
+  const display = String(value);
+  return (
+    <div className="flex items-start gap-2 text-sm py-1">
+      {Icon && <Icon className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />}
+      <span className="text-muted-foreground shrink-0 min-w-[100px]">{label}</span>
+      <span className="font-medium break-all">{display}</span>
+      {copyable && <CopyBtn text={display} />}
+    </div>
+  );
+};
+
+const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="space-y-1">
+    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b border-border pb-1 pt-3">{title}</h4>
+    {children}
+  </div>
+);
+
+/* ─── Buyer Detail Popup ─── */
+function BuyerDetailPopup({ buyer, open, onClose }: { buyer: any; open: boolean; onClose: () => void }) {
+  if (!buyer) return null;
+  const meta: any = buyer.meta || {};
+  const interests: any = meta.interests || {};
+  const allPhones: string[] = meta.all_phones || [];
+  const allEmails: string[] = meta.all_emails || [];
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            {buyer.full_name}
+          </DialogTitle>
+        </DialogHeader>
+
+        <Section title="Contact">
+          <Row icon={Phone} label="Phone" value={buyer.phone} copyable />
+          {allPhones.filter((p: string) => p !== buyer.phone).map((p: string, i: number) => (
+            <Row key={i} icon={Phone} label={`Phone ${i + 2}`} value={p} copyable />
+          ))}
+          <Row icon={Mail} label="Email" value={buyer.email} copyable />
+          {allEmails.filter((e: string) => e !== buyer.email).map((e: string, i: number) => (
+            <Row key={i} icon={Mail} label={`Email ${i + 2}`} value={e} copyable />
+          ))}
+          <Row icon={Building2} label="Entity" value={buyer.entity_name} />
+          <Row icon={MapPin} label="City" value={buyer.city} />
+        </Section>
+
+        <Section title="Pipeline & Status">
+          <Row label="Status" value={buyer.status} />
+          <Row label="Pipeline Stage" value={buyer.pipeline_stage} />
+          <Row label="Intent Level" value={buyer.intent_level} />
+          <Row label="Buyer Type" value={buyer.buyer_type} />
+          <Row label="Deal Type" value={buyer.deal_type} />
+          <Row label="Source" value={buyer.source} />
+          {buyer.source_url && <Row label="Source URL" value={buyer.source_url} />}
+        </Section>
+
+        <Section title="Buying Criteria">
+          <Row icon={MapPin} label="Target States" value={(buyer.target_states || []).join(', ')} />
+          <Row icon={MapPin} label="Target Counties" value={(buyer.target_counties || []).join(', ')} />
+          <Row icon={DollarSign} label="Budget" value={buyer.budget_max ? `$${Number(buyer.budget_min || 0).toLocaleString()} – $${Number(buyer.budget_max).toLocaleString()}` : null} />
+          <Row label="Acreage" value={buyer.acreage_min != null || buyer.acreage_max != null ? `${buyer.acreage_min ?? 0} – ${buyer.acreage_max ?? '∞'} ac` : null} />
+          <Row label="Prop Types" value={(interests.property_types || buyer.property_type_interest || []).join(', ')} />
+          <Row label="Zoning" value={(buyer.target_zoning || []).join(', ')} />
+          {interests.min_bedrooms && <Row label="Min Beds" value={interests.min_bedrooms} />}
+          {interests.motivation_flags?.length > 0 && <Row label="Motivation Flags" value={interests.motivation_flags.join(', ')} />}
+        </Section>
+
+        <Section title="Scores & Activity">
+          <Row label="Buyer Score" value={buyer.buyer_score} />
+          <Row label="Activity Score" value={buyer.activity_score} />
+          <Row label="Confidence" value={buyer.confidence_score} />
+          <Row label="Purchase Count" value={buyer.purchase_count} />
+          <Row label="Last Purchase" value={buyer.last_purchase_date ? new Date(buyer.last_purchase_date).toLocaleDateString() : null} />
+          <Row label="Last Signal" value={buyer.last_seen_signal ? new Date(buyer.last_seen_signal).toLocaleDateString() : null} />
+        </Section>
+
+        {(buyer.intent_summary || buyer.notes) && (
+          <Section title="Notes">
+            {buyer.intent_summary && <p className="text-sm text-muted-foreground">{buyer.intent_summary}</p>}
+            {buyer.notes && <p className="text-sm">{buyer.notes}</p>}
+          </Section>
+        )}
+
+        <Section title="Dates">
+          <Row icon={Calendar} label="Created" value={new Date(buyer.created_at).toLocaleDateString()} />
+          <Row icon={Calendar} label="Updated" value={new Date(buyer.updated_at).toLocaleDateString()} />
+        </Section>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── Seller Detail Popup ─── */
+function SellerDetailPopup({ seller, open, onClose }: { seller: any; open: boolean; onClose: () => void }) {
+  if (!seller) return null;
+  const meta: any = seller.meta || {};
+  const allPhones: string[] = meta.all_phones || [];
+  const allEmails: string[] = meta.all_emails || [];
+
+  const distressFlags: string[] = [];
+  if (seller.is_tax_delinquent) distressFlags.push('Tax Delinquent');
+  if (seller.is_pre_foreclosure) distressFlags.push('Pre-Foreclosure');
+  if (seller.is_vacant) distressFlags.push('Vacant');
+  if (seller.is_absentee_owner) distressFlags.push('Absentee Owner');
+  if (seller.probate_flag) distressFlags.push('Probate');
+  if (seller.inherited_flag) distressFlags.push('Inherited');
+  if (seller.free_and_clear) distressFlags.push('Free & Clear');
+  if (seller.has_tax_lien) distressFlags.push('Tax Lien');
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Home className="h-5 w-5 text-primary" />
+            {seller.address_full || seller.owner_name || 'Seller Lead'}
+          </DialogTitle>
+        </DialogHeader>
+
+        <Section title="Owner Contact">
+          <Row label="Owner Name" value={seller.owner_name} copyable />
+          <Row icon={Phone} label="Phone" value={seller.owner_phone} copyable />
+          {allPhones.filter((p: string) => p !== seller.owner_phone).map((p: string, i: number) => (
+            <Row key={i} icon={Phone} label={`Phone ${i + 2}`} value={p} copyable />
+          ))}
+          <Row icon={Mail} label="Email" value={seller.owner_email} copyable />
+          {allEmails.filter((e: string) => e !== seller.owner_email).map((e: string, i: number) => (
+            <Row key={i} icon={Mail} label={`Email ${i + 2}`} value={e} copyable />
+          ))}
+          <Row icon={MapPin} label="Mailing Address" value={seller.owner_mailing_address} copyable />
+          <Row label="Owner Occupied" value={seller.owner_occupied != null ? (seller.owner_occupied ? 'Yes' : 'No') : null} />
+        </Section>
+
+        <Section title="Property Details">
+          <Row icon={MapPin} label="Address" value={seller.address_full} copyable />
+          <Row label="City / State / ZIP" value={[seller.city, seller.state, seller.zip].filter(Boolean).join(', ')} />
+          <Row label="County" value={seller.county} />
+          <Row label="APN" value={seller.apn} copyable />
+          <Row label="Type" value={seller.property_type} />
+          <Row label="Acreage" value={seller.acreage != null ? `${seller.acreage} ac` : null} />
+          <Row label="Lot SqFt" value={seller.lot_sqft != null ? Number(seller.lot_sqft).toLocaleString() : null} />
+          <Row label="Living SqFt" value={seller.living_sqft != null ? Number(seller.living_sqft).toLocaleString() : null} />
+          <Row label="Beds" value={seller.bedrooms} />
+          <Row label="Baths" value={seller.bathrooms} />
+          <Row label="Zoning" value={seller.zoning} />
+        </Section>
+
+        <Section title="Financials">
+          <Row icon={DollarSign} label="Asking Price" value={seller.asking_price != null ? `$${Number(seller.asking_price).toLocaleString()}` : null} />
+          <Row label="Assessed Value" value={seller.assessed_value != null ? `$${Number(seller.assessed_value).toLocaleString()}` : null} />
+          <Row label="Market Value" value={seller.market_value != null ? `$${Number(seller.market_value).toLocaleString()}` : null} />
+          <Row label="Estimated Offer" value={seller.estimated_offer != null ? `$${Number(seller.estimated_offer).toLocaleString()}` : null} />
+          <Row label="Equity" value={seller.equity_percent != null ? `${seller.equity_percent}%` : null} />
+        </Section>
+
+        <Section title="Distress & Scoring">
+          <Row label="Motivation Score" value={seller.motivation_score} />
+          <Row label="Opportunity Score" value={seller.opportunity_score} />
+          <Row label="Distress Grade" value={seller.distress_grade} />
+          <Row label="Lead Temp" value={seller.lead_temperature} />
+          {distressFlags.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {distressFlags.map((f) => (
+                <Badge key={f} variant="outline" className="text-[10px]">{f}</Badge>
+              ))}
+            </div>
+          )}
+        </Section>
+
+        <Section title="Status & Pipeline">
+          <Row label="Status" value={seller.status} />
+          <Row label="Deal Type" value={seller.deal_type} />
+          <Row label="Source" value={seller.source} />
+          <Row label="Skip Trace" value={seller.skip_trace_status} />
+          <Row label="Contacted" value={seller.contacted_at ? new Date(seller.contacted_at).toLocaleDateString() : null} />
+        </Section>
+
+        {(seller.notes || seller.condition_notes) && (
+          <Section title="Notes">
+            {seller.condition_notes && <p className="text-sm text-muted-foreground">{seller.condition_notes}</p>}
+            {seller.notes && <p className="text-sm">{seller.notes}</p>}
+          </Section>
+        )}
+
+        {/* Free lookup shortcuts */}
+        <Section title="Free Lookup Shortcuts">
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {seller.owner_name && (
+              <a
+                href={`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(seller.owner_name)}&citystatezip=${encodeURIComponent([seller.city, seller.state].filter(Boolean).join(', '))}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs bg-muted hover:bg-accent rounded px-2 py-1.5"
+              >
+                <ExternalLink className="h-3 w-3" /> TruePeopleSearch
+              </a>
+            )}
+            {seller.owner_phone && (
+              <a
+                href={`https://www.dataleads.com/reverse-phone/${seller.owner_phone.replace(/\D/g, '')}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs bg-muted hover:bg-accent rounded px-2 py-1.5"
+              >
+                <ExternalLink className="h-3 w-3" /> DataToLeads
+              </a>
+            )}
+            {seller.address_full && (
+              <a
+                href={`https://app.propstream.com/`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs bg-muted hover:bg-accent rounded px-2 py-1.5"
+                onClick={() => { navigator.clipboard.writeText(seller.address_full); toast.success('Address copied for PropStream'); }}
+              >
+                <ExternalLink className="h-3 w-3" /> PropStream
+              </a>
+            )}
+          </div>
+        </Section>
+
+        <Section title="Dates">
+          <Row icon={Calendar} label="Created" value={new Date(seller.created_at).toLocaleDateString()} />
+          <Row icon={Calendar} label="Updated" value={new Date(seller.updated_at).toLocaleDateString()} />
+        </Section>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function BuyerSellerMatches() {
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [detailBuyer, setDetailBuyer] = useState<any>(null);
+  const [detailSeller, setDetailSeller] = useState<any>(null);
   const PER_PAGE = 25;
 
   const loadMatches = async () => {
@@ -215,22 +460,28 @@ export default function BuyerSellerMatches() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <span className="font-medium text-sm">{m.buyer.full_name}</span>
+                        <button
+                          onClick={() => setDetailBuyer(m.buyer)}
+                          className="text-left hover:underline decoration-primary underline-offset-2"
+                        >
+                          <span className="font-medium text-sm text-primary">{m.buyer.full_name}</span>
                           {m.buyer.entity_name && <span className="text-xs text-muted-foreground block">{m.buyer.entity_name}</span>}
                           <span className="text-xs text-muted-foreground block">{(m.buyer.target_states || []).join(', ')}</span>
-                        </div>
+                        </button>
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <span className="text-sm font-medium">{m.seller.address_full || '—'}</span>
+                        <button
+                          onClick={() => setDetailSeller(m.seller)}
+                          className="text-left hover:underline decoration-primary underline-offset-2"
+                        >
+                          <span className="text-sm font-medium text-primary">{m.seller.address_full || '—'}</span>
                           <span className="text-xs text-muted-foreground block">
                             {m.seller.city}, {m.seller.state} {m.seller.zip}
                           </span>
                           <span className="text-xs text-muted-foreground block">
                             {m.seller.acreage ? `${m.seller.acreage} ac` : ''} {m.seller.property_type || ''}
                           </span>
-                        </div>
+                        </button>
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         {(m.seller.asking_price || m.seller.market_value || m.seller.assessed_value)
@@ -285,6 +536,9 @@ export default function BuyerSellerMatches() {
           </>
         )}
       </CardContent>
+
+      <BuyerDetailPopup buyer={detailBuyer} open={!!detailBuyer} onClose={() => setDetailBuyer(null)} />
+      <SellerDetailPopup seller={detailSeller} open={!!detailSeller} onClose={() => setDetailSeller(null)} />
     </Card>
   );
 }
