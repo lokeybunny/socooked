@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, CheckCircle, SkipForward, MapPin, Users, Building2, DollarSign, TrendingUp, Plus, Search, ArrowUpDown, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home, Globe, UserCheck } from 'lucide-react';
+import { MapPin, Users, Building2, DollarSign, TrendingUp, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home, Globe, UserCheck, Bot } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
@@ -17,6 +17,7 @@ import DistressDashboard from '@/components/wholesale/DistressDashboard';
 import BuyerSellerMatches from '@/components/wholesale/BuyerSellerMatches';
 import LeadsManager from '@/components/wholesale/LeadsManager';
 import VapiSpendDashboard from '@/components/wholesale/VapiSpendDashboard';
+import SubscriberAI from '@/components/wholesale/SubscriberAI';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home' | 'multi_home';
@@ -24,7 +25,7 @@ type DealType = 'all' | 'land' | 'home' | 'multi_home';
 export default function Wholesale() {
   const [dealTypeFilter, setDealTypeFilter] = useState<DealType>('all');
   const [activeTab, setActiveTab] = useState('intelligence');
-  const [callQueue, setCallQueue] = useState<any[]>([]);
+  
   const [deals, setDeals] = useState<any[]>([]);
   const [demandSignals, setDemandSignals] = useState<any[]>([]);
   const [stats, setStats] = useState({ buyers: 0, sellers: 0, sellersUnderContract: 0, dealsMonth: 0, apiSpend: 0, avgMatch: 0 });
@@ -36,16 +37,10 @@ export default function Wholesale() {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([loadCallQueue(), loadDeals(), loadDemandSignals(), loadStats()]);
+    await Promise.all([loadDeals(), loadDemandSignals(), loadStats()]);
     setLoading(false);
   };
 
-  const loadCallQueue = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    let query = supabase.from('lw_call_queue').select('*').eq('queue_date', today).order('call_priority', { ascending: true });
-    const { data } = await query;
-    setCallQueue(data || []);
-  };
 
   const loadDeals = async () => {
     let query = supabase.from('lw_deals').select('*, lw_sellers(*), lw_buyers(*)').order('match_score', { ascending: false });
@@ -88,19 +83,6 @@ export default function Wholesale() {
     });
   };
 
-  const markCalled = async (id: string) => {
-    await supabase.from('lw_call_queue').update({ status: 'called', called_at: new Date().toISOString() }).eq('id', id);
-    toast.success('Marked as called');
-    loadCallQueue();
-  };
-
-  const skipCall = async (id: string) => {
-    await supabase.from('lw_call_queue').update({ status: 'skipped' }).eq('id', id);
-    toast('Call skipped');
-    loadCallQueue();
-  };
-
-  const pendingCalls = callQueue.filter(c => c.status === 'pending').length;
 
   const stageColors: Record<string, string> = {
     matched: 'bg-muted text-muted-foreground',
@@ -152,11 +134,9 @@ export default function Wholesale() {
             <BarChart3 className="h-3.5 w-3.5" />
             Intelligence
           </TabsTrigger>
-          <TabsTrigger value="calls" className="relative">
-            Daily Call List
-            {pendingCalls > 0 && (
-              <Badge variant="destructive" className="ml-2 text-[10px] px-1.5 py-0">{pendingCalls}</Badge>
-            )}
+          <TabsTrigger value="subscriber-ai" className="gap-1.5">
+            <Bot className="h-3.5 w-3.5 text-primary" />
+            Subscriber AI
           </TabsTrigger>
           <TabsTrigger value="pipeline">Deal Pipeline</TabsTrigger>
           <TabsTrigger value="demand" className="gap-1.5">
@@ -195,82 +175,9 @@ export default function Wholesale() {
           <DistressDashboard />
         </TabsContent>
 
-        {/* Tab 1: Call List */}
-        <TabsContent value="calls" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Phone className="h-4 w-4" />
-                Today's Call Queue
-                <Badge variant="outline" className="ml-auto">{pendingCalls} remaining</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {callQueue.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Phone className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No calls queued for today</p>
-                  <p className="text-xs mt-1">Run the matching engine to generate your daily call list</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50px]">#</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Property</TableHead>
-                      <TableHead>Motivation</TableHead>
-                      <TableHead>Match</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {callQueue.map((call) => (
-                      <TableRow key={call.id} className={call.status !== 'pending' ? 'opacity-50' : ''}>
-                        <TableCell className="font-mono text-xs">{call.call_priority}</TableCell>
-                        <TableCell className="font-medium">{call.owner_name || '—'}</TableCell>
-                        <TableCell>
-                          {call.owner_phone ? (
-                            <a href={`tel:${call.owner_phone}`} className="text-primary hover:underline text-sm">
-                              {call.owner_phone}
-                            </a>
-                          ) : <span className="text-amber-500 text-xs font-medium">Phone # TBA</span>}
-                        </TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate">{call.property_address || '—'}</TableCell>
-                        <TableCell>
-                          <ScoreBadge value={call.motivation_score} />
-                        </TableCell>
-                        <TableCell>
-                          <ScoreBadge value={call.match_score} />
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">{call.reason}</TableCell>
-                        <TableCell>
-                          <Badge variant={call.status === 'pending' ? 'default' : 'secondary'} className="text-[10px]">
-                            {call.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {call.status === 'pending' && (
-                            <div className="flex gap-1 justify-end">
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => markCalled(call.id)}>
-                                <CheckCircle className="h-3.5 w-3.5 text-green-500" />
-                              </Button>
-                              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => skipCall(call.id)}>
-                                <SkipForward className="h-3.5 w-3.5 text-muted-foreground" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
+        {/* Subscriber AI */}
+        <TabsContent value="subscriber-ai" className="mt-4">
+          <SubscriberAI />
         </TabsContent>
 
         {/* Tab 2: Deal Pipeline */}
