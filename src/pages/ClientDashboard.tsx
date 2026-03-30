@@ -692,11 +692,23 @@ export default function ClientDashboard() {
 
         {/* Section Description */}
         {activeSection !== 'phone' && activeSection !== 'drafts' && <>
-        <p className="text-xs text-white/40 -mt-4">
-          {activeSection === 'funnel'
-            ? 'Leads submitted through your landing page funnel.'
-            : 'Matched distressed property leads from the Realtor API — delivered weekly.'}
-        </p>
+        <div className="flex items-center justify-between -mt-4">
+          <p className="text-xs text-white/40">
+            {activeSection === 'funnel'
+              ? 'Leads submitted through your landing page funnel.'
+              : 'Matched distressed property leads from the Realtor API — delivered weekly.'}
+          </p>
+          {activeSection === 'hot' && (
+            <button
+              onClick={enrichAllHotLeads}
+              disabled={batchEnriching}
+              className="inline-flex items-center gap-2 text-xs font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {batchEnriching ? <Loader2 className="h-3 w-3 animate-spin" /> : <TrendingUp className="h-3 w-3" />}
+              {batchEnriching ? 'Enriching...' : 'Enrich All Properties'}
+            </button>
+          )}
+        </div>
 
         {/* Pipeline Overview */}
         <div>
