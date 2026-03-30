@@ -125,6 +125,54 @@ export type Database = {
           },
         ]
       }
+      apify_blocked_workers: {
+        Row: {
+          actor_shortcode: string
+          blocked_at: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          actor_shortcode: string
+          blocked_at?: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          actor_shortcode?: string
+          blocked_at?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      apify_config: {
+        Row: {
+          api_key: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       automations: {
         Row: {
           actions: Json
