@@ -67,6 +67,7 @@ export default function LeadsManager() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
   const [analyzing, setAnalyzing] = useState<string | null>(null);
+  const [pushingReport, setPushingReport] = useState<string | null>(null);
 
   useEffect(() => {
     loadLeads();
@@ -575,6 +576,32 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
                   <p className="text-sm mt-1">{selectedLead.notes || '—'}</p>
                 )}
               </div>
+
+              {/* Push to Client Email */}
+              {!editing && (
+                <Button
+                  className="w-full gap-2"
+                  variant="outline"
+                  disabled={pushingReport === selectedLead.id}
+                  onClick={async () => {
+                    setPushingReport(selectedLead.id);
+                    try {
+                      const { data, error } = await supabase.functions.invoke('lead-report-email', {
+                        body: { lead_id: selectedLead.id },
+                      });
+                      if (error) throw error;
+                      toast.success('Lead report emailed to client');
+                    } catch (err: any) {
+                      toast.error('Failed to send report: ' + (err.message || 'Unknown error'));
+                    } finally {
+                      setPushingReport(null);
+                    }
+                  }}
+                >
+                  {pushingReport === selectedLead.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Push to Client Email
+                </Button>
+              )}
             </div>
           )}
         </DialogContent>
