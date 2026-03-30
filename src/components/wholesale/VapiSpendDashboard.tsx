@@ -54,7 +54,7 @@ export default function VapiSpendDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageFilter, setPageFilter] = useState<string>('all');
-
+  const [twilioBalance, setTwilioBalance] = useState<TwilioBalance | null>(null);
   const loadData = async () => {
     setLoading(true);
     setError(null);
