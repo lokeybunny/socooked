@@ -50,7 +50,7 @@ export default function Pricing() {
       setCodeError('');
     } else {
       setCodeValid(false);
-      setCodeError(upper.length > 0 ? 'Invalid invite code' : '');
+      setCodeError(trimmed.length > 0 ? 'Invalid invite code' : '');
     }
   };
 
