@@ -1,0 +1,1 @@
+UPDATE lw_client_lead_caps SET leads_delivered = (SELECT count(*) FROM lw_landing_leads WHERE landing_page_id = lw_client_lead_caps.landing_page_id AND (meta->>'source') IN ('reapi_weekly_match', 'seller_db_match') AND created_at >= lw_client_lead_caps.week_start::timestamp) WHERE week_start = '2026-03-30';
