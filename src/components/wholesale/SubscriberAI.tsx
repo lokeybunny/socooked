@@ -11,7 +11,7 @@ import {
   Home, Zap, RefreshCw, ChevronDown, ChevronUp, CheckCircle
 } from 'lucide-react';
 
-interface SubscribedBuyer {
+interface AutomateBuyer {
   id: string;
   full_name: string;
   email: string | null;
@@ -25,6 +25,7 @@ interface SubscribedBuyer {
   acreage_min: number | null;
   acreage_max: number | null;
   property_type_interest: string[];
+  pipeline_stage: string | null;
   meta: Record<string, any>;
   updated_at: string;
 }
@@ -50,7 +51,7 @@ interface MatchedLead {
 const WEEKLY_CAP = 50;
 
 export default function SubscriberAI() {
-  const [buyers, setBuyers] = useState<SubscribedBuyer[]>([]);
+  const [buyers, setBuyers] = useState<AutomateBuyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [buyerLeads, setBuyerLeads] = useState<Record<string, MatchedLead[]>>({});
@@ -70,15 +71,15 @@ export default function SubscriberAI() {
   const load = useCallback(async () => {
     setLoading(true);
 
-    // 1. Get all subscribed buyers (pipeline_stage = 'warm')
+    // 1. Get all subscribed + active buyers
     const { data: buyerData } = await supabase
       .from('lw_buyers')
       .select('*')
-      .eq('pipeline_stage', 'warm')
+      .in('pipeline_stage', ['warm', 'active'])
       .order('updated_at', { ascending: false });
 
-    const subscribedBuyers = (buyerData || []) as SubscribedBuyer[];
-    setBuyers(subscribedBuyers);
+    const allBuyers = (buyerData || []) as AutomateBuyer[];
+    setBuyers(allBuyers);
 
     // 2. Get landing pages to map buyers to clients
     const { data: pages } = await supabase
@@ -88,7 +89,7 @@ export default function SubscriberAI() {
 
     // Map buyer → landing page via meta.buyer_id or email match
     const pageMap: Record<string, { page_id: string; slug: string; email: string | null }> = {};
-    for (const buyer of subscribedBuyers) {
+    for (const buyer of allBuyers) {
       // Try to find a landing page linked to this buyer via email
       const matchedPage = (pages || []).find(p =>
         (p.email && buyer.email && p.email.toLowerCase() === buyer.email.toLowerCase()) ||
@@ -142,7 +143,7 @@ export default function SubscriberAI() {
 
   useEffect(() => { load(); }, [load]);
 
-  const triggerMatch = async (buyer: SubscribedBuyer) => {
+  const triggerMatch = async (buyer: AutomateBuyer) => {
     const pageInfo = buyerPages[buyer.id];
     if (!pageInfo) {
       toast.error('No landing page linked to this buyer. Assign one via email match first.');
@@ -164,10 +165,13 @@ export default function SubscriberAI() {
     }
   };
 
-  const getInterests = (buyer: SubscribedBuyer) => {
+  const getInterests = (buyer: AutomateBuyer) => {
     const interests = (buyer.meta as any)?.interests || {};
     return interests;
   };
+
+  const isSubscriber = (buyer: AutomateBuyer) => buyer.pipeline_stage === 'warm';
+  const isActive = (buyer: AutomateBuyer) => buyer.pipeline_stage === 'active';
 
   if (loading) {
     return (
@@ -183,10 +187,10 @@ export default function SubscriberAI() {
         <div>
           <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
-            Subscriber AI
+            Automate
           </h3>
           <p className="text-sm text-muted-foreground">
-            Automated lead matching for subscribed buyers — max {WEEKLY_CAP} leads/week per subscriber
+            Pull leads from the seller API for subscribed &amp; active buyers — subscribers get auto-emails, active leads stay for manual push
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={load} className="gap-1.5">
@@ -198,9 +202,9 @@ export default function SubscriberAI() {
         <Card>
           <CardContent className="py-16 text-center">
             <Users className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="text-sm text-muted-foreground">No subscribed buyers yet.</p>
+            <p className="text-sm text-muted-foreground">No buyers in Subscribed or Active pipeline yet.</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Move a buyer to "Subscribed" in the Buyers tab to activate automated lead matching.
+              Move a buyer to "Subscribed" or "Active" in the Buyers tab to start automating lead pulls.
             </p>
           </CardContent>
         </Card>
@@ -231,7 +235,11 @@ export default function SubscriberAI() {
                           {buyer.entity_name && (
                             <span className="text-xs text-muted-foreground">({buyer.entity_name})</span>
                           )}
-                          <Badge className="bg-orange-500/10 text-orange-500 text-[10px]">Subscribed</Badge>
+                          {isSubscriber(buyer) ? (
+                            <Badge className="bg-orange-500/10 text-orange-500 text-[10px]">Subscribed — Auto Email</Badge>
+                          ) : (
+                            <Badge className="bg-sky-500/10 text-sky-500 text-[10px]">Active — Manual Push</Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5 flex-wrap">
                           {buyer.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{buyer.email}</span>}
