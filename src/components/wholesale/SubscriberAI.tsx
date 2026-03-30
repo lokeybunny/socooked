@@ -436,6 +436,17 @@ export default function SubscriberAI() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Search Editor Modal */}
+      {searchEditorBuyer && (
+        <AutomateSearchEditor
+          open={!!searchEditorBuyer}
+          onOpenChange={(o) => { if (!o) setSearchEditorBuyer(null); }}
+          buyer={searchEditorBuyer}
+          pageId={buyerPages[searchEditorBuyer.id]?.page_id || ''}
+          onComplete={load}
+        />
+      )}
     </div>
   );
 }
