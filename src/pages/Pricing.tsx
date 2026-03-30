@@ -26,7 +26,7 @@ const fade = {
   }),
 };
 
-const VALID_CODES = ['GURU2025', 'WARREN', 'WHOLESALE', 'LAND'];
+const VALID_CODES = ['GOAT'];
 
 export default function Pricing() {
   const [agreed, setAgreed] = useState(false);
@@ -44,13 +44,13 @@ export default function Pricing() {
 
   const handleCodeCheck = (val: string) => {
     setInviteCode(val);
-    const upper = val.trim().toUpperCase();
-    if (upper && VALID_CODES.includes(upper)) {
+    const trimmed = val.trim();
+    if (trimmed && VALID_CODES.includes(trimmed)) {
       setCodeValid(true);
       setCodeError('');
     } else {
       setCodeValid(false);
-      setCodeError(upper.length > 0 ? 'Invalid invite code' : '');
+      setCodeError(trimmed.length > 0 ? 'Invalid invite code' : '');
     }
   };
 
