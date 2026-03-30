@@ -122,9 +122,12 @@ function computeMatchScore(buyer: any, seller: any): { score: number; reasons: s
 export default function BuyerSellerMatches() {
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 25;
 
   const loadMatches = async () => {
     setLoading(true);
+    setPage(1);
     const [{ data: buyers }, { data: sellers }] = await Promise.all([
       supabase.from('lw_buyers').select('*').eq('status', 'active'),
       supabase.from('lw_sellers').select('*').not('status', 'eq', 'dead'),
@@ -138,9 +141,7 @@ export default function BuyerSellerMatches() {
 
     const results: MatchResult[] = [];
     for (const buyer of buyers) {
-      // Require minimum criteria: budget, location, and at least one property type
       const hasStates = (buyer.target_states || []).length > 0;
-      const hasCounties = (buyer.target_counties || []).length > 0;
       const hasBudget = buyer.budget_min != null || buyer.budget_max != null;
       const hasPropTypes = (((buyer.meta as any)?.interests?.property_types) || buyer.property_type_interest || []).length > 0;
       
@@ -155,7 +156,7 @@ export default function BuyerSellerMatches() {
     }
 
     results.sort((a, b) => b.score - a.score);
-    setMatches(results.slice(0, 200));
+    setMatches(results.slice(0, 500));
     setLoading(false);
   };
 
@@ -166,6 +167,9 @@ export default function BuyerSellerMatches() {
 
   const scoreBg = (s: number) =>
     s >= 70 ? 'bg-green-500/10' : s >= 45 ? 'bg-yellow-500/10' : 'bg-muted';
+
+  const totalPages = Math.ceil(matches.length / PER_PAGE);
+  const pageMatches = matches.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
     <Card>
@@ -189,66 +193,96 @@ export default function BuyerSellerMatches() {
             <p className="text-xs mt-1">Add buyers with interests and seller leads to see matches</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Buyer</TableHead>
-                  <TableHead>Seller Property</TableHead>
-                  <TableHead>Seller Price</TableHead>
-                  <TableHead>Buyer Budget</TableHead>
-                  <TableHead>Match Reasons</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {matches.map((m, i) => (
-                  <TableRow key={`${m.buyer.id}-${m.seller.id}-${i}`}>
-                    <TableCell>
-                      <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-mono text-sm font-bold ${scoreBg(m.score)} ${scoreColor(m.score)}`}>
-                        {m.score}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <span className="font-medium text-sm">{m.buyer.full_name}</span>
-                        {m.buyer.entity_name && <span className="text-xs text-muted-foreground block">{m.buyer.entity_name}</span>}
-                        <span className="text-xs text-muted-foreground block">{(m.buyer.target_states || []).join(', ')}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <span className="text-sm font-medium">{m.seller.address_full || '—'}</span>
-                        <span className="text-xs text-muted-foreground block">
-                          {m.seller.city}, {m.seller.state} {m.seller.zip}
-                        </span>
-                        <span className="text-xs text-muted-foreground block">
-                          {m.seller.acreage ? `${m.seller.acreage} ac` : ''} {m.seller.property_type || ''}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm font-medium">
-                      {(m.seller.asking_price || m.seller.market_value || m.seller.assessed_value)
-                        ? `$${Number(m.seller.asking_price || m.seller.market_value || m.seller.assessed_value).toLocaleString()}`
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {m.buyer.budget_max
-                        ? `$${Number(m.buyer.budget_min || 0).toLocaleString()}–$${Number(m.buyer.budget_max).toLocaleString()}`
-                        : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[250px]">
-                        {m.reasons.map((r, ri) => (
-                          <span key={ri} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{r}</span>
-                        ))}
-                      </div>
-                    </TableCell>
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Buyer</TableHead>
+                    <TableHead>Seller Property</TableHead>
+                    <TableHead>Seller Price</TableHead>
+                    <TableHead>Buyer Budget</TableHead>
+                    <TableHead>Match Reasons</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {pageMatches.map((m, i) => (
+                    <TableRow key={`${m.buyer.id}-${m.seller.id}-${i}`}>
+                      <TableCell>
+                        <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-mono text-sm font-bold ${scoreBg(m.score)} ${scoreColor(m.score)}`}>
+                          {m.score}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <span className="font-medium text-sm">{m.buyer.full_name}</span>
+                          {m.buyer.entity_name && <span className="text-xs text-muted-foreground block">{m.buyer.entity_name}</span>}
+                          <span className="text-xs text-muted-foreground block">{(m.buyer.target_states || []).join(', ')}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <span className="text-sm font-medium">{m.seller.address_full || '—'}</span>
+                          <span className="text-xs text-muted-foreground block">
+                            {m.seller.city}, {m.seller.state} {m.seller.zip}
+                          </span>
+                          <span className="text-xs text-muted-foreground block">
+                            {m.seller.acreage ? `${m.seller.acreage} ac` : ''} {m.seller.property_type || ''}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {(m.seller.asking_price || m.seller.market_value || m.seller.assessed_value)
+                          ? `$${Number(m.seller.asking_price || m.seller.market_value || m.seller.assessed_value).toLocaleString()}`
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {m.buyer.budget_max
+                          ? `$${Number(m.buyer.budget_min || 0).toLocaleString()}–$${Number(m.buyer.budget_max).toLocaleString()}`
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1 max-w-[250px]">
+                          {m.reasons.map((r, ri) => (
+                            <span key={ri} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{r}</span>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4 border-t mt-4">
+                <p className="text-xs text-muted-foreground">
+                  Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, matches.length)} of {matches.length}
+                </p>
+                <div className="flex gap-1">
+                  <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</Button>
+                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                    let p: number;
+                    if (totalPages <= 7) {
+                      p = i + 1;
+                    } else if (page <= 4) {
+                      p = i + 1;
+                    } else if (page >= totalPages - 3) {
+                      p = totalPages - 6 + i;
+                    } else {
+                      p = page - 3 + i;
+                    }
+                    return (
+                      <Button key={p} size="sm" variant={p === page ? 'default' : 'outline'} onClick={() => setPage(p)} className="w-8 h-8 p-0">
+                        {p}
+                      </Button>
+                    );
+                  })}
+                  <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
