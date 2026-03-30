@@ -1311,6 +1311,25 @@ export default function ClientDashboard() {
                               : 'Skip Trace Owner'}
                         </button>
                       )}
+                      {/* Enrich Property — hot leads with sparse data */}
+                      {isHotLead(lead) && !(lead.meta as any)?.enriched && (
+                        <button
+                          onClick={() => enrichLead(lead)}
+                          disabled={enrichingLeadId === lead.id}
+                          className="inline-flex items-center gap-2 text-sm font-medium text-cyan-400/80 hover:text-cyan-300 transition-colors disabled:opacity-50"
+                        >
+                          {enrichingLeadId === lead.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <TrendingUp className="h-4 w-4" />
+                          )}
+                          {enrichingLeadId === lead.id ? 'Enriching...' : 'Enrich Property Data'}
+                        </button>
+                      )}
+                      {isHotLead(lead) && (lead.meta as any)?.enriched && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400/60">
+                          <Check className="h-3 w-3" /> Enriched
+                        </span>
                       {/* Fetch / Retry AI Call — funnel leads only */}
                       {!isHotLead(lead) && (
                         <button
