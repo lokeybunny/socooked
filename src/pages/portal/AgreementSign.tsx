@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { PenTool, Type, CheckCircle, FileText, ChevronDown, ChevronUp, Shield } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 export default function AgreementSign() {
   const { documentId } = useParams<{ documentId: string }>();
@@ -149,8 +150,80 @@ export default function AgreementSign() {
     // Update document status
     await supabase.from('documents').update({ status: 'signed' }).eq('id', documentId);
 
-    // Send signed copy notification to admin (warren@stu25.com)
+    // Generate PDF with agreement + signature
     try {
+      const pdf = new jsPDF({ unit: 'pt', format: 'letter' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 50;
+      const maxWidth = pageWidth - margin * 2;
+      let y = 50;
+
+      // Title
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(doc.title || 'Cash Investor Purchase Agreement', margin, y);
+      y += 30;
+
+      // Agreement body
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      const lines = pdf.splitTextToSize(agreementText || 'Agreement text not available.', maxWidth);
+      for (const line of lines) {
+        if (y > pdf.internal.pageSize.getHeight() - 100) {
+          pdf.addPage();
+          y = 50;
+        }
+        pdf.text(line, margin, y);
+        y += 14;
+      }
+
+      // Signature section — new page if not enough room
+      if (y > pdf.internal.pageSize.getHeight() - 220) {
+        pdf.addPage();
+        y = 50;
+      }
+
+      y += 20;
+      pdf.setDrawColor(200);
+      pdf.line(margin, y, pageWidth - margin, y);
+      y += 25;
+
+      pdf.setFontSize(12);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('SIGNATURE', margin, y);
+      y += 22;
+
+      pdf.setFontSize(10);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(`Signed by: ${signerName}`, margin, y); y += 16;
+      pdf.text(`Email: ${signerEmail || 'N/A'}`, margin, y); y += 16;
+      pdf.text(`Date: ${new Date().toLocaleString()}`, margin, y); y += 16;
+      pdf.text(`Method: ${sigType === 'drawn' ? 'Hand-drawn signature' : 'Typed signature'}`, margin, y); y += 24;
+
+      // Embed signature image or typed text
+      if (sigType === 'drawn' && signatureData) {
+        try {
+          pdf.addImage(signatureData, 'PNG', margin, y, 250, 80);
+          y += 90;
+        } catch { /* skip if image fails */ }
+      } else if (sigType === 'typed' && typedName) {
+        pdf.setFontSize(24);
+        pdf.setFont('times', 'italic');
+        pdf.text(typedName, margin, y + 20);
+        y += 40;
+      }
+
+      y += 10;
+      pdf.setDrawColor(200);
+      pdf.line(margin, y, margin + 260, y);
+      y += 14;
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Signature', margin, y);
+
+      // Convert to base64 for email attachment
+      const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
       const signedHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: #059669; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
@@ -162,15 +235,14 @@ export default function AgreementSign() {
               <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Document</td><td style="padding: 8px; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">${doc.title}</td></tr>
               <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Signed By</td><td style="padding: 8px; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">${signerName}</td></tr>
               <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Email</td><td style="padding: 8px; font-size: 13px; border-bottom: 1px solid #e5e7eb;">${signerEmail || 'N/A'}</td></tr>
-              <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Signature Type</td><td style="padding: 8px; font-size: 13px; border-bottom: 1px solid #e5e7eb;">${sigType === 'drawn' ? '✍️ Hand-drawn' : '⌨️ Typed'}</td></tr>
               <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Timestamp</td><td style="padding: 8px; font-size: 13px; border-bottom: 1px solid #e5e7eb;">${new Date().toLocaleString()}</td></tr>
-              <tr><td style="padding: 8px; font-size: 13px; color: #6b7280;">IP / User Agent</td><td style="padding: 8px; font-size: 11px; color: #9ca3af;">${navigator.userAgent.slice(0, 80)}…</td></tr>
             </table>
-            ${sigType === 'drawn' ? `<div style="text-align:center; margin: 16px 0;"><p style="font-size:12px; color:#6b7280; margin-bottom:8px;">Captured Signature:</p><img src="${signatureData}" style="max-width:400px; border:1px solid #e5e7eb; border-radius:8px; padding:8px; background:white;" /></div>` : `<div style="text-align:center; margin:16px 0; padding:20px; border:1px solid #e5e7eb; border-radius:8px; background:white;"><p style="font-size:28px; font-style:italic; font-family:Georgia,serif; color:#1a1a1a;">${typedName}</p></div>`}
-            <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 16px;">View the full signed document in your CRM under Documents.</p>
+            <p style="font-size: 13px; color: #374151; text-align: center; margin-top: 16px;">📎 The full signed agreement is attached as a PDF.</p>
           </div>
         </div>
       `;
+
+      const safeTitle = (doc.title || 'Agreement').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60);
 
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail-api?action=send`;
       const res = await fetch(fnUrl, {
@@ -180,11 +252,16 @@ export default function AgreementSign() {
           to: 'warren@stu25.com',
           subject: `✅ Signed: ${doc.title}`,
           body: signedHtml,
+          attachments: [{
+            filename: `${safeTitle}_SIGNED.pdf`,
+            mimeType: 'application/pdf',
+            data: pdfBase64,
+          }],
         }),
       });
       if (!res.ok) console.error('Admin notify failed:', await res.text());
     } catch (emailErr) {
-      console.error('Failed to notify admin:', emailErr);
+      console.error('Failed to generate PDF / notify admin:', emailErr);
     }
 
     setSigned(true);
