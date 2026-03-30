@@ -271,7 +271,8 @@ serve(async (req) => {
       // Track retry count from existing meta
       const prevRetryCount = (lead.meta as any)?.vapi_retry_count ?? 0;
 
-      // Update lead
+      // Update lead with call results + retry count
+      const newRetryCount = callFailed ? prevRetryCount : prevRetryCount;
       await sb
         .from("lw_landing_leads")
         .update({
@@ -279,56 +280,43 @@ serve(async (req) => {
           ai_notes: aiNotes,
           vapi_recording_url: recordingUrl,
           meta: {
+            ...(lead.meta as any),
             vapi_transcript: transcript,
             vapi_summary: summary,
             vapi_recording_url: recordingUrl,
             vapi_ended_reason: endedReason,
             vapi_duration_seconds: duration,
             vapi_cost_cents: callCostCents,
-            vapi_retry_count: prevRetryCount + (callFailed ? 0 : 0),
+            vapi_retry_count: callFailed ? prevRetryCount + 1 : prevRetryCount,
+            vapi_last_retry_at: callFailed ? new Date().toISOString() : (lead.meta as any)?.vapi_last_retry_at,
           },
         })
         .eq("id", lead.id);
 
-      // ─── Auto-retry: if call failed and we haven't retried yet, schedule a retry ───
+      // ─── Auto-retry: if call failed and we haven't retried twice yet, call again ───
+      // Retry immediately — Vapi will call back, and the next end-of-call-report
+      // will increment retry_count again. Max 2 retries (3 total attempts).
       if (callFailed && prevRetryCount < 2) {
-        console.log(`[vapi-webhook] Call failed (${endedReason}), scheduling retry #${prevRetryCount + 1} for lead ${lead.id} in 5 minutes`);
+        console.log(`[vapi-webhook] Call failed (${endedReason}), triggering retry #${prevRetryCount + 1} for lead ${lead.id}`);
 
-        // Update retry count immediately
-        await sb
-          .from("lw_landing_leads")
-          .update({
-            meta: {
-              ...(lead.meta as any),
-              vapi_retry_count: prevRetryCount + 1,
-              vapi_last_retry_at: new Date().toISOString(),
+        try {
+          const retryRes = await fetch(`${SUPABASE_URL}/functions/v1/vapi-outbound`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
+              "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
             },
-          })
-          .eq("id", lead.id);
-
-        // Fire retry after 5-minute delay using setTimeout (edge function stays alive briefly)
-        // We call vapi-outbound directly since we have service role access
-        const retryDelayMs = prevRetryCount === 0 ? 5 * 60 * 1000 : 15 * 60 * 1000; // 5min first, 15min second
-        setTimeout(async () => {
-          try {
-            const retryRes = await fetch(`${SUPABASE_URL}/functions/v1/vapi-outbound`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
-                "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
-              },
-              body: JSON.stringify({
-                action: "trigger_call",
-                lead_id: lead.id,
-              }),
-            });
-            const retryData = await retryRes.json();
-            console.log(`[vapi-webhook] Retry #${prevRetryCount + 1} result:`, retryData);
-          } catch (retryErr) {
-            console.error(`[vapi-webhook] Retry #${prevRetryCount + 1} failed:`, retryErr);
-          }
-        }, retryDelayMs);
+            body: JSON.stringify({
+              action: "trigger_call",
+              lead_id: lead.id,
+            }),
+          });
+          const retryData = await retryRes.json();
+          console.log(`[vapi-webhook] Retry #${prevRetryCount + 1} result:`, retryData);
+        } catch (retryErr) {
+          console.error(`[vapi-webhook] Retry #${prevRetryCount + 1} failed:`, retryErr);
+        }
       }
 
       console.log("Updated lead", lead.id, "with AI notes");
