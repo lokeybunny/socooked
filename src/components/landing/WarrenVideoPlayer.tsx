@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import robotThumb from '@/assets/landing/robot-thumbnail.jpg';
 
 const YOUTUBE_VIDEO_ID = 'a-quzsaSpNU';
-const VIDEO_DURATION_SECONDS = 154; // 2:34
+const VIDEO_DURATION_SECONDS = 947; // 15:47
 
 export default function WarrenVideoPlayer() {
   const [theaterMode, setTheaterMode] = useState(false);
