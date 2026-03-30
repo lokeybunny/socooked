@@ -104,16 +104,23 @@ serve(async (req) => {
 
     for (const { buyer, page } of pairs) {
       // --- Trial check ---
-      const { data: subRecord } = await supabaseAdmin
-        .from('guru_subscriptions')
-        .select('status')
-        .eq('email', page.email)
-        .in('status', ['pending', 'active', 'subscribed'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Buyers in "warm" (Subscribed) pipeline always get full cap — they've been
+      // manually promoted or auto-moved after Square payment.
+      const isSubscribedPipeline = buyer.pipeline_stage === 'warm';
+      let isTrial = false;
 
-      const isTrial = !subRecord || subRecord.status === 'pending';
+      if (!isSubscribedPipeline) {
+        const { data: subRecord } = await supabaseAdmin
+          .from('guru_subscriptions')
+          .select('status')
+          .eq('email', page.email)
+          .in('status', ['pending', 'active', 'subscribed'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        isTrial = !subRecord || subRecord.status === 'pending';
+      }
+
       const effectiveCap = isTrial ? TRIAL_CAP : WEEKLY_CAP;
 
       // --- Cap check ---
