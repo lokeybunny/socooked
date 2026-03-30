@@ -26,6 +26,7 @@ const PAGE_SIZE = 25;
 const SELLER_STAGES = [
   { key: 'all', label: 'All' },
   { key: 'new', label: 'New' },
+  { key: 'funnel_lead', label: 'Funnel Leads' },
   { key: 'req_trace', label: 'Req. Trace' },
   { key: 'skip_traced', label: 'Skip Traced' },
   { key: 'contacted', label: 'Contacted' },
@@ -37,6 +38,7 @@ const SELLER_STAGES = [
 
 const SELLER_STAGE_COLORS: Record<string, string> = {
   new: 'bg-blue-500/10 text-blue-500',
+  funnel_lead: 'bg-orange-500/10 text-orange-500',
   req_trace: 'bg-red-500/10 text-red-500',
   skip_traced: 'bg-cyan-500/10 text-cyan-500',
   contacted: 'bg-purple-500/10 text-purple-500',
