@@ -341,9 +341,12 @@ export default function LandingPageManager() {
             {isEditing ? (
               <>
                 {formFieldsJsx}
-                <div className="flex gap-2 justify-end">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-3.5 w-3.5 mr-1" /> Cancel</Button>
-                  <Button size="sm" onClick={() => handleUpdate(p.id)}><Save className="h-3.5 w-3.5 mr-1" /> Save</Button>
+                <div className="flex items-center gap-2 justify-between mt-2">
+                  <EmailComposeButton email={form.email} clientName={form.client_name} />
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-3.5 w-3.5 mr-1" /> Cancel</Button>
+                    <Button size="sm" onClick={() => handleUpdate(p.id)}><Save className="h-3.5 w-3.5 mr-1" /> Save</Button>
+                  </div>
                 </div>
               </>
             ) : (
