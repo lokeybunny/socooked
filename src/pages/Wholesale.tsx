@@ -20,6 +20,7 @@ import LeadsManager from '@/components/wholesale/LeadsManager';
 import VapiSpendDashboard from '@/components/wholesale/VapiSpendDashboard';
 import TwilioSpendDashboard from '@/components/wholesale/TwilioSpendDashboard';
 import SubscriberAI from '@/components/wholesale/SubscriberAI';
+import ApifyApiManager from '@/components/wholesale/ApifyApiManager';
 import { toast } from 'sonner';
 
 type DealType = 'all' | 'land' | 'home' | 'multi_home';
