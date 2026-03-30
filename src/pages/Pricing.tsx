@@ -259,9 +259,9 @@ export default function Pricing() {
             {/* Subscribe Button */}
             <button
               onClick={handleSubscribe}
-              disabled={!agreed || loading}
+              disabled={!agreed || !codeValid || loading}
               className={`mt-8 w-full flex items-center justify-center gap-3 px-8 py-4 rounded-lg text-sm tracking-[0.2em] uppercase font-medium transition-all ${
-                agreed && !loading
+                agreed && codeValid && !loading
                   ? 'bg-white text-black hover:bg-white/90 cursor-pointer'
                   : 'bg-white/10 text-white/20 cursor-not-allowed'
               }`}
@@ -276,6 +276,17 @@ export default function Pricing() {
                 </>
               )}
             </button>
+
+            {/* Discord CTA */}
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 w-full flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-lg bg-[#5865F2]/10 border border-[#5865F2]/20 hover:bg-[#5865F2]/20 text-[#5865F2] text-sm tracking-[0.15em] uppercase font-medium transition-all"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Join the Discord
+            </a>
 
             <p className="mt-5 text-center text-xs text-white/20">
               Secure checkout powered by Square. Cancel anytime.
