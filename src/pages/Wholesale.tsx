@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Users, Building2, DollarSign, TrendingUp, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home, Globe, UserCheck, Bot } from 'lucide-react';
+import { MapPin, Users, Building2, DollarSign, TrendingUp, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home, Globe, UserCheck, Bot, Phone } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
@@ -17,6 +17,7 @@ import DistressDashboard from '@/components/wholesale/DistressDashboard';
 import BuyerSellerMatches from '@/components/wholesale/BuyerSellerMatches';
 import LeadsManager from '@/components/wholesale/LeadsManager';
 import VapiSpendDashboard from '@/components/wholesale/VapiSpendDashboard';
+import TwilioSpendDashboard from '@/components/wholesale/TwilioSpendDashboard';
 import SubscriberAI from '@/components/wholesale/SubscriberAI';
 import { toast } from 'sonner';
 
@@ -166,6 +167,10 @@ export default function Wholesale() {
             <DollarSign className="h-3.5 w-3.5" />
             Vapi Spend
           </TabsTrigger>
+          <TabsTrigger value="twilio-spend" className="gap-1.5">
+            <Phone className="h-3.5 w-3.5" />
+            Twilio Spend
+          </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -211,6 +216,10 @@ export default function Wholesale() {
         {/* Vapi Spend */}
         <TabsContent value="vapi-spend" className="mt-4">
           <VapiSpendDashboard />
+        </TabsContent>
+        {/* Twilio Spend */}
+        <TabsContent value="twilio-spend" className="mt-4">
+          <TwilioSpendDashboard />
         </TabsContent>
         {/* Settings */}
         <TabsContent value="settings" className="mt-4">
