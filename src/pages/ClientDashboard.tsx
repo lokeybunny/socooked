@@ -27,6 +27,7 @@ interface Lead {
   timeline: string | null;
   asking_price: number | null;
   vapi_call_status: string | null;
+  vapi_call_id: string | null;
   vapi_recording_url: string | null;
   landing_page_id: string | null;
   email: string | null;
@@ -67,13 +68,29 @@ export default function ClientDashboard() {
   const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
   const [fetchingLeadId, setFetchingLeadId] = useState<string | null>(null);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const loadData = useCallback(async () => {
     if (!user) return;
 
-    const { data: pages } = await supabase
+    // Check if user is admin
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+    const admin = !!roleData;
+    setIsAdmin(admin);
+
+    // Admins see ALL landing pages; clients only see their own
+    let pagesQuery = supabase
       .from('lw_landing_pages')
-      .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents')
-      .eq('client_user_id', user.id);
+      .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents');
+    if (!admin) {
+      pagesQuery = pagesQuery.eq('client_user_id', user.id);
+    }
+    const { data: pages } = await pagesQuery;
 
     const clientPages = (pages || []) as LandingPage[];
     setLandingPages(clientPages);
@@ -212,16 +229,23 @@ export default function ClientDashboard() {
   const fetchVapiData = async (lead: Lead) => {
     setFetchingLeadId(lead.id);
     try {
+      // If the lead already has a call ID, sync data from Vapi API
+      // Otherwise trigger a new call
+      const action = lead.vapi_call_id ? 'sync_call' : 'trigger_call';
       const { data, error } = await supabase.functions.invoke('vapi-outbound', {
-        body: { action: 'trigger_call', lead_id: lead.id },
+        body: { action, lead_id: lead.id },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast.success(data?.credit_exhausted ? 'Credits exhausted' : 'AI call triggered — data will sync shortly');
-      // Reload to pick up realtime updates
-      setTimeout(() => loadData(), 5000);
+
+      if (action === 'sync_call') {
+        toast.success(`Call data synced — Status: ${data.call_status}, Duration: ${data.duration}s`);
+      } else {
+        toast.success(data?.credit_exhausted ? 'Credits exhausted' : 'AI call triggered — data will sync shortly');
+      }
+      setTimeout(() => loadData(), 2000);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to trigger call');
+      toast.error(err.message || 'Failed to fetch call data');
     } finally {
       setFetchingLeadId(null);
     }
