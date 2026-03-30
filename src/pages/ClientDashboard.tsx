@@ -626,7 +626,7 @@ export default function ClientDashboard() {
                     <p className="text-sm font-semibold text-red-400">Phone Credits Exhausted</p>
                     <p className="text-xs text-red-300/70 mt-1">
                       Your AI callback credits have been used up. New leads will not receive automated calls.
-                      Please contact Warren at <a href="mailto:warren@stu25.com" className="underline">warren@stu25.com</a> to add more credits.
+                      Use the <strong>Add Phone Credits</strong> section below to top up instantly.
                     </p>
                   </div>
                 </div>
