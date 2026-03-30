@@ -1408,7 +1408,7 @@ function CancelSubscriptionButton({ landingPages, userEmail, onCancelled }: {
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
       }
-      toast.success('Subscription cancelled successfully');
+      toast.success('Subscription cancelled — you\'ll keep full access until your current billing period ends');
       onCancelled();
     } catch (err: any) {
       toast.error(err.message || 'Failed to cancel subscription');
