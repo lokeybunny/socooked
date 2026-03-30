@@ -837,8 +837,8 @@ export default function ClientDashboard() {
                       )}
                     </div>
                     <div className="flex items-center gap-4 text-xs text-white/40">
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{lead.property_address}</span>
-                      <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /><CopyableText text={lead.property_address}>{lead.property_address}</CopyableText></span>
+                      <span className="flex items-center gap-1"><Phone className="h-3 w-3" /><CopyableText text={lead.phone}>{lead.phone}</CopyableText></span>
                       <span>via /{pageName}</span>
                     </div>
                   </div>
