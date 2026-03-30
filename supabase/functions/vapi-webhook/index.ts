@@ -258,10 +258,14 @@ serve(async (req) => {
       }
 
       // Determine if AI actually connected with the seller
-      const callFailed = [
+      // If we have transcript or summary content, treat it as a connected call
+      // even when the duration is short or the ended reason is ambiguous.
+      const hasContent = !!(transcript?.trim() || summary?.trim());
+      const callFailed = !hasContent && ([
         "assistant-error", "no-answer", "busy", "voicemail",
         "machine-detected", "customer-did-not-answer", "customer-busy",
-      ].includes(endedReason) || duration < 15;
+        "silence-timed-out",
+      ].includes(endedReason) || duration < 15);
 
       // Build AI notes from the conversation
       const aiNotes = callFailed
