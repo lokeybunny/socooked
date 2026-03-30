@@ -1407,7 +1407,7 @@ export default function ClientDashboard() {
                             View Full Details
                           </button>
                         </>
-                      )
+                      )}
                       {!isHotLead(lead) && (
                         <button
                           onClick={() => fetchVapiData(lead)}
