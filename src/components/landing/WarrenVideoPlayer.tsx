@@ -73,11 +73,12 @@ export default function WarrenVideoPlayer() {
                   style={{ aspectRatio: '16/9' }}
                 >
                   <iframe
-                    src={`https://www.youtube-nocookie.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&modestbranding=1&rel=0&showinfo=0&controls=1&color=white&iv_load_policy=3&disablekb=0&fs=1&playsinline=1&vq=hd1080`}
-                    className="w-full h-full"
+                    src={`https://www.youtube-nocookie.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&modestbranding=1&rel=0&showinfo=0&controls=1&color=white&iv_load_policy=3&disablekb=0&fs=1&playsinline=1&vq=hd1080&origin=${encodeURIComponent(window.location.origin)}`}
+                    className="w-full h-full absolute inset-0"
                     style={{ border: 'none' }}
                     allow="autoplay; fullscreen; encrypted-media; accelerometer; gyroscope"
                     allowFullScreen
+                    referrerPolicy="no-referrer"
                     title="Warren Guru"
                   />
                   {/* Block YouTube logo click-through */}
