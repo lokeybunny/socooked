@@ -889,6 +889,15 @@ export default function ClientDashboard() {
                           const skipEmails = m.skip_trace_emails || [];
                           const skipMailing = m.skip_trace_mailing;
                           const ownerPhone = m.owner_phone;
+                          const stories = m.stories;
+                          const pool = m.pool;
+                          const garageSqft = m.garage_sqft;
+                          const hoa = m.hoa;
+                          const lastSaleDate = m.last_sale_date;
+                          const lastSalePrice = m.last_sale_price;
+                          const foreclosureStatus = m.foreclosure_status;
+                          const auctionDate = m.auction_date;
+                          const taxAmount = m.tax_amount;
 
                           return (
                             <div className="space-y-4">
