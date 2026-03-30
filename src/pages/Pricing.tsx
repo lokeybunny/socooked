@@ -191,6 +191,25 @@ export default function Pricing() {
             {/* Divider */}
             <div className="h-px bg-white/[0.06] my-8" />
 
+            {/* Invite Code */}
+            <div className="mb-6">
+              <label className="text-xs tracking-[0.2em] uppercase text-white/30 mb-2 block">Invite Code <span className="text-white/50">*</span></label>
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={(e) => handleCodeCheck(e.target.value)}
+                placeholder="Enter your invite code"
+                className={`w-full px-4 py-3 bg-white/[0.04] border rounded-lg text-base text-white placeholder:text-white/20 focus:outline-none transition-colors ${
+                  codeValid ? 'border-emerald-500/40 focus:border-emerald-500/60' : codeError ? 'border-red-500/40 focus:border-red-500/60' : 'border-white/[0.08] focus:border-white/20'
+                }`}
+              />
+              {codeError && <p className="mt-1.5 text-xs text-red-400/70">{codeError}</p>}
+              {codeValid && <p className="mt-1.5 text-xs text-emerald-400/70">✓ Code accepted</p>}
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-white/[0.06] my-6" />
+
             {/* Email & Name inputs */}
             <div className="space-y-4 mb-6">
               <div>
