@@ -275,7 +275,8 @@ serve(async (req) => {
           query = query.lte('acreage', acreageMax);
         }
 
-        const { data: sellers } = await query;
+        const { data: sellers, error: sellerErr } = await query;
+        console.log(`[matcher] seller fallback: found=${sellers?.length || 0} error=${sellerErr?.message || 'none'} states=${targetStates} counties=${targetCounties} dealType=${dealType} budgetMin=${budgetMin} budgetMax=${budgetMax}`);
 
         newLeads = (sellers || []).map(s => ({
           full_name: s.owner_name || 'Property Owner',
