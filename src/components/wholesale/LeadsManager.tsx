@@ -587,7 +587,7 @@ Meta: ${JSON.stringify(lead.meta || {})}`,
                     setPushingReport(selectedLead.id);
                     try {
                       const { data, error } = await supabase.functions.invoke('lead-report-email', {
-                        body: { lead_id: selectedLead.id },
+                        body: { lead_id: selectedLead.id, auto: true },
                       });
                       if (error) throw error;
                       toast.success('Lead report emailed to client');
