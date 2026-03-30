@@ -1439,9 +1439,49 @@ Format with numbered sections and clear headings. Make this ready to print, sign
 
       const signUrl = `${window.location.origin}/sign/agreement/${doc.id}`;
 
-      // Copy to clipboard
-      await navigator.clipboard.writeText(signUrl);
-      toast.success('Signing link copied! Send this to the seller to sign digitally.', { duration: 6000 });
+      // Send email to seller with signing link via Gmail API
+      if (sellerEmail) {
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #059669; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 22px;">Agreement Ready for Your Signature</h1>
+            </div>
+            <div style="padding: 24px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+              <p style="font-size: 15px; color: #374151;">Hi ${ownerName},</p>
+              <p style="font-size: 15px; color: #374151;">A wholesale purchase agreement for <strong>${s.address_full || 'your property'}</strong> is ready for your review and signature.</p>
+              <div style="text-align: center; margin: 28px 0;">
+                <a href="${signUrl}" style="background: #059669; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
+                  Review & Sign Agreement
+                </a>
+              </div>
+              <p style="font-size: 13px; color: #6b7280;">If the button doesn't work, copy and paste this link: <br/><a href="${signUrl}" style="color: #059669;">${signUrl}</a></p>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+              <p style="font-size: 12px; color: #9ca3af; text-align: center;">This is a legally binding document. Please review carefully before signing.</p>
+            </div>
+          </div>
+        `;
+
+        try {
+          await supabase.functions.invoke('gmail-api', {
+            body: {
+              action: 'send',
+              to: sellerEmail,
+              subject: `Action Required: Sign Purchase Agreement — ${s.address_full || 'Property'}`,
+              body: emailHtml,
+            },
+          });
+          toast.success(`Agreement sent to ${sellerEmail} for signature!`, { duration: 6000 });
+        } catch (emailErr: any) {
+          // Fallback: copy link if email fails
+          await navigator.clipboard.writeText(signUrl);
+          toast.warning(`Email failed, signing link copied to clipboard instead. Error: ${emailErr.message}`, { duration: 6000 });
+        }
+      } else {
+        // No email — fallback to clipboard
+        await navigator.clipboard.writeText(signUrl);
+        toast.success('No email on file. Signing link copied to clipboard — send manually.', { duration: 6000 });
+      }
+
       setAgreementOpen(false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to create signing link');

@@ -146,6 +146,41 @@ export default function AgreementSign() {
     // Update document status
     await supabase.from('documents').update({ status: 'signed' }).eq('id', documentId);
 
+    // Send signed copy notification to admin (warren@stu25.com)
+    try {
+      const signedHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #059669; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">✅ Agreement Signed!</h1>
+          </div>
+          <div style="padding: 24px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <p style="font-size: 15px; color: #374151;">The following agreement has been signed:</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+              <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Document</td><td style="padding: 8px; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">${doc.title}</td></tr>
+              <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Signed By</td><td style="padding: 8px; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e5e7eb;">${signerName}</td></tr>
+              <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Email</td><td style="padding: 8px; font-size: 13px; border-bottom: 1px solid #e5e7eb;">${signerEmail || 'N/A'}</td></tr>
+              <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Signature Type</td><td style="padding: 8px; font-size: 13px; border-bottom: 1px solid #e5e7eb;">${sigType === 'drawn' ? '✍️ Hand-drawn' : '⌨️ Typed'}</td></tr>
+              <tr><td style="padding: 8px; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb;">Timestamp</td><td style="padding: 8px; font-size: 13px; border-bottom: 1px solid #e5e7eb;">${new Date().toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px; font-size: 13px; color: #6b7280;">IP / User Agent</td><td style="padding: 8px; font-size: 11px; color: #9ca3af;">${navigator.userAgent.slice(0, 80)}…</td></tr>
+            </table>
+            ${sigType === 'drawn' ? `<div style="text-align:center; margin: 16px 0;"><p style="font-size:12px; color:#6b7280; margin-bottom:8px;">Captured Signature:</p><img src="${signatureData}" style="max-width:400px; border:1px solid #e5e7eb; border-radius:8px; padding:8px; background:white;" /></div>` : `<div style="text-align:center; margin:16px 0; padding:20px; border:1px solid #e5e7eb; border-radius:8px; background:white;"><p style="font-size:28px; font-style:italic; font-family:Georgia,serif; color:#1a1a1a;">${typedName}</p></div>`}
+            <p style="font-size: 12px; color: #9ca3af; text-align: center; margin-top: 16px;">View the full signed document in your CRM under Documents.</p>
+          </div>
+        </div>
+      `;
+
+      await supabase.functions.invoke('gmail-api', {
+        body: {
+          action: 'send',
+          to: 'warren@stu25.com',
+          subject: `✅ Signed: ${doc.title}`,
+          body: signedHtml,
+        },
+      });
+    } catch (emailErr) {
+      console.error('Failed to notify admin:', emailErr);
+    }
+
     setSigned(true);
     setSubmitting(false);
     toast.success('Agreement signed successfully!');
