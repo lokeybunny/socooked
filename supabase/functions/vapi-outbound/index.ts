@@ -204,7 +204,9 @@ IMPORTANT: At the end of the call, summarize your findings clearly.`,
       const costCents = Math.round((call.cost || 0) * 100);
 
       const callEnded = status === "ended";
-      const callFailed = callEnded && (
+      // Only mark as failed if there's no transcript/summary AND it looks like a non-connect
+      const hasContent = !!(transcript || summary);
+      const callFailed = callEnded && !hasContent && (
         ["no-answer", "busy", "voicemail", "machine-detected", "customer-did-not-answer", "customer-busy"].includes(endedReason) ||
         duration < 15
       );
