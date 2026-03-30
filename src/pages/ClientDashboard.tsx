@@ -352,6 +352,52 @@ export default function ClientDashboard() {
     }
   };
 
+  // ─── Enrich hot lead with REAPI property details ───
+  const enrichLead = async (lead: Lead) => {
+    setEnrichingLeadId(lead.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('enrich-hot-lead', {
+        body: { lead_id: lead.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.enriched > 0) {
+        toast.success('Property data enriched with full details!');
+        loadData();
+      } else {
+        toast.info('No additional property data found for this address');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to enrich lead');
+    } finally {
+      setEnrichingLeadId(null);
+    }
+  };
+
+  const enrichAllHotLeads = async () => {
+    if (landingPages.length === 0) return;
+    setBatchEnriching(true);
+    try {
+      let totalEnriched = 0;
+      for (const page of landingPages) {
+        const { data, error } = await supabase.functions.invoke('enrich-hot-lead', {
+          body: { backfill: true, landing_page_id: page.id },
+        });
+        if (!error && data?.enriched) totalEnriched += data.enriched;
+      }
+      if (totalEnriched > 0) {
+        toast.success(`Enriched ${totalEnriched} leads with full property details`);
+        loadData();
+      } else {
+        toast.info('All leads are already enriched or no data found');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Batch enrichment failed');
+    } finally {
+      setBatchEnriching(false);
+    }
+  };
+
   // ─── Soft-delete: move to drafts ───
   const moveToDrafts = async (leadId: string) => {
     const { error } = await supabase
