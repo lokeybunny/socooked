@@ -1035,9 +1035,72 @@ export default function ClientDashboard() {
                                       <p className="text-xs font-semibold text-white/80">{zoning}</p>
                                     </div>
                                   )}
+                                  {stories && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <Building className="h-3 w-3 text-white/30 mx-auto mb-0.5" />
+                                      <p className="text-[10px] text-white/40">Stories</p>
+                                      <p className="text-xs font-semibold text-white/80">{stories}</p>
+                                    </div>
+                                  )}
+                                  {pool && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <p className="text-[10px] text-white/40">Pool</p>
+                                      <p className="text-xs font-semibold text-blue-400">Yes</p>
+                                    </div>
+                                  )}
+                                  {garageSqft && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <p className="text-[10px] text-white/40">Garage SqFt</p>
+                                      <p className="text-xs font-semibold text-white/80">{Number(garageSqft).toLocaleString()}</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
+                              {/* Financial History */}
+                              {(lastSalePrice || lastSaleDate || taxAmount || hoa || foreclosureStatus || auctionDate) && (
+                                <div>
+                                  <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold mb-2">Financial History</p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {lastSalePrice != null && (
+                                      <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">Last Sale Price</p>
+                                        <p className="text-sm font-semibold text-emerald-400">${Number(lastSalePrice).toLocaleString()}</p>
+                                      </div>
+                                    )}
+                                    {lastSaleDate && (
+                                      <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">Last Sale Date</p>
+                                        <p className="text-sm font-semibold text-white/80">{String(lastSaleDate)}</p>
+                                      </div>
+                                    )}
+                                    {taxAmount != null && (
+                                      <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">Annual Tax</p>
+                                        <p className="text-sm font-semibold text-white/80">${Number(taxAmount).toLocaleString()}</p>
+                                      </div>
+                                    )}
+                                    {hoa != null && (
+                                      <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">HOA Fee</p>
+                                        <p className="text-sm font-semibold text-white/80">${Number(hoa).toLocaleString()}</p>
+                                      </div>
+                                    )}
+                                    {foreclosureStatus && (
+                                      <div className="bg-red-500/10 rounded-lg p-2.5 border border-red-500/20">
+                                        <p className="text-[10px] text-red-400/70">Foreclosure</p>
+                                        <p className="text-sm font-semibold text-red-400">{String(foreclosureStatus)}</p>
+                                      </div>
+                                    )}
+                                    {auctionDate && (
+                                      <div className="bg-orange-500/10 rounded-lg p-2.5 border border-orange-500/20">
+                                        <p className="text-[10px] text-orange-400/70">Auction Date</p>
+                                        <p className="text-sm font-semibold text-orange-400">{String(auctionDate)}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                               {/* Owner Intel */}
                               {(yearsOwned || isAbsentee || isOutOfState || isCorp || freeAndClear || ownerMail || ownerEmail || ownerPhone || isOwnerOccupied !== undefined) && (
                                 <div>
