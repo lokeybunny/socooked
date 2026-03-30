@@ -83,19 +83,6 @@ export default function Wholesale() {
     });
   };
 
-  const markCalled = async (id: string) => {
-    await supabase.from('lw_call_queue').update({ status: 'called', called_at: new Date().toISOString() }).eq('id', id);
-    toast.success('Marked as called');
-    loadCallQueue();
-  };
-
-  const skipCall = async (id: string) => {
-    await supabase.from('lw_call_queue').update({ status: 'skipped' }).eq('id', id);
-    toast('Call skipped');
-    loadCallQueue();
-  };
-
-  const pendingCalls = callQueue.filter(c => c.status === 'pending').length;
 
   const stageColors: Record<string, string> = {
     matched: 'bg-muted text-muted-foreground',
