@@ -1424,6 +1424,10 @@ Format with numbered sections and clear headings. Make this ready to print, sign
 
       if (existing?.length) {
         customerId = existing[0].id;
+        // Ensure seller_id is in customer meta for auto-contract trigger
+        await supabase.from('customers').update({
+          meta: { seller_id: s.id, property_address: s.address_full },
+        }).eq('id', customerId);
       } else {
         const { data: newCust, error: custErr } = await supabase.from('customers').insert({
           full_name: ownerName,
@@ -1432,6 +1436,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
           status: 'prospect',
           source: 'wholesale',
           category: 'other',
+          meta: { seller_id: s.id, property_address: s.address_full },
         }).select('id').single();
         if (custErr) throw custErr;
         customerId = newCust.id;
