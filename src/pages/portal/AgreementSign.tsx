@@ -245,21 +245,34 @@ export default function AgreementSign() {
       const safeTitle = (doc.title || 'Agreement').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 60);
 
       const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail-api?action=send`;
+      const emailPayload = {
+        to: 'warren@stu25.com',
+        subject: `✅ Signed: ${doc.title}`,
+        body: signedHtml,
+        attachments: [{
+          filename: `${safeTitle}_SIGNED.pdf`,
+          mimeType: 'application/pdf',
+          data: pdfBase64,
+        }],
+      };
+
+      // Send to admin (warren)
       const res = await fetch(fnUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({
-          to: 'warren@stu25.com',
-          subject: `✅ Signed: ${doc.title}`,
-          body: signedHtml,
-          attachments: [{
-            filename: `${safeTitle}_SIGNED.pdf`,
-            mimeType: 'application/pdf',
-            data: pdfBase64,
-          }],
-        }),
+        body: JSON.stringify(emailPayload),
       });
       if (!res.ok) console.error('Admin notify failed:', await res.text());
+
+      // Send copy to signer if they provided an email
+      if (signerEmail.trim()) {
+        const signerRes = await fetch(fnUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          body: JSON.stringify({ ...emailPayload, to: signerEmail.trim() }),
+        });
+        if (!signerRes.ok) console.error('Signer copy failed:', await signerRes.text());
+      }
     } catch (emailErr) {
       console.error('Failed to generate PDF / notify admin:', emailErr);
     }
