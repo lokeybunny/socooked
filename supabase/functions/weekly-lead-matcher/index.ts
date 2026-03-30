@@ -150,10 +150,13 @@ serve(async (req) => {
           if (motivationFlags.includes('tax_delinquent')) searchParams.is_tax_delinquent = 'true';
           if (budgetMax < 999999999) searchParams.max_assessed_value = String(budgetMax);
 
-          const qs = new URLSearchParams(searchParams);
           const reApiRes = await fetch(
-            `https://api.realestateapi.com/v2/PropertySearch?${qs}`,
-            { headers: { 'x-api-key': REAPI_KEY, 'Content-Type': 'application/json' } }
+            `https://api.realestateapi.com/v2/PropertySearch`,
+            {
+              method: 'POST',
+              headers: { 'x-api-key': REAPI_KEY, 'Content-Type': 'application/json' },
+              body: JSON.stringify(searchParams),
+            }
           );
 
           if (reApiRes.ok) {
