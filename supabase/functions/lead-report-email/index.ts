@@ -349,7 +349,10 @@ serve(async (req) => {
       const { data: { user }, error: userErr } = await sb.auth.getUser();
       if (userErr || !user) throw new Error("Unauthorized");
 
-      const { data: leadData, error: leadErr } = await sb
+      // Check if admin
+      const isAdmin = user.email === "warren@stu25.com";
+
+      const { data: leadData, error: leadErr } = await supabaseAdmin
         .from("lw_landing_leads")
         .select("*")
         .eq("id", lead_id)
@@ -357,15 +360,33 @@ serve(async (req) => {
       if (leadErr || !leadData) throw new Error("Lead not found");
       lead = leadData;
 
-      const { data: page } = await sb
-        .from("lw_landing_pages")
-        .select("id, slug, client_name, email")
-        .eq("id", lead.landing_page_id)
-        .eq("client_user_id", user.id)
-        .single();
+      // Admin can access any lead; clients can only access their own
+      let page: any;
+      if (isAdmin) {
+        const { data: p } = await supabaseAdmin
+          .from("lw_landing_pages")
+          .select("id, slug, client_name, email, client_user_id")
+          .eq("id", lead.landing_page_id)
+          .single();
+        page = p;
+      } else {
+        const { data: p } = await sb
+          .from("lw_landing_pages")
+          .select("id, slug, client_name, email")
+          .eq("id", lead.landing_page_id)
+          .eq("client_user_id", user.id)
+          .single();
+        page = p;
+      }
       if (!page) throw new Error("Unauthorized: not your lead");
 
-      recipientEmail = page.email || user.email;
+      // For admin, send to the client's email (page owner), not admin's email
+      if (isAdmin && page.client_user_id) {
+        const { data: clientUser } = await supabaseAdmin.auth.admin.getUserById(page.client_user_id);
+        recipientEmail = page.email || clientUser?.user?.email || user.email;
+      } else {
+        recipientEmail = page.email || user.email;
+      }
       if (!recipientEmail) throw new Error("No email found for your account");
       pageName = `${page.client_name} (/${page.slug})`;
     }
