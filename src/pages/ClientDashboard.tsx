@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -56,6 +56,8 @@ const STAGE_LABELS: Record<string, string> = {
 export default function ClientDashboard() {
   const { user, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const adminViewPageId = searchParams.get('admin_view');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [landingPages, setLandingPages] = useState<LandingPage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +71,7 @@ export default function ClientDashboard() {
   const [fetchingLeadId, setFetchingLeadId] = useState<string | null>(null);
 
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminViewClientName, setAdminViewClientName] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -83,14 +86,24 @@ export default function ClientDashboard() {
     const admin = !!roleData;
     setIsAdmin(admin);
 
-    // Admins see ALL landing pages; clients only see their own
-    let pagesQuery = supabase
-      .from('lw_landing_pages')
-      .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents');
-    if (!admin) {
-      pagesQuery = pagesQuery.eq('client_user_id', user.id);
-    }
-    const { data: pages } = await pagesQuery;
+    // Admin impersonation: scope to a single landing page
+    if (admin && adminViewPageId) {
+      const { data: pages } = await supabase
+        .from('lw_landing_pages')
+        .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents')
+        .eq('id', adminViewPageId);
+      const clientPages = (pages || []) as LandingPage[];
+      setLandingPages(clientPages);
+      setAdminViewClientName(clientPages[0]?.client_name || 'Unknown Client');
+    } else {
+      // Normal flow: Admins see ALL landing pages; clients only see their own
+      let pagesQuery = supabase
+        .from('lw_landing_pages')
+        .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents');
+      if (!admin) {
+        pagesQuery = pagesQuery.eq('client_user_id', user.id);
+      }
+      const { data: pages } = await pagesQuery;
 
     const clientPages = (pages || []) as LandingPage[];
     setLandingPages(clientPages);

@@ -9,8 +9,9 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Plus, ExternalLink, Trash2, Loader2, Copy, Globe, Eye, Pencil, X, Save,
-  ChevronDown, ChevronUp, Upload, ImageIcon, DollarSign, Mail, Send
+  ChevronDown, ChevronUp, Upload, ImageIcon, DollarSign, Mail, Send, ShieldCheck
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -59,6 +60,7 @@ const EMPTY_PAGE = {
 };
 
 export default function LandingPageManager() {
+  const navigate = useNavigate();
   const [pages, setPages] = useState<LandingPageRow[]>([]);
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -395,6 +397,16 @@ export default function LandingPageManager() {
                       <a href={`/sell/${p.slug}`} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" /></a>
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(p)} title="Edit"><Pencil className="h-3.5 w-3.5" /></Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 text-[10px] border-primary/30 text-primary hover:bg-primary/10"
+                      onClick={() => window.open(`/client-dashboard?admin_view=${p.id}`, '_blank')}
+                      title="View client dashboard as admin"
+                    >
+                      <ShieldCheck className="h-3 w-3" />
+                      View as Admin
+                    </Button>
                     <Switch checked={p.is_active} onCheckedChange={() => toggleActive(p)} className="ml-1" />
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => deletePage(p.id)} title="Delete"><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
