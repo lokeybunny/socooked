@@ -120,6 +120,20 @@ export default function ClientDashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminViewClientName, setAdminViewClientName] = useState<string | null>(null);
 
+  // Handle credits_added return from Square
+  useEffect(() => {
+    const creditsAdded = searchParams.get('credits_added');
+    if (creditsAdded) {
+      toast.success(`$${creditsAdded} phone credits purchase initiated! Credits will be added once payment is confirmed.`);
+      setActiveSection('phone');
+      // Clean the URL param
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('credits_added');
+      const newUrl = newParams.toString() ? `?${newParams.toString()}` : window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
+
   const loadData = useCallback(async () => {
     if (!user) return;
 
