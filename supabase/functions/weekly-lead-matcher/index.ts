@@ -7,14 +7,14 @@ const corsHeaders = {
 };
 
 /**
- * Weekly Lead Matcher — runs every Monday at 6am via pg_cron
- * 
- * 1. For each active landing page with a client_user_id:
- *    - Check weekly cap (50 leads/week)
- *    - Pull REAPI distress leads matching buyer preferences
- *    - Insert matched leads into lw_landing_leads
- *    - Track cap usage in lw_client_lead_caps
- * 2. Send collective email digest via Gmail API
+ * Weekly Lead Matcher
+ *
+ * Two modes:
+ *   A) Manual trigger: body contains { buyer_id, page_id } → match ONE buyer
+ *   B) Cron / no body: process ALL warm (subscriber) buyers
+ *
+ * Uses the buyer's actual preferences (state, county, property type, budget,
+ * motivation flags) when searching REAPI and when falling back to the sellers table.
  */
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,56 +29,81 @@ serve(async (req) => {
 
     const REAPI_KEY = Deno.env.get('REAPI_API_KEY');
     const WEEKLY_CAP = 50;
-    const TRIAL_CAP = 5; // Free trial users get max 5 leads in 24h
+    const TRIAL_CAP = 5;
 
-    // Get current week start (Monday)
+    // Week start (Monday)
     const now = new Date();
     const dayOfWeek = now.getDay();
     const monday = new Date(now);
     monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
     const weekStart = monday.toISOString().split('T')[0];
 
-    // Get all active landing pages with client accounts
-    // IMPORTANT: Only auto-push to "subscriber" (warm) buyers — NOT active buyers
-    const { data: pages } = await supabaseAdmin
-      .from('lw_landing_pages')
-      .select('*, lw_buyers:lw_buyers!inner(id, pipeline_stage)')
-      .eq('is_active', true)
-      .not('client_user_id', 'is', null);
+    // ---------- Parse request body ----------
+    let manualBuyerId: string | null = null;
+    let manualPageId: string | null = null;
+    try {
+      const body = await req.json();
+      manualBuyerId = body?.buyer_id || null;
+      manualPageId = body?.page_id || null;
+    } catch { /* no body = cron mode */ }
 
-    // Filter to only pages linked to subscribers (pipeline_stage = 'warm')
-    // We match via email between lw_landing_pages and lw_buyers
-    const { data: subscriberBuyers } = await supabaseAdmin
-      .from('lw_buyers')
-      .select('email')
-      .eq('pipeline_stage', 'warm')
-      .not('email', 'is', null);
+    // ---------- Resolve buyer ↔ page pairs ----------
+    interface BuyerPage {
+      buyer: any;
+      page: any;
+    }
+    const pairs: BuyerPage[] = [];
 
-    const subscriberEmails = new Set(
-      (subscriberBuyers || []).map(b => b.email?.toLowerCase()).filter(Boolean)
-    );
+    if (manualBuyerId && manualPageId) {
+      // Manual mode — single buyer + page
+      const { data: buyer } = await supabaseAdmin
+        .from('lw_buyers')
+        .select('*')
+        .eq('id', manualBuyerId)
+        .single();
 
-    // Get raw pages and filter to subscriber-linked ones
-    const { data: allPages } = await supabaseAdmin
-      .from('lw_landing_pages')
-      .select('*')
-      .eq('is_active', true)
-      .not('client_user_id', 'is', null);
+      const { data: page } = await supabaseAdmin
+        .from('lw_landing_pages')
+        .select('*')
+        .eq('id', manualPageId)
+        .single();
 
-    const subscriberPages = (allPages || []).filter(p =>
-      p.email && subscriberEmails.has(p.email.toLowerCase())
-    );
+      if (buyer && page) {
+        pairs.push({ buyer, page });
+      }
+    } else {
+      // Cron mode — all warm buyers with linked landing pages
+      const { data: warmBuyers } = await supabaseAdmin
+        .from('lw_buyers')
+        .select('*')
+        .eq('pipeline_stage', 'warm')
+        .not('email', 'is', null);
 
-    if (!subscriberPages || subscriberPages.length === 0) {
-      return new Response(JSON.stringify({ message: 'No subscribed buyer pages to process' }), {
+      const { data: allPages } = await supabaseAdmin
+        .from('lw_landing_pages')
+        .select('*')
+        .eq('is_active', true)
+        .not('client_user_id', 'is', null);
+
+      for (const buyer of (warmBuyers || [])) {
+        const page = (allPages || []).find(p =>
+          p.email && buyer.email && p.email.toLowerCase() === buyer.email.toLowerCase()
+        );
+        if (page) pairs.push({ buyer, page });
+      }
+    }
+
+    if (pairs.length === 0) {
+      return new Response(JSON.stringify({ message: 'No buyer-page pairs to process' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    // ---------- Process each pair ----------
     const results: Array<{ page_id: string; slug: string; leads_added: number; email_sent: boolean }> = [];
 
-    for (const page of subscriberPages) {
-      // Check if this user is on a free trial (pending subscription = not yet paid)
+    for (const { buyer, page } of pairs) {
+      // --- Trial check ---
       const { data: subRecord } = await supabaseAdmin
         .from('guru_subscriptions')
         .select('status')
@@ -91,7 +116,7 @@ serve(async (req) => {
       const isTrial = !subRecord || subRecord.status === 'pending';
       const effectiveCap = isTrial ? TRIAL_CAP : WEEKLY_CAP;
 
-      // Check weekly cap
+      // --- Cap check ---
       const { data: capRow } = await supabaseAdmin
         .from('lw_client_lead_caps')
         .select('*')
@@ -101,13 +126,32 @@ serve(async (req) => {
 
       const currentCount = capRow?.leads_delivered || 0;
       const remaining = Math.max(0, effectiveCap - currentCount);
-
       if (remaining === 0) {
         results.push({ page_id: page.id, slug: page.slug, leads_added: 0, email_sent: false });
         continue;
       }
 
-      // Fetch distressed leads from REAPI
+      // --- Extract buyer preferences ---
+      const interests = buyer.meta?.interests || {};
+      const targetStates = buyer.target_states || [];
+      const targetCounties = buyer.target_counties || [];
+      const dealType = buyer.deal_type || 'land';
+      const budgetMin = buyer.budget_min || 0;
+      const budgetMax = buyer.budget_max || 999999999;
+      const acreageMin = buyer.acreage_min || null;
+      const acreageMax = buyer.acreage_max || null;
+      const propertyTypes: string[] = interests.property_types || buyer.property_type_interest || [];
+      const motivationFlags: string[] = interests.motivation_flags || [];
+      const targetCity: string = interests.target_city || '';
+
+      // Map buyer property types to REAPI property_type param
+      const reApiPropertyType = propertyTypes.includes('sfr') || dealType === 'home'
+        ? 'SFR'
+        : propertyTypes.includes('multi_family') || propertyTypes.includes('mfr')
+          ? 'MFR'
+          : 'LAND';
+
+      // --- Attempt REAPI search with buyer filters ---
       let newLeads: Array<{
         full_name: string;
         phone: string;
@@ -116,17 +160,32 @@ serve(async (req) => {
         meta: Record<string, unknown>;
       }> = [];
 
-      if (REAPI_KEY) {
+      if (REAPI_KEY && targetStates.length > 0) {
         try {
-          // Search for distressed properties in common areas
-          const searchParams = new URLSearchParams({
-            property_type: 'LAND',
-            is_distressed: 'true',
+          const searchParams: Record<string, string> = {
+            property_type: reApiPropertyType,
             limit: String(Math.min(remaining, 50)),
-          });
+          };
 
+          // Location filters
+          if (targetStates.length === 1) searchParams.state = targetStates[0];
+          if (targetCounties.length === 1) {
+            searchParams.county = targetCounties[0].replace(/ County$/i, '');
+          }
+          if (targetCity) searchParams.city = targetCity;
+
+          // Distress / motivation filters
+          if (motivationFlags.includes('vacant')) searchParams.is_vacant = 'true';
+          if (motivationFlags.includes('absentee_owner')) searchParams.is_absentee_owner = 'true';
+          if (motivationFlags.includes('pre_foreclosure')) searchParams.is_pre_foreclosure = 'true';
+          if (motivationFlags.includes('tax_delinquent')) searchParams.is_tax_delinquent = 'true';
+
+          // Budget filters
+          if (budgetMax < 999999999) searchParams.max_assessed_value = String(budgetMax);
+
+          const qs = new URLSearchParams(searchParams);
           const reApiRes = await fetch(
-            `https://api.realestateapi.com/v2/PropertySearch?${searchParams}`,
+            `https://api.realestateapi.com/v2/PropertySearch?${qs}`,
             {
               headers: {
                 'x-api-key': REAPI_KEY,
@@ -146,39 +205,81 @@ serve(async (req) => {
               status: 'new',
               meta: {
                 source: 'reapi_weekly_match',
+                buyer_id: buyer.id,
                 assessed_value: prop.assessedValue || prop.assessed_value,
                 acreage: prop.lotAcreage || prop.acreage,
+                market_value: prop.marketValue || prop.market_value,
+                property_type: reApiPropertyType,
                 distress_flags: {
                   tax_delinquent: prop.isTaxDelinquent || false,
                   pre_foreclosure: prop.isPreForeclosure || false,
                   vacant: prop.isVacant || false,
+                  absentee_owner: prop.isAbsenteeOwner || false,
                 },
               },
             }));
+          } else {
+            console.error('REAPI error:', reApiRes.status, await reApiRes.text());
           }
         } catch (err) {
           console.error('REAPI fetch error:', err);
         }
       }
 
-      // If no REAPI leads, pull from existing sellers table
+      // --- Fallback: pull from lw_sellers with buyer-preference filters ---
       if (newLeads.length === 0) {
-        const { data: sellers } = await supabaseAdmin
+        let query = supabaseAdmin
           .from('lw_sellers')
-          .select('owner_name, owner_phone, address_full, meta, opportunity_score')
+          .select('owner_name, owner_phone, address_full, meta, opportunity_score, state, county, deal_type, property_type, market_value, acreage')
           .order('opportunity_score', { ascending: false })
           .limit(remaining);
+
+        // Filter by state
+        if (targetStates.length > 0) {
+          query = query.in('state', targetStates);
+        }
+        // Filter by county
+        if (targetCounties.length > 0) {
+          const countyNames = targetCounties.map(c => c.replace(/ County$/i, ''));
+          query = query.in('county', countyNames);
+        }
+        // Filter by deal type
+        if (dealType && dealType !== 'any') {
+          query = query.eq('deal_type', dealType);
+        }
+        // Budget filter on market_value
+        if (budgetMax < 999999999) {
+          query = query.lte('market_value', budgetMax);
+        }
+        if (budgetMin > 0) {
+          query = query.gte('market_value', budgetMin);
+        }
+        // Acreage filters
+        if (acreageMin) {
+          query = query.gte('acreage', acreageMin);
+        }
+        if (acreageMax) {
+          query = query.lte('acreage', acreageMax);
+        }
+
+        const { data: sellers } = await query;
 
         newLeads = (sellers || []).map(s => ({
           full_name: s.owner_name || 'Property Owner',
           phone: s.owner_phone || '',
           property_address: s.address_full || 'Unknown',
           status: 'new',
-          meta: { source: 'seller_db_match', opportunity_score: s.opportunity_score },
+          meta: {
+            source: 'seller_db_match',
+            buyer_id: buyer.id,
+            opportunity_score: s.opportunity_score,
+            property_type: s.property_type,
+            market_value: s.market_value,
+          },
         }));
       }
 
-      // Insert leads
+      // --- Insert leads ---
       if (newLeads.length > 0) {
         const insertRows = newLeads.map(l => ({
           landing_page_id: page.id,
@@ -191,7 +292,7 @@ serve(async (req) => {
 
         await supabaseAdmin.from('lw_landing_leads').insert(insertRows);
 
-        // Update cap tracker
+        // Update cap
         if (capRow) {
           await supabaseAdmin
             .from('lw_client_lead_caps')
@@ -206,7 +307,7 @@ serve(async (req) => {
         }
       }
 
-      // Send email digest via Gmail API
+      // --- Send email digest ---
       let emailSent = false;
       if (page.email && newLeads.length > 0) {
         try {
@@ -214,11 +315,18 @@ serve(async (req) => {
             .map((l, i) => `${i + 1}. ${l.full_name} — ${l.property_address}${l.phone ? ` (${l.phone})` : ''}`)
             .join('\n');
 
-          const capLabel = isTrial ? `Trial cap: ${currentCount + newLeads.length}/${TRIAL_CAP}` : `Weekly cap: ${currentCount + newLeads.length}/${WEEKLY_CAP}`;
+          const capLabel = isTrial
+            ? `Trial cap: ${currentCount + newLeads.length}/${TRIAL_CAP}`
+            : `Weekly cap: ${currentCount + newLeads.length}/${WEEKLY_CAP}`;
+
+          const locationLabel = targetCounties.length > 0
+            ? targetCounties.join(', ') + ', ' + targetStates.join(', ')
+            : targetStates.join(', ');
+
           const emailBody = [
             `Hi ${page.client_name},`,
             '',
-            `Your ${isTrial ? 'trial' : 'weekly'} lead report is ready! Here are ${newLeads.length} new distressed property leads matched for you:`,
+            `Your ${isTrial ? 'trial' : 'weekly'} lead report is ready! Here are ${newLeads.length} new ${reApiPropertyType} property leads matched for you in ${locationLabel}:`,
             '',
             leadList,
             '',
@@ -232,9 +340,8 @@ serve(async (req) => {
             'Warren Guru AI System',
           ].join('\n');
 
-          // Call internal Gmail API edge function
           const gmailRes = await fetch(
-            `${Deno.env.get('SUPABASE_URL')}/functions/v1/gmail-api`,
+            `${Deno.env.get('SUPABASE_URL')}/functions/v1/gmail-api?action=send`,
             {
               method: 'POST',
               headers: {
@@ -242,9 +349,8 @@ serve(async (req) => {
                 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
               },
               body: JSON.stringify({
-                action: 'send',
                 to: page.email,
-                subject: `📊 Weekly Lead Report — ${newLeads.length} New Matches (Week of ${weekStart})`,
+                subject: `📊 Weekly Lead Report — ${newLeads.length} New ${reApiPropertyType} Matches (Week of ${weekStart})`,
                 body: emailBody,
               }),
             }
