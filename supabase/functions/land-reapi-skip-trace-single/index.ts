@@ -48,16 +48,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Build skip trace request
-    // REAPI SkipTrace only accepts address fields — "name" is NOT allowed
+    // REAPI SkipTrace requires address with structured location peers
     const skipBody: any = {};
+
     if (seller.address_full) {
       skipBody.address = seller.address_full;
-    } else if (seller.city && seller.state) {
-      // Build address from parts if full address missing
+    }
+    if (seller.city) {
       skipBody.city = seller.city;
+    }
+    if (seller.state) {
       skipBody.state = seller.state;
-      if (seller.zip) skipBody.zip = seller.zip;
+    }
+    if (seller.zip) {
+      skipBody.zip = seller.zip;
+    }
+
+    if (!skipBody.address || !skipBody.city || !skipBody.state) {
+      return new Response(
+        JSON.stringify({ error: "Seller must have address, city, and state for skip trace" }),
+        { status: 400, headers: corsHeaders }
+      );
     }
 
     const resp = await fetch(`${REAPI_BASE}/SkipTrace`, {
