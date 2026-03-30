@@ -228,16 +228,23 @@ export default function ClientDashboard() {
   const fetchVapiData = async (lead: Lead) => {
     setFetchingLeadId(lead.id);
     try {
+      // If the lead already has a call ID, sync data from Vapi API
+      // Otherwise trigger a new call
+      const action = lead.vapi_call_id ? 'sync_call' : 'trigger_call';
       const { data, error } = await supabase.functions.invoke('vapi-outbound', {
-        body: { action: 'trigger_call', lead_id: lead.id },
+        body: { action, lead_id: lead.id },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast.success(data?.credit_exhausted ? 'Credits exhausted' : 'AI call triggered — data will sync shortly');
-      // Reload to pick up realtime updates
-      setTimeout(() => loadData(), 5000);
+
+      if (action === 'sync_call') {
+        toast.success(`Call data synced — Status: ${data.call_status}, Duration: ${data.duration}s`);
+      } else {
+        toast.success(data?.credit_exhausted ? 'Credits exhausted' : 'AI call triggered — data will sync shortly');
+      }
+      setTimeout(() => loadData(), 2000);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to trigger call');
+      toast.error(err.message || 'Failed to fetch call data');
     } finally {
       setFetchingLeadId(null);
     }
