@@ -2020,6 +2020,7 @@ export type Database = {
           ai_notes: string | null
           asking_price: number | null
           created_at: string
+          drafted_at: string | null
           email: string | null
           full_name: string
           id: string
@@ -2041,6 +2042,7 @@ export type Database = {
           ai_notes?: string | null
           asking_price?: number | null
           created_at?: string
+          drafted_at?: string | null
           email?: string | null
           full_name: string
           id?: string
@@ -2062,6 +2064,7 @@ export type Database = {
           ai_notes?: string | null
           asking_price?: number | null
           created_at?: string
+          drafted_at?: string | null
           email?: string | null
           full_name?: string
           id?: string
