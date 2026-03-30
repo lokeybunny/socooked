@@ -912,3 +912,62 @@ export default function ClientDashboard() {
     </div>
   );
 }
+
+function CancelSubscriptionButton({ landingPages, userEmail, onCancelled }: {
+  landingPages: LandingPage[];
+  userEmail: string;
+  onCancelled: () => void;
+}) {
+  const [cancelling, setCancelling] = useState(false);
+
+  if (landingPages.length === 0) return null;
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      // Cancel for each landing page
+      for (const page of landingPages) {
+        const { data, error } = await supabase.functions.invoke('square-subscribe', {
+          body: { action: 'cancel', email: userEmail, landing_page_id: page.id },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+      }
+      toast.success('Subscription cancelled successfully');
+      onCancelled();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to cancel subscription');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="outline" className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300">
+          <XCircle className="h-4 w-4 mr-1.5" /> Cancel Subscription
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="bg-zinc-900 border-zinc-700">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-white">Cancel Subscription</AlertDialogTitle>
+          <AlertDialogDescription className="text-zinc-400">
+            This will cancel your subscription, deactivate your landing page(s), and revoke dashboard access. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700">Keep Active</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
+            {cancelling ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Yes, Cancel
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
