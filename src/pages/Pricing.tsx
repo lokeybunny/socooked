@@ -55,7 +55,7 @@ export default function Pricing() {
   };
 
   const handleSubscribe = async () => {
-    if (!agreed) return;
+    if (!agreed || !codeValid) return;
     if (!email.trim()) {
       toast.error('Please enter your email address');
       return;
