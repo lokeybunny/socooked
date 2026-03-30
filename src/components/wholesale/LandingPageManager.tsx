@@ -174,7 +174,30 @@ export default function LandingPageManager() {
   };
 
   const toggleActive = async (p: LandingPageRow) => {
-    await supabase.from('lw_landing_pages').update({ is_active: !p.is_active }).eq('id', p.id);
+    const newActive = !p.is_active;
+    await supabase.from('lw_landing_pages').update({ is_active: newActive }).eq('id', p.id);
+
+    // When deactivating a landing page, also disable the client's auth account
+    if (!newActive && p.email) {
+      try {
+        await supabase.functions.invoke('create-client-account', {
+          body: { action: 'deactivate', email: p.email },
+        });
+        toast.success('Page deactivated & client login disabled');
+      } catch {
+        toast.success('Page deactivated (client login update failed)');
+      }
+    } else if (newActive && p.email) {
+      // Re-activate user when page goes active again
+      try {
+        await supabase.functions.invoke('create-client-account', {
+          body: { action: 'activate', email: p.email },
+        });
+        toast.success('Page activated & client login enabled');
+      } catch {
+        toast.success('Page activated (client login update failed)');
+      }
+    }
     load();
   };
 

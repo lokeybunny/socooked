@@ -38,21 +38,45 @@ serve(async (req) => {
     const weekStart = monday.toISOString().split('T')[0];
 
     // Get all active landing pages with client accounts
+    // IMPORTANT: Only auto-push to "subscriber" (warm) buyers — NOT active buyers
     const { data: pages } = await supabaseAdmin
+      .from('lw_landing_pages')
+      .select('*, lw_buyers:lw_buyers!inner(id, pipeline_stage)')
+      .eq('is_active', true)
+      .not('client_user_id', 'is', null);
+
+    // Filter to only pages linked to subscribers (pipeline_stage = 'warm')
+    // We match via email between lw_landing_pages and lw_buyers
+    const { data: subscriberBuyers } = await supabaseAdmin
+      .from('lw_buyers')
+      .select('email')
+      .eq('pipeline_stage', 'warm')
+      .not('email', 'is', null);
+
+    const subscriberEmails = new Set(
+      (subscriberBuyers || []).map(b => b.email?.toLowerCase()).filter(Boolean)
+    );
+
+    // Get raw pages and filter to subscriber-linked ones
+    const { data: allPages } = await supabaseAdmin
       .from('lw_landing_pages')
       .select('*')
       .eq('is_active', true)
       .not('client_user_id', 'is', null);
 
-    if (!pages || pages.length === 0) {
-      return new Response(JSON.stringify({ message: 'No active client pages' }), {
+    const subscriberPages = (allPages || []).filter(p =>
+      p.email && subscriberEmails.has(p.email.toLowerCase())
+    );
+
+    if (!subscriberPages || subscriberPages.length === 0) {
+      return new Response(JSON.stringify({ message: 'No subscribed buyer pages to process' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const results: Array<{ page_id: string; slug: string; leads_added: number; email_sent: boolean }> = [];
 
-    for (const page of pages) {
+    for (const page of subscriberPages) {
       // Check weekly cap
       const { data: capRow } = await supabaseAdmin
         .from('lw_client_lead_caps')

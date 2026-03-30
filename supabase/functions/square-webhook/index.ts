@@ -306,7 +306,7 @@ serve(async (req) => {
             .eq("square_order_id", orderId);
         }
 
-        // ─── Auto-create client dashboard account ───
+        // ─── Auto-create client dashboard account + landing page ───
         if (buyerEmail) {
           // Resolve buyer name from Square customer if available
           let buyerName: string | null = null;
@@ -317,6 +317,44 @@ serve(async (req) => {
               if (c) buyerName = [c.given_name, c.family_name].filter(Boolean).join(' ') || null;
             } catch { /* ignore */ }
           }
+
+          // Auto-create seller landing page for this subscriber
+          const displayName = buyerName || buyerEmail.split('@')[0];
+          const slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+          // Check if landing page already exists for this email
+          const { data: existingPages } = await sb
+            .from('lw_landing_pages')
+            .select('id')
+            .eq('email', buyerEmail)
+            .limit(1);
+
+          let landingPageId: string | null = null;
+
+          if (!existingPages || existingPages.length === 0) {
+            const { data: newPage } = await sb
+              .from('lw_landing_pages')
+              .insert({
+                slug: slug + '-' + Date.now().toString(36),
+                client_name: displayName,
+                email: buyerEmail,
+                headline: 'Get a Fair Cash Offer for Your Home Today',
+                tagline: 'We Buy Houses Fast. Cash Offers in 24 Hours.',
+                sub_headline: 'No inspections. No appraisals. No hassle. Close on your timeline.',
+                is_active: true,
+                meta: { source: 'square-payment', square_order_id: orderId },
+              })
+              .select('id')
+              .single();
+
+            if (newPage) {
+              landingPageId = newPage.id;
+              console.log(`[square-webhook] Auto-created landing page ${landingPageId} for ${buyerEmail}`);
+            }
+          } else {
+            landingPageId = existingPages[0].id;
+          }
+
           await createClientAccountAndEmail(sb, buyerEmail, buyerName);
         }
 
