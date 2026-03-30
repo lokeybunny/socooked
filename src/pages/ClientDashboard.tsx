@@ -359,6 +359,20 @@ export default function ClientDashboard() {
             <Phone className="h-4 w-4" />
             Phone Spend
           </button>
+          <button
+            onClick={() => { setActiveSection('drafts'); setFilterStage('all'); }}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+              activeSection === 'drafts'
+                ? 'bg-red-500/20 border-red-500/40 text-red-300'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-red-300 hover:border-red-500/20'
+            }`}
+          >
+            <Trash2 className="h-4 w-4" />
+            Drafts
+            {draftedLeads.length > 0 && (
+              <span className="ml-1 text-xs bg-red-500/20 px-2 py-0.5 rounded-full">{draftedLeads.length}</span>
+            )}
+          </button>
         </div>
 
         {/* Phone Spend View */}
