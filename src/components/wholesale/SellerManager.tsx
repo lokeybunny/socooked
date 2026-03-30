@@ -1462,14 +1462,17 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         `;
 
         try {
-          await supabase.functions.invoke('gmail-api', {
-            body: {
-              action: 'send',
+          const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail-api?action=send`;
+          const res = await fetch(fnUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+            body: JSON.stringify({
               to: sellerEmail,
               subject: `Action Required: Sign Purchase Agreement — ${s.address_full || 'Property'}`,
               body: emailHtml,
-            },
+            }),
           });
+          if (!res.ok) throw new Error(await res.text());
           toast.success(`Agreement sent to ${sellerEmail} for signature!`, { duration: 6000 });
         } catch (emailErr: any) {
           // Fallback: copy link if email fails
