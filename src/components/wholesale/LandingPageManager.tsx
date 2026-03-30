@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Plus, ExternalLink, Trash2, Loader2, Copy, Globe, Eye, Pencil, X, Save,
-  ChevronDown, ChevronUp, Upload, ImageIcon, DollarSign
+  ChevronDown, ChevronUp, Upload, ImageIcon, DollarSign, Mail, Send
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -341,9 +341,12 @@ export default function LandingPageManager() {
             {isEditing ? (
               <>
                 {formFieldsJsx}
-                <div className="flex gap-2 justify-end">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-3.5 w-3.5 mr-1" /> Cancel</Button>
-                  <Button size="sm" onClick={() => handleUpdate(p.id)}><Save className="h-3.5 w-3.5 mr-1" /> Save</Button>
+                <div className="flex items-center gap-2 justify-between mt-2">
+                  <EmailComposeButton email={form.email} clientName={form.client_name} />
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-3.5 w-3.5 mr-1" /> Cancel</Button>
+                    <Button size="sm" onClick={() => handleUpdate(p.id)}><Save className="h-3.5 w-3.5 mr-1" /> Save</Button>
+                  </div>
                 </div>
               </>
             ) : (
@@ -490,5 +493,65 @@ function CreditTopUp({ pageId, currentBalance, onUpdated }: { pageId: string; cu
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function EmailComposeButton({ email, clientName }: { email: string; clientName: string }) {
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const handleOpen = () => {
+    setSubject('');
+    setBody('');
+    setOpen(true);
+  };
+
+  const handleSend = async () => {
+    if (!email.trim()) { toast.error('No email address set for this client'); return; }
+    if (!subject.trim()) { toast.error('Subject is required'); return; }
+    setSending(true);
+    const { error } = await supabase.functions.invoke('gmail-api', {
+      body: { action: 'send', to: email.trim(), subject: subject.trim(), body: body.trim() },
+    });
+    setSending(false);
+    if (error) {
+      toast.error('Failed to send: ' + error.message);
+    } else {
+      toast.success('Email sent to ' + email);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={handleOpen} disabled={!email.trim()}>
+          <Mail className="h-3.5 w-3.5" /> Email Client
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Send Email</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">To</Label>
+            <Input value={email} disabled className="mt-1 bg-muted" />
+          </div>
+          <div>
+            <Label className="text-xs">Subject</Label>
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject line..." className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Message</Label>
+            <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message..." rows={6} className="mt-1" />
+          </div>
+          <Button onClick={handleSend} disabled={sending} className="w-full gap-1.5">
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Send Email
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
