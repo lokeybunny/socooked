@@ -91,11 +91,26 @@ export default function SellerLanding() {
       toast.error('Something went wrong. Please try again.');
     } else {
       setSubmitted(true);
-      // Trigger Vapi AI call after 3 seconds via edge function (fire-and-forget)
+      // Trigger Vapi AI call after 3 seconds — use raw fetch with apikey header
+      // since the user is not authenticated (public landing page)
       setTimeout(async () => {
         try {
-          await supabase.functions.invoke('vapi-outbound', {
-            body: { action: 'trigger_call', phone: insertPayload.phone, landing_page_id: page.id, full_name: insertPayload.full_name, property_address: insertPayload.property_address },
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          await fetch(`${supabaseUrl}/functions/v1/vapi-outbound`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey,
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
+              action: 'trigger_call',
+              phone: insertPayload.phone,
+              landing_page_id: page.id,
+              full_name: insertPayload.full_name,
+              property_address: insertPayload.property_address,
+            }),
           });
         } catch (err) {
           console.error('Vapi call trigger failed:', err);

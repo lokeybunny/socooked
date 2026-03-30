@@ -8,9 +8,10 @@ import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
-  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText, Flame, Globe, Mail
+  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText, Flame, Globe, Mail,
+  RefreshCw, Trash2, Archive, RotateCcw
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInHours } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Lead {
@@ -31,6 +32,7 @@ interface Lead {
   email: string | null;
   property_condition: string | null;
   meta: Record<string, any> | null;
+  drafted_at: string | null;
 }
 
 interface LandingPage {
@@ -61,8 +63,9 @@ export default function ClientDashboard() {
   const [filterStage, setFilterStage] = useState<string>('all');
   const [editingLead, setEditingLead] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
-  const [activeSection, setActiveSection] = useState<'funnel' | 'hot' | 'phone'>('funnel');
+  const [activeSection, setActiveSection] = useState<'funnel' | 'hot' | 'phone' | 'drafts'>('funnel');
   const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
+  const [fetchingLeadId, setFetchingLeadId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -205,14 +208,79 @@ export default function ClientDashboard() {
     }
   };
 
+  // ─── Fetch / Retry Vapi call data ───
+  const fetchVapiData = async (lead: Lead) => {
+    setFetchingLeadId(lead.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('vapi-outbound', {
+        body: { action: 'trigger_call', lead_id: lead.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.credit_exhausted ? 'Credits exhausted' : 'AI call triggered — data will sync shortly');
+      // Reload to pick up realtime updates
+      setTimeout(() => loadData(), 5000);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to trigger call');
+    } finally {
+      setFetchingLeadId(null);
+    }
+  };
+
+  // ─── Soft-delete: move to drafts ───
+  const moveToDrafts = async (leadId: string) => {
+    const { error } = await supabase
+      .from('lw_landing_leads')
+      .update({ drafted_at: new Date().toISOString() } as any)
+      .eq('id', leadId);
+    if (error) {
+      toast.error('Failed to move to drafts');
+      return;
+    }
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, drafted_at: new Date().toISOString() } : l));
+    toast.success('Lead moved to Drafts — will be permanently deleted in 72 hours');
+  };
+
+  // ─── Restore from drafts ───
+  const restoreFromDrafts = async (leadId: string) => {
+    const { error } = await supabase
+      .from('lw_landing_leads')
+      .update({ drafted_at: null } as any)
+      .eq('id', leadId);
+    if (error) {
+      toast.error('Failed to restore lead');
+      return;
+    }
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, drafted_at: null } : l));
+    toast.success('Lead restored');
+  };
+
+  // ─── Permanently delete ───
+  const permanentlyDelete = async (leadId: string) => {
+    const { error } = await supabase
+      .from('lw_landing_leads')
+      .delete()
+      .eq('id', leadId);
+    if (error) {
+      toast.error('Failed to delete lead');
+      return;
+    }
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+    toast.success('Lead permanently deleted');
+  };
+
   const isHotLead = (l: Lead) => {
     const src = (l.meta as any)?.source || '';
     return src === 'reapi_weekly_match' || src === 'seller_db_match';
   };
 
-  const funnelLeads = leads.filter(l => !isHotLead(l));
-  const hotLeads = leads.filter(l => isHotLead(l));
-  const activeLeads = activeSection === 'funnel' ? funnelLeads : hotLeads;
+  // Separate drafted vs active leads
+  const activeLeadsAll = leads.filter(l => !l.drafted_at);
+  const draftedLeads = leads.filter(l => !!l.drafted_at);
+
+  const funnelLeads = activeLeadsAll.filter(l => !isHotLead(l));
+  const hotLeads = activeLeadsAll.filter(l => isHotLead(l));
+  const activeLeads = activeSection === 'funnel' ? funnelLeads : activeSection === 'hot' ? hotLeads : [];
 
   const filteredLeads = activeLeads.filter(l => {
     if (filterPage !== 'all' && l.landing_page_id !== filterPage) return false;
@@ -291,6 +359,20 @@ export default function ClientDashboard() {
             <Phone className="h-4 w-4" />
             Phone Spend
           </button>
+          <button
+            onClick={() => { setActiveSection('drafts'); setFilterStage('all'); }}
+            className={`flex items-center gap-2 px-5 py-3 rounded-xl border text-sm font-semibold transition-colors ${
+              activeSection === 'drafts'
+                ? 'bg-red-500/20 border-red-500/40 text-red-300'
+                : 'bg-white/5 border-white/10 text-white/50 hover:text-red-300 hover:border-red-500/20'
+            }`}
+          >
+            <Trash2 className="h-4 w-4" />
+            Drafts
+            {draftedLeads.length > 0 && (
+              <span className="ml-1 text-xs bg-red-500/20 px-2 py-0.5 rounded-full">{draftedLeads.length}</span>
+            )}
+          </button>
         </div>
 
         {/* Phone Spend View */}
@@ -368,8 +450,57 @@ export default function ClientDashboard() {
           );
         })()}
 
+        {/* Drafts View */}
+        {activeSection === 'drafts' && (
+          <div className="space-y-3">
+            <p className="text-xs text-white/40">Leads moved to drafts will be permanently deleted after 72 hours.</p>
+            {draftedLeads.length === 0 ? (
+              <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center">
+                <Archive className="h-8 w-8 text-white/20 mx-auto mb-3" />
+                <p className="text-white/40">No drafted leads. Leads you delete will appear here for 72 hours before permanent removal.</p>
+              </div>
+            ) : (
+              draftedLeads.map(lead => {
+                const hoursLeft = Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!)));
+                return (
+                  <div key={lead.id} className="bg-white/5 rounded-xl border border-red-500/20 p-4 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-white truncate">{lead.full_name}</p>
+                      <div className="flex items-center gap-4 text-xs text-white/40 mt-1">
+                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{lead.property_address}</span>
+                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>
+                      </div>
+                      <p className="text-xs text-red-400/70 mt-1">
+                        {hoursLeft > 0 ? `Auto-deletes in ${hoursLeft}h` : 'Scheduled for deletion'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => restoreFromDrafts(lead.id)}
+                        className="border-white/10 text-white/70 hover:bg-white/10 hover:text-white h-8 text-xs"
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />Restore
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => permanentlyDelete(lead.id)}
+                        className="border-red-500/30 text-red-400 hover:bg-red-500/20 h-8 text-xs"
+                      >
+                        <X className="h-3 w-3 mr-1" />Delete Now
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
         {/* Section Description */}
-        {activeSection !== 'phone' && <>
+        {activeSection !== 'phone' && activeSection !== 'drafts' && <>
         <p className="text-xs text-white/40 -mt-4">
           {activeSection === 'funnel'
             ? 'Leads submitted through your landing page funnel.'

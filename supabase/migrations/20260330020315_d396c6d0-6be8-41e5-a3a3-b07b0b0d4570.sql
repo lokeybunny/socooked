@@ -1,0 +1,1 @@
+ALTER TABLE public.lw_landing_leads ADD COLUMN IF NOT EXISTS drafted_at timestamptz DEFAULT NULL;
