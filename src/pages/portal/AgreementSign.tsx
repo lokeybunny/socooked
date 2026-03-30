@@ -169,14 +169,17 @@ export default function AgreementSign() {
         </div>
       `;
 
-      await supabase.functions.invoke('gmail-api', {
-        body: {
-          action: 'send',
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail-api?action=send`;
+      const res = await fetch(fnUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        body: JSON.stringify({
           to: 'warren@stu25.com',
           subject: `✅ Signed: ${doc.title}`,
           body: signedHtml,
-        },
+        }),
       });
+      if (!res.ok) console.error('Admin notify failed:', await res.text());
     } catch (emailErr) {
       console.error('Failed to notify admin:', emailErr);
     }
