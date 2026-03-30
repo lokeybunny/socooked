@@ -266,13 +266,13 @@ export default function SubscriberAI() {
                     <div className="flex items-center gap-2 shrink-0">
                       <Button
                         size="sm"
-                        variant="default"
+                        variant="outline"
                         className="gap-1.5 text-xs"
-                        disabled={isRunning || !pageInfo || remaining <= 0}
-                        onClick={() => triggerMatch(buyer)}
+                        disabled={!pageInfo}
+                        onClick={() => setSearchEditorBuyer(buyer)}
                       >
-                        {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                        Run Now
+                        <Settings2 className="h-3.5 w-3.5" />
+                        Edit & Run
                       </Button>
                     </div>
                   </div>
