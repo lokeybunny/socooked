@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Phone, Clock, BarChart3, Loader2, RefreshCw, CheckCircle, XCircle, Globe, Filter } from 'lucide-react';
+import { DollarSign, Phone, Clock, BarChart3, Loader2, RefreshCw, CheckCircle, XCircle, Globe, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface VapiCallRecord {
   id: string;
@@ -43,6 +43,8 @@ interface PageBreakdown {
   callCount: number;
 }
 
+const CALLS_PER_PAGE = 20;
+
 export default function VapiSpendDashboard() {
   const [summary, setSummary] = useState<VapiSummary | null>(null);
   const [calls, setCalls] = useState<VapiCallRecord[]>([]);
@@ -50,6 +52,7 @@ export default function VapiSpendDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageFilter, setPageFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const loadData = async () => {
     setLoading(true);
@@ -74,6 +77,12 @@ export default function VapiSpendDashboard() {
     : pageFilter === '__unmatched__'
       ? calls.filter(c => !c.landingPageSlug)
       : calls.filter(c => c.landingPageSlug === pageFilter);
+
+  const totalPages = Math.ceil(filteredCalls.length / CALLS_PER_PAGE);
+  const paginatedCalls = filteredCalls.slice((currentPage - 1) * CALLS_PER_PAGE, currentPage * CALLS_PER_PAGE);
+
+  // Reset page when filter changes
+  useEffect(() => { setCurrentPage(1); }, [pageFilter]);
 
   const filteredSummary: VapiSummary = pageFilter === 'all' && summary
     ? summary
@@ -232,7 +241,7 @@ export default function VapiSpendDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCalls.map(call => (
+                  {paginatedCalls.map(call => (
                     <TableRow key={call.id}>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {call.startedAt ? new Date(call.startedAt).toLocaleString() : '—'}
@@ -272,6 +281,23 @@ export default function VapiSpendDashboard() {
                   ))}
                 </TableBody>
               </Table>
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4 border-t border-border mt-2">
+                  <span className="text-xs text-muted-foreground">
+                    Showing {(currentPage - 1) * CALLS_PER_PAGE + 1}–{Math.min(currentPage * CALLS_PER_PAGE, filteredCalls.length)} of {filteredCalls.length}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button size="icon" variant="outline" className="h-7 w-7" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-xs font-medium px-2">{currentPage} / {totalPages}</span>
+                    <Button size="icon" variant="outline" className="h-7 w-7" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
