@@ -25,6 +25,7 @@ import Invoices from "./pages/Invoices";
 import EmailPage from "./pages/Email";
 import PhonePage from "./pages/Phone";
 import PortalSign from "./pages/portal/PortalSign";
+import AgreementSign from "./pages/portal/AgreementSign";
 import Notifications from "./pages/Notifications";
 import Meetings from "./pages/Meetings";
 import MeetingRoom from "./pages/MeetingRoom";
@@ -107,6 +108,7 @@ const App = () => (
             <Route path="/messages" element={<RestrictedGate><EmailPage /></RestrictedGate>} />
             <Route path="/phone" element={<PhonePage />} />
             <Route path="/portal/sign/:threadId" element={<PortalSign />} />
+            <Route path="/sign/agreement/:documentId" element={<AgreementSign />} />
             <Route path="/notifications" element={<RestrictedGate><Notifications /></RestrictedGate>} />
             <Route path="/meetings" element={<RestrictedGate><Meetings /></RestrictedGate>} />
             <Route path="/meet/:roomCode" element={<MeetingRoom />} />

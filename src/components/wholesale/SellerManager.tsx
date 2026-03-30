@@ -1205,6 +1205,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [agreementBuyerName, setAgreementBuyerName] = useState('');
   const [agreementCompanyName, setAgreementCompanyName] = useState('');
   const [draftingEmail, setDraftingEmail] = useState(false);
+  const [sendingForSignature, setSendingForSignature] = useState(false);
 
   const handleSkipTrace = async () => {
     setTracing(true);
@@ -1385,6 +1386,67 @@ Format with numbered sections and clear headings. Make this ready to print, sign
       toast.error(err.message || 'Failed to save draft');
     }
     setDraftingEmail(false);
+  };
+
+  const handleSendForSignature = async () => {
+    if (!agreementText.trim()) return;
+    setSendingForSignature(true);
+    try {
+      // Sync seller as CRM customer first
+      const ownerName = s.owner_name || `Owner — ${s.address_full || 'Unknown'}`;
+      const sellerEmail = s.owner_email || '';
+      const sellerPhone = s.owner_phone || '';
+
+      let customerId: string;
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .or(`email.eq.${sellerEmail || '___none___'},phone.eq.${sellerPhone || '___none___'},full_name.eq.${ownerName}`)
+        .limit(1);
+
+      if (existing?.length) {
+        customerId = existing[0].id;
+      } else {
+        const { data: newCust, error: custErr } = await supabase.from('customers').insert({
+          full_name: ownerName,
+          email: sellerEmail || null,
+          phone: sellerPhone || null,
+          status: 'prospect',
+          source: 'wholesale',
+          category: 'other',
+        }).select('id').single();
+        if (custErr) throw custErr;
+        customerId = newCust.id;
+      }
+
+      // Upload agreement text to storage
+      const fileName = `agreements/${crypto.randomUUID()}.txt`;
+      const { error: uploadErr } = await supabase.storage
+        .from('documents')
+        .upload(fileName, new Blob([agreementText], { type: 'text/plain' }));
+      if (uploadErr) throw uploadErr;
+
+      // Create document record
+      const { data: doc, error: docErr } = await supabase.from('documents').insert({
+        title: `Wholesale Purchase Agreement — ${s.address_full || 'Property'}`,
+        type: 'contract',
+        status: 'pending_signature',
+        customer_id: customerId,
+        storage_path: fileName,
+        category: 'other',
+      }).select('id').single();
+      if (docErr) throw docErr;
+
+      const signUrl = `${window.location.origin}/sign/agreement/${doc.id}`;
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(signUrl);
+      toast.success('Signing link copied! Send this to the seller to sign digitally.', { duration: 6000 });
+      setAgreementOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create signing link');
+    }
+    setSendingForSignature(false);
   };
 
   const handleSaveEdits = async () => {
@@ -1989,7 +2051,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                 <div className="rounded-md border border-border bg-muted/30 p-4 max-h-[50vh] overflow-y-auto">
                   <pre className="whitespace-pre-wrap text-xs font-mono leading-relaxed text-foreground">{agreementText}</pre>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -2000,14 +2062,25 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                   >
                     <Copy className="h-3.5 w-3.5 mr-1" /> Copy
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleDraftEmail}
-                    disabled={draftingEmail}
-                    className="gap-1.5"
-                  >
-                    {draftingEmail ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</> : '✉️ Draft Email'}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleDraftEmail}
+                      disabled={draftingEmail}
+                      className="gap-1.5"
+                    >
+                      {draftingEmail ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</> : '✉️ Draft Email'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSendForSignature}
+                      disabled={sendingForSignature}
+                      className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      {sendingForSignature ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Creating…</> : '✍️ Send for Signature'}
+                    </Button>
+                  </div>
                 </div>
               </>
             )}
