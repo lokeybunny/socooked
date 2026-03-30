@@ -74,7 +74,7 @@ serve(async (req) => {
       }
 
       // Create Vapi call using pre-built assistant
-      const VAPI_ASSISTANT_ID = "42efc64f-2e0f-443b-b7cb-4ccf5f73c610";
+      const VAPI_ASSISTANT_ID = "29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38";
 
       const customerNumber = (() => {
         let ph = (lead.phone || "").replace(/\D/g, "");
