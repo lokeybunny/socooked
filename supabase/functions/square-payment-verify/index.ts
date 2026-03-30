@@ -39,6 +39,8 @@ serve(async (req) => {
       .eq('status', 'pending')
       .lt('created_at', twentyFourHoursAgo);
 
+    const results: Array<{ email: string; action: string }> = [];
+
     // ─── Check cancelling subscriptions whose period has ended ───
     const { data: cancellingSubs } = await supabaseAdmin
       .from('guru_subscriptions')
