@@ -702,7 +702,6 @@ export default function ClientDashboard() {
                         <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /><CopyableText text={lead.property_address}>{lead.property_address}</CopyableText></span>
                         <span className="flex items-center gap-1"><Phone className="h-3 w-3" /><CopyableText text={lead.phone}>{lead.phone}</CopyableText></span>
                       </div>
-                      </div>
                       <p className="text-xs text-red-400/70 mt-1">
                         {hoursLeft > 0 ? `Auto-deletes in ${hoursLeft}h` : 'Scheduled for deletion'}
                       </p>
