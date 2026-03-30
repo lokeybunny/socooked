@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import robotThumb from '@/assets/landing/robot-thumbnail.jpg';
 
 const YOUTUBE_VIDEO_ID = 'a-quzsaSpNU';
-const VIDEO_DURATION_SECONDS = 154; // 2:34
+const VIDEO_DURATION_SECONDS = 947; // 15:47
 
 export default function WarrenVideoPlayer() {
   const [theaterMode, setTheaterMode] = useState(false);
@@ -127,7 +127,7 @@ export default function WarrenVideoPlayer() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="text-white/30 text-xs font-mono tracking-widest"
+                        className="text-red-800 text-lg sm:text-xl font-mono tracking-widest font-semibold"
                       >
                         {formatTime(remaining)} remaining
                       </motion.p>
