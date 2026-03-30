@@ -73,22 +73,16 @@ export default function WarrenVideoPlayer() {
                   style={{ aspectRatio: '16/9' }}
                 >
                   <iframe
-                    src={`https://www.youtube-nocookie.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&modestbranding=1&rel=0&showinfo=0&controls=1&color=white`}
+                    src={`https://www.youtube-nocookie.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&modestbranding=1&rel=0&showinfo=0&controls=1&color=white&iv_load_policy=3&disablekb=0&fs=1&playsinline=1&vq=hd1080`}
                     className="w-full h-full"
                     style={{ border: 'none' }}
-                    allow="autoplay; fullscreen; encrypted-media"
+                    allow="autoplay; fullscreen; encrypted-media; accelerometer; gyroscope"
                     allowFullScreen
                     title="Warren Guru"
                   />
+                  {/* Block YouTube logo click-through */}
+                  <div className="absolute top-0 right-0 w-24 h-12 z-10" />
                 </div>
-                <a
-                  href="https://discord.gg/warrenguru"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 px-8 py-2.5 text-[10px] sm:text-xs tracking-[0.3em] uppercase font-light border border-white/20 rounded-lg text-white/60 hover:text-white hover:border-white/50 transition-all duration-300 inline-block text-center"
-                >
-                  Download
-                </a>
               </div>
             </motion.div>
           </>
