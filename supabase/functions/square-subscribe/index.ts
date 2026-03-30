@@ -220,39 +220,61 @@ serve(async (req) => {
         console.warn(`[square-subscribe] No subscription_id or square_customer_id found for ${email} — Square cancellation skipped`);
       }
 
-      // Update our DB
+      // Determine when the current billing period ends
+      let periodEndsAt: string | null = null;
+
+      // Try to get the subscription's charged_through_date from Square
+      if (subscriptionId) {
+        try {
+          const subRes = await fetch(`${SQUARE_BASE}/subscriptions/${subscriptionId}`, {
+            headers: {
+              Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+              "Content-Type": "application/json",
+              "Square-Version": SQUARE_VERSION,
+            },
+          });
+          if (subRes.ok) {
+            const subData = await subRes.json();
+            periodEndsAt = subData.subscription?.charged_through_date || null;
+          }
+        } catch { /* ignore */ }
+      }
+
+      // Fallback: if no charged_through_date, use 30 days from now or started_at + 30 days
+      if (!periodEndsAt) {
+        const startDate = sub.started_at ? new Date(sub.started_at) : new Date();
+        const now = new Date();
+        // Calculate end of current billing cycle (monthly)
+        const monthsSinceStart = Math.ceil(
+          (now.getTime() - startDate.getTime()) / (30 * 24 * 60 * 60 * 1000)
+        );
+        const periodEnd = new Date(startDate);
+        periodEnd.setDate(periodEnd.getDate() + monthsSinceStart * 30);
+        periodEndsAt = periodEnd.toISOString();
+      }
+
+      // Update our DB — mark as cancelling, NOT cancelled yet
+      // The user keeps access until periodEndsAt
       await sb
         .from("guru_subscriptions")
         .update({
-          status: "cancelled",
+          status: "cancelling",
           cancelled_at: new Date().toISOString(),
+          meta: {
+            ...(sub.meta as Record<string, unknown>),
+            period_ends_at: periodEndsAt,
+          },
         })
         .eq("id", sub.id);
 
-      // Deactivate landing page
-      if (landing_page_id) {
-        await sb
-          .from("lw_landing_pages")
-          .update({ is_active: false })
-          .eq("id", landing_page_id);
-      }
+      // DO NOT deactivate landing page or ban user yet — they keep access until period ends
 
-      // Ban user login
-      if (landing_page_id) {
-        const { data: page } = await sb
-          .from("lw_landing_pages")
-          .select("client_user_id")
-          .eq("id", landing_page_id)
-          .single();
-
-        if (page?.client_user_id) {
-          await sb.auth.admin.updateUserById(page.client_user_id, { ban_duration: "876600h" });
-          console.log(`[square-subscribe] Banned user ${page.client_user_id}`);
-        }
-      }
-
-      // Send cancellation email
+      // Send cancellation confirmation email
       try {
+        const formattedEnd = periodEndsAt
+          ? new Date(periodEndsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+          : 'the end of your current billing period';
+
         await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
           method: "POST",
           headers: {
@@ -261,13 +283,14 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             to: email,
-            subject: "Your Subscription Has Been Cancelled",
+            subject: "Your Subscription Cancellation Confirmation",
             body: `
 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-  <h2 style="color: #0f172a;">Subscription Cancelled</h2>
+  <h2 style="color: #0f172a;">Subscription Cancellation Confirmed</h2>
   <p>Hi,</p>
-  <p>Your subscription has been successfully cancelled. Your landing page and client dashboard access have been deactivated.</p>
-  <p>If you'd like to reactivate your subscription, please contact us.</p>
+  <p>Your subscription has been cancelled. <strong>You will continue to have full access to your dashboard and leads until ${formattedEnd}.</strong></p>
+  <p>After that date, your landing page and dashboard access will be deactivated.</p>
+  <p>If you change your mind, please contact us before your access expires to reactivate.</p>
   <br/>
   <p>Best regards,</p>
   <p><strong>Warren A Thompson</strong><br/>

@@ -39,13 +39,99 @@ serve(async (req) => {
       .eq('status', 'pending')
       .lt('created_at', twentyFourHoursAgo);
 
+    const results: Array<{ email: string; action: string }> = [];
+
+    // ─── Check cancelling subscriptions whose period has ended ───
+    const { data: cancellingSubs } = await supabaseAdmin
+      .from('guru_subscriptions')
+      .select('*')
+      .eq('status', 'cancelling');
+
+    for (const sub of (cancellingSubs || [])) {
+      const periodEndsAt = (sub.meta as any)?.period_ends_at;
+      if (!periodEndsAt) continue;
+
+      const endDate = new Date(periodEndsAt);
+      if (new Date() < endDate) continue; // Still has time left
+
+      console.log(`[payment-verify] Subscription period ended for ${sub.email}, deactivating...`);
+
+      // Mark as fully cancelled
+      await supabaseAdmin
+        .from('guru_subscriptions')
+        .update({ status: 'cancelled' })
+        .eq('id', sub.id);
+
+      // Deactivate landing pages
+      const { data: pages } = await supabaseAdmin
+        .from('lw_landing_pages')
+        .select('id, client_user_id, client_name')
+        .eq('email', sub.email)
+        .eq('is_active', true);
+
+      for (const page of (pages || [])) {
+        await supabaseAdmin
+          .from('lw_landing_pages')
+          .update({ is_active: false })
+          .eq('id', page.id);
+
+        if (page.client_user_id) {
+          await supabaseAdmin.auth.admin.updateUserById(page.client_user_id, {
+            ban_duration: '876000h',
+          });
+          console.log(`[payment-verify] Banned user ${page.client_user_id} (subscription period ended)`);
+        }
+      }
+
+      // Send final deactivation email
+      try {
+        const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({
+            to: sub.email,
+            subject: 'Your Subscription Has Ended',
+            body: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#333;">
+              <h2 style="color:#0f172a;">Subscription Ended</h2>
+              <p>Hi,</p>
+              <p>Your subscription billing period has ended. Your landing page and dashboard access have now been deactivated.</p>
+              <p>If you'd like to reactivate, please visit <a href="https://socooked.lovable.app/warren-guru">our signup page</a> or contact us.</p>
+              <br/><p>Best regards,</p>
+              <p><strong>Warren A Thompson</strong><br/>STU25<br/><a href="mailto:warren@stu25.com">warren@stu25.com</a></p>
+            </div>`,
+          }),
+        });
+      } catch (e) { console.error('[payment-verify] Deactivation email failed:', e); }
+
+      // Telegram notification
+      try {
+        const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN');
+        const TELEGRAM_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID');
+        if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: TELEGRAM_CHAT_ID,
+              text: `❌ *Subscription Period Ended*\n📧 ${sub.email}\n🔒 Landing page deactivated & login banned`,
+              parse_mode: 'Markdown',
+            }),
+          });
+        }
+      } catch { /* ignore */ }
+
+      results.push({ email: sub.email, action: 'period_ended_deactivated' });
+    }
+
+    // ─── Check pending trial subscriptions ───
     if (!pendingSubs || pendingSubs.length === 0) {
-      return new Response(JSON.stringify({ message: 'No expired trials found' }), {
+      return new Response(JSON.stringify({ message: 'No expired trials found', cancelling_processed: (cancellingSubs || []).length, results }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const results: Array<{ email: string; action: string }> = [];
 
     for (const sub of pendingSubs) {
       // If there's a Square order ID, verify with Square
