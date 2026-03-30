@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import {
   Bot, Users, Loader2, Play, Eye, Mail, MapPin, DollarSign,
-  Home, Zap, RefreshCw, ChevronDown, ChevronUp, CheckCircle
+  Home, Zap, RefreshCw, ChevronDown, ChevronUp, CheckCircle, Settings2
 } from 'lucide-react';
+import AutomateSearchEditor from './AutomateSearchEditor';
 
 interface AutomateBuyer {
   id: string;
