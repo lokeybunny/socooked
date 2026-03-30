@@ -77,14 +77,15 @@ export default function ClientDashboard() {
   const loadData = useCallback(async () => {
     if (!user) return;
 
-    // Check if user is admin
+    // Check if user is admin (role table OR known admin emails)
+    const ADMIN_EMAILS = ['warren@stu25.com', 'brucemillis786@gmail.com'];
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .eq('role', 'admin')
       .maybeSingle();
-    const admin = !!roleData;
+    const admin = !!roleData || ADMIN_EMAILS.includes(user.email || '');
     setIsAdmin(admin);
 
     // Determine which landing pages to load
