@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
@@ -56,6 +57,8 @@ const STAGE_LABELS: Record<string, string> = {
 export default function ClientDashboard() {
   const { user, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const adminViewPageId = searchParams.get('admin_view');
   const [leads, setLeads] = useState<Lead[]>([]);
   const [landingPages, setLandingPages] = useState<LandingPage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,6 +72,7 @@ export default function ClientDashboard() {
   const [fetchingLeadId, setFetchingLeadId] = useState<string | null>(null);
 
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminViewClientName, setAdminViewClientName] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -83,16 +87,29 @@ export default function ClientDashboard() {
     const admin = !!roleData;
     setIsAdmin(admin);
 
-    // Admins see ALL landing pages; clients only see their own
-    let pagesQuery = supabase
-      .from('lw_landing_pages')
-      .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents');
-    if (!admin) {
-      pagesQuery = pagesQuery.eq('client_user_id', user.id);
-    }
-    const { data: pages } = await pagesQuery;
+    // Determine which landing pages to load
+    let clientPages: LandingPage[] = [];
 
-    const clientPages = (pages || []) as LandingPage[];
+    if (admin && adminViewPageId) {
+      // Admin impersonation: scope to a single landing page
+      const { data: pages } = await supabase
+        .from('lw_landing_pages')
+        .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents')
+        .eq('id', adminViewPageId);
+      clientPages = (pages || []) as LandingPage[];
+      setAdminViewClientName(clientPages[0]?.client_name || 'Unknown Client');
+    } else {
+      // Normal flow: Admins see ALL landing pages; clients only see their own
+      let pagesQuery = supabase
+        .from('lw_landing_pages')
+        .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents');
+      if (!admin) {
+        pagesQuery = pagesQuery.eq('client_user_id', user.id);
+      }
+      const { data: pages } = await pagesQuery;
+      clientPages = (pages || []) as LandingPage[];
+    }
+
     setLandingPages(clientPages);
 
     if (clientPages.length === 0) {
@@ -110,7 +127,7 @@ export default function ClientDashboard() {
 
     setLeads((leadsData || []) as Lead[]);
     setLoading(false);
-  }, [user]);
+  }, [user, adminViewPageId]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -327,6 +344,19 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      {/* Admin impersonation banner */}
+      {isAdmin && adminViewPageId && adminViewClientName && (
+        <div className="bg-primary/20 border-b border-primary/30 px-6 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <span className="font-semibold text-primary">Admin View</span>
+            <span className="text-white/70">— Viewing as <span className="font-semibold text-white">{adminViewClientName}</span></span>
+          </div>
+          <Button size="sm" variant="outline" className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => window.close()}>
+            Exit Admin View
+          </Button>
+        </div>
+      )}
       {/* Header */}
       <header className="bg-white/5 border-b border-white/10 px-6 py-4 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
