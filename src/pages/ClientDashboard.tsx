@@ -280,7 +280,7 @@ export default function ClientDashboard() {
 
   const funnelLeads = activeLeadsAll.filter(l => !isHotLead(l));
   const hotLeads = activeLeadsAll.filter(l => isHotLead(l));
-  const activeLeads = activeSection === 'funnel' ? funnelLeads : hotLeads;
+  const activeLeads = activeSection === 'funnel' ? funnelLeads : activeSection === 'hot' ? hotLeads : [];
 
   const filteredLeads = activeLeads.filter(l => {
     if (filterPage !== 'all' && l.landing_page_id !== filterPage) return false;
