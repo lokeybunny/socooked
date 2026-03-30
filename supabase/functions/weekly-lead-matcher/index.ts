@@ -29,6 +29,7 @@ serve(async (req) => {
 
     const REAPI_KEY = Deno.env.get('REAPI_API_KEY');
     const WEEKLY_CAP = 50;
+    const TRIAL_CAP = 5; // Free trial users get max 5 leads in 24h
 
     // Get current week start (Monday)
     const now = new Date();
@@ -77,6 +78,19 @@ serve(async (req) => {
     const results: Array<{ page_id: string; slug: string; leads_added: number; email_sent: boolean }> = [];
 
     for (const page of subscriberPages) {
+      // Check if this user is on a free trial (pending subscription = not yet paid)
+      const { data: subRecord } = await supabaseAdmin
+        .from('guru_subscriptions')
+        .select('status')
+        .eq('email', page.email)
+        .in('status', ['pending', 'active', 'subscribed'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const isTrial = !subRecord || subRecord.status === 'pending';
+      const effectiveCap = isTrial ? TRIAL_CAP : WEEKLY_CAP;
+
       // Check weekly cap
       const { data: capRow } = await supabaseAdmin
         .from('lw_client_lead_caps')
@@ -86,7 +100,7 @@ serve(async (req) => {
         .maybeSingle();
 
       const currentCount = capRow?.leads_delivered || 0;
-      const remaining = Math.max(0, WEEKLY_CAP - currentCount);
+      const remaining = Math.max(0, effectiveCap - currentCount);
 
       if (remaining === 0) {
         results.push({ page_id: page.id, slug: page.slug, leads_added: 0, email_sent: false });
@@ -200,17 +214,19 @@ serve(async (req) => {
             .map((l, i) => `${i + 1}. ${l.full_name} — ${l.property_address}${l.phone ? ` (${l.phone})` : ''}`)
             .join('\n');
 
+          const capLabel = isTrial ? `Trial cap: ${currentCount + newLeads.length}/${TRIAL_CAP}` : `Weekly cap: ${currentCount + newLeads.length}/${WEEKLY_CAP}`;
           const emailBody = [
             `Hi ${page.client_name},`,
             '',
-            `Your weekly lead report is ready! Here are ${newLeads.length} new distressed property leads matched for you this week:`,
+            `Your ${isTrial ? 'trial' : 'weekly'} lead report is ready! Here are ${newLeads.length} new distressed property leads matched for you:`,
             '',
             leadList,
             '',
             `Log in to your dashboard to view full details, AI call notes, and manage your pipeline:`,
-            `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovable.app')}/client-dashboard`,
+            `https://socooked.lovable.app/client-dashboard`,
             '',
-            `Weekly cap: ${currentCount + newLeads.length}/${WEEKLY_CAP} leads delivered this week.`,
+            `${capLabel} leads delivered.`,
+            ...(isTrial ? ['', '⚡ Complete your payment to unlock up to 50 leads/week and full automation!'] : []),
             '',
             'Best,',
             'Warren Guru AI System',
