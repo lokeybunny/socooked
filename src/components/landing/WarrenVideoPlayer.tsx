@@ -108,7 +108,7 @@ export default function WarrenVideoPlayer() {
                   style={{ aspectRatio: '16/9' }}
                 >
                   <iframe
-                    src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&modestbranding=1&rel=0&showinfo=0&controls=1&iv_load_policy=3&fs=1&playsinline=1`}
+                    src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}?autoplay=1&modestbranding=1&rel=0&showinfo=0&controls=1&iv_load_policy=3&fs=1&playsinline=1&vq=hd1080`}
                     className="absolute inset-0 w-full h-full"
                     style={{ border: 'none' }}
                     allow="autoplay; fullscreen; encrypted-media; accelerometer; gyroscope"
