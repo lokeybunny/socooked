@@ -67,13 +67,29 @@ export default function ClientDashboard() {
   const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
   const [fetchingLeadId, setFetchingLeadId] = useState<string | null>(null);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const loadData = useCallback(async () => {
     if (!user) return;
 
-    const { data: pages } = await supabase
+    // Check if user is admin
+    const { data: roleData } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
+    const admin = !!roleData;
+    setIsAdmin(admin);
+
+    // Admins see ALL landing pages; clients only see their own
+    let pagesQuery = supabase
       .from('lw_landing_pages')
-      .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents')
-      .eq('client_user_id', user.id);
+      .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents');
+    if (!admin) {
+      pagesQuery = pagesQuery.eq('client_user_id', user.id);
+    }
+    const { data: pages } = await pagesQuery;
 
     const clientPages = (pages || []) as LandingPage[];
     setLandingPages(clientPages);
