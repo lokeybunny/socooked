@@ -44,8 +44,8 @@ export default function Pricing() {
 
   const handleCodeCheck = (val: string) => {
     setInviteCode(val);
-    const upper = val.trim().toUpperCase();
-    if (upper && VALID_CODES.includes(upper)) {
+    const trimmed = val.trim();
+    if (trimmed && VALID_CODES.includes(trimmed)) {
       setCodeValid(true);
       setCodeError('');
     } else {
