@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import {
   Bot, Users, Loader2, Play, Eye, Mail, MapPin, DollarSign,
-  Home, Zap, RefreshCw, ChevronDown, ChevronUp, CheckCircle
+  Home, Zap, RefreshCw, ChevronDown, ChevronUp, CheckCircle, Settings2
 } from 'lucide-react';
+import AutomateSearchEditor from './AutomateSearchEditor';
 
 interface AutomateBuyer {
   id: string;
@@ -59,6 +60,7 @@ export default function SubscriberAI() {
   const [capData, setCapData] = useState<Record<string, CapRow>>({});
   const [runningId, setRunningId] = useState<string | null>(null);
   const [detailLead, setDetailLead] = useState<MatchedLead | null>(null);
+  const [searchEditorBuyer, setSearchEditorBuyer] = useState<AutomateBuyer | null>(null);
 
   const getWeekStart = () => {
     const now = new Date();
@@ -264,13 +266,13 @@ export default function SubscriberAI() {
                     <div className="flex items-center gap-2 shrink-0">
                       <Button
                         size="sm"
-                        variant="default"
+                        variant="outline"
                         className="gap-1.5 text-xs"
-                        disabled={isRunning || !pageInfo || remaining <= 0}
-                        onClick={() => triggerMatch(buyer)}
+                        disabled={!pageInfo}
+                        onClick={() => setSearchEditorBuyer(buyer)}
                       >
-                        {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                        Run Now
+                        <Settings2 className="h-3.5 w-3.5" />
+                        Edit & Run
                       </Button>
                     </div>
                   </div>
@@ -434,6 +436,17 @@ export default function SubscriberAI() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Search Editor Modal */}
+      {searchEditorBuyer && (
+        <AutomateSearchEditor
+          open={!!searchEditorBuyer}
+          onOpenChange={(o) => { if (!o) setSearchEditorBuyer(null); }}
+          buyer={searchEditorBuyer}
+          pageId={buyerPages[searchEditorBuyer.id]?.page_id || ''}
+          onComplete={load}
+        />
+      )}
     </div>
   );
 }
