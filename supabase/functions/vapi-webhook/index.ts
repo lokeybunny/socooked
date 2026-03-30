@@ -322,7 +322,9 @@ serve(async (req) => {
       console.log("Updated lead", lead.id, "with AI notes");
 
       // --- Send email notification to landing page owner ---
-      if (lead.landing_page_id) {
+      // Only send email if call succeeded OR if all retries are exhausted (no more retries coming)
+      const willRetry = callFailed && prevRetryCount < 2;
+      if (lead.landing_page_id && !willRetry) {
         const { data: landingPage } = await sb
           .from("lw_landing_pages")
           .select("client_name, email, phone, accent_color, slug")
@@ -331,8 +333,9 @@ serve(async (req) => {
 
         if (landingPage?.email) {
           const updatedLead = { ...lead, ai_notes: aiNotes };
+          const retryNote = callFailed && prevRetryCount >= 2 ? ` (after ${prevRetryCount + 1} attempts)` : "";
           const subject = callFailed
-            ? `🏠 New Lead: ${lead.full_name} — AI Agent Did Not Connect`
+            ? `🏠 New Lead: ${lead.full_name} — AI Agent Did Not Connect${retryNote}`
             : `🏠 New Lead: ${lead.full_name} — AI Call Completed`;
           const html = buildLeadEmailHtml(updatedLead, landingPage, !callFailed);
 
