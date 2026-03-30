@@ -132,7 +132,6 @@ serve(async (req) => {
       });
     }
 
-    const results: Array<{ email: string; action: string }> = [];
 
     for (const sub of pendingSubs) {
       // If there's a Square order ID, verify with Square
