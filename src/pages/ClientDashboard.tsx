@@ -86,14 +86,16 @@ export default function ClientDashboard() {
     const admin = !!roleData;
     setIsAdmin(admin);
 
-    // Admin impersonation: scope to a single landing page
+    // Determine which landing pages to load
+    let clientPages: LandingPage[] = [];
+
     if (admin && adminViewPageId) {
+      // Admin impersonation: scope to a single landing page
       const { data: pages } = await supabase
         .from('lw_landing_pages')
         .select('id, slug, client_name, vapi_credit_balance_cents, vapi_total_spent_cents')
         .eq('id', adminViewPageId);
-      const clientPages = (pages || []) as LandingPage[];
-      setLandingPages(clientPages);
+      clientPages = (pages || []) as LandingPage[];
       setAdminViewClientName(clientPages[0]?.client_name || 'Unknown Client');
     } else {
       // Normal flow: Admins see ALL landing pages; clients only see their own
@@ -104,11 +106,9 @@ export default function ClientDashboard() {
         pagesQuery = pagesQuery.eq('client_user_id', user.id);
       }
       const { data: pages } = await pagesQuery;
-      const clientPages = (pages || []) as LandingPage[];
-      setLandingPages(clientPages);
+      clientPages = (pages || []) as LandingPage[];
     }
 
-    const clientPages = landingPages;
     setLandingPages(clientPages);
 
     if (clientPages.length === 0) {
@@ -126,7 +126,7 @@ export default function ClientDashboard() {
 
     setLeads((leadsData || []) as Lead[]);
     setLoading(false);
-  }, [user]);
+  }, [user, adminViewPageId]);
 
   useEffect(() => {
     if (!authLoading && !user) {
