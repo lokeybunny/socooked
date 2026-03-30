@@ -1448,7 +1448,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
             </div>
             <div style="padding: 24px; background: #f9fafb; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
               <p style="font-size: 15px; color: #374151;">Hi ${ownerName},</p>
-              <p style="font-size: 15px; color: #374151;">A wholesale purchase agreement for <strong>${s.address_full || 'your property'}</strong> is ready for your review and signature.</p>
+              <p style="font-size: 15px; color: #374151;">A Cash Investor purchase agreement for <strong>${s.address_full || 'your property'}</strong> is ready for your review and signature.</p>
               <div style="text-align: center; margin: 28px 0;">
                 <a href="${signUrl}" style="background: #059669; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px; display: inline-block;">
                   Review & Sign Agreement
