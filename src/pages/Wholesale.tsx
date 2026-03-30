@@ -234,6 +234,10 @@ export default function Wholesale() {
         <TabsContent value="twilio-spend" className="mt-4">
           <TwilioSpendDashboard />
         </TabsContent>
+        {/* API Management */}
+        <TabsContent value="api" className="mt-4">
+          <ApifyApiManager />
+        </TabsContent>
         {/* Settings */}
         <TabsContent value="settings" className="mt-4">
           <BuyerSettings />
