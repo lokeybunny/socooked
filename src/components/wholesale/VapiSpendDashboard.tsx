@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Phone, Clock, BarChart3, Loader2, RefreshCw, CheckCircle, XCircle, Globe, Filter, Wallet } from 'lucide-react';
+import { DollarSign, Phone, Clock, BarChart3, Loader2, RefreshCw, CheckCircle, XCircle, Globe, Filter } from 'lucide-react';
 
 interface VapiCallRecord {
   id: string;
