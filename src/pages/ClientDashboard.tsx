@@ -63,8 +63,9 @@ export default function ClientDashboard() {
   const [filterStage, setFilterStage] = useState<string>('all');
   const [editingLead, setEditingLead] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Lead>>({});
-  const [activeSection, setActiveSection] = useState<'funnel' | 'hot' | 'phone'>('funnel');
+  const [activeSection, setActiveSection] = useState<'funnel' | 'hot' | 'phone' | 'drafts'>('funnel');
   const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
+  const [fetchingLeadId, setFetchingLeadId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
