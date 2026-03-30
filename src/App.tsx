@@ -25,6 +25,7 @@ import Invoices from "./pages/Invoices";
 import EmailPage from "./pages/Email";
 import PhonePage from "./pages/Phone";
 import PortalSign from "./pages/portal/PortalSign";
+import AgreementSign from "./pages/portal/AgreementSign";
 import Notifications from "./pages/Notifications";
 import Meetings from "./pages/Meetings";
 import MeetingRoom from "./pages/MeetingRoom";
