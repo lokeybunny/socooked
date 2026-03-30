@@ -238,10 +238,13 @@ serve(async (req) => {
         if (targetStates.length > 0) {
           query = query.in('state', targetStates);
         }
-        // Filter by county
+        // Filter by county — match both "Clark" and "Clark County" formats
         if (targetCounties.length > 0) {
-          const countyNames = targetCounties.map(c => c.replace(/ County$/i, ''));
-          query = query.in('county', countyNames);
+          // Try exact match first (DB stores "Clark County"), also try stripped version
+          const withSuffix = targetCounties;
+          const withoutSuffix = targetCounties.map(c => c.replace(/ County$/i, ''));
+          const allVariants = [...new Set([...withSuffix, ...withoutSuffix])];
+          query = query.in('county', allVariants);
         }
         // Filter by deal type
         if (dealType && dealType !== 'any') {
