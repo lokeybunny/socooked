@@ -1,17 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-const BodySchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-  landing_page_id: z.string().uuid(),
-});
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -19,22 +12,59 @@ serve(async (req) => {
   }
 
   try {
-    const parsed = BodySchema.safeParse(await req.json());
-    if (!parsed.success) {
-      return new Response(JSON.stringify({ error: parsed.error.flatten().fieldErrors }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const { email, password, landing_page_id } = parsed.data;
+    const body = await req.json();
+    const action = body.action || 'create';
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    // Try creating the user first — if email exists, it will fail
+    // ─── Activate / Deactivate user by email ───
+    if (action === 'deactivate' || action === 'activate') {
+      const email = body.email;
+      if (!email) {
+        return new Response(JSON.stringify({ error: 'email required' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const user = listData?.users?.find(u => u.email === email);
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'User not found' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (action === 'deactivate') {
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          ban_duration: '876000h', // ~100 years = effectively banned
+        });
+        console.log(`[client-account] Deactivated user ${user.id} (${email})`);
+      } else {
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          ban_duration: 'none',
+        });
+        console.log(`[client-account] Activated user ${user.id} (${email})`);
+      }
+
+      return new Response(JSON.stringify({ success: true, user_id: user.id, action }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // ─── Create / Update client account ───
+    const email = body.email;
+    const password = body.password;
+    const landing_page_id = body.landing_page_id;
+
+    if (!email || !password) {
+      return new Response(JSON.stringify({ error: 'email and password required' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     let userId: string;
 
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -45,7 +75,6 @@ serve(async (req) => {
     });
 
     if (createError) {
-      // User likely already exists — find and update password
       const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
       const existing = listData?.users?.find(u => u.email === email);
       if (existing) {
@@ -53,36 +82,27 @@ serve(async (req) => {
         userId = existing.id;
       } else {
         return new Response(JSON.stringify({ error: createError.message }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
     } else {
       userId = newUser.user.id;
     }
 
-    // Link user to landing page
-    const { error: linkError } = await supabaseAdmin
-      .from('lw_landing_pages')
-      .update({ client_user_id: userId, client_password: '••••••' })
-      .eq('id', landing_page_id);
-
-    if (linkError) {
-      return new Response(JSON.stringify({ error: linkError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (landing_page_id) {
+      await supabaseAdmin
+        .from('lw_landing_pages')
+        .update({ client_user_id: userId, client_password: '••••••' })
+        .eq('id', landing_page_id);
     }
 
     return new Response(JSON.stringify({ success: true, user_id: userId }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
