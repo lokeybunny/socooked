@@ -268,6 +268,9 @@ serve(async (req) => {
         ? `AI Agent could not connect.\n• Reason: ${endedReason.replace(/-/g, " ")}\n• Duration: ${Math.round(duration)}s`
         : buildAINotes(transcript, summary, endedReason, duration, recordingUrl);
 
+      // Track retry count from existing meta
+      const prevRetryCount = (lead.meta as any)?.vapi_retry_count ?? 0;
+
       // Update lead
       await sb
         .from("lw_landing_leads")
@@ -282,9 +285,51 @@ serve(async (req) => {
             vapi_ended_reason: endedReason,
             vapi_duration_seconds: duration,
             vapi_cost_cents: callCostCents,
+            vapi_retry_count: prevRetryCount + (callFailed ? 0 : 0),
           },
         })
         .eq("id", lead.id);
+
+      // ─── Auto-retry: if call failed and we haven't retried yet, schedule a retry ───
+      if (callFailed && prevRetryCount < 2) {
+        console.log(`[vapi-webhook] Call failed (${endedReason}), scheduling retry #${prevRetryCount + 1} for lead ${lead.id} in 5 minutes`);
+
+        // Update retry count immediately
+        await sb
+          .from("lw_landing_leads")
+          .update({
+            meta: {
+              ...(lead.meta as any),
+              vapi_retry_count: prevRetryCount + 1,
+              vapi_last_retry_at: new Date().toISOString(),
+            },
+          })
+          .eq("id", lead.id);
+
+        // Fire retry after 5-minute delay using setTimeout (edge function stays alive briefly)
+        // We call vapi-outbound directly since we have service role access
+        const retryDelayMs = prevRetryCount === 0 ? 5 * 60 * 1000 : 15 * 60 * 1000; // 5min first, 15min second
+        setTimeout(async () => {
+          try {
+            const retryRes = await fetch(`${SUPABASE_URL}/functions/v1/vapi-outbound`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
+                "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
+              },
+              body: JSON.stringify({
+                action: "trigger_call",
+                lead_id: lead.id,
+              }),
+            });
+            const retryData = await retryRes.json();
+            console.log(`[vapi-webhook] Retry #${prevRetryCount + 1} result:`, retryData);
+          } catch (retryErr) {
+            console.error(`[vapi-webhook] Retry #${prevRetryCount + 1} failed:`, retryErr);
+          }
+        }, retryDelayMs);
+      }
 
       console.log("Updated lead", lead.id, "with AI notes");
 
