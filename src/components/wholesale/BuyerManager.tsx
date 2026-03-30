@@ -42,6 +42,15 @@ const DEAL_TYPES = [
   { key: 'multi_home', label: 'Multi-Home' },
 ];
 
+const PIPELINE_STAGES = [
+  { key: 'new_scraped', label: 'New / Scraped' },
+  { key: 'qualified', label: 'Qualified' },
+  { key: 'contacted', label: 'Contacted' },
+  { key: 'warm', label: 'Subscribed' },
+  { key: 'active', label: 'Active' },
+  { key: 'closed', label: 'Closed' },
+];
+
 const emptyForm = {
   full_name: '',
   email: '',
@@ -60,6 +69,7 @@ const emptyForm = {
   closing_speed: '',
   contact_preference: 'email',
   website: '',
+  pipeline_stage: 'new_scraped',
 };
 
 export default function BuyerManager() {
@@ -107,6 +117,7 @@ export default function BuyerManager() {
       closing_speed: b.meta?.closing_speed || '',
       contact_preference: b.meta?.contact_preference || 'email',
       website: b.meta?.website || '',
+      pipeline_stage: b.meta?.pipeline_stage || (b as any).pipeline_stage || 'new_scraped',
     });
     setInterests(b.meta?.interests || emptyInterests);
     setOpen(true);
@@ -134,12 +145,14 @@ export default function BuyerManager() {
       notes: form.notes.trim() || null,
       source: form.source,
       status: 'active',
+      pipeline_stage: form.pipeline_stage,
       meta: {
         interests,
         deal_types: form.deal_types,
         closing_speed: form.closing_speed || null,
         contact_preference: form.contact_preference,
         website: form.website.trim() || null,
+        pipeline_stage: form.pipeline_stage,
       },
       property_type_interest: interests.property_types,
     };
@@ -286,7 +299,7 @@ export default function BuyerManager() {
                     ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1.5">
                     <Label>Source</Label>
                     <Select value={form.source} onValueChange={v => set('source', v)}>
@@ -296,6 +309,17 @@ export default function BuyerManager() {
                         <SelectItem value="reapi">REAPI</SelectItem>
                         <SelectItem value="referral">Referral</SelectItem>
                         <SelectItem value="facebook">Facebook</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Pipeline Stage</Label>
+                    <Select value={form.pipeline_stage} onValueChange={v => set('pipeline_stage', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {PIPELINE_STAGES.map(ps => (
+                          <SelectItem key={ps.key} value={ps.key}>{ps.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
