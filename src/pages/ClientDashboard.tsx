@@ -450,8 +450,57 @@ export default function ClientDashboard() {
           );
         })()}
 
+        {/* Drafts View */}
+        {activeSection === 'drafts' && (
+          <div className="space-y-3">
+            <p className="text-xs text-white/40">Leads moved to drafts will be permanently deleted after 72 hours.</p>
+            {draftedLeads.length === 0 ? (
+              <div className="bg-white/5 rounded-xl border border-white/10 p-12 text-center">
+                <Archive className="h-8 w-8 text-white/20 mx-auto mb-3" />
+                <p className="text-white/40">No drafted leads. Leads you delete will appear here for 72 hours before permanent removal.</p>
+              </div>
+            ) : (
+              draftedLeads.map(lead => {
+                const hoursLeft = Math.max(0, 72 - differenceInHours(new Date(), new Date(lead.drafted_at!)));
+                return (
+                  <div key={lead.id} className="bg-white/5 rounded-xl border border-red-500/20 p-4 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-white truncate">{lead.full_name}</p>
+                      <div className="flex items-center gap-4 text-xs text-white/40 mt-1">
+                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{lead.property_address}</span>
+                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>
+                      </div>
+                      <p className="text-xs text-red-400/70 mt-1">
+                        {hoursLeft > 0 ? `Auto-deletes in ${hoursLeft}h` : 'Scheduled for deletion'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => restoreFromDrafts(lead.id)}
+                        className="border-white/10 text-white/70 hover:bg-white/10 hover:text-white h-8 text-xs"
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />Restore
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => permanentlyDelete(lead.id)}
+                        className="border-red-500/30 text-red-400 hover:bg-red-500/20 h-8 text-xs"
+                      >
+                        <X className="h-3 w-3 mr-1" />Delete Now
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
         {/* Section Description */}
-        {activeSection !== 'phone' && <>
+        {activeSection !== 'phone' && activeSection !== 'drafts' && <>
         <p className="text-xs text-white/40 -mt-4">
           {activeSection === 'funnel'
             ? 'Leads submitted through your landing page funnel.'
