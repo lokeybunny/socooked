@@ -77,10 +77,23 @@ serve(async (req) => {
       const VAPI_ASSISTANT_ID = "29ca9037-ff4c-4d56-a9c7-6c5bc1ab1b38";
 
       const customerNumber = (() => {
-        let ph = (lead.phone || "").replace(/\D/g, "");
-        if (!ph.startsWith("1") && ph.length === 10) ph = "1" + ph;
-        return "+" + ph;
+        let ph = (lead.phone || "").trim().replace(/\D/g, "");
+        // Strip leading "1" country code if 11 digits, then re-add for consistency
+        if (ph.length === 11 && ph.startsWith("1")) ph = ph.slice(1);
+        if (ph.length !== 10) {
+          console.error(`[vapi-outbound] Invalid phone after cleanup: "${ph}" (original: "${lead.phone}")`);
+          return null;
+        }
+        return `+1${ph}`;
       })();
+
+      if (!customerNumber) {
+        await sb.from("lw_landing_leads").update({ vapi_call_status: "failed" }).eq("id", lead.id);
+        return new Response(JSON.stringify({ error: "Invalid phone number — must be a valid 10-digit US number" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
         method: "POST",
