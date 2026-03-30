@@ -152,7 +152,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 );
 
 /* ─── Buyer Detail Popup ─── */
-function BuyerDetailPopup({ buyer, open, onClose }: { buyer: any; open: boolean; onClose: () => void }) {
+function BuyerDetailPopup({ buyer, open, onClose, onNavigate }: { buyer: any; open: boolean; onClose: () => void; onNavigate: (type: 'buyers' | 'sellers', id: string) => void }) {
   if (!buyer) return null;
   const meta: any = buyer.meta || {};
   const interests: any = meta.interests || {};
@@ -223,6 +223,13 @@ function BuyerDetailPopup({ buyer, open, onClose }: { buyer: any; open: boolean;
           <Row icon={Calendar} label="Created" value={new Date(buyer.created_at).toLocaleDateString()} />
           <Row icon={Calendar} label="Updated" value={new Date(buyer.updated_at).toLocaleDateString()} />
         </Section>
+
+        <div className="pt-3 border-t">
+          <Button className="w-full" onClick={() => { onClose(); onNavigate('buyers', buyer.id); }}>
+            <Users className="h-4 w-4 mr-2" />
+            Go to Buyer
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
