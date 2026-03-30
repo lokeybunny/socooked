@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { Heart, Users, RefreshCw, Phone, Mail, MapPin, Home, DollarSign, Calendar, Building2, Copy, ExternalLink } from 'lucide-react';
+import { Heart, Users, RefreshCw, Phone, Mail, MapPin, Home, DollarSign, Calendar, Building2, Copy, ExternalLink, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -376,22 +376,40 @@ function SellerDetailPopup({ seller, open, onClose, onNavigate }: { seller: any;
   );
 }
 
+type BuyerGroup = {
+  buyer: any;
+  sellers: { seller: any; score: number; reasons: string[] }[];
+  topScore: number;
+};
+
 export default function BuyerSellerMatches() {
   const [, setSearchParams] = useSearchParams();
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
+  const [expandedBuyers, setExpandedBuyers] = useState<Set<string>>(new Set());
   const [detailBuyer, setDetailBuyer] = useState<any>(null);
   const [detailSeller, setDetailSeller] = useState<any>(null);
-  const PER_PAGE = 25;
 
   const handleNavigate = (type: 'buyers' | 'sellers', id: string) => {
     setSearchParams({ tab: type, open_id: id }, { replace: true });
   };
 
+  const toggleBuyer = (id: string) => {
+    setExpandedBuyers(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedBuyers(new Set(grouped.map(g => g.buyer.id)));
+  };
+  const collapseAll = () => setExpandedBuyers(new Set());
+
   const loadMatches = async () => {
     setLoading(true);
-    setPage(1);
+    setExpandedBuyers(new Set());
     const [{ data: buyers }, { data: sellers }] = await Promise.all([
       supabase.from('lw_buyers').select('*').eq('status', 'active'),
       supabase.from('lw_sellers').select('*').not('status', 'eq', 'dead'),
@@ -408,14 +426,10 @@ export default function BuyerSellerMatches() {
       const hasStates = (buyer.target_states || []).length > 0;
       const hasBudget = buyer.budget_min != null || buyer.budget_max != null;
       const hasPropTypes = (((buyer.meta as any)?.interests?.property_types) || buyer.property_type_interest || []).length > 0;
-      
       if (!hasStates || !hasBudget || !hasPropTypes) continue;
-      
       for (const seller of sellers) {
         const { score, reasons } = computeMatchScore(buyer, seller);
-        if (score >= 15) {
-          results.push({ buyer, seller, score, reasons });
-        }
+        if (score >= 15) results.push({ buyer, seller, score, reasons });
       }
     }
 
@@ -426,14 +440,26 @@ export default function BuyerSellerMatches() {
 
   useEffect(() => { loadMatches(); }, []);
 
+  // Group matches by buyer
+  const grouped: BuyerGroup[] = useMemo(() => {
+    const map = new Map<string, BuyerGroup>();
+    for (const m of matches) {
+      const id = m.buyer.id;
+      if (!map.has(id)) {
+        map.set(id, { buyer: m.buyer, sellers: [], topScore: 0 });
+      }
+      const g = map.get(id)!;
+      g.sellers.push({ seller: m.seller, score: m.score, reasons: m.reasons });
+      if (m.score > g.topScore) g.topScore = m.score;
+    }
+    return Array.from(map.values()).sort((a, b) => b.topScore - a.topScore);
+  }, [matches]);
+
   const scoreColor = (s: number) =>
     s >= 70 ? 'text-green-500' : s >= 45 ? 'text-yellow-500' : 'text-muted-foreground';
 
   const scoreBg = (s: number) =>
     s >= 70 ? 'bg-green-500/10' : s >= 45 ? 'bg-yellow-500/10' : 'bg-muted';
-
-  const totalPages = Math.ceil(matches.length / PER_PAGE);
-  const pageMatches = matches.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   return (
     <Card>
@@ -442,7 +468,9 @@ export default function BuyerSellerMatches() {
           <Heart className="h-4 w-4 text-pink-500" />
           <Users className="h-4 w-4" />
           Buyer ↔ Seller Matches
-          <Badge variant="outline" className="ml-auto">{matches.length} matches</Badge>
+          <Badge variant="outline" className="ml-auto">{matches.length} matches · {grouped.length} buyers</Badge>
+          <Button size="sm" variant="ghost" onClick={expandAll} className="text-xs">Expand All</Button>
+          <Button size="sm" variant="ghost" onClick={collapseAll} className="text-xs">Collapse All</Button>
           <Button size="sm" variant="outline" onClick={loadMatches} disabled={loading}>
             <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -450,109 +478,106 @@ export default function BuyerSellerMatches() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {matches.length === 0 ? (
+        {grouped.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Heart className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>No matches yet</p>
             <p className="text-xs mt-1">Add buyers with interests and seller leads to see matches</p>
           </div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Buyer</TableHead>
-                    <TableHead>Seller Property</TableHead>
-                    <TableHead>Seller Price</TableHead>
-                    <TableHead>Buyer Budget</TableHead>
-                    <TableHead>Match Reasons</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pageMatches.map((m, i) => (
-                    <TableRow key={`${m.buyer.id}-${m.seller.id}-${i}`}>
-                      <TableCell>
-                        <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-mono text-sm font-bold ${scoreBg(m.score)} ${scoreColor(m.score)}`}>
-                          {m.score}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <button
-                          onClick={() => setDetailBuyer(m.buyer)}
-                          className="text-left hover:underline decoration-primary underline-offset-2"
-                        >
-                          <span className="font-medium text-sm text-primary">{m.buyer.full_name}</span>
-                          {m.buyer.entity_name && <span className="text-xs text-muted-foreground block">{m.buyer.entity_name}</span>}
-                          <span className="text-xs text-muted-foreground block">{(m.buyer.target_states || []).join(', ')}</span>
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <button
-                          onClick={() => setDetailSeller(m.seller)}
-                          className="text-left hover:underline decoration-primary underline-offset-2"
-                        >
-                          <span className="text-sm font-medium text-primary">{m.seller.address_full || '—'}</span>
-                          <span className="text-xs text-muted-foreground block">
-                            {m.seller.city}, {m.seller.state} {m.seller.zip}
-                          </span>
-                          <span className="text-xs text-muted-foreground block">
-                            {m.seller.acreage ? `${m.seller.acreage} ac` : ''} {m.seller.property_type || ''}
-                          </span>
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {(m.seller.asking_price || m.seller.market_value || m.seller.assessed_value)
-                          ? `$${Number(m.seller.asking_price || m.seller.market_value || m.seller.assessed_value).toLocaleString()}`
-                          : '—'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {m.buyer.budget_max
-                          ? `$${Number(m.buyer.budget_min || 0).toLocaleString()}–$${Number(m.buyer.budget_max).toLocaleString()}`
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1 max-w-[250px]">
-                          {m.reasons.map((r, ri) => (
-                            <span key={ri} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{r}</span>
+          <div className="space-y-2">
+            {grouped.map((g) => {
+              const isOpen = expandedBuyers.has(g.buyer.id);
+              return (
+                <div key={g.buyer.id} className="border rounded-lg overflow-hidden">
+                  {/* Buyer header row — always visible */}
+                  <button
+                    onClick={() => toggleBuyer(g.buyer.id)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+                  >
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
+                    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-mono text-xs font-bold ${scoreBg(g.topScore)} ${scoreColor(g.topScore)}`}>
+                      {g.topScore}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-sm text-primary">{g.buyer.full_name}</span>
+                      {g.buyer.entity_name && <span className="text-xs text-muted-foreground ml-2">{g.buyer.entity_name}</span>}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">{(g.buyer.target_states || []).join(', ')}</span>
+                    <Badge variant="secondary" className="text-[10px] shrink-0">{g.sellers.length} match{g.sellers.length !== 1 ? 'es' : ''}</Badge>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDetailBuyer(g.buyer); }}
+                      className="text-xs text-primary hover:underline shrink-0"
+                    >
+                      View Buyer
+                    </button>
+                  </button>
+
+                  {/* Seller rows — collapsible */}
+                  {isOpen && (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">Score</TableHead>
+                            <TableHead>Seller Property</TableHead>
+                            <TableHead>Price</TableHead>
+                            <TableHead>Buyer Budget</TableHead>
+                            <TableHead>Match Reasons</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {g.sellers.sort((a, b) => b.score - a.score).slice(0, 25).map((s, si) => (
+                            <TableRow key={`${s.seller.id}-${si}`}>
+                              <TableCell>
+                                <span className={`inline-flex items-center justify-center w-9 h-9 rounded-full font-mono text-xs font-bold ${scoreBg(s.score)} ${scoreColor(s.score)}`}>
+                                  {s.score}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <button
+                                  onClick={() => setDetailSeller(s.seller)}
+                                  className="text-left hover:underline decoration-primary underline-offset-2"
+                                >
+                                  <span className="text-sm font-medium text-primary">{s.seller.address_full || '—'}</span>
+                                  <span className="text-xs text-muted-foreground block">
+                                    {s.seller.city}, {s.seller.state} {s.seller.zip}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground block">
+                                    {s.seller.acreage ? `${s.seller.acreage} ac` : ''} {s.seller.property_type || ''}
+                                  </span>
+                                </button>
+                              </TableCell>
+                              <TableCell className="text-sm font-medium">
+                                {(s.seller.asking_price || s.seller.market_value || s.seller.assessed_value)
+                                  ? `$${Number(s.seller.asking_price || s.seller.market_value || s.seller.assessed_value).toLocaleString()}`
+                                  : '—'}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {g.buyer.budget_max
+                                  ? `$${Number(g.buyer.budget_min || 0).toLocaleString()}–$${Number(g.buyer.budget_max).toLocaleString()}`
+                                  : '—'}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1 max-w-[250px]">
+                                  {s.reasons.map((r, ri) => (
+                                    <span key={ri} className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{r}</span>
+                                  ))}
+                                </div>
+                              </TableCell>
+                            </TableRow>
                           ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-4 border-t mt-4">
-                <p className="text-xs text-muted-foreground">
-                  Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, matches.length)} of {matches.length}
-                </p>
-                <div className="flex gap-1">
-                  <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Prev</Button>
-                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                    let p: number;
-                    if (totalPages <= 7) {
-                      p = i + 1;
-                    } else if (page <= 4) {
-                      p = i + 1;
-                    } else if (page >= totalPages - 3) {
-                      p = totalPages - 6 + i;
-                    } else {
-                      p = page - 3 + i;
-                    }
-                    return (
-                      <Button key={p} size="sm" variant={p === page ? 'default' : 'outline'} onClick={() => setPage(p)} className="w-8 h-8 p-0">
-                        {p}
-                      </Button>
-                    );
-                  })}
-                  <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</Button>
+                        </TableBody>
+                      </Table>
+                      {g.sellers.length > 25 && (
+                        <p className="text-xs text-muted-foreground text-center py-2">Showing top 25 of {g.sellers.length} matches</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
-          </>
+              );
+            })}
+          </div>
         )}
       </CardContent>
 
