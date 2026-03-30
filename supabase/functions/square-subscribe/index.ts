@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const SQUARE_BASE = "https://connect.squareup.com/v2";
@@ -28,9 +28,7 @@ async function squareFetch(
   const data = await res.json();
   if (!res.ok) {
     console.error("Square API error:", JSON.stringify(data));
-    throw new Error(
-      `Square API error [${res.status}]: ${JSON.stringify(data)}`
-    );
+    throw new Error(`Square API error [${res.status}]: ${JSON.stringify(data)}`);
   }
   return data;
 }
@@ -56,14 +54,210 @@ serve(async (req) => {
 
   try {
     const SQUARE_ACCESS_TOKEN = Deno.env.get("SQUARE_ACCESS_TOKEN");
-    if (!SQUARE_ACCESS_TOKEN)
-      throw new Error("SQUARE_ACCESS_TOKEN not configured");
+    if (!SQUARE_ACCESS_TOKEN) throw new Error("SQUARE_ACCESS_TOKEN not configured");
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { email, name } = await req.json();
+    const body = await req.json();
+    const action = body.action || "create"; // default to original create behavior
+
+    // ─── Get subscription status ───
+    if (action === "status") {
+      const { email } = body;
+      if (!email) {
+        return new Response(JSON.stringify({ error: "email required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: sub } = await sb
+        .from("guru_subscriptions")
+        .select("*")
+        .eq("email", email)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!sub) {
+        return new Response(JSON.stringify({ subscription: null, status: "none" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const subscriptionId = (sub.meta as any)?.subscription_id;
+      let squareStatus = null;
+
+      if (subscriptionId) {
+        try {
+          const res = await fetch(`${SQUARE_BASE}/subscriptions/${subscriptionId}`, {
+            headers: {
+              Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+              "Content-Type": "application/json",
+              "Square-Version": SQUARE_VERSION,
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            squareStatus = data.subscription?.status || null;
+          }
+        } catch { /* ignore */ }
+      }
+
+      return new Response(JSON.stringify({
+        subscription: {
+          id: sub.id,
+          status: sub.status,
+          plan: sub.plan,
+          amount_cents: sub.amount_cents,
+          started_at: sub.started_at,
+          trial_ends_at: sub.trial_ends_at,
+          cancelled_at: sub.cancelled_at,
+          square_subscription_id: subscriptionId,
+          square_status: squareStatus,
+        },
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Cancel subscription ───
+    if (action === "cancel") {
+      const { email, landing_page_id } = body;
+      if (!email) {
+        return new Response(JSON.stringify({ error: "email required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Find active subscription
+      const { data: sub, error: subErr } = await sb
+        .from("guru_subscriptions")
+        .select("*")
+        .eq("email", email)
+        .in("status", ["active", "subscribed", "pending"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (subErr || !sub) {
+        return new Response(JSON.stringify({ error: "No active subscription found for this email" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const subscriptionId = (sub.meta as any)?.subscription_id;
+
+      // Cancel on Square
+      if (subscriptionId) {
+        try {
+          const cancelRes = await fetch(`${SQUARE_BASE}/subscriptions/${subscriptionId}/cancel`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+              "Content-Type": "application/json",
+              "Square-Version": SQUARE_VERSION,
+            },
+          });
+          if (!cancelRes.ok) {
+            const errData = await cancelRes.json();
+            console.error("Square cancel error:", JSON.stringify(errData));
+          } else {
+            console.log(`[square-subscribe] Cancelled Square subscription ${subscriptionId}`);
+          }
+        } catch (e) {
+          console.error("Square cancel request failed:", e);
+        }
+      }
+
+      // Update our DB
+      await sb
+        .from("guru_subscriptions")
+        .update({
+          status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+        })
+        .eq("id", sub.id);
+
+      // Deactivate landing page
+      if (landing_page_id) {
+        await sb
+          .from("lw_landing_pages")
+          .update({ is_active: false })
+          .eq("id", landing_page_id);
+      }
+
+      // Ban user login
+      if (landing_page_id) {
+        const { data: page } = await sb
+          .from("lw_landing_pages")
+          .select("client_user_id")
+          .eq("id", landing_page_id)
+          .single();
+
+        if (page?.client_user_id) {
+          await sb.auth.admin.updateUserById(page.client_user_id, { ban_duration: "876600h" });
+          console.log(`[square-subscribe] Banned user ${page.client_user_id}`);
+        }
+      }
+
+      // Send cancellation email
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/gmail-api?action=send`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            to: email,
+            subject: "Your Subscription Has Been Cancelled",
+            body: `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+  <h2 style="color: #0f172a;">Subscription Cancelled</h2>
+  <p>Hi,</p>
+  <p>Your subscription has been successfully cancelled. Your landing page and client dashboard access have been deactivated.</p>
+  <p>If you'd like to reactivate your subscription, please contact us.</p>
+  <br/>
+  <p>Best regards,</p>
+  <p><strong>Warren A Thompson</strong><br/>
+  STU25 — Web &amp; Social Media Services<br/>
+  <a href="mailto:warren@stu25.com">warren@stu25.com</a></p>
+</div>`,
+          }),
+        });
+      } catch (emailErr) {
+        console.error("[square-subscribe] Email failed:", emailErr);
+      }
+
+      // Telegram notification
+      try {
+        const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+        const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+        if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+          await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: TELEGRAM_CHAT_ID,
+              text: `❌ *Subscription Cancelled*\n📧 ${email}\n🆔 ${subscriptionId || "N/A"}`,
+              parse_mode: "Markdown",
+            }),
+          });
+        }
+      } catch { /* ignore */ }
+
+      return new Response(JSON.stringify({ success: true, message: "Subscription cancelled" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Create subscription (original behavior) ───
+    const { email, name } = body;
     if (!email) throw new Error("Email is required");
 
     // 1. Get location ID
@@ -89,7 +283,6 @@ serve(async (req) => {
       },
     };
 
-    // Only pre-populate email if it looks like a real address
     if (email && email.includes("@") && !email.includes("example")) {
       linkBody.pre_populated_data = { buyer_email: email };
     }
