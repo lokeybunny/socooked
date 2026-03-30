@@ -2051,7 +2051,7 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                 <div className="rounded-md border border-border bg-muted/30 p-4 max-h-[50vh] overflow-y-auto">
                   <pre className="whitespace-pre-wrap text-xs font-mono leading-relaxed text-foreground">{agreementText}</pre>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -2062,14 +2062,25 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                   >
                     <Copy className="h-3.5 w-3.5 mr-1" /> Copy
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleDraftEmail}
-                    disabled={draftingEmail}
-                    className="gap-1.5"
-                  >
-                    {draftingEmail ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</> : '✉️ Draft Email'}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleDraftEmail}
+                      disabled={draftingEmail}
+                      className="gap-1.5"
+                    >
+                      {draftingEmail ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</> : '✉️ Draft Email'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSendForSignature}
+                      disabled={sendingForSignature}
+                      className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      {sendingForSignature ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Creating…</> : '✍️ Send for Signature'}
+                    </Button>
+                  </div>
                 </div>
               </>
             )}
