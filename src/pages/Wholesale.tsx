@@ -25,7 +25,7 @@ type DealType = 'all' | 'land' | 'home' | 'multi_home';
 export default function Wholesale() {
   const [dealTypeFilter, setDealTypeFilter] = useState<DealType>('all');
   const [activeTab, setActiveTab] = useState('intelligence');
-  const [callQueue, setCallQueue] = useState<any[]>([]);
+  
   const [deals, setDeals] = useState<any[]>([]);
   const [demandSignals, setDemandSignals] = useState<any[]>([]);
   const [stats, setStats] = useState({ buyers: 0, sellers: 0, sellersUnderContract: 0, dealsMonth: 0, apiSpend: 0, avgMatch: 0 });
@@ -37,16 +37,10 @@ export default function Wholesale() {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([loadCallQueue(), loadDeals(), loadDemandSignals(), loadStats()]);
+    await Promise.all([loadDeals(), loadDemandSignals(), loadStats()]);
     setLoading(false);
   };
 
-  const loadCallQueue = async () => {
-    const today = new Date().toISOString().split('T')[0];
-    let query = supabase.from('lw_call_queue').select('*').eq('queue_date', today).order('call_priority', { ascending: true });
-    const { data } = await query;
-    setCallQueue(data || []);
-  };
 
   const loadDeals = async () => {
     let query = supabase.from('lw_deals').select('*, lw_sellers(*), lw_buyers(*)').order('match_score', { ascending: false });
