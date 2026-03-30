@@ -1,0 +1,2 @@
+ALTER TABLE public.documents DROP CONSTRAINT documents_status_check;
+ALTER TABLE public.documents ADD CONSTRAINT documents_status_check CHECK (status = ANY (ARRAY['draft', 'final', 'pending_signature', 'signed']));
