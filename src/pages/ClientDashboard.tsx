@@ -1007,9 +1007,12 @@ export default function ClientDashboard() {
                                       <div>
                                         <p className="text-[10px] text-white/40 mb-1">Phone Numbers</p>
                                         {(skipPhones as string[]).map((p: string, i: number) => (
-                                          <a key={i} href={`tel:${p}`} className="block text-sm text-emerald-400 hover:text-emerald-300 font-medium">
-                                            <Phone className="h-3 w-3 inline mr-1" />{p}
-                                          </a>
+                                          <span key={i} className="flex items-center gap-1 text-sm text-emerald-400 font-medium">
+                                            <Phone className="h-3 w-3" />
+                                            <a href={`tel:${p}`} className="hover:text-emerald-300">{p}</a>
+                                            <CopyBtn text={p} />
+                                          </span>
+                                        ))}
                                         ))}
                                       </div>
                                     )}
