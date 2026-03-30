@@ -879,11 +879,56 @@ export default function ClientDashboard() {
                           const isAbsentee = m.is_absentee_owner;
                           const isOutOfState = m.is_out_of_state;
                           const isCorp = m.is_corporate_owned;
+                          const isOwnerOccupied = m.is_owner_occupied;
                           const distressGrade = m.distress_grade;
                           const hasDistress = distress.tax_delinquent || distress.pre_foreclosure || distress.vacant || distress.absentee_owner;
+                          const lat = m.latitude;
+                          const lng = m.longitude;
+                          const skipTraced = m.skip_traced;
+                          const skipPhones = m.skip_trace_phones || [];
+                          const skipEmails = m.skip_trace_emails || [];
+                          const skipMailing = m.skip_trace_mailing;
+                          const ownerPhone = m.owner_phone;
 
                           return (
                             <div className="space-y-4">
+                              {/* Skip Trace Results */}
+                              {skipTraced && (skipPhones.length > 0 || skipEmails.length > 0) && (
+                                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
+                                  <p className="text-[10px] text-emerald-400 uppercase tracking-wider font-semibold mb-2 flex items-center gap-1">
+                                    <Check className="h-3 w-3" /> Skip Trace Results
+                                  </p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {(skipPhones as string[]).length > 0 && (
+                                      <div>
+                                        <p className="text-[10px] text-white/40 mb-1">Phone Numbers</p>
+                                        {(skipPhones as string[]).map((p: string, i: number) => (
+                                          <a key={i} href={`tel:${p}`} className="block text-sm text-emerald-400 hover:text-emerald-300 font-medium">
+                                            <Phone className="h-3 w-3 inline mr-1" />{p}
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {(skipEmails as string[]).length > 0 && (
+                                      <div>
+                                        <p className="text-[10px] text-white/40 mb-1">Email Addresses</p>
+                                        {(skipEmails as string[]).map((e: string, i: number) => (
+                                          <a key={i} href={`mailto:${e}`} className="block text-sm text-blue-400 hover:text-blue-300 font-medium">
+                                            <Mail className="h-3 w-3 inline mr-1" />{e}
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {skipMailing && (
+                                      <div className="sm:col-span-2">
+                                        <p className="text-[10px] text-white/40 mb-1">Mailing Address</p>
+                                        <p className="text-sm text-white/80"><MapPinned className="h-3 w-3 inline mr-1" />{String(skipMailing)}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Valuation & Location */}
                               <div>
                                 <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold mb-2">Valuation & Location</p>
@@ -912,68 +957,80 @@ export default function ClientDashboard() {
                                       <p className="text-sm font-medium text-white/80">{[city, county, state].filter(Boolean).join(', ')} {zip || ''}</p>
                                     </div>
                                   )}
+                                  {lat != null && lng != null && (
+                                    <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                      <p className="text-[10px] text-white/40">Coordinates</p>
+                                      <p className="text-xs font-medium text-white/60">{Number(lat).toFixed(4)}, {Number(lng).toFixed(4)}</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
 
                               {/* Property Details */}
-                              {(acreage || lotSqft || livingSqft || beds || baths || yearBuilt || propType || zoning) && (
-                                <div>
-                                  <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold mb-2">Property Details</p>
-                                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                                    {propType && (
-                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
-                                        <p className="text-[10px] text-white/40">Type</p>
-                                        <p className="text-xs font-semibold text-white/80">{propType}</p>
-                                      </div>
-                                    )}
-                                    {acreage != null && (
-                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
-                                        <p className="text-[10px] text-white/40">Acres</p>
-                                        <p className="text-xs font-semibold text-white/80">{acreage}</p>
-                                      </div>
-                                    )}
-                                    {lotSqft && (
-                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
-                                        <p className="text-[10px] text-white/40">Lot SqFt</p>
-                                        <p className="text-xs font-semibold text-white/80">{Number(lotSqft).toLocaleString()}</p>
-                                      </div>
-                                    )}
-                                    {livingSqft && (
-                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
-                                        <p className="text-[10px] text-white/40">Living SqFt</p>
-                                        <p className="text-xs font-semibold text-white/80">{Number(livingSqft).toLocaleString()}</p>
-                                      </div>
-                                    )}
-                                    {beds != null && (
-                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
-                                        <p className="text-[10px] text-white/40">Beds</p>
-                                        <p className="text-xs font-semibold text-white/80">{beds}</p>
-                                      </div>
-                                    )}
-                                    {baths != null && (
-                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
-                                        <p className="text-[10px] text-white/40">Baths</p>
-                                        <p className="text-xs font-semibold text-white/80">{baths}</p>
-                                      </div>
-                                    )}
-                                    {yearBuilt && (
-                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
-                                        <p className="text-[10px] text-white/40">Year Built</p>
-                                        <p className="text-xs font-semibold text-white/80">{yearBuilt}</p>
-                                      </div>
-                                    )}
-                                    {zoning && (
-                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
-                                        <p className="text-[10px] text-white/40">Zoning</p>
-                                        <p className="text-xs font-semibold text-white/80">{zoning}</p>
-                                      </div>
-                                    )}
-                                  </div>
+                              <div>
+                                <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold mb-2">Property Details</p>
+                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                  {propType && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <Building className="h-3 w-3 text-white/30 mx-auto mb-0.5" />
+                                      <p className="text-[10px] text-white/40">Type</p>
+                                      <p className="text-xs font-semibold text-white/80">{propType}</p>
+                                    </div>
+                                  )}
+                                  {beds != null && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <BedDouble className="h-3 w-3 text-white/30 mx-auto mb-0.5" />
+                                      <p className="text-[10px] text-white/40">Beds</p>
+                                      <p className="text-xs font-semibold text-white/80">{beds}</p>
+                                    </div>
+                                  )}
+                                  {baths != null && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <Bath className="h-3 w-3 text-white/30 mx-auto mb-0.5" />
+                                      <p className="text-[10px] text-white/40">Baths</p>
+                                      <p className="text-xs font-semibold text-white/80">{baths}</p>
+                                    </div>
+                                  )}
+                                  {livingSqft && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <Ruler className="h-3 w-3 text-white/30 mx-auto mb-0.5" />
+                                      <p className="text-[10px] text-white/40">Living SqFt</p>
+                                      <p className="text-xs font-semibold text-white/80">{Number(livingSqft).toLocaleString()}</p>
+                                    </div>
+                                  )}
+                                  {lotSqft && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <Ruler className="h-3 w-3 text-white/30 mx-auto mb-0.5" />
+                                      <p className="text-[10px] text-white/40">Lot SqFt</p>
+                                      <p className="text-xs font-semibold text-white/80">{Number(lotSqft).toLocaleString()}</p>
+                                    </div>
+                                  )}
+                                  {acreage != null && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <MapPin className="h-3 w-3 text-white/30 mx-auto mb-0.5" />
+                                      <p className="text-[10px] text-white/40">Acres</p>
+                                      <p className="text-xs font-semibold text-white/80">{acreage}</p>
+                                    </div>
+                                  )}
+                                  {yearBuilt && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <CalendarIcon className="h-3 w-3 text-white/30 mx-auto mb-0.5" />
+                                      <p className="text-[10px] text-white/40">Year Built</p>
+                                      <p className="text-xs font-semibold text-white/80">{yearBuilt}</p>
+                                    </div>
+                                  )}
+                                  {zoning && (
+                                    <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                      <FileText className="h-3 w-3 text-white/30 mx-auto mb-0.5" />
+                                      <p className="text-[10px] text-white/40">Zoning</p>
+                                      <p className="text-xs font-semibold text-white/80">{zoning}</p>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                              </div>
 
                               {/* Owner Intel */}
-                              {(yearsOwned || isAbsentee || isOutOfState || isCorp || freeAndClear || ownerMail || ownerEmail) && (
+                              {(yearsOwned || isAbsentee || isOutOfState || isCorp || freeAndClear || ownerMail || ownerEmail || ownerPhone || isOwnerOccupied !== undefined) && (
                                 <div>
                                   <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold mb-2">Owner Intelligence</p>
                                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -983,16 +1040,28 @@ export default function ClientDashboard() {
                                         <p className="text-sm font-semibold text-white/80">{yearsOwned}</p>
                                       </div>
                                     )}
-                                    {ownerMail && (
-                                      <div className="col-span-2 bg-white/5 rounded-lg p-2.5 border border-white/10">
-                                        <p className="text-[10px] text-white/40">Owner Mailing Address</p>
-                                        <p className="text-xs text-white/80">{ownerMail}</p>
+                                    {isOwnerOccupied !== undefined && (
+                                      <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">Owner Occupied</p>
+                                        <p className="text-sm font-semibold text-white/80">{isOwnerOccupied ? 'Yes' : 'No'}</p>
+                                      </div>
+                                    )}
+                                    {ownerPhone && (
+                                      <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">Owner Phone</p>
+                                        <a href={`tel:${ownerPhone}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerPhone)}</a>
                                       </div>
                                     )}
                                     {ownerEmail && (
                                       <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
                                         <p className="text-[10px] text-white/40">Owner Email</p>
-                                        <p className="text-xs text-white/80">{ownerEmail}</p>
+                                        <a href={`mailto:${ownerEmail}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerEmail)}</a>
+                                      </div>
+                                    )}
+                                    {ownerMail && (
+                                      <div className="col-span-2 bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">Owner Mailing Address</p>
+                                        <p className="text-xs text-white/80">{String(ownerMail)}</p>
                                       </div>
                                     )}
                                   </div>
