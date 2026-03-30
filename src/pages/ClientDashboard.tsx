@@ -1467,6 +1467,303 @@ export default function ClientDashboard() {
         </div>
         </>}
       </div>
+
+      {/* Hot Lead Detail Modal */}
+      <Dialog open={!!detailLead} onOpenChange={(open) => !open && setDetailLead(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-zinc-900 border-zinc-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <Flame className="h-4 w-4 text-orange-400" />
+              {detailLead?.full_name || 'Lead Details'}
+            </DialogTitle>
+          </DialogHeader>
+          {detailLead && (() => {
+            const m = detailLead.meta || {};
+            const addr = detailLead.property_address;
+            const skipPhones = (m as any)?.skip_trace_phones || [];
+            const skipEmails = (m as any)?.skip_trace_emails || [];
+            const skipMailing = (m as any)?.skip_trace_mailing;
+            const ownerPhone = (m as any)?.owner_phone;
+            const ownerEmail = (m as any)?.owner_email;
+            const ownerMail = (m as any)?.owner_mailing_address;
+            return (
+              <div className="space-y-4">
+                {/* Contact Info */}
+                <div>
+                  <h4 className="text-xs font-semibold uppercase text-white/40 mb-2">Contact Information</h4>
+                  <div className="divide-y divide-white/10">
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className="text-white/50">Name</span>
+                      <CopyableText text={detailLead.full_name} className="font-medium">{detailLead.full_name}</CopyableText>
+                    </div>
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className="text-white/50">Phone</span>
+                      <span className="flex items-center gap-1 font-medium">
+                        <a href={`tel:${detailLead.phone}`} className="text-blue-400 hover:text-blue-300">{detailLead.phone}</a>
+                        <CopyBtn text={detailLead.phone} />
+                      </span>
+                    </div>
+                    {detailLead.email && (
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className="text-white/50">Email</span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <a href={`mailto:${detailLead.email}`} className="text-blue-400 hover:text-blue-300">{detailLead.email}</a>
+                          <CopyBtn text={detailLead.email} />
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className="text-white/50">Property Address</span>
+                      <CopyableText text={addr} className="font-medium text-right max-w-[60%]">{addr}</CopyableText>
+                    </div>
+                    {ownerPhone && (
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className="text-white/50">Owner Phone</span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <a href={`tel:${ownerPhone}`} className="text-blue-400 hover:text-blue-300">{String(ownerPhone)}</a>
+                          <CopyBtn text={String(ownerPhone)} />
+                        </span>
+                      </div>
+                    )}
+                    {ownerEmail && (
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className="text-white/50">Owner Email</span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <a href={`mailto:${ownerEmail}`} className="text-blue-400 hover:text-blue-300">{String(ownerEmail)}</a>
+                          <CopyBtn text={String(ownerEmail)} />
+                        </span>
+                      </div>
+                    )}
+                    {ownerMail && (
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className="text-white/50">Mailing Address</span>
+                        <CopyableText text={String(ownerMail)} className="font-medium text-right max-w-[60%]">{String(ownerMail)}</CopyableText>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Skip trace phones/emails */}
+                  {(skipPhones.length > 0 || skipEmails.length > 0) && (
+                    <div className="mt-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3">
+                      <p className="text-[10px] text-emerald-400 uppercase tracking-wider font-semibold mb-2 flex items-center gap-1">
+                        <Check className="h-3 w-3" /> Skip Trace Results
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {(skipPhones as string[]).map((p: string, i: number) => (
+                          <span key={`p${i}`} className="flex items-center gap-1 text-sm text-emerald-400 font-medium">
+                            <Phone className="h-3 w-3" />
+                            <a href={`tel:${p}`} className="hover:text-emerald-300">{p}</a>
+                            <CopyBtn text={p} />
+                          </span>
+                        ))}
+                        {(skipEmails as string[]).map((e: string, i: number) => (
+                          <span key={`e${i}`} className="flex items-center gap-1 text-sm text-blue-400 font-medium">
+                            <Mail className="h-3 w-3" />
+                            <a href={`mailto:${e}`} className="hover:text-blue-300">{e}</a>
+                            <CopyBtn text={e} />
+                          </span>
+                        ))}
+                      </div>
+                      {skipMailing && (
+                        <p className="text-sm text-white/70 mt-2">
+                          <MapPinned className="h-3 w-3 inline mr-1" />
+                          <CopyableText text={String(skipMailing)}>{String(skipMailing)}</CopyableText>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <Separator className="bg-white/10" />
+
+                {/* Realtor / Redfin search */}
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(addr);
+                      toast.success('Address copied – paste it in Realtor.com search');
+                      window.open('https://www.realtor.com/', '_blank', 'noopener');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:underline cursor-pointer bg-transparent border-0 p-0"
+                  >
+                    🏠 Search on Realtor.com
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(addr);
+                      toast.success('Address copied – paste it in Redfin search');
+                      window.open('https://www.redfin.com/', '_blank', 'noopener');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-red-400 hover:underline cursor-pointer bg-transparent border-0 p-0"
+                  >
+                    🔴 Search on Redfin.com
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                </div>
+
+                <Separator className="bg-white/10" />
+
+                {/* Property details from meta */}
+                {(() => {
+                  const assessed = (m as any)?.assessed_value ?? (m as any)?.assessedValue;
+                  const marketVal = (m as any)?.market_value ?? (m as any)?.marketValue;
+                  const acreage = (m as any)?.acreage ?? (m as any)?.lotAcreage;
+                  const beds = (m as any)?.bedrooms;
+                  const baths = (m as any)?.bathrooms;
+                  const livingSqft = (m as any)?.living_sqft;
+                  const yearBuilt = (m as any)?.year_built;
+                  const propType = (m as any)?.property_type;
+                  const county = (m as any)?.county;
+                  const state = (m as any)?.state;
+                  const city = (m as any)?.city;
+                  const hasData = assessed || marketVal || acreage || beds || baths || propType;
+                  if (!hasData) return null;
+                  return (
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase text-white/40 mb-2">Property Details</h4>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {propType && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Type</p>
+                            <p className="text-xs font-semibold text-white/80">{propType}</p>
+                          </div>
+                        )}
+                        {beds != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Beds</p>
+                            <p className="text-xs font-semibold text-white/80">{beds}</p>
+                          </div>
+                        )}
+                        {baths != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Baths</p>
+                            <p className="text-xs font-semibold text-white/80">{baths}</p>
+                          </div>
+                        )}
+                        {livingSqft && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Living SqFt</p>
+                            <p className="text-xs font-semibold text-white/80">{Number(livingSqft).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {acreage != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Acres</p>
+                            <p className="text-xs font-semibold text-white/80">{acreage}</p>
+                          </div>
+                        )}
+                        {yearBuilt && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Year Built</p>
+                            <p className="text-xs font-semibold text-white/80">{yearBuilt}</p>
+                          </div>
+                        )}
+                        {assessed != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Assessed</p>
+                            <p className="text-xs font-semibold text-emerald-400">${Number(assessed).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {marketVal != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Market Value</p>
+                            <p className="text-xs font-semibold text-emerald-400">${Number(marketVal).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {(county || state) && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center col-span-2">
+                            <p className="text-[10px] text-white/40">Location</p>
+                            <p className="text-xs font-semibold text-white/80">{[city, county, state].filter(Boolean).join(', ')}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <Separator className="bg-white/10" />
+
+                {/* Free Lookup Shortcuts */}
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold mb-2">Free lookup shortcuts</p>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    <a
+                      href={`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(detailLead.full_name || '')}&citystatezip=${encodeURIComponent([(m as any)?.city, (m as any)?.state].filter(Boolean).join(', '))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                    >
+                      <span>📞</span>
+                      <span className="flex-1 font-medium text-white">TruePeopleSearch</span>
+                      <span className="text-[10px] text-white/40">Phone · Address · Relatives</span>
+                      <ExternalLink className="h-3 w-3 text-white/40" />
+                    </a>
+                    <a
+                      href="https://www.datatoleads.com/free-tools"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                    >
+                      <span>📬</span>
+                      <span className="flex-1 font-medium text-white">DataToLeads</span>
+                      <span className="text-[10px] text-white/40">Reverse phone · Email · Address</span>
+                      <ExternalLink className="h-3 w-3 text-white/40" />
+                    </a>
+                    <a
+                      href="https://www.propstream.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                    >
+                      <span>🏠</span>
+                      <span className="flex-1 font-medium text-white">PropStream</span>
+                      <span className="text-[10px] text-white/40">Owner phone · Email · Free trial</span>
+                      <ExternalLink className="h-3 w-3 text-white/40" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Distress flags */}
+                {(() => {
+                  const distress = (m as any)?.distress_flags || {};
+                  const hasDistress = distress.tax_delinquent || distress.pre_foreclosure || distress.vacant || distress.absentee_owner;
+                  if (!hasDistress) return null;
+                  return (
+                    <>
+                      <Separator className="bg-white/10" />
+                      <div>
+                        <h4 className="text-xs font-semibold uppercase text-white/40 mb-2">Distress Flags</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {distress.tax_delinquent && <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">🔴 Tax Delinquent</span>}
+                          {distress.pre_foreclosure && <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">⚠️ Pre-Foreclosure</span>}
+                          {distress.vacant && <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">🏚️ Vacant</span>}
+                          {distress.absentee_owner && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">👤 Absentee</span>}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+
+                {/* AI Notes */}
+                {detailLead.ai_notes && (
+                  <>
+                    <Separator className="bg-white/10" />
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase text-white/40 mb-2">AI Notes</h4>
+                      <div className="text-sm text-white/60 bg-white/5 rounded-lg border border-white/10 p-3 whitespace-pre-wrap">
+                        {detailLead.ai_notes}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
