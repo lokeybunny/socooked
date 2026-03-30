@@ -73,6 +73,8 @@ export default function ClientDashboard() {
   const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
   const [fetchingLeadId, setFetchingLeadId] = useState<string | null>(null);
   const [skipTracingId, setSkipTracingId] = useState<string | null>(null);
+  const [enrichingLeadId, setEnrichingLeadId] = useState<string | null>(null);
+  const [batchEnriching, setBatchEnriching] = useState(false);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminViewClientName, setAdminViewClientName] = useState<string | null>(null);
@@ -347,6 +349,52 @@ export default function ClientDashboard() {
       toast.success(`✅ Skip trace successful! Found ${data.phones?.length || 0} phone(s), ${data.emails?.length || 0} email(s)`);
     } else {
       toast.error('Skip trace returned no contact info');
+    }
+  };
+
+  // ─── Enrich hot lead with REAPI property details ───
+  const enrichLead = async (lead: Lead) => {
+    setEnrichingLeadId(lead.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('enrich-hot-lead', {
+        body: { lead_id: lead.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.enriched > 0) {
+        toast.success('Property data enriched with full details!');
+        loadData();
+      } else {
+        toast.info('No additional property data found for this address');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to enrich lead');
+    } finally {
+      setEnrichingLeadId(null);
+    }
+  };
+
+  const enrichAllHotLeads = async () => {
+    if (landingPages.length === 0) return;
+    setBatchEnriching(true);
+    try {
+      let totalEnriched = 0;
+      for (const page of landingPages) {
+        const { data, error } = await supabase.functions.invoke('enrich-hot-lead', {
+          body: { backfill: true, landing_page_id: page.id },
+        });
+        if (!error && data?.enriched) totalEnriched += data.enriched;
+      }
+      if (totalEnriched > 0) {
+        toast.success(`Enriched ${totalEnriched} leads with full property details`);
+        loadData();
+      } else {
+        toast.info('All leads are already enriched or no data found');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Batch enrichment failed');
+    } finally {
+      setBatchEnriching(false);
     }
   };
 
@@ -644,11 +692,23 @@ export default function ClientDashboard() {
 
         {/* Section Description */}
         {activeSection !== 'phone' && activeSection !== 'drafts' && <>
-        <p className="text-xs text-white/40 -mt-4">
-          {activeSection === 'funnel'
-            ? 'Leads submitted through your landing page funnel.'
-            : 'Matched distressed property leads from the Realtor API — delivered weekly.'}
-        </p>
+        <div className="flex items-center justify-between -mt-4">
+          <p className="text-xs text-white/40">
+            {activeSection === 'funnel'
+              ? 'Leads submitted through your landing page funnel.'
+              : 'Matched distressed property leads from the Realtor API — delivered weekly.'}
+          </p>
+          {activeSection === 'hot' && (
+            <button
+              onClick={enrichAllHotLeads}
+              disabled={batchEnriching}
+              className="inline-flex items-center gap-2 text-xs font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {batchEnriching ? <Loader2 className="h-3 w-3 animate-spin" /> : <TrendingUp className="h-3 w-3" />}
+              {batchEnriching ? 'Enriching...' : 'Enrich All Properties'}
+            </button>
+          )}
+        </div>
 
         {/* Pipeline Overview */}
         <div>
@@ -1251,7 +1311,26 @@ export default function ClientDashboard() {
                               : 'Skip Trace Owner'}
                         </button>
                       )}
-                      {/* Fetch / Retry AI Call — funnel leads only */}
+                      {/* Enrich Property — hot leads with sparse data */}
+                      {isHotLead(lead) && !(lead.meta as any)?.enriched && (
+                        <button
+                          onClick={() => enrichLead(lead)}
+                          disabled={enrichingLeadId === lead.id}
+                          className="inline-flex items-center gap-2 text-sm font-medium text-cyan-400/80 hover:text-cyan-300 transition-colors disabled:opacity-50"
+                        >
+                          {enrichingLeadId === lead.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <TrendingUp className="h-4 w-4" />
+                          )}
+                          {enrichingLeadId === lead.id ? 'Enriching...' : 'Enrich Property Data'}
+                        </button>
+                      )}
+                      {isHotLead(lead) && (lead.meta as any)?.enriched && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400/60">
+                          <Check className="h-3 w-3" /> Enriched
+                        </span>
+                      )}
                       {!isHotLead(lead) && (
                         <button
                           onClick={() => fetchVapiData(lead)}
