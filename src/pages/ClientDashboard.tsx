@@ -352,8 +352,8 @@ export default function ClientDashboard() {
             <span className="font-semibold text-primary">Admin View</span>
             <span className="text-white/70">— Viewing as <span className="font-semibold text-white">{adminViewClientName}</span></span>
           </div>
-          <Button size="sm" variant="outline" className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => window.close()}>
-            Exit Admin View
+          <Button size="sm" variant="outline" className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => navigate('/wholesale')}>
+            ← Back to Dashboard
           </Button>
         </div>
       )}
