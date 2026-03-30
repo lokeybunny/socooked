@@ -236,7 +236,7 @@ function BuyerDetailPopup({ buyer, open, onClose, onNavigate }: { buyer: any; op
 }
 
 /* ─── Seller Detail Popup ─── */
-function SellerDetailPopup({ seller, open, onClose }: { seller: any; open: boolean; onClose: () => void }) {
+function SellerDetailPopup({ seller, open, onClose, onNavigate }: { seller: any; open: boolean; onClose: () => void; onNavigate: (type: 'buyers' | 'sellers', id: string) => void }) {
   if (!seller) return null;
   const meta: any = seller.meta || {};
   const allPhones: string[] = meta.all_phones || [];
@@ -327,7 +327,6 @@ function SellerDetailPopup({ seller, open, onClose }: { seller: any; open: boole
           </Section>
         )}
 
-        {/* Free lookup shortcuts */}
         <Section title="Free Lookup Shortcuts">
           <div className="grid grid-cols-3 gap-2 pt-1">
             {seller.owner_name && (
@@ -365,6 +364,13 @@ function SellerDetailPopup({ seller, open, onClose }: { seller: any; open: boole
           <Row icon={Calendar} label="Created" value={new Date(seller.created_at).toLocaleDateString()} />
           <Row icon={Calendar} label="Updated" value={new Date(seller.updated_at).toLocaleDateString()} />
         </Section>
+
+        <div className="pt-3 border-t">
+          <Button className="w-full" onClick={() => { onClose(); onNavigate('sellers', seller.id); }}>
+            <MapPin className="h-4 w-4 mr-2" />
+            Go to Seller
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
