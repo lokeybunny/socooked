@@ -655,6 +655,57 @@ export default function ClientDashboard() {
               </div>
               <p className="text-xs text-white/30 text-right">{pctUsed}% used</p>
 
+              {/* Add Credits Section */}
+              <div className="bg-white/5 rounded-xl border border-white/10 p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                    <DollarSign className="h-4 w-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Add Phone Credits</h3>
+                    <p className="text-xs text-white/40">Select an amount to top up your AI call credits</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { amount: 20, label: '$20' },
+                    { amount: 40, label: '$40' },
+                    { amount: 60, label: '$60' },
+                    { amount: 100, label: '$100' },
+                  ].map(opt => (
+                    <button
+                      key={opt.amount}
+                      onClick={async () => {
+                        const pageId = landingPages[0]?.id;
+                        if (!pageId) { toast.error('No landing page found'); return; }
+                        toast.loading('Creating payment link...', { id: 'credits' });
+                        try {
+                          const res = await supabase.functions.invoke('phone-credits', {
+                            body: {
+                              amount_cents: opt.amount * 100,
+                              landing_page_id: pageId,
+                              email: user?.email || '',
+                            },
+                          });
+                          if (res.error) throw res.error;
+                          if (res.data?.error) throw new Error(res.data.error);
+                          if (res.data?.url) {
+                            toast.success('Redirecting to payment...', { id: 'credits' });
+                            window.open(res.data.url, '_blank');
+                          }
+                        } catch (err: any) {
+                          toast.error(err.message || 'Failed to create payment link', { id: 'credits' });
+                        }
+                      }}
+                      className="group relative bg-white/5 hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/30 rounded-xl p-4 transition-all duration-200 text-center"
+                    >
+                      <p className="text-2xl font-bold text-white group-hover:text-emerald-400 transition-colors">{opt.label}</p>
+                      <p className="text-[10px] text-white/30 mt-1">Click to purchase</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Per-page breakdown */}
               {landingPages.length > 1 && (
                 <div className="space-y-3">
