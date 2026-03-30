@@ -92,7 +92,7 @@ serve(async (req) => {
       // 2. Find and deactivate associated landing page
       const { data: pages } = await supabaseAdmin
         .from('lw_landing_pages')
-        .select('id, client_user_id')
+        .select('id, client_user_id, client_name')
         .eq('email', sub.email)
         .eq('is_active', true);
 
@@ -111,7 +111,92 @@ serve(async (req) => {
         }
       }
 
-      // Send notification via Telegram
+      // 4. Send payment reminder email to the user via Gmail API
+      const displayName = sub.full_name || (pages?.[0] as any)?.client_name || sub.email.split('@')[0];
+      try {
+        const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+        const reminderHtml = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+  <h2 style="color: #0f172a;">⏰ Your Free Trial Has Ended</h2>
+  
+  <p>Hi ${displayName},</p>
+  
+  <p>We hope you enjoyed your <strong>24-hour free trial</strong> and got a taste of what automated deal-finding can do for your business.</p>
+  
+  <p>During your trial, you received up to <strong>5 exclusive distressed property leads</strong> — imagine what you could do with <strong>50 leads every single week</strong>, delivered automatically to your dashboard.</p>
+  
+  <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 20px 0; border-radius: 4px;">
+    <p style="margin: 0; font-weight: bold; color: #92400e;">⚠️ Your account has been paused</p>
+    <p style="margin: 8px 0 0 0; color: #78350f;">Your landing page and dashboard access are currently inactive. Complete your payment to reactivate everything instantly.</p>
+  </div>
+  
+  <h3 style="color: #0f172a;">Here's what you're missing:</h3>
+  <ul>
+    <li>🏠 <strong>50 distressed property leads/week</strong> — matched to YOUR buying criteria</li>
+    <li>📧 <strong>Automatic email reports</strong> delivered to your inbox</li>
+    <li>📊 <strong>Full CRM dashboard</strong> — manage your pipeline, call notes, recordings</li>
+    <li>🤖 <strong>AI-powered lead scoring</strong> — know which deals to chase first</li>
+    <li>📞 <strong>Automated outbound calls</strong> via AI voice agent</li>
+  </ul>
+  
+  <div style="text-align: center; margin: 30px 0;">
+    <a href="https://socooked.lovable.app/warren-guru" 
+       style="background: #2563eb; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+      💰 Complete Payment & Start Making Money
+    </a>
+  </div>
+  
+  <p style="color: #64748b; font-size: 13px;">Introductory rate: <strong>$599/month</strong> for the first 90 days (then $799/month).</p>
+  
+  <p>Don't let another week of deals pass you by. Your competitors are already using automation — it's time to level up.</p>
+  
+  <br/>
+  <p>Let's get you making money,</p>
+  <p><strong>Warren A Thompson</strong><br/>
+  Warren Guru — Automated Land Wholesaling<br/>
+  <a href="mailto:warren@stu25.com">warren@stu25.com</a></p>
+</div>`;
+
+        const gmailRes = await fetch(
+          `${SUPABASE_URL}/functions/v1/gmail-api?action=send`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({
+              to: sub.email,
+              subject: '⏰ Your Free Trial Ended — Complete Payment to Keep Making Money',
+              body: reminderHtml,
+            }),
+          }
+        );
+        
+        if (gmailRes.ok) {
+          console.log(`[payment-verify] ✅ Payment reminder sent to ${sub.email}`);
+        } else {
+          console.error(`[payment-verify] Gmail send failed:`, await gmailRes.text());
+        }
+
+        // Log communication
+        await supabaseAdmin.from('communications').insert({
+          type: 'email',
+          direction: 'outbound',
+          to_address: sub.email,
+          subject: 'Trial Expired — Payment Reminder',
+          body: reminderHtml,
+          status: 'sent',
+          provider: 'square-payment-verify',
+          metadata: { source: 'trial-expiry', subscription_id: sub.id },
+        });
+      } catch (emailErr) {
+        console.error('[payment-verify] Reminder email failed:', emailErr);
+      }
+
+      // 5. Send notification via Telegram
       try {
         const TELEGRAM_BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN');
         const TELEGRAM_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID');
@@ -123,7 +208,7 @@ serve(async (req) => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 chat_id: TELEGRAM_CHAT_ID,
-                text: `⏰ *Trial Expired*\n📧 ${sub.email}\n❌ Landing page deactivated & login disabled\nNo payment received within 24h.`,
+                text: `⏰ *Trial Expired*\n📧 ${sub.email}\n❌ Landing page deactivated & login disabled\n📩 Payment reminder email sent\nNo payment received within 24h.`,
                 parse_mode: 'Markdown',
               }),
             }
@@ -131,7 +216,7 @@ serve(async (req) => {
         }
       } catch { /* ignore telegram errors */ }
 
-      results.push({ email: sub.email, action: 'deactivated' });
+      results.push({ email: sub.email, action: 'deactivated_and_reminded' });
     }
 
     return new Response(JSON.stringify({ success: true, results }), {
