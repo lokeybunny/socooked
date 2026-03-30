@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Users, Building2, DollarSign, TrendingUp, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home, Globe, UserCheck, Bot, Phone } from 'lucide-react';
+import { MapPin, Users, Building2, DollarSign, TrendingUp, BarChart3, Heart, ChevronLeft, ChevronRight, FileSignature, Home, Globe, UserCheck, Bot, Phone, Key } from 'lucide-react';
 import BuyerDiscovery from '@/components/wholesale/BuyerDiscovery';
 import BuyerSources from '@/components/wholesale/BuyerSources';
 import BuyerSettings from '@/components/wholesale/BuyerSettings';
