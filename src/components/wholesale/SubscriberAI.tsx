@@ -60,6 +60,7 @@ export default function SubscriberAI() {
   const [capData, setCapData] = useState<Record<string, CapRow>>({});
   const [runningId, setRunningId] = useState<string | null>(null);
   const [detailLead, setDetailLead] = useState<MatchedLead | null>(null);
+  const [searchEditorBuyer, setSearchEditorBuyer] = useState<AutomateBuyer | null>(null);
 
   const getWeekStart = () => {
     const now = new Date();
