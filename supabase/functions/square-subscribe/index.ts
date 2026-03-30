@@ -151,8 +151,9 @@ serve(async (req) => {
       }
 
       const subscriptionId = (sub.meta as any)?.subscription_id;
+      const squareCustomerId = sub.square_customer_id;
 
-      // Cancel on Square
+      // Cancel on Square — by subscription_id if available
       if (subscriptionId) {
         try {
           const cancelRes = await fetch(`${SQUARE_BASE}/subscriptions/${subscriptionId}/cancel`, {
@@ -172,6 +173,51 @@ serve(async (req) => {
         } catch (e) {
           console.error("Square cancel request failed:", e);
         }
+      } else if (squareCustomerId) {
+        // Fallback: search for active subscriptions by customer ID
+        try {
+          const searchRes = await fetch(`${SQUARE_BASE}/subscriptions/search`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+              "Content-Type": "application/json",
+              "Square-Version": SQUARE_VERSION,
+            },
+            body: JSON.stringify({
+              query: {
+                filter: {
+                  customer_ids: [squareCustomerId],
+                  location_ids: [],
+                },
+              },
+            }),
+          });
+          if (searchRes.ok) {
+            const searchData = await searchRes.json();
+            const activeSubs = (searchData.subscriptions || []).filter(
+              (s: any) => s.status === "ACTIVE" || s.status === "PENDING"
+            );
+            for (const activeSub of activeSubs) {
+              try {
+                await fetch(`${SQUARE_BASE}/subscriptions/${activeSub.id}/cancel`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${SQUARE_ACCESS_TOKEN}`,
+                    "Content-Type": "application/json",
+                    "Square-Version": SQUARE_VERSION,
+                  },
+                });
+                console.log(`[square-subscribe] Cancelled Square subscription ${activeSub.id} (found via customer search)`);
+              } catch (e2) {
+                console.error(`Failed to cancel sub ${activeSub.id}:`, e2);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Square subscription search failed:", e);
+        }
+      } else {
+        console.warn(`[square-subscribe] No subscription_id or square_customer_id found for ${email} — Square cancellation skipped`);
       }
 
       // Update our DB
