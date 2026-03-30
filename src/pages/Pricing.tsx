@@ -26,7 +26,7 @@ const fade = {
   }),
 };
 
-const VALID_CODES = ['GURU2025', 'WARREN', 'WHOLESALE', 'LAND'];
+const VALID_CODES = ['GOAT'];
 
 export default function Pricing() {
   const [agreed, setAgreed] = useState(false);
