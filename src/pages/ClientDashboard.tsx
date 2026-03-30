@@ -5,7 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, XCircle } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
@@ -370,9 +371,16 @@ export default function ClientDashboard() {
               <p className="text-xs text-white/40">{user?.email}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={signOut} className="border-white/10 text-white/70 hover:bg-white/10 hover:text-white">
-            <LogOut className="h-4 w-4 mr-2" />Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <CancelSubscriptionButton
+              landingPages={landingPages}
+              userEmail={user?.email || ''}
+              onCancelled={loadData}
+            />
+            <Button variant="outline" size="sm" onClick={signOut} className="border-white/10 text-white/70 hover:bg-white/10 hover:text-white">
+              <LogOut className="h-4 w-4 mr-2" />Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 

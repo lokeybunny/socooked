@@ -315,7 +315,54 @@ export function calculateDistressScore(
     .filter(b => b.active)
     .reduce((sum, b) => sum + b.points, 0);
 
-  const score = Math.min(100, rawScore);
+  let score = Math.min(100, rawScore);
+
+  // ── Funnel Lead AI-based scoring ──
+  // For funnel leads, the DB trigger already calculated a motivation_score from
+  // AI call data (timeline, condition, motivation keywords). If the traditional
+  // property-flag score is lower than the stored motivation_score, use the DB value
+  // and add AI-derived breakdown items so the modal shows meaningful factors.
+  const isFunnelLead = seller.source === 'funnel_lead';
+  const dbMotivation = seller.motivation_score || 0;
+
+  if (isFunnelLead && dbMotivation > score) {
+    score = dbMotivation;
+    // Clear inactive traditional breakdown for funnel leads and show AI factors
+    breakdown.length = 0;
+
+    const meta = seller.meta || {};
+    const timeline = (meta.timeline || '').toString().toLowerCase();
+    const condition = (meta.property_condition || seller.condition_notes || '').toString().toLowerCase();
+    const motivation = (meta.motivation || '').toString().toLowerCase();
+    const aiNotes = (meta.ai_notes || '').toString().toLowerCase();
+    const hasAiCall = meta.vapi_call_status === 'completed' || seller.condition_notes;
+
+    // Timeline
+    const timelineUrgent = ['asap', 'immediately', 'urgent', 'this week'].some(t => timeline.includes(t));
+    const timelineSoon = ['soon', 'this month', '30 days', '1-2 weeks', '2 weeks'].some(t => timeline.includes(t));
+    breakdown.push({ factor: 'Urgent Timeline (ASAP)', points: 25, active: timelineUrgent });
+    if (!timelineUrgent) breakdown.push({ factor: 'Near-term Timeline', points: 15, active: timelineSoon });
+
+    // Condition
+    const majorRepairs = ['major repairs', 'needs major work', 'tear down', 'condemned'].some(t => condition.includes(t));
+    const needsWork = ['needs work', 'needs repairs', 'minor repairs', 'cosmetic'].some(t => condition.includes(t));
+    breakdown.push({ factor: 'Major Repairs Needed', points: 20, active: majorRepairs });
+    if (!majorRepairs) breakdown.push({ factor: 'Needs Work', points: 12, active: needsWork });
+
+    // Motivation keywords
+    const financial = /financial|debt|foreclosure|behind on|tax lien|bankruptcy/.test(motivation + ' ' + aiNotes);
+    const familyDistress = /divorce|inherited|probate|death|estate/.test(motivation + ' ' + aiNotes);
+    const relocation = /relocat|moving|job transfer|military/.test(motivation + ' ' + aiNotes);
+    const urgency = /urgent|desperate|need to sell|must sell|asap/.test(motivation + ' ' + aiNotes);
+    const vacancy = /vacant|empty|not living|tenant|rental/.test(motivation + ' ' + aiNotes);
+
+    breakdown.push({ factor: 'Financial Distress', points: 25, active: financial });
+    breakdown.push({ factor: 'Family/Estate Distress', points: 20, active: familyDistress });
+    breakdown.push({ factor: 'Relocation Motivation', points: 15, active: relocation });
+    breakdown.push({ factor: 'Urgency Signals', points: 15, active: urgency });
+    breakdown.push({ factor: 'Vacant/Unoccupied', points: 10, active: vacancy });
+    breakdown.push({ factor: 'AI Call Completed', points: 5, active: !!hasAiCall });
+  }
 
   const reasons = breakdown
     .filter(b => b.active)
@@ -333,7 +380,7 @@ export function calculateDistressScore(
     score >= 70 ? 'Hot' :
     score >= 45 ? 'Warm' : 'Cold';
 
-  return { score, rawScore, grade, temperature, reasons, breakdown };
+  return { score, rawScore: isFunnelLead ? score : rawScore, grade, temperature, reasons, breakdown };
 }
 
 /**
