@@ -5,8 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { ShieldCheck, XCircle } from 'lucide-react';
+import { ShieldCheck, XCircle, Copy, ExternalLink } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
@@ -16,6 +18,44 @@ import {
 } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// --- Clipboard copy helper ---
+function CopyBtn({ text, className = '' }: { text: string | null | undefined; className?: string }) {
+  if (!text) return null;
+  return (
+    <button
+      className={`inline-flex items-center gap-1 hover:text-blue-400 transition-colors ${className}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        toast.success('Copied to clipboard');
+      }}
+      title="Copy to clipboard"
+    >
+      <Copy className="h-3 w-3 opacity-60 hover:opacity-100" />
+    </button>
+  );
+}
+
+// --- Copyable text span ---
+function CopyableText({ text, children, className = '' }: { text: string; children?: React.ReactNode; className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1 group ${className}`}>
+      {children || text}
+      <button
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(text);
+          toast.success('Copied to clipboard');
+        }}
+        title="Copy to clipboard"
+      >
+        <Copy className="h-3 w-3 text-white/40 hover:text-white/80" />
+      </button>
+    </span>
+  );
+}
 
 interface Lead {
   id: string;
@@ -75,6 +115,7 @@ export default function ClientDashboard() {
   const [skipTracingId, setSkipTracingId] = useState<string | null>(null);
   const [enrichingLeadId, setEnrichingLeadId] = useState<string | null>(null);
   const [batchEnriching, setBatchEnriching] = useState(false);
+  const [detailLead, setDetailLead] = useState<Lead | null>(null);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminViewClientName, setAdminViewClientName] = useState<string | null>(null);
@@ -658,8 +699,8 @@ export default function ClientDashboard() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-white truncate">{lead.full_name}</p>
                       <div className="flex items-center gap-4 text-xs text-white/40 mt-1">
-                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{lead.property_address}</span>
-                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>
+                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /><CopyableText text={lead.property_address}>{lead.property_address}</CopyableText></span>
+                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" /><CopyableText text={lead.phone}>{lead.phone}</CopyableText></span>
                       </div>
                       <p className="text-xs text-red-400/70 mt-1">
                         {hoursLeft > 0 ? `Auto-deletes in ${hoursLeft}h` : 'Scheduled for deletion'}
@@ -796,8 +837,8 @@ export default function ClientDashboard() {
                       )}
                     </div>
                     <div className="flex items-center gap-4 text-xs text-white/40">
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{lead.property_address}</span>
-                      <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</span>
+                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /><CopyableText text={lead.property_address}>{lead.property_address}</CopyableText></span>
+                      <span className="flex items-center gap-1"><Phone className="h-3 w-3" /><CopyableText text={lead.phone}>{lead.phone}</CopyableText></span>
                       <span>via /{pageName}</span>
                     </div>
                   </div>
@@ -871,7 +912,7 @@ export default function ClientDashboard() {
                           {lead.email && (
                             <div>
                               <p className="text-xs text-white/40 mb-1">Email</p>
-                              <p className="text-sm font-medium text-white/80">{lead.email}</p>
+                              <p className="text-sm font-medium text-white/80"><CopyableText text={lead.email}>{lead.email}</CopyableText></p>
                             </div>
                           )}
                           {lead.property_condition && (
@@ -966,9 +1007,11 @@ export default function ClientDashboard() {
                                       <div>
                                         <p className="text-[10px] text-white/40 mb-1">Phone Numbers</p>
                                         {(skipPhones as string[]).map((p: string, i: number) => (
-                                          <a key={i} href={`tel:${p}`} className="block text-sm text-emerald-400 hover:text-emerald-300 font-medium">
-                                            <Phone className="h-3 w-3 inline mr-1" />{p}
-                                          </a>
+                                          <span key={i} className="flex items-center gap-1 text-sm text-emerald-400 font-medium">
+                                            <Phone className="h-3 w-3" />
+                                            <a href={`tel:${p}`} className="hover:text-emerald-300">{p}</a>
+                                            <CopyBtn text={p} />
+                                          </span>
                                         ))}
                                       </div>
                                     )}
@@ -976,16 +1019,18 @@ export default function ClientDashboard() {
                                       <div>
                                         <p className="text-[10px] text-white/40 mb-1">Email Addresses</p>
                                         {(skipEmails as string[]).map((e: string, i: number) => (
-                                          <a key={i} href={`mailto:${e}`} className="block text-sm text-blue-400 hover:text-blue-300 font-medium">
-                                            <Mail className="h-3 w-3 inline mr-1" />{e}
-                                          </a>
+                                          <span key={i} className="flex items-center gap-1 text-sm text-blue-400 font-medium">
+                                            <Mail className="h-3 w-3" />
+                                            <a href={`mailto:${e}`} className="hover:text-blue-300">{e}</a>
+                                            <CopyBtn text={e} />
+                                          </span>
                                         ))}
                                       </div>
                                     )}
                                     {skipMailing && (
                                       <div className="sm:col-span-2">
                                         <p className="text-[10px] text-white/40 mb-1">Mailing Address</p>
-                                        <p className="text-sm text-white/80"><MapPinned className="h-3 w-3 inline mr-1" />{String(skipMailing)}</p>
+                                        <p className="text-sm text-white/80"><MapPinned className="h-3 w-3 inline mr-1" /><CopyableText text={String(skipMailing)}>{String(skipMailing)}</CopyableText></p>
                                       </div>
                                     )}
                                   </div>
@@ -1175,19 +1220,25 @@ export default function ClientDashboard() {
                                     {ownerPhone && (
                                       <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
                                         <p className="text-[10px] text-white/40">Owner Phone</p>
-                                        <a href={`tel:${ownerPhone}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerPhone)}</a>
+                                        <span className="flex items-center gap-1">
+                                          <a href={`tel:${ownerPhone}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerPhone)}</a>
+                                          <CopyBtn text={String(ownerPhone)} />
+                                        </span>
                                       </div>
                                     )}
                                     {ownerEmail && (
                                       <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
                                         <p className="text-[10px] text-white/40">Owner Email</p>
-                                        <a href={`mailto:${ownerEmail}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerEmail)}</a>
+                                        <span className="flex items-center gap-1">
+                                          <a href={`mailto:${ownerEmail}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerEmail)}</a>
+                                          <CopyBtn text={String(ownerEmail)} />
+                                        </span>
                                       </div>
                                     )}
                                     {ownerMail && (
                                       <div className="col-span-2 bg-white/5 rounded-lg p-2.5 border border-white/10">
                                         <p className="text-[10px] text-white/40">Owner Mailing Address</p>
-                                        <p className="text-xs text-white/80">{String(ownerMail)}</p>
+                                        <p className="text-xs text-white/80"><CopyableText text={String(ownerMail)}>{String(ownerMail)}</CopyableText></p>
                                       </div>
                                     )}
                                   </div>
@@ -1325,6 +1376,38 @@ export default function ClientDashboard() {
                           <Check className="h-3 w-3" /> Enriched
                         </span>
                       )}
+                      {/* Realtor / Redfin search links for hot leads */}
+                      {isHotLead(lead) && (
+                        <>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(lead.property_address);
+                              toast.success('Address copied – paste it in Realtor.com search');
+                              window.open('https://www.realtor.com/', '_blank', 'noopener');
+                            }}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-400/80 hover:text-blue-300 transition-colors"
+                          >
+                            🏠 Search on Realtor <ExternalLink className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(lead.property_address);
+                              toast.success('Address copied – paste it in Redfin search');
+                              window.open('https://www.redfin.com/', '_blank', 'noopener');
+                            }}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-red-400/80 hover:text-red-300 transition-colors"
+                          >
+                            🔴 Search on Redfin <ExternalLink className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => setDetailLead(lead)}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-purple-400/80 hover:text-purple-300 transition-colors"
+                          >
+                            <Search className="h-4 w-4" />
+                            View Full Details
+                          </button>
+                        </>
+                      )}
                       {!isHotLead(lead) && (
                         <button
                           onClick={() => fetchVapiData(lead)}
@@ -1384,6 +1467,303 @@ export default function ClientDashboard() {
         </div>
         </>}
       </div>
+
+      {/* Hot Lead Detail Modal */}
+      <Dialog open={!!detailLead} onOpenChange={(open) => !open && setDetailLead(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto bg-zinc-900 border-zinc-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <Flame className="h-4 w-4 text-orange-400" />
+              {detailLead?.full_name || 'Lead Details'}
+            </DialogTitle>
+          </DialogHeader>
+          {detailLead && (() => {
+            const m = detailLead.meta || {};
+            const addr = detailLead.property_address;
+            const skipPhones = (m as any)?.skip_trace_phones || [];
+            const skipEmails = (m as any)?.skip_trace_emails || [];
+            const skipMailing = (m as any)?.skip_trace_mailing;
+            const ownerPhone = (m as any)?.owner_phone;
+            const ownerEmail = (m as any)?.owner_email;
+            const ownerMail = (m as any)?.owner_mailing_address;
+            return (
+              <div className="space-y-4">
+                {/* Contact Info */}
+                <div>
+                  <h4 className="text-xs font-semibold uppercase text-white/40 mb-2">Contact Information</h4>
+                  <div className="divide-y divide-white/10">
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className="text-white/50">Name</span>
+                      <CopyableText text={detailLead.full_name} className="font-medium">{detailLead.full_name}</CopyableText>
+                    </div>
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className="text-white/50">Phone</span>
+                      <span className="flex items-center gap-1 font-medium">
+                        <a href={`tel:${detailLead.phone}`} className="text-blue-400 hover:text-blue-300">{detailLead.phone}</a>
+                        <CopyBtn text={detailLead.phone} />
+                      </span>
+                    </div>
+                    {detailLead.email && (
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className="text-white/50">Email</span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <a href={`mailto:${detailLead.email}`} className="text-blue-400 hover:text-blue-300">{detailLead.email}</a>
+                          <CopyBtn text={detailLead.email} />
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between py-1.5 text-sm">
+                      <span className="text-white/50">Property Address</span>
+                      <CopyableText text={addr} className="font-medium text-right max-w-[60%]">{addr}</CopyableText>
+                    </div>
+                    {ownerPhone && (
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className="text-white/50">Owner Phone</span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <a href={`tel:${ownerPhone}`} className="text-blue-400 hover:text-blue-300">{String(ownerPhone)}</a>
+                          <CopyBtn text={String(ownerPhone)} />
+                        </span>
+                      </div>
+                    )}
+                    {ownerEmail && (
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className="text-white/50">Owner Email</span>
+                        <span className="flex items-center gap-1 font-medium">
+                          <a href={`mailto:${ownerEmail}`} className="text-blue-400 hover:text-blue-300">{String(ownerEmail)}</a>
+                          <CopyBtn text={String(ownerEmail)} />
+                        </span>
+                      </div>
+                    )}
+                    {ownerMail && (
+                      <div className="flex justify-between py-1.5 text-sm">
+                        <span className="text-white/50">Mailing Address</span>
+                        <CopyableText text={String(ownerMail)} className="font-medium text-right max-w-[60%]">{String(ownerMail)}</CopyableText>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Skip trace phones/emails */}
+                  {(skipPhones.length > 0 || skipEmails.length > 0) && (
+                    <div className="mt-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3">
+                      <p className="text-[10px] text-emerald-400 uppercase tracking-wider font-semibold mb-2 flex items-center gap-1">
+                        <Check className="h-3 w-3" /> Skip Trace Results
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {(skipPhones as string[]).map((p: string, i: number) => (
+                          <span key={`p${i}`} className="flex items-center gap-1 text-sm text-emerald-400 font-medium">
+                            <Phone className="h-3 w-3" />
+                            <a href={`tel:${p}`} className="hover:text-emerald-300">{p}</a>
+                            <CopyBtn text={p} />
+                          </span>
+                        ))}
+                        {(skipEmails as string[]).map((e: string, i: number) => (
+                          <span key={`e${i}`} className="flex items-center gap-1 text-sm text-blue-400 font-medium">
+                            <Mail className="h-3 w-3" />
+                            <a href={`mailto:${e}`} className="hover:text-blue-300">{e}</a>
+                            <CopyBtn text={e} />
+                          </span>
+                        ))}
+                      </div>
+                      {skipMailing && (
+                        <p className="text-sm text-white/70 mt-2">
+                          <MapPinned className="h-3 w-3 inline mr-1" />
+                          <CopyableText text={String(skipMailing)}>{String(skipMailing)}</CopyableText>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <Separator className="bg-white/10" />
+
+                {/* Realtor / Redfin search */}
+                <div className="flex flex-wrap justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(addr);
+                      toast.success('Address copied – paste it in Realtor.com search');
+                      window.open('https://www.realtor.com/', '_blank', 'noopener');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:underline cursor-pointer bg-transparent border-0 p-0"
+                  >
+                    🏠 Search on Realtor.com
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(addr);
+                      toast.success('Address copied – paste it in Redfin search');
+                      window.open('https://www.redfin.com/', '_blank', 'noopener');
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-red-400 hover:underline cursor-pointer bg-transparent border-0 p-0"
+                  >
+                    🔴 Search on Redfin.com
+                    <ExternalLink className="h-3 w-3" />
+                  </button>
+                </div>
+
+                <Separator className="bg-white/10" />
+
+                {/* Property details from meta */}
+                {(() => {
+                  const assessed = (m as any)?.assessed_value ?? (m as any)?.assessedValue;
+                  const marketVal = (m as any)?.market_value ?? (m as any)?.marketValue;
+                  const acreage = (m as any)?.acreage ?? (m as any)?.lotAcreage;
+                  const beds = (m as any)?.bedrooms;
+                  const baths = (m as any)?.bathrooms;
+                  const livingSqft = (m as any)?.living_sqft;
+                  const yearBuilt = (m as any)?.year_built;
+                  const propType = (m as any)?.property_type;
+                  const county = (m as any)?.county;
+                  const state = (m as any)?.state;
+                  const city = (m as any)?.city;
+                  const hasData = assessed || marketVal || acreage || beds || baths || propType;
+                  if (!hasData) return null;
+                  return (
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase text-white/40 mb-2">Property Details</h4>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {propType && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Type</p>
+                            <p className="text-xs font-semibold text-white/80">{propType}</p>
+                          </div>
+                        )}
+                        {beds != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Beds</p>
+                            <p className="text-xs font-semibold text-white/80">{beds}</p>
+                          </div>
+                        )}
+                        {baths != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Baths</p>
+                            <p className="text-xs font-semibold text-white/80">{baths}</p>
+                          </div>
+                        )}
+                        {livingSqft && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Living SqFt</p>
+                            <p className="text-xs font-semibold text-white/80">{Number(livingSqft).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {acreage != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Acres</p>
+                            <p className="text-xs font-semibold text-white/80">{acreage}</p>
+                          </div>
+                        )}
+                        {yearBuilt && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Year Built</p>
+                            <p className="text-xs font-semibold text-white/80">{yearBuilt}</p>
+                          </div>
+                        )}
+                        {assessed != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Assessed</p>
+                            <p className="text-xs font-semibold text-emerald-400">${Number(assessed).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {marketVal != null && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                            <p className="text-[10px] text-white/40">Market Value</p>
+                            <p className="text-xs font-semibold text-emerald-400">${Number(marketVal).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {(county || state) && (
+                          <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center col-span-2">
+                            <p className="text-[10px] text-white/40">Location</p>
+                            <p className="text-xs font-semibold text-white/80">{[city, county, state].filter(Boolean).join(', ')}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <Separator className="bg-white/10" />
+
+                {/* Free Lookup Shortcuts */}
+                <div>
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold mb-2">Free lookup shortcuts</p>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    <a
+                      href={`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(detailLead.full_name || '')}&citystatezip=${encodeURIComponent([(m as any)?.city, (m as any)?.state].filter(Boolean).join(', '))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                    >
+                      <span>📞</span>
+                      <span className="flex-1 font-medium text-white">TruePeopleSearch</span>
+                      <span className="text-[10px] text-white/40">Phone · Address · Relatives</span>
+                      <ExternalLink className="h-3 w-3 text-white/40" />
+                    </a>
+                    <a
+                      href="https://www.datatoleads.com/free-tools"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                    >
+                      <span>📬</span>
+                      <span className="flex-1 font-medium text-white">DataToLeads</span>
+                      <span className="text-[10px] text-white/40">Reverse phone · Email · Address</span>
+                      <ExternalLink className="h-3 w-3 text-white/40" />
+                    </a>
+                    <a
+                      href="https://www.propstream.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                    >
+                      <span>🏠</span>
+                      <span className="flex-1 font-medium text-white">PropStream</span>
+                      <span className="text-[10px] text-white/40">Owner phone · Email · Free trial</span>
+                      <ExternalLink className="h-3 w-3 text-white/40" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Distress flags */}
+                {(() => {
+                  const distress = (m as any)?.distress_flags || {};
+                  const hasDistress = distress.tax_delinquent || distress.pre_foreclosure || distress.vacant || distress.absentee_owner;
+                  if (!hasDistress) return null;
+                  return (
+                    <>
+                      <Separator className="bg-white/10" />
+                      <div>
+                        <h4 className="text-xs font-semibold uppercase text-white/40 mb-2">Distress Flags</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {distress.tax_delinquent && <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">🔴 Tax Delinquent</span>}
+                          {distress.pre_foreclosure && <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">⚠️ Pre-Foreclosure</span>}
+                          {distress.vacant && <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">🏚️ Vacant</span>}
+                          {distress.absentee_owner && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">👤 Absentee</span>}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+
+                {/* AI Notes */}
+                {detailLead.ai_notes && (
+                  <>
+                    <Separator className="bg-white/10" />
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase text-white/40 mb-2">AI Notes</h4>
+                      <div className="text-sm text-white/60 bg-white/5 rounded-lg border border-white/10 p-3 whitespace-pre-wrap">
+                        {detailLead.ai_notes}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
