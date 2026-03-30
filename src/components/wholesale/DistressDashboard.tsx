@@ -130,28 +130,6 @@ export default function DistressDashboard() {
       </div>
 
 
-      {/* Skip Trace Funnel */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Skip Trace & Outreach Funnel</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {traceFunnel.map((step, i) => {
-              const pct = sellers.length > 0 ? Math.round((step.count / sellers.length) * 100) : 0;
-              return (
-                <div key={step.stage} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{step.stage}</span>
-                    <span className="text-muted-foreground">{step.count} ({pct}%)</span>
-                  </div>
-                  <Progress value={pct} className="h-2" />
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
