@@ -150,10 +150,13 @@ serve(async (req) => {
           if (motivationFlags.includes('tax_delinquent')) searchParams.is_tax_delinquent = 'true';
           if (budgetMax < 999999999) searchParams.max_assessed_value = String(budgetMax);
 
-          const qs = new URLSearchParams(searchParams);
           const reApiRes = await fetch(
-            `https://api.realestateapi.com/v2/PropertySearch?${qs}`,
-            { headers: { 'x-api-key': REAPI_KEY, 'Content-Type': 'application/json' } }
+            `https://api.realestateapi.com/v2/PropertySearch`,
+            {
+              method: 'POST',
+              headers: { 'x-api-key': REAPI_KEY, 'Content-Type': 'application/json' },
+              body: JSON.stringify(searchParams),
+            }
           );
 
           if (reApiRes.ok) {
@@ -291,21 +294,30 @@ serve(async (req) => {
         }));
       }
 
-      // --- Insert leads ---
+      // --- Insert leads in batches ---
       let leadsInserted = 0;
       if (newLeads.length > 0) {
         const insertRows = newLeads.map(l => ({
           landing_page_id: page.id,
-          full_name: l.full_name,
-          phone: l.phone,
-          property_address: l.property_address,
+          full_name: l.full_name || 'Property Owner',
+          phone: l.phone || 'N/A',
+          property_address: l.property_address || 'Unknown',
           status: 'new',
           meta: l.meta,
         }));
 
-        const { data: insertedData, error: insertErr } = await supabaseAdmin.from('lw_landing_leads').insert(insertRows).select('id');
-        leadsInserted = insertErr ? 0 : (insertedData?.length || 0);
-        console.log(`[matcher] inserted ${leadsInserted} leads (error: ${insertErr?.message || 'none'})`);
+        // Batch inserts in chunks of 10 to avoid timeout
+        const BATCH_SIZE = 10;
+        for (let i = 0; i < insertRows.length; i += BATCH_SIZE) {
+          const batch = insertRows.slice(i, i + BATCH_SIZE);
+          const { data: batchData, error: batchErr } = await supabaseAdmin.from('lw_landing_leads').insert(batch).select('id');
+          if (batchErr) {
+            console.error(`[matcher] batch ${i / BATCH_SIZE} error: ${batchErr.message}`);
+          } else {
+            leadsInserted += batchData?.length || 0;
+          }
+        }
+        console.log(`[matcher] inserted ${leadsInserted} leads total`);
 
         // Update cap
         const newTotal = currentCount + leadsInserted;
