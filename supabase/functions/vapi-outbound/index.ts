@@ -152,6 +152,109 @@ IMPORTANT: At the end of the call, summarize your findings clearly.`,
       });
     }
 
+    // ─── Sync call data from Vapi API for stuck leads ───
+    if (action === "sync_call") {
+      if (!lead_id) {
+        return new Response(JSON.stringify({ error: "lead_id required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: lead, error: leadErr } = await sb
+        .from("lw_landing_leads")
+        .select("*")
+        .eq("id", lead_id)
+        .single();
+
+      if (leadErr || !lead) {
+        return new Response(JSON.stringify({ error: "Lead not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!lead.vapi_call_id) {
+        return new Response(JSON.stringify({ error: "No Vapi call ID on this lead" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Fetch call details from Vapi API
+      const vapiRes = await fetch(`https://api.vapi.ai/call/${lead.vapi_call_id}`, {
+        headers: { Authorization: `Bearer ${VAPI_API_KEY}` },
+      });
+
+      if (!vapiRes.ok) {
+        const errText = await vapiRes.text();
+        return new Response(JSON.stringify({ error: "Vapi API error", details: errText }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const call = await vapiRes.json();
+      const status = call.status; // "queued", "ringing", "in-progress", "forwarding", "ended"
+      const endedReason = call.endedReason || null;
+      const transcript = call.transcript || call.artifact?.transcript || "";
+      const summary = call.summary || call.artifact?.summary || call.analysis?.summary || "";
+      const recordingUrl = call.recordingUrl || call.artifact?.recordingUrl || null;
+      const duration = call.duration || call.costBreakdown?.duration || 0;
+      const costCents = Math.round((call.cost || 0) * 100);
+
+      const callEnded = status === "ended";
+      const callFailed = callEnded && (
+        ["no-answer", "busy", "voicemail", "machine-detected", "customer-did-not-answer", "customer-busy"].includes(endedReason) ||
+        duration < 15
+      );
+
+      // Build AI notes
+      let aiNotes = lead.ai_notes;
+      if (callEnded) {
+        if (callFailed) {
+          aiNotes = `AI Agent could not connect.\n• Reason: ${(endedReason || "unknown").replace(/-/g, " ")}\n• Duration: ${Math.round(duration)}s`;
+        } else {
+          const lines: string[] = ["AI Notes:", ""];
+          if (summary) lines.push("• Call Summary: " + summary);
+          lines.push(`• Call Duration: ${Math.round(duration)}s`);
+          lines.push(`• Call Outcome: ${(endedReason || "completed").replace(/-/g, " ")}`);
+          if (recordingUrl) lines.push(`• Recording: ${recordingUrl}`);
+          aiNotes = lines.join("\n");
+        }
+      }
+
+      // Update lead
+      const updates: Record<string, any> = {
+        vapi_call_status: callFailed ? "no_answer" : callEnded ? "completed" : status,
+        ai_notes: aiNotes,
+        vapi_recording_url: recordingUrl || lead.vapi_recording_url,
+        meta: {
+          ...(lead.meta as any),
+          vapi_transcript: transcript || (lead.meta as any)?.vapi_transcript,
+          vapi_summary: summary || (lead.meta as any)?.vapi_summary,
+          vapi_recording_url: recordingUrl || (lead.meta as any)?.vapi_recording_url,
+          vapi_ended_reason: endedReason || (lead.meta as any)?.vapi_ended_reason,
+          vapi_duration_seconds: duration || (lead.meta as any)?.vapi_duration_seconds,
+          vapi_cost_cents: costCents || (lead.meta as any)?.vapi_cost_cents,
+          vapi_synced_at: new Date().toISOString(),
+        },
+      };
+
+      await sb.from("lw_landing_leads").update(updates).eq("id", lead.id);
+
+      return new Response(JSON.stringify({
+        success: true,
+        call_status: status,
+        ended_reason: endedReason,
+        has_transcript: !!transcript,
+        has_summary: !!summary,
+        duration,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
