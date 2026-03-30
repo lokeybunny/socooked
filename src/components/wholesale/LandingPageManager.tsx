@@ -9,10 +9,11 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Plus, ExternalLink, Trash2, Loader2, Copy, Globe, Eye, Pencil, X, Save,
-  ChevronDown, ChevronUp, Upload, ImageIcon, DollarSign, Mail, Send, ShieldCheck
+  ChevronDown, ChevronUp, Upload, ImageIcon, DollarSign, Mail, Send, ShieldCheck, XCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface LandingPageRow {
@@ -428,6 +429,14 @@ export default function LandingPageManager() {
                     currentBalance={p.vapi_credit_balance_cents || 0}
                     onUpdated={load}
                   />
+                  {p.email && (
+                    <CancelSubscription
+                      email={p.email}
+                      landingPageId={p.id}
+                      clientName={p.client_name}
+                      onCancelled={load}
+                    />
+                  )}
                 </div>
 
                 <button onClick={() => setExpandedLeads(isLeadsExpanded ? null : p.id)} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition w-full">
@@ -588,5 +597,60 @@ function EmailComposeButton({ email, clientName }: { email: string; clientName: 
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CancelSubscription({ email, landingPageId, clientName, onCancelled }: {
+  email: string;
+  landingPageId: string;
+  clientName: string;
+  onCancelled: () => void;
+}) {
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('square-subscribe', {
+        body: { action: 'cancel', email, landing_page_id: landingPageId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Subscription cancelled for ${clientName}`);
+      onCancelled();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to cancel subscription');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 border-destructive/30 text-destructive hover:bg-destructive/10">
+          <XCircle className="h-3 w-3" /> Cancel Sub
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will cancel <strong>{clientName}</strong>'s Square subscription, deactivate their landing page, and revoke their dashboard access. A cancellation email will be sent to {email}. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep Active</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {cancelling ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Yes, Cancel Subscription
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
