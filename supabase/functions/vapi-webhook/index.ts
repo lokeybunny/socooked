@@ -268,7 +268,11 @@ serve(async (req) => {
         ? `AI Agent could not connect.\n• Reason: ${endedReason.replace(/-/g, " ")}\n• Duration: ${Math.round(duration)}s`
         : buildAINotes(transcript, summary, endedReason, duration, recordingUrl);
 
-      // Update lead
+      // Track retry count from existing meta
+      const prevRetryCount = (lead.meta as any)?.vapi_retry_count ?? 0;
+
+      // Update lead with call results + retry count
+      const newRetryCount = callFailed ? prevRetryCount : prevRetryCount;
       await sb
         .from("lw_landing_leads")
         .update({
@@ -276,20 +280,51 @@ serve(async (req) => {
           ai_notes: aiNotes,
           vapi_recording_url: recordingUrl,
           meta: {
+            ...(lead.meta as any),
             vapi_transcript: transcript,
             vapi_summary: summary,
             vapi_recording_url: recordingUrl,
             vapi_ended_reason: endedReason,
             vapi_duration_seconds: duration,
             vapi_cost_cents: callCostCents,
+            vapi_retry_count: callFailed ? prevRetryCount + 1 : prevRetryCount,
+            vapi_last_retry_at: callFailed ? new Date().toISOString() : (lead.meta as any)?.vapi_last_retry_at,
           },
         })
         .eq("id", lead.id);
 
+      // ─── Auto-retry: if call failed and we haven't retried twice yet, call again ───
+      // Retry immediately — Vapi will call back, and the next end-of-call-report
+      // will increment retry_count again. Max 2 retries (3 total attempts).
+      if (callFailed && prevRetryCount < 2) {
+        console.log(`[vapi-webhook] Call failed (${endedReason}), triggering retry #${prevRetryCount + 1} for lead ${lead.id}`);
+
+        try {
+          const retryRes = await fetch(`${SUPABASE_URL}/functions/v1/vapi-outbound`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY") || ""}`,
+              "apikey": Deno.env.get("SUPABASE_ANON_KEY") || "",
+            },
+            body: JSON.stringify({
+              action: "trigger_call",
+              lead_id: lead.id,
+            }),
+          });
+          const retryData = await retryRes.json();
+          console.log(`[vapi-webhook] Retry #${prevRetryCount + 1} result:`, retryData);
+        } catch (retryErr) {
+          console.error(`[vapi-webhook] Retry #${prevRetryCount + 1} failed:`, retryErr);
+        }
+      }
+
       console.log("Updated lead", lead.id, "with AI notes");
 
       // --- Send email notification to landing page owner ---
-      if (lead.landing_page_id) {
+      // Only send email if call succeeded OR if all retries are exhausted (no more retries coming)
+      const willRetry = callFailed && prevRetryCount < 2;
+      if (lead.landing_page_id && !willRetry) {
         const { data: landingPage } = await sb
           .from("lw_landing_pages")
           .select("client_name, email, phone, accent_color, slug")
@@ -298,8 +333,9 @@ serve(async (req) => {
 
         if (landingPage?.email) {
           const updatedLead = { ...lead, ai_notes: aiNotes };
+          const retryNote = callFailed && prevRetryCount >= 2 ? ` (after ${prevRetryCount + 1} attempts)` : "";
           const subject = callFailed
-            ? `🏠 New Lead: ${lead.full_name} — AI Agent Did Not Connect`
+            ? `🏠 New Lead: ${lead.full_name} — AI Agent Did Not Connect${retryNote}`
             : `🏠 New Lead: ${lead.full_name} — AI Call Completed`;
           const html = buildLeadEmailHtml(updatedLead, landingPage, !callFailed);
 
