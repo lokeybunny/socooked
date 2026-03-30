@@ -73,7 +73,15 @@ serve(async (req) => {
         });
       }
 
-      // Create Vapi call
+      // Create Vapi call using pre-built assistant
+      const VAPI_ASSISTANT_ID = "42efc64f-2e0f-443b-b7cb-4ccf5f73c610";
+
+      const customerNumber = (() => {
+        let ph = (lead.phone || "").replace(/\D/g, "");
+        if (!ph.startsWith("1") && ph.length === 10) ph = "1" + ph;
+        return "+" + ph;
+      })();
+
       const vapiRes = await fetch("https://api.vapi.ai/call/phone", {
         method: "POST",
         headers: {
@@ -81,44 +89,19 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          assistant: {
-            model: {
-              provider: "openai",
-              model: "gpt-4o",
-              messages: [
-                {
-                  role: "system",
-                  content: `You are a friendly, professional real estate acquisition specialist calling on behalf of ${clientName}. The homeowner's name is ${lead.full_name} and their property is at ${lead.property_address}. They just submitted a request for a cash offer on their property.
-
-Your goals:
-1. Confirm they submitted the request and verify the property address
-2. Ask about the property condition (good, fair, needs work, major repairs needed)
-3. Ask about their timeline for selling (ASAP, 1-3 months, flexible, just exploring)
-4. Ask about their motivation for selling (downsizing, relocation, financial, inherited, divorce, other)
-5. Ask if they have a price in mind or what they'd consider a fair offer
-6. Ask for their email address for follow-up
-7. Let them know someone from the team will follow up with a formal cash offer within 24 hours
-
-Be warm, empathetic, and conversational. Don't rush. If they seem hesitant, reassure them there's no obligation. Keep the call under 3 minutes. Always be respectful of their time.
-
-IMPORTANT: At the end of the call, summarize your findings clearly.`,
-                },
-              ],
+          assistantId: VAPI_ASSISTANT_ID,
+          assistantOverrides: {
+            variableValues: {
+              clientName,
+              leadName: lead.full_name,
+              firstName: lead.full_name.split(" ")[0],
+              propertyAddress: lead.property_address,
             },
-            voice: {
-              provider: "11labs",
-              voiceId: "21m00Tcm4TlvDq8ikWAM",
-            },
-            firstMessage: `Hi ${lead.full_name.split(" ")[0]}! This is a call from ${clientName}. I saw you just submitted a request about getting a cash offer for your property. Is now a good time to chat for a couple minutes?`,
             serverUrl: `${SUPABASE_URL}/functions/v1/vapi-webhook`,
           },
           phoneNumberId: VAPI_PHONE_NUMBER_ID,
           customer: {
-            number: (() => {
-              let ph = (lead.phone || "").replace(/\D/g, "");
-              if (!ph.startsWith("1") && ph.length === 10) ph = "1" + ph;
-              return "+" + ph;
-            })(),
+            number: customerNumber,
           },
         }),
       });
