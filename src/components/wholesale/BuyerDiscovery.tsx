@@ -56,6 +56,7 @@ const emptyForm = {
 };
 
 export default function BuyerDiscovery() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [buyers, setBuyers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -80,7 +81,26 @@ export default function BuyerDiscovery() {
   const [discoverySources, setDiscoverySources] = useState<any[]>([]);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [sourcePickerOpen, setSourcePickerOpen] = useState(false);
+  const autoOpenedRef = useRef(false);
   const PAGE_SIZE = 25;
+
+  // Auto-open buyer detail from URL param
+  useEffect(() => {
+    if (autoOpenedRef.current || loading || !buyers.length) return;
+    const openId = searchParams.get('open_id');
+    if (openId) {
+      const found = buyers.find(b => b.id === openId);
+      if (found) {
+        setSelectedBuyer(found);
+        setDetailOpen(true);
+        autoOpenedRef.current = true;
+        // Clean param
+        const next = new URLSearchParams(searchParams);
+        next.delete('open_id');
+        setSearchParams(next, { replace: true });
+      }
+    }
+  }, [buyers, loading, searchParams]);
 
   const pollForResults = async () => {
     try {
