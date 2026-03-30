@@ -72,18 +72,22 @@ Deno.serve(async (req) => {
       try {
         const skipBody: any = {};
 
-        // Build address object from seller data
         if (seller.address_full) {
           skipBody.address = seller.address_full;
         }
-        if (seller.owner_name) {
-          skipBody.name = seller.owner_name;
-        }
-        // Also try structured address
-        if (seller.city && seller.state) {
+        if (seller.city) {
           skipBody.city = seller.city;
+        }
+        if (seller.state) {
           skipBody.state = seller.state;
+        }
+        if (seller.zip) {
           skipBody.zip = seller.zip;
+        }
+
+        if (!skipBody.address || !skipBody.city || !skipBody.state) {
+          console.error(`Skip trace skipped for seller ${seller.id}: missing address/city/state`);
+          continue;
         }
 
         const resp = await fetch(`${REAPI_BASE}/SkipTrace`, {
