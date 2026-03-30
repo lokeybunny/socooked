@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Shield, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Shield, Loader2, MessageCircle, X, Phone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -26,14 +26,36 @@ const fade = {
   }),
 };
 
+const VALID_CODES = ['GURU2025', 'WARREN', 'WHOLESALE', 'LAND'];
+
 export default function Pricing() {
   const [agreed, setAgreed] = useState(false);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [codeValid, setCodeValid] = useState(false);
+  const [codeError, setCodeError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
+
+  useEffect(() => {
+    setShowBanner(true);
+  }, []);
+
+  const handleCodeCheck = (val: string) => {
+    setInviteCode(val);
+    const upper = val.trim().toUpperCase();
+    if (upper && VALID_CODES.includes(upper)) {
+      setCodeValid(true);
+      setCodeError('');
+    } else {
+      setCodeValid(false);
+      setCodeError(upper.length > 0 ? 'Invalid invite code' : '');
+    }
+  };
 
   const handleSubscribe = async () => {
-    if (!agreed) return;
+    if (!agreed || !codeValid) return;
     if (!email.trim()) {
       toast.error('Please enter your email address');
       return;
@@ -61,6 +83,45 @@ export default function Pricing() {
 
   return (
     <div className="bg-black text-white min-h-screen selection:bg-white/20">
+      {/* Invite-only banner */}
+      {showBanner && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+          <div className="relative max-w-md w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] p-8 text-center">
+            <button onClick={() => setShowBanner(false)} className="absolute top-4 right-4 text-white/30 hover:text-white transition-colors">
+              <X className="h-5 w-5" />
+            </button>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 mb-5">
+              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs tracking-[0.2em] uppercase text-amber-400/90">Invite Only</span>
+            </div>
+            <h2 className="text-xl font-bold mb-3">We're Currently Invite Only</h2>
+            <p className="text-sm text-white/40 leading-relaxed mb-6">
+              Join our Discord and open a ticket to get onboarded, or call us directly.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a
+                href="https://discord.gg/warrenguru"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2.5 px-6 py-3 rounded-lg bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm font-medium tracking-wider uppercase transition-colors"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Join the Discord
+              </a>
+              <a
+                href="tel:+17028322317"
+                className="flex items-center justify-center gap-2.5 px-6 py-3 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-white/70 text-sm font-medium tracking-wider uppercase transition-colors"
+              >
+                <Phone className="h-4 w-4" />
+                (702) 832-2317
+              </a>
+            </div>
+            <button onClick={() => setShowBanner(false)} className="mt-5 text-xs text-white/20 hover:text-white/40 tracking-wider uppercase transition-colors">
+              I already have a code
+            </button>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-md bg-black/80 border-b border-white/[0.04]">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -130,6 +191,25 @@ export default function Pricing() {
             {/* Divider */}
             <div className="h-px bg-white/[0.06] my-8" />
 
+            {/* Invite Code */}
+            <div className="mb-6">
+              <label className="text-xs tracking-[0.2em] uppercase text-white/30 mb-2 block">Invite Code <span className="text-white/50">*</span></label>
+              <input
+                type="text"
+                value={inviteCode}
+                onChange={(e) => handleCodeCheck(e.target.value)}
+                placeholder="Enter your invite code"
+                className={`w-full px-4 py-3 bg-white/[0.04] border rounded-lg text-base text-white placeholder:text-white/20 focus:outline-none transition-colors ${
+                  codeValid ? 'border-emerald-500/40 focus:border-emerald-500/60' : codeError ? 'border-red-500/40 focus:border-red-500/60' : 'border-white/[0.08] focus:border-white/20'
+                }`}
+              />
+              {codeError && <p className="mt-1.5 text-xs text-red-400/70">{codeError}</p>}
+              {codeValid && <p className="mt-1.5 text-xs text-emerald-400/70">✓ Code accepted</p>}
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-white/[0.06] my-6" />
+
             {/* Email & Name inputs */}
             <div className="space-y-4 mb-6">
               <div>
@@ -179,9 +259,9 @@ export default function Pricing() {
             {/* Subscribe Button */}
             <button
               onClick={handleSubscribe}
-              disabled={!agreed || loading}
+              disabled={!agreed || !codeValid || loading}
               className={`mt-8 w-full flex items-center justify-center gap-3 px-8 py-4 rounded-lg text-sm tracking-[0.2em] uppercase font-medium transition-all ${
-                agreed && !loading
+                agreed && codeValid && !loading
                   ? 'bg-white text-black hover:bg-white/90 cursor-pointer'
                   : 'bg-white/10 text-white/20 cursor-not-allowed'
               }`}
@@ -196,6 +276,17 @@ export default function Pricing() {
                 </>
               )}
             </button>
+
+            {/* Discord CTA */}
+            <a
+              href="https://discord.gg/warrenguru"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 w-full flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-lg bg-[#5865F2]/10 border border-[#5865F2]/20 hover:bg-[#5865F2]/20 text-[#5865F2] text-sm tracking-[0.15em] uppercase font-medium transition-all"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Join the Discord
+            </a>
 
             <p className="mt-5 text-center text-xs text-white/20">
               Secure checkout powered by Square. Cancel anytime.
