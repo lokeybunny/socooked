@@ -74,6 +74,14 @@ function RestrictedGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Gate that only allows warren@stu25.com */
+function WarrenOnlyGate({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="flex items-center justify-center min-h-screen bg-background"><div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full" /></div>;
+  if (user?.email !== 'warren@stu25.com') return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+}
+
 /** Gate for phone page — allow phone-only users */
 function PhoneGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
