@@ -556,8 +556,8 @@ export default function BuyerSellerMatches() {
         )}
       </CardContent>
 
-      <BuyerDetailPopup buyer={detailBuyer} open={!!detailBuyer} onClose={() => setDetailBuyer(null)} />
-      <SellerDetailPopup seller={detailSeller} open={!!detailSeller} onClose={() => setDetailSeller(null)} />
+      <BuyerDetailPopup buyer={detailBuyer} open={!!detailBuyer} onClose={() => setDetailBuyer(null)} onNavigate={handleNavigate} />
+      <SellerDetailPopup seller={detailSeller} open={!!detailSeller} onClose={() => setDetailSeller(null)} onNavigate={handleNavigate} />
     </Card>
   );
 }
