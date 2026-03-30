@@ -27,7 +27,7 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { lead_id, backfill, landing_page_id } = body;
 
     // Gather leads to enrich
@@ -66,17 +66,19 @@ serve(async (req) => {
         const existingMeta = lead.meta || {};
         
         // Try PropertyDetail by address
-        const qs = new URLSearchParams({
-          address: addr,
-        });
-
         const res = await fetch(
-          `https://api.realestateapi.com/v2/PropertyDetail?${qs}`,
-          { headers: { 'x-api-key': REAPI_KEY, 'Content-Type': 'application/json' } },
+          'https://api.realestateapi.com/v2/PropertyDetail',
+          {
+            method: 'POST',
+            headers: { 'x-api-key': REAPI_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              address: addr,
+            }),
+          },
         );
 
         if (!res.ok) {
-          console.error(`REAPI error for ${addr}: ${res.status}`);
+          console.error(`REAPI error for ${addr}: ${res.status} ${await res.text()}`);
           continue;
         }
 
@@ -88,59 +90,68 @@ serve(async (req) => {
           continue;
         }
 
+        const propertyInfo = prop.propertyInfo || {};
+        const lotInfo = prop.lotInfo || {};
+        const ownerInfo = prop.ownerInfo || {};
+        const taxInfo = prop.taxInfo || {};
+        const lastSale = prop.lastSale || {};
+        const foreclosureInfo = Array.isArray(prop.foreclosureInfo) ? prop.foreclosureInfo : [];
+        const activeForeclosure = foreclosureInfo.find((item: any) => item?.active) || foreclosureInfo[0] || null;
+        const ownerMail = ownerInfo.mailAddress?.label || ownerInfo.mailAddress?.address || null;
+
         // Build enriched meta
         const enrichedMeta = {
           ...existingMeta,
           enriched: true,
           enriched_at: new Date().toISOString(),
           // Valuation
-          assessed_value: prop.assessedValue ?? prop.assessed_value ?? existingMeta.assessed_value,
-          market_value: prop.marketValue ?? prop.market_value ?? existingMeta.market_value,
+          assessed_value: taxInfo.assessedValue ?? prop.assessedValue ?? prop.assessed_value ?? existingMeta.assessed_value,
+          market_value: taxInfo.marketValue ?? prop.estimatedValue ?? prop.marketValue ?? prop.market_value ?? existingMeta.market_value,
           // Property details
-          bedrooms: prop.bedrooms ?? prop.beds ?? existingMeta.bedrooms,
-          bathrooms: prop.bathrooms ?? prop.baths ?? existingMeta.bathrooms,
-          living_sqft: prop.livingSqft ?? prop.living_sqft ?? prop.buildingSqft ?? existingMeta.living_sqft,
-          lot_sqft: prop.lotSqft ?? prop.lot_sqft ?? existingMeta.lot_sqft,
-          acreage: prop.lotAcreage ?? prop.acreage ?? prop.lot_acreage ?? existingMeta.acreage,
-          year_built: prop.yearBuilt ?? prop.year_built ?? existingMeta.year_built,
-          zoning: prop.zoning ?? existingMeta.zoning,
-          stories: prop.stories ?? prop.numberOfStories ?? existingMeta.stories,
-          pool: prop.pool ?? prop.hasPool ?? existingMeta.pool,
-          garage_sqft: prop.garageSqft ?? prop.garage_sqft ?? existingMeta.garage_sqft,
-          property_type: prop.propertyType ?? prop.property_type ?? existingMeta.property_type,
+          bedrooms: propertyInfo.bedrooms ?? prop.bedrooms ?? prop.beds ?? existingMeta.bedrooms,
+          bathrooms: propertyInfo.bathrooms ?? prop.bathrooms ?? prop.baths ?? existingMeta.bathrooms,
+          living_sqft: propertyInfo.livingSquareFeet ?? propertyInfo.buildingSquareFeet ?? prop.livingSqft ?? prop.living_sqft ?? prop.buildingSqft ?? existingMeta.living_sqft,
+          lot_sqft: lotInfo.lotSquareFeet ?? propertyInfo.lotSquareFeet ?? prop.lotSqft ?? prop.lot_sqft ?? existingMeta.lot_sqft,
+          acreage: lotInfo.lotAcres ?? prop.lotAcreage ?? prop.acreage ?? prop.lot_acreage ?? existingMeta.acreage,
+          year_built: propertyInfo.yearBuilt ?? prop.yearBuilt ?? prop.year_built ?? existingMeta.year_built,
+          zoning: lotInfo.zoning ?? prop.zoning ?? existingMeta.zoning,
+          stories: propertyInfo.stories ?? prop.stories ?? prop.numberOfStories ?? existingMeta.stories,
+          pool: propertyInfo.pool ?? prop.pool ?? prop.hasPool ?? existingMeta.pool,
+          garage_sqft: propertyInfo.garageSquareFeet ?? prop.garageSqft ?? prop.garage_sqft ?? existingMeta.garage_sqft,
+          property_type: propertyInfo.propertyUse ?? prop.propertyType ?? prop.property_type ?? existingMeta.property_type,
           // Location
-          city: prop.city ?? existingMeta.city,
-          state: prop.state ?? existingMeta.state,
-          county: prop.county ?? existingMeta.county,
-          zip: prop.zip ?? prop.zipCode ?? existingMeta.zip,
-          latitude: prop.latitude ?? existingMeta.latitude,
-          longitude: prop.longitude ?? existingMeta.longitude,
+          city: propertyInfo.address?.city ?? prop.city ?? existingMeta.city,
+          state: propertyInfo.address?.state ?? prop.state ?? existingMeta.state,
+          county: propertyInfo.address?.county ?? prop.county ?? existingMeta.county,
+          zip: propertyInfo.address?.zip ?? prop.zip ?? prop.zipCode ?? existingMeta.zip,
+          latitude: propertyInfo.latitude ?? prop.latitude ?? existingMeta.latitude,
+          longitude: propertyInfo.longitude ?? prop.longitude ?? existingMeta.longitude,
           // Owner
-          owner_name: prop.ownerName ?? prop.owner_name ?? existingMeta.owner_name,
+          owner_name: ownerInfo.owner1FullName ?? prop.ownerName ?? prop.owner_name ?? existingMeta.owner_name,
           owner_phone: prop.ownerPhone ?? prop.phone ?? existingMeta.owner_phone,
           owner_email: prop.ownerEmail ?? prop.email ?? existingMeta.owner_email,
-          owner_mailing_address: prop.ownerMailingAddress ?? prop.owner_mailing_address ?? existingMeta.owner_mailing_address,
+          owner_mailing_address: ownerMail ?? prop.ownerMailingAddress ?? prop.owner_mailing_address ?? existingMeta.owner_mailing_address,
           equity_percent: prop.equityPercent ?? prop.equity_percent ?? existingMeta.equity_percent,
-          years_owned: prop.yearsOwned ?? prop.years_owned ?? existingMeta.years_owned,
-          is_absentee_owner: prop.isAbsenteeOwner ?? prop.is_absentee_owner ?? existingMeta.is_absentee_owner,
-          is_out_of_state: prop.isOutOfState ?? prop.is_out_of_state ?? existingMeta.is_out_of_state,
-          is_corporate_owned: prop.isCorporateOwned ?? prop.is_corporate_owned ?? existingMeta.is_corporate_owned,
-          is_owner_occupied: prop.isOwnerOccupied ?? prop.owner_occupied ?? existingMeta.is_owner_occupied,
-          free_and_clear: prop.freeAndClear ?? prop.free_and_clear ?? existingMeta.free_and_clear,
-          tax_delinquent_year: prop.taxDelinquentYear ?? prop.tax_delinquent_year ?? existingMeta.tax_delinquent_year,
+          years_owned: ownerInfo.ownershipLength ?? prop.yearsOwned ?? prop.years_owned ?? existingMeta.years_owned,
+          is_absentee_owner: ownerInfo.absenteeOwner ?? prop.absenteeOwner ?? prop.isAbsenteeOwner ?? prop.is_absentee_owner ?? existingMeta.is_absentee_owner,
+          is_out_of_state: ownerInfo.outOfStateAbsenteeOwner ?? prop.outOfStateAbsenteeOwner ?? prop.isOutOfState ?? prop.is_out_of_state ?? existingMeta.is_out_of_state,
+          is_corporate_owned: ownerInfo.corporateOwned ?? prop.corporateOwned ?? prop.isCorporateOwned ?? prop.is_corporate_owned ?? existingMeta.is_corporate_owned,
+          is_owner_occupied: ownerInfo.ownerOccupied ?? prop.ownerOccupied ?? prop.isOwnerOccupied ?? prop.owner_occupied ?? existingMeta.is_owner_occupied,
+          free_and_clear: prop.freeClear ?? prop.freeAndClear ?? prop.free_and_clear ?? existingMeta.free_and_clear,
+          tax_delinquent_year: taxInfo.taxDelinquentYear ?? prop.taxDelinquentYear ?? prop.tax_delinquent_year ?? existingMeta.tax_delinquent_year,
           // Financial
-          last_sale_price: prop.lastSalePrice ?? prop.last_sale_price ?? existingMeta.last_sale_price,
-          last_sale_date: prop.lastSaleDate ?? prop.last_sale_date ?? existingMeta.last_sale_date,
-          tax_amount: prop.taxAmount ?? prop.tax_amount ?? prop.annualTax ?? existingMeta.tax_amount,
-          hoa: prop.hoa ?? prop.hoaFee ?? existingMeta.hoa,
-          foreclosure_status: prop.foreclosureStatus ?? prop.foreclosure_status ?? existingMeta.foreclosure_status,
-          auction_date: prop.auctionDate ?? prop.auction_date ?? existingMeta.auction_date,
+          last_sale_price: lastSale.saleAmount ?? prop.lastSalePrice ?? prop.last_sale_price ?? existingMeta.last_sale_price,
+          last_sale_date: lastSale.saleDate ?? prop.lastSaleDate ?? prop.last_sale_date ?? existingMeta.last_sale_date,
+          tax_amount: taxInfo.taxAmount ?? prop.taxAmount ?? prop.tax_amount ?? prop.annualTax ?? existingMeta.tax_amount,
+          hoa: propertyInfo.hoa ?? prop.hoa ?? prop.hoaFee ?? existingMeta.hoa,
+          foreclosure_status: activeForeclosure?.documentType ?? activeForeclosure?.noticeType ?? prop.foreclosureStatus ?? prop.foreclosure_status ?? existingMeta.foreclosure_status,
+          auction_date: activeForeclosure?.auctionDate ?? prop.auctionDate ?? prop.auction_date ?? existingMeta.auction_date,
           // Distress flags
           distress_flags: {
-            tax_delinquent: prop.isTaxDelinquent ?? existingMeta.distress_flags?.tax_delinquent ?? false,
-            pre_foreclosure: prop.isPreForeclosure ?? existingMeta.distress_flags?.pre_foreclosure ?? false,
-            vacant: prop.isVacant ?? existingMeta.distress_flags?.vacant ?? false,
-            absentee_owner: prop.isAbsenteeOwner ?? existingMeta.distress_flags?.absentee_owner ?? false,
+            tax_delinquent: prop.taxLien ?? prop.isTaxDelinquent ?? existingMeta.distress_flags?.tax_delinquent ?? false,
+            pre_foreclosure: prop.preForeclosure ?? prop.isPreForeclosure ?? existingMeta.distress_flags?.pre_foreclosure ?? false,
+            vacant: prop.vacant ?? prop.isVacant ?? existingMeta.distress_flags?.vacant ?? false,
+            absentee_owner: ownerInfo.absenteeOwner ?? prop.absenteeOwner ?? prop.isAbsenteeOwner ?? existingMeta.distress_flags?.absentee_owner ?? false,
           },
         };
 
