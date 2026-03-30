@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { PenTool, Type, CheckCircle, FileText, ChevronDown, ChevronUp, Shield } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 export default function AgreementSign() {
   const { documentId } = useParams<{ documentId: string }>();
