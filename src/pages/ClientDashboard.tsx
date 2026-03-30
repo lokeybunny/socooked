@@ -912,7 +912,7 @@ export default function ClientDashboard() {
                           {lead.email && (
                             <div>
                               <p className="text-xs text-white/40 mb-1">Email</p>
-                              <p className="text-sm font-medium text-white/80">{lead.email}</p>
+                              <p className="text-sm font-medium text-white/80"><CopyableText text={lead.email}>{lead.email}</CopyableText></p>
                             </div>
                           )}
                           {lead.property_condition && (
