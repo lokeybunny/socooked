@@ -288,7 +288,74 @@ serve(async (req) => {
 
         console.log("Payment completed:", { orderId, customerId, buyerEmail, sourceCardId });
 
-        // Update subscription record
+        // ─── Check if this is a phone credits top-up ───
+        if (orderId) {
+          const { data: creditRecord } = await sb
+            .from("guru_subscriptions")
+            .select("*")
+            .eq("square_order_id", orderId)
+            .eq("plan", "phone_credits")
+            .maybeSingle();
+
+          if (creditRecord) {
+            const meta = creditRecord.meta as Record<string, unknown> || {};
+            const landingPageId = meta.landing_page_id as string;
+            const creditAmountCents = (meta.amount_cents as number) || creditRecord.amount_cents || 0;
+
+            console.log(`[square-webhook] Phone credits payment: $${(creditAmountCents / 100).toFixed(2)} for page ${landingPageId}`);
+
+            // Update the guru_subscriptions record
+            await sb
+              .from("guru_subscriptions")
+              .update({
+                status: "completed",
+                started_at: new Date().toISOString(),
+                square_customer_id: customerId || null,
+                meta: { ...meta, payment_id: payment.id, completed_at: new Date().toISOString() },
+              })
+              .eq("id", creditRecord.id);
+
+            // Add credits to the landing page
+            if (landingPageId && creditAmountCents > 0) {
+              const { data: page } = await sb
+                .from("lw_landing_pages")
+                .select("vapi_credit_balance_cents")
+                .eq("id", landingPageId)
+                .single();
+
+              const currentBalance = (page?.vapi_credit_balance_cents as number) || 0;
+              await sb
+                .from("lw_landing_pages")
+                .update({ vapi_credit_balance_cents: currentBalance + creditAmountCents })
+                .eq("id", landingPageId);
+
+              console.log(`[square-webhook] Added ${creditAmountCents} cents to page ${landingPageId}. New balance: ${currentBalance + creditAmountCents}`);
+            }
+
+            // Telegram notification for credit purchase
+            try {
+              const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+              const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+              if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    chat_id: TELEGRAM_CHAT_ID,
+                    text: `📞 *Phone Credits Purchased*\n📧 ${buyerEmail || creditRecord.email}\n💳 $${(creditAmountCents / 100).toFixed(2)}\n🏠 Page: ${landingPageId}`,
+                    parse_mode: "Markdown",
+                  }),
+                });
+              }
+            } catch { /* ignore */ }
+
+            return new Response(JSON.stringify({ ok: true }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+
+        // Update subscription record (non-credit payments)
         if (orderId) {
           await sb
             .from("guru_subscriptions")
