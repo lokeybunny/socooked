@@ -11,7 +11,8 @@ import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
   ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText, Flame, Globe, Mail,
-  RefreshCw, Trash2, Archive, RotateCcw
+  RefreshCw, Trash2, Archive, RotateCcw, Search, Building, Ruler, BedDouble, Bath,
+  Calendar as CalendarIcon, User, MapPinned, TrendingUp, AlertTriangle, Check
 } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -71,6 +72,7 @@ export default function ClientDashboard() {
   const [activeSection, setActiveSection] = useState<'funnel' | 'hot' | 'phone' | 'drafts'>('funnel');
   const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
   const [fetchingLeadId, setFetchingLeadId] = useState<string | null>(null);
+  const [skipTracingId, setSkipTracingId] = useState<string | null>(null);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminViewClientName, setAdminViewClientName] = useState<string | null>(null);
