@@ -1376,6 +1376,38 @@ export default function ClientDashboard() {
                           <Check className="h-3 w-3" /> Enriched
                         </span>
                       )}
+                      {/* Realtor / Redfin search links for hot leads */}
+                      {isHotLead(lead) && (
+                        <>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(lead.property_address);
+                              toast.success('Address copied – paste it in Realtor.com search');
+                              window.open('https://www.realtor.com/', '_blank', 'noopener');
+                            }}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-400/80 hover:text-blue-300 transition-colors"
+                          >
+                            🏠 Search on Realtor <ExternalLink className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(lead.property_address);
+                              toast.success('Address copied – paste it in Redfin search');
+                              window.open('https://www.redfin.com/', '_blank', 'noopener');
+                            }}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-red-400/80 hover:text-red-300 transition-colors"
+                          >
+                            🔴 Search on Redfin <ExternalLink className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => setDetailLead(lead)}
+                            className="inline-flex items-center gap-1.5 text-sm font-medium text-purple-400/80 hover:text-purple-300 transition-colors"
+                          >
+                            <Search className="h-4 w-4" />
+                            View Full Details
+                          </button>
+                        </>
+                      )
                       {!isHotLead(lead) && (
                         <button
                           onClick={() => fetchVapiData(lead)}
