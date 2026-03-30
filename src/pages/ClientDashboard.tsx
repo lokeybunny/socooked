@@ -900,12 +900,6 @@ export default function ClientDashboard() {
                               </p>
                             </div>
                           )}
-                          {lead.vapi_call_status && (
-                            <div>
-                              <p className="text-xs text-white/40 mb-1">AI Call Status</p>
-                              <StatusBadge status={lead.vapi_call_status} />
-                            </div>
-                          )}
                         </div>
 
                         {/* REAPI / Meta Data — Comprehensive View */}
@@ -1434,7 +1428,7 @@ function CancelSubscriptionButton({ landingPages, userEmail, onCancelled }: {
         <AlertDialogHeader>
           <AlertDialogTitle className="text-white">Cancel Subscription</AlertDialogTitle>
           <AlertDialogDescription className="text-zinc-400">
-            This will cancel your subscription, deactivate your landing page(s), and revoke dashboard access. This action cannot be undone.
+            This will cancel your subscription billing. You'll continue to have full access to your dashboard and leads until your current billing period ends. After that, your account will be deactivated.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
