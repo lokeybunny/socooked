@@ -62,9 +62,9 @@ export default function SubscriberAI() {
 
   const getWeekStart = () => {
     const now = new Date();
-    const day = now.getDay();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - ((day + 6) % 7));
+    const dayOfWeek = now.getUTCDay();
+    const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    monday.setUTCDate(monday.getUTCDate() - ((dayOfWeek + 6) % 7));
     return monday.toISOString().split('T')[0];
   };
 
