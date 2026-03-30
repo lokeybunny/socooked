@@ -1330,7 +1330,7 @@ export default function ClientDashboard() {
                         <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400/60">
                           <Check className="h-3 w-3" /> Enriched
                         </span>
-                      {/* Fetch / Retry AI Call — funnel leads only */}
+                      )}
                       {!isHotLead(lead) && (
                         <button
                           onClick={() => fetchVapiData(lead)}
