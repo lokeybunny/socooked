@@ -26,11 +26,33 @@ const fade = {
   }),
 };
 
+const VALID_CODES = ['GURU2025', 'WARREN', 'WHOLESALE', 'LAND'];
+
 export default function Pricing() {
   const [agreed, setAgreed] = useState(false);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [codeValid, setCodeValid] = useState(false);
+  const [codeError, setCodeError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
+
+  useEffect(() => {
+    setShowBanner(true);
+  }, []);
+
+  const handleCodeCheck = (val: string) => {
+    setInviteCode(val);
+    const upper = val.trim().toUpperCase();
+    if (upper && VALID_CODES.includes(upper)) {
+      setCodeValid(true);
+      setCodeError('');
+    } else {
+      setCodeValid(false);
+      setCodeError(upper.length > 0 ? 'Invalid invite code' : '');
+    }
+  };
 
   const handleSubscribe = async () => {
     if (!agreed) return;
