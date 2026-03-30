@@ -272,6 +272,84 @@ export default function ClientDashboard() {
     }
   };
 
+  // ─── Skip Trace via REAPI ───
+  const skipTraceLead = async (lead: Lead) => {
+    setSkipTracingId(lead.id);
+    try {
+      // We need the seller_id — find it from lw_sellers by address
+      const { data: seller } = await supabase
+        .from('lw_sellers')
+        .select('id')
+        .eq('address_full', lead.property_address)
+        .maybeSingle();
+
+      if (!seller) {
+        // Insert into lw_sellers first if not found
+        const m = lead.meta || {};
+        const { data: newSeller, error: insertErr } = await supabase
+          .from('lw_sellers')
+          .insert({
+            owner_name: lead.full_name,
+            owner_phone: lead.phone,
+            address_full: lead.property_address,
+            city: (m as any).city || null,
+            state: (m as any).state || null,
+            zip: (m as any).zip || null,
+            county: (m as any).county || null,
+            source: 'hot_lead_skip_trace',
+            status: 'new',
+            deal_type: 'home',
+            motivation_score: 0,
+          })
+          .select('id')
+          .single();
+        if (insertErr || !newSeller) throw new Error('Failed to create seller record');
+        const { data, error } = await supabase.functions.invoke('land-reapi-skip-trace-single', {
+          body: { seller_id: newSeller.id },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        handleSkipTraceResult(lead, data);
+      } else {
+        const { data, error } = await supabase.functions.invoke('land-reapi-skip-trace-single', {
+          body: { seller_id: seller.id },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        handleSkipTraceResult(lead, data);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Skip trace failed');
+    } finally {
+      setSkipTracingId(null);
+    }
+  };
+
+  const handleSkipTraceResult = (lead: Lead, data: any) => {
+    if (data.phone || data.email) {
+      // Update lead meta with skip trace results
+      const updatedMeta = {
+        ...(lead.meta || {}),
+        skip_traced: true,
+        skip_trace_phones: data.phones || [],
+        skip_trace_emails: data.emails || [],
+        skip_trace_mailing: data.mailing_address,
+        owner_phone: data.phone,
+        owner_email: data.email,
+      };
+      supabase
+        .from('lw_landing_leads')
+        .update({ meta: updatedMeta as any, full_name: data.phones?.length ? lead.full_name : lead.full_name })
+        .eq('id', lead.id)
+        .then(() => {
+          setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, meta: updatedMeta, phone: data.phone || l.phone } : l));
+        });
+      toast.success(`✅ Skip trace successful! Found ${data.phones?.length || 0} phone(s), ${data.emails?.length || 0} email(s)`);
+    } else {
+      toast.error('Skip trace returned no contact info');
+    }
+  };
+
   // ─── Soft-delete: move to drafts ───
   const moveToDrafts = async (leadId: string) => {
     const { error } = await supabase
