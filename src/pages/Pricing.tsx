@@ -83,6 +83,45 @@ export default function Pricing() {
 
   return (
     <div className="bg-black text-white min-h-screen selection:bg-white/20">
+      {/* Invite-only banner */}
+      {showBanner && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+          <div className="relative max-w-md w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] p-8 text-center">
+            <button onClick={() => setShowBanner(false)} className="absolute top-4 right-4 text-white/30 hover:text-white transition-colors">
+              <X className="h-5 w-5" />
+            </button>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 mb-5">
+              <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="text-xs tracking-[0.2em] uppercase text-amber-400/90">Invite Only</span>
+            </div>
+            <h2 className="text-xl font-bold mb-3">We're Currently Invite Only</h2>
+            <p className="text-sm text-white/40 leading-relaxed mb-6">
+              Join our Discord and open a ticket to get onboarded, or call us directly.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a
+                href="https://discord.gg/warrenguru"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2.5 px-6 py-3 rounded-lg bg-[#5865F2] hover:bg-[#4752C4] text-white text-sm font-medium tracking-wider uppercase transition-colors"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Join the Discord
+              </a>
+              <a
+                href="tel:+17028322317"
+                className="flex items-center justify-center gap-2.5 px-6 py-3 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] text-white/70 text-sm font-medium tracking-wider uppercase transition-colors"
+              >
+                <Phone className="h-4 w-4" />
+                (702) 832-2317
+              </a>
+            </div>
+            <button onClick={() => setShowBanner(false)} className="mt-5 text-xs text-white/20 hover:text-white/40 tracking-wider uppercase transition-colors">
+              I already have a code
+            </button>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="fixed top-0 inset-x-0 z-50 backdrop-blur-md bg-black/80 border-b border-white/[0.04]">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
