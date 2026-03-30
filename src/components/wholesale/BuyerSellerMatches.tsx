@@ -377,12 +377,17 @@ function SellerDetailPopup({ seller, open, onClose, onNavigate }: { seller: any;
 }
 
 export default function BuyerSellerMatches() {
+  const [, setSearchParams] = useSearchParams();
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [detailBuyer, setDetailBuyer] = useState<any>(null);
   const [detailSeller, setDetailSeller] = useState<any>(null);
   const PER_PAGE = 25;
+
+  const handleNavigate = (type: 'buyers' | 'sellers', id: string) => {
+    setSearchParams({ tab: type, open_id: id }, { replace: true });
+  };
 
   const loadMatches = async () => {
     setLoading(true);
