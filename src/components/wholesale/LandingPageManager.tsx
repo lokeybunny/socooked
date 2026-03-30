@@ -495,3 +495,63 @@ function CreditTopUp({ pageId, currentBalance, onUpdated }: { pageId: string; cu
     </Popover>
   );
 }
+
+function EmailComposeButton({ email, clientName }: { email: string; clientName: string }) {
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const handleOpen = () => {
+    setSubject('');
+    setBody('');
+    setOpen(true);
+  };
+
+  const handleSend = async () => {
+    if (!email.trim()) { toast.error('No email address set for this client'); return; }
+    if (!subject.trim()) { toast.error('Subject is required'); return; }
+    setSending(true);
+    const { error } = await supabase.functions.invoke('gmail-api', {
+      body: { action: 'send', to: email.trim(), subject: subject.trim(), body: body.trim() },
+    });
+    setSending(false);
+    if (error) {
+      toast.error('Failed to send: ' + error.message);
+    } else {
+      toast.success('Email sent to ' + email);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={handleOpen} disabled={!email.trim()}>
+          <Mail className="h-3.5 w-3.5" /> Email Client
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Send Email</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">To</Label>
+            <Input value={email} disabled className="mt-1 bg-muted" />
+          </div>
+          <div>
+            <Label className="text-xs">Subject</Label>
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject line..." className="mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Message</Label>
+            <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message..." rows={6} className="mt-1" />
+          </div>
+          <Button onClick={handleSend} disabled={sending} className="w-full gap-1.5">
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Send Email
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
