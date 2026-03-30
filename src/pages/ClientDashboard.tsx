@@ -27,6 +27,7 @@ interface Lead {
   timeline: string | null;
   asking_price: number | null;
   vapi_call_status: string | null;
+  vapi_call_id: string | null;
   vapi_recording_url: string | null;
   landing_page_id: string | null;
   email: string | null;
