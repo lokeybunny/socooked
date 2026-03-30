@@ -35,10 +35,6 @@ interface VapiSummary {
   avgCostPerCall: number;
 }
 
-interface TwilioBalance {
-  balance: number;
-  currency: string;
-}
 
 interface PageBreakdown {
   name: string;
@@ -54,22 +50,16 @@ export default function VapiSpendDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageFilter, setPageFilter] = useState<string>('all');
-  const [twilioBalance, setTwilioBalance] = useState<TwilioBalance | null>(null);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [vapiRes, twilioRes] = await Promise.all([
-        supabase.functions.invoke('vapi-usage'),
-        supabase.functions.invoke('twilio-balance'),
-      ]);
-      if (vapiRes.error) throw vapiRes.error;
-      setSummary(vapiRes.data.summary);
-      setCalls(vapiRes.data.calls || []);
-      setPageBreakdown(vapiRes.data.pageBreakdown || []);
-      if (!twilioRes.error && twilioRes.data?.balance !== undefined) {
-        setTwilioBalance({ balance: twilioRes.data.balance, currency: twilioRes.data.currency || 'USD' });
-      }
+      const res = await supabase.functions.invoke('vapi-usage');
+      if (res.error) throw res.error;
+      setSummary(res.data.summary);
+      setCalls(res.data.calls || []);
+      setPageBreakdown(res.data.pageBreakdown || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load Vapi usage data');
     } finally {
