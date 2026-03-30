@@ -104,8 +104,11 @@ export default function ClientDashboard() {
         pagesQuery = pagesQuery.eq('client_user_id', user.id);
       }
       const { data: pages } = await pagesQuery;
+      const clientPages = (pages || []) as LandingPage[];
+      setLandingPages(clientPages);
+    }
 
-    const clientPages = (pages || []) as LandingPage[];
+    const clientPages = landingPages;
     setLandingPages(clientPages);
 
     if (clientPages.length === 0) {
