@@ -41,8 +41,7 @@ export default function AgreementSign() {
 
       if (!d) { setLoading(false); return; }
       setDoc(d);
-      setSignerName(d.customers?.full_name || '');
-      setSignerEmail(d.customers?.email || '');
+      // Customer data not available to public users - signer fills in their own name/email
 
       // Check if already signed
       const { data: sigs } = await supabase
