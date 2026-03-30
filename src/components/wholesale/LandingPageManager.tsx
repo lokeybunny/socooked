@@ -401,7 +401,7 @@ export default function LandingPageManager() {
                       size="sm"
                       variant="outline"
                       className="h-7 gap-1 text-[10px] border-primary/30 text-primary hover:bg-primary/10"
-                      onClick={() => window.open(`/client-dashboard?admin_view=${p.id}`, '_blank')}
+                      onClick={() => navigate(`/client-dashboard?admin_view=${p.id}`)}
                       title="View client dashboard as admin"
                     >
                       <ShieldCheck className="h-3 w-3" />
