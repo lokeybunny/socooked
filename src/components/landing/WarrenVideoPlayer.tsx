@@ -127,7 +127,7 @@ export default function WarrenVideoPlayer() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="text-red-800 text-lg sm:text-xl font-mono tracking-widest font-semibold"
+                        className="text-white/30 text-lg sm:text-xl font-mono tracking-widest font-light"
                       >
                         {formatTime(remaining)} remaining
                       </motion.p>
