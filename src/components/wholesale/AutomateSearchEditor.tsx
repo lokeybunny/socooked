@@ -150,15 +150,26 @@ export default function AutomateSearchEditor({ open, onOpenChange, buyer, pageId
 
       if (updateErr) throw updateErr;
 
-      // Now trigger the matcher
-      const { data, error } = await supabase.functions.invoke('weekly-lead-matcher', {
-        body: { buyer_id: buyer.id, page_id: pageId },
-      });
-      if (error) throw error;
+      // Brief pause to ensure the DB write is fully committed before the edge function reads it
+      await new Promise(r => setTimeout(r, 500));
 
-      toast.success(`Search updated & leads matched for ${buyer.full_name}`);
+      // Close the dialog first so navigation doesn't cancel the in-flight request
       onOpenChange(false);
-      onComplete();
+      toast.info(`Running lead matcher for ${buyer.full_name}...`);
+
+      // Fire the matcher — don't await so the user isn't blocked
+      supabase.functions.invoke('weekly-lead-matcher', {
+        body: { buyer_id: buyer.id, page_id: pageId },
+      }).then((res) => {
+        if (res.error) {
+          toast.error('Match failed: ' + res.error.message);
+        } else {
+          toast.success(`Lead matching complete for ${buyer.full_name}`);
+          onComplete();
+        }
+      }).catch((err) => {
+        toast.error('Match failed: ' + (err.message || 'Unknown error'));
+      });
     } catch (err: any) {
       toast.error('Failed: ' + (err.message || 'Unknown error'));
     } finally {
