@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
@@ -343,6 +344,19 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      {/* Admin impersonation banner */}
+      {isAdmin && adminViewPageId && adminViewClientName && (
+        <div className="bg-primary/20 border-b border-primary/30 px-6 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <span className="font-semibold text-primary">Admin View</span>
+            <span className="text-white/70">— Viewing as <span className="font-semibold text-white">{adminViewClientName}</span></span>
+          </div>
+          <Button size="sm" variant="outline" className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => window.close()}>
+            Exit Admin View
+          </Button>
+        </div>
+      )}
       {/* Header */}
       <header className="bg-white/5 border-b border-white/10 px-6 py-4 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
