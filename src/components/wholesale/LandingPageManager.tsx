@@ -599,3 +599,58 @@ function EmailComposeButton({ email, clientName }: { email: string; clientName: 
     </Dialog>
   );
 }
+
+function CancelSubscription({ email, landingPageId, clientName, onCancelled }: {
+  email: string;
+  landingPageId: string;
+  clientName: string;
+  onCancelled: () => void;
+}) {
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('square-subscribe', {
+        body: { action: 'cancel', email, landing_page_id: landingPageId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Subscription cancelled for ${clientName}`);
+      onCancelled();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to cancel subscription');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="outline" className="h-6 text-[10px] gap-1 border-destructive/30 text-destructive hover:bg-destructive/10">
+          <XCircle className="h-3 w-3" /> Cancel Sub
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Cancel Subscription</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will cancel <strong>{clientName}</strong>'s Square subscription, deactivate their landing page, and revoke their dashboard access. A cancellation email will be sent to {email}. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep Active</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {cancelling ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            Yes, Cancel Subscription
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
