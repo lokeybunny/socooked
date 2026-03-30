@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -158,6 +159,7 @@ function parseSkipTraceData(raw: string): { phones: string[]; emails: string[]; 
 }
 
 export default function SellerManager() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sellers, setSellers] = useState<any[]>([]);
   const [buyers, setBuyers] = useState<any[]>([]);
   const [connectDealOpen, setConnectDealOpen] = useState(false);
@@ -179,12 +181,12 @@ export default function SellerManager() {
   const [lastFetchAt, setLastFetchAt] = useState<string | null>(null);
   const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const autoOpenedRef = useRef(false);
 
   const isNewlyFetched = useCallback((createdAt: string) => {
     if (!lastFetchAt) return false;
     const fetchTime = new Date(lastFetchAt).getTime();
     const created = new Date(createdAt).getTime();
-    // Highlight if created within 2 minutes before the fetch (to account for slight timing)
     return created >= fetchTime - 120000;
   }, [lastFetchAt]);
 
@@ -194,6 +196,22 @@ export default function SellerManager() {
   const [fetchDealType, setFetchDealType] = useState('both');
   const [fetchSize, setFetchSize] = useState('50');
   const [detailSeller, setDetailSeller] = useState<any>(null);
+
+  // Auto-open seller detail from URL param
+  useEffect(() => {
+    if (autoOpenedRef.current || loading || !sellers.length) return;
+    const openId = searchParams.get('open_id');
+    if (openId) {
+      const found = sellers.find(s => s.id === openId);
+      if (found) {
+        setDetailSeller(found);
+        autoOpenedRef.current = true;
+        const next = new URLSearchParams(searchParams);
+        next.delete('open_id');
+        setSearchParams(next, { replace: true });
+      }
+    }
+  }, [sellers, loading, searchParams]);
 
   // Distress search mode
   const [distressMode, setDistressMode] = useState(false);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -151,7 +152,7 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 );
 
 /* ─── Buyer Detail Popup ─── */
-function BuyerDetailPopup({ buyer, open, onClose }: { buyer: any; open: boolean; onClose: () => void }) {
+function BuyerDetailPopup({ buyer, open, onClose, onNavigate }: { buyer: any; open: boolean; onClose: () => void; onNavigate: (type: 'buyers' | 'sellers', id: string) => void }) {
   if (!buyer) return null;
   const meta: any = buyer.meta || {};
   const interests: any = meta.interests || {};
@@ -222,13 +223,20 @@ function BuyerDetailPopup({ buyer, open, onClose }: { buyer: any; open: boolean;
           <Row icon={Calendar} label="Created" value={new Date(buyer.created_at).toLocaleDateString()} />
           <Row icon={Calendar} label="Updated" value={new Date(buyer.updated_at).toLocaleDateString()} />
         </Section>
+
+        <div className="pt-3 border-t">
+          <Button className="w-full" onClick={() => { onClose(); onNavigate('buyers', buyer.id); }}>
+            <Users className="h-4 w-4 mr-2" />
+            Go to Buyer
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
 
 /* ─── Seller Detail Popup ─── */
-function SellerDetailPopup({ seller, open, onClose }: { seller: any; open: boolean; onClose: () => void }) {
+function SellerDetailPopup({ seller, open, onClose, onNavigate }: { seller: any; open: boolean; onClose: () => void; onNavigate: (type: 'buyers' | 'sellers', id: string) => void }) {
   if (!seller) return null;
   const meta: any = seller.meta || {};
   const allPhones: string[] = meta.all_phones || [];
@@ -319,7 +327,6 @@ function SellerDetailPopup({ seller, open, onClose }: { seller: any; open: boole
           </Section>
         )}
 
-        {/* Free lookup shortcuts */}
         <Section title="Free Lookup Shortcuts">
           <div className="grid grid-cols-3 gap-2 pt-1">
             {seller.owner_name && (
@@ -357,18 +364,30 @@ function SellerDetailPopup({ seller, open, onClose }: { seller: any; open: boole
           <Row icon={Calendar} label="Created" value={new Date(seller.created_at).toLocaleDateString()} />
           <Row icon={Calendar} label="Updated" value={new Date(seller.updated_at).toLocaleDateString()} />
         </Section>
+
+        <div className="pt-3 border-t">
+          <Button className="w-full" onClick={() => { onClose(); onNavigate('sellers', seller.id); }}>
+            <MapPin className="h-4 w-4 mr-2" />
+            Go to Seller
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
 
 export default function BuyerSellerMatches() {
+  const [, setSearchParams] = useSearchParams();
   const [matches, setMatches] = useState<MatchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [detailBuyer, setDetailBuyer] = useState<any>(null);
   const [detailSeller, setDetailSeller] = useState<any>(null);
   const PER_PAGE = 25;
+
+  const handleNavigate = (type: 'buyers' | 'sellers', id: string) => {
+    setSearchParams({ tab: type, open_id: id }, { replace: true });
+  };
 
   const loadMatches = async () => {
     setLoading(true);
@@ -537,8 +556,8 @@ export default function BuyerSellerMatches() {
         )}
       </CardContent>
 
-      <BuyerDetailPopup buyer={detailBuyer} open={!!detailBuyer} onClose={() => setDetailBuyer(null)} />
-      <SellerDetailPopup seller={detailSeller} open={!!detailSeller} onClose={() => setDetailSeller(null)} />
+      <BuyerDetailPopup buyer={detailBuyer} open={!!detailBuyer} onClose={() => setDetailBuyer(null)} onNavigate={handleNavigate} />
+      <SellerDetailPopup seller={detailSeller} open={!!detailSeller} onClose={() => setDetailSeller(null)} onNavigate={handleNavigate} />
     </Card>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,8 +25,15 @@ import { toast } from 'sonner';
 type DealType = 'all' | 'land' | 'home' | 'multi_home';
 
 export default function Wholesale() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dealTypeFilter, setDealTypeFilter] = useState<DealType>('all');
-  const [activeTab, setActiveTab] = useState('intelligence');
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'intelligence');
+
+  // When search params change externally (e.g. from match popup), sync tab
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && tab !== activeTab) setActiveTab(tab);
+  }, [searchParams]);
   
   const [deals, setDeals] = useState<any[]>([]);
   const [demandSignals, setDemandSignals] = useState<any[]>([]);
