@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { Play, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const YOUTUBE_VIDEO_ID = 'Tem6Bl-1Hpo';
+const YOUTUBE_VIDEO_ID = 'a-quzsaSpNU';
 
 export default function WarrenVideoPlayer() {
   const [theaterMode, setTheaterMode] = useState(false);
