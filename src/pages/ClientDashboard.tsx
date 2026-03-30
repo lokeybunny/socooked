@@ -1030,7 +1030,7 @@ export default function ClientDashboard() {
                                     {skipMailing && (
                                       <div className="sm:col-span-2">
                                         <p className="text-[10px] text-white/40 mb-1">Mailing Address</p>
-                                        <p className="text-sm text-white/80"><MapPinned className="h-3 w-3 inline mr-1" />{String(skipMailing)}</p>
+                                        <p className="text-sm text-white/80"><MapPinned className="h-3 w-3 inline mr-1" /><CopyableText text={String(skipMailing)}>{String(skipMailing)}</CopyableText></p>
                                       </div>
                                     )}
                                   </div>
