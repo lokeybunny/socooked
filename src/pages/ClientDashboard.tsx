@@ -1019,9 +1019,11 @@ export default function ClientDashboard() {
                                       <div>
                                         <p className="text-[10px] text-white/40 mb-1">Email Addresses</p>
                                         {(skipEmails as string[]).map((e: string, i: number) => (
-                                          <a key={i} href={`mailto:${e}`} className="block text-sm text-blue-400 hover:text-blue-300 font-medium">
-                                            <Mail className="h-3 w-3 inline mr-1" />{e}
-                                          </a>
+                                          <span key={i} className="flex items-center gap-1 text-sm text-blue-400 font-medium">
+                                            <Mail className="h-3 w-3" />
+                                            <a href={`mailto:${e}`} className="hover:text-blue-300">{e}</a>
+                                            <CopyBtn text={e} />
+                                          </span>
                                         ))}
                                       </div>
                                     )}
