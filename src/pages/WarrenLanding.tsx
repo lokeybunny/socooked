@@ -396,7 +396,8 @@ export default function WarrenLanding() {
             </p>
             <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                to="/pricing"
+                to="/pricing#top"
+                onClick={() => window.scrollTo(0, 0)}
                 className="group flex items-center gap-3 px-12 py-4 bg-white text-black rounded-lg text-sm tracking-[0.2em] uppercase font-medium hover:bg-white/90 transition-all"
               >
                 View Pricing
