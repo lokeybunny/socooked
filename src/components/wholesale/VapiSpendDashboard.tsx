@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DollarSign, Phone, Clock, BarChart3, Loader2, RefreshCw, CheckCircle, XCircle, Globe, Filter, Wallet } from 'lucide-react';
+import { DollarSign, Phone, Clock, BarChart3, Loader2, RefreshCw, CheckCircle, XCircle, Globe, Filter } from 'lucide-react';
 
 interface VapiCallRecord {
   id: string;
@@ -35,10 +35,6 @@ interface VapiSummary {
   avgCostPerCall: number;
 }
 
-interface TwilioBalance {
-  balance: number;
-  currency: string;
-}
 
 interface PageBreakdown {
   name: string;
@@ -54,22 +50,16 @@ export default function VapiSpendDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageFilter, setPageFilter] = useState<string>('all');
-  const [twilioBalance, setTwilioBalance] = useState<TwilioBalance | null>(null);
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [vapiRes, twilioRes] = await Promise.all([
-        supabase.functions.invoke('vapi-usage'),
-        supabase.functions.invoke('twilio-balance'),
-      ]);
-      if (vapiRes.error) throw vapiRes.error;
-      setSummary(vapiRes.data.summary);
-      setCalls(vapiRes.data.calls || []);
-      setPageBreakdown(vapiRes.data.pageBreakdown || []);
-      if (!twilioRes.error && twilioRes.data?.balance !== undefined) {
-        setTwilioBalance({ balance: twilioRes.data.balance, currency: twilioRes.data.currency || 'USD' });
-      }
+      const res = await supabase.functions.invoke('vapi-usage');
+      if (res.error) throw res.error;
+      setSummary(res.data.summary);
+      setCalls(res.data.calls || []);
+      setPageBreakdown(res.data.pageBreakdown || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load Vapi usage data');
     } finally {
@@ -141,28 +131,6 @@ export default function VapiSpendDashboard() {
 
   return (
     <div className="space-y-4">
-      {/* Twilio Credit Balance */}
-      {twilioBalance && (
-        <Card className={twilioBalance.balance < 10 ? 'border-destructive/40' : 'border-primary/30'}>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-4">
-              <div className={`h-11 w-11 rounded-xl flex items-center justify-center ${twilioBalance.balance < 10 ? 'bg-destructive/15' : 'bg-primary/15'}`}>
-                <Wallet className={`h-5 w-5 ${twilioBalance.balance < 10 ? 'text-destructive' : 'text-primary'}`} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Twilio Credits Remaining</p>
-                <p className={`text-2xl font-bold ${twilioBalance.balance < 10 ? 'text-destructive' : 'text-primary'}`}>
-                  ${twilioBalance.balance.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">{twilioBalance.currency}</span>
-                </p>
-              </div>
-              {twilioBalance.balance < 10 && (
-                <Badge variant="destructive" className="ml-auto text-xs">Low Balance</Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Filter Bar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
