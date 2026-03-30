@@ -122,6 +122,7 @@ serve(async (req) => {
       }
 
       const effectiveCap = isTrial ? TRIAL_CAP : WEEKLY_CAP;
+      console.log(`[matcher] buyer=${buyer.full_name} pipeline=${buyer.pipeline_stage} isTrial=${isTrial} effectiveCap=${effectiveCap}`);
 
       // --- Cap check ---
       const { data: capRow } = await supabaseAdmin
@@ -133,7 +134,9 @@ serve(async (req) => {
 
       const currentCount = capRow?.leads_delivered || 0;
       const remaining = Math.max(0, effectiveCap - currentCount);
+      console.log(`[matcher] currentCount=${currentCount} remaining=${remaining} weekStart=${weekStart}`);
       if (remaining === 0) {
+        console.log(`[matcher] CAP REACHED — skipping`);
         results.push({ page_id: page.id, slug: page.slug, leads_added: 0, email_sent: false });
         continue;
       }
