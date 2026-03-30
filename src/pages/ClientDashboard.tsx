@@ -32,6 +32,7 @@ interface Lead {
   email: string | null;
   property_condition: string | null;
   meta: Record<string, any> | null;
+  drafted_at: string | null;
 }
 
 interface LandingPage {
