@@ -11,7 +11,7 @@ import {
   Home, Zap, RefreshCw, ChevronDown, ChevronUp, CheckCircle
 } from 'lucide-react';
 
-interface SubscribedBuyer {
+interface AutomateBuyer {
   id: string;
   full_name: string;
   email: string | null;
@@ -25,6 +25,7 @@ interface SubscribedBuyer {
   acreage_min: number | null;
   acreage_max: number | null;
   property_type_interest: string[];
+  pipeline_stage: string | null;
   meta: Record<string, any>;
   updated_at: string;
 }

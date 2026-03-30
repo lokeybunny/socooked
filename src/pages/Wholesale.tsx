@@ -136,7 +136,7 @@ export default function Wholesale() {
           </TabsTrigger>
           <TabsTrigger value="subscriber-ai" className="gap-1.5">
             <Bot className="h-3.5 w-3.5 text-primary" />
-            Subscriber AI
+            Automate
           </TabsTrigger>
           <TabsTrigger value="pipeline">Deal Pipeline</TabsTrigger>
           <TabsTrigger value="demand" className="gap-1.5">
