@@ -351,6 +351,7 @@ serve(async (req) => {
 
       // Check if admin
       const isAdmin = user.email === "warren@stu25.com";
+      const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
       const { data: leadData, error: leadErr } = await supabaseAdmin
         .from("lw_landing_leads")
