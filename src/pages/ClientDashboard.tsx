@@ -1220,19 +1220,25 @@ export default function ClientDashboard() {
                                     {ownerPhone && (
                                       <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
                                         <p className="text-[10px] text-white/40">Owner Phone</p>
-                                        <a href={`tel:${ownerPhone}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerPhone)}</a>
+                                        <span className="flex items-center gap-1">
+                                          <a href={`tel:${ownerPhone}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerPhone)}</a>
+                                          <CopyBtn text={String(ownerPhone)} />
+                                        </span>
                                       </div>
                                     )}
                                     {ownerEmail && (
                                       <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
                                         <p className="text-[10px] text-white/40">Owner Email</p>
-                                        <a href={`mailto:${ownerEmail}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerEmail)}</a>
+                                        <span className="flex items-center gap-1">
+                                          <a href={`mailto:${ownerEmail}`} className="text-sm font-semibold text-blue-400 hover:text-blue-300">{String(ownerEmail)}</a>
+                                          <CopyBtn text={String(ownerEmail)} />
+                                        </span>
                                       </div>
                                     )}
                                     {ownerMail && (
                                       <div className="col-span-2 bg-white/5 rounded-lg p-2.5 border border-white/10">
                                         <p className="text-[10px] text-white/40">Owner Mailing Address</p>
-                                        <p className="text-xs text-white/80">{String(ownerMail)}</p>
+                                        <p className="text-xs text-white/80"><CopyableText text={String(ownerMail)}>{String(ownerMail)}</CopyableText></p>
                                       </div>
                                     )}
                                   </div>
