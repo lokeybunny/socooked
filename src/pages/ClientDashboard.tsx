@@ -768,58 +768,212 @@ export default function ClientDashboard() {
                           )}
                         </div>
 
-                        {/* REAPI / Meta Data */}
+                        {/* REAPI / Meta Data — Comprehensive View */}
                         {lead.meta && Object.keys(lead.meta).length > 0 && (() => {
                           const m = lead.meta!;
                           const assessed = m.assessed_value ?? m.assessedValue;
+                          const marketVal = m.market_value ?? m.marketValue;
                           const acreage = m.acreage ?? m.lotAcreage;
+                          const lotSqft = m.lot_sqft;
+                          const livingSqft = m.living_sqft;
+                          const beds = m.bedrooms;
+                          const baths = m.bathrooms;
+                          const yearBuilt = m.year_built;
                           const distress = m.distress_flags || {};
                           const source = m.source;
                           const oppScore = m.opportunity_score;
+                          const motivScore = m.motivation_score;
                           const vapiSummary = m.vapi_summary;
-                          const hasDistress = distress.tax_delinquent || distress.pre_foreclosure || distress.vacant;
-                          const hasReapiFields = assessed || acreage || hasDistress || oppScore;
+                          const equityPct = m.equity_percent;
+                          const yearsOwned = m.years_owned;
+                          const zoning = m.zoning;
+                          const propType = m.property_type;
+                          const county = m.county;
+                          const state = m.state;
+                          const city = m.city;
+                          const zip = m.zip;
+                          const ownerMail = m.owner_mailing_address;
+                          const ownerEmail = m.owner_email;
+                          const taxDelYear = m.tax_delinquent_year;
+                          const freeAndClear = m.free_and_clear;
+                          const isAbsentee = m.is_absentee_owner;
+                          const isOutOfState = m.is_out_of_state;
+                          const isCorp = m.is_corporate_owned;
+                          const distressGrade = m.distress_grade;
+                          const hasDistress = distress.tax_delinquent || distress.pre_foreclosure || distress.vacant || distress.absentee_owner;
 
                           return (
-                            <div className="space-y-3">
-                              {hasReapiFields && (
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div className="space-y-4">
+                              {/* Valuation & Location */}
+                              <div>
+                                <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold mb-2">Valuation & Location</p>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                   {assessed != null && (
-                                    <div>
-                                      <p className="text-xs text-white/40 mb-1">Assessed Value</p>
-                                      <p className="text-sm font-medium text-white/80 flex items-center gap-1">
-                                        <DollarSign className="h-3 w-3" />{Number(assessed).toLocaleString()}
-                                      </p>
+                                    <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                      <p className="text-[10px] text-white/40">Assessed Value</p>
+                                      <p className="text-sm font-semibold text-emerald-400">${Number(assessed).toLocaleString()}</p>
                                     </div>
                                   )}
-                                  {acreage != null && (
-                                    <div>
-                                      <p className="text-xs text-white/40 mb-1">Acreage</p>
-                                      <p className="text-sm font-medium text-white/80">{acreage} acres</p>
+                                  {marketVal != null && (
+                                    <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                      <p className="text-[10px] text-white/40">Market Value</p>
+                                      <p className="text-sm font-semibold text-emerald-400">${Number(marketVal).toLocaleString()}</p>
                                     </div>
                                   )}
-                                  {oppScore != null && (
-                                    <div>
-                                      <p className="text-xs text-white/40 mb-1">Opportunity Score</p>
-                                      <p className="text-sm font-medium text-amber-400">{oppScore}</p>
+                                  {equityPct != null && (
+                                    <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                      <p className="text-[10px] text-white/40">Equity</p>
+                                      <p className="text-sm font-semibold text-white/80">{equityPct}%</p>
                                     </div>
                                   )}
-                                  {source && (
-                                    <div>
-                                      <p className="text-xs text-white/40 mb-1">Source</p>
-                                      <p className="text-sm font-medium text-white/80">{String(source).replace(/_/g, ' ')}</p>
+                                  {(county || state) && (
+                                    <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                      <p className="text-[10px] text-white/40">Location</p>
+                                      <p className="text-sm font-medium text-white/80">{[city, county, state].filter(Boolean).join(', ')} {zip || ''}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Property Details */}
+                              {(acreage || lotSqft || livingSqft || beds || baths || yearBuilt || propType || zoning) && (
+                                <div>
+                                  <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold mb-2">Property Details</p>
+                                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                    {propType && (
+                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                        <p className="text-[10px] text-white/40">Type</p>
+                                        <p className="text-xs font-semibold text-white/80">{propType}</p>
+                                      </div>
+                                    )}
+                                    {acreage != null && (
+                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                        <p className="text-[10px] text-white/40">Acres</p>
+                                        <p className="text-xs font-semibold text-white/80">{acreage}</p>
+                                      </div>
+                                    )}
+                                    {lotSqft && (
+                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                        <p className="text-[10px] text-white/40">Lot SqFt</p>
+                                        <p className="text-xs font-semibold text-white/80">{Number(lotSqft).toLocaleString()}</p>
+                                      </div>
+                                    )}
+                                    {livingSqft && (
+                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                        <p className="text-[10px] text-white/40">Living SqFt</p>
+                                        <p className="text-xs font-semibold text-white/80">{Number(livingSqft).toLocaleString()}</p>
+                                      </div>
+                                    )}
+                                    {beds != null && (
+                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                        <p className="text-[10px] text-white/40">Beds</p>
+                                        <p className="text-xs font-semibold text-white/80">{beds}</p>
+                                      </div>
+                                    )}
+                                    {baths != null && (
+                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                        <p className="text-[10px] text-white/40">Baths</p>
+                                        <p className="text-xs font-semibold text-white/80">{baths}</p>
+                                      </div>
+                                    )}
+                                    {yearBuilt && (
+                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                        <p className="text-[10px] text-white/40">Year Built</p>
+                                        <p className="text-xs font-semibold text-white/80">{yearBuilt}</p>
+                                      </div>
+                                    )}
+                                    {zoning && (
+                                      <div className="bg-white/5 rounded-lg p-2 border border-white/10 text-center">
+                                        <p className="text-[10px] text-white/40">Zoning</p>
+                                        <p className="text-xs font-semibold text-white/80">{zoning}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Owner Intel */}
+                              {(yearsOwned || isAbsentee || isOutOfState || isCorp || freeAndClear || ownerMail || ownerEmail) && (
+                                <div>
+                                  <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold mb-2">Owner Intelligence</p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {yearsOwned != null && (
+                                      <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">Years Owned</p>
+                                        <p className="text-sm font-semibold text-white/80">{yearsOwned}</p>
+                                      </div>
+                                    )}
+                                    {ownerMail && (
+                                      <div className="col-span-2 bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">Owner Mailing Address</p>
+                                        <p className="text-xs text-white/80">{ownerMail}</p>
+                                      </div>
+                                    )}
+                                    {ownerEmail && (
+                                      <div className="bg-white/5 rounded-lg p-2.5 border border-white/10">
+                                        <p className="text-[10px] text-white/40">Owner Email</p>
+                                        <p className="text-xs text-white/80">{ownerEmail}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {isAbsentee && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">Absentee Owner</span>}
+                                    {isOutOfState && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">Out of State</span>}
+                                    {isCorp && <span className="text-[10px] bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">Corporate Owned</span>}
+                                    {freeAndClear && <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">Free & Clear</span>}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Distress & Scores */}
+                              {(hasDistress || oppScore || motivScore || distressGrade || taxDelYear) && (
+                                <div>
+                                  <p className="text-[10px] text-white/30 uppercase tracking-wider font-semibold mb-2">Distress & Scoring</p>
+                                  <div className="flex items-center gap-3 flex-wrap mb-2">
+                                    {oppScore != null && (
+                                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-1.5">
+                                        <span className="text-[10px] text-amber-400/70">Opportunity </span>
+                                        <span className="text-sm font-bold text-amber-400">{oppScore}</span>
+                                      </div>
+                                    )}
+                                    {motivScore != null && (
+                                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-1.5">
+                                        <span className="text-[10px] text-red-400/70">Motivation </span>
+                                        <span className="text-sm font-bold text-red-400">{motivScore}</span>
+                                      </div>
+                                    )}
+                                    {distressGrade && (
+                                      <div className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">
+                                        <span className="text-[10px] text-white/40">Grade </span>
+                                        <span className="text-sm font-bold text-white">{distressGrade}</span>
+                                      </div>
+                                    )}
+                                    {taxDelYear && (
+                                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-1.5">
+                                        <span className="text-[10px] text-red-400/70">Tax Delinquent </span>
+                                        <span className="text-sm font-bold text-red-400">{taxDelYear}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {hasDistress && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {distress.tax_delinquent && <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">🔴 Tax Delinquent</span>}
+                                      {distress.pre_foreclosure && <span className="text-[10px] bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">⚠️ Pre-Foreclosure</span>}
+                                      {distress.vacant && <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">🏚️ Vacant</span>}
+                                      {distress.absentee_owner && <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">👤 Absentee</span>}
                                     </div>
                                   )}
                                 </div>
                               )}
-                              {hasDistress && (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-xs text-white/40">Distress Flags:</span>
-                                  {distress.tax_delinquent && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">Tax Delinquent</span>}
-                                  {distress.pre_foreclosure && <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">Pre-Foreclosure</span>}
-                                  {distress.vacant && <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">Vacant</span>}
+
+                              {/* Source */}
+                              {source && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-white/30">Source:</span>
+                                  <span className="text-[10px] bg-white/5 text-white/60 px-2 py-0.5 rounded">{String(source).replace(/_/g, ' ')}</span>
                                 </div>
                               )}
+
                               {vapiSummary && (
                                 <div>
                                   <p className="text-xs text-white/40 mb-1">AI Call Summary</p>
