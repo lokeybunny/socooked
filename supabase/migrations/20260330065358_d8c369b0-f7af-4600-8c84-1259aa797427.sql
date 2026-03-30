@@ -1,0 +1,1 @@
+UPDATE lw_client_lead_caps SET leads_delivered = 0 WHERE landing_page_id = 'e1ca5049-5b41-4b7f-9104-4060c1759551' AND week_start = '2026-03-30';

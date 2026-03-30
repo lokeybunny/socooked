@@ -104,17 +104,25 @@ serve(async (req) => {
 
     for (const { buyer, page } of pairs) {
       // --- Trial check ---
-      const { data: subRecord } = await supabaseAdmin
-        .from('guru_subscriptions')
-        .select('status')
-        .eq('email', page.email)
-        .in('status', ['pending', 'active', 'subscribed'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Buyers in "warm" (Subscribed) pipeline always get full cap — they've been
+      // manually promoted or auto-moved after Square payment.
+      const isSubscribedPipeline = buyer.pipeline_stage === 'warm';
+      let isTrial = false;
 
-      const isTrial = !subRecord || subRecord.status === 'pending';
+      if (!isSubscribedPipeline) {
+        const { data: subRecord } = await supabaseAdmin
+          .from('guru_subscriptions')
+          .select('status')
+          .eq('email', page.email)
+          .in('status', ['pending', 'active', 'subscribed'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        isTrial = !subRecord || subRecord.status === 'pending';
+      }
+
       const effectiveCap = isTrial ? TRIAL_CAP : WEEKLY_CAP;
+      console.log(`[matcher] buyer=${buyer.full_name} pipeline=${buyer.pipeline_stage} isTrial=${isTrial} effectiveCap=${effectiveCap}`);
 
       // --- Cap check ---
       const { data: capRow } = await supabaseAdmin
@@ -126,7 +134,9 @@ serve(async (req) => {
 
       const currentCount = capRow?.leads_delivered || 0;
       const remaining = Math.max(0, effectiveCap - currentCount);
+      console.log(`[matcher] currentCount=${currentCount} remaining=${remaining} weekStart=${weekStart}`);
       if (remaining === 0) {
+        console.log(`[matcher] CAP REACHED — skipping`);
         results.push({ page_id: page.id, slug: page.slug, leads_added: 0, email_sent: false });
         continue;
       }
@@ -265,7 +275,8 @@ serve(async (req) => {
           query = query.lte('acreage', acreageMax);
         }
 
-        const { data: sellers } = await query;
+        const { data: sellers, error: sellerErr } = await query;
+        console.log(`[matcher] seller fallback: found=${sellers?.length || 0} error=${sellerErr?.message || 'none'} states=${targetStates} counties=${targetCounties} dealType=${dealType} budgetMin=${budgetMin} budgetMax=${budgetMax}`);
 
         newLeads = (sellers || []).map(s => ({
           full_name: s.owner_name || 'Property Owner',
