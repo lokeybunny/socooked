@@ -35,6 +35,11 @@ interface VapiSummary {
   avgCostPerCall: number;
 }
 
+interface TwilioBalance {
+  balance: number;
+  currency: string;
+}
+
 interface PageBreakdown {
   name: string;
   slug: string;
