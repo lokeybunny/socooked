@@ -31,11 +31,13 @@ export default function AgreementSign() {
       if (!documentId) return;
 
       // Load document
-      const { data: d } = await supabase
+      const { data: d, error: docErr } = await supabase
         .from('documents')
-        .select('*, customers(full_name, email)')
+        .select('*')
         .eq('id', documentId)
         .single();
+
+      console.log('Document load:', { d, docErr });
 
       if (!d) { setLoading(false); return; }
       setDoc(d);
