@@ -49,13 +49,15 @@ Deno.serve(async (req) => {
     }
 
     // Build skip trace request
+    // REAPI SkipTrace only accepts address fields — "name" is NOT allowed
     const skipBody: any = {};
-    if (seller.address_full) skipBody.address = seller.address_full;
-    if (seller.owner_name) skipBody.name = seller.owner_name;
-    if (seller.city && seller.state) {
+    if (seller.address_full) {
+      skipBody.address = seller.address_full;
+    } else if (seller.city && seller.state) {
+      // Build address from parts if full address missing
       skipBody.city = seller.city;
       skipBody.state = seller.state;
-      skipBody.zip = seller.zip;
+      if (seller.zip) skipBody.zip = seller.zip;
     }
 
     const resp = await fetch(`${REAPI_BASE}/SkipTrace`, {
