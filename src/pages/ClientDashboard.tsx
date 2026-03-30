@@ -1085,15 +1085,42 @@ export default function ClientDashboard() {
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-4 flex-wrap">
-                      {/* Fetch / Retry AI Call */}
-                      <button
-                        onClick={() => fetchVapiData(lead)}
-                        disabled={fetchingLeadId === lead.id}
-                        className="inline-flex items-center gap-2 text-sm text-blue-400/80 hover:text-blue-300 font-medium transition-colors disabled:opacity-50"
-                      >
-                        {fetchingLeadId === lead.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                        {fetchingLeadId === lead.id ? 'Calling...' : 'Fetch / Retry AI Call'}
-                      </button>
+                      {/* Skip Trace — hot leads only */}
+                      {isHotLead(lead) && (
+                        <button
+                          onClick={() => skipTraceLead(lead)}
+                          disabled={skipTracingId === lead.id || !!(lead.meta as any)?.skip_traced}
+                          className={`inline-flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50 ${
+                            (lead.meta as any)?.skip_traced
+                              ? 'text-emerald-400/80'
+                              : 'text-amber-400/80 hover:text-amber-300'
+                          }`}
+                        >
+                          {skipTracingId === lead.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (lead.meta as any)?.skip_traced ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <Search className="h-4 w-4" />
+                          )}
+                          {skipTracingId === lead.id
+                            ? 'Skip Tracing...'
+                            : (lead.meta as any)?.skip_traced
+                              ? 'Skip Traced ✓'
+                              : 'Skip Trace Owner'}
+                        </button>
+                      )}
+                      {/* Fetch / Retry AI Call — funnel leads only */}
+                      {!isHotLead(lead) && (
+                        <button
+                          onClick={() => fetchVapiData(lead)}
+                          disabled={fetchingLeadId === lead.id}
+                          className="inline-flex items-center gap-2 text-sm text-blue-400/80 hover:text-blue-300 font-medium transition-colors disabled:opacity-50"
+                        >
+                          {fetchingLeadId === lead.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                          {fetchingLeadId === lead.id ? 'Calling...' : 'Fetch / Retry AI Call'}
+                        </button>
+                      )}
                       {lead.ai_notes && (
                         <button
                           onClick={() => downloadTranscript(lead)}
