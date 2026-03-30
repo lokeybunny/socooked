@@ -1013,7 +1013,6 @@ export default function ClientDashboard() {
                                             <CopyBtn text={p} />
                                           </span>
                                         ))}
-                                        ))}
                                       </div>
                                     )}
                                     {(skipEmails as string[]).length > 0 && (
