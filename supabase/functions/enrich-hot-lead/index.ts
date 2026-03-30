@@ -80,7 +80,7 @@ serve(async (req) => {
             method: 'POST',
             headers: { 'x-api-key': REAPI_KEY, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              address: street,
+              street,
               ...(city ? { city } : {}),
               ...(state ? { state } : {}),
               ...(zip ? { zip } : {}),
