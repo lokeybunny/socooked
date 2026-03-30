@@ -5,8 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { ShieldCheck, XCircle } from 'lucide-react';
+import { ShieldCheck, XCircle, Copy, ExternalLink } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
@@ -16,6 +18,44 @@ import {
 } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// --- Clipboard copy helper ---
+function CopyBtn({ text, className = '' }: { text: string | null | undefined; className?: string }) {
+  if (!text) return null;
+  return (
+    <button
+      className={`inline-flex items-center gap-1 hover:text-blue-400 transition-colors ${className}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        toast.success('Copied to clipboard');
+      }}
+      title="Copy to clipboard"
+    >
+      <Copy className="h-3 w-3 opacity-60 hover:opacity-100" />
+    </button>
+  );
+}
+
+// --- Copyable text span ---
+function CopyableText({ text, children, className = '' }: { text: string; children?: React.ReactNode; className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1 group ${className}`}>
+      {children || text}
+      <button
+        className="opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(text);
+          toast.success('Copied to clipboard');
+        }}
+        title="Copy to clipboard"
+      >
+        <Copy className="h-3 w-3 text-white/40 hover:text-white/80" />
+      </button>
+    </span>
+  );
+}
 
 interface Lead {
   id: string;
