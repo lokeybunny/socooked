@@ -208,13 +208,78 @@ export default function ClientDashboard() {
     }
   };
 
+  // ─── Fetch / Retry Vapi call data ───
+  const fetchVapiData = async (lead: Lead) => {
+    setFetchingLeadId(lead.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('vapi-outbound', {
+        body: { action: 'trigger_call', lead_id: lead.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(data?.credit_exhausted ? 'Credits exhausted' : 'AI call triggered — data will sync shortly');
+      // Reload to pick up realtime updates
+      setTimeout(() => loadData(), 5000);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to trigger call');
+    } finally {
+      setFetchingLeadId(null);
+    }
+  };
+
+  // ─── Soft-delete: move to drafts ───
+  const moveToDrafts = async (leadId: string) => {
+    const { error } = await supabase
+      .from('lw_landing_leads')
+      .update({ drafted_at: new Date().toISOString() } as any)
+      .eq('id', leadId);
+    if (error) {
+      toast.error('Failed to move to drafts');
+      return;
+    }
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, drafted_at: new Date().toISOString() } : l));
+    toast.success('Lead moved to Drafts — will be permanently deleted in 72 hours');
+  };
+
+  // ─── Restore from drafts ───
+  const restoreFromDrafts = async (leadId: string) => {
+    const { error } = await supabase
+      .from('lw_landing_leads')
+      .update({ drafted_at: null } as any)
+      .eq('id', leadId);
+    if (error) {
+      toast.error('Failed to restore lead');
+      return;
+    }
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, drafted_at: null } : l));
+    toast.success('Lead restored');
+  };
+
+  // ─── Permanently delete ───
+  const permanentlyDelete = async (leadId: string) => {
+    const { error } = await supabase
+      .from('lw_landing_leads')
+      .delete()
+      .eq('id', leadId);
+    if (error) {
+      toast.error('Failed to delete lead');
+      return;
+    }
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+    toast.success('Lead permanently deleted');
+  };
+
   const isHotLead = (l: Lead) => {
     const src = (l.meta as any)?.source || '';
     return src === 'reapi_weekly_match' || src === 'seller_db_match';
   };
 
-  const funnelLeads = leads.filter(l => !isHotLead(l));
-  const hotLeads = leads.filter(l => isHotLead(l));
+  // Separate drafted vs active leads
+  const activeLeadsAll = leads.filter(l => !l.drafted_at);
+  const draftedLeads = leads.filter(l => !!l.drafted_at);
+
+  const funnelLeads = activeLeadsAll.filter(l => !isHotLead(l));
+  const hotLeads = activeLeadsAll.filter(l => isHotLead(l));
   const activeLeads = activeSection === 'funnel' ? funnelLeads : hotLeads;
 
   const filteredLeads = activeLeads.filter(l => {
