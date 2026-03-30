@@ -73,6 +73,8 @@ export default function ClientDashboard() {
   const [sendingLeadId, setSendingLeadId] = useState<string | null>(null);
   const [fetchingLeadId, setFetchingLeadId] = useState<string | null>(null);
   const [skipTracingId, setSkipTracingId] = useState<string | null>(null);
+  const [enrichingLeadId, setEnrichingLeadId] = useState<string | null>(null);
+  const [batchEnriching, setBatchEnriching] = useState(false);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminViewClientName, setAdminViewClientName] = useState<string | null>(null);
