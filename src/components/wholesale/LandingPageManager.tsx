@@ -9,10 +9,11 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import {
   Plus, ExternalLink, Trash2, Loader2, Copy, Globe, Eye, Pencil, X, Save,
-  ChevronDown, ChevronUp, Upload, ImageIcon, DollarSign, Mail, Send, ShieldCheck
+  ChevronDown, ChevronUp, Upload, ImageIcon, DollarSign, Mail, Send, ShieldCheck, XCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface LandingPageRow {
@@ -428,6 +429,14 @@ export default function LandingPageManager() {
                     currentBalance={p.vapi_credit_balance_cents || 0}
                     onUpdated={load}
                   />
+                  {p.email && (
+                    <CancelSubscription
+                      email={p.email}
+                      landingPageId={p.id}
+                      clientName={p.client_name}
+                      onCancelled={load}
+                    />
+                  )}
                 </div>
 
                 <button onClick={() => setExpandedLeads(isLeadsExpanded ? null : p.id)} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition w-full">
