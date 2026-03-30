@@ -158,33 +158,106 @@ function buildLeadPdf(lead: any, pageName: string): Uint8Array {
   field("Status", lead.status);
   field("Source Page", pageName);
   field("Submitted", new Date(lead.created_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }));
-  field("AI Call Status", lead.vapi_call_status);
-
   y -= 10;
 
   // Meta / REAPI data
   const meta = lead.meta || {};
   const assessed = meta.assessed_value ?? meta.assessedValue;
+  const marketVal = meta.market_value ?? meta.marketValue;
   const acreage = meta.acreage ?? meta.lotAcreage;
+  const lotSqft = meta.lot_sqft ?? meta.lotSquareFeet;
+  const livingSqft = meta.living_sqft ?? meta.livingSquareFeet;
+  const beds = meta.bedrooms ?? meta.beds;
+  const baths = meta.bathrooms ?? meta.baths;
+  const yearBuilt = meta.year_built ?? meta.yearBuilt;
+  const stories = meta.stories;
+  const garageSqft = meta.garage_sqft ?? meta.garageSqFt;
+  const propType = meta.property_type ?? meta.propertyType;
+  const lastSalePrice = meta.last_sale_price ?? meta.lastSalePrice;
+  const lastSaleDate = meta.last_sale_date ?? meta.lastSaleDate;
+  const annualTax = meta.annual_tax ?? meta.annualTax ?? meta.tax_amount;
+  const hoaFee = meta.hoa_fee ?? meta.hoaFee;
+  const foreclosure = meta.foreclosure_status ?? meta.foreclosureStatus;
+  const yearsOwned = meta.years_owned ?? meta.yearsOwned;
+  const ownerOccupied = meta.owner_occupied ?? meta.ownerOccupied;
+  const ownerMailing = meta.owner_mailing_address ?? meta.ownerMailingAddress;
+  const absentee = meta.absentee_owner ?? meta.is_absentee_owner;
+  const freeAndClear = meta.free_and_clear ?? meta.freeAndClear;
   const oppScore = meta.opportunity_score;
   const distress = meta.distress_flags || {};
   const vapiSummary = meta.vapi_summary;
 
-  if (assessed || acreage || oppScore) {
+  const hasPropertyData = propType || beds != null || baths != null || livingSqft || lotSqft || acreage || yearBuilt || assessed || marketVal;
+
+  if (hasPropertyData) {
     rect(marginL, y - 18, contentW, 22, 0.15, 0.15, 0.18);
     stream += `1 1 1 rg\n`;
-    text(marginL + 8, y - 12, "PROPERTY DATA", true, 10);
+    text(marginL + 8, y - 12, "PROPERTY DETAILS", true, 10);
+    stream += `0 0 0 rg\n`;
+    y -= 35;
+
+    field("Type", propType === "SFR" ? "Single Family Residence" : propType === "MFR" ? "Multi-Family" : propType === "VAC" ? "Vacant Land" : propType);
+    field("Bedrooms", beds != null ? String(beds) : null);
+    field("Bathrooms", baths != null ? String(baths) : null);
+    field("Living SqFt", livingSqft != null ? Number(livingSqft).toLocaleString() : null);
+    field("Lot SqFt", lotSqft != null ? Number(lotSqft).toLocaleString() : null);
+    field("Acreage", acreage != null ? `${acreage} acres` : null);
+    field("Year Built", yearBuilt != null ? String(yearBuilt) : null);
+    field("Stories", stories != null ? String(stories) : null);
+    field("Garage SqFt", garageSqft != null ? Number(garageSqft).toLocaleString() : null);
+    y -= 6;
+  }
+
+  // Financial History
+  const hasFinancial = assessed || marketVal || lastSalePrice || annualTax != null || hoaFee != null || foreclosure;
+  if (hasFinancial && y > 120) {
+    rect(marginL, y - 18, contentW, 22, 0.15, 0.15, 0.18);
+    stream += `1 1 1 rg\n`;
+    text(marginL + 8, y - 12, "FINANCIAL HISTORY", true, 10);
     stream += `0 0 0 rg\n`;
     y -= 35;
 
     field("Assessed Value", assessed != null ? `$${Number(assessed).toLocaleString()}` : null);
-    field("Acreage", acreage != null ? `${acreage} acres` : null);
-    field("Opportunity Score", oppScore != null ? String(oppScore) : null);
+    field("Market Value", marketVal != null ? `$${Number(marketVal).toLocaleString()}` : null);
+    field("Last Sale Price", lastSalePrice != null ? `$${Number(lastSalePrice).toLocaleString()}` : null);
+    field("Last Sale Date", lastSaleDate ? new Date(lastSaleDate).toLocaleDateString("en-US", { dateStyle: "medium" }) : null);
+    field("Annual Tax", annualTax != null ? `$${Number(annualTax).toLocaleString()}` : null);
+    field("HOA Fee", hoaFee != null ? `$${Number(hoaFee).toLocaleString()}` : null);
+    field("Foreclosure", foreclosure || null);
+    y -= 6;
+  }
 
-    const flags: string[] = [];
-    if (distress.tax_delinquent) flags.push("Tax Delinquent");
-    if (distress.pre_foreclosure) flags.push("Pre-Foreclosure");
-    if (distress.vacant) flags.push("Vacant");
+  // Owner Intelligence
+  const hasOwner = yearsOwned != null || ownerOccupied != null || ownerMailing || absentee != null || freeAndClear != null;
+  if (hasOwner && y > 120) {
+    rect(marginL, y - 18, contentW, 22, 0.15, 0.15, 0.18);
+    stream += `1 1 1 rg\n`;
+    text(marginL + 8, y - 12, "OWNER INTELLIGENCE", true, 10);
+    stream += `0 0 0 rg\n`;
+    y -= 35;
+
+    field("Years Owned", yearsOwned != null ? String(yearsOwned) : null);
+    field("Owner Occupied", ownerOccupied != null ? (ownerOccupied ? "Yes" : "No") : null);
+    field("Owner Mailing Address", ownerMailing ? String(ownerMailing) : null);
+    field("Absentee Owner", absentee != null ? (absentee ? "Yes" : "No") : null);
+    field("Free & Clear", freeAndClear != null ? (freeAndClear ? "Yes" : "No") : null);
+    y -= 6;
+  }
+
+  // Distress & Scoring
+  const flags: string[] = [];
+  if (distress.tax_delinquent) flags.push("Tax Delinquent");
+  if (distress.pre_foreclosure) flags.push("Pre-Foreclosure");
+  if (distress.vacant) flags.push("Vacant");
+  if (distress.absentee_owner) flags.push("Absentee Owner");
+  if ((flags.length || oppScore != null) && y > 100) {
+    rect(marginL, y - 18, contentW, 22, 0.15, 0.15, 0.18);
+    stream += `1 1 1 rg\n`;
+    text(marginL + 8, y - 12, "DISTRESS & SCORING", true, 10);
+    stream += `0 0 0 rg\n`;
+    y -= 35;
+
+    field("Opportunity Score", oppScore != null ? String(oppScore) : null);
     if (flags.length) field("Distress Flags", flags.join(", "));
     y -= 10;
   }
