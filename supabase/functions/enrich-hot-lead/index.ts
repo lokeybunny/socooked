@@ -27,7 +27,7 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { lead_id, backfill, landing_page_id } = body;
 
     // Gather leads to enrich
@@ -66,17 +66,30 @@ serve(async (req) => {
         const existingMeta = lead.meta || {};
         
         // Try PropertyDetail by address
-        const qs = new URLSearchParams({
-          address: addr,
-        });
+        const addressParts = addr.split(',').map((part: string) => part.trim()).filter(Boolean);
+        const cityStateZip = addressParts[addressParts.length - 1] || '';
+        const street = addressParts[0] || addr;
+        const stateZipMatch = cityStateZip.match(/\b([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\b/);
+        const city = addressParts.length >= 2 ? addressParts[addressParts.length - 2] : undefined;
+        const state = stateZipMatch?.[1];
+        const zip = stateZipMatch?.[2];
 
         const res = await fetch(
-          `https://api.realestateapi.com/v2/PropertyDetail?${qs}`,
-          { headers: { 'x-api-key': REAPI_KEY, 'Content-Type': 'application/json' } },
+          'https://api.realestateapi.com/v2/PropertyDetail',
+          {
+            method: 'POST',
+            headers: { 'x-api-key': REAPI_KEY, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              address: street,
+              ...(city ? { city } : {}),
+              ...(state ? { state } : {}),
+              ...(zip ? { zip } : {}),
+            }),
+          },
         );
 
         if (!res.ok) {
-          console.error(`REAPI error for ${addr}: ${res.status}`);
+          console.error(`REAPI error for ${addr}: ${res.status} ${await res.text()}`);
           continue;
         }
 
