@@ -51,8 +51,10 @@ export default function AgreementSign() {
         .limit(1);
       if (sigs && sigs.length > 0) setSigned(true);
 
-      // Load agreement text from storage
-      if (d.storage_path) {
+      // Load agreement text - try file_url first (public), then storage (auth)
+      if (d.file_url) {
+        setAgreementText(d.file_url);
+      } else if (d.storage_path) {
         const { data: fileData } = await supabase.storage
           .from('documents')
           .download(d.storage_path);

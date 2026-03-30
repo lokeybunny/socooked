@@ -1426,13 +1426,14 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         .upload(fileName, new Blob([agreementText], { type: 'text/plain' }));
       if (uploadErr) throw uploadErr;
 
-      // Create document record
+      // Create document record — store agreement text in file_url for public access
       const { data: doc, error: docErr } = await supabase.from('documents').insert({
-        title: `Wholesale Purchase Agreement — ${s.address_full || 'Property'}`,
+        title: `Cash Investor Purchase Agreement — ${s.address_full || 'Property'}`,
         type: 'contract',
         status: 'pending_signature',
         customer_id: customerId,
         storage_path: fileName,
+        file_url: agreementText,
         category: 'other',
       }).select('id').single();
       if (docErr) throw docErr;
