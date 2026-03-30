@@ -788,6 +788,15 @@ export default function ClientDashboard() {
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-4 flex-wrap">
+                      {/* Fetch / Retry AI Call */}
+                      <button
+                        onClick={() => fetchVapiData(lead)}
+                        disabled={fetchingLeadId === lead.id}
+                        className="inline-flex items-center gap-2 text-sm text-blue-400/80 hover:text-blue-300 font-medium transition-colors disabled:opacity-50"
+                      >
+                        {fetchingLeadId === lead.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        {fetchingLeadId === lead.id ? 'Calling...' : 'Fetch / Retry AI Call'}
+                      </button>
                       {lead.ai_notes && (
                         <button
                           onClick={() => downloadTranscript(lead)}
@@ -819,6 +828,14 @@ export default function ClientDashboard() {
                       >
                         {sendingLeadId === lead.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                         {sendingLeadId === lead.id ? 'Sending...' : 'Send Lead to Email'}
+                      </button>
+                      {/* Move to Drafts */}
+                      <button
+                        onClick={() => moveToDrafts(lead.id)}
+                        className="inline-flex items-center gap-2 text-sm text-red-400/60 hover:text-red-400 font-medium transition-colors ml-auto"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Move to Drafts
                       </button>
                     </div>
                   </div>
