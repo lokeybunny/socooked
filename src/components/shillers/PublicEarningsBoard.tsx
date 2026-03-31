@@ -341,7 +341,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="rounded-lg border border-border p-3 text-center">
           <Users className="h-4 w-4 mx-auto mb-1 text-primary" />
           <p className="text-2xl font-bold text-foreground">{rows.length}</p>
@@ -351,6 +351,11 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           <DollarSign className="h-4 w-4 mx-auto mb-1 text-green-500" />
           <p className="text-2xl font-bold text-green-500">${totalVerified.toFixed(2)}</p>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Verified</p>
+        </div>
+        <div className="rounded-lg border border-border p-3 text-center">
+          <Wallet className="h-4 w-4 mx-auto mb-1 text-amber-500" />
+          <p className="text-2xl font-bold text-amber-500">${totalUnpaid.toFixed(2)}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Unpaid</p>
         </div>
         <div className="rounded-lg border border-border p-3 text-center">
           <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-emerald-400" />
