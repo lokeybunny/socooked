@@ -502,6 +502,14 @@ export default function ClientDashboard() {
     return true;
   });
 
+  const LEADS_PAGE_SIZE = 20;
+  const [leadsPage, setLeadsPage] = useState(1);
+  const totalLeadsPages = Math.max(1, Math.ceil(filteredLeads.length / LEADS_PAGE_SIZE));
+  const paginatedLeads = filteredLeads.slice((leadsPage - 1) * LEADS_PAGE_SIZE, leadsPage * LEADS_PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => { setLeadsPage(1); }, [filterPage, filterStage, activeSection]);
+
   const stageCounts = PIPELINE_STAGES.reduce((acc, stage) => {
     acc[stage] = activeLeads.filter(l => l.status === stage).length;
     return acc;
