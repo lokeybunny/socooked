@@ -411,7 +411,12 @@ export default function SellerManager() {
         if (!seller || ['skip_traced','contacted','offer_sent','under_contract','closed'].includes(seller.status)) { skipped++; continue; }
 
         matched++;
-        const updates: Record<string, any> = { status: 'skip_traced', skip_traced_at: new Date().toISOString(), skip_trace_status: 'completed' };
+        const hasValidPhone = row.allPhones.length > 0;
+        const updates: Record<string, any> = {
+          status: hasValidPhone ? 'skip_traced' : 'req_trace',
+          skip_traced_at: new Date().toISOString(),
+          skip_trace_status: hasValidPhone ? 'completed' : 'no_phone',
+        };
         // Merge all phones from CSV into meta.all_phones and set primary phone
         const existing: string[] = Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : [];
         const newPhones = row.allPhones.filter((p: string) => !existing.includes(p));
