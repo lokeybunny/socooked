@@ -30,6 +30,7 @@ type GeoEntry = {
 };
 
 export default function BuyerGeoMap() {
+  const [, setSearchParams] = useSearchParams();
   const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedState, setExpandedState] = useState<string | null>(null);
