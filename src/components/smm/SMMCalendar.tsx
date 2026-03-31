@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import type { ScheduledPost, Platform } from '@/lib/smm/types';
 import { useSMMContext, PLATFORM_META, EXTENDED_PLATFORMS } from '@/lib/smm/context';
 import { smmApi } from '@/lib/smm/store';
+import { supabase } from '@/integrations/supabase/client';
 import { serverWallClockToIso } from '@/lib/smm/timezone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
