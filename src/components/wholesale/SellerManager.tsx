@@ -2208,6 +2208,25 @@ Format with numbered sections and clear headings. Make this ready to print, sign
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Lookup iframe popup */}
+      <Dialog open={!!lookupIframeUrl} onOpenChange={(o) => { if (!o) setLookupIframeUrl(null); }}>
+        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 rounded-3xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/50">
+            <span className="text-xs text-muted-foreground truncate">{lookupIframeUrl}</span>
+            <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setLookupIframeUrl(null)}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          <iframe
+            src={lookupIframeUrl || ''}
+            className="w-full flex-1 border-0"
+            style={{ height: 'calc(85vh - 40px)' }}
+            sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+            title="Lookup"
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
