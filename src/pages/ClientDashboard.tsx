@@ -120,9 +120,10 @@ interface LandingPage {
   vapi_total_spent_cents: number;
 }
 
-const PIPELINE_STAGES = ['new', 'contacted', 'qualified', 'under_contract', 'closed'] as const;
+const PIPELINE_STAGES = ['new', 'skip_traced', 'contacted', 'qualified', 'under_contract', 'closed'] as const;
 const STAGE_LABELS: Record<string, string> = {
   new: 'New',
+  skip_traced: 'Skip Traced',
   contacted: 'Contacted',
   qualified: 'Qualified',
   under_contract: 'Under Contract',
