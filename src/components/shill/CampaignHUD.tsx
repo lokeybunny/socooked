@@ -186,12 +186,15 @@ export default function CampaignHUD() {
         .eq("section", "NysonBlack")
         .maybeSingle();
       const existingContent = (existing?.content as any) || {};
+      const activeChannel = activeCampaign?.shill_now_channel || SHILL_NOW_CHANNELS[0].id;
       const updatedContent = {
         ...existingContent,
         ticker: activeCampaign?.ticker || "",
         campaign_url: activeCampaign?.links?.find(l => l.trim()) || "",
         campaign_links: activeCampaign?.links || ["", "", "", "", ""],
-        shill_now_channel: activeCampaign?.shill_now_channel || SHILL_NOW_CHANNELS[0].id,
+        shill_now_channel: activeChannel,
+        discord_listen_channel_id: activeChannel,
+        discord_channel_id: activeChannel,
       };
       await supabase.from("site_configs").upsert({
         ...(existing?.id ? { id: existing.id } : {}),
