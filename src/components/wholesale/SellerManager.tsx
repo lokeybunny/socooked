@@ -1557,11 +1557,18 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         ? parsed.bestName
         : pickBestName(cleanNames);
 
+      const existingPhones: string[] = (s.meta as any)?.all_phones || [];
+      const existingNames: string[] = (s.meta as any)?.all_names || [];
+      const mergedPhones = [...new Set([...existingPhones, ...parsed.phones])];
+      const mergedNames = [...new Set([...existingNames, ...cleanNames])];
+
       const updateData: any = {
         skip_traced_at: new Date().toISOString(),
         status: parsed.phones.length > 0 ? 'skip_traced' : s.status,
         meta: {
           ...s.meta,
+          all_phones: mergedPhones,
+          all_names: mergedNames,
           clipboard_trace: {
             phones: parsed.phones,
             emails: parsed.emails,
