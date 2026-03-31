@@ -2328,6 +2328,12 @@ serve(async (req) => {
       // Raid channel verify
       if (customId.startsWith("raid_verify_") && !customId.startsWith("raid_verify_submit_")) {
         const discordMsgId = customId.replace("raid_verify_", "") || null;
+        // Expiry check — block verification if the alert is past 5 minutes
+        const trackedRaidVerify = await getTrackedBotMessage(supabase, discordMsgId);
+        if (isBotMessageExpired(trackedRaidVerify, interactionMessage)) {
+          await expireTrackedBotMessage(supabase, trackedRaidVerify, DISCORD_BOT_TOKEN);
+          return json({ type: 4, data: { content: "⏰ This raid alert has expired — find a new post.", flags: 64 } });
+        }
         return json({
           type: 9,
           data: {
