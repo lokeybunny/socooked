@@ -363,7 +363,6 @@ export default function SellerManager() {
       }
 
       let matched = 0; let skipped = 0;
-      const updatePromises: Promise<any>[] = [];
 
       for (const row of csvAddresses) {
         const seller = sellerMap.get(normalize(row.address));
@@ -378,10 +377,8 @@ export default function SellerManager() {
         }
         if (row.name && row.name.length > 2 && !seller.owner_name) updates.owner_name = row.name;
         if (row.email && row.email.includes('@') && !seller.owner_email) updates.owner_email = row.email;
-        updatePromises.push(supabase.from('lw_sellers').update(updates).eq('id', seller.id).then());
+        await supabase.from('lw_sellers').update(updates).eq('id', seller.id);
       }
-
-      for (let i = 0; i < updatePromises.length; i += 10) await Promise.all(updatePromises.slice(i, i + 10));
       toast.success(`Import complete: ${matched} matched & updated, ${skipped} skipped`);
       setImportBulkOpen(false);
       await loadSellers();
