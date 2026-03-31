@@ -1772,6 +1772,19 @@ export default function ClientDashboard() {
                       <span className="text-[10px] text-white/40">Background · Address · Phone</span>
                       <ExternalLink className="h-3 w-3 text-white/40" />
                     </button>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors text-left w-full"
+                      onClick={() => {
+                        navigator.clipboard.writeText(detailLead.property_address || '');
+                        toast.success('Address copied to clipboard');
+                        setLookupIframeUrl('https://www.fastpeoplesearch.com/');
+                      }}
+                    >
+                      <span>⚡</span>
+                      <span className="flex-1 font-medium text-white">FastPeopleSearch</span>
+                      <span className="text-[10px] text-white/40">Phone · Address · Relatives</span>
+                      <ExternalLink className="h-3 w-3 text-white/40" />
+                    </button>
                   </div>
                 </div>
 
