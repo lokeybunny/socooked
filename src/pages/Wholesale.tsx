@@ -18,6 +18,7 @@ import DistressDashboard from '@/components/wholesale/DistressDashboard';
 import BuyerSellerMatches from '@/components/wholesale/BuyerSellerMatches';
 import LeadsManager from '@/components/wholesale/LeadsManager';
 import VapiSpendDashboard from '@/components/wholesale/VapiSpendDashboard';
+import BuyerGeoMap from '@/components/wholesale/BuyerGeoMap';
 import TwilioSpendDashboard from '@/components/wholesale/TwilioSpendDashboard';
 import SubscriberAI from '@/components/wholesale/SubscriberAI';
 
