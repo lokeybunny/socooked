@@ -116,7 +116,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
 
     const userMap = new Map<string, EarningsRow>();
 
-    for (const click of clicks || []) {
+    for (const click of clicks) {
       const uid = click.discord_user_id;
       if (!userMap.has(uid)) {
         const raiderInfo = raiderMap.get(uid);
