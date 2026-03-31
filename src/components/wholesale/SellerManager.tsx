@@ -1212,6 +1212,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [editNotes, setEditNotes] = useState(s.notes || '');
   const [saving, setSaving] = useState(false);
   const [pendingStageChange, setPendingStageChange] = useState<{ direction: 'next' | 'prev'; targetKey: string; targetLabel: string } | null>(null);
+  const [lookupIframeUrl, setLookupIframeUrl] = useState<string | null>(null);
 
   // Agreement generator state
   const [agreementOpen, setAgreementOpen] = useState(false);
@@ -1990,8 +1991,12 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         {s.skip_traced_at ? (
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">REAPI traced {new Date(s.skip_traced_at).toLocaleDateString()}</span>
-            <Button size="sm" variant="outline" onClick={handleSkipTrace} disabled={tracing}>
-              {tracing ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Re-tracing…</> : 'Re-trace'}
+            <Button size="sm" variant="outline" onClick={async () => {
+              await supabase.from('lw_sellers').update({ status: 'req_trace' }).eq('id', s.id);
+              toast.success('Moved to Req. Trace pipeline');
+              onSkipTraced?.();
+            }}>
+              Re-trace
             </Button>
           </div>
         ) : (
@@ -2004,39 +2009,45 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         <div className="space-y-1.5">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Free lookup shortcuts</p>
           <div className="grid grid-cols-1 gap-1.5">
-            <a
-              href={`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(s.owner_name || '')}&citystatezip=${encodeURIComponent([s.city, s.state].filter(Boolean).join(', '))}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(s.address_full || s.property_address || '');
+                toast.success('Address copied to clipboard');
+                setLookupIframeUrl(`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(s.owner_name || '')}&citystatezip=${encodeURIComponent([s.city, s.state].filter(Boolean).join(', '))}`);
+              }}
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs hover:bg-accent transition-colors"
             >
               <span>📞</span>
               <span className="flex-1">TruePeopleSearch</span>
               <span className="text-[10px] text-muted-foreground">Phone · Address · Relatives</span>
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
-            </a>
-            <a
-              href="https://www.datatoleads.com/free-tools"
-              target="_blank"
-              rel="noopener noreferrer"
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(s.address_full || s.property_address || '');
+                toast.success('Address copied to clipboard');
+                setLookupIframeUrl('https://www.cyberbackgroundchecks.com/');
+              }}
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs hover:bg-accent transition-colors"
             >
-              <span>📬</span>
-              <span className="flex-1">DataToLeads</span>
-              <span className="text-[10px] text-muted-foreground">Reverse phone · Email · Address</span>
+              <span>🔍</span>
+              <span className="flex-1">CyberBackgroundChecks</span>
+              <span className="text-[10px] text-muted-foreground">Background · Address · Phone</span>
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
-            </a>
-            <a
-              href="https://www.propstream.com/"
-              target="_blank"
-              rel="noopener noreferrer"
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(s.address_full || s.property_address || '');
+                toast.success('Address copied to clipboard');
+                setLookupIframeUrl('https://www.fastpeoplesearch.com/');
+              }}
               className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs hover:bg-accent transition-colors"
             >
-              <span>🏠</span>
-              <span className="flex-1">PropStream</span>
-              <span className="text-[10px] text-muted-foreground">Owner phone · Email · Free trial</span>
+              <span>⚡</span>
+              <span className="flex-1">FastPeopleSearch</span>
+              <span className="text-[10px] text-muted-foreground">Phone · Address · Relatives</span>
               <ExternalLink className="h-3 w-3 text-muted-foreground" />
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -2195,6 +2206,25 @@ Format with numbered sections and clear headings. Make this ready to print, sign
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lookup iframe popup */}
+      <Dialog open={!!lookupIframeUrl} onOpenChange={(o) => { if (!o) setLookupIframeUrl(null); }}>
+        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 rounded-3xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/50">
+            <span className="text-xs text-muted-foreground truncate">{lookupIframeUrl}</span>
+            <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => setLookupIframeUrl(null)}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+          <iframe
+            src={lookupIframeUrl || ''}
+            className="w-full flex-1 border-0"
+            style={{ height: 'calc(85vh - 40px)' }}
+            sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+            title="Lookup"
+          />
         </DialogContent>
       </Dialog>
     </div>

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ShieldCheck, XCircle, Copy, ExternalLink } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
@@ -117,6 +117,7 @@ export default function ClientDashboard() {
   const [batchEnriching, setBatchEnriching] = useState(false);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [lookupIframeUrl, setLookupIframeUrl] = useState<string | null>(null);
+  const [skipTracePopupLead, setSkipTracePopupLead] = useState<Lead | null>(null);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminViewClientName, setAdminViewClientName] = useState<string | null>(null);
@@ -1386,30 +1387,11 @@ export default function ClientDashboard() {
                       {/* Skip Trace — hot leads only */}
                       {isHotLead(lead) && (
                         <button
-                          onClick={() => skipTraceLead(lead)}
-                          disabled={skipTracingId === lead.id || !!(lead.meta as any)?.skip_traced || !!(lead.meta as any)?.skip_trace_pending}
-                          className={`inline-flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50 ${
-                            (lead.meta as any)?.skip_traced
-                              ? 'text-emerald-400/80'
-                              : (lead.meta as any)?.skip_trace_pending
-                                ? 'text-blue-400/80'
-                                : 'text-amber-400/80 hover:text-amber-300'
-                          }`}
+                          onClick={() => setSkipTracePopupLead(lead)}
+                          className="inline-flex items-center gap-2 text-sm font-medium text-amber-400/80 hover:text-amber-300 transition-colors"
                         >
-                          {skipTracingId === lead.id || (lead.meta as any)?.skip_trace_pending ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (lead.meta as any)?.skip_traced ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <Search className="h-4 w-4" />
-                          )}
-                          {skipTracingId === lead.id
-                            ? 'Skip Tracing...'
-                            : (lead.meta as any)?.skip_trace_pending
-                              ? 'Tracing in progress...'
-                              : (lead.meta as any)?.skip_traced
-                                ? 'Skip Traced ✓'
-                                : 'Skip Trace Owner'}
+                          <Search className="h-4 w-4" />
+                          Skip Trace Owner
                         </button>
                       )}
                       {/* Enrich Property — hot leads with sparse data */}
@@ -1827,7 +1809,63 @@ export default function ClientDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Lookup iframe popup */}
+      {/* Skip Trace Popup — free lookup shortcuts */}
+      <Dialog open={!!skipTracePopupLead} onOpenChange={(o) => { if (!o) setSkipTracePopupLead(null); }}>
+        <DialogContent className="max-w-md bg-zinc-900 border-zinc-700 text-white rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-white">How would you like to skip trace?</DialogTitle>
+            <DialogDescription className="text-white/50">
+              {skipTracePopupLead?.full_name} — {skipTracePopupLead?.property_address}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold mb-2">Free lookup shortcuts</p>
+            <button
+              className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors text-left w-full"
+              onClick={() => {
+                navigator.clipboard.writeText(skipTracePopupLead?.property_address || '');
+                toast.success('Address copied to clipboard');
+                setSkipTracePopupLead(null);
+                setLookupIframeUrl(`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(skipTracePopupLead?.full_name || '')}&citystatezip=${encodeURIComponent(skipTracePopupLead?.property_address || '')}`);
+              }}
+            >
+              <span>📞</span>
+              <span className="flex-1 font-medium text-white">TruePeopleSearch</span>
+              <span className="text-[10px] text-white/40">Phone · Address · Relatives</span>
+              <ExternalLink className="h-3 w-3 text-white/40" />
+            </button>
+            <button
+              className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors text-left w-full"
+              onClick={() => {
+                navigator.clipboard.writeText(skipTracePopupLead?.property_address || '');
+                toast.success('Address copied to clipboard');
+                setSkipTracePopupLead(null);
+                setLookupIframeUrl('https://www.cyberbackgroundchecks.com/');
+              }}
+            >
+              <span>🔍</span>
+              <span className="flex-1 font-medium text-white">CyberBackgroundChecks</span>
+              <span className="text-[10px] text-white/40">Background · Address · Phone</span>
+              <ExternalLink className="h-3 w-3 text-white/40" />
+            </button>
+            <button
+              className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors text-left w-full"
+              onClick={() => {
+                navigator.clipboard.writeText(skipTracePopupLead?.property_address || '');
+                toast.success('Address copied to clipboard');
+                setSkipTracePopupLead(null);
+                setLookupIframeUrl('https://www.fastpeoplesearch.com/');
+              }}
+            >
+              <span>⚡</span>
+              <span className="flex-1 font-medium text-white">FastPeopleSearch</span>
+              <span className="text-[10px] text-white/40">Phone · Address · Relatives</span>
+              <ExternalLink className="h-3 w-3 text-white/40" />
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!lookupIframeUrl} onOpenChange={(o) => { if (!o) setLookupIframeUrl(null); }}>
         <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 bg-card border-border rounded-3xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/50">
