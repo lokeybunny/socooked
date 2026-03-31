@@ -1693,57 +1693,6 @@ export default function ClientDashboard() {
             const allPhones: string[] = (m as any)?.all_phones || [];
             const allNames: string[] = (m as any)?.all_names || [];
 
-            const handleContactPasteSave = async () => {
-              if (!contactPasteText.trim()) { toast.error('Paste contact data first'); return; }
-              setContactSaving(true);
-              try {
-                const parsed = parseContactsPaste(contactPasteText);
-                if (parsed.phones.length === 0 && parsed.names.length === 0) {
-                  toast.error('No names or phone numbers found in pasted data');
-                  setContactSaving(false);
-                  return;
-                }
-                const existingPhones: string[] = (detailLead.meta as any)?.all_phones || [];
-                const existingNames: string[] = (detailLead.meta as any)?.all_names || [];
-                const mergedPhones = [...new Set([...existingPhones, ...parsed.phones])];
-                const mergedNames = [...new Set([...existingNames, ...parsed.names])];
-                const newMeta = { ...detailLead.meta, all_phones: mergedPhones, all_names: mergedNames };
-                const updateData: any = { meta: newMeta };
-                // If lead has no phone yet, set primary phone
-                if (!detailLead.phone && parsed.phones.length > 0) {
-                  updateData.phone = parsed.phones[0].replace(/\D/g, '');
-                }
-                // If lead has no name yet, set primary name
-                if ((!detailLead.full_name || detailLead.full_name === 'Unknown') && parsed.names.length > 0) {
-                  updateData.full_name = parsed.names[0];
-                }
-                await supabase.from('lw_landing_leads').update(updateData).eq('id', detailLead.id);
-                // Update local state
-                const updated = { ...detailLead, ...updateData, meta: newMeta };
-                setDetailLead(updated);
-                setLeads(prev => prev.map(l => l.id === detailLead.id ? { ...l, ...updateData, meta: newMeta } : l));
-                toast.success(`Added ${parsed.phones.length} phone(s), ${parsed.names.length} name(s)`);
-                setContactPasteOpen(false);
-                setContactPasteText('');
-              } catch (err: any) {
-                toast.error(err.message || 'Failed to save contacts');
-              }
-              setContactSaving(false);
-            };
-
-            const handleRemoveContact = async (type: 'phone' | 'name', value: string) => {
-              const currentPhones: string[] = (detailLead.meta as any)?.all_phones || [];
-              const currentNames: string[] = (detailLead.meta as any)?.all_names || [];
-              const newPhones = type === 'phone' ? currentPhones.filter(p => p !== value) : currentPhones;
-              const newNames = type === 'name' ? currentNames.filter(n => n !== value) : currentNames;
-              const newMeta = { ...detailLead.meta, all_phones: newPhones, all_names: newNames };
-              await supabase.from('lw_landing_leads').update({ meta: newMeta }).eq('id', detailLead.id);
-              const updated = { ...detailLead, meta: newMeta };
-              setDetailLead(updated);
-              setLeads(prev => prev.map(l => l.id === detailLead.id ? { ...l, meta: newMeta } : l));
-              toast.success(`Removed ${type}`);
-            };
-
             return (
               <div className="space-y-4">
                 {/* Contact Info */}
