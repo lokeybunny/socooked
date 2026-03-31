@@ -40,7 +40,7 @@ export default function BuyerGeoMap() {
       const { data } = await supabase
         .from('lw_buyers')
         .select('id, full_name, entity_name, buyer_type, target_states, target_counties, budget_min, budget_max, deal_type, status, pipeline_stage, meta')
-        .in('status', ['active', 'new_scraped'])
+        .in('pipeline_stage', ['active', 'warm'])
         .order('created_at', { ascending: false });
       setBuyers(data || []);
       setLoading(false);
