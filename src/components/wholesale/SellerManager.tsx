@@ -1712,6 +1712,15 @@ Format with numbered sections and clear headings. Make this ready to print, sign
                 <DetailRow label="Traced Name" value={displayTracedName} copyable gold />
               )}
               <PhoneRow seller={s} />
+              {/* Additional owner names from paste */}
+              {(() => {
+                const allNames: string[] = (s.meta as any)?.all_names || [];
+                const shownNames = allNames.filter((n: string) => n !== s.owner_name && n !== displayTracedName);
+                if (shownNames.length === 0) return null;
+                return shownNames.map((n: string, i: number) => (
+                  <DetailRow key={`an${i}`} label={i === 0 ? 'Also Known As' : ''} value={n} copyable gold />
+                ));
+              })()}
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
               {s.address_full && (
