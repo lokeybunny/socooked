@@ -113,6 +113,8 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
     }
     setClearing(true);
     let cleared = 0;
+
+    // 1. Cancel scheduled API jobs
     for (const post of platformPosts) {
       if (post.job_id) {
         try {
@@ -121,6 +123,29 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
         } catch { /* skip failures */ }
       }
     }
+
+    // 2. Delete matching calendar_events from the database
+    try {
+      const platformTag = platform === 'all' ? '' : platform.toUpperCase();
+      let query = supabase
+        .from('calendar_events')
+        .delete()
+        .eq('source', 'smm')
+        .not('source_id', 'like', 'published-%');
+
+      if (platformTag) {
+        // Calendar events have platform in title like [INSTAGRAM], [TIKTOK], [X]
+        const tagVariants = platform === 'twitter' ? ['[X]', '[TWITTER]'] : [`[${platformTag}]`];
+        if (tagVariants.length === 1) {
+          query = query.ilike('title', `%${tagVariants[0]}%`);
+        } else {
+          query = query.or(tagVariants.map(t => `title.ilike.%${t}%`).join(','));
+        }
+      }
+
+      await query;
+    } catch { /* best-effort cleanup */ }
+
     setClearing(false);
     toast.success(`Cleared ${cleared} ${platformLabel} post${cleared !== 1 ? 's' : ''} from calendar`);
     onRefresh();
