@@ -3107,6 +3107,14 @@ serve(async (req) => {
         const _interactionMessage = interaction.message;
         (async () => {
           try {
+            // Expiry check — reject if alert has passed 5 minutes
+            const trackedShillMsg = await getTrackedBotMessage(supabase, _discordMsgId);
+            if (isBotMessageExpired(trackedShillMsg, _interactionMessage)) {
+              await expireTrackedBotMessage(supabase, trackedShillMsg, DISCORD_BOT_TOKEN);
+              await followUpInteraction(applicationId, interactionToken, "⏰ This shill alert has expired — find a new post.");
+              return;
+            }
+
             // Live link validation
             const shillLinkCheck = await validateXLink(_verifyUrl);
             if (!shillLinkCheck.valid) {
