@@ -6,8 +6,9 @@ import { serverWallClockToIso } from '@/lib/smm/timezone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import PostCard from './PostCard';
-import { ChevronLeft, ChevronRight, CalendarDays, Rows3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, Rows3, Trash2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 
