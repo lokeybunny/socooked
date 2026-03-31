@@ -111,6 +111,10 @@ export default function BuyerGeoMap() {
 
   const maxBuyers = geoData.length ? geoData[0].totalBuyers : 1;
 
+  const goToBuyer = (buyerId: string) => {
+    setSearchParams({ tab: 'buyers', open_id: buyerId });
+  };
+
   if (loading) {
     return (
       <Card>
