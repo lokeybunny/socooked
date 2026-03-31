@@ -316,6 +316,79 @@ export default function SellerManager() {
     setLoading(false);
   };
 
+  // ── IMPORT BULK: parse CSV, match addresses to existing sellers, update to skip_traced ──
+  const handleBulkImport = async (file: File) => {
+    setImportLoading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { toast.error('CSV must have a header row and at least one data row'); return; }
+
+      const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+      const addrIdx = headers.findIndex(h => /^(address|address_full|property_address|full_address|street_address|street|property address|address full)$/.test(h));
+      const phoneIdx = headers.findIndex(h => /^(phone|owner_phone|phone_number|mobile|cell|telephone)$/.test(h));
+      const nameIdx = headers.findIndex(h => /^(name|owner_name|owner|full_name|contact_name)$/.test(h));
+      const emailIdx = headers.findIndex(h => /^(email|owner_email|email_address)$/.test(h));
+
+      if (addrIdx === -1) { toast.error('CSV must have an address column (Address, Property Address, etc.)'); return; }
+
+      const parseCsvRow = (line: string): string[] => {
+        const result: string[] = []; let current = ''; let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') inQuotes = !inQuotes;
+          else if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+          else current += ch;
+        }
+        result.push(current.trim());
+        return result;
+      };
+
+      const csvRows = lines.slice(1).map(parseCsvRow);
+      const csvAddresses = csvRows
+        .map(row => ({
+          address: (row[addrIdx] || '').replace(/^"|"$/g, '').trim(),
+          phone: phoneIdx >= 0 ? (row[phoneIdx] || '').replace(/^"|"$/g, '').trim() : '',
+          name: nameIdx >= 0 ? (row[nameIdx] || '').replace(/^"|"$/g, '').trim() : '',
+          email: emailIdx >= 0 ? (row[emailIdx] || '').replace(/^"|"$/g, '').trim() : '',
+        }))
+        .filter(r => r.address.length > 3);
+
+      if (!csvAddresses.length) { toast.error('No valid addresses found in CSV'); return; }
+
+      const normalize = (a: string) => a.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const sellerMap = new Map<string, any>();
+      for (const s of sellers) {
+        if (s.address_full) sellerMap.set(normalize(s.address_full), s);
+      }
+
+      let matched = 0; let skipped = 0;
+      const updatePromises: Promise<any>[] = [];
+
+      for (const row of csvAddresses) {
+        const seller = sellerMap.get(normalize(row.address));
+        if (!seller || ['skip_traced','contacted','offer_sent','under_contract','closed'].includes(seller.status)) { skipped++; continue; }
+
+        matched++;
+        const updates: Record<string, any> = { status: 'skip_traced', skip_traced_at: new Date().toISOString(), skip_trace_status: 'completed' };
+        if (row.phone && row.phone.replace(/\D/g, '').length >= 7) {
+          updates.owner_phone = row.phone;
+          const existing: string[] = Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : [];
+          if (!existing.includes(row.phone)) updates.meta = { ...(seller.meta || {}), all_phones: [...existing, row.phone] };
+        }
+        if (row.name && row.name.length > 2 && !seller.owner_name) updates.owner_name = row.name;
+        if (row.email && row.email.includes('@') && !seller.owner_email) updates.owner_email = row.email;
+        updatePromises.push(supabase.from('lw_sellers').update(updates).eq('id', seller.id));
+      }
+
+      for (let i = 0; i < updatePromises.length; i += 10) await Promise.all(updatePromises.slice(i, i + 10));
+      toast.success(`Import complete: ${matched} matched & updated, ${skipped} skipped`);
+      setImportBulkOpen(false);
+      await loadSellers();
+    } catch (err: any) { toast.error(err.message || 'Import failed'); }
+    finally { setImportLoading(false); if (importFileRef.current) importFileRef.current.value = ''; }
+  };
+
   const fetchProperties = async () => {
     if (!fetchCounty.trim() || !fetchState.trim()) {
       toast.error('County and State are required');
