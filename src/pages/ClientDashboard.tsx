@@ -224,7 +224,23 @@ export default function ClientDashboard() {
       .in('landing_page_id', pageIds)
       .order('created_at', { ascending: false });
 
-    setLeads((leadsData || []) as Lead[]);
+    const allLeads = (leadsData || []) as Lead[];
+    
+    // Auto-classify: leads with a real phone number that are still 'new' → 'skip_traced'
+    const hasValidPhone = (l: Lead) => {
+      const ph = l.phone?.trim();
+      if (ph && ph !== 'N/A' && ph.replace(/\D/g, '').length >= 7) return true;
+      const metaPhones = (l.meta as any)?.all_phones;
+      return Array.isArray(metaPhones) && metaPhones.length > 0;
+    };
+    const toPromote = allLeads.filter(l => l.status === 'new' && hasValidPhone(l));
+    if (toPromote.length > 0) {
+      const ids = toPromote.map(l => l.id);
+      supabase.from('lw_landing_leads').update({ status: 'skip_traced' }).in('id', ids).then();
+      allLeads.forEach(l => { if (ids.includes(l.id)) l.status = 'skip_traced'; });
+    }
+
+    setLeads(allLeads);
     setLoading(false);
   }, [user, adminViewPageId]);
 
