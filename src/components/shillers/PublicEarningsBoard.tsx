@@ -243,7 +243,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       toast.error("Enter your Solana wallet address to look up your info.");
       return;
     }
-    const match = rows.find((r) => r.solana_wallet && r.solana_wallet.toLowerCase() === query.toLowerCase());
+    const match = allRows.find((r) => r.solana_wallet && r.solana_wallet.toLowerCase() === query.toLowerCase());
     setSearched(true);
     setFoundUser(match || null);
     setPaymentHistory([]);
