@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, Building2, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowLeft, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, Building2, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowLeft, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import DistressFilters, { EMPTY_DISTRESS_FILTERS, type DistressFilterState } from './DistressFilters';
 import CsvImport from './CsvImport';
@@ -180,6 +180,9 @@ export default function SellerManager() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [lastFetchAt, setLastFetchAt] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [importBulkOpen, setImportBulkOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const autoOpenedRef = useRef(false);
@@ -311,6 +314,76 @@ export default function SellerManager() {
 
     setSellers(allSellers);
     setLoading(false);
+  };
+
+  // ── IMPORT BULK: parse CSV, match addresses to existing sellers, update to skip_traced ──
+  const handleBulkImport = async (file: File) => {
+    setImportLoading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { toast.error('CSV must have a header row and at least one data row'); return; }
+
+      const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+      const addrIdx = headers.findIndex(h => /^(address|address_full|property_address|full_address|street_address|street|property address|address full)$/.test(h));
+      const phoneIdx = headers.findIndex(h => /^(phone|owner_phone|phone_number|mobile|cell|telephone)$/.test(h));
+      const nameIdx = headers.findIndex(h => /^(name|owner_name|owner|full_name|contact_name)$/.test(h));
+      const emailIdx = headers.findIndex(h => /^(email|owner_email|email_address)$/.test(h));
+
+      if (addrIdx === -1) { toast.error('CSV must have an address column (Address, Property Address, etc.)'); return; }
+
+      const parseCsvRow = (line: string): string[] => {
+        const result: string[] = []; let current = ''; let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') inQuotes = !inQuotes;
+          else if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+          else current += ch;
+        }
+        result.push(current.trim());
+        return result;
+      };
+
+      const csvRows = lines.slice(1).map(parseCsvRow);
+      const csvAddresses = csvRows
+        .map(row => ({
+          address: (row[addrIdx] || '').replace(/^"|"$/g, '').trim(),
+          phone: phoneIdx >= 0 ? (row[phoneIdx] || '').replace(/^"|"$/g, '').trim() : '',
+          name: nameIdx >= 0 ? (row[nameIdx] || '').replace(/^"|"$/g, '').trim() : '',
+          email: emailIdx >= 0 ? (row[emailIdx] || '').replace(/^"|"$/g, '').trim() : '',
+        }))
+        .filter(r => r.address.length > 3);
+
+      if (!csvAddresses.length) { toast.error('No valid addresses found in CSV'); return; }
+
+      const normalize = (a: string) => a.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const sellerMap = new Map<string, any>();
+      for (const s of sellers) {
+        if (s.address_full) sellerMap.set(normalize(s.address_full), s);
+      }
+
+      let matched = 0; let skipped = 0;
+
+      for (const row of csvAddresses) {
+        const seller = sellerMap.get(normalize(row.address));
+        if (!seller || ['skip_traced','contacted','offer_sent','under_contract','closed'].includes(seller.status)) { skipped++; continue; }
+
+        matched++;
+        const updates: Record<string, any> = { status: 'skip_traced', skip_traced_at: new Date().toISOString(), skip_trace_status: 'completed' };
+        if (row.phone && row.phone.replace(/\D/g, '').length >= 7) {
+          updates.owner_phone = row.phone;
+          const existing: string[] = Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : [];
+          if (!existing.includes(row.phone)) updates.meta = { ...(seller.meta || {}), all_phones: [...existing, row.phone] };
+        }
+        if (row.name && row.name.length > 2 && !seller.owner_name) updates.owner_name = row.name;
+        if (row.email && row.email.includes('@') && !seller.owner_email) updates.owner_email = row.email;
+        await supabase.from('lw_sellers').update(updates).eq('id', seller.id);
+      }
+      toast.success(`Import complete: ${matched} matched & updated, ${skipped} skipped`);
+      setImportBulkOpen(false);
+      await loadSellers();
+    } catch (err: any) { toast.error(err.message || 'Import failed'); }
+    finally { setImportLoading(false); if (importFileRef.current) importFileRef.current.value = ''; }
   };
 
   const fetchProperties = async () => {
@@ -579,6 +652,15 @@ export default function SellerManager() {
                   EXPORT BULK ({selectedIds.size})
                 </Button>
               )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs gap-1.5 h-7"
+                onClick={() => setImportBulkOpen(true)}
+              >
+                <Upload className="h-3 w-3" />
+                IMPORT BULK
+              </Button>
               <Button
                 size="sm"
                 variant={distressMode ? 'default' : 'outline'}
@@ -1179,6 +1261,47 @@ export default function SellerManager() {
 
       {/* CSV Import */}
       <CsvImport open={csvOpen} onOpenChange={setCsvOpen} onImported={loadSellers} dealType={dealTypeFilter !== 'all' ? dealTypeFilter : 'land'} />
+
+      {/* Bulk Import Skip Trace Dialog */}
+      <Dialog open={importBulkOpen} onOpenChange={setImportBulkOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Import Bulk Skip Trace</DialogTitle>
+            <DialogDescription>
+              Upload a CSV with an <strong>Address</strong> column. Matching leads will be updated to <strong>Skip Traced</strong> status. Optionally include Phone, Name, and Email columns to enrich records.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-dashed border-border p-6 text-center">
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleBulkImport(f);
+                }}
+              />
+              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">Select a .csv file with skip trace results</p>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={importLoading}
+                onClick={() => importFileRef.current?.click()}
+              >
+                {importLoading ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Processing…</> : 'Choose CSV File'}
+              </Button>
+            </div>
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p><strong>Required:</strong> Address (or Property Address, Street Address)</p>
+              <p><strong>Optional:</strong> Phone, Name, Email — will enrich matched records</p>
+              <p>Only leads in New, Req. Trace, or Funnel Lead stages will be updated.</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
