@@ -158,6 +158,7 @@ export default function BuyerManager() {
       source: form.source,
       status: 'active',
       pipeline_stage: form.pipeline_stage,
+      buyer_type: form.buyer_type,
       meta: {
         interests,
         deal_types: form.deal_types,
