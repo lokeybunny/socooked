@@ -1750,6 +1750,7 @@ export default function ClientDashboard() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                      onClick={() => { navigator.clipboard.writeText(detailLead.property_address || ''); toast.success('Address copied to clipboard'); }}
                     >
                       <span>📞</span>
                       <span className="flex-1 font-medium text-white">TruePeopleSearch</span>
@@ -1761,6 +1762,7 @@ export default function ClientDashboard() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                      onClick={() => { navigator.clipboard.writeText(detailLead.property_address || ''); toast.success('Address copied to clipboard'); }}
                     >
                       <span>📬</span>
                       <span className="flex-1 font-medium text-white">DataToLeads</span>
@@ -1772,6 +1774,7 @@ export default function ClientDashboard() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                      onClick={() => { navigator.clipboard.writeText(detailLead.property_address || ''); toast.success('Address copied to clipboard'); }}
                     >
                       <span>🏠</span>
                       <span className="flex-1 font-medium text-white">PropStream</span>
