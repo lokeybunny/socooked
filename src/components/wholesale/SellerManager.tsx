@@ -1955,6 +1955,18 @@ Format with numbered sections and clear headings. Make this ready to print, sign
               <label className="text-xs text-muted-foreground">Mailing Address</label>
               <Input value={editMailing} onChange={e => setEditMailing(e.target.value)} className="h-8 text-sm" />
             </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Home Owner Price ($)</label>
+              <Input type="number" value={editHomeownerPrice} onChange={e => setEditHomeownerPrice(e.target.value)} placeholder="Enter price" className="h-8 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Is Owner Interested?</label>
+              <div className="flex gap-2">
+                <Button size="sm" variant={editOwnerInterested === 'yes' ? 'default' : 'outline'} className={editOwnerInterested === 'yes' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''} onClick={() => setEditOwnerInterested('yes')}>Yes</Button>
+                <Button size="sm" variant={editOwnerInterested === 'no' ? 'destructive' : 'outline'} onClick={() => setEditOwnerInterested('no')}>No</Button>
+                {editOwnerInterested && <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditOwnerInterested('')}>Clear</Button>}
+              </div>
+            </div>
           </div>
         ) : (() => {
           const isTraced = !!s.skip_traced_at;
