@@ -130,7 +130,7 @@ export default function BuyerGeoMap() {
           <CardTitle className="text-lg flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
             Buyer Demand Geo Map
-            <Badge variant="outline" className="ml-auto">{buyers.length} active buyers</Badge>
+            <Badge variant="outline" className="ml-auto">{buyers.length} active / subscribed buyers</Badge>
           </CardTitle>
           <p className="text-sm text-muted-foreground">
             See where active buyers want to purchase — use this to target seller acquisition in high-demand zones.
