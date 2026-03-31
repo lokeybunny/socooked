@@ -151,7 +151,6 @@ export default function ClientDashboard() {
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [lookupIframeUrl, setLookupIframeUrl] = useState<string | null>(null);
   const [skipTracePopupLead, setSkipTracePopupLead] = useState<Lead | null>(null);
-  const [contactPasteOpen, setContactPasteOpen] = useState(false);
   const [contactPasteText, setContactPasteText] = useState('');
   const [contactSaving, setContactSaving] = useState(false);
 
