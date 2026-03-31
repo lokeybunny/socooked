@@ -1782,14 +1782,19 @@ Format with numbered sections and clear headings. Make this ready to print, sign
   const handleSaveEdits = async () => {
     setSaving(true);
     try {
+      const priceVal = editHomeownerPrice ? parseFloat(editHomeownerPrice) : null;
+      const newMeta = { ...(s.meta || {}), homeowner_price: priceVal, owner_interested: editOwnerInterested || null };
+      const newStatus = editOwnerInterested === 'no' ? 'dead' : undefined;
       await supabase.from('lw_sellers').update({
         owner_name: editName || null,
         owner_phone: editPhone || null,
         owner_email: editEmail || null,
         owner_mailing_address: editMailing || null,
         notes: editNotes || null,
+        meta: newMeta,
+        ...(newStatus ? { status: newStatus } : {}),
       }).eq('id', s.id);
-      toast.success('Saved');
+      toast.success(newStatus === 'dead' ? 'Saved — lead moved to Dead pipeline' : 'Saved');
       setEditing(false);
       onSkipTraced?.();
     } catch (err: any) {
