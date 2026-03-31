@@ -1991,8 +1991,12 @@ Format with numbered sections and clear headings. Make this ready to print, sign
         {s.skip_traced_at ? (
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">REAPI traced {new Date(s.skip_traced_at).toLocaleDateString()}</span>
-            <Button size="sm" variant="outline" onClick={handleSkipTrace} disabled={tracing}>
-              {tracing ? <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Re-tracing…</> : 'Re-trace'}
+            <Button size="sm" variant="outline" onClick={async () => {
+              await supabase.from('lw_sellers').update({ status: 'req_trace' }).eq('id', s.id);
+              toast.success('Moved to Req. Trace pipeline');
+              onSkipTraced?.();
+            }}>
+              Re-trace
             </Button>
           </div>
         ) : (
