@@ -851,7 +851,7 @@ export default function ClientDashboard() {
         {/* Pipeline Overview */}
         <div>
           <h2 className="text-xl font-bold text-white mb-4">CRM Pipeline</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
             {PIPELINE_STAGES.map(stage => (
               <div
                 key={stage}
