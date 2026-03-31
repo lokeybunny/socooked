@@ -222,6 +222,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const totalVerified = rows.reduce((s, r) => s + r.verified_amount, 0);
   const totalPending = rows.reduce((s, r) => s + r.pending_amount, 0);
   const totalPaidOut = allPayouts.reduce((s, p) => s + Number(p.amount), 0);
+  const totalUnpaid = Math.max(0, totalVerified - totalPaidOut);
 
   const fetchAllPayouts = async () => {
     const { data } = await supabase
