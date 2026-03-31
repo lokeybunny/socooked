@@ -325,12 +325,33 @@ export default function SellerManager() {
       if (lines.length < 2) { toast.error('CSV must have a header row and at least one data row'); return; }
 
       const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
-      const addrIdx = headers.findIndex(h => /^(address|address_full|property_address|full_address|street_address|street|property address|address full)$/.test(h));
-      const phoneIdx = headers.findIndex(h => /^(phone|owner_phone|phone_number|mobile|cell|telephone)$/.test(h));
-      const nameIdx = headers.findIndex(h => /^(name|owner_name|owner|full_name|contact_name)$/.test(h));
-      const emailIdx = headers.findIndex(h => /^(email|owner_email|email_address)$/.test(h));
 
-      if (addrIdx === -1) { toast.error('CSV must have an address column (Address, Property Address, etc.)'); return; }
+      // Flexible header detection — supports skip-trace exports and simple CSVs
+      const findIdx = (patterns: RegExp[]) => {
+        for (const pat of patterns) {
+          const idx = headers.findIndex(h => pat.test(h));
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+
+      const addrIdx = findIdx([
+        /^submitted property address$/, /^property address$/, /^address_full$/, /^address$/,
+        /^full.?address$/, /^street.?address$/, /^street$/,
+      ]);
+      const phoneIdxes = headers.reduce<number[]>((acc, h, i) => {
+        if (/owner phone\d?$|^phone\d?$|^owner_phone|^phone_number|^mobile|^cell|^telephone/.test(h)) acc.push(i);
+        return acc;
+      }, []);
+      const nameIdx = findIdx([
+        /^owner full name$/, /^submitted owner full name$/, /^owner_name$/, /^owner name$/,
+        /^full.?name$/, /^name$/, /^contact.?name$/,
+      ]);
+      const emailIdx = findIdx([
+        /^owner email1$/, /^owner email$/, /^email1?$/, /^owner_email$/, /^email.?address$/,
+      ]);
+
+      if (addrIdx === -1) { toast.error('CSV must have an address column (Address, Property Address, Submitted Property Address, etc.)'); return; }
 
       const parseCsvRow = (line: string): string[] => {
         const result: string[] = []; let current = ''; let inQuotes = false;
@@ -346,34 +367,52 @@ export default function SellerManager() {
 
       const csvRows = lines.slice(1).map(parseCsvRow);
       const csvAddresses = csvRows
-        .map(row => ({
-          address: (row[addrIdx] || '').replace(/^"|"$/g, '').trim(),
-          phone: phoneIdx >= 0 ? (row[phoneIdx] || '').replace(/^"|"$/g, '').trim() : '',
-          name: nameIdx >= 0 ? (row[nameIdx] || '').replace(/^"|"$/g, '').trim() : '',
-          email: emailIdx >= 0 ? (row[emailIdx] || '').replace(/^"|"$/g, '').trim() : '',
-        }))
+        .map(row => {
+          // Collect all phone numbers from matched phone columns
+          const phones = phoneIdxes
+            .map(i => (row[i] || '').replace(/^"|"$/g, '').trim())
+            .filter(p => p.replace(/\D/g, '').length >= 7);
+          return {
+            address: (row[addrIdx] || '').replace(/^"|"$/g, '').trim(),
+            phone: phones[0] || '',
+            allPhones: phones,
+            name: nameIdx >= 0 ? (row[nameIdx] || '').replace(/^"|"$/g, '').trim() : '',
+            email: emailIdx >= 0 ? (row[emailIdx] || '').replace(/^"|"$/g, '').trim() : '',
+          };
+        })
         .filter(r => r.address.length > 3);
 
       if (!csvAddresses.length) { toast.error('No valid addresses found in CSV'); return; }
 
       const normalize = (a: string) => a.toLowerCase().replace(/[^a-z0-9]/g, '');
+      // Extract just the street portion (before first comma) for matching
+      const streetOnly = (a: string) => normalize(a.split(',')[0]);
       const sellerMap = new Map<string, any>();
       for (const s of sellers) {
-        if (s.address_full) sellerMap.set(normalize(s.address_full), s);
+        if (s.address_full) {
+          sellerMap.set(normalize(s.address_full), s);
+          sellerMap.set(streetOnly(s.address_full), s);
+        }
       }
 
       let matched = 0; let skipped = 0;
 
       for (const row of csvAddresses) {
-        const seller = sellerMap.get(normalize(row.address));
+        // Try full address match first, then street-only match
+        const seller = sellerMap.get(normalize(row.address)) || sellerMap.get(streetOnly(row.address));
         if (!seller || ['skip_traced','contacted','offer_sent','under_contract','closed'].includes(seller.status)) { skipped++; continue; }
 
         matched++;
         const updates: Record<string, any> = { status: 'skip_traced', skip_traced_at: new Date().toISOString(), skip_trace_status: 'completed' };
+        // Merge all phones from CSV into meta.all_phones and set primary phone
+        const existing: string[] = Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : [];
+        const newPhones = row.allPhones.filter((p: string) => !existing.includes(p));
         if (row.phone && row.phone.replace(/\D/g, '').length >= 7) {
           updates.owner_phone = row.phone;
-          const existing: string[] = Array.isArray(seller.meta?.all_phones) ? seller.meta.all_phones : [];
-          if (!existing.includes(row.phone)) updates.meta = { ...(seller.meta || {}), all_phones: [...existing, row.phone] };
+        }
+        if (newPhones.length > 0) {
+          updates.meta = { ...(seller.meta || {}), all_phones: [...existing, ...newPhones] };
+          updates.phones_found_count = existing.length + newPhones.length;
         }
         if (row.name && row.name.length > 2 && !seller.owner_name) updates.owner_name = row.name;
         if (row.email && row.email.includes('@') && !seller.owner_email) updates.owner_email = row.email;
