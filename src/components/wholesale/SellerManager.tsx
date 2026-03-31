@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, Building2, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowLeft, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield } from 'lucide-react';
+import { Search, MapPin, Download, ArrowUpDown, ChevronLeft, ChevronRight, Loader2, Info, TreePine, Home, Building2, ExternalLink, Copy, ClipboardPaste, ChevronDown, ChevronUp, Phone, ArrowLeft, ArrowRight, Pencil, Save, FileSpreadsheet, Flame, Snowflake, Sun, Target, X, Shield, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import DistressFilters, { EMPTY_DISTRESS_FILTERS, type DistressFilterState } from './DistressFilters';
 import CsvImport from './CsvImport';
