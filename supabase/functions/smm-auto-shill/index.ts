@@ -2358,6 +2358,12 @@ serve(async (req) => {
       // Shill verify button — needs a quick DB check first, then modal
       if (customId.startsWith("shill_verify_") && !customId.startsWith("shill_verify_submit_")) {
         const discordMsgId = customId.replace("shill_verify_", "") || null;
+        // Expiry check — block verification if the alert is past 5 minutes
+        const trackedShillVerify = await getTrackedBotMessage(supabase, discordMsgId);
+        if (isBotMessageExpired(trackedShillVerify, interactionMessage)) {
+          await expireTrackedBotMessage(supabase, trackedShillVerify, DISCORD_BOT_TOKEN);
+          return json({ type: 4, data: { content: "⏰ This shill alert has expired — find a new post.", flags: 64 } });
+        }
         const { data: userClicks } = await supabase
           .from("shill_clicks").select("id")
           .eq("discord_user_id", discordUserId).eq("discord_msg_id", discordMsgId)
