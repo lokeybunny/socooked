@@ -1100,9 +1100,12 @@ export default function SellerManager() {
                         <div>
                           <span className="font-medium text-sm">{s.owner_name || '—'}</span>
                           {s.owner_phone && (
-                            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                            <span
+                              className="text-xs text-muted-foreground flex items-center gap-0.5 cursor-pointer hover:text-primary hover:underline transition-colors"
+                              title="Click to copy phone"
+                              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(s.owner_phone!); toast.success('Phone copied'); }}
+                            >
                               {s.owner_phone}
-                              <CopyText text={s.owner_phone} />
                             </span>
                           )}
                         </div>
