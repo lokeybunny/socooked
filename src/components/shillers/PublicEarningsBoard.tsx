@@ -200,6 +200,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
     }
 
     let result = Array.from(userMap.values());
+    setAllRows(result);
     if (roleFilter === "shiller") {
       result = result.filter((r) => r.role === "shiller" || r.role === "both");
     } else if (roleFilter === "raider") {
