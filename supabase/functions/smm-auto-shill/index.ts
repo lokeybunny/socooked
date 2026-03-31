@@ -2947,6 +2947,14 @@ serve(async (req) => {
         const _discordMsgId = discordMsgId;
         (async () => {
           try {
+            // Expiry check — reject if alert has passed 5 minutes
+            const trackedRaidMsg = await getTrackedBotMessage(supabase, _discordMsgId);
+            if (isBotMessageExpired(trackedRaidMsg, interaction.message)) {
+              await expireTrackedBotMessage(supabase, trackedRaidMsg, DISCORD_BOT_TOKEN);
+              await followUpInteraction(applicationId, interactionToken, "⏰ This raid alert has expired — find a new post.");
+              return;
+            }
+
             // Live link validation
             const raidLinkCheck = await validateXLink(_raidUrl);
             if (!raidLinkCheck.valid) {
