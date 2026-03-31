@@ -7,6 +7,7 @@ const statusStyles: Record<string, string> = {
   inactive: 'status-inactive',
   churned: 'status-churned',
   new: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  skip_traced: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   qualified: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
   proposal: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
   negotiation: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
