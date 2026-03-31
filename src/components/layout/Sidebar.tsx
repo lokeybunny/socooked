@@ -35,6 +35,7 @@ const navItems: NavItem[] = [
   { to: '/x-shill', icon: Target, label: 'X Shill', botIcon: true },
   { to: '/wholesale', icon: Warehouse, label: 'Wholesale', botIcon: true },
   { to: '/previews', icon: Sparkles, label: 'Websites', botIcon: true },
+  { to: '/api-management', icon: Key, label: 'API', botIcon: true },
 ];
 
 const RESTRICTED_EMAIL = 'warren@guru.com';
