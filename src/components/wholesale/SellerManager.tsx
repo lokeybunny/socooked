@@ -292,7 +292,23 @@ export default function SellerManager() {
   const loadSellers = async () => {
     setLoading(true);
     const { data } = await supabase.from('lw_sellers').select('*').order('created_at', { ascending: false }).limit(1000);
-    setSellers(data || []);
+    const allSellers = data || [];
+
+    // Auto-promote: sellers with a valid phone still in 'new' → 'skip_traced'
+    const hasPhone = (s: any) => {
+      const ph = s.owner_phone?.trim();
+      if (ph && ph !== 'N/A' && ph.replace(/\D/g, '').length >= 7) return true;
+      const metaPhones = s.meta?.all_phones;
+      return Array.isArray(metaPhones) && metaPhones.length > 0;
+    };
+    const toPromote = allSellers.filter((s: any) => s.status === 'new' && hasPhone(s));
+    if (toPromote.length > 0) {
+      const ids = toPromote.map((s: any) => s.id);
+      supabase.from('lw_sellers').update({ status: 'skip_traced' }).in('id', ids).then();
+      allSellers.forEach((s: any) => { if (ids.includes(s.id)) s.status = 'skip_traced'; });
+    }
+
+    setSellers(allSellers);
     setLoading(false);
   };
 
