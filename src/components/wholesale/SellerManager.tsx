@@ -378,7 +378,7 @@ export default function SellerManager() {
         }
         if (row.name && row.name.length > 2 && !seller.owner_name) updates.owner_name = row.name;
         if (row.email && row.email.includes('@') && !seller.owner_email) updates.owner_email = row.email;
-        updatePromises.push(supabase.from('lw_sellers').update(updates).eq('id', seller.id));
+        updatePromises.push(supabase.from('lw_sellers').update(updates).eq('id', seller.id).then());
       }
 
       for (let i = 0; i < updatePromises.length; i += 10) await Promise.all(updatePromises.slice(i, i + 10));
