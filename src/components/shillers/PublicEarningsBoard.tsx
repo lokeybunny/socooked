@@ -581,12 +581,15 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
               <TableHead>Role</TableHead>
               <TableHead>Wallet</TableHead>
               <TableHead className="text-right">Verified</TableHead>
-              
-              <TableHead className="text-right">Total Clicks</TableHead>
+              <TableHead className="text-right">Paid</TableHead>
+              <TableHead className="text-right">Unpaid</TableHead>
+              <TableHead className="text-right">Clicks</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => (
+            {rows.map((row) => {
+              const unpaid = Math.max(0, row.verified_amount - row.paid_out);
+              return (
               <TableRow
                 key={row.discord_user_id}
                 className={foundUser?.discord_user_id === row.discord_user_id ? "bg-primary/10 border-l-2 border-l-primary" : ""}
@@ -614,6 +617,12 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
                 </TableCell>
                 <TableCell className="text-right font-mono text-green-500 font-semibold">
                   ${row.verified_amount.toFixed(2)}
+                </TableCell>
+                <TableCell className="text-right font-mono text-emerald-400 text-sm">
+                  ${row.paid_out.toFixed(2)}
+                </TableCell>
+                <TableCell className="text-right font-mono text-amber-500 font-semibold text-sm">
+                  {unpaid > 0 ? `$${unpaid.toFixed(2)}` : '—'}
                 </TableCell>
                 <TableCell className="text-right font-mono text-sm">
                   {row.verified_clicks + row.pending_clicks}
