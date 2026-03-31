@@ -45,6 +45,7 @@ interface EarningsRow {
   verified_clicks: number;
   pending_amount: number;
   pending_clicks: number;
+  paid_out: number;
   role: "shiller" | "raider" | "both";
   // Breakdown by type
   shill_verified: number;
