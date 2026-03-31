@@ -7,6 +7,7 @@ const statusStyles: Record<string, string> = {
   inactive: 'status-inactive',
   churned: 'status-churned',
   new: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+  skip_traced: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   qualified: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400',
   proposal: 'bg-purple-500/15 text-purple-600 dark:text-purple-400',
   negotiation: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
@@ -43,6 +44,16 @@ const statusStyles: Record<string, string> = {
   confirmed: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
 };
 
+const statusLabels: Record<string, string> = {
+  skip_traced: 'Skip Traced',
+  under_contract: 'Under Contract',
+  collecting_info: 'Collecting Info',
+  ready_for_docs: 'Ready for Docs',
+  docs_generated: 'Docs Generated',
+  sent_for_signature: 'Sent for Signature',
+  'in-progress': 'In Progress',
+};
+
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
   return (
     <span className={cn(
@@ -50,7 +61,7 @@ export function StatusBadge({ status, className }: { status: string; className?:
       statusStyles[status] || 'bg-muted text-muted-foreground',
       className
     )}>
-      {status}
+      {statusLabels[status] || status}
     </span>
   );
 }

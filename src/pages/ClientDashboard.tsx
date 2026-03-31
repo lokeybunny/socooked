@@ -120,9 +120,10 @@ interface LandingPage {
   vapi_total_spent_cents: number;
 }
 
-const PIPELINE_STAGES = ['new', 'contacted', 'qualified', 'under_contract', 'closed'] as const;
+const PIPELINE_STAGES = ['new', 'skip_traced', 'contacted', 'qualified', 'under_contract', 'closed'] as const;
 const STAGE_LABELS: Record<string, string> = {
   new: 'New',
+  skip_traced: 'Skip Traced',
   contacted: 'Contacted',
   qualified: 'Qualified',
   under_contract: 'Under Contract',
@@ -223,7 +224,23 @@ export default function ClientDashboard() {
       .in('landing_page_id', pageIds)
       .order('created_at', { ascending: false });
 
-    setLeads((leadsData || []) as Lead[]);
+    const allLeads = (leadsData || []) as Lead[];
+    
+    // Auto-classify: leads with a real phone number that are still 'new' → 'skip_traced'
+    const hasValidPhone = (l: Lead) => {
+      const ph = l.phone?.trim();
+      if (ph && ph !== 'N/A' && ph.replace(/\D/g, '').length >= 7) return true;
+      const metaPhones = (l.meta as any)?.all_phones;
+      return Array.isArray(metaPhones) && metaPhones.length > 0;
+    };
+    const toPromote = allLeads.filter(l => l.status === 'new' && hasValidPhone(l));
+    if (toPromote.length > 0) {
+      const ids = toPromote.map(l => l.id);
+      supabase.from('lw_landing_leads').update({ status: 'skip_traced' }).in('id', ids).then();
+      allLeads.forEach(l => { if (ids.includes(l.id)) l.status = 'skip_traced'; });
+    }
+
+    setLeads(allLeads);
     setLoading(false);
   }, [user, adminViewPageId]);
 
@@ -850,7 +867,7 @@ export default function ClientDashboard() {
         {/* Pipeline Overview */}
         <div>
           <h2 className="text-xl font-bold text-white mb-4">CRM Pipeline</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
             {PIPELINE_STAGES.map(stage => (
               <div
                 key={stage}
@@ -1042,6 +1059,10 @@ export default function ClientDashboard() {
                                 }
                                 if (needsPhone && mergedPhones.length > 0) {
                                   updatePayload.phone = mergedPhones[0];
+                                }
+                                // Auto-promote to skip_traced if lead has a phone now and is still 'new'
+                                if (lead.status === 'new' && (mergedPhones.length > 0 || (updatePayload.phone))) {
+                                  updatePayload.status = 'skip_traced';
                                 }
                                 await supabase.from('lw_landing_leads').update(updatePayload).eq('id', lead.id);
                                 setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, ...updatePayload } : l));
