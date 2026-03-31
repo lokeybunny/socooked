@@ -633,7 +633,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
 
             {rows.length === 0 && !loading && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No earnings data yet.
                 </TableCell>
               </TableRow>
