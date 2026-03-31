@@ -612,6 +612,10 @@ export default function SellerManager() {
     }
 
     list.sort((a, b) => {
+      // Sellers with homeowner_price always float to top
+      const aPrice = (a.meta as any)?.homeowner_price ? 1 : 0;
+      const bPrice = (b.meta as any)?.homeowner_price ? 1 : 0;
+      if (aPrice !== bPrice) return bPrice - aPrice;
       const av = a[sortField] ?? 0;
       const bv = b[sortField] ?? 0;
       return sortAsc ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
@@ -1098,7 +1102,7 @@ export default function SellerManager() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <span className="font-medium text-sm">{s.owner_name || '—'}</span>
+                          <span className={`font-medium text-sm ${(s.meta as any)?.homeowner_price ? 'text-emerald-500 font-bold' : ''}`}>{s.owner_name || '—'}</span>
                           {s.owner_phone && (
                             <span
                               className="text-xs text-muted-foreground flex items-center gap-0.5 cursor-pointer hover:text-primary hover:underline transition-colors"
@@ -1979,6 +1983,26 @@ Format with numbered sections and clear headings. Make this ready to print, sign
               })()}
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
+              {/* Home Owner Price */}
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs text-muted-foreground">Home Owner Price:</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">$</span>
+                  <Input
+                    type="number"
+                    placeholder="Enter price"
+                    className="h-7 w-32 text-sm text-right"
+                    defaultValue={(s.meta as any)?.homeowner_price || ''}
+                    onBlur={async (e) => {
+                      const val = e.target.value ? parseFloat(e.target.value) : null;
+                      const newMeta = { ...(s.meta || {}), homeowner_price: val };
+                      await supabase.from('lw_sellers').update({ meta: newMeta }).eq('id', s.id);
+                      toast.success(val ? `Home Owner Price set to $${val.toLocaleString()}` : 'Home Owner Price cleared');
+                      onSkipTraced?.();
+                    }}
+                  />
+                </div>
+              </div>
               {s.address_full && (
                 <div className="pt-2 flex flex-wrap justify-center gap-3">
                   <button
