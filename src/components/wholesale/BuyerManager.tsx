@@ -129,6 +129,7 @@ export default function BuyerManager() {
       contact_preference: b.meta?.contact_preference || 'email',
       website: b.meta?.website || '',
       pipeline_stage: b.meta?.pipeline_stage || (b as any).pipeline_stage || 'new_scraped',
+      buyer_type: b.buyer_type || 'unknown',
     });
     setInterests(b.meta?.interests || emptyInterests);
     setOpen(true);
