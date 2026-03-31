@@ -64,6 +64,7 @@ interface Props {
 
 export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const [rows, setRows] = useState<EarningsRow[]>([]);
+  const [allRows, setAllRows] = useState<EarningsRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [allPayouts, setAllPayouts] = useState<any[]>([]);
 
