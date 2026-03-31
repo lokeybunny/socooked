@@ -877,7 +877,7 @@ export default function ClientDashboard() {
               </p>
             </div>
           )}
-          {filteredLeads.map(lead => {
+          {paginatedLeads.map(lead => {
             const isExpanded = expandedLead === lead.id;
             const isEditing = editingLead === lead.id;
             const pageName = landingPages.find(p => p.id === lead.landing_page_id)?.slug || '—';
