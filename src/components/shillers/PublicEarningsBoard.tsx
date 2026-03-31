@@ -175,6 +175,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           solana_wallet: info.wallet,
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
+          paid_out: paidByUser.get(uid) || 0,
           role: shillerUserIds.has(uid) ? "both" : "raider",
           ...zeroBreakdown,
         });
