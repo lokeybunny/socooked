@@ -459,10 +459,15 @@ export default function BuyerManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {buyers.map(b => {
+              {[...buyers].sort((a, b) => {
+                const aHedge = a.buyer_type === 'hedge_fund' ? 0 : 1;
+                const bHedge = b.buyer_type === 'hedge_fund' ? 0 : 1;
+                return aHedge - bHedge;
+              }).map(b => {
                 const tags = interestSummary(b);
+                const isHedgeFund = b.buyer_type === 'hedge_fund';
                 return (
-                  <TableRow key={b.id}>
+                  <TableRow key={b.id} className={isHedgeFund ? 'bg-amber-500/5 border-amber-500/20' : ''}>
                     <TableCell>
                       <div>
                         <span className="font-medium">{b.full_name}</span>
