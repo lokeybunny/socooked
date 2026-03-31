@@ -329,7 +329,7 @@ export default function ClientDashboard() {
     }
   };
 
-  // ─── Skip Trace via Apify one-api/skip-trace ───
+  // ─── Skip Trace via Apify one-api/skip-trace (async start + poll) ───
   const skipTraceLead = async (lead: Lead) => {
     if (!lead.property_address) {
       toast.error('Lead has no property address for skip trace');
@@ -337,41 +337,59 @@ export default function ClientDashboard() {
     }
     setSkipTracingId(lead.id);
     try {
+      // Step 1: Start the Apify run
       const { data, error } = await supabase.functions.invoke('apify-skip-trace', {
         body: { lead_id: lead.id, address: lead.property_address },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      handleSkipTraceResult(lead, data);
+
+      if (data?.status === 'started' && data?.apify_run_id) {
+        // Mark lead as pending in local state
+        setLeads(prev => prev.map(l => l.id === lead.id ? {
+          ...l,
+          meta: { ...(l.meta || {}), skip_trace_pending: true, skip_trace_apify_run_id: data.apify_run_id }
+        } : l));
+        toast.info('Skip trace started — polling for results...');
+
+        // Step 2: Poll for results
+        const runId = data.apify_run_id;
+        const maxAttempts = 40; // ~2 minutes of polling
+        for (let i = 0; i < maxAttempts; i++) {
+          await new Promise(r => setTimeout(r, 3000));
+          const { data: pollData, error: pollErr } = await supabase.functions.invoke('apify-skip-trace', {
+            body: { action: 'poll', lead_id: lead.id, apify_run_id: runId },
+          });
+          if (pollErr) continue;
+
+          if (pollData?.status === 'running') continue;
+
+          if (pollData?.status === 'completed') {
+            if (pollData.phone || pollData.email) {
+              toast.success(`✅ Skip trace found ${pollData.phones?.length || 0} phone(s), ${pollData.emails?.length || 0} email(s)`);
+            } else {
+              toast.warning('Skip trace completed but no contact info found');
+            }
+            loadData();
+            return;
+          }
+
+          if (pollData?.status === 'failed') {
+            toast.error(pollData.error || 'Skip trace failed');
+            loadData();
+            return;
+          }
+        }
+        toast.warning('Skip trace is still running — results will appear automatically when ready');
+        loadData();
+      } else {
+        // Unexpected response
+        toast.error('Unexpected response from skip trace');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Skip trace failed');
     } finally {
       setSkipTracingId(null);
-    }
-  };
-
-  const handleSkipTraceResult = (lead: Lead, data: any) => {
-    if (data.phone || data.email) {
-      // Update lead meta with skip trace results
-      const updatedMeta = {
-        ...(lead.meta || {}),
-        skip_traced: true,
-        skip_trace_phones: data.phones || [],
-        skip_trace_emails: data.emails || [],
-        skip_trace_mailing: data.mailing_address,
-        owner_phone: data.phone,
-        owner_email: data.email,
-      };
-      supabase
-        .from('lw_landing_leads')
-        .update({ meta: updatedMeta as any, full_name: data.phones?.length ? lead.full_name : lead.full_name })
-        .eq('id', lead.id)
-        .then(() => {
-          setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, meta: updatedMeta, phone: data.phone || l.phone } : l));
-        });
-      toast.success(`✅ Skip trace successful! Found ${data.phones?.length || 0} phone(s), ${data.emails?.length || 0} email(s)`);
-    } else {
-      toast.error('Skip trace returned no contact info');
     }
   };
 
@@ -1368,14 +1386,16 @@ export default function ClientDashboard() {
                       {isHotLead(lead) && (
                         <button
                           onClick={() => skipTraceLead(lead)}
-                          disabled={skipTracingId === lead.id || !!(lead.meta as any)?.skip_traced}
+                          disabled={skipTracingId === lead.id || !!(lead.meta as any)?.skip_traced || !!(lead.meta as any)?.skip_trace_pending}
                           className={`inline-flex items-center gap-2 text-sm font-medium transition-colors disabled:opacity-50 ${
                             (lead.meta as any)?.skip_traced
                               ? 'text-emerald-400/80'
-                              : 'text-amber-400/80 hover:text-amber-300'
+                              : (lead.meta as any)?.skip_trace_pending
+                                ? 'text-blue-400/80'
+                                : 'text-amber-400/80 hover:text-amber-300'
                           }`}
                         >
-                          {skipTracingId === lead.id ? (
+                          {skipTracingId === lead.id || (lead.meta as any)?.skip_trace_pending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (lead.meta as any)?.skip_traced ? (
                             <Check className="h-4 w-4" />
@@ -1384,9 +1404,11 @@ export default function ClientDashboard() {
                           )}
                           {skipTracingId === lead.id
                             ? 'Skip Tracing...'
-                            : (lead.meta as any)?.skip_traced
-                              ? 'Skip Traced ✓'
-                              : 'Skip Trace Owner'}
+                            : (lead.meta as any)?.skip_trace_pending
+                              ? 'Tracing in progress...'
+                              : (lead.meta as any)?.skip_traced
+                                ? 'Skip Traced ✓'
+                                : 'Skip Trace Owner'}
                         </button>
                       )}
                       {/* Enrich Property — hot leads with sparse data */}
