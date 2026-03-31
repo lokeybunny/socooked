@@ -53,6 +53,7 @@ import ShillCRM from "./pages/ShillCRM";
 import ShillTeam from "./pages/ShillTeam";
 import XShill from "./pages/XShill";
 import Wholesale from "./pages/Wholesale";
+import ApiManagement from "./pages/ApiManagement";
 import SellerLanding from "./pages/SellerLanding";
 import Pricing from "./pages/Pricing";
 import Terms from "./pages/Terms";
@@ -148,6 +149,7 @@ const App = () => (
             <Route path="/x-shill" element={<RestrictedGate><AuthLayoutGate><XShill /></AuthLayoutGate></RestrictedGate>} />
             <Route path="/wholesale" element={<WarrenOnlyGate><AuthLayoutGate><Wholesale /></AuthLayoutGate></WarrenOnlyGate>} />
             <Route path="/sell/:slug" element={<SellerLanding />} />
+            <Route path="/api-management" element={<WarrenOnlyGate><AuthLayoutGate><ApiManagement /></AuthLayoutGate></WarrenOnlyGate>} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/client-login" element={<Navigate to="/auth" replace />} />
