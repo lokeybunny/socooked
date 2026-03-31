@@ -368,13 +368,21 @@ export default function XShill() {
 
   const toggleSource = async (enabled: boolean) => {
     setSourceEnabled(enabled);
+    // Preserve the currently-selected listen channel instead of hardcoding
+    const { data: currentSrc } = await supabase
+      .from("site_configs")
+      .select("content")
+      .eq("site_id", "smm-auto-shill")
+      .eq("section", "raid-community-source")
+      .maybeSingle();
+    const currentChannel = (currentSrc?.content as any)?.discord_listen_channel_id || "1484699554271072257";
     await supabase.from("site_configs").upsert({
       site_id: "smm-auto-shill",
       section: "raid-community-source",
       content: {
         enabled,
-        discord_listen_channel_id: "1484699554271072257",
-        discord_channel_id: "1484699554271072257",
+        discord_listen_channel_id: currentChannel,
+        discord_channel_id: currentChannel,
       } as any,
     } as any, { onConflict: "site_id,section" } as any);
     toast.success(enabled ? "Raid bot enabled" : "Raid bot disabled");
