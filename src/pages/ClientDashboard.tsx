@@ -240,6 +240,24 @@ export default function ClientDashboard() {
       allLeads.forEach(l => { if (ids.includes(l.id)) l.status = 'skip_traced'; });
     }
 
+    // Auto-fix: replace "Property Owner" / "N/A" names with first name from meta.all_names
+    const nameFixes: { id: string; full_name: string }[] = [];
+    allLeads.forEach(l => {
+      const n = l.full_name?.trim();
+      if (!n || n === 'Property Owner' || n === 'N/A') {
+        const metaNames = (l.meta as any)?.all_names;
+        if (Array.isArray(metaNames) && metaNames.length > 0) {
+          l.full_name = metaNames[0];
+          nameFixes.push({ id: l.id, full_name: metaNames[0] });
+        }
+      }
+    });
+    if (nameFixes.length > 0) {
+      nameFixes.forEach(({ id, full_name }) => {
+        supabase.from('lw_landing_leads').update({ full_name }).eq('id', id).then();
+      });
+    }
+
     setLeads(allLeads);
     setLoading(false);
   }, [user, adminViewPageId]);
