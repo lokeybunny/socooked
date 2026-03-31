@@ -2328,6 +2328,12 @@ serve(async (req) => {
       // Raid channel verify
       if (customId.startsWith("raid_verify_") && !customId.startsWith("raid_verify_submit_")) {
         const discordMsgId = customId.replace("raid_verify_", "") || null;
+        // Expiry check — block verification if the alert is past 5 minutes
+        const trackedRaidVerify = await getTrackedBotMessage(supabase, discordMsgId);
+        if (isBotMessageExpired(trackedRaidVerify, interactionMessage)) {
+          await expireTrackedBotMessage(supabase, trackedRaidVerify, DISCORD_BOT_TOKEN);
+          return json({ type: 4, data: { content: "⏰ This raid alert has expired — find a new post.", flags: 64 } });
+        }
         return json({
           type: 9,
           data: {
@@ -2352,6 +2358,12 @@ serve(async (req) => {
       // Shill verify button — needs a quick DB check first, then modal
       if (customId.startsWith("shill_verify_") && !customId.startsWith("shill_verify_submit_")) {
         const discordMsgId = customId.replace("shill_verify_", "") || null;
+        // Expiry check — block verification if the alert is past 5 minutes
+        const trackedShillVerify = await getTrackedBotMessage(supabase, discordMsgId);
+        if (isBotMessageExpired(trackedShillVerify, interactionMessage)) {
+          await expireTrackedBotMessage(supabase, trackedShillVerify, DISCORD_BOT_TOKEN);
+          return json({ type: 4, data: { content: "⏰ This shill alert has expired — find a new post.", flags: 64 } });
+        }
         const { data: userClicks } = await supabase
           .from("shill_clicks").select("id")
           .eq("discord_user_id", discordUserId).eq("discord_msg_id", discordMsgId)
@@ -2935,6 +2947,14 @@ serve(async (req) => {
         const _discordMsgId = discordMsgId;
         (async () => {
           try {
+            // Expiry check — reject if alert has passed 5 minutes
+            const trackedRaidMsg = await getTrackedBotMessage(supabase, _discordMsgId);
+            if (isBotMessageExpired(trackedRaidMsg, interaction.message)) {
+              await expireTrackedBotMessage(supabase, trackedRaidMsg, DISCORD_BOT_TOKEN);
+              await followUpInteraction(applicationId, interactionToken, "⏰ This raid alert has expired — find a new post.");
+              return;
+            }
+
             // Live link validation
             const raidLinkCheck = await validateXLink(_raidUrl);
             if (!raidLinkCheck.valid) {
@@ -3087,6 +3107,14 @@ serve(async (req) => {
         const _interactionMessage = interaction.message;
         (async () => {
           try {
+            // Expiry check — reject if alert has passed 5 minutes
+            const trackedShillMsg = await getTrackedBotMessage(supabase, _discordMsgId);
+            if (isBotMessageExpired(trackedShillMsg, _interactionMessage)) {
+              await expireTrackedBotMessage(supabase, trackedShillMsg, DISCORD_BOT_TOKEN);
+              await followUpInteraction(applicationId, interactionToken, "⏰ This shill alert has expired — find a new post.");
+              return;
+            }
+
             // Live link validation
             const shillLinkCheck = await validateXLink(_verifyUrl);
             if (!shillLinkCheck.valid) {
