@@ -64,6 +64,7 @@ interface Props {
 
 export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const [rows, setRows] = useState<EarningsRow[]>([]);
+  const [allRows, setAllRows] = useState<EarningsRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [allPayouts, setAllPayouts] = useState<any[]>([]);
 
@@ -199,6 +200,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
     }
 
     let result = Array.from(userMap.values());
+    setAllRows(result);
     if (roleFilter === "shiller") {
       result = result.filter((r) => r.role === "shiller" || r.role === "both");
     } else if (roleFilter === "raider") {
@@ -241,7 +243,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       toast.error("Enter your Solana wallet address to look up your info.");
       return;
     }
-    const match = rows.find((r) => r.solana_wallet && r.solana_wallet.toLowerCase() === query.toLowerCase());
+    const match = allRows.find((r) => r.solana_wallet && r.solana_wallet.toLowerCase() === query.toLowerCase());
     setSearched(true);
     setFoundUser(match || null);
     setPaymentHistory([]);
