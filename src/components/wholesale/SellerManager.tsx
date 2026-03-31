@@ -1094,7 +1094,15 @@ export default function SellerManager() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs max-w-[200px] truncate">{s.address_full || '—'}</TableCell>
+                      <TableCell className="text-xs max-w-[200px] truncate">
+                        {s.address_full ? (
+                          <span
+                            className="cursor-pointer hover:text-primary hover:underline transition-colors"
+                            title="Click to copy address"
+                            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(s.address_full!); toast.success('Address copied'); }}
+                          >{s.address_full}</span>
+                        ) : '—'}
+                      </TableCell>
                       <TableCell className="text-xs">
                         <span>{s.county || '—'}</span>
                         <span className="text-muted-foreground">, {s.state || '—'}</span>
