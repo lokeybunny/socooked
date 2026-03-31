@@ -2002,26 +2002,8 @@ Format with numbered sections and clear headings. Make this ready to print, sign
               })()}
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
-              {/* Home Owner Price */}
-              <div className="flex items-center justify-between py-1">
-                <span className="text-xs text-muted-foreground">Home Owner Price:</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-muted-foreground">$</span>
-                  <Input
-                    type="number"
-                    placeholder="Enter price"
-                    className="h-7 w-32 text-sm text-right"
-                    defaultValue={(s.meta as any)?.homeowner_price || ''}
-                    onBlur={async (e) => {
-                      const val = e.target.value ? parseFloat(e.target.value) : null;
-                      const newMeta = { ...(s.meta || {}), homeowner_price: val };
-                      await supabase.from('lw_sellers').update({ meta: newMeta }).eq('id', s.id);
-                      toast.success(val ? `Home Owner Price set to $${val.toLocaleString()}` : 'Home Owner Price cleared');
-                      onSkipTraced?.();
-                    }}
-                  />
-                </div>
-              </div>
+              <DetailRow label="Home Owner Price" value={(s.meta as any)?.homeowner_price ? `$${Number((s.meta as any).homeowner_price).toLocaleString()}` : null} />
+              <DetailRow label="Owner Interested" value={(s.meta as any)?.owner_interested === 'yes' ? '✅ Yes' : (s.meta as any)?.owner_interested === 'no' ? '❌ No' : null} />
               {s.address_full && (
                 <div className="pt-2 flex flex-wrap justify-center gap-3">
                   <button
