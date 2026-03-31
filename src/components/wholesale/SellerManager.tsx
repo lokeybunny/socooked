@@ -550,6 +550,35 @@ export default function SellerManager() {
             <Download className="h-4 w-4" />
             Fetch Seller Leads
             <div className="ml-auto flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs gap-1.5 h-7 border-primary text-primary"
+                  onClick={() => {
+                    const selected = sellers.filter(s => selectedIds.has(s.id));
+                    if (!selected.length) return;
+                    const headers = ['Owner Name','Address','City','County','State','Zip','Acreage','Property Type','Status','Motivation Score'];
+                    const csvRows = selected.map(s => [
+                      s.owner_name || '', s.address_full || '', s.city || '', s.county || '',
+                      s.state || '', s.zip || '', s.acreage || '', s.property_type || '',
+                      s.status || '', s.motivation_score || 0,
+                    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+                    const csv = [headers.join(','), ...csvRows].join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `seller_export_${selected.length}_leads.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success(`Exported ${selected.length} sellers to CSV`);
+                  }}
+                >
+                  <FileSpreadsheet className="h-3 w-3" />
+                  EXPORT BULK ({selectedIds.size})
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant={distressMode ? 'default' : 'outline'}
