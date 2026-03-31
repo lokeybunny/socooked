@@ -6,8 +6,9 @@ import { serverWallClockToIso } from '@/lib/smm/timezone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import PostCard from './PostCard';
-import { ChevronLeft, ChevronRight, CalendarDays, Rows3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, Rows3, Trash2 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, startOfWeek, endOfWeek, isSameMonth, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -27,6 +28,7 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const [editTime, setEditTime] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'lanes'>('calendar');
+  const [clearing, setClearing] = useState(false);
   const dedupRan = useRef(false);
 
   useEffect(() => {
@@ -96,6 +98,33 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
   const activePlatforms = useMemo(() => EXTENDED_PLATFORMS.filter(p => p !== 'all' && scheduledPosts.some(post => post.platforms.includes(p as Platform))), [scheduledPosts]);
   const next7Days = eachDayOfInterval({ start: new Date(), end: new Date(Date.now() + 6 * 86400000) });
 
+  const platformLabel = platform === 'all' ? 'All Platforms' : (PLATFORM_META[platform]?.label || platform);
+
+  const platformPosts = useMemo(() => {
+    if (platform === 'all') return scheduledPosts;
+    return scheduledPosts.filter(p => p.platforms.includes(platform as Platform));
+  }, [scheduledPosts, platform]);
+
+  const handleClearCalendar = async () => {
+    if (platformPosts.length === 0) {
+      toast.info('No posts to clear');
+      return;
+    }
+    setClearing(true);
+    let cleared = 0;
+    for (const post of platformPosts) {
+      if (post.job_id) {
+        try {
+          await smmApi.cancelPost(post.job_id);
+          cleared++;
+        } catch { /* skip failures */ }
+      }
+    }
+    setClearing(false);
+    toast.success(`Cleared ${cleared} ${platformLabel} post${cleared !== 1 ? 's' : ''} from calendar`);
+    onRefresh();
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -108,6 +137,27 @@ export default function SMMCalendar({ posts, onRefresh }: { posts: ScheduledPost
           </div>
         </div>
         <div className="flex gap-1">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 gap-1 text-xs text-destructive border-destructive/30 hover:bg-destructive/10" disabled={clearing || platformPosts.length === 0}>
+                <Trash2 className="h-3 w-3" /> Clear Cal
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear {platformLabel} Calendar?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will cancel all {platformPosts.length} scheduled {platformLabel} post{platformPosts.length !== 1 ? 's' : ''}. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearCalendar} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Yes, Clear Calendar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button variant={viewMode === 'calendar' ? 'default' : 'outline'} size="sm" className="h-7 gap-1 text-xs" onClick={() => setViewMode('calendar')}>
             <CalendarDays className="h-3 w-3" /> Calendar
           </Button>
