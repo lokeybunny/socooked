@@ -941,7 +941,19 @@ export default function SellerManager() {
                   {paginated.map(s => {
                     const tempIcon = (s.lead_temperature || ((s.motivation_score || 0) >= 70 ? 'Hot' : (s.motivation_score || 0) >= 45 ? 'Warm' : 'Cold'));
                     return (
-                    <TableRow key={s.id} className={isNewlyFetched(s.created_at) ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500 animate-in fade-in duration-500' : ''}>
+                    <TableRow key={s.id} className={`${isNewlyFetched(s.created_at) ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500 animate-in fade-in duration-500' : ''} ${selectedIds.has(s.id) ? 'bg-primary/5' : ''}`}>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={selectedIds.has(s.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedIds(prev => {
+                              const next = new Set(prev);
+                              checked ? next.add(s.id) : next.delete(s.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
                       <TableCell className="text-center">
                         {(s.deal_type || 'land') === 'land'
                           ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" />
