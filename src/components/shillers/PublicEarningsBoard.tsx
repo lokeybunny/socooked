@@ -45,6 +45,7 @@ interface EarningsRow {
   verified_clicks: number;
   pending_amount: number;
   pending_clicks: number;
+  paid_out: number;
   role: "shiller" | "raider" | "both";
   // Breakdown by type
   shill_verified: number;
@@ -98,6 +99,15 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       .select("discord_user_id, discord_username, solana_wallet, status")
       .eq("status", "active");
 
+    // Fetch all payouts to calculate per-user paid amounts
+    const { data: payoutsRaw } = await supabase
+      .from("shill_payouts")
+      .select("discord_user_id, amount");
+    const paidByUser = new Map<string, number>();
+    for (const p of payoutsRaw || []) {
+      paidByUser.set(p.discord_user_id, (paidByUser.get(p.discord_user_id) || 0) + Number(p.amount || 0));
+    }
+
     const { data: configs } = await supabase
       .from("site_configs")
       .select("content")
@@ -132,6 +142,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           solana_wallet: raiderInfo?.wallet || null,
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
+          paid_out: paidByUser.get(uid) || 0,
           role: isShiller && isRaider ? "both" : isShiller ? "shiller" : "raider",
           ...defaults,
         });
@@ -164,6 +175,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           solana_wallet: info.wallet,
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
+          paid_out: paidByUser.get(uid) || 0,
           role: shillerUserIds.has(uid) ? "both" : "raider",
           ...zeroBreakdown,
         });
@@ -179,6 +191,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           solana_wallet: raiderInfo?.wallet || null,
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
+          paid_out: paidByUser.get(uid) || 0,
           role: raiderMap.has(uid) ? "both" : "shiller",
           ...zeroBreakdown,
         });
@@ -209,6 +222,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const totalVerified = rows.reduce((s, r) => s + r.verified_amount, 0);
   const totalPending = rows.reduce((s, r) => s + r.pending_amount, 0);
   const totalPaidOut = allPayouts.reduce((s, p) => s + Number(p.amount), 0);
+  const totalUnpaid = Math.max(0, totalVerified - totalPaidOut);
 
   const fetchAllPayouts = async () => {
     const { data } = await supabase
@@ -327,7 +341,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="rounded-lg border border-border p-3 text-center">
           <Users className="h-4 w-4 mx-auto mb-1 text-primary" />
           <p className="text-2xl font-bold text-foreground">{rows.length}</p>
@@ -337,6 +351,11 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           <DollarSign className="h-4 w-4 mx-auto mb-1 text-green-500" />
           <p className="text-2xl font-bold text-green-500">${totalVerified.toFixed(2)}</p>
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Verified</p>
+        </div>
+        <div className="rounded-lg border border-border p-3 text-center">
+          <Wallet className="h-4 w-4 mx-auto mb-1 text-amber-500" />
+          <p className="text-2xl font-bold text-amber-500">${totalUnpaid.toFixed(2)}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Unpaid</p>
         </div>
         <div className="rounded-lg border border-border p-3 text-center">
           <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-emerald-400" />
@@ -562,12 +581,15 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
               <TableHead>Role</TableHead>
               <TableHead>Wallet</TableHead>
               <TableHead className="text-right">Verified</TableHead>
-              
-              <TableHead className="text-right">Total Clicks</TableHead>
+              <TableHead className="text-right">Paid</TableHead>
+              <TableHead className="text-right">Unpaid</TableHead>
+              <TableHead className="text-right">Clicks</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => (
+            {rows.map((row) => {
+              const unpaid = Math.max(0, row.verified_amount - row.paid_out);
+              return (
               <TableRow
                 key={row.discord_user_id}
                 className={foundUser?.discord_user_id === row.discord_user_id ? "bg-primary/10 border-l-2 border-l-primary" : ""}
@@ -596,14 +618,22 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
                 <TableCell className="text-right font-mono text-green-500 font-semibold">
                   ${row.verified_amount.toFixed(2)}
                 </TableCell>
+                <TableCell className="text-right font-mono text-emerald-400 text-sm">
+                  ${row.paid_out.toFixed(2)}
+                </TableCell>
+                <TableCell className="text-right font-mono text-amber-500 font-semibold text-sm">
+                  {unpaid > 0 ? `$${unpaid.toFixed(2)}` : '—'}
+                </TableCell>
                 <TableCell className="text-right font-mono text-sm">
                   {row.verified_clicks + row.pending_clicks}
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
+
             {rows.length === 0 && !loading && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No earnings data yet.
                 </TableCell>
               </TableRow>

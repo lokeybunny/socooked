@@ -179,6 +179,7 @@ export default function SellerManager() {
   const [distressFilters, setDistressFilters] = useState<DistressFilterState>(EMPTY_DISTRESS_FILTERS);
   const [csvOpen, setCsvOpen] = useState(false);
   const [lastFetchAt, setLastFetchAt] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const autoOpenedRef = useRef(false);
@@ -549,6 +550,35 @@ export default function SellerManager() {
             <Download className="h-4 w-4" />
             Fetch Seller Leads
             <div className="ml-auto flex items-center gap-2">
+              {selectedIds.size > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs gap-1.5 h-7 border-primary text-primary"
+                  onClick={() => {
+                    const selected = sellers.filter(s => selectedIds.has(s.id));
+                    if (!selected.length) return;
+                    const headers = ['Owner Name','Address','City','County','State','Zip','Acreage','Property Type','Status','Motivation Score'];
+                    const csvRows = selected.map(s => [
+                      s.owner_name || '', s.address_full || '', s.city || '', s.county || '',
+                      s.state || '', s.zip || '', s.acreage || '', s.property_type || '',
+                      s.status || '', s.motivation_score || 0,
+                    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+                    const csv = [headers.join(','), ...csvRows].join('\n');
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `seller_export_${selected.length}_leads.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    toast.success(`Exported ${selected.length} sellers to CSV`);
+                  }}
+                >
+                  <FileSpreadsheet className="h-3 w-3" />
+                  EXPORT BULK ({selectedIds.size})
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant={distressMode ? 'default' : 'outline'}
@@ -871,6 +901,18 @@ export default function SellerManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">
+                      <Checkbox
+                        checked={paginated.length > 0 && paginated.every(s => selectedIds.has(s.id))}
+                        onCheckedChange={(checked) => {
+                          setSelectedIds(prev => {
+                            const next = new Set(prev);
+                            paginated.forEach(s => checked ? next.add(s.id) : next.delete(s.id));
+                            return next;
+                          });
+                        }}
+                      />
+                    </TableHead>
                     <TableHead className="w-8">Type</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('owner_name')}>
                       Owner {sortField === 'owner_name' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
@@ -899,7 +941,19 @@ export default function SellerManager() {
                   {paginated.map(s => {
                     const tempIcon = (s.lead_temperature || ((s.motivation_score || 0) >= 70 ? 'Hot' : (s.motivation_score || 0) >= 45 ? 'Warm' : 'Cold'));
                     return (
-                    <TableRow key={s.id} className={isNewlyFetched(s.created_at) ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500 animate-in fade-in duration-500' : ''}>
+                    <TableRow key={s.id} className={`${isNewlyFetched(s.created_at) ? 'bg-emerald-500/10 border-l-2 border-l-emerald-500 animate-in fade-in duration-500' : ''} ${selectedIds.has(s.id) ? 'bg-primary/5' : ''}`}>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={selectedIds.has(s.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedIds(prev => {
+                              const next = new Set(prev);
+                              checked ? next.add(s.id) : next.delete(s.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      </TableCell>
                       <TableCell className="text-center">
                         {(s.deal_type || 'land') === 'land'
                           ? <TreePine className="h-4 w-4 text-emerald-500 mx-auto" />
