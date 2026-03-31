@@ -14,7 +14,7 @@ import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, DollarSign, Loader2, Filter, FileText, Flame, Globe, Mail,
   RefreshCw, Trash2, Archive, RotateCcw, Search, Building, Ruler, BedDouble, Bath,
-  Calendar as CalendarIcon, User, MapPinned, TrendingUp, AlertTriangle, Check
+  Calendar as CalendarIcon, User, MapPinned, TrendingUp, AlertTriangle, Check, ClipboardPaste
 } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
