@@ -191,6 +191,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
           solana_wallet: raiderInfo?.wallet || null,
           verified_amount: 0, verified_clicks: 0,
           pending_amount: 0, pending_clicks: 0,
+          paid_out: paidByUser.get(uid) || 0,
           role: raiderMap.has(uid) ? "both" : "shiller",
           ...zeroBreakdown,
         });
