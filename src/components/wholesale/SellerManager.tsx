@@ -385,15 +385,21 @@ export default function SellerManager() {
       if (!csvAddresses.length) { toast.error('No valid addresses found in CSV'); return; }
 
       const normalize = (a: string) => a.toLowerCase().replace(/[^a-z0-9]/g, '');
+      // Extract just the street portion (before first comma) for matching
+      const streetOnly = (a: string) => normalize(a.split(',')[0]);
       const sellerMap = new Map<string, any>();
       for (const s of sellers) {
-        if (s.address_full) sellerMap.set(normalize(s.address_full), s);
+        if (s.address_full) {
+          sellerMap.set(normalize(s.address_full), s);
+          sellerMap.set(streetOnly(s.address_full), s);
+        }
       }
 
       let matched = 0; let skipped = 0;
 
       for (const row of csvAddresses) {
-        const seller = sellerMap.get(normalize(row.address));
+        // Try full address match first, then street-only match
+        const seller = sellerMap.get(normalize(row.address)) || sellerMap.get(streetOnly(row.address));
         if (!seller || ['skip_traced','contacted','offer_sent','under_contract','closed'].includes(seller.status)) { skipped++; continue; }
 
         matched++;
