@@ -1746,42 +1746,32 @@ export default function ClientDashboard() {
                 <div>
                   <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold mb-2">Free lookup shortcuts</p>
                   <div className="grid grid-cols-1 gap-1.5">
-                    <a
-                      href={`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(detailLead.full_name || '')}&citystatezip=${encodeURIComponent([(m as any)?.city, (m as any)?.state].filter(Boolean).join(', '))}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
-                      onClick={() => { navigator.clipboard.writeText(detailLead.property_address || ''); toast.success('Address copied to clipboard'); }}
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors text-left w-full"
+                      onClick={() => {
+                        navigator.clipboard.writeText(detailLead.property_address || '');
+                        toast.success('Address copied to clipboard');
+                        setLookupIframeUrl(`https://www.truepeoplesearch.com/results?name=${encodeURIComponent(detailLead.full_name || '')}&citystatezip=${encodeURIComponent([(m as any)?.city, (m as any)?.state].filter(Boolean).join(', '))}`);
+                      }}
                     >
                       <span>📞</span>
                       <span className="flex-1 font-medium text-white">TruePeopleSearch</span>
                       <span className="text-[10px] text-white/40">Phone · Address · Relatives</span>
                       <ExternalLink className="h-3 w-3 text-white/40" />
-                    </a>
-                    <a
-                      href="https://www.datatoleads.com/free-tools"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
-                      onClick={() => { navigator.clipboard.writeText(detailLead.property_address || ''); toast.success('Address copied to clipboard'); }}
+                    </button>
+                    <button
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors text-left w-full"
+                      onClick={() => {
+                        navigator.clipboard.writeText(detailLead.property_address || '');
+                        toast.success('Address copied to clipboard');
+                        setLookupIframeUrl('https://www.cyberbackgroundchecks.com/');
+                      }}
                     >
-                      <span>📬</span>
-                      <span className="flex-1 font-medium text-white">DataToLeads</span>
-                      <span className="text-[10px] text-white/40">Reverse phone · Email · Address</span>
+                      <span>🔍</span>
+                      <span className="flex-1 font-medium text-white">CyberBackgroundChecks</span>
+                      <span className="text-[10px] text-white/40">Background · Address · Phone</span>
                       <ExternalLink className="h-3 w-3 text-white/40" />
-                    </a>
-                    <a
-                      href="https://www.propstream.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
-                      onClick={() => { navigator.clipboard.writeText(detailLead.property_address || ''); toast.success('Address copied to clipboard'); }}
-                    >
-                      <span>🏠</span>
-                      <span className="flex-1 font-medium text-white">PropStream</span>
-                      <span className="text-[10px] text-white/40">Owner phone · Email · Free trial</span>
-                      <ExternalLink className="h-3 w-3 text-white/40" />
-                    </a>
+                    </button>
                   </div>
                 </div>
 
