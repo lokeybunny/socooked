@@ -80,6 +80,7 @@ const emptyForm = {
   contact_preference: 'email',
   website: '',
   pipeline_stage: 'new_scraped',
+  buyer_type: 'unknown',
 };
 
 export default function BuyerManager() {
