@@ -316,6 +316,26 @@ export default function EmailPage() {
         to: form.to, subject: form.subject, body: finalBody,
         attachments: allAttachments.length > 0 ? allAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
       });
+
+      // Auto-create temp customer if recipient not in CRM
+      const recipientEmail = form.to.trim().toLowerCase();
+      const existsInCrm = customers.some(c => c.email && c.email.toLowerCase() === recipientEmail);
+      if (!existsInCrm && recipientEmail) {
+        const namePart = recipientEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const { data: newCust, error: custErr } = await supabase.from('customers').insert({
+          full_name: namePart,
+          email: recipientEmail,
+          status: 'lead',
+          source: 'email-outbound',
+          tags: ['temp'],
+          notes: `Auto-created from outbound email: "${form.subject}"`,
+        }).select('id, full_name, email, company, status, category').single();
+        if (!custErr && newCust) {
+          setCustomers(prev => [newCust, ...prev]);
+          toast.info(`Created temp contact: ${namePart}`);
+        }
+      }
+
       toast.success('Email sent!');
       setComposeOpen(false); setForm(emptyForm); setComposeAttachments([]); setOfferChecked(false); setMaintenanceChecked(false);
       if (activeTab === 'sent') loadEmails('sent');
