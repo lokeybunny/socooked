@@ -207,6 +207,10 @@ export default function Wholesale() {
         <TabsContent value="demand" className="mt-4">
           <BuyerSellerMatches />
         </TabsContent>
+        {/* Geo */}
+        <TabsContent value="geo" className="mt-4">
+          <BuyerGeoMap />
+        </TabsContent>
         {/* Tab 4: Buyers */}
         <TabsContent value="buyers" className="mt-4">
           <BuyerDiscovery />
