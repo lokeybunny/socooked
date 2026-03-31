@@ -901,6 +901,18 @@ export default function SellerManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-8">
+                      <Checkbox
+                        checked={paginated.length > 0 && paginated.every(s => selectedIds.has(s.id))}
+                        onCheckedChange={(checked) => {
+                          setSelectedIds(prev => {
+                            const next = new Set(prev);
+                            paginated.forEach(s => checked ? next.add(s.id) : next.delete(s.id));
+                            return next;
+                          });
+                        }}
+                      />
+                    </TableHead>
                     <TableHead className="w-8">Type</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => toggleSort('owner_name')}>
                       Owner {sortField === 'owner_name' && <ArrowUpDown className="h-3 w-3 inline ml-1" />}
