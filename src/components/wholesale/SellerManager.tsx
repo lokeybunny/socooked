@@ -1470,6 +1470,8 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [editEmail, setEditEmail] = useState(s.owner_email || '');
   const [editMailing, setEditMailing] = useState(s.owner_mailing_address || '');
   const [editNotes, setEditNotes] = useState(s.notes || '');
+  const [editHomeownerPrice, setEditHomeownerPrice] = useState((s.meta as any)?.homeowner_price?.toString() || '');
+  const [editOwnerInterested, setEditOwnerInterested] = useState<string>((s.meta as any)?.owner_interested ?? '');
   const [saving, setSaving] = useState(false);
   const [pendingStageChange, setPendingStageChange] = useState<{ direction: 'next' | 'prev'; targetKey: string; targetLabel: string } | null>(null);
   const [lookupIframeUrl, setLookupIframeUrl] = useState<string | null>(null);
@@ -1780,14 +1782,19 @@ Format with numbered sections and clear headings. Make this ready to print, sign
   const handleSaveEdits = async () => {
     setSaving(true);
     try {
+      const priceVal = editHomeownerPrice ? parseFloat(editHomeownerPrice) : null;
+      const newMeta = { ...(s.meta || {}), homeowner_price: priceVal, owner_interested: editOwnerInterested || null };
+      const newStatus = editOwnerInterested === 'no' ? 'dead' : undefined;
       await supabase.from('lw_sellers').update({
         owner_name: editName || null,
         owner_phone: editPhone || null,
         owner_email: editEmail || null,
         owner_mailing_address: editMailing || null,
         notes: editNotes || null,
+        meta: newMeta,
+        ...(newStatus ? { status: newStatus } : {}),
       }).eq('id', s.id);
-      toast.success('Saved');
+      toast.success(newStatus === 'dead' ? 'Saved — lead moved to Dead pipeline' : 'Saved');
       setEditing(false);
       onSkipTraced?.();
     } catch (err: any) {
@@ -1953,6 +1960,18 @@ Format with numbered sections and clear headings. Make this ready to print, sign
               <label className="text-xs text-muted-foreground">Mailing Address</label>
               <Input value={editMailing} onChange={e => setEditMailing(e.target.value)} className="h-8 text-sm" />
             </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Home Owner Price ($)</label>
+              <Input type="number" value={editHomeownerPrice} onChange={e => setEditHomeownerPrice(e.target.value)} placeholder="Enter price" className="h-8 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Is Owner Interested?</label>
+              <div className="flex gap-2">
+                <Button size="sm" variant={editOwnerInterested === 'yes' ? 'default' : 'outline'} className={editOwnerInterested === 'yes' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''} onClick={() => setEditOwnerInterested('yes')}>Yes</Button>
+                <Button size="sm" variant={editOwnerInterested === 'no' ? 'destructive' : 'outline'} onClick={() => setEditOwnerInterested('no')}>No</Button>
+                {editOwnerInterested && <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditOwnerInterested('')}>Clear</Button>}
+              </div>
+            </div>
           </div>
         ) : (() => {
           const isTraced = !!s.skip_traced_at;
@@ -1983,26 +2002,8 @@ Format with numbered sections and clear headings. Make this ready to print, sign
               })()}
               <DetailRow label="Email" value={s.owner_email} copyable gold={isTraced && !!s.owner_email} />
               <DetailRow label="Mailing Address" value={s.owner_mailing_address} copyable gold={isTraced && !!s.owner_mailing_address} />
-              {/* Home Owner Price */}
-              <div className="flex items-center justify-between py-1">
-                <span className="text-xs text-muted-foreground">Home Owner Price:</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-xs text-muted-foreground">$</span>
-                  <Input
-                    type="number"
-                    placeholder="Enter price"
-                    className="h-7 w-32 text-sm text-right"
-                    defaultValue={(s.meta as any)?.homeowner_price || ''}
-                    onBlur={async (e) => {
-                      const val = e.target.value ? parseFloat(e.target.value) : null;
-                      const newMeta = { ...(s.meta || {}), homeowner_price: val };
-                      await supabase.from('lw_sellers').update({ meta: newMeta }).eq('id', s.id);
-                      toast.success(val ? `Home Owner Price set to $${val.toLocaleString()}` : 'Home Owner Price cleared');
-                      onSkipTraced?.();
-                    }}
-                  />
-                </div>
-              </div>
+              <DetailRow label="Home Owner Price" value={(s.meta as any)?.homeowner_price ? `$${Number((s.meta as any).homeowner_price).toLocaleString()}` : null} />
+              <DetailRow label="Owner Interested" value={(s.meta as any)?.owner_interested === 'yes' ? '✅ Yes' : (s.meta as any)?.owner_interested === 'no' ? '❌ No' : null} />
               {s.address_full && (
                 <div className="pt-2 flex flex-wrap justify-center gap-3">
                   <button
