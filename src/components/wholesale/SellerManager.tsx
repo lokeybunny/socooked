@@ -1212,6 +1212,7 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [editNotes, setEditNotes] = useState(s.notes || '');
   const [saving, setSaving] = useState(false);
   const [pendingStageChange, setPendingStageChange] = useState<{ direction: 'next' | 'prev'; targetKey: string; targetLabel: string } | null>(null);
+  const [lookupIframeUrl, setLookupIframeUrl] = useState<string | null>(null);
 
   // Agreement generator state
   const [agreementOpen, setAgreementOpen] = useState(false);
