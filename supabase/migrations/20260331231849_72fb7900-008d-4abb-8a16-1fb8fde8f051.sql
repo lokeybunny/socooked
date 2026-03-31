@@ -1,0 +1,1 @@
+UPDATE shill_clicks SET status = 'verified', verified_at = now() WHERE status = 'pending_verification' AND receipt_tweet_url IS NOT NULL AND receipt_tweet_url != '';
