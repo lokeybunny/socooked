@@ -1470,6 +1470,8 @@ function SellerDetailContent({ seller: s, onSkipTraced }: { seller: any; onSkipT
   const [editEmail, setEditEmail] = useState(s.owner_email || '');
   const [editMailing, setEditMailing] = useState(s.owner_mailing_address || '');
   const [editNotes, setEditNotes] = useState(s.notes || '');
+  const [editHomeownerPrice, setEditHomeownerPrice] = useState((s.meta as any)?.homeowner_price?.toString() || '');
+  const [editOwnerInterested, setEditOwnerInterested] = useState<string>((s.meta as any)?.owner_interested ?? '');
   const [saving, setSaving] = useState(false);
   const [pendingStageChange, setPendingStageChange] = useState<{ direction: 'next' | 'prev'; targetKey: string; targetLabel: string } | null>(null);
   const [lookupIframeUrl, setLookupIframeUrl] = useState<string | null>(null);
