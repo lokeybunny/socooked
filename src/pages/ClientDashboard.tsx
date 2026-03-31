@@ -1894,4 +1894,3 @@ function CancelSubscriptionButton({ landingPages, userEmail, onCancelled }: {
     </AlertDialog>
   );
 }
-}
