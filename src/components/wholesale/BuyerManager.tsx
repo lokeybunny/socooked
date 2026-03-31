@@ -312,7 +312,7 @@ export default function BuyerManager() {
                     ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <div className="space-y-1.5">
                     <Label>Source</Label>
                     <Select value={form.source} onValueChange={v => set('source', v)}>
@@ -332,6 +332,17 @@ export default function BuyerManager() {
                       <SelectContent>
                         {PIPELINE_STAGES.map(ps => (
                           <SelectItem key={ps.key} value={ps.key}>{ps.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Buyer Type</Label>
+                    <Select value={form.buyer_type} onValueChange={v => set('buyer_type', v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {BUYER_TYPES.map(bt => (
+                          <SelectItem key={bt.key} value={bt.key}>{bt.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
