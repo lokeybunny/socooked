@@ -154,6 +154,10 @@ export default function Wholesale() {
             <Heart className="h-3.5 w-3.5 text-pink-500" />
             Matches
           </TabsTrigger>
+          <TabsTrigger value="geo" className="gap-1.5 bg-emerald-500/10 text-emerald-600 data-[state=active]:bg-emerald-500/20 data-[state=active]:text-emerald-500">
+            <MapPin className="h-3.5 w-3.5" />
+            Geo
+          </TabsTrigger>
           <TabsTrigger value="buyers" className="gap-1.5 bg-green-500/10 text-green-600 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-500">
             <Users className="h-3.5 w-3.5" />
             Buyers
