@@ -78,9 +78,20 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
   const fetchEarnings = async () => {
     setLoading(true);
 
-    const { data: clicks } = await supabase
-      .from("shill_clicks")
-      .select("discord_user_id, discord_username, click_type, status, rate");
+    // Fetch ALL shill_clicks via pagination (default limit is 1000)
+    let clicks: any[] = [];
+    let from = 0;
+    const PAGE = 1000;
+    while (true) {
+      const { data: batch } = await supabase
+        .from("shill_clicks")
+        .select("discord_user_id, discord_username, click_type, status, rate")
+        .range(from, from + PAGE - 1);
+      if (!batch || batch.length === 0) break;
+      clicks = clicks.concat(batch);
+      if (batch.length < PAGE) break;
+      from += PAGE;
+    }
 
     const { data: raiders } = await supabase
       .from("raiders")
@@ -105,7 +116,7 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
 
     const userMap = new Map<string, EarningsRow>();
 
-    for (const click of clicks || []) {
+    for (const click of clicks) {
       const uid = click.discord_user_id;
       if (!userMap.has(uid)) {
         const raiderInfo = raiderMap.get(uid);
