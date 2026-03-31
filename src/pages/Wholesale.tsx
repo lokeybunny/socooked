@@ -180,10 +180,6 @@ export default function Wholesale() {
             <Phone className="h-3.5 w-3.5" />
             Twilio Spend
           </TabsTrigger>
-          <TabsTrigger value="api" className="gap-1.5">
-            <Key className="h-3.5 w-3.5" />
-            API
-          </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
