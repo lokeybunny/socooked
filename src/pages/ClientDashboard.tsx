@@ -1967,6 +1967,24 @@ export default function ClientDashboard() {
                       <span className="text-[10px] text-white/40">Phone · Address · Relatives</span>
                       <ExternalLink className="h-3 w-3 text-white/40" />
                     </button>
+
+                    {/* Premium Section */}
+                    <div className="col-span-full pt-2 mt-1 border-t border-amber-500/30">
+                      <p className="text-[10px] text-amber-400 uppercase tracking-wider font-bold mb-2">⭐ Premium</p>
+                      <button
+                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/20 to-amber-600/10 border border-amber-500/30 hover:border-amber-400/50 transition-all text-left"
+                        onClick={() => {
+                          navigator.clipboard.writeText(detailLead.property_address || '');
+                          toast.success('Address copied to clipboard');
+                          setLookupIframeUrl('https://app.leadsherpa.com/stacker');
+                        }}
+                      >
+                        <span>🏔️</span>
+                        <span className="flex-1 font-medium text-amber-300">SKIP SHERPA</span>
+                        <span className="text-[10px] text-amber-400/60">Premium Skip Trace</span>
+                        <ExternalLink className="h-3 w-3 text-amber-400/60" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
