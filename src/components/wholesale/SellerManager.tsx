@@ -654,6 +654,15 @@ export default function SellerManager() {
               )}
               <Button
                 size="sm"
+                variant="outline"
+                className="text-xs gap-1.5 h-7"
+                onClick={() => setImportBulkOpen(true)}
+              >
+                <Upload className="h-3 w-3" />
+                IMPORT BULK
+              </Button>
+              <Button
+                size="sm"
                 variant={distressMode ? 'default' : 'outline'}
                 className="text-xs gap-1.5 h-7"
                 onClick={() => setDistressMode(!distressMode)}
