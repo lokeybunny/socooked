@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
   Home, LogOut, Phone, MapPin, Download, Save, X, Edit2,
-  ChevronDown, ChevronUp, DollarSign, Loader2, Filter, FileText, Flame, Globe, Mail,
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight, DollarSign, Loader2, Filter, FileText, Flame, Globe, Mail,
   RefreshCw, Trash2, Archive, RotateCcw, Search, Building, Ruler, BedDouble, Bath,
   Calendar as CalendarIcon, User, MapPinned, TrendingUp, AlertTriangle, Check
 } from 'lucide-react';
