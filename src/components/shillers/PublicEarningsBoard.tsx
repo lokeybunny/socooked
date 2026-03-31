@@ -628,7 +628,9 @@ export default function PublicEarningsBoard({ roleFilter = "all" }: Props) {
                   {row.verified_clicks + row.pending_clicks}
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
+
             {rows.length === 0 && !loading && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
