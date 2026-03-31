@@ -1831,7 +1831,7 @@ export default function ClientDashboard() {
                     </div>
                   )}
 
-                  {/* All Contacts (parsed from paste) */}
+                  {/* All Contacts (parsed from paste) — read-only view */}
                   {(allNames.length > 0 || allPhones.length > 0) && (
                     <div className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
                       <p className="text-[10px] text-amber-400 uppercase tracking-wider font-semibold mb-2 flex items-center gap-1">
@@ -1839,72 +1839,20 @@ export default function ClientDashboard() {
                       </p>
                       <div className="space-y-1">
                         {allNames.map((name, i) => (
-                          <div key={`n${i}`} className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-1 text-amber-300 font-medium">
-                              <User className="h-3 w-3" />
-                              {name}
-                              <CopyBtn text={name} />
-                            </span>
-                            <button onClick={() => handleRemoveContact('name', name)} className="text-white/20 hover:text-red-400 transition-colors">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
+                          <span key={`n${i}`} className="flex items-center gap-1 text-sm text-amber-300 font-medium">
+                            <User className="h-3 w-3" /> {name} <CopyBtn text={name} />
+                          </span>
                         ))}
                         {allPhones.map((phone, i) => (
-                          <div key={`ph${i}`} className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-1 text-blue-400 font-medium">
-                              <Phone className="h-3 w-3" />
-                              <a href={`tel:${phone}`} className="hover:text-blue-300">{phone}</a>
-                              <CopyBtn text={phone} />
-                            </span>
-                            <button onClick={() => handleRemoveContact('phone', phone)} className="text-white/20 hover:text-red-400 transition-colors">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
+                          <span key={`ph${i}`} className="flex items-center gap-1 text-sm text-blue-400 font-medium">
+                            <Phone className="h-3 w-3" />
+                            <a href={`tel:${phone}`} className="hover:text-blue-300">{phone}</a>
+                            <CopyBtn text={phone} />
+                          </span>
                         ))}
                       </div>
                     </div>
                   )}
-
-                  {/* Paste Contacts Button + Panel */}
-                  <div className="mt-3">
-                    {!contactPasteOpen ? (
-                      <button
-                        onClick={() => { setContactPasteOpen(true); setContactPasteText(''); }}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors"
-                      >
-                        <ClipboardPaste className="h-3.5 w-3.5" />
-                        Paste Owner Contacts
-                      </button>
-                    ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-lg p-3 space-y-2">
-                        <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Paste raw skip trace data below</p>
-                        <p className="text-[10px] text-white/30">Names and phone numbers will be auto-detected</p>
-                        <textarea
-                          className="w-full h-28 bg-zinc-800 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-amber-500/50 resize-none"
-                          placeholder={"Dennis Galassi\n(626) 442-5048\n1\n0\n--\nDennis Galassi\n(626) 940-4007\n..."}
-                          value={contactPasteText}
-                          onChange={e => setContactPasteText(e.target.value)}
-                        />
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={handleContactPasteSave}
-                            disabled={contactSaving}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-medium transition-colors disabled:opacity-50"
-                          >
-                            {contactSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                            Save Contacts
-                          </button>
-                          <button
-                            onClick={() => { setContactPasteOpen(false); setContactPasteText(''); }}
-                            className="text-xs text-white/40 hover:text-white/70 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
                 <Separator className="bg-white/10" />
 
