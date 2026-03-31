@@ -397,6 +397,26 @@ export default function EmailPage() {
         to: toAddr, subject, body: replyBody,
         attachments: replyAttachments.length > 0 ? replyAttachments.map(({ filename, mimeType, data }) => ({ filename, mimeType, data })) : undefined,
       });
+
+      // Auto-create temp customer if reply recipient not in CRM
+      const replyEmail = toAddr.trim().toLowerCase();
+      const replyExists = customers.some(c => c.email && c.email.toLowerCase() === replyEmail);
+      if (!replyExists && replyEmail) {
+        const namePart = replyEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const { data: newCust, error: custErr } = await supabase.from('customers').insert({
+          full_name: namePart,
+          email: replyEmail,
+          status: 'lead',
+          source: 'email-outbound',
+          tags: ['temp'],
+          notes: `Auto-created from reply to: "${subject}"`,
+        }).select('id, full_name, email, company, status, category').single();
+        if (!custErr && newCust) {
+          setCustomers(prev => [newCust, ...prev]);
+          toast.info(`Created temp contact: ${namePart}`);
+        }
+      }
+
       toast.success('Reply sent!'); setReplyOpen(false); setReplyBody(''); setReplyAttachments([]);
     } catch (e: any) { toast.error(e.message || 'Failed to send reply'); }
     finally { setReplying(false); }
